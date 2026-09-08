@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
@@ -14,12 +14,17 @@ function pathError(label, candidate) {
 
 function nearestExistingParent(candidate) {
   let current = candidate;
-  while (!existsSync(current)) {
+  while (true) {
+    try {
+      lstatSync(current);
+      return current;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
     const parent = path.dirname(current);
     if (parent === current) return current;
     current = parent;
   }
-  return current;
 }
 
 function isInsideOrEqual(root, candidate) {
@@ -29,6 +34,9 @@ function isInsideOrEqual(root, candidate) {
 
 export function resolveContainedPath(root, candidate, label) {
   const physicalRoot = realpathSync(root);
+  if (typeof candidate !== 'string' || !candidate || candidate.includes('\0')) {
+    throw pathError(label, candidate);
+  }
   const absolute = path.resolve(physicalRoot, candidate);
   const relative = path.relative(physicalRoot, absolute);
   if (
@@ -39,7 +47,12 @@ export function resolveContainedPath(root, candidate, label) {
   ) {
     throw pathError(label, candidate);
   }
-  const physicalParent = realpathSync(nearestExistingParent(absolute));
+  let physicalParent;
+  try {
+    physicalParent = realpathSync(nearestExistingParent(absolute));
+  } catch {
+    throw pathError(label, candidate);
+  }
   if (!isInsideOrEqual(physicalRoot, physicalParent)) throw pathError(label, candidate);
   return Object.freeze({ absolute, relative: relative.split(path.sep).join('/') });
 }

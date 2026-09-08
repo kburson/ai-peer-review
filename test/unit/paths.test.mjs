@@ -13,6 +13,7 @@ function containedFixture(t) {
   mkdirSync(path.join(root, 'docs'), { recursive: true });
   mkdirSync(outside);
   symlinkSync(outside, path.join(root, 'docs', 'outside-link'));
+  symlinkSync(path.join(parent, 'missing-outside'), path.join(root, 'docs', 'dangling-link'));
   t.after(() => rmSync(parent, { recursive: true, force: true }));
   return { root: realpathSync(root), outside: realpathSync(outside) };
 }
@@ -34,6 +35,10 @@ test('refuses traversal, the repository root, and physical symlink escapes', (t)
   }
   assert.throws(
     () => resolveContainedPath(root, 'docs/outside-link/file.md', 'response'),
+    (error) => error.code === 'APR_PATH_OUTSIDE_REPOSITORY'
+  );
+  assert.throws(
+    () => resolveContainedPath(root, 'docs/dangling-link/future.md', 'response'),
     (error) => error.code === 'APR_PATH_OUTSIDE_REPOSITORY'
   );
 });
