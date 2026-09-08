@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.event/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "review_id", "sequence", "revision", "type", "actor", "at", "payload"],
+  "properties": {
+    "schema": { "const": "ai-peer-review.event/v1" },
+    "review_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "type": {
+      "enum": [
+        "review-created",
+        "reviewer-joined",
+        "reviewer-revisions-requested",
+        "reviewer-accepted",
+        "author-revision-committed",
+        "author-closing-round-committed",
+        "finalization-started",
+        "acceptance-committed",
+        "acceptance-sealed-no-commit",
+        "intervention-entered",
+        "continued-to-reviewer",
+        "continued-to-author",
+        "same-session-reclaim",
+        "participant-replaced",
+        "override-committed",
+        "override-sealed-no-commit",
+        "abandoned",
+        "turn-claimed",
+        "identity-changed",
+        "challenge-requested",
+        "challenge-superseded",
+        "supplement-registered",
+        "delivery-written",
+        "delivery-acknowledged"
+      ]
+    },
+    "actor": { "type": "string" },
+    "at": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  }
+}
