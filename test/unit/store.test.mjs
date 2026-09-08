@@ -12,7 +12,12 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { appendEvent, atomicWrite, withReviewLock } from '../../src/protocol/store.mjs';
+import {
+  appendEvent,
+  atomicCreate,
+  atomicWrite,
+  withReviewLock,
+} from '../../src/protocol/store.mjs';
 
 function workspaceFixture(t) {
   const workspace = mkdtempSync(path.join(tmpdir(), 'ai-peer-review-store-'));
@@ -38,6 +43,20 @@ test('atomicWrite converts parent creation failures to a stable APR error', (t) 
     (error) =>
       error.code === 'APR_ATOMIC_WRITE_FAILED' && error.details.file.endsWith('protocol.json')
   );
+});
+
+test('atomicCreate publishes once without replacing an occupied target', (t) => {
+  const workspace = workspaceFixture(t);
+  const file = path.join(workspace, 'nested', 'events.jsonl');
+  atomicCreate(file, Buffer.from('first\n'));
+  assert.equal(readFileSync(file, 'utf8'), 'first\n');
+  assert.deepEqual(readdirSync(path.dirname(file)), ['events.jsonl']);
+  assert.throws(
+    () => atomicCreate(file, Buffer.from('second\n')),
+    (error) => error.code === 'APR_OUTPUT_COLLISION' && error.details.file === file
+  );
+  assert.equal(readFileSync(file, 'utf8'), 'first\n');
+  assert.deepEqual(readdirSync(path.dirname(file)), ['events.jsonl']);
 });
 
 test('withReviewLock records ownership, supports async work, and preserves return values', async (t) => {

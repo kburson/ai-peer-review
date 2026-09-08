@@ -227,7 +227,7 @@ test('run keeps library control flow exit-free and renders JSON-safe errors', as
   assert.equal(await run(['--help'], io), 0);
   assert.match(stdout.join(''), /peer-review/);
   assert.equal(await run(['status', 'workspace'], io), 1);
-  assert.equal(JSON.parse(stderr.at(-1)).code, 'APR_NOT_IMPLEMENTED');
+  assert.equal(JSON.parse(stderr.at(-1)).code, 'APR_EVENT_LOG_MISSING');
   assert.equal(await run(['wat'], io), 2);
   assert.equal(JSON.parse(stderr.at(-1)).code, 'APR_USAGE');
 });

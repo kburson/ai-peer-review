@@ -15,7 +15,7 @@ import path from 'node:path';
 import { AprError } from '../errors.mjs';
 import { validateEvent } from './events.mjs';
 import { reduceEvents } from './reducer.mjs';
-import { atomicWrite, withReviewLock } from './store.mjs';
+import { atomicCreate, atomicWrite, withReviewLock } from './store.mjs';
 
 function ordered(value) {
   if (Array.isArray(value)) return value.map(ordered);
@@ -254,6 +254,36 @@ export async function readReview(workspace) {
   return withReviewLock(workspace, async () => {
     const { state } = readAuthority(workspace);
     ensureDeliveryReceipts(workspace, state);
+    writeProjections(workspace, state);
+    return state;
+  });
+}
+
+export function inspectReview(workspace) {
+  return readAuthority(workspace).state;
+}
+
+export async function initializeReview(workspace, event) {
+  validateEvent(event);
+  if (event.type !== 'review-created' || event.sequence !== 1 || event.revision !== 1) {
+    throw authorityError(
+      'APR_EVENT_INVALID',
+      'Initial review authority must be one review-created event.',
+      'Recreate startup from complete preflight authority.'
+    );
+  }
+  return withReviewLock(workspace, async () => {
+    const file = path.join(workspace, 'events.jsonl');
+    if (existsSync(file)) {
+      throw authorityError(
+        'APR_OUTPUT_COLLISION',
+        'A review event log already occupies the requested workspace.',
+        `Preserve ${file}, inspect the existing review, and choose explicit recovery.`,
+        { file }
+      );
+    }
+    const state = reduceEvents([event]);
+    atomicCreate(file, Buffer.from(`${JSON.stringify(ordered(event))}\n`, 'utf8'));
     writeProjections(workspace, state);
     return state;
   });

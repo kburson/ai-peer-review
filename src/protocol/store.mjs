@@ -3,6 +3,7 @@ import {
   closeSync,
   existsSync,
   fsyncSync,
+  linkSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -91,6 +92,54 @@ export function atomicWrite(file, bytes) {
       // Cleanup is best-effort and limited to this operation's random sibling.
     }
     const error = new AprError('APR_ATOMIC_WRITE_FAILED', `Atomic write failed: ${file}`, {
+      recovery: 'Verify the destination is writable and retry the peer-review command.',
+      details: { file },
+    });
+    error.cause = cause;
+    throw error;
+  }
+}
+
+export function atomicCreate(file, bytes) {
+  const payload = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  const directory = path.dirname(file);
+  const temporary = path.join(directory, `.${path.basename(file)}.${randomUUID()}.tmp`);
+  let descriptor;
+  let linking = false;
+  try {
+    mkdirSync(directory, { recursive: true });
+    descriptor = openSync(temporary, 'wx', 0o600);
+    writeFileSync(descriptor, payload);
+    fsyncSync(descriptor);
+    closeSync(descriptor);
+    descriptor = undefined;
+    linking = true;
+    linkSync(temporary, file);
+    linking = false;
+    unlinkSync(temporary);
+    syncDirectory(directory);
+  } catch (cause) {
+    if (descriptor !== undefined) {
+      try {
+        closeSync(descriptor);
+      } catch {
+        // Preserve the original failure.
+      }
+    }
+    try {
+      if (existsSync(temporary)) unlinkSync(temporary);
+    } catch {
+      // Cleanup is best-effort and limited to this operation's random sibling.
+    }
+    if (cause?.code === 'EEXIST' && linking) {
+      const error = new AprError('APR_OUTPUT_COLLISION', `Output already exists: ${file}`, {
+        recovery: `Preserve ${file}, inspect the collision, and choose explicit recovery.`,
+        details: { file },
+      });
+      error.cause = cause;
+      throw error;
+    }
+    const error = new AprError('APR_ATOMIC_WRITE_FAILED', `Atomic create failed: ${file}`, {
       recovery: 'Verify the destination is writable and retry the peer-review command.',
       details: { file },
     });

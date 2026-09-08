@@ -69,6 +69,30 @@ export const COMMAND_FLAGS = Object.freeze({
 
 export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 
+export const COMMAND_USAGE = Object.freeze({
+  setup: 'peer-review setup [--agent <name>] [--scope <user|project>] [--dry-run] [--remove]',
+  doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
+  start:
+    'peer-review start <artifact> --artifact-kind <spec|plan> [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
+  'request-grant':
+    'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
+  join: 'peer-review join <reviewer-invitation.md>',
+  status: 'peer-review status <workspace> [--json] [--next]',
+  resume: 'peer-review resume <workspace>',
+  submit:
+    'peer-review submit <workspace> [--decision revisions-requested|accepted] [--no-artifact-change --reason <text>]',
+  supplement:
+    'peer-review supplement <workspace> <file> --for <author|reviewer> --grant <signed-grant>',
+  continue:
+    'peer-review continue <workspace> [--additional-turns <N>] [--focus <file>] --grant <signed-grant>',
+  finalize: 'peer-review finalize <workspace> [--good-enough --grant <signed-grant>]',
+  recover:
+    'peer-review recover <workspace> [--reclaim | --replace-participant <role> --grant <signed-grant>]',
+  abandon: 'peer-review abandon <workspace> --reason <text>',
+  help: 'peer-review help [<command>] [--all] [--json] | peer-review help search <term>',
+  explain: 'peer-review explain <error-code> [--json]',
+});
+
 function grammar(min, max = min) {
   return Object.freeze({ min, max });
 }

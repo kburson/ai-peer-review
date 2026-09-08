@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.cli-result/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "command", "review_id", "state", "next_action", "review", "paths"],
+  "properties": {
+    "schema": { "const": "ai-peer-review.cli-result/v1" },
+    "command": { "type": "string" },
+    "review_id": { "type": ["string", "null"] },
+    "state": { "type": ["string", "null"] },
+    "next_action": {},
+    "review": { "type": "object" },
+    "paths": { "type": "object" },
+    "claim": { "type": "object" },
+    "role": { "type": "string" },
+    "instructions": { "type": "string" }
+  }
+}
