@@ -294,7 +294,7 @@ async function main() {
   if (args.some((arg) => arg !== '--require-legacy-removed') || args.length > 1) {
     throw new Error('usage: node scripts/verify-extraction.mjs [--require-legacy-removed]');
   }
-  const root = process.cwd();
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const manifest = JSON.parse(
     await readFile(path.join(root, 'provenance/extraction-manifest.json'), 'utf8')
   );

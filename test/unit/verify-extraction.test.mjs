@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import {
@@ -194,6 +196,15 @@ test('rejects a relicensing declaration without the exact grant boundary', async
     }),
     /license grant/
   );
+});
+
+test('executable verifier resolves the repository from its own installed path', () => {
+  const script = fileURLToPath(new URL('../../scripts/verify-extraction.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [script], {
+    cwd: '/',
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
 });
 
 test('rejects a leaked path from filtered history', async () => {
