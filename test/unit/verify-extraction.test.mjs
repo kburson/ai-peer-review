@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
@@ -15,6 +16,13 @@ import {
 } from '../../scripts/run-secret-scan.mjs';
 
 const SHA = 'a'.repeat(64);
+const AUTHORIZED_PUBLIC_KEY =
+  'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHWi13X884S5FApYT7CnAWf7xSbkGGAj97r+pf0/kgFU kpburson@pm.me';
+const AUTHORIZED_FINGERPRINT = 'SHA256:5coWixpZ2nPevuuMFWsJkk7oc3UN8zybVaMpA12HNPI';
+
+function linesDigest(lines) {
+  return createHash('sha256').update(`${lines.join('\n')}\n`).digest('hex');
+}
 
 function validDeclaration(overrides = {}) {
   return {
@@ -29,8 +37,8 @@ function validDeclaration(overrides = {}) {
     signature_type: 'ssh-ed25519',
     signature_namespace: 'ai-peer-review-relicensing',
     signer_identity: 'copyright-holder',
-    signer_public_key: 'ssh-ed25519 AAAATEST kendrick@example.com',
-    signer_fingerprint: 'SHA256:test',
+    signer_public_key: AUTHORIZED_PUBLIC_KEY,
+    signer_fingerprint: AUTHORIZED_FINGERPRINT,
     signed_at: '2026-09-08T12:00:00Z',
     signature: '-----BEGIN SSH SIGNATURE-----\ntest\n-----END SSH SIGNATURE-----\n',
     ...overrides,
@@ -38,7 +46,7 @@ function validDeclaration(overrides = {}) {
 }
 
 function validManifest(overrides = {}) {
-  return {
+  const manifest = {
     schema: 'ai-peer-review.extraction/v1',
     source_repository: 'https://github.com/kburson/ai-task-manager',
     source_commit: '4b3bcd43cba141a611da4a2b861433b915462806',
@@ -102,20 +110,20 @@ function validManifest(overrides = {}) {
     },
     retained_path_inventory: {
       paths: ['LICENSE', 'scripts/review/co-review.mjs'],
-      digest: SHA,
+      digest: null,
     },
     contributor_audit: {
       command_argv: ['git', 'log'],
       normalizer: 'LC_ALL=C sort -fu',
       normalized_result: [...EXPECTED_HOLDER_IDENTITIES],
-      digest: SHA,
+      digest: null,
     },
     secret_scan: {
       tool: 'gitleaks',
       tool_version: '8.30.1',
-      config_digest: SHA,
+      config_digest: 'ab56fb547630cfb512636b4c70d57f708e3076165a8dc5dfe7d42e7a84df06d6',
       scanned_ref: 'bfc6f9ffabd8281a815c7bd0e0824f3bacb84d9d',
-      report_digest: SHA,
+      report_digest: '37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570',
       result: 'pass',
     },
     relicensing_declaration_digest: SHA,
@@ -123,13 +131,21 @@ function validManifest(overrides = {}) {
       repository: 'https://github.com/kburson/ai-task-manager',
       commit: '68de80b45b23c90874bac0fcd87cfa0c1980edd4',
       path: 'docs/superpowers/specs/2026-09-07-ai-peer-review-extraction-design.md',
-      digest: SHA,
+      digest: 'abe9bbd815e0022735ba6cd2b3088cc83c7f71075d452c814bfbeb8781ed5dc8',
     },
-    ...overrides,
   };
+  manifest.retained_path_inventory.digest = linesDigest(manifest.retained_path_inventory.paths);
+  manifest.contributor_audit.digest = linesDigest(manifest.contributor_audit.normalized_result);
+  return { ...manifest, ...overrides };
 }
 
-function fakeGit({ history = 'scripts/review/co-review.mjs\nLICENSE\n', current } = {}) {
+function fakeGit({
+  history = 'scripts/review/co-review.mjs\nLICENSE\n',
+  current,
+  inventory = 'LICENSE\nscripts/review/co-review.mjs\n',
+  integrityError = null,
+  bootstrapParent = 'bfc6f9ffabd8281a815c7bd0e0824f3bacb84d9d',
+} = {}) {
   const currentPaths =
     current ??
     [
@@ -142,7 +158,16 @@ function fakeGit({ history = 'scripts/review/co-review.mjs\nLICENSE\n', current 
       'test/unit/verify-extraction.test.mjs',
     ].join('\n');
   return async (_root, args) => {
+    if (args[0] === 'fsck') {
+      if (integrityError) throw new Error(integrityError);
+      return '';
+    }
+    if (args[0] === 'rev-list' && args.includes('--reverse')) return `${'c'.repeat(40)}\n`;
+    if (args[0] === 'rev-list' && args.includes('--parents')) {
+      return `${'c'.repeat(40)} ${bootstrapParent}\n`;
+    }
     if (args[0] === 'log') return history;
+    if (args[0] === 'ls-tree' && args.at(-1) !== 'HEAD') return inventory;
     if (args[0] === 'ls-tree') return `${currentPaths}\n`;
     throw new Error(`unexpected git argv: ${args.join(' ')}`);
   };
@@ -185,6 +210,25 @@ test('verifies the signed relicensing declaration through an injected SSH verifi
   assert.equal(invocation.scratchRoot, '/repo');
   assert.equal(invocation.signature, declaration.signature);
   assert.equal(invocation.payload, canonicalRelicensingPayload(declaration));
+});
+
+test('rejects a substitute signing key before invoking the SSH verifier', async () => {
+  const declaration = validDeclaration({
+    signer_public_key:
+      'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHWi13X884S5FApYT7CnAWf7xSbkGGAj97r+pf0/kgFV attacker@example.com',
+    signer_fingerprint: 'SHA256:attacker',
+  });
+  let invoked = false;
+  await assert.rejects(
+    verifyRelicensingDeclaration({
+      declarationBytes: Buffer.from(`${JSON.stringify(declaration, null, 2)}\n`),
+      runSshVerify: async () => {
+        invoked = true;
+      },
+    }),
+    /authorized signer/
+  );
+  assert.equal(invoked, false);
 });
 
 test('rejects a relicensing declaration without the exact grant boundary', async () => {
@@ -240,6 +284,28 @@ test('rejects a foreign path in standalone HEAD', async () => {
   );
 });
 
+test('rejects dangling or otherwise invalid Git refs', async () => {
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ integrityError: 'invalid sha1 pointer' }),
+    }),
+    /invalid sha1 pointer/
+  );
+});
+
+test('rejects a standalone bootstrap whose first parent is not the filtered tip', async () => {
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ bootstrapParent: 'd'.repeat(40) }),
+    }),
+    /bootstrap parent/
+  );
+});
+
 test('release gate rejects retained legacy paths', async () => {
   await assert.rejects(
     verifyExtraction({
@@ -253,6 +319,51 @@ test('release gate rejects retained legacy paths', async () => {
 });
 
 for (const [name, mutate, pattern] of [
+  [
+    'changed source repository',
+    (m) => (m.source_repository = 'https://github.com/attacker/fork'),
+    /source repository/,
+  ],
+  [
+    'changed source commit',
+    (m) => (m.source_commit = '1'.repeat(40)),
+    /source commit/,
+  ],
+  [
+    'changed filtered history tip',
+    (m) => (m.filtered_history_tip = '2'.repeat(40)),
+    /filtered history tip/,
+  ],
+  [
+    'widened retained path rules',
+    (m) => m.retained_path_rules.prefixes.push('private'),
+    /retained path rules/,
+  ],
+  [
+    'changed retained path inventory digest',
+    (m) => (m.retained_path_inventory.digest = SHA),
+    /retained path inventory digest/,
+  ],
+  [
+    'changed contributor audit digest',
+    (m) => (m.contributor_audit.digest = SHA),
+    /contributor audit digest/,
+  ],
+  [
+    'secret scan of a different ref',
+    (m) => (m.secret_scan.scanned_ref = '3'.repeat(40)),
+    /secret scan ref/,
+  ],
+  [
+    'changed Gitleaks configuration digest',
+    (m) => (m.secret_scan.config_digest = SHA),
+    /secret scan config digest/,
+  ],
+  [
+    'changed design source',
+    (m) => (m.design_source.commit = '4'.repeat(40)),
+    /design source/,
+  ],
   ['failed scan', (m) => (m.secret_scan.result = 'fail'), /secret scan result/],
   ['missing scan version', (m) => (m.secret_scan.tool_version = null), /secret scan version/],
   ['empty contributor audit', (m) => (m.contributor_audit.normalized_result = []), /contributor audit/],

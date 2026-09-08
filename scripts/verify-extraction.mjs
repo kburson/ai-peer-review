@@ -10,7 +10,74 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const SHA256_RE = /^[a-f0-9]{64}$/;
-const GIT_SHA_RE = /^[a-f0-9]{40}$/;
+const EXPECTED_SIGNER_KEY_MATERIAL =
+  'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHWi13X884S5FApYT7CnAWf7xSbkGGAj97r+pf0/kgFU';
+const EXPECTED_SIGNER_FINGERPRINT =
+  'SHA256:5coWixpZ2nPevuuMFWsJkk7oc3UN8zybVaMpA12HNPI';
+const EXPECTED_SOURCE_REPOSITORY = 'https://github.com/kburson/ai-task-manager';
+const EXPECTED_SOURCE_COMMIT = '4b3bcd43cba141a611da4a2b861433b915462806';
+const EXPECTED_FILTERED_HISTORY_TIP = 'bfc6f9ffabd8281a815c7bd0e0824f3bacb84d9d';
+const EXPECTED_GITLEAKS_CONFIG_DIGEST =
+  'ab56fb547630cfb512636b4c70d57f708e3076165a8dc5dfe7d42e7a84df06d6';
+const EXPECTED_GITLEAKS_REPORT_DIGEST =
+  '37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570';
+const EXPECTED_RETAINED_PATH_RULES = Object.freeze({
+  prefixes: ['scripts/review', 'scripts/providers'],
+  globs: [
+    'scripts/tests/**/*co-review*',
+    'docs/superpowers/specs/*co-review*',
+    'docs/superpowers/plans/*co-review*',
+  ],
+  exact: ['LICENSE', 'NOTICE', 'LICENSE-COMMERCIAL'],
+});
+const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
+  prefixes: [
+    '.github/workflows',
+    'bin',
+    'docs/design',
+    'provenance',
+    'schemas',
+    'skills/peer-review',
+    'src',
+    'templates',
+    'test',
+  ],
+  exact: [
+    '.gitignore',
+    '.gitleaks.toml',
+    '.markdownlint-cli2.jsonc',
+    '.npmrc',
+    '.prettierignore',
+    '.prettierrc.json',
+    'CONTRIBUTING.md',
+    'LICENSE',
+    'NOTICE',
+    'README.md',
+    'cspell.json',
+    'docs/dependency-audit-mcp.md',
+    'docs/spdx-policy.md',
+    'eslint.config.mjs',
+    'package-lock.json',
+    'package.json',
+    'scripts/run-secret-scan.mjs',
+    'scripts/verify-extraction.mjs',
+    'scripts/verify-release.mjs',
+  ],
+});
+const EXPECTED_LEGACY_PATH_RULES = Object.freeze({
+  prefixes: ['scripts/review', 'scripts/providers'],
+  globs: [
+    'scripts/tests/**/*co-review*',
+    'docs/superpowers/specs/*co-review*',
+    'docs/superpowers/plans/*co-review*',
+  ],
+});
+const EXPECTED_DESIGN_SOURCE = Object.freeze({
+  repository: EXPECTED_SOURCE_REPOSITORY,
+  commit: '68de80b45b23c90874bac0fcd87cfa0c1980edd4',
+  path: 'docs/superpowers/specs/2026-09-07-ai-peer-review-extraction-design.md',
+  digest: 'abe9bbd815e0022735ba6cd2b3088cc83c7f71075d452c814bfbeb8781ed5dc8',
+});
 const AUTHORIZATION_STATEMENT =
   'I, Kendrick Burson, as copyright holder, approve relicensing the extracted ai-peer-review code covered by AITM source commit 4b3bcd43cba141a611da4a2b861433b915462806 under Apache-2.0, accept the proprietary-fork consequence, and authorize use of my existing SSH Ed25519 key to sign the declaration and proceed with public publication.';
 
@@ -75,6 +142,28 @@ function assertDigest(value, label) {
   if (!SHA256_RE.test(value ?? '')) throw new Error(`${label} must be a SHA-256 digest`);
 }
 
+function digestLines(values) {
+  return createHash('sha256').update(`${values.join('\n')}\n`).digest('hex');
+}
+
+function signerKeyIdentity(publicKey) {
+  const [type, encoded] = String(publicKey ?? '').trim().split(/\s+/);
+  if (type !== 'ssh-ed25519' || !encoded) {
+    throw new Error('signer public key must be an SSH Ed25519 public key');
+  }
+  const keyBytes = Buffer.from(encoded, 'base64');
+  if (keyBytes.length === 0 || keyBytes.toString('base64') !== encoded) {
+    throw new Error('signer public key must contain canonical base64 key material');
+  }
+  return {
+    material: `${type} ${encoded}`,
+    fingerprint: `SHA256:${createHash('sha256')
+      .update(keyBytes)
+      .digest('base64')
+      .replace(/=+$/, '')}`,
+  };
+}
+
 export function canonicalRelicensingPayload(declaration) {
   assert.equal(
     declaration.schema,
@@ -106,13 +195,21 @@ export function canonicalRelicensingPayload(declaration) {
     'signature namespace'
   );
   assert.equal(declaration.signer_identity, 'copyright-holder', 'signer identity');
-  if (!/^ssh-ed25519 [A-Za-z0-9+/=]+(?: .*)?$/.test(declaration.signer_public_key ?? '')) {
-    throw new Error('signer public key must be an SSH Ed25519 public key');
-  }
+  const signer = signerKeyIdentity(declaration.signer_public_key);
   if (!/^SHA256:[A-Za-z0-9+/]+$/.test(declaration.signer_fingerprint ?? '')) {
     throw new Error('signer fingerprint must be an SSH SHA-256 fingerprint');
   }
-  if (Number.isNaN(Date.parse(declaration.signed_at ?? ''))) {
+  if (
+    signer.material !== EXPECTED_SIGNER_KEY_MATERIAL ||
+    signer.fingerprint !== EXPECTED_SIGNER_FINGERPRINT ||
+    declaration.signer_fingerprint !== EXPECTED_SIGNER_FINGERPRINT
+  ) {
+    throw new Error('relicensing declaration does not match the authorized signer');
+  }
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(declaration.signed_at ?? '') ||
+    Number.isNaN(Date.parse(declaration.signed_at))
+  ) {
     throw new Error('signed at must be an ISO-8601 timestamp');
   }
 
@@ -212,10 +309,28 @@ export async function verifyRelicensingDeclaration({
 
 function validateManifest(manifest) {
   assert.equal(manifest.schema, 'ai-peer-review.extraction/v1', 'extraction manifest schema');
-  if (!GIT_SHA_RE.test(manifest.source_commit ?? '')) throw new Error('source commit is malformed');
-  if (!GIT_SHA_RE.test(manifest.filtered_history_tip ?? '')) {
-    throw new Error('filtered history tip is malformed');
-  }
+  assert.equal(manifest.source_repository, EXPECTED_SOURCE_REPOSITORY, 'source repository');
+  assert.equal(manifest.source_commit, EXPECTED_SOURCE_COMMIT, 'source commit');
+  assert.equal(
+    manifest.filtered_history_tip,
+    EXPECTED_FILTERED_HISTORY_TIP,
+    'filtered history tip'
+  );
+  assert.deepEqual(
+    manifest.retained_path_rules,
+    EXPECTED_RETAINED_PATH_RULES,
+    'retained path rules'
+  );
+  assert.deepEqual(
+    manifest.standalone_path_rules,
+    EXPECTED_STANDALONE_PATH_RULES,
+    'standalone path rules'
+  );
+  assert.deepEqual(
+    manifest.legacy_retained_path_rules,
+    EXPECTED_LEGACY_PATH_RULES,
+    'legacy retained path rules'
+  );
   if (
     !Array.isArray(manifest.prefilter_ref_inventory) ||
     manifest.prefilter_ref_inventory.length !== 1 ||
@@ -231,6 +346,11 @@ function validateManifest(manifest) {
     throw new Error('retained path inventory must be non-empty');
   }
   assertDigest(manifest.retained_path_inventory.digest, 'retained path inventory digest');
+  assert.equal(
+    manifest.retained_path_inventory.digest,
+    digestLines(manifest.retained_path_inventory.paths),
+    'retained path inventory digest'
+  );
   if (
     !Array.isArray(manifest.contributor_audit?.normalized_result) ||
     JSON.stringify(manifest.contributor_audit.normalized_result) !==
@@ -239,6 +359,11 @@ function validateManifest(manifest) {
     throw new Error('contributor audit does not match expected holder identities');
   }
   assertDigest(manifest.contributor_audit.digest, 'contributor audit digest');
+  assert.equal(
+    manifest.contributor_audit.digest,
+    digestLines(manifest.contributor_audit.normalized_result),
+    'contributor audit digest'
+  );
   if (manifest.secret_scan?.tool !== 'gitleaks') throw new Error('secret scan tool must be gitleaks');
   if (!/^\d+\.\d+\.\d+/.test(manifest.secret_scan?.tool_version ?? '')) {
     throw new Error('secret scan version is missing or malformed');
@@ -246,9 +371,18 @@ function validateManifest(manifest) {
   if (manifest.secret_scan?.result !== 'pass') throw new Error('secret scan result must be pass');
   assertDigest(manifest.secret_scan.config_digest, 'secret scan config digest');
   assertDigest(manifest.secret_scan.report_digest, 'secret scan report digest');
-  if (!GIT_SHA_RE.test(manifest.secret_scan.scanned_ref ?? '')) {
-    throw new Error('secret scan ref is missing or malformed');
-  }
+  assert.equal(
+    manifest.secret_scan.config_digest,
+    EXPECTED_GITLEAKS_CONFIG_DIGEST,
+    'secret scan config digest'
+  );
+  assert.equal(
+    manifest.secret_scan.report_digest,
+    EXPECTED_GITLEAKS_REPORT_DIGEST,
+    'secret scan report digest'
+  );
+  assert.equal(manifest.secret_scan.scanned_ref, manifest.filtered_history_tip, 'secret scan ref');
+  assert.deepEqual(manifest.design_source, EXPECTED_DESIGN_SOURCE, 'design source');
   assertDigest(manifest.relicensing_declaration_digest, 'relicensing declaration digest');
 }
 
@@ -259,16 +393,53 @@ export async function verifyExtraction({
   requireLegacyRemoved = false,
 }) {
   validateManifest(manifest);
+  await runGit(root, ['fsck', '--full', '--no-reflogs', '--unreachable']);
+  const descendants = await runGit(root, [
+    'rev-list',
+    '--reverse',
+    '--ancestry-path',
+    `${manifest.filtered_history_tip}..HEAD`,
+  ]);
+  const bootstrapCommit = descendants.split('\n').find(Boolean);
+  if (!bootstrapCommit) throw new Error('standalone bootstrap commit is missing');
+  const bootstrapLine = await runGit(root, [
+    'rev-list',
+    '--parents',
+    '-n',
+    '1',
+    bootstrapCommit,
+  ]);
+  const [, bootstrapParent] = bootstrapLine.trim().split(/\s+/);
+  if (bootstrapParent !== manifest.filtered_history_tip) {
+    throw new Error('standalone bootstrap parent does not match filtered history tip');
+  }
   const paths = await runGit(root, [
     'log',
     manifest.filtered_history_tip,
     '--name-only',
     '--format=',
   ]);
-  const foreign = [...new Set(paths.split('\n').filter(Boolean))].filter(
+  const retainedPaths = [...new Set(paths.split('\n').filter(Boolean))].sort();
+  const foreign = retainedPaths.filter(
     (file) => !matchesRetainedRule(file, manifest.retained_path_rules)
   );
   if (foreign.length) throw new Error(`foreign retained paths: ${foreign.join(', ')}`);
+  const filteredTipPaths = await runGit(root, [
+    'ls-tree',
+    '-r',
+    '--name-only',
+    manifest.filtered_history_tip,
+  ]);
+  const observedInventory = filteredTipPaths
+    .split('\n')
+    .filter(Boolean)
+    .filter((file) => matchesRetainedRule(file, manifest.retained_path_rules))
+    .sort();
+  assert.deepEqual(
+    observedInventory,
+    manifest.retained_path_inventory.paths,
+    'retained path inventory'
+  );
   const currentPaths = await runGit(root, ['ls-tree', '-r', '--name-only', 'HEAD']);
   assertStandaloneLayout(currentPaths, {
     standaloneRules: manifest.standalone_path_rules,
@@ -304,6 +475,22 @@ async function main() {
   const declarationDigest = await verifyRelicensingDeclaration({ root, declarationBytes });
   if (declarationDigest !== manifest.relicensing_declaration_digest) {
     throw new Error('relicensing declaration digest does not match manifest');
+  }
+  const configDigest = createHash('sha256')
+    .update(await readFile(path.join(root, '.gitleaks.toml')))
+    .digest('hex');
+  if (configDigest !== manifest.secret_scan.config_digest) {
+    throw new Error('Gitleaks configuration digest does not match manifest');
+  }
+  const designDigest = createHash('sha256')
+    .update(
+      await readFile(
+        path.join(root, 'docs/design/2026-09-07-ai-peer-review-extraction-design.md')
+      )
+    )
+    .digest('hex');
+  if (designDigest !== manifest.design_source.digest) {
+    throw new Error('design artifact digest does not match manifest');
   }
   const result = await verifyExtraction({
     root,
