@@ -41,6 +41,16 @@ function fixture() {
       commit_mode: 'normal',
       max_turns: 2,
       turns_used: 0,
+      claims: {
+        author: {
+          session_fingerprint: participant('author').session_fingerprint,
+          claimed_at: NOW,
+        },
+        reviewer: {
+          session_fingerprint: participant('reviewer').session_fingerprint,
+          claimed_at: NOW,
+        },
+      },
       artifact: {
         path: 'docs/example.md',
         head: '1'.repeat(40),
@@ -194,9 +204,39 @@ test('sealing rejects protected metadata edits and every unstable finding-ID sha
   forgedRegistry.review_id = 'forged-review';
   forgedRegistry.artifact_path = 'docs/forged.md';
   forgedRegistry.artifact_digest = `sha256:${'4'.repeat(64)}`;
+  forgedRegistry.started_at = '2000-01-01T00:00:00.000Z';
+  forgedBytes = readFileSync(forgedDraft.path, 'utf8').replace(
+    `started_at: "${NOW}"`,
+    'started_at: "2000-01-01T00:00:00.000Z"'
+  );
+  writeFileSync(forgedDraft.path, forgedBytes);
   writeFileSync(registry, `${JSON.stringify(forgedRegistry, null, 2)}\n`);
   assert.throws(
     () => sealResponse(forged.review, forgedDraft.path, forged.review.participants.reviewer),
+    (error) => error.code === 'APR_PROTECTED_METADATA_CHANGED'
+  );
+
+  const started = fixture();
+  t.after(started.cleanup);
+  const startedDraft = createResponseDraft(started.review, 'reviewer', 1);
+  writeFileSync(
+    startedDraft.path,
+    fillReviewer(
+      startedDraft.bytes
+        .toString()
+        .replace(`started_at: "${NOW}"`, 'started_at: "2000-01-01T00:00:00.000Z"'),
+      { decision: 'accepted' }
+    )
+  );
+  const startedRegistryPath = path.join(
+    started.review.paths.scratch.absolute,
+    'responses/reviewer-1.json'
+  );
+  const startedRegistry = JSON.parse(readFileSync(startedRegistryPath, 'utf8'));
+  startedRegistry.started_at = '2000-01-01T00:00:00.000Z';
+  writeFileSync(startedRegistryPath, `${JSON.stringify(startedRegistry, null, 2)}\n`);
+  assert.throws(
+    () => sealResponse(started.review, startedDraft.path, started.review.participants.reviewer),
     (error) => error.code === 'APR_PROTECTED_METADATA_CHANGED'
   );
 });
@@ -245,7 +285,8 @@ test('Markdown parsing ignores fenced examples and author dispositions exactly c
   writeFileSync(
     reviewerDraft.path,
     fillReviewer(reviewerDraft.bytes, {
-      findings: '```markdown\n### R1-F001 — Example only\n## Decision\n```',
+      findings:
+        '<!-- note -->### R1-F001 — Not a heading\n\n```markdown <!-- note -->\n### R1-F002 — Example only\n## Decision\n```',
       decision: 'accepted',
     })
   );

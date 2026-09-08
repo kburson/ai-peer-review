@@ -88,7 +88,29 @@ function agent(identity) {
   return Object.fromEntries(AGENT_KEYS.map((key) => [key, identity[key]]));
 }
 
-function expectedMetadata(review, role, turn, startedAt) {
+function responseStartedAt(review, role) {
+  const protocol = protocolOf(review);
+  const identity = review.participants?.[role];
+  const claim = protocol.claims?.[role];
+  const parsed = typeof claim?.claimed_at === 'string' ? new Date(claim.claimed_at) : null;
+  if (
+    !identity ||
+    !claim ||
+    claim.session_fingerprint !== identity.session_fingerprint ||
+    !parsed ||
+    Number.isNaN(parsed.valueOf()) ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(claim.claimed_at)
+  ) {
+    fail(
+      'APR_RESPONSE_INVALID',
+      `The ${role} response start time is unavailable from event claim authority.`,
+      `Claim the ${role} turn and retry.`
+    );
+  }
+  return claim.claimed_at;
+}
+
+function expectedMetadata(review, role, turn) {
   const protocol = protocolOf(review);
   const identity = review.participants?.[role];
   if (!identity) {
@@ -110,7 +132,7 @@ function expectedMetadata(review, role, turn, startedAt) {
     artifact_blob: artifact?.blob ?? null,
     artifact_digest: artifact?.digest,
     agent: agent(identity),
-    started_at: startedAt,
+    started_at: responseStartedAt(review, role),
     submitted_at: null,
     finding_ids: [],
     answered_finding_ids: role === 'author' ? [...(review.pending_finding_ids ?? [])] : [],
@@ -217,6 +239,25 @@ function markdownLines(text) {
   for (const raw of text.match(/.*(?:\n|$)/g) ?? []) {
     if (!raw) continue;
     const line = raw.replace(/\n$/, '').replace(/\r$/, '');
+    const fenceMatch = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+    if (fence) {
+      if (
+        fenceMatch &&
+        fenceMatch[1][0] === fence.character &&
+        fenceMatch[1].length >= fence.length
+      ) {
+        fence = null;
+      }
+      result.push({ text: '', source: '', index: offset, end: offset + raw.length });
+      offset += raw.length;
+      continue;
+    }
+    if (!inComment && fenceMatch) {
+      fence = { character: fenceMatch[1][0], length: fenceMatch[1].length };
+      result.push({ text: '', source: '', index: offset, end: offset + raw.length });
+      offset += raw.length;
+      continue;
+    }
     let visible = '';
     let cursor = 0;
     while (cursor < line.length) {
@@ -239,21 +280,7 @@ function markdownLines(text) {
         cursor = open + 4;
       }
     }
-    const fenceMatch = visible.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
-    if (fence) {
-      if (
-        fenceMatch &&
-        fenceMatch[1][0] === fence.character &&
-        fenceMatch[1].length >= fence.length
-      ) {
-        fence = null;
-      }
-      visible = '';
-    } else if (fenceMatch) {
-      fence = { character: fenceMatch[1][0], length: fenceMatch[1].length };
-      visible = '';
-    }
-    result.push({ text: visible, index: offset, end: offset + raw.length });
+    result.push({ text: visible, source: line, index: offset, end: offset + raw.length });
     offset += raw.length;
   }
   return result;
@@ -261,7 +288,7 @@ function markdownLines(text) {
 
 function markdownHeadings(text, level) {
   return markdownLines(text).flatMap((line) => {
-    const match = line.text.match(/^[ \t]{0,3}(#{2,3})[ \t]+(.+?)(?:[ \t]+#+[ \t]*)?$/);
+    const match = line.source.match(/^[ \t]{0,3}(#{2,3})[ \t]+(.+?)(?:[ \t]+#+[ \t]*)?$/);
     if (!match || match[1].length !== level) return [];
     return [{ heading: match[2], index: line.index, contentStart: line.end }];
   });
@@ -588,7 +615,7 @@ export function createResponseDraft(review, role, turn) {
     } catch {
       collision(file);
     }
-    const metadata = expectedMetadata(review, role, turn, registered.started_at);
+    const metadata = expectedMetadata(review, role, turn);
     if (parsed.metadata.submitted_at !== null) {
       const prior = (review.sealed_responses ?? []).find((item) => item.path === file);
       if (!prior || prior.digest !== sha256(readFileSync(file))) collision(file);
@@ -597,7 +624,7 @@ export function createResponseDraft(review, role, turn) {
     if (!same(registered, metadata) || !same(parsed.metadata, metadata)) collision(file);
     return Object.freeze({ path: file, bytes: readFileSync(file), metadata });
   }
-  const metadata = expectedMetadata(review, role, turn, instant(review));
+  const metadata = expectedMetadata(review, role, turn);
   const bytes = hydrateTemplate(
     `${role}-response`,
     draftVariables(role, renderFrontmatter(metadata))
@@ -714,20 +741,8 @@ export function sealResponse(review, file, identity) {
       'Restore the response registry or recreate the draft.'
     );
   }
-  const startedAt = metadata.started_at;
-  const parsedStartedAt = typeof startedAt === 'string' ? new Date(startedAt) : null;
-  const validStartedAt =
-    parsedStartedAt &&
-    !Number.isNaN(parsedStartedAt.valueOf()) &&
-    parsedStartedAt.toISOString() === startedAt;
-  const protectedMetadata = validStartedAt
-    ? expectedMetadata(review, metadata.role, metadata.turn, startedAt)
-    : null;
-  if (
-    !protectedMetadata ||
-    !same(metadata, protectedMetadata) ||
-    !same(registeredMetadata, protectedMetadata)
-  ) {
+  const protectedMetadata = expectedMetadata(review, metadata.role, metadata.turn);
+  if (!same(metadata, protectedMetadata) || !same(registeredMetadata, protectedMetadata)) {
     fail(
       'APR_PROTECTED_METADATA_CHANGED',
       'Protected response metadata changed after draft creation.',
