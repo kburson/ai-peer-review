@@ -21,6 +21,40 @@ const PURPOSE = Object.freeze({
 
 const READ_ONLY = new Set(['doctor', 'status', 'resume', 'help', 'explain']);
 const HUMAN_GATED = new Set(['supplement', 'continue']);
+const ROLES = Object.freeze({
+  setup: ['human'],
+  doctor: ['author', 'reviewer', 'human'],
+  start: ['author'],
+  'request-grant': ['author', 'reviewer'],
+  join: ['reviewer'],
+  status: ['author', 'reviewer', 'human'],
+  resume: ['author', 'reviewer', 'human'],
+  submit: ['author', 'reviewer'],
+  supplement: ['author', 'reviewer'],
+  continue: ['author', 'reviewer'],
+  finalize: ['author'],
+  recover: ['author', 'reviewer'],
+  abandon: ['author', 'reviewer'],
+  help: ['author', 'reviewer', 'human'],
+  explain: ['author', 'reviewer', 'human'],
+});
+const STATES = Object.freeze({
+  setup: ['outside-review'],
+  doctor: ['any'],
+  start: ['outside-review'],
+  'request-grant': ['outside-review', 'intervention-required'],
+  join: ['awaiting-reviewer'],
+  status: ['any'],
+  resume: ['any'],
+  submit: ['reviewer-turn', 'author-revision'],
+  supplement: ['reviewer-turn', 'author-revision'],
+  continue: ['intervention-required'],
+  finalize: ['acceptance-pending', 'author-finalization'],
+  recover: ['reviewer-turn', 'author-revision', 'intervention-required'],
+  abandon: ['intervention-required'],
+  help: ['any'],
+  explain: ['any'],
+});
 const NEXT_COMMAND = Object.freeze({
   'join-reviewer': () => COMMAND_USAGE.join,
   'reviewer-submit': (workspace) => `peer-review submit ${workspace}`,
@@ -63,13 +97,8 @@ function topic(command) {
     schema: 'ai-peer-review.help/v1',
     command,
     purpose: PURPOSE[command],
-    roles:
-      command === 'join'
-        ? ['reviewer']
-        : command === 'start'
-          ? ['author']
-          : ['author', 'reviewer', 'human'],
-    states: READ_ONLY.has(command) ? ['any'] : ['command-specific event-authorized state'],
+    roles: ROLES[command],
+    states: STATES[command],
     usage: COMMAND_USAGE[command],
     arguments: { minimum: grammar.min, maximum: grammar.max },
     flags: COMMAND_FLAGS[command].map((flag) => ({
@@ -88,11 +117,17 @@ function topic(command) {
     environment: [
       'Official provider session metadata when available; declared identity is explicit.',
     ],
-    preconditions: [
-      READ_ONLY.has(command)
-        ? 'A readable local package and any named workspace.'
-        : 'Exact current event authority and all command-specific preflight checks.',
-    ],
+    preconditions:
+      command === 'start'
+        ? [
+            'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
+            'Optional --bootstrap-grant must authorize the exact protected pin-verifier action.',
+          ]
+        : [
+            READ_ONLY.has(command)
+              ? 'A readable local package and any named workspace.'
+              : 'Exact current event authority and all command-specific preflight checks.',
+          ],
     effects: [
       mutating
         ? 'May append the documented event and its derived files.'

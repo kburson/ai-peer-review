@@ -62,6 +62,10 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   );
   assert.doesNotMatch(submitJson, /\x1b\[/);
   assert.ok(helpRequest('status', 'json').flags.some(({ flag }) => flag === '--next'));
+  assert.match(
+    helpRequest('start', 'json').preconditions.join(' '),
+    /bootstrap-grant.*pin-verifier/
+  );
   assert.ok(helpRequest('review', 'json', { search: true }).matches.includes('submit'));
   assert.equal(explainError('APR_ARTIFACT_DIRTY').code, 'APR_ARTIFACT_DIRTY');
   assert.throws(
