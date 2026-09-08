@@ -171,6 +171,7 @@ test('verifies the signed relicensing declaration through an injected SSH verifi
   const declarationBytes = Buffer.from(`${JSON.stringify(declaration, null, 2)}\n`);
   let invocation;
   const digest = await verifyRelicensingDeclaration({
+    root: '/repo',
     declarationBytes,
     runSshVerify: async (details) => {
       invocation = details;
@@ -179,6 +180,7 @@ test('verifies the signed relicensing declaration through an injected SSH verifi
   assert.match(digest, /^[a-f0-9]{64}$/);
   assert.equal(invocation.identity, 'copyright-holder');
   assert.equal(invocation.namespace, 'ai-peer-review-relicensing');
+  assert.equal(invocation.scratchRoot, '/repo');
   assert.equal(invocation.signature, declaration.signature);
   assert.equal(invocation.payload, canonicalRelicensingPayload(declaration));
 });

@@ -3,8 +3,7 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -135,8 +134,17 @@ export function canonicalRelicensingPayload(declaration) {
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
-async function runSshVerify({ identity, namespace, publicKey, signature, payload }) {
-  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'ai-peer-review-signature-'));
+async function runSshVerify({
+  identity,
+  namespace,
+  publicKey,
+  signature,
+  payload,
+  scratchRoot,
+}) {
+  const scratchParent = path.join(scratchRoot, '.scratch', 'peer-review');
+  await mkdir(scratchParent, { recursive: true });
+  const tempRoot = await mkdtemp(path.join(scratchParent, 'signature-'));
   const allowedSignersPath = path.join(tempRoot, 'allowed_signers');
   const signaturePath = path.join(tempRoot, 'declaration.sig');
   try {
@@ -178,6 +186,7 @@ async function runSshVerify({ identity, namespace, publicKey, signature, payload
 }
 
 export async function verifyRelicensingDeclaration({
+  root = process.cwd(),
   declarationBytes,
   runSshVerify: verifySignature = runSshVerify,
 }) {
@@ -196,6 +205,7 @@ export async function verifyRelicensingDeclaration({
     publicKey: declaration.signer_public_key,
     signature: declaration.signature,
     payload,
+    scratchRoot: root,
   });
   return createHash('sha256').update(declarationBytes).digest('hex');
 }
@@ -291,7 +301,7 @@ async function main() {
   const declarationBytes = await readFile(
     path.join(root, 'provenance/relicensing-declaration.json')
   );
-  const declarationDigest = await verifyRelicensingDeclaration({ declarationBytes });
+  const declarationDigest = await verifyRelicensingDeclaration({ root, declarationBytes });
   if (declarationDigest !== manifest.relicensing_declaration_digest) {
     throw new Error('relicensing declaration digest does not match manifest');
   }
