@@ -78,5 +78,32 @@
       }
     },
     "decided_at": { "type": "string", "format": "date-time" }
-  }
+  },
+  "examples": [
+    {
+      "schema": "ai-peer-review.human-decision/v1",
+      "review_id": "review-example",
+      "decision": "accepted-over-objections",
+      "artifact_path": "docs/example.md",
+      "artifact_commit": "1111111111111111111111111111111111111111",
+      "artifact_blob": "2222222222222222222222222222222222222222",
+      "artifact_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "unresolved_findings": [
+        {
+          "reviewer_response_path": "docs/reviews/reviewer-response-1.md",
+          "reviewer_response_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "finding_ids": ["R1-F002"]
+        }
+      ],
+      "human_attestation": {
+        "source": "detached-signature",
+        "strength": "cryptographic-local",
+        "signer_id": "human:example",
+        "signer_fingerprint": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "challenge_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "verified_at": "2026-09-08T12:00:00.000Z"
+      },
+      "decided_at": "2026-09-08T12:00:00.000Z"
+    }
+  ]
 }

@@ -6,3 +6,4 @@ provenance/extraction-manifest.json
 scripts/run-secret-scan.mjs
 scripts/verify-extraction.mjs
 test/unit/verify-extraction.test.mjs
+test/golden/templates/*.md
