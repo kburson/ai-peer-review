@@ -92,22 +92,22 @@ function responseStartedAt(review, role) {
   const protocol = protocolOf(review);
   const identity = review.participants?.[role];
   const claim = protocol.claims?.[role];
-  const parsed = typeof claim?.claimed_at === 'string' ? new Date(claim.claimed_at) : null;
+  const parsed = typeof identity?.joined_at === 'string' ? new Date(identity.joined_at) : null;
   if (
     !identity ||
     !claim ||
     claim.session_fingerprint !== identity.session_fingerprint ||
     !parsed ||
     Number.isNaN(parsed.valueOf()) ||
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(claim.claimed_at)
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(identity.joined_at)
   ) {
     fail(
       'APR_RESPONSE_INVALID',
-      `The ${role} response start time is unavailable from event claim authority.`,
-      `Claim the ${role} turn and retry.`
+      `The ${role} response start time is unavailable from event participant authority.`,
+      `Register and claim the ${role} participant, then retry.`
     );
   }
-  return claim.claimed_at;
+  return identity.joined_at;
 }
 
 function expectedMetadata(review, role, turn) {
@@ -241,10 +241,11 @@ function markdownLines(text) {
     const line = raw.replace(/\n$/, '').replace(/\r$/, '');
     const fenceMatch = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
     if (fence) {
+      const closingFence = line.match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/);
       if (
-        fenceMatch &&
-        fenceMatch[1][0] === fence.character &&
-        fenceMatch[1].length >= fence.length
+        closingFence &&
+        closingFence[1][0] === fence.character &&
+        closingFence[1].length >= fence.length
       ) {
         fence = null;
       }
@@ -258,6 +259,7 @@ function markdownLines(text) {
       offset += raw.length;
       continue;
     }
+    const source = inComment ? '' : line;
     let visible = '';
     let cursor = 0;
     while (cursor < line.length) {
@@ -280,7 +282,7 @@ function markdownLines(text) {
         cursor = open + 4;
       }
     }
-    result.push({ text: visible, source: line, index: offset, end: offset + raw.length });
+    result.push({ text: visible, source, index: offset, end: offset + raw.length });
     offset += raw.length;
   }
   return result;

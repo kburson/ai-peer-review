@@ -286,7 +286,7 @@ test('Markdown parsing ignores fenced examples and author dispositions exactly c
     reviewerDraft.path,
     fillReviewer(reviewerDraft.bytes, {
       findings:
-        '<!-- note -->### R1-F001 — Not a heading\n\n```markdown <!-- note -->\n### R1-F002 — Example only\n## Decision\n```',
+        '<!-- note -->### R1-F001 — Not a heading\n\n<!--\n### R1-F002 — Hidden\n-->\n\n```markdown <!-- note -->\n### R1-F003 — Example only\n````` not-a-close\n### R1-F004 — Still fenced\n```',
       decision: 'accepted',
     })
   );
@@ -386,6 +386,25 @@ test('only the event-authorized role may create or resume an unsealed draft', (t
       1
     ).bytes.toString(),
     edited
+  );
+  fx.review.protocol.claims.reviewer = {
+    ...fx.review.protocol.claims.reviewer,
+    claimed_at: '2026-09-08T14:00:00.000Z',
+  };
+  assert.equal(
+    createResponseDraft(
+      { ...fx.review, now: '2026-09-08T14:00:00.000Z' },
+      'reviewer',
+      1
+    ).bytes.toString(),
+    edited
+  );
+  assert.doesNotThrow(() =>
+    sealResponse(
+      { ...fx.review, now: '2026-09-08T14:00:00.000Z' },
+      draft.path,
+      fx.review.participants.reviewer
+    )
   );
   assert.throws(
     () =>

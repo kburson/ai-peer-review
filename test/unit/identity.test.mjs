@@ -134,7 +134,10 @@ test('distinctness follows session fingerprints, not provider or model', () => {
 
 test('model refresh emits an identity-change event without exposing raw IDs', () => {
   const prior = runtime('codex', 'stable-session', 'gpt-old');
-  const current = runtime('codex', 'stable-session', 'gpt-new');
+  const current = {
+    ...runtime('codex', 'stable-session', 'gpt-new'),
+    joined_at: '2026-09-08T13:00:00.000Z',
+  };
   const review = {
     protocol: { review_id: 'review-01', sequence: 4, revision: 2 },
   };
@@ -142,6 +145,7 @@ test('model refresh emits an identity-change event without exposing raw IDs', ()
   assert.equal(changed.type, 'identity-changed');
   assert.equal(changed.revision, 2);
   assert.equal(changed.payload.identity.model_id, 'gpt-new');
+  assert.equal(changed.payload.identity.joined_at, prior.joined_at);
   assert.equal(JSON.stringify(changed).includes('stable-session'), false);
   assert.equal(identityChangeEvent(review, current, { ...current }, new Date(joinedAt)), null);
 });

@@ -273,7 +273,7 @@ export function identityChangeEvent(review, prior, current, now = new Date()) {
     'identity-changed',
     current.session_fingerprint,
     now,
-    { role: current.role, identity: current },
+    { role: current.role, identity: { ...current, joined_at: prior.joined_at } },
     0
   );
 }
