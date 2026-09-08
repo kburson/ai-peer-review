@@ -199,4 +199,22 @@ test('event authority rejects duplicate participants and fingerprint-changing re
     () => reduceEvents([...reviewerTurnEvents(), replacement]),
     (error) => error.code === 'APR_INVALID_TRANSITION'
   );
+
+  const rewrittenJoin = event('identity-changed', {
+    sequence: 3,
+    revision: 2,
+    actor: FINGERPRINTS.reviewer,
+    payload: {
+      role: 'reviewer',
+      identity: {
+        ...participant('reviewer'),
+        model_id: 'gpt-refreshed',
+        joined_at: '2026-09-08T13:00:00.000Z',
+      },
+    },
+  });
+  assert.throws(
+    () => reduceEvents([...reviewerTurnEvents(), rewrittenJoin]),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
 });

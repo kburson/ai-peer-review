@@ -373,6 +373,7 @@ function applyProjection(state, event) {
     if (
       !current ||
       current.session_fingerprint !== event.payload.identity.session_fingerprint ||
+      current.joined_at !== event.payload.identity.joined_at ||
       event.actor !== current.session_fingerprint
     ) {
       throw transitionError(protocol.state, event, 'identity change must retain session authority');
