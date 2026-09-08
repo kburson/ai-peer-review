@@ -1,5 +1,15 @@
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  closeSync,
+  fsyncSync,
+  linkSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
@@ -111,7 +121,7 @@ function scalar(value) {
   return JSON.stringify(value);
 }
 
-function renderFrontmatter(metadata) {
+function renderFrontmatter(metadata, eol = '\n') {
   const lines = ['---'];
   for (const key of METADATA_KEYS) {
     if (key === 'agent') {
@@ -123,12 +133,13 @@ function renderFrontmatter(metadata) {
     }
   }
   lines.push('---');
-  return lines.join('\n');
+  return lines.join(eol);
 }
 
 function parseFrontmatter(bytes) {
   const text = Buffer.isBuffer(bytes) ? bytes.toString('utf8') : String(bytes);
-  const lines = text.split('\n');
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const lines = text.replaceAll('\r\n', '\n').split('\n');
   const start = lines.indexOf('---');
   const end = lines.indexOf('---', start + 1);
   if (start < 0 || end <= start + 1) {
@@ -195,15 +206,73 @@ function parseFrontmatter(bytes) {
       'Recreate the response draft.'
     );
   }
-  return { text, metadata, body: lines.slice(end + 1).join('\n') };
+  return { text, eol, metadata, body: lines.slice(end + 1).join('\n') };
+}
+
+function markdownLines(text) {
+  const result = [];
+  let offset = 0;
+  let fence = null;
+  let inComment = false;
+  for (const raw of text.match(/.*(?:\n|$)/g) ?? []) {
+    if (!raw) continue;
+    const line = raw.replace(/\n$/, '').replace(/\r$/, '');
+    let visible = '';
+    let cursor = 0;
+    while (cursor < line.length) {
+      if (inComment) {
+        const close = line.indexOf('-->', cursor);
+        if (close < 0) {
+          cursor = line.length;
+          break;
+        }
+        inComment = false;
+        cursor = close + 3;
+      } else {
+        const open = line.indexOf('<!--', cursor);
+        if (open < 0) {
+          visible += line.slice(cursor);
+          break;
+        }
+        visible += line.slice(cursor, open);
+        inComment = true;
+        cursor = open + 4;
+      }
+    }
+    const fenceMatch = visible.match(/^[ \t]{0,3}(`{3,}|~{3,})/);
+    if (fence) {
+      if (
+        fenceMatch &&
+        fenceMatch[1][0] === fence.character &&
+        fenceMatch[1].length >= fence.length
+      ) {
+        fence = null;
+      }
+      visible = '';
+    } else if (fenceMatch) {
+      fence = { character: fenceMatch[1][0], length: fenceMatch[1].length };
+      visible = '';
+    }
+    result.push({ text: visible, index: offset, end: offset + raw.length });
+    offset += raw.length;
+  }
+  return result;
+}
+
+function markdownHeadings(text, level) {
+  return markdownLines(text).flatMap((line) => {
+    const match = line.text.match(/^[ \t]{0,3}(#{2,3})[ \t]+(.+?)(?:[ \t]+#+[ \t]*)?$/);
+    if (!match || match[1].length !== level) return [];
+    return [{ heading: match[2], index: line.index, contentStart: line.end }];
+  });
 }
 
 function parseSections(body, role) {
   if (!Object.hasOwn(SECTION_CATALOG, role)) {
     fail('APR_RESPONSE_INVALID', 'Response role is invalid.', 'Use author or reviewer.');
   }
-  const matches = [...body.matchAll(/^## ([^\r\n]+)$/gm)];
-  const headings = matches.map((match) => match[1]);
+  const matches = markdownHeadings(body, 2);
+  const headings = matches.map((match) => match.heading);
   const expected = SECTION_CATALOG[role];
   if (
     headings.length !== expected.length ||
@@ -216,10 +285,8 @@ function parseSections(body, role) {
     );
   }
   return matches.map((match, index) => ({
-    heading: match[1],
-    content: body
-      .slice(match.index + match[0].length, matches[index + 1]?.index ?? body.length)
-      .trim(),
+    heading: match.heading,
+    content: body.slice(match.contentStart, matches[index + 1]?.index ?? body.length).trim(),
   }));
 }
 
@@ -296,12 +363,107 @@ function collision(file) {
   );
 }
 
-function authorizedTurn(review, role) {
-  const state = protocolOf(review).state;
-  return (
-    (role === 'reviewer' && state === 'reviewer-turn') ||
-    (role === 'author' && state === 'author-revision')
-  );
+function pathEntryExists(file) {
+  try {
+    lstatSync(file);
+    return true;
+  } catch (cause) {
+    if (cause?.code === 'ENOENT') return false;
+    throw cause;
+  }
+}
+
+function regularFile(file) {
+  try {
+    const status = lstatSync(file);
+    return status.isFile() && !status.isSymbolicLink();
+  } catch (cause) {
+    if (cause?.code === 'ENOENT') return false;
+    throw cause;
+  }
+}
+
+function syncDirectory(directory) {
+  let descriptor;
+  try {
+    descriptor = openSync(directory, 'r');
+    fsyncSync(descriptor);
+  } catch (cause) {
+    const unsupported = new Set(['EINVAL', 'EISDIR', 'ENOTSUP', 'EOPNOTSUPP', 'EPERM']);
+    if (!unsupported.has(cause?.code)) throw cause;
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
+function writeExclusiveAtomic(file, bytes) {
+  const directory = path.dirname(file);
+  const temporary = path.join(directory, `.${path.basename(file)}.${randomUUID()}.tmp`);
+  let descriptor;
+  let linking = false;
+  try {
+    mkdirSync(directory, { recursive: true });
+    descriptor = openSync(temporary, 'wx', 0o600);
+    writeFileSync(descriptor, bytes);
+    fsyncSync(descriptor);
+    closeSync(descriptor);
+    descriptor = undefined;
+    linking = true;
+    linkSync(temporary, file);
+    linking = false;
+    unlinkSync(temporary);
+    syncDirectory(directory);
+  } catch (cause) {
+    if (descriptor !== undefined) {
+      try {
+        closeSync(descriptor);
+      } catch {
+        // Preserve the original failure.
+      }
+    }
+    try {
+      if (pathEntryExists(temporary)) unlinkSync(temporary);
+    } catch {
+      // Cleanup is limited to this operation's random sibling.
+    }
+    if (cause?.code === 'EEXIST' && linking) collision(file);
+    const error = new AprError(
+      'APR_RESPONSE_WRITE_FAILED',
+      'Response draft could not be created durably.',
+      {
+        recovery: `Inspect ${directory} and retry after correcting the filesystem failure.`,
+        details: { file },
+      }
+    );
+    error.cause = cause;
+    throw error;
+  }
+}
+
+function currentTurn(review, role) {
+  const protocol = protocolOf(review);
+  const validState =
+    (role === 'reviewer' && protocol.state === 'reviewer-turn') ||
+    (role === 'author' && protocol.state === 'author-revision');
+  const turn = role === 'reviewer' ? protocol.turns_used + 1 : protocol.turns_used;
+  if (!validState || !Number.isSafeInteger(turn) || turn <= 0 || turn > protocol.max_turns) {
+    fail(
+      'APR_RESPONSE_INVALID',
+      'Response role or turn is not current in event authority.',
+      'Read status and create or submit only the current participant response.'
+    );
+  }
+  return turn;
+}
+
+function requireCurrentTurn(review, role, turn) {
+  if (turn !== currentTurn(review, role)) {
+    fail(
+      'APR_RESPONSE_INVALID',
+      'Response turn does not match event authority.',
+      'Read status and use the event-derived current turn.'
+    );
+  }
 }
 
 function allCollateralPaths(review, paths = review.paths) {
@@ -368,7 +530,8 @@ export function reserveCollateral(review, { validateForeignManifest } = {}) {
       paths: expected.map((value) => value.relative),
       recovered_from: recoveredFrom,
     };
-    if (existsSync(registry)) {
+    if (pathEntryExists(registry)) {
+      if (!regularFile(registry)) collision(registry);
       let prior;
       try {
         prior = JSON.parse(readFileSync(registry, 'utf8'));
@@ -378,12 +541,12 @@ export function reserveCollateral(review, { validateForeignManifest } = {}) {
       if (!same(prior, record)) collision(registry);
       return Object.freeze({ paths, reservation: Object.freeze(record) });
     }
-    const occupied = expected.filter((value) => existsSync(value.absolute));
+    const occupied = expected.filter((value) => pathEntryExists(value.absolute));
     if (occupied.length) {
       if (recoveredFrom !== null || typeof validateForeignManifest !== 'function') {
         collision(paths.destination.absolute);
       }
-      if (!existsSync(paths.manifest.absolute)) collision(paths.destination.absolute);
+      if (!regularFile(paths.manifest.absolute)) collision(paths.destination.absolute);
       let inspection;
       try {
         inspection = validateForeignManifest({
@@ -412,17 +575,11 @@ export function reserveCollateral(review, { validateForeignManifest } = {}) {
 }
 
 export function createResponseDraft(review, role, turn) {
+  requireCurrentTurn(review, role, turn);
   const file = responsePath(review, role, turn);
   const registry = registryPath(review, role, turn);
-  if (!authorizedTurn(review, role)) {
-    fail(
-      'APR_RESPONSE_INVALID',
-      'Response draft role is not current in event authority.',
-      'Read status and create only the current participant response.'
-    );
-  }
-  if (existsSync(file)) {
-    if (!existsSync(registry)) collision(file);
+  if (pathEntryExists(file)) {
+    if (!regularFile(file) || !regularFile(registry)) collision(file);
     let registered;
     let parsed;
     try {
@@ -448,17 +605,7 @@ export function createResponseDraft(review, role, turn) {
   mkdirSync(path.dirname(file), { recursive: true });
   mkdirSync(path.dirname(registry), { recursive: true });
   atomicWrite(registry, Buffer.from(`${JSON.stringify(metadata, null, 2)}\n`));
-  let descriptor;
-  try {
-    descriptor = openSync(file, 'wx', 0o600);
-    writeFileSync(descriptor, bytes);
-    closeSync(descriptor);
-    descriptor = null;
-  } catch (cause) {
-    if (descriptor !== undefined && descriptor !== null) closeSync(descriptor);
-    if (cause?.code === 'EEXIST') collision(file);
-    throw cause;
-  }
+  writeExclusiveAtomic(file, bytes);
   return Object.freeze({ path: file, bytes, metadata });
 }
 
@@ -486,8 +633,8 @@ function findingIds(sections, turn, prior) {
   );
   const ids = [];
   for (const section of selected) {
-    for (const heading of section.content.matchAll(/^### ([^\r\n]+)$/gm)) {
-      const match = heading[1].match(/^R([1-9][0-9]*)-F([0-9]{3}) — (.*)$/);
+    for (const heading of markdownHeadings(section.content, 3)) {
+      const match = heading.heading.match(/^R([1-9][0-9]*)-F([0-9]{3}) — (.*)$/);
       if (!match || Number(match[1]) !== turn || !match[3].trim()) {
         fail(
           'APR_RESPONSE_INVALID',
@@ -512,6 +659,15 @@ function findingIds(sections, turn, prior) {
   return ids;
 }
 
+function dispositionIds(sections) {
+  const section = sections.find(({ heading }) => heading === 'Finding dispositions');
+  const ids = [];
+  for (const line of markdownLines(section.content)) {
+    for (const match of line.text.matchAll(/\bR[1-9][0-9]*-F[0-9]{3}\b/g)) ids.push(match[0]);
+  }
+  return ids;
+}
+
 function sealedResult(file, bytes, metadata) {
   return Object.freeze({
     path: file,
@@ -525,9 +681,11 @@ function sealedResult(file, bytes, metadata) {
 }
 
 export function sealResponse(review, file, identity) {
+  if (!regularFile(file)) collision(file);
   const input = readFileSync(file);
-  const parsed = parseResponse(input);
-  const { metadata, sections } = parsed;
+  const parsed = parseFrontmatter(input);
+  const { metadata } = parsed;
+  const sections = parseSections(parsed.body, metadata.role);
   const expectedFile = responsePath(review, metadata.role, metadata.turn);
   if (path.resolve(file) !== path.resolve(expectedFile)) collision(file);
   validateIdentity(review, metadata.role, identity);
@@ -543,10 +701,12 @@ export function sealResponse(review, file, identity) {
     }
     return result;
   }
+  requireCurrentTurn(review, metadata.role, metadata.turn);
   const registry = registryPath(review, metadata.role, metadata.turn);
-  let protectedMetadata;
+  let registeredMetadata;
   try {
-    protectedMetadata = JSON.parse(readFileSync(registry, 'utf8'));
+    if (!regularFile(registry)) throw new Error('response registry is not a regular file');
+    registeredMetadata = JSON.parse(readFileSync(registry, 'utf8'));
   } catch {
     fail(
       'APR_PROTECTED_METADATA_CHANGED',
@@ -554,20 +714,24 @@ export function sealResponse(review, file, identity) {
       'Restore the response registry or recreate the draft.'
     );
   }
-  if (!same(metadata, protectedMetadata)) {
+  const startedAt = metadata.started_at;
+  const parsedStartedAt = typeof startedAt === 'string' ? new Date(startedAt) : null;
+  const validStartedAt =
+    parsedStartedAt &&
+    !Number.isNaN(parsedStartedAt.valueOf()) &&
+    parsedStartedAt.toISOString() === startedAt;
+  const protectedMetadata = validStartedAt
+    ? expectedMetadata(review, metadata.role, metadata.turn, startedAt)
+    : null;
+  if (
+    !protectedMetadata ||
+    !same(metadata, protectedMetadata) ||
+    !same(registeredMetadata, protectedMetadata)
+  ) {
     fail(
       'APR_PROTECTED_METADATA_CHANGED',
       'Protected response metadata changed after draft creation.',
       'Restore the generated frontmatter and edit only prose sections.'
-    );
-  }
-  const protocol = protocolOf(review);
-  const requiredState = metadata.role === 'reviewer' ? 'reviewer-turn' : 'author-revision';
-  if (protocol.state !== requiredState) {
-    fail(
-      'APR_RESPONSE_INVALID',
-      'Response role is not current.',
-      'Read status and submit the current role.'
     );
   }
   const updated = {
@@ -585,18 +749,27 @@ export function sealResponse(review, file, identity) {
       );
     }
     updated.finding_ids = findingIds(sections, metadata.turn, review.prior_finding_ids ?? []);
-  } else if (!same(metadata.answered_finding_ids, review.pending_finding_ids ?? [])) {
-    fail(
-      'APR_RESPONSE_INVALID',
-      'Author response does not answer the preceding sealed finding set.',
-      'Recreate the author draft from the current reviewer response.'
-    );
+  } else {
+    const pending = review.pending_finding_ids ?? [];
+    const dispositions = dispositionIds(sections);
+    if (
+      !same(metadata.answered_finding_ids, pending) ||
+      !same(dispositions, pending) ||
+      new Set(dispositions).size !== dispositions.length
+    ) {
+      fail(
+        'APR_RESPONSE_INVALID',
+        'Author response does not disposition the preceding sealed finding set exactly once.',
+        'Reference every pending finding ID exactly once and do not add unknown IDs.'
+      );
+    }
   }
-  const frontmatter = renderFrontmatter(updated);
+  const frontmatter = renderFrontmatter(updated, parsed.eol);
   const text = input.toString('utf8');
-  const first = text.indexOf('---');
-  const second = text.indexOf('---', first + 3);
-  const sealed = Buffer.from(`${text.slice(0, first)}${frontmatter}${text.slice(second + 3)}`);
+  const frontmatterPattern = /(^|\r?\n)---\r?\n[\s\S]*?\r?\n---(?=\r?\n|$)/;
+  const sealed = Buffer.from(
+    text.replace(frontmatterPattern, (_match, prefix) => `${prefix}${frontmatter}`)
+  );
   atomicWrite(file, sealed);
   return sealedResult(file, sealed, updated);
 }

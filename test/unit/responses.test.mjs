@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -32,6 +40,7 @@ function fixture() {
       state: 'reviewer-turn',
       commit_mode: 'normal',
       max_turns: 2,
+      turns_used: 0,
       artifact: {
         path: 'docs/example.md',
         head: '1'.repeat(40),
@@ -168,12 +177,121 @@ test('sealing rejects protected metadata edits and every unstable finding-ID sha
     () => sealResponse(fx.review, draft.path, fx.review.participants.reviewer),
     (error) => error.code === 'APR_PROTECTED_METADATA_CHANGED'
   );
+
+  const forged = fixture();
+  t.after(forged.cleanup);
+  const forgedDraft = createResponseDraft(forged.review, 'reviewer', 1);
+  const replacements = [
+    ['review_id: "review-01"', 'review_id: "forged-review"'],
+    ['artifact_path: "docs/example.md"', 'artifact_path: "docs/forged.md"'],
+    [`artifact_digest: "sha256:${'3'.repeat(64)}"`, `artifact_digest: "sha256:${'4'.repeat(64)}"`],
+  ];
+  let forgedBytes = forgedDraft.bytes.toString();
+  for (const [before, after] of replacements) forgedBytes = forgedBytes.replace(before, after);
+  writeFileSync(forgedDraft.path, fillReviewer(forgedBytes, { decision: 'accepted' }));
+  const registry = path.join(forged.review.paths.scratch.absolute, 'responses/reviewer-1.json');
+  const forgedRegistry = JSON.parse(readFileSync(registry, 'utf8'));
+  forgedRegistry.review_id = 'forged-review';
+  forgedRegistry.artifact_path = 'docs/forged.md';
+  forgedRegistry.artifact_digest = `sha256:${'4'.repeat(64)}`;
+  writeFileSync(registry, `${JSON.stringify(forgedRegistry, null, 2)}\n`);
+  assert.throws(
+    () => sealResponse(forged.review, forgedDraft.path, forged.review.participants.reviewer),
+    (error) => error.code === 'APR_PROTECTED_METADATA_CHANGED'
+  );
+});
+
+test('response turns are derived from event state and cannot be caller-selected', (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  assert.throws(
+    () => createResponseDraft(fx.review, 'reviewer', 999),
+    (error) => error.code === 'APR_RESPONSE_INVALID'
+  );
+  const draft = createResponseDraft(fx.review, 'reviewer', 1);
+  const forgedPath = fx.review.paths.reviewerResponse(999).absolute;
+  const forgedRegistry = path.join(fx.review.paths.scratch.absolute, 'responses/reviewer-999.json');
+  mkdirSync(path.dirname(forgedPath), { recursive: true });
+  mkdirSync(path.dirname(forgedRegistry), { recursive: true });
+  writeFileSync(
+    forgedPath,
+    fillReviewer(draft.bytes.toString().replace('turn: 1', 'turn: 999'), {
+      decision: 'accepted',
+    })
+  );
+  const registry = JSON.parse(
+    readFileSync(path.join(fx.review.paths.scratch.absolute, 'responses/reviewer-1.json'), 'utf8')
+  );
+  registry.turn = 999;
+  writeFileSync(forgedRegistry, `${JSON.stringify(registry, null, 2)}\n`);
+  assert.throws(
+    () => sealResponse(fx.review, forgedPath, fx.review.participants.reviewer),
+    (error) => error.code === 'APR_RESPONSE_INVALID'
+  );
+
+  fx.review.protocol.turns_used = 1;
+  fx.review.protocol.state = 'author-revision';
+  assert.throws(
+    () => createResponseDraft(fx.review, 'author', 2),
+    (error) => error.code === 'APR_RESPONSE_INVALID'
+  );
+  assert.equal(createResponseDraft(fx.review, 'author', 1).metadata.turn, 1);
+});
+
+test('Markdown parsing ignores fenced examples and author dispositions exactly cover pending IDs', (t) => {
+  const reviewer = fixture();
+  t.after(reviewer.cleanup);
+  const reviewerDraft = createResponseDraft(reviewer.review, 'reviewer', 1);
+  writeFileSync(
+    reviewerDraft.path,
+    fillReviewer(reviewerDraft.bytes, {
+      findings: '```markdown\n### R1-F001 — Example only\n## Decision\n```',
+      decision: 'accepted',
+    })
+  );
+  assert.deepEqual(
+    sealResponse(reviewer.review, reviewerDraft.path, reviewer.review.participants.reviewer)
+      .finding_ids,
+    []
+  );
+
+  for (const dispositions of [
+    'None.',
+    'R1-F001 — fixed\nR1-F001 — fixed again',
+    'R1-F002 — unknown',
+  ]) {
+    const author = fixture();
+    t.after(author.cleanup);
+    author.review.protocol.state = 'author-revision';
+    author.review.protocol.turns_used = 1;
+    author.review.pending_finding_ids = ['R1-F001'];
+    const draft = createResponseDraft(author.review, 'author', 1);
+    writeFileSync(draft.path, fillAuthor(draft.bytes).replace('R1-F001 — fixed', dispositions));
+    assert.throws(
+      () => sealResponse(author.review, draft.path, author.review.participants.author),
+      (error) => error.code === 'APR_RESPONSE_INVALID'
+    );
+  }
+});
+
+test('CRLF response drafts parse and seal portably', (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const draft = createResponseDraft(fx.review, 'reviewer', 1);
+  writeFileSync(
+    draft.path,
+    fillReviewer(draft.bytes, { decision: 'accepted' }).replaceAll('\n', '\r\n')
+  );
+  const sealed = sealResponse(fx.review, draft.path, fx.review.participants.reviewer);
+  assert.deepEqual(sealed.finding_ids, []);
+  assert.match(readFileSync(draft.path, 'utf8'), /\r\n---\r\n/);
 });
 
 test('author drafts seal exactly the preceding reviewer finding set', (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
   fx.review.protocol.state = 'author-revision';
+  fx.review.protocol.turns_used = 1;
   fx.review.pending_finding_ids = ['R1-F001'];
   const draft = createResponseDraft(fx.review, 'author', 1);
   writeFileSync(draft.path, fillAuthor(draft.bytes));
@@ -194,6 +312,24 @@ test('draft creation never overwrites a conflicting tracked response', (t) => {
     (error) => error.code === 'APR_OUTPUT_COLLISION'
   );
   assert.deepEqual(readFileSync(target), before);
+
+  const linked = fixture();
+  t.after(linked.cleanup);
+  const linkedTarget = linked.review.paths.reviewerResponse(1).absolute;
+  const outside = path.join(linked.root, 'outside.md');
+  mkdirSync(path.dirname(linkedTarget), { recursive: true });
+  writeFileSync(outside, 'outside bytes');
+  symlinkSync(outside, linkedTarget);
+  assert.throws(
+    () => createResponseDraft(linked.review, 'reviewer', 1),
+    (error) => error.code === 'APR_OUTPUT_COLLISION'
+  );
+  assert.equal(readFileSync(outside, 'utf8'), 'outside bytes');
+
+  const atomic = fixture();
+  t.after(atomic.cleanup);
+  const created = createResponseDraft(atomic.review, 'reviewer', 1);
+  assert.deepEqual(readdirSync(path.dirname(created.path)), [path.basename(created.path)]);
 });
 
 test('only the event-authorized role may create or resume an unsealed draft', (t) => {
