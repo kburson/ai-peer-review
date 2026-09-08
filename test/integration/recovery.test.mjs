@@ -1,9 +1,14 @@
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { canonicalProjection, mutateReview, readReview } from '../../src/protocol/service.mjs';
+import {
+  canonicalProjection,
+  mutateReview,
+  readReview,
+  writeDeliveryReceiptExclusive,
+} from '../../src/protocol/service.mjs';
 import { withReviewLock } from '../../src/protocol/store.mjs';
 import { event, reviewerTurnEvents, createReviewWorkspace } from '../helpers/review-fixture.mjs';
 
@@ -109,4 +114,24 @@ test('delivery events create idempotent receipts and refuse conflicts', async (t
     readReview(fixture.workspace),
     (error) => error.code === 'APR_DELIVERY_CONFLICT'
   );
+});
+
+test('exclusive receipt creation refuses a race collision without overwriting it', async (t) => {
+  const fixture = await createReviewWorkspace({ repository: null, events: reviewerTurnEvents() });
+  t.after(fixture.cleanup);
+  const file = path.join(fixture.workspace, 'deliveries', 'delivery-race.json');
+  const collision = '{"winner":"other-writer"}\n';
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, collision, { flag: 'wx' });
+
+  assert.throws(
+    () =>
+      writeDeliveryReceiptExclusive(file, {
+        delivery_id: 'delivery-race',
+        recipient: 'reviewer',
+        digest: `sha256:${'f'.repeat(64)}`,
+      }),
+    (error) => error.code === 'APR_DELIVERY_CONFLICT'
+  );
+  assert.equal(readFileSync(file, 'utf8'), collision);
 });

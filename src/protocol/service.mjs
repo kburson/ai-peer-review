@@ -1,4 +1,15 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  linkSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
@@ -116,6 +127,60 @@ function deliveryReceiptFile(workspace, delivery) {
   return path.join(workspace, 'deliveries', `${delivery.delivery_id}.json`);
 }
 
+export function writeDeliveryReceiptExclusive(file, delivery) {
+  const expected = Buffer.from(canonicalProjection(delivery));
+  const directory = path.dirname(file);
+  mkdirSync(directory, { recursive: true });
+  const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
+  let descriptor = null;
+  try {
+    descriptor = openSync(temporary, 'wx', 0o600);
+    writeFileSync(descriptor, expected);
+    fsyncSync(descriptor);
+    closeSync(descriptor);
+    descriptor = null;
+    linkSync(temporary, file);
+    unlinkSync(temporary);
+    let directoryDescriptor = null;
+    try {
+      directoryDescriptor = openSync(directory, 'r');
+      fsyncSync(directoryDescriptor);
+    } catch (cause) {
+      const unsupported = new Set(['EINVAL', 'EISDIR', 'ENOTSUP', 'EOPNOTSUPP', 'EPERM']);
+      if (!unsupported.has(cause?.code)) throw cause;
+    } finally {
+      if (directoryDescriptor !== null) closeSync(directoryDescriptor);
+    }
+  } catch (cause) {
+    if (descriptor !== null) {
+      try {
+        closeSync(descriptor);
+      } catch {}
+    }
+    if (existsSync(temporary)) {
+      try {
+        unlinkSync(temporary);
+      } catch {}
+    }
+    if (cause?.code === 'EEXIST') {
+      throw authorityError(
+        'APR_DELIVERY_CONFLICT',
+        'A delivery receipt was created concurrently.',
+        `Preserve ${file}, inspect the collision, and run explicit recovery.`,
+        { file },
+        cause
+      );
+    }
+    throw authorityError(
+      'APR_DELIVERY_WRITE_FAILED',
+      'A delivery receipt could not be created durably.',
+      `Inspect ${directory} and retry recovery after correcting the filesystem failure.`,
+      { file },
+      cause
+    );
+  }
+}
+
 function ensureDeliveryReceipts(workspace, state, { write = true } = {}) {
   for (const delivery of state.protocol.deliveries) {
     const file = deliveryReceiptFile(workspace, delivery);
@@ -142,8 +207,7 @@ function ensureDeliveryReceipts(workspace, state, { write = true } = {}) {
         );
       }
     } else if (write) {
-      mkdirSync(path.dirname(file), { recursive: true });
-      atomicWrite(file, Buffer.from(expected));
+      writeDeliveryReceiptExclusive(file, delivery);
     }
   }
 }

@@ -64,6 +64,22 @@ function copy(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonical(value[key])])
+    );
+  }
+  return value;
+}
+
+function exactlyEqual(left, right) {
+  return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
+}
+
 function projectionError(detail) {
   return new AprError('APR_PROJECTION_DRIFT', `Event authority cannot be reduced: ${detail}.`, {
     recovery: 'Inspect events.jsonl and restore the exact contiguous authoritative event history.',
@@ -78,6 +94,17 @@ function transitionError(state, event, detail = null) {
     {
       recovery: 'Read the current review status and submit only its documented next action.',
       details: { state, type: event.type, ...(detail ? { detail } : {}) },
+    }
+  );
+}
+
+function deliveryConflict(event) {
+  return new AprError(
+    'APR_DELIVERY_CONFLICT',
+    `Delivery ID ${event.payload.delivery.delivery_id} already exists in event authority.`,
+    {
+      recovery: 'Create a delivery with a new collision-resistant delivery ID.',
+      details: { delivery_id: event.payload.delivery.delivery_id },
     }
   );
 }
@@ -170,11 +197,7 @@ function applyLifecycle(protocol, participants, event) {
       const oldClaim = event.payload.old_claim;
       const newClaim = event.payload.new_claim;
       const current = protocol.claims[newClaim.role];
-      if (
-        current?.claim_id === newClaim.claim_id &&
-        oldClaim.role === newClaim.role &&
-        oldClaim.session_fingerprint === newClaim.session_fingerprint
-      ) {
+      if (current && exactlyEqual(current, oldClaim) && exactlyEqual(current, newClaim)) {
         return protocol.state;
       }
     }
@@ -196,7 +219,10 @@ function applyLifecycle(protocol, participants, event) {
         throw transitionError(protocol.state, event, 'reclaim requires stale-claim intervention');
       }
       const { old_claim: oldClaim, new_claim: newClaim } = event.payload;
+      const currentClaim = protocol.claims[newClaim.role];
       if (
+        !currentClaim ||
+        !exactlyEqual(currentClaim, oldClaim) ||
         oldClaim.role !== newClaim.role ||
         oldClaim.session_fingerprint !== newClaim.session_fingerprint ||
         newClaim.role !== protocol.intervention.interrupted_state.replace(/-.+$/, '')
@@ -255,7 +281,7 @@ function applyProjection(state, event) {
     protocol.intervention = null;
   }
   if (event.type === 'participant-replaced') {
-    protocol.claims[event.payload.role] = copy(event.payload.outgoing_claim);
+    delete protocol.claims[event.payload.role];
     protocol.intervention = null;
   }
   if (event.type === 'turn-claimed') {
@@ -278,6 +304,13 @@ function applyProjection(state, event) {
     protocol.supplements.push(copy(event.payload.supplement));
   }
   if (event.type === 'delivery-written') {
+    if (
+      protocol.deliveries.some(
+        (delivery) => delivery.delivery_id === event.payload.delivery.delivery_id
+      )
+    ) {
+      throw deliveryConflict(event);
+    }
     protocol.deliveries.push(copy(event.payload.delivery));
   }
   if (event.type === 'delivery-acknowledged') {

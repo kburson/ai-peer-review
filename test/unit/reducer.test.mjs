@@ -5,6 +5,7 @@ import { LIFECYCLE_EVENT_TYPES, reduceEvents } from '../../src/protocol/reducer.
 import {
   acceptancePendingEvents,
   authorRevisionEvents,
+  claim,
   event,
   interventionEvents,
   reviewerTurnEvents,
@@ -132,16 +133,13 @@ test('recovery restores the immutable interrupted role and refuses a live challe
     revision: staleAuthor.at(-1).revision,
     payload: {
       intervention_id: 'intervention-stale-claim',
-      old_claim: {
-        claim_id: 'old',
-        role: 'author',
-        session_fingerprint: `sha256:${'a'.repeat(64)}`,
-      },
-      new_claim: {
-        claim_id: 'new',
-        role: 'author',
-        session_fingerprint: `sha256:${'a'.repeat(64)}`,
-      },
+      old_claim: claim('author'),
+      new_claim: claim('author', {
+        claimId: 'new',
+        claimedAt: '2026-09-08T12:01:00.000Z',
+        lastActivityAt: '2026-09-08T12:01:00.000Z',
+        expiresAt: '2026-09-08T20:01:00.000Z',
+      }),
     },
   });
   assert.equal(reduceEvents([...staleAuthor, reclaim]).protocol.state, 'author-revision');
@@ -156,5 +154,48 @@ test('recovery restores the immutable interrupted role and refuses a live challe
   assert.throws(
     () => reduceEvents([...challenged, { ...reclaim, sequence: reclaim.sequence + 1 }]),
     (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
+});
+
+test('outside intervention, reclaim is only an exact same-claim retry', () => {
+  const prefix = reviewerTurnEvents();
+  const currentClaim = claim('reviewer');
+  const claimed = event('turn-claimed', {
+    sequence: 3,
+    revision: 2,
+    payload: { claim: currentClaim },
+  });
+  const exactRetry = event('same-session-reclaim', {
+    sequence: 4,
+    revision: 2,
+    payload: {
+      intervention_id: 'idempotent-retry',
+      old_claim: currentClaim,
+      new_claim: currentClaim,
+    },
+  });
+  assert.equal(reduceEvents([...prefix, claimed, exactRetry]).protocol.state, 'reviewer-turn');
+
+  for (const payload of [
+    { ...exactRetry.payload, old_claim: claim('reviewer', { claimId: 'other' }) },
+    {
+      ...exactRetry.payload,
+      new_claim: claim('reviewer', { expiresAt: '2026-09-08T21:00:00.000Z' }),
+    },
+  ]) {
+    assert.throws(
+      () => reduceEvents([...prefix, claimed, { ...exactRetry, payload }]),
+      (error) => error.code === 'APR_INVALID_TRANSITION'
+    );
+  }
+});
+
+test('delivery IDs are unique authority keys', () => {
+  const prefix = reviewerTurnEvents();
+  const first = event('delivery-written', { sequence: 3, revision: 2 });
+  const duplicate = event('delivery-written', { sequence: 4, revision: 2 });
+  assert.throws(
+    () => reduceEvents([...prefix, first, duplicate]),
+    (error) => error.code === 'APR_DELIVERY_CONFLICT'
   );
 });

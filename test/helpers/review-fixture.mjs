@@ -26,9 +26,43 @@ export function participant(role, fingerprint = FINGERPRINTS[role]) {
   };
 }
 
+export function claim(
+  role,
+  {
+    claimId = `claim-${role}`,
+    fingerprint = FINGERPRINTS[role],
+    claimedAt = '2026-09-08T12:00:00.000Z',
+    lastActivityAt = '2026-09-08T12:00:00.000Z',
+    expiresAt = '2026-09-08T20:00:00.000Z',
+    pid = 12345,
+  } = {}
+) {
+  return {
+    claim_id: claimId,
+    role,
+    session_fingerprint: fingerprint,
+    host: 'codex',
+    claimed_at: claimedAt,
+    last_activity_at: lastActivityAt,
+    expires_at: expiresAt,
+    pid,
+  };
+}
+
+export function attestation() {
+  return {
+    source: 'test-fixture',
+    strength: 'unverified-test',
+    signer_id: 'human:test',
+    signer_fingerprint: `sha256:${'d'.repeat(64)}`,
+    challenge_digest: `sha256:${'e'.repeat(64)}`,
+    verified_at: '2026-09-08T12:00:00.000Z',
+  };
+}
+
 const payloads = {
   'review-created': () => ({
-    commit_mode: 'commit',
+    commit_mode: 'normal',
     max_turns: 2,
     artifact: {
       path: 'docs/artifact.md',
@@ -91,42 +125,35 @@ const payloads = {
     intervention_id: 'intervention-budget',
     additional_turns: 1,
     effective_max_turns: 3,
-    attestation: { signer_id: 'human:test' },
+    attestation: attestation(),
   }),
   'continued-to-author': () => ({
     intervention_id: 'intervention-budget',
     additional_turns: 1,
     effective_max_turns: 3,
-    attestation: { signer_id: 'human:test' },
+    attestation: attestation(),
   }),
   'same-session-reclaim': () => ({
     intervention_id: 'intervention-stale',
-    old_claim: {
-      claim_id: 'claim-old',
-      role: 'reviewer',
-      session_fingerprint: FINGERPRINTS.reviewer,
-    },
-    new_claim: {
-      claim_id: 'claim-new',
-      role: 'reviewer',
-      session_fingerprint: FINGERPRINTS.reviewer,
-    },
+    old_claim: claim('reviewer'),
+    new_claim: claim('reviewer', {
+      claimId: 'claim-new',
+      claimedAt: '2026-09-08T12:01:00.000Z',
+      lastActivityAt: '2026-09-08T12:01:00.000Z',
+      expiresAt: '2026-09-08T20:01:00.000Z',
+    }),
   }),
   'participant-replaced': () => ({
     intervention_id: 'intervention-loss',
     role: 'reviewer',
-    outgoing_claim: {
-      claim_id: 'claim-old',
-      role: 'reviewer',
-      session_fingerprint: FINGERPRINTS.reviewer,
-    },
+    outgoing_claim: claim('reviewer'),
     incoming_participant: participant('reviewer', FINGERPRINTS.replacement),
-    attestation: { signer_id: 'human:test' },
+    attestation: attestation(),
   }),
   'override-committed': () => ({
     intervention_id: 'intervention-budget',
     terminal: { commit: 'a'.repeat(40), manifest_digest: `sha256:${'b'.repeat(64)}` },
-    attestation: { signer_id: 'human:test' },
+    attestation: attestation(),
   }),
   'override-sealed-no-commit': () => ({
     intervention_id: 'intervention-budget',
@@ -134,7 +161,7 @@ const payloads = {
       snapshot_digest: `sha256:${'c'.repeat(64)}`,
       manifest_digest: `sha256:${'d'.repeat(64)}`,
     },
-    attestation: { signer_id: 'human:test' },
+    attestation: attestation(),
   }),
   abandoned: () => ({
     intervention_id: 'intervention-budget',
@@ -142,19 +169,32 @@ const payloads = {
     retained_paths: [],
   }),
   'turn-claimed': () => ({
-    claim: {
-      claim_id: 'claim-reviewer',
-      role: 'reviewer',
-      session_fingerprint: FINGERPRINTS.reviewer,
-    },
+    claim: claim('reviewer'),
   }),
   'identity-changed': () => ({ role: 'reviewer', identity: participant('reviewer') }),
   'challenge-requested': () => ({
-    challenge: { challenge_id: 'challenge-1', expires_at: '2026-09-09T12:00:00.000Z' },
+    challenge: {
+      schema: 'ai-peer-review.grant-challenge/v1',
+      challenge_id: 'challenge-1',
+      review_id: 'review-01',
+      intervention_id: 'intervention-stale-claim',
+      protocol_revision: 3,
+      action: 'continue',
+      parameters_digest: `sha256:${'c'.repeat(64)}`,
+      nonce: 'nonce-1',
+      expires_at: '2026-09-09T12:00:00.000Z',
+    },
   }),
   'challenge-superseded': () => ({ challenge_id: 'challenge-1' }),
   'supplement-registered': () => ({
-    supplement: { supplement_id: 'supplement-1', digest: `sha256:${'e'.repeat(64)}` },
+    supplement: {
+      supplement_id: 'supplement-1',
+      digest: `sha256:${'e'.repeat(64)}`,
+      target_role: 'reviewer',
+      target_turn: 2,
+      content_retention: 'scratch-only',
+      attestation: attestation(),
+    },
   }),
   'delivery-written': () => ({
     delivery: {
@@ -209,11 +249,18 @@ export const acceptancePendingEvents = () =>
 export const interventionEvents = (reason, interruptedState = 'reviewer-turn') => {
   const prefix =
     interruptedState === 'author-revision' ? authorRevisionEvents() : reviewerTurnEvents();
-  let revision = prefix.at(-1).revision;
+  const role = interruptedState === 'author-revision' ? 'author' : 'reviewer';
+  const claimed = event('turn-claimed', {
+    sequence: prefix.length + 1,
+    revision: prefix.at(-1).revision,
+    payload: { claim: claim(role) },
+  });
+  let revision = claimed.revision;
   return [
     ...prefix,
+    claimed,
     event('intervention-entered', {
-      sequence: prefix.length + 1,
+      sequence: prefix.length + 2,
       revision: ++revision,
       payload: {
         intervention_id: `intervention-${reason}`,

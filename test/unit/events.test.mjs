@@ -17,6 +17,18 @@ test('schema artifacts identify the three closed v1 projections', () => {
   }
 });
 
+test('event schema closes every event payload and nested object contract', () => {
+  const schema = JSON.parse(readFileSync(new URL('../../schemas/event-v1.json', import.meta.url)));
+  const schemaTypes = schema.oneOf.map((branch) => branch.properties.type.const);
+  assert.deepEqual(schemaTypes.sort(), [...EVENT_TYPES].sort());
+  assert.equal(schema.properties.actor.anyOf[1].$ref, '#/$defs/digest');
+  for (const [name, definition] of Object.entries(schema.$defs)) {
+    if (definition.type === 'object') {
+      assert.equal(definition.additionalProperties, false, name);
+    }
+  }
+});
+
 test('accepts every closed event type with its canonical payload', () => {
   for (const type of EVENT_TYPES) assert.equal(validateEvent(event(type)), true, type);
 });
@@ -46,6 +58,34 @@ test('rejects malformed envelope identifiers, integers, actors, and times', () =
   ]) {
     assert.throws(
       () => validateEvent({ ...valid, ...patch }),
+      (error) => error.code === 'APR_EVENT_INVALID'
+    );
+  }
+});
+
+test('rejects malformed nested payload values with one stable error code', () => {
+  const cases = [
+    event('review-created', { payload: { max_turns: 'unbounded' } }),
+    event('reviewer-accepted', { payload: { turn: Number.MAX_SAFE_INTEGER + 1 } }),
+    event('turn-claimed', { payload: { claim: null } }),
+    event('turn-claimed', {
+      payload: { claim: { ...event('turn-claimed').payload.claim, unexpected: true } },
+    }),
+    event('reviewer-joined', {
+      payload: {
+        reviewer: { ...event('reviewer-joined').payload.reviewer, identity_source: 'guessed' },
+      },
+    }),
+    event('delivery-written', {
+      payload: {
+        delivery: { delivery_id: '../escape', recipient: 'reviewer', digest: 'not-a-digest' },
+      },
+    }),
+  ];
+
+  for (const invalid of cases) {
+    assert.throws(
+      () => validateEvent(invalid),
       (error) => error.code === 'APR_EVENT_INVALID'
     );
   }
