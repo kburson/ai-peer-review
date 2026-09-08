@@ -64,6 +64,7 @@ const payloads = {
   'review-created': () => ({
     commit_mode: 'normal',
     max_turns: 2,
+    claim_ttl_ms: 8 * 60 * 60 * 1000,
     artifact: {
       path: 'docs/artifact.md',
       head: '1'.repeat(40),
@@ -221,15 +222,25 @@ export function event(
   { sequence = 1, revision, reviewId = 'review-01', actor, payload = {} } = {}
 ) {
   const effectiveRevision = revision ?? (REVISION_NEUTRAL_TYPES.has(type) ? 0 : 1);
+  const effectivePayload = { ...payloads[type]?.(), ...payload };
+  const effectiveActor =
+    actor ??
+    (type === 'review-created'
+      ? 'system'
+      : type === 'turn-claimed'
+        ? (effectivePayload.claim?.session_fingerprint ?? FINGERPRINTS.author)
+        : type === 'identity-changed'
+          ? (effectivePayload.identity?.session_fingerprint ?? FINGERPRINTS.author)
+          : FINGERPRINTS.author);
   return {
     schema: 'ai-peer-review.event/v1',
     review_id: reviewId,
     sequence,
     revision: effectiveRevision,
     type,
-    actor: actor ?? (type === 'review-created' ? 'system' : FINGERPRINTS.author),
+    actor: effectiveActor,
     at: new Date(Date.UTC(2026, 8, 8, 12, 0, sequence)).toISOString(),
-    payload: { ...payloads[type]?.(), ...payload },
+    payload: effectivePayload,
   };
 }
 

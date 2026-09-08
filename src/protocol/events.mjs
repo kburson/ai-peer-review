@@ -3,7 +3,7 @@ import { AprError } from '../errors.mjs';
 const definitions = {
   'review-created': {
     advancesRevision: true,
-    fields: ['commit_mode', 'max_turns', 'artifact', 'author'],
+    fields: ['commit_mode', 'max_turns', 'claim_ttl_ms', 'artifact', 'author'],
   },
   'reviewer-joined': { advancesRevision: true, fields: ['reviewer'] },
   'reviewer-revisions-requested': {
@@ -358,6 +358,10 @@ function validatePayload(type, payload) {
     case 'review-created':
       assertEnum(payload.commit_mode, ['normal', 'no-commit'], 'review-created commit_mode');
       assertPositiveInteger(payload.max_turns, 'review-created max_turns');
+      assertPositiveInteger(payload.claim_ttl_ms, 'review-created claim_ttl_ms');
+      if (payload.claim_ttl_ms % (60 * 60 * 1000) !== 0) {
+        throw invalid('review-created claim_ttl_ms whole hours');
+      }
       validateArtifact(payload.artifact, 'review-created artifact', { initial: true });
       validateParticipant(payload.author, 'review-created author');
       if (payload.author.role !== 'author') throw invalid('review-created author role');

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import { AprError } from '../errors.mjs';
 import { validateEvent } from '../protocol/events.mjs';
+import { mutateReview } from '../protocol/service.mjs';
 import { claudeAdapter } from './claude.mjs';
 import { codexAdapter } from './codex.mjs';
 import { genericAdapter } from './generic.mjs';
@@ -332,6 +333,12 @@ export function enterStaleClaimIntervention(review, role, now = new Date()) {
       interrupted_state: interruptedState,
     },
     1
+  );
+}
+
+export async function recordStaleClaimIntervention(workspace, expected, role, now = new Date()) {
+  return mutateReview(workspace, expected, (current) =>
+    enterStaleClaimIntervention(current, role, now)
   );
 }
 

@@ -5,11 +5,15 @@ import {
   claimRole,
   deriveClaimStatus,
   enterStaleClaimIntervention,
+  recordStaleClaimIntervention,
   reclaimRole,
 } from '../../src/identity/registry.mjs';
 import { parseCommand } from '../../src/cli/parse.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
+import { readReview } from '../../src/protocol/service.mjs';
 import {
+  claim,
+  createReviewWorkspace,
   event,
   FINGERPRINTS,
   participant,
@@ -98,6 +102,49 @@ test('claim authority must match the current actor and registered participant', 
   );
 });
 
+test('event authority rejects non-current, unregistered, and occupied claims', () => {
+  const prefix = reviewerTurnEvents();
+  const authorClaim = event('turn-claimed', {
+    sequence: 3,
+    revision: 2,
+    payload: { claim: claim('author') },
+  });
+  assert.throws(
+    () => reduceEvents([...prefix, authorClaim]),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
+
+  const reviewerClaim = event('turn-claimed', {
+    sequence: 3,
+    revision: 2,
+    actor: FINGERPRINTS.reviewer,
+    payload: { claim: claim('reviewer') },
+  });
+  const overwrite = event('turn-claimed', {
+    sequence: 4,
+    revision: 2,
+    actor: FINGERPRINTS.reviewer,
+    payload: { claim: claim('reviewer', { claimId: 'claim-overwrite' }) },
+  });
+  assert.throws(
+    () => reduceEvents([...prefix, reviewerClaim, overwrite]),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
+});
+
+test('startup-fixed claim TTL survives event reduction and reload', () => {
+  const created = event('review-created', {
+    payload: { claim_ttl_ms: 60 * 60 * 1000 },
+  });
+  const joined = event('reviewer-joined', { sequence: 2, revision: 2 });
+  const serialized = JSON.parse(JSON.stringify(reduceEvents([created, joined])));
+  assert.equal(serialized.protocol.claim_ttl_ms, 60 * 60 * 1000);
+  assert.equal(
+    claimRole(serialized, serialized.participants.reviewer, now).payload.claim.expires_at,
+    '2026-09-08T13:00:00.000Z'
+  );
+});
+
 test('stale status is derived without mutation or PID liveness probing', () => {
   const review = reviewWithIdentity();
   const claimed = claimRole(review, participant('reviewer'), now);
@@ -138,6 +185,45 @@ test('same-session reclaim restores stale intervention without advancing revisio
   assert.equal(reclaim.payload.old_claim.claim_id, claimed.payload.claim.claim_id);
   assert.notEqual(reclaim.payload.new_claim.claim_id, claimed.payload.claim.claim_id);
   assert.equal(recovered.protocol.state, 'reviewer-turn');
+});
+
+test('stale intervention is revalidated and appended inside the review lock', async (t) => {
+  const base = reviewerTurnEvents();
+  const claimed = event('turn-claimed', {
+    sequence: 3,
+    revision: 2,
+    actor: FINGERPRINTS.reviewer,
+    payload: { claim: claim('reviewer') },
+  });
+  const fixture = await createReviewWorkspace({ repository: null, events: [...base, claimed] });
+  t.after(fixture.cleanup);
+  const expected = {
+    reviewId: 'review-01',
+    revision: 2,
+    sequence: 3,
+    actor: 'reviewer',
+  };
+  const before = fixture.readEvents();
+  await assert.rejects(
+    recordStaleClaimIntervention(
+      fixture.workspace,
+      expected,
+      'reviewer',
+      new Date('2026-09-08T19:59:59Z')
+    ),
+    (error) => error.code === 'APR_CLAIM_NOT_STALE'
+  );
+  assert.equal(fixture.readEvents(), before);
+
+  const recovered = await recordStaleClaimIntervention(
+    fixture.workspace,
+    expected,
+    'reviewer',
+    new Date('2026-09-08T20:00:00Z')
+  );
+  assert.equal(recovered.protocol.state, 'intervention-required');
+  assert.equal(recovered.protocol.intervention.reason, 'stale-claim');
+  assert.equal((await readReview(fixture.workspace)).protocol.sequence, 4);
 });
 
 test('reclaim refuses a different fingerprint and an unexpired authority challenge', () => {

@@ -365,10 +365,16 @@
     "reviewCreated": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["commit_mode", "max_turns", "artifact", "author"],
+      "required": ["commit_mode", "max_turns", "claim_ttl_ms", "artifact", "author"],
       "properties": {
         "commit_mode": { "enum": ["normal", "no-commit"] },
         "max_turns": { "$ref": "#/$defs/positive" },
+        "claim_ttl_ms": {
+          "type": "integer",
+          "minimum": 3600000,
+          "maximum": 9007199254740991,
+          "multipleOf": 3600000
+        },
         "artifact": { "$ref": "#/$defs/initialArtifact" },
         "author": { "$ref": "#/$defs/participant" }
       }

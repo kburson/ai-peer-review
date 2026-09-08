@@ -120,6 +120,7 @@ function initialProjection() {
       current_actor: null,
       commit_mode: null,
       max_turns: 0,
+      claim_ttl_ms: 0,
       turns_used: 0,
       artifact: null,
       claims: {},
@@ -248,6 +249,40 @@ function applyProjection(state, event) {
   const protocol = state.protocol;
   const participants = state.participants;
   if (STATE_PRESERVING.has(event.type)) ensureStatePreservingAllowed(protocol, event);
+
+  if (
+    event.type === 'reviewer-joined' &&
+    participants.author?.session_fingerprint === event.payload.reviewer.session_fingerprint
+  ) {
+    throw transitionError(protocol.state, event, 'participants must use distinct sessions');
+  }
+  if (event.type === 'identity-changed') {
+    const current = participants[event.payload.role];
+    if (
+      !current ||
+      current.session_fingerprint !== event.payload.identity.session_fingerprint ||
+      event.actor !== current.session_fingerprint
+    ) {
+      throw transitionError(protocol.state, event, 'identity change must retain session authority');
+    }
+  }
+  if (event.type === 'turn-claimed') {
+    const claim = event.payload.claim;
+    const participant = participants[claim.role];
+    if (
+      claim.role !== protocol.current_actor ||
+      !participant ||
+      claim.session_fingerprint !== participant.session_fingerprint ||
+      event.actor !== claim.session_fingerprint ||
+      protocol.claims[claim.role]
+    ) {
+      throw transitionError(
+        protocol.state,
+        event,
+        'claim does not match unoccupied turn authority'
+      );
+    }
+  }
   const lifecycle = applyLifecycle(protocol, participants, event);
 
   if (event.type === 'review-created') {
@@ -255,6 +290,7 @@ function applyProjection(state, event) {
     participants.review_id = event.review_id;
     protocol.commit_mode = event.payload.commit_mode;
     protocol.max_turns = event.payload.max_turns;
+    protocol.claim_ttl_ms = event.payload.claim_ttl_ms;
     protocol.artifact = copy(event.payload.artifact);
     participants.author = copy(event.payload.author);
   } else if (event.type === 'reviewer-joined') {

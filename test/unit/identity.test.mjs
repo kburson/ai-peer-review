@@ -12,6 +12,13 @@ import { codexAdapter } from '../../src/identity/codex.mjs';
 import { claudeAdapter } from '../../src/identity/claude.mjs';
 import { grokAdapter } from '../../src/identity/grok.mjs';
 import { genericAdapter } from '../../src/identity/generic.mjs';
+import { reduceEvents } from '../../src/protocol/reducer.mjs';
+import {
+  event,
+  FINGERPRINTS,
+  participant,
+  reviewerTurnEvents,
+} from '../helpers/review-fixture.mjs';
 
 const joinedAt = '2026-09-08T12:00:00.000Z';
 
@@ -161,4 +168,31 @@ test('participantIdentity returns a closed Task 4-compatible participant', () =>
     'session_fingerprint',
   ]);
   assert.equal(Object.isFrozen(identity), true);
+});
+
+test('event authority rejects duplicate participants and fingerprint-changing refreshes', () => {
+  const created = event('review-created');
+  const duplicate = event('reviewer-joined', {
+    sequence: 2,
+    revision: 2,
+    payload: { reviewer: participant('reviewer', FINGERPRINTS.author) },
+  });
+  assert.throws(
+    () => reduceEvents([created, duplicate]),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
+
+  const replacement = event('identity-changed', {
+    sequence: 3,
+    revision: 2,
+    actor: FINGERPRINTS.replacement,
+    payload: {
+      role: 'reviewer',
+      identity: participant('reviewer', FINGERPRINTS.replacement),
+    },
+  });
+  assert.throws(
+    () => reduceEvents([...reviewerTurnEvents(), replacement]),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
 });
