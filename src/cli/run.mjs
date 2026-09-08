@@ -414,6 +414,24 @@ export async function joinReview(input, deps = {}) {
   if (state.protocol.state === 'reviewer-turn') {
     const registered = state.participants.reviewer;
     const claim = state.protocol.claims.reviewer;
+    if (sameParticipant(registered, input.identity) && !claim) {
+      const claimed = await mutateReview(values.workspace, expected(state), (current) =>
+        claimRole(current, registered, input.now ?? new Date())
+      );
+      const draft = createResponseDraft({ ...claimed, paths }, 'reviewer', 1);
+      return result(
+        'join',
+        claimed,
+        { workspace: values.workspace, response: draft.path },
+        {
+          claim: {
+            role: claimed.protocol.claims.reviewer.role,
+            host: claimed.protocol.claims.reviewer.host,
+            expires_at: claimed.protocol.claims.reviewer.expires_at,
+          },
+        }
+      );
+    }
     if (
       sameParticipant(registered, input.identity) &&
       claim?.session_fingerprint === input.identity.session_fingerprint

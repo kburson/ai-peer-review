@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import { joinReview, startReview } from '../../src/cli/run.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
+import { inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
 
@@ -171,5 +172,49 @@ test('join binds the same physical worktree and a distinct reviewer before draft
     now: '2026-09-08T13:00:00.000Z',
   });
   assert.equal(retried.paths.response, joined.paths.response);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
+});
+
+test('join resumes an identical registration interrupted before its claim event', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'plan',
+    identity: identity('author', 'author-session'),
+    reviewId: 'review-interrupted-join',
+    now: NOW,
+  });
+  const reviewer = identity('reviewer', 'reviewer-session');
+  const initial = inspectReview(started.paths.workspace);
+  await mutateReview(
+    started.paths.workspace,
+    {
+      reviewId: initial.protocol.review_id,
+      revision: initial.protocol.revision,
+      sequence: initial.protocol.sequence,
+      actor: initial.protocol.current_actor,
+    },
+    () => ({
+      schema: 'ai-peer-review.event/v1',
+      review_id: initial.protocol.review_id,
+      sequence: 2,
+      revision: 2,
+      type: 'reviewer-joined',
+      actor: reviewer.session_fingerprint,
+      at: NOW,
+      payload: { reviewer },
+    })
+  );
+
+  const joined = await joinReview({
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: NOW,
+  });
+  assert.equal(joined.state, 'reviewer-turn');
+  assert.equal(joined.review.claim.role, 'reviewer');
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 });
