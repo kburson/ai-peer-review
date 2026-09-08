@@ -23,10 +23,14 @@ import {
 const now = new Date('2026-09-08T12:00:00.000Z');
 
 function reviewWithIdentity({ claimTtlMs } = {}) {
-  return {
-    ...reduceEvents(reviewerTurnEvents()),
-    ...(claimTtlMs === undefined ? {} : { claimTtlMs }),
-  };
+  const events = reviewerTurnEvents();
+  if (claimTtlMs !== undefined) {
+    events[0] = {
+      ...events[0],
+      payload: { ...events[0].payload, claim_ttl_ms: claimTtlMs },
+    };
+  }
+  return reduceEvents(events);
 }
 
 test('claims record random authority, diagnostic PID, and default eight-hour expiry', () => {
@@ -83,11 +87,21 @@ test('claim TTL accepts exact hour durations and rejects unsafe internal values'
     '2026-09-08T13:00:00.000Z'
   );
   for (const claimTtlMs of [0, -1, 1.5, Number.MAX_SAFE_INTEGER]) {
+    const base = reviewWithIdentity();
+    const review = { ...base, protocol: { ...base.protocol, claim_ttl_ms: claimTtlMs } };
     assert.throws(
-      () => claimRole(reviewWithIdentity({ claimTtlMs }), identity, now),
+      () => claimRole(review, identity, now),
       (error) => error.code === 'APR_CLAIM_INVALID'
     );
   }
+});
+
+test('ad-hoc wrapper data cannot override the startup-fixed claim TTL', () => {
+  const review = { ...reviewWithIdentity(), claimTtlMs: 60 * 60 * 1000 };
+  assert.equal(
+    claimRole(review, participant('reviewer'), now).payload.claim.expires_at,
+    '2026-09-08T20:00:00.000Z'
+  );
 });
 
 test('claim authority must match the current actor and registered participant', () => {

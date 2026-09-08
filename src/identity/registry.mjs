@@ -71,8 +71,7 @@ function claimTtl(review, fallbackClaim = null) {
   const inferred = fallbackClaim
     ? Date.parse(fallbackClaim.expires_at) - Date.parse(fallbackClaim.claimed_at)
     : null;
-  const value =
-    review?.claimTtlMs ?? protocolOf(review).claim_ttl_ms ?? inferred ?? DEFAULT_CLAIM_TTL_MS;
+  const value = protocolOf(review).claim_ttl_ms ?? inferred ?? DEFAULT_CLAIM_TTL_MS;
   if (!Number.isSafeInteger(value) || value <= 0 || value % HOUR_MS !== 0) {
     fail(
       'APR_CLAIM_INVALID',
