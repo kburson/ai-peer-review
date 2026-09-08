@@ -316,7 +316,9 @@
         "schema": { "const": "ai-peer-review.grant-challenge/v1" },
         "challenge_id": { "$ref": "#/$defs/id" },
         "review_id": { "$ref": "#/$defs/id" },
-        "intervention_id": { "$ref": "#/$defs/id" },
+        "intervention_id": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }]
+        },
         "protocol_revision": { "$ref": "#/$defs/nonNegative" },
         "action": {
           "enum": [
@@ -328,7 +330,7 @@
           ]
         },
         "parameters_digest": { "$ref": "#/$defs/digest" },
-        "nonce": { "$ref": "#/$defs/id" },
+        "nonce": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
         "expires_at": { "$ref": "#/$defs/time" }
       }
     },
@@ -365,7 +367,7 @@
     "reviewCreated": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["commit_mode", "max_turns", "claim_ttl_ms", "artifact", "author"],
+      "required": ["commit_mode", "max_turns", "claim_ttl_ms", "authority", "artifact", "author"],
       "properties": {
         "commit_mode": { "enum": ["normal", "no-commit"] },
         "max_turns": { "$ref": "#/$defs/positive" },
@@ -375,8 +377,49 @@
           "maximum": 9007199254740991,
           "multipleOf": 3600000
         },
+        "authority": { "$ref": "#/$defs/authority" },
         "artifact": { "$ref": "#/$defs/initialArtifact" },
         "author": { "$ref": "#/$defs/participant" }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_policy", "challenge_ttl_ms", "verifier"],
+      "properties": {
+        "authority_policy": {
+          "enum": ["prevention-required", "detection-allowed", "unavailable"]
+        },
+        "challenge_ttl_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "verifier": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "verifier_id",
+                "verifier_fingerprint",
+                "public_key",
+                "assurance_grade"
+              ],
+              "properties": {
+                "kind": { "enum": ["ed25519", "host"] },
+                "verifier_id": { "type": "string", "minLength": 1 },
+                "verifier_fingerprint": { "$ref": "#/$defs/digest" },
+                "public_key": { "type": ["string", "null"] },
+                "assurance_grade": {
+                  "enum": ["hardened", "mutable-local", "test-fixture"]
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "reviewerJoined": {

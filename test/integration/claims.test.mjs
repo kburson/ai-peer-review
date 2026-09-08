@@ -241,9 +241,27 @@ test('stale intervention is revalidated and appended inside the review lock', as
 });
 
 test('reclaim refuses a different fingerprint and an unexpired authority challenge', () => {
-  const base = reviewWithIdentity();
+  const claimedEvents = reviewerTurnEvents();
+  claimedEvents[0] = {
+    ...claimedEvents[0],
+    payload: {
+      ...claimedEvents[0].payload,
+      authority: {
+        authority_policy: 'detection-allowed',
+        challenge_ttl_ms: 15 * 60 * 1000,
+        verifier: {
+          kind: 'ed25519',
+          verifier_id: 'human:key:test',
+          verifier_fingerprint: `sha256:${'d'.repeat(64)}`,
+          public_key: 'fixture-public-key',
+          assurance_grade: 'mutable-local',
+        },
+      },
+    },
+  };
+  const base = reduceEvents(claimedEvents);
   const claimed = claimRole(base, participant('reviewer'), now);
-  const claimedEvents = [...reviewerTurnEvents(), claimed];
+  claimedEvents.push(claimed);
   const intervention = enterStaleClaimIntervention(
     reduceEvents(claimedEvents),
     'reviewer',

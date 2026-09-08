@@ -1,4 +1,9 @@
+import path from 'node:path';
+
+import { canonicalChallengeBytes } from '../authority/canonicalize.mjs';
+import { requestGrant } from '../authority/challenge.mjs';
 import { AprError } from '../errors.mjs';
+import { resolveIdentity } from '../identity/registry.mjs';
 import { COMMANDS, parseCommand } from './parse.mjs';
 
 function helpText(topic) {
@@ -17,6 +22,33 @@ export async function run(argv, io) {
     const parsed = parseCommand(argv);
     if (parsed.command === 'help') {
       io.stdout.write(helpText(parsed.args.join(' ')));
+      return 0;
+    }
+    if (parsed.command === 'request-grant') {
+      const workspace = path.isAbsolute(parsed.args[0])
+        ? parsed.args[0]
+        : path.resolve(io.cwd, parsed.args[0]);
+      const requesterFingerprint =
+        io.requesterFingerprint ??
+        resolveIdentity({
+          role: 'author',
+          env: io.env,
+          ...(io.identityContext ?? {}),
+        }).session_fingerprint;
+      const challenge = await requestGrant(
+        workspace,
+        parsed.options.action,
+        parsed.options.parameters,
+        {
+          requesterFingerprint,
+          now: io.now ?? new Date(),
+        }
+      );
+      writeJson(io.stdout, {
+        schema: 'ai-peer-review.request-grant-result/v1',
+        challenge,
+        canonical_challenge: canonicalChallengeBytes(challenge).toString('base64'),
+      });
       return 0;
     }
     throw new AprError('APR_NOT_IMPLEMENTED', `${parsed.command} is not implemented yet`, {

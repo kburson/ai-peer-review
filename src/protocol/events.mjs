@@ -3,7 +3,7 @@ import { AprError } from '../errors.mjs';
 const definitions = {
   'review-created': {
     advancesRevision: true,
-    fields: ['commit_mode', 'max_turns', 'claim_ttl_ms', 'artifact', 'author'],
+    fields: ['commit_mode', 'max_turns', 'claim_ttl_ms', 'authority', 'artifact', 'author'],
   },
   'reviewer-joined': { advancesRevision: true, fields: ['reviewer'] },
   'reviewer-revisions-requested': {
@@ -311,6 +311,38 @@ function validateAttestation(value, label) {
   assertTimestamp(value.verified_at, `${label} verified_at`);
 }
 
+function validateAuthority(value, label) {
+  exactKeys(value, ['authority_policy', 'challenge_ttl_ms', 'verifier'], label);
+  assertEnum(
+    value.authority_policy,
+    ['prevention-required', 'detection-allowed', 'unavailable'],
+    `${label} authority_policy`
+  );
+  assertPositiveInteger(value.challenge_ttl_ms, `${label} challenge_ttl_ms`);
+  if (value.authority_policy === 'unavailable') {
+    if (value.verifier !== null) throw invalid(`${label} unavailable verifier`);
+    return;
+  }
+  exactKeys(
+    value.verifier,
+    ['kind', 'verifier_id', 'verifier_fingerprint', 'public_key', 'assurance_grade'],
+    `${label} verifier`
+  );
+  assertEnum(value.verifier.kind, ['ed25519', 'host'], `${label} verifier kind`);
+  assertString(value.verifier.verifier_id, `${label} verifier_id`);
+  assertDigest(value.verifier.verifier_fingerprint, `${label} verifier_fingerprint`);
+  assertEnum(
+    value.verifier.assurance_grade,
+    ['hardened', 'mutable-local', 'test-fixture'],
+    `${label} assurance_grade`
+  );
+  if (value.verifier.kind === 'ed25519') {
+    assertString(value.verifier.public_key, `${label} public_key`);
+  } else if (value.verifier.public_key !== null) {
+    throw invalid(`${label} host public_key`);
+  }
+}
+
 function validateTerminal(value, label, { committed }) {
   exactKeys(
     value,
@@ -341,7 +373,9 @@ function validateChallenge(value, label) {
   if (value.schema !== 'ai-peer-review.grant-challenge/v1') throw invalid(`${label} schema`);
   assertIdentifier(value.challenge_id, `${label} challenge_id`);
   assertIdentifier(value.review_id, `${label} review_id`);
-  assertIdentifier(value.intervention_id, `${label} intervention_id`);
+  if (value.intervention_id !== null) {
+    assertIdentifier(value.intervention_id, `${label} intervention_id`);
+  }
   assertNonNegativeInteger(value.protocol_revision, `${label} protocol_revision`);
   assertEnum(
     value.action,
@@ -349,7 +383,9 @@ function validateChallenge(value, label) {
     `${label} action`
   );
   assertDigest(value.parameters_digest, `${label} parameters_digest`);
-  assertIdentifier(value.nonce, `${label} nonce`);
+  if (typeof value.nonce !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value.nonce)) {
+    throw invalid(`${label} nonce`);
+  }
   assertTimestamp(value.expires_at, `${label} expires_at`);
 }
 
@@ -362,6 +398,7 @@ function validatePayload(type, payload) {
       if (payload.claim_ttl_ms % (60 * 60 * 1000) !== 0) {
         throw invalid('review-created claim_ttl_ms whole hours');
       }
+      validateAuthority(payload.authority, 'review-created authority');
       validateArtifact(payload.artifact, 'review-created artifact', { initial: true });
       validateParticipant(payload.author, 'review-created author');
       if (payload.author.role !== 'author') throw invalid('review-created author role');
@@ -460,6 +497,13 @@ function validatePayload(type, payload) {
       break;
     case 'challenge-requested':
       validateChallenge(payload.challenge, `${type} challenge`);
+      if (
+        payload.challenge.action === 'pin-verifier'
+          ? payload.challenge.intervention_id !== null
+          : payload.challenge.intervention_id === null
+      ) {
+        throw invalid(`${type} intervention binding`);
+      }
       break;
     case 'challenge-superseded':
     case 'delivery-acknowledged':

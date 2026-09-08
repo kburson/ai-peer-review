@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.human-decision/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "review_id",
+    "decision",
+    "artifact_path",
+    "artifact_commit",
+    "artifact_blob",
+    "artifact_digest",
+    "unresolved_findings",
+    "human_attestation",
+    "decided_at"
+  ],
+  "properties": {
+    "schema": { "const": "ai-peer-review.human-decision/v1" },
+    "review_id": { "type": "string", "minLength": 1 },
+    "decision": { "const": "accepted-over-objections" },
+    "artifact_path": { "type": "string", "minLength": 1 },
+    "artifact_commit": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" }
+      ]
+    },
+    "artifact_blob": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" }
+      ]
+    },
+    "artifact_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "unresolved_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["reviewer_response_path", "reviewer_response_digest", "finding_ids"],
+        "properties": {
+          "reviewer_response_path": { "type": "string", "minLength": 1 },
+          "reviewer_response_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "finding_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "human_attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "strength",
+        "signer_id",
+        "signer_fingerprint",
+        "challenge_digest",
+        "verified_at"
+      ],
+      "properties": {
+        "source": { "enum": ["detached-signature", "host-approval", "test-fixture"] },
+        "strength": {
+          "enum": [
+            "cryptographic-external",
+            "hardware-presence",
+            "host-verified",
+            "cryptographic-local",
+            "unverified-test"
+          ]
+        },
+        "signer_id": { "type": "string", "minLength": 1 },
+        "signer_fingerprint": { "type": "string", "minLength": 1 },
+        "challenge_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "verified_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "decided_at": { "type": "string", "format": "date-time" }
+  }
+}

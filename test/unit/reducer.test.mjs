@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { digestChallenge } from '../../src/authority/canonicalize.mjs';
 import { LIFECYCLE_EVENT_TYPES, reduceEvents } from '../../src/protocol/reducer.mjs';
 import {
   acceptancePendingEvents,
   authorRevisionEvents,
   claim,
   event,
+  FINGERPRINTS,
   interventionEvents,
   reviewerTurnEvents,
   REVISION_NEUTRAL_TYPES,
@@ -46,6 +48,80 @@ const cases = [
   [interventionEvents('turn-budget-exhausted'), 'abandoned', 'abandoned'],
 ];
 
+const PROTECTED_ACTION = Object.freeze({
+  'continued-to-reviewer': 'continue',
+  'continued-to-author': 'continue',
+  'participant-replaced': 'replace-participant',
+  'override-committed': 'accept-over-objections',
+  'override-sealed-no-commit': 'accept-over-objections',
+});
+
+function withConsumedChallenge(prefix, next) {
+  const action = PROTECTED_ACTION[next.type];
+  if (!action) return [...prefix, next];
+  const authorizedPrefix = prefix.map((item, index) =>
+    index === 0
+      ? {
+          ...item,
+          payload: {
+            ...item.payload,
+            authority: {
+              authority_policy: 'detection-allowed',
+              challenge_ttl_ms: 15 * 60 * 1000,
+              verifier: {
+                kind: 'ed25519',
+                verifier_id: 'human:key:test',
+                verifier_fingerprint: `sha256:${'d'.repeat(64)}`,
+                public_key: 'fixture-public-key',
+                assurance_grade: 'mutable-local',
+              },
+            },
+          },
+        }
+      : item
+  );
+  const state = reduceEvents(authorizedPrefix);
+  const challenge = {
+    schema: 'ai-peer-review.grant-challenge/v1',
+    challenge_id: `challenge-${next.type}`,
+    review_id: state.protocol.review_id,
+    intervention_id: state.protocol.intervention.intervention_id,
+    protocol_revision: state.protocol.revision,
+    action,
+    parameters_digest: `sha256:${'c'.repeat(64)}`,
+    nonce: 'n'.repeat(43),
+    expires_at: '2026-09-09T12:00:00.000Z',
+  };
+  const requested = event('challenge-requested', {
+    sequence: prefix.length + 1,
+    revision: state.protocol.revision,
+    actor: FINGERPRINTS.author,
+    payload: { challenge },
+  });
+  const attestation = {
+    source: 'detached-signature',
+    strength: 'cryptographic-local',
+    signer_id: 'human:test',
+    signer_fingerprint: `sha256:${'d'.repeat(64)}`,
+    challenge_digest: digestChallenge(challenge),
+    verified_at: next.at,
+  };
+  return [
+    ...authorizedPrefix,
+    requested,
+    {
+      ...next,
+      sequence: next.sequence + 1,
+      payload: next.payload.supplement
+        ? {
+            ...next.payload,
+            supplement: { ...next.payload.supplement, attestation },
+          }
+        : { ...next.payload, attestation },
+    },
+  ];
+}
+
 test('allows the complete lifecycle matrix and derives exact states', () => {
   for (const [prefix, type, expectedState] of cases) {
     const priorRevision = prefix.at(-1)?.revision ?? 0;
@@ -55,7 +131,11 @@ test('allows the complete lifecycle matrix and derives exact states', () => {
       revision: priorRevision + (REVISION_NEUTRAL_TYPES.has(type) ? 0 : 1),
       payload: interventionId ? { intervention_id: interventionId } : {},
     });
-    assert.equal(reduceEvents([...prefix, next]).protocol.state, expectedState, type);
+    assert.equal(
+      reduceEvents(withConsumedChallenge(prefix, next)).protocol.state,
+      expectedState,
+      type
+    );
   }
 });
 

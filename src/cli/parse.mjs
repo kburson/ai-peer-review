@@ -1,4 +1,7 @@
 import { AprError } from '../errors.mjs';
+import { GRANT_PARAMETER_FIELDS } from '../authority/canonicalize.mjs';
+
+export { GRANT_PARAMETER_FIELDS } from '../authority/canonicalize.mjs';
 
 function frozenList(values) {
   return Object.freeze([...values]);
@@ -110,45 +113,6 @@ const POSITIVE_INTEGER_FLAGS = new Set([
   '--target-turn',
   '--final-round',
 ]);
-
-export const GRANT_PARAMETER_FIELDS = Object.freeze({
-  'pin-verifier': frozenList([
-    'verifier_fingerprint',
-    'assurance_grade',
-    'authority_policy',
-    'artifact_path',
-    'artifact_kind',
-    'reviews_root',
-    'path_template',
-    'issue_id',
-    'maximum_turns',
-    'commit_mode',
-  ]),
-  continue: frozenList([
-    'additional_turns',
-    'resulting_effective_maximum',
-    'resume_role',
-    'focus_path',
-    'focus_digest',
-  ]),
-  supplement: frozenList(['content_digest', 'target_role', 'target_turn']),
-  'accept-over-objections': frozenList([
-    'artifact_path',
-    'artifact_blob',
-    'artifact_digest',
-    'final_round',
-    'reviewer_response_path',
-    'reviewer_response_digest',
-    'unresolved_finding_ids',
-    'human_rationale_digest',
-  ]),
-  'replace-participant': frozenList([
-    'role',
-    'outgoing_claim_id',
-    'outgoing_session_fingerprint',
-    'incoming_session_fingerprint',
-  ]),
-});
 
 const SPECIAL_PARAMETER_NAMES = Object.freeze({
   '--review-path-template': 'path_template',
@@ -276,6 +240,10 @@ function normalizeRequestGrant(rawOptions) {
     if (!allowed.includes(name))
       usage(`${flag} is not valid for action ${action}`, { action, flag });
     parameters[name] = value;
+  }
+  if (action === 'continue') {
+    parameters.focus_path ??= null;
+    parameters.focus_digest ??= null;
   }
   return { action, parameters };
 }

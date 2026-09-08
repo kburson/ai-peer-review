@@ -1,4 +1,5 @@
 import { AprError } from '../errors.mjs';
+import { digestChallenge } from '../authority/canonicalize.mjs';
 import { eventAdvancesRevision, validateEvent } from './events.mjs';
 
 export const LIFECYCLE_EVENT_TYPES = Object.freeze([
@@ -121,6 +122,7 @@ function initialProjection() {
       commit_mode: null,
       max_turns: 0,
       claim_ttl_ms: 0,
+      authority: null,
       turns_used: 0,
       artifact: null,
       claims: {},
@@ -175,6 +177,64 @@ function hasLiveChallenge(protocol, at) {
       typeof challenge.expires_at === 'string' &&
       Date.parse(challenge.expires_at) > Date.parse(at)
   );
+}
+
+function challengeCore(challenge) {
+  return {
+    schema: challenge.schema,
+    challenge_id: challenge.challenge_id,
+    review_id: challenge.review_id,
+    intervention_id: challenge.intervention_id,
+    protocol_revision: challenge.protocol_revision,
+    action: challenge.action,
+    parameters_digest: challenge.parameters_digest,
+    nonce: challenge.nonce,
+    expires_at: challenge.expires_at,
+  };
+}
+
+function registeredFingerprint(participants, fingerprint) {
+  return ['author', 'reviewer'].some(
+    (role) => participants[role]?.session_fingerprint === fingerprint
+  );
+}
+
+function protectedAuthority(event) {
+  if (event.type === 'continued-to-reviewer' || event.type === 'continued-to-author') {
+    return { action: 'continue', attestation: event.payload.attestation };
+  }
+  if (event.type === 'participant-replaced') {
+    return { action: 'replace-participant', attestation: event.payload.attestation };
+  }
+  if (event.type === 'override-committed' || event.type === 'override-sealed-no-commit') {
+    return { action: 'accept-over-objections', attestation: event.payload.attestation };
+  }
+  if (event.type === 'supplement-registered') {
+    return { action: 'supplement', attestation: event.payload.supplement.attestation };
+  }
+  return null;
+}
+
+function consumeChallenge(protocol, event) {
+  const authority = protectedAuthority(event);
+  if (!authority) return;
+  const challenge = protocol.challenges.find(
+    (candidate) =>
+      digestChallenge(challengeCore(candidate)) === authority.attestation.challenge_digest
+  );
+  if (
+    !challenge ||
+    challenge.action !== authority.action ||
+    challenge.review_id !== protocol.review_id ||
+    challenge.protocol_revision !== protocol.revision ||
+    challenge.intervention_id !== protocol.intervention?.intervention_id ||
+    challenge.consumed_at ||
+    challenge.superseded_at ||
+    Date.parse(challenge.expires_at) <= Date.parse(event.at)
+  ) {
+    throw transitionError(protocol.state, event, 'protected event lacks one live bound challenge');
+  }
+  challenge.consumed_at = event.at;
 }
 
 function ensureStatePreservingAllowed(protocol, event) {
@@ -283,6 +343,42 @@ function applyProjection(state, event) {
       );
     }
   }
+  if (event.type === 'challenge-requested') {
+    const challenge = event.payload.challenge;
+    const authorityAvailable =
+      protocol.authority?.authority_policy !== 'unavailable' && protocol.authority?.verifier;
+    const active = protocol.challenges.some(
+      (candidate) =>
+        !candidate.consumed_at &&
+        !candidate.superseded_at &&
+        Date.parse(candidate.expires_at) > Date.parse(event.at)
+    );
+    if (
+      !authorityAvailable ||
+      !registeredFingerprint(participants, event.actor) ||
+      challenge.review_id !== protocol.review_id ||
+      challenge.protocol_revision !== protocol.revision ||
+      challenge.intervention_id !== (protocol.intervention?.intervention_id ?? null) ||
+      active
+    ) {
+      throw transitionError(protocol.state, event, 'challenge does not match frozen authority');
+    }
+  }
+  if (event.type === 'challenge-superseded') {
+    const challenge = protocol.challenges.find(
+      (candidate) => candidate.challenge_id === event.payload.challenge_id
+    );
+    if (
+      !challenge ||
+      challenge.requested_by !== event.actor ||
+      challenge.consumed_at ||
+      challenge.superseded_at ||
+      Date.parse(challenge.expires_at) <= Date.parse(event.at)
+    ) {
+      throw transitionError(protocol.state, event, 'only requester may supersede a live challenge');
+    }
+  }
+  consumeChallenge(protocol, event);
   const lifecycle = applyLifecycle(protocol, participants, event);
 
   if (event.type === 'review-created') {
@@ -291,6 +387,7 @@ function applyProjection(state, event) {
     protocol.commit_mode = event.payload.commit_mode;
     protocol.max_turns = event.payload.max_turns;
     protocol.claim_ttl_ms = event.payload.claim_ttl_ms;
+    protocol.authority = copy(event.payload.authority);
     protocol.artifact = copy(event.payload.artifact);
     participants.author = copy(event.payload.author);
   } else if (event.type === 'reviewer-joined') {
@@ -327,7 +424,13 @@ function applyProjection(state, event) {
     participants[event.payload.role] = copy(event.payload.identity);
   }
   if (event.type === 'challenge-requested') {
-    protocol.challenges.push({ ...copy(event.payload.challenge), requested_at: event.at });
+    protocol.challenges.push({
+      ...copy(event.payload.challenge),
+      requested_at: event.at,
+      requested_by: event.actor,
+      consumed_at: null,
+      superseded_at: null,
+    });
   }
   if (event.type === 'challenge-superseded') {
     const challenge = protocol.challenges.find(

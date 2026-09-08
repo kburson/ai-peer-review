@@ -65,6 +65,11 @@ const payloads = {
     commit_mode: 'normal',
     max_turns: 2,
     claim_ttl_ms: 8 * 60 * 60 * 1000,
+    authority: {
+      authority_policy: 'unavailable',
+      challenge_ttl_ms: 15 * 60 * 1000,
+      verifier: null,
+    },
     artifact: {
       path: 'docs/artifact.md',
       head: '1'.repeat(40),
@@ -182,7 +187,7 @@ const payloads = {
       protocol_revision: 3,
       action: 'continue',
       parameters_digest: `sha256:${'c'.repeat(64)}`,
-      nonce: 'nonce-1',
+      nonce: 'n'.repeat(43),
       expires_at: '2026-09-09T12:00:00.000Z',
     },
   }),
