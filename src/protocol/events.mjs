@@ -1,4 +1,5 @@
 import { AprError } from '../errors.mjs';
+import { canonicalGrantParameters } from '../authority/canonicalize.mjs';
 
 const definitions = {
   'review-created': {
@@ -36,11 +37,23 @@ const definitions = {
   },
   'continued-to-reviewer': {
     advancesRevision: true,
-    fields: ['intervention_id', 'additional_turns', 'effective_max_turns', 'attestation'],
+    fields: [
+      'intervention_id',
+      'additional_turns',
+      'effective_max_turns',
+      'parameters',
+      'attestation',
+    ],
   },
   'continued-to-author': {
     advancesRevision: true,
-    fields: ['intervention_id', 'additional_turns', 'effective_max_turns', 'attestation'],
+    fields: [
+      'intervention_id',
+      'additional_turns',
+      'effective_max_turns',
+      'parameters',
+      'attestation',
+    ],
   },
   'same-session-reclaim': {
     advancesRevision: false,
@@ -48,15 +61,22 @@ const definitions = {
   },
   'participant-replaced': {
     advancesRevision: true,
-    fields: ['intervention_id', 'role', 'outgoing_claim', 'incoming_participant', 'attestation'],
+    fields: [
+      'intervention_id',
+      'role',
+      'outgoing_claim',
+      'incoming_participant',
+      'parameters',
+      'attestation',
+    ],
   },
   'override-committed': {
     advancesRevision: true,
-    fields: ['intervention_id', 'terminal', 'attestation'],
+    fields: ['intervention_id', 'terminal', 'parameters', 'attestation'],
   },
   'override-sealed-no-commit': {
     advancesRevision: true,
-    fields: ['intervention_id', 'terminal', 'attestation'],
+    fields: ['intervention_id', 'terminal', 'parameters', 'attestation'],
   },
   abandoned: { advancesRevision: true, fields: ['intervention_id', 'reason', 'retained_paths'] },
   'turn-claimed': { advancesRevision: false, fields: ['claim'] },
@@ -311,6 +331,14 @@ function validateAttestation(value, label) {
   assertTimestamp(value.verified_at, `${label} verified_at`);
 }
 
+function validateGrantParameters(action, value, label) {
+  try {
+    canonicalGrantParameters(action, value);
+  } catch (cause) {
+    throw invalid(`${label} parameters`, { cause: cause.code ?? cause.message });
+  }
+}
+
 function validateAuthority(value, label) {
   exactKeys(value, ['authority_policy', 'challenge_ttl_ms', 'verifier'], label);
   assertEnum(
@@ -325,7 +353,14 @@ function validateAuthority(value, label) {
   }
   exactKeys(
     value.verifier,
-    ['kind', 'verifier_id', 'verifier_fingerprint', 'public_key', 'assurance_grade'],
+    [
+      'kind',
+      'verifier_id',
+      'verifier_fingerprint',
+      'public_key',
+      'assurance_grade',
+      'signer_strength',
+    ],
     `${label} verifier`
   );
   assertEnum(value.verifier.kind, ['ed25519', 'host'], `${label} verifier kind`);
@@ -336,6 +371,36 @@ function validateAuthority(value, label) {
     ['hardened', 'mutable-local', 'test-fixture'],
     `${label} assurance_grade`
   );
+  assertEnum(
+    value.verifier.signer_strength,
+    [
+      'cryptographic-external',
+      'hardware-presence',
+      'host-verified',
+      'cryptographic-local',
+      'unverified-test',
+    ],
+    `${label} signer_strength`
+  );
+  if (
+    value.verifier.kind === 'ed25519' &&
+    ![
+      'cryptographic-external',
+      'hardware-presence',
+      'cryptographic-local',
+      'unverified-test',
+    ].includes(value.verifier.signer_strength)
+  ) {
+    throw invalid(`${label} Ed25519 signer_strength`);
+  }
+  if (
+    value.verifier.kind === 'host' &&
+    !['host-verified', 'hardware-presence', 'cryptographic-external'].includes(
+      value.verifier.signer_strength
+    )
+  ) {
+    throw invalid(`${label} host signer_strength`);
+  }
   if (value.verifier.kind === 'ed25519') {
     assertString(value.verifier.public_key, `${label} public_key`);
   } else if (value.verifier.public_key !== null) {
@@ -433,6 +498,7 @@ function validatePayload(type, payload) {
       validateTerminal(payload.terminal, `${type} terminal`, { committed: true });
       if (type === 'override-committed') {
         assertIdentifier(payload.intervention_id, `${type} intervention_id`);
+        validateGrantParameters('accept-over-objections', payload.parameters, type);
         validateAttestation(payload.attestation, `${type} attestation`);
       }
       break;
@@ -441,6 +507,7 @@ function validatePayload(type, payload) {
       validateTerminal(payload.terminal, `${type} terminal`, { committed: false });
       if (type === 'override-sealed-no-commit') {
         assertIdentifier(payload.intervention_id, `${type} intervention_id`);
+        validateGrantParameters('accept-over-objections', payload.parameters, type);
         validateAttestation(payload.attestation, `${type} attestation`);
       }
       break;
@@ -462,6 +529,7 @@ function validatePayload(type, payload) {
       assertIdentifier(payload.intervention_id, `${type} intervention_id`);
       assertPositiveInteger(payload.additional_turns, `${type} additional_turns`);
       assertPositiveInteger(payload.effective_max_turns, `${type} effective_max_turns`);
+      validateGrantParameters('continue', payload.parameters, type);
       validateAttestation(payload.attestation, `${type} attestation`);
       break;
     case 'same-session-reclaim':
@@ -474,6 +542,7 @@ function validatePayload(type, payload) {
       assertEnum(payload.role, ['author', 'reviewer'], `${type} role`);
       validateClaim(payload.outgoing_claim, `${type} outgoing_claim`);
       validateParticipant(payload.incoming_participant, `${type} incoming_participant`);
+      validateGrantParameters('replace-participant', payload.parameters, type);
       validateAttestation(payload.attestation, `${type} attestation`);
       if (
         payload.outgoing_claim.role !== payload.role ||
@@ -521,6 +590,7 @@ function validatePayload(type, payload) {
           'target_role',
           'target_turn',
           'content_retention',
+          'parameters',
           'attestation',
         ],
         `${type} supplement`
@@ -531,6 +601,7 @@ function validatePayload(type, payload) {
       assertPositiveInteger(payload.supplement.target_turn, `${type} target_turn`);
       if (payload.supplement.content_retention !== 'scratch-only')
         throw invalid(`${type} content_retention`);
+      validateGrantParameters('supplement', payload.supplement.parameters, type);
       validateAttestation(payload.supplement.attestation, `${type} attestation`);
       break;
     case 'delivery-written':

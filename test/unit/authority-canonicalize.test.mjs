@@ -6,7 +6,10 @@ import {
   canonicalGrantParameters,
   digestGrantParameters,
 } from '../../src/authority/canonicalize.mjs';
-import { GRANT_PARAMETER_FIELDS as PARSER_GRANT_PARAMETER_FIELDS } from '../../src/cli/parse.mjs';
+import {
+  GRANT_PARAMETER_FIELDS as PARSER_GRANT_PARAMETER_FIELDS,
+  parseCommand,
+} from '../../src/cli/parse.mjs';
 
 const digest = (character) => `sha256:${character.repeat(64)}`;
 
@@ -85,6 +88,7 @@ test('pins exact domain-separated canonical bytes and digests for every protecte
 test('the parser and authority service share one deeply frozen field catalog', () => {
   assert.equal(PARSER_GRANT_PARAMETER_FIELDS, GRANT_PARAMETER_FIELDS);
   assert.equal(Object.isFrozen(GRANT_PARAMETER_FIELDS), true);
+  assert.equal(Object.getPrototypeOf(GRANT_PARAMETER_FIELDS), null);
   for (const fields of Object.values(GRANT_PARAMETER_FIELDS))
     assert.equal(Object.isFrozen(fields), true);
 });
@@ -105,6 +109,16 @@ test('rejects unknown, missing, extra, and prototype-key fields', () => {
     assert.throws(
       () => canonicalGrantParameters(action, value),
       (error) => error.code === 'APR_GRANT_PARAMETERS_INVALID'
+    );
+  }
+  for (const action of ['toString', 'constructor', '__proto__']) {
+    assert.throws(
+      () => canonicalGrantParameters(action, valid),
+      (error) => error.code === 'APR_GRANT_PARAMETERS_INVALID'
+    );
+    assert.throws(
+      () => parseCommand(['request-grant', 'workspace', '--action', action]),
+      (error) => error.code === 'APR_USAGE'
     );
   }
 });

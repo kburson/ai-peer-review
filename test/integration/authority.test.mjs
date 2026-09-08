@@ -47,6 +47,11 @@ function authority({
   assuranceGrade = 'mutable-local',
   commitMode = 'normal',
   verifierKind = 'ed25519',
+  signerStrength = verifierKind === 'host'
+    ? 'host-verified'
+    : assuranceGrade === 'test-fixture'
+      ? 'unverified-test'
+      : 'cryptographic-local',
 } = {}) {
   return {
     commitMode,
@@ -55,10 +60,11 @@ function authority({
       challenge_ttl_ms: 15 * 60 * 1000,
       verifier: {
         kind: verifierKind,
-        verifier_id: 'human:key:test',
+        verifier_id: 'human:kendrick-test',
         verifier_fingerprint: verifierFingerprint,
         public_key: verifierKind === 'ed25519' ? publicKeyPem : null,
         assurance_grade: assuranceGrade,
+        signer_strength: signerStrength,
       },
     },
   };
@@ -162,6 +168,43 @@ test('challenge and human-decision schemas expose closed v1 authority records', 
   assert.equal(decision.properties.human_attestation.additionalProperties, false);
 });
 
+test('pin-verifier challenge is available before review creation without an intervention', () => {
+  const configured = authority({
+    policy: 'prevention-required',
+    assuranceGrade: 'hardened',
+    signerStrength: 'cryptographic-external',
+  });
+  const parameters = {
+    verifier_fingerprint: verifierFingerprint,
+    assurance_grade: 'hardened',
+    authority_policy: 'prevention-required',
+    artifact_path: 'docs/spec.md',
+    artifact_kind: 'spec',
+    reviews_root: 'docs/reviews',
+    path_template: 'docs/reviews/{artifact}-{review_id}',
+    issue_id: null,
+    maximum_turns: 4,
+    commit_mode: 'normal',
+  };
+  const challenge = requestChallenge(
+    {
+      review_id: 'bootstrap-review',
+      revision: 0,
+      state: null,
+      authority: configured.value,
+      challenges: [],
+      intervention: null,
+    },
+    'pin-verifier',
+    parameters,
+    now
+  );
+  assert.equal(challenge.action, 'pin-verifier');
+  assert.equal(challenge.intervention_id, null);
+  assert.equal(challenge.protocol_revision, 0);
+  assert.equal(challenge.parameters_digest, digestGrantParameters('pin-verifier', parameters));
+});
+
 test('challenge binds exact intervention authority and reuses only an identical live request', () => {
   const { base, challenge, events, state } = stateWithChallenge();
   assert.equal(challenge.review_id, base.protocol.review_id);
@@ -194,6 +237,35 @@ test('detached verification returns complete detection-grade attestation', () =>
       .digest('hex')}`,
     verified_at: now.toISOString(),
   });
+});
+
+test('detached authority cannot elevate signer strength or substitute signer identity', () => {
+  const { state, challenge } = stateWithChallenge({
+    policy: 'prevention-required',
+    assuranceGrade: 'hardened',
+    signerStrength: 'cryptographic-local',
+  });
+  assert.throws(
+    () =>
+      verifyAndConsumeGrant(state, detachedGrant(challenge), {
+        action: 'continue',
+        parameters: continueParameters,
+        now,
+        signerStrength: 'hardware-presence',
+      }),
+    (error) => error.code === 'APR_AUTHORITY_POLICY'
+  );
+  const substituted = detachedGrant(challenge);
+  substituted.authorization.signer_id = 'human:untrusted-label';
+  assert.throws(
+    () =>
+      verifyAndConsumeGrant(state, substituted, {
+        action: 'continue',
+        parameters: continueParameters,
+        now,
+      }),
+    (error) => error.code === 'APR_GRANT_MISMATCH'
+  );
 });
 
 test('official host receipt verification delegates exact pinned authority', () => {
@@ -346,6 +418,7 @@ test('verification rejects replay, expiry, and every exact binding mismatch', ()
       intervention_id: state.protocol.intervention.intervention_id,
       additional_turns: 2,
       effective_max_turns: 4,
+      parameters: continueParameters,
       attestation,
     },
   });
@@ -354,6 +427,17 @@ test('verification rejects replay, expiry, and every exact binding mismatch', ()
   assert.throws(
     () => verify(consumed, grant),
     (error) => error.code === 'APR_GRANT_REPLAYED'
+  );
+  assert.throws(
+    () =>
+      reduceEvents([
+        ...events,
+        {
+          ...authorized,
+          payload: { ...authorized.payload, additional_turns: 100 },
+        },
+      ]),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
   );
 });
 

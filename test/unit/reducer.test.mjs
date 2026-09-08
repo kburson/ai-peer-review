@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { digestChallenge } from '../../src/authority/canonicalize.mjs';
+import { digestChallenge, digestGrantParameters } from '../../src/authority/canonicalize.mjs';
 import { LIFECYCLE_EVENT_TYPES, reduceEvents } from '../../src/protocol/reducer.mjs';
 import {
   acceptancePendingEvents,
@@ -54,6 +54,7 @@ const PROTECTED_ACTION = Object.freeze({
   'participant-replaced': 'replace-participant',
   'override-committed': 'accept-over-objections',
   'override-sealed-no-commit': 'accept-over-objections',
+  'supplement-registered': 'supplement',
 });
 
 function withConsumedChallenge(prefix, next) {
@@ -74,6 +75,7 @@ function withConsumedChallenge(prefix, next) {
                 verifier_fingerprint: `sha256:${'d'.repeat(64)}`,
                 public_key: 'fixture-public-key',
                 assurance_grade: 'mutable-local',
+                signer_strength: 'cryptographic-local',
               },
             },
           },
@@ -81,6 +83,7 @@ function withConsumedChallenge(prefix, next) {
       : item
   );
   const state = reduceEvents(authorizedPrefix);
+  const parameters = next.payload.supplement?.parameters ?? next.payload.parameters;
   const challenge = {
     schema: 'ai-peer-review.grant-challenge/v1',
     challenge_id: `challenge-${next.type}`,
@@ -88,7 +91,7 @@ function withConsumedChallenge(prefix, next) {
     intervention_id: state.protocol.intervention.intervention_id,
     protocol_revision: state.protocol.revision,
     action,
-    parameters_digest: `sha256:${'c'.repeat(64)}`,
+    parameters_digest: digestGrantParameters(action, parameters),
     nonce: 'n'.repeat(43),
     expires_at: '2026-09-09T12:00:00.000Z',
   };
@@ -121,6 +124,52 @@ function withConsumedChallenge(prefix, next) {
     },
   ];
 }
+
+test('protected events cannot substitute signed parameters for any action', () => {
+  const cases = [
+    ['continued-to-reviewer', 'turn-budget-exhausted'],
+    ['participant-replaced', 'participant-loss'],
+    ['override-committed', 'turn-budget-exhausted'],
+    ['supplement-registered', 'turn-budget-exhausted'],
+  ];
+  for (const [type, reason] of cases) {
+    const prefix = interventionEvents(reason);
+    const state = reduceEvents(prefix);
+    const next = event(type, {
+      sequence: prefix.length + 1,
+      revision: state.protocol.revision + 1,
+      payload:
+        type === 'supplement-registered'
+          ? {}
+          : { intervention_id: state.protocol.intervention.intervention_id },
+    });
+    const prepared = withConsumedChallenge(prefix, next);
+    const authorized = prepared.at(-1);
+    const current = authorized.payload.supplement?.parameters ?? authorized.payload.parameters;
+    const altered =
+      type === 'continued-to-reviewer'
+        ? { ...current, additional_turns: current.additional_turns + 1 }
+        : type === 'participant-replaced'
+          ? { ...current, incoming_session_fingerprint: `sha256:${'f'.repeat(64)}` }
+          : type === 'supplement-registered'
+            ? { ...current, content_digest: `sha256:${'f'.repeat(64)}` }
+            : { ...current, human_rationale_digest: `sha256:${'f'.repeat(64)}` };
+    prepared[prepared.length - 1] = {
+      ...authorized,
+      payload: authorized.payload.supplement
+        ? {
+            ...authorized.payload,
+            supplement: { ...authorized.payload.supplement, parameters: altered },
+          }
+        : { ...authorized.payload, parameters: altered },
+    };
+    assert.throws(
+      () => reduceEvents(prepared),
+      (error) => error.code === 'APR_INVALID_TRANSITION',
+      type
+    );
+  }
+});
 
 test('allows the complete lifecycle matrix and derives exact states', () => {
   for (const [prefix, type, expectedState] of cases) {

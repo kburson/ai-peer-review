@@ -11,44 +11,46 @@ const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 const frozen = (values) => Object.freeze([...values]);
 
-export const GRANT_PARAMETER_FIELDS = Object.freeze({
-  'pin-verifier': frozen([
-    'verifier_fingerprint',
-    'assurance_grade',
-    'authority_policy',
-    'artifact_path',
-    'artifact_kind',
-    'reviews_root',
-    'path_template',
-    'issue_id',
-    'maximum_turns',
-    'commit_mode',
-  ]),
-  continue: frozen([
-    'additional_turns',
-    'resulting_effective_maximum',
-    'resume_role',
-    'focus_path',
-    'focus_digest',
-  ]),
-  supplement: frozen(['content_digest', 'target_role', 'target_turn']),
-  'accept-over-objections': frozen([
-    'artifact_path',
-    'artifact_blob',
-    'artifact_digest',
-    'final_round',
-    'reviewer_response_path',
-    'reviewer_response_digest',
-    'unresolved_finding_ids',
-    'human_rationale_digest',
-  ]),
-  'replace-participant': frozen([
-    'role',
-    'outgoing_claim_id',
-    'outgoing_session_fingerprint',
-    'incoming_session_fingerprint',
-  ]),
-});
+export const GRANT_PARAMETER_FIELDS = Object.freeze(
+  Object.assign(Object.create(null), {
+    'pin-verifier': frozen([
+      'verifier_fingerprint',
+      'assurance_grade',
+      'authority_policy',
+      'artifact_path',
+      'artifact_kind',
+      'reviews_root',
+      'path_template',
+      'issue_id',
+      'maximum_turns',
+      'commit_mode',
+    ]),
+    continue: frozen([
+      'additional_turns',
+      'resulting_effective_maximum',
+      'resume_role',
+      'focus_path',
+      'focus_digest',
+    ]),
+    supplement: frozen(['content_digest', 'target_role', 'target_turn']),
+    'accept-over-objections': frozen([
+      'artifact_path',
+      'artifact_blob',
+      'artifact_digest',
+      'final_round',
+      'reviewer_response_path',
+      'reviewer_response_digest',
+      'unresolved_finding_ids',
+      'human_rationale_digest',
+    ]),
+    'replace-participant': frozen([
+      'role',
+      'outgoing_claim_id',
+      'outgoing_session_fingerprint',
+      'incoming_session_fingerprint',
+    ]),
+  })
+);
 
 function invalid(message, details = {}) {
   return new AprError('APR_GRANT_PARAMETERS_INVALID', message, {
@@ -112,8 +114,11 @@ function repositoryPath(value, field) {
 }
 
 function exactInput(action, input) {
+  if (!Object.hasOwn(GRANT_PARAMETER_FIELDS, action)) {
+    throw invalid('Protected action or parameter object is invalid.', { action });
+  }
   const fields = GRANT_PARAMETER_FIELDS[action];
-  if (!fields || !input || typeof input !== 'object' || Array.isArray(input)) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw invalid('Protected action or parameter object is invalid.', { action });
   }
   const keys = Object.keys(input).sort();
@@ -204,13 +209,15 @@ function validateReplacement(input) {
   }
 }
 
-const VALIDATORS = Object.freeze({
-  'pin-verifier': validatePinVerifier,
-  continue: validateContinue,
-  supplement: validateSupplement,
-  'accept-over-objections': validateOverride,
-  'replace-participant': validateReplacement,
-});
+const VALIDATORS = Object.freeze(
+  Object.assign(Object.create(null), {
+    'pin-verifier': validatePinVerifier,
+    continue: validateContinue,
+    supplement: validateSupplement,
+    'accept-over-objections': validateOverride,
+    'replace-participant': validateReplacement,
+  })
+);
 
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -267,7 +274,9 @@ export function canonicalChallengeBytes(challenge) {
   if (!Number.isSafeInteger(challenge.protocol_revision) || challenge.protocol_revision < 0) {
     throw invalid('protocol_revision must be a safe non-negative integer.');
   }
-  if (!GRANT_PARAMETER_FIELDS[challenge.action]) throw invalid('Challenge action is invalid.');
+  if (!Object.hasOwn(GRANT_PARAMETER_FIELDS, challenge.action)) {
+    throw invalid('Challenge action is invalid.');
+  }
   digest(challenge.parameters_digest, 'parameters_digest');
   if (typeof challenge.nonce !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(challenge.nonce)) {
     throw invalid('Challenge nonce is invalid.');

@@ -185,6 +185,13 @@ function verifyDetached(authorization, challenge, verifier) {
       'Sign with the key pinned at review startup.'
     );
   }
+  if (authorization.signer_id !== verifier.verifier_id) {
+    fail(
+      'APR_GRANT_MISMATCH',
+      'Grant signer identity does not match pinned review authority.',
+      'Sign with the identity pinned at review startup.'
+    );
+  }
   let publicKey;
   try {
     publicKey = createPublicKey(verifier.public_key);
@@ -253,7 +260,8 @@ function verifyHostReceipt(authorization, challenge, verifier, hostVerifier) {
     result.signer_id !== authorization.signer_id ||
     result.signer_fingerprint !== authorization.signer_fingerprint ||
     !SIGNER_STRENGTHS.has(result.strength) ||
-    result.strength === 'unverified-test'
+    result.strength === 'unverified-test' ||
+    result.strength !== verifier.signer_strength
   ) {
     fail(
       'APR_GRANT_SIGNATURE',
@@ -388,11 +396,7 @@ export function verifyAndConsumeGrant(review, grant, expected = {}) {
       ? verifyDetached(authorization, challenge, verifier)
       : verifyHostReceipt(authorization, challenge, verifier, expected.hostVerifier);
   const strength = effectiveAuthorityStrength({
-    signerStrength:
-      authorization.source === 'host-approval'
-        ? verification.strength
-        : (expected.signerStrength ??
-          (authorization.source === 'test-fixture' ? 'unverified-test' : 'cryptographic-local')),
+    signerStrength: verifier.signer_strength,
     assuranceGrade: verifier.assurance_grade,
     policy: configuration.authority_policy,
     commitMode: protocol.commit_mode,

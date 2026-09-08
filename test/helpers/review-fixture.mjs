@@ -60,6 +60,46 @@ export function attestation() {
   };
 }
 
+export function protectedParameters(action, { resumeRole = 'reviewer' } = {}) {
+  if (action === 'continue') {
+    return {
+      additional_turns: 1,
+      resulting_effective_maximum: 3,
+      resume_role: resumeRole,
+      focus_path: null,
+      focus_digest: null,
+    };
+  }
+  if (action === 'replace-participant') {
+    return {
+      role: 'reviewer',
+      outgoing_claim_id: 'claim-reviewer',
+      outgoing_session_fingerprint: FINGERPRINTS.reviewer,
+      incoming_session_fingerprint: FINGERPRINTS.replacement,
+    };
+  }
+  if (action === 'supplement') {
+    return {
+      content_digest: `sha256:${'e'.repeat(64)}`,
+      target_role: 'reviewer',
+      target_turn: 2,
+    };
+  }
+  if (action === 'accept-over-objections') {
+    return {
+      artifact_path: 'docs/artifact.md',
+      artifact_blob: '7'.repeat(40),
+      artifact_digest: `sha256:${'8'.repeat(64)}`,
+      final_round: 1,
+      reviewer_response_path: 'reviews/reviewer-response-1.md',
+      reviewer_response_digest: `sha256:${'4'.repeat(64)}`,
+      unresolved_finding_ids: ['finding-001'],
+      human_rationale_digest: `sha256:${'a'.repeat(64)}`,
+    };
+  }
+  throw new Error(`unsupported protected action: ${action}`);
+}
+
 const payloads = {
   'review-created': () => ({
     commit_mode: 'normal',
@@ -131,12 +171,14 @@ const payloads = {
     intervention_id: 'intervention-budget',
     additional_turns: 1,
     effective_max_turns: 3,
+    parameters: protectedParameters('continue'),
     attestation: attestation(),
   }),
   'continued-to-author': () => ({
     intervention_id: 'intervention-budget',
     additional_turns: 1,
     effective_max_turns: 3,
+    parameters: protectedParameters('continue', { resumeRole: 'author' }),
     attestation: attestation(),
   }),
   'same-session-reclaim': () => ({
@@ -154,11 +196,13 @@ const payloads = {
     role: 'reviewer',
     outgoing_claim: claim('reviewer'),
     incoming_participant: participant('reviewer', FINGERPRINTS.replacement),
+    parameters: protectedParameters('replace-participant'),
     attestation: attestation(),
   }),
   'override-committed': () => ({
     intervention_id: 'intervention-budget',
     terminal: { commit: 'a'.repeat(40), manifest_digest: `sha256:${'b'.repeat(64)}` },
+    parameters: protectedParameters('accept-over-objections'),
     attestation: attestation(),
   }),
   'override-sealed-no-commit': () => ({
@@ -167,6 +211,7 @@ const payloads = {
       snapshot_digest: `sha256:${'c'.repeat(64)}`,
       manifest_digest: `sha256:${'d'.repeat(64)}`,
     },
+    parameters: protectedParameters('accept-over-objections'),
     attestation: attestation(),
   }),
   abandoned: () => ({
@@ -199,6 +244,7 @@ const payloads = {
       target_role: 'reviewer',
       target_turn: 2,
       content_retention: 'scratch-only',
+      parameters: protectedParameters('supplement'),
       attestation: attestation(),
     },
   }),

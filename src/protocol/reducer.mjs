@@ -1,5 +1,5 @@
 import { AprError } from '../errors.mjs';
-import { digestChallenge } from '../authority/canonicalize.mjs';
+import { digestChallenge, digestGrantParameters } from '../authority/canonicalize.mjs';
 import { eventAdvancesRevision, validateEvent } from './events.mjs';
 
 export const LIFECYCLE_EVENT_TYPES = Object.freeze([
@@ -201,23 +201,73 @@ function registeredFingerprint(participants, fingerprint) {
 
 function protectedAuthority(event) {
   if (event.type === 'continued-to-reviewer' || event.type === 'continued-to-author') {
-    return { action: 'continue', attestation: event.payload.attestation };
+    return {
+      action: 'continue',
+      parameters: event.payload.parameters,
+      attestation: event.payload.attestation,
+    };
   }
   if (event.type === 'participant-replaced') {
-    return { action: 'replace-participant', attestation: event.payload.attestation };
+    return {
+      action: 'replace-participant',
+      parameters: event.payload.parameters,
+      attestation: event.payload.attestation,
+    };
   }
   if (event.type === 'override-committed' || event.type === 'override-sealed-no-commit') {
-    return { action: 'accept-over-objections', attestation: event.payload.attestation };
+    return {
+      action: 'accept-over-objections',
+      parameters: event.payload.parameters,
+      attestation: event.payload.attestation,
+    };
   }
   if (event.type === 'supplement-registered') {
-    return { action: 'supplement', attestation: event.payload.supplement.attestation };
+    return {
+      action: 'supplement',
+      parameters: event.payload.supplement.parameters,
+      attestation: event.payload.supplement.attestation,
+    };
   }
   return null;
+}
+
+function protectedParametersMatchEvent(event, action, parameters) {
+  if (action === 'continue') {
+    return (
+      parameters.additional_turns === event.payload.additional_turns &&
+      parameters.resulting_effective_maximum === event.payload.effective_max_turns &&
+      parameters.resume_role === (event.type === 'continued-to-reviewer' ? 'reviewer' : 'author')
+    );
+  }
+  if (action === 'replace-participant') {
+    return (
+      parameters.role === event.payload.role &&
+      parameters.outgoing_claim_id === event.payload.outgoing_claim.claim_id &&
+      parameters.outgoing_session_fingerprint ===
+        event.payload.outgoing_claim.session_fingerprint &&
+      parameters.incoming_session_fingerprint ===
+        event.payload.incoming_participant.session_fingerprint
+    );
+  }
+  if (action === 'supplement') {
+    return (
+      parameters.content_digest === event.payload.supplement.digest &&
+      parameters.target_role === event.payload.supplement.target_role &&
+      parameters.target_turn === event.payload.supplement.target_turn
+    );
+  }
+  return action === 'accept-over-objections';
 }
 
 function consumeChallenge(protocol, event) {
   const authority = protectedAuthority(event);
   if (!authority) return;
+  let parametersDigest;
+  try {
+    parametersDigest = digestGrantParameters(authority.action, authority.parameters);
+  } catch {
+    throw transitionError(protocol.state, event, 'protected event parameters are invalid');
+  }
   const challenge = protocol.challenges.find(
     (candidate) =>
       digestChallenge(challengeCore(candidate)) === authority.attestation.challenge_digest
@@ -225,6 +275,8 @@ function consumeChallenge(protocol, event) {
   if (
     !challenge ||
     challenge.action !== authority.action ||
+    challenge.parameters_digest !== parametersDigest ||
+    !protectedParametersMatchEvent(event, authority.action, authority.parameters) ||
     challenge.review_id !== protocol.review_id ||
     challenge.protocol_revision !== protocol.revision ||
     challenge.intervention_id !== protocol.intervention?.intervention_id ||

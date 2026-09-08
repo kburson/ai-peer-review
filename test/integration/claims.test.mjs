@@ -255,6 +255,7 @@ test('reclaim refuses a different fingerprint and an unexpired authority challen
           verifier_fingerprint: `sha256:${'d'.repeat(64)}`,
           public_key: 'fixture-public-key',
           assurance_grade: 'mutable-local',
+          signer_strength: 'cryptographic-local',
         },
       },
     },

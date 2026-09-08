@@ -334,6 +334,79 @@
         "expires_at": { "$ref": "#/$defs/time" }
       }
     },
+    "continueParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "additional_turns",
+        "resulting_effective_maximum",
+        "resume_role",
+        "focus_path",
+        "focus_digest"
+      ],
+      "properties": {
+        "additional_turns": { "$ref": "#/$defs/positive" },
+        "resulting_effective_maximum": { "$ref": "#/$defs/positive" },
+        "resume_role": { "$ref": "#/$defs/role" },
+        "focus_path": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/path" }] },
+        "focus_digest": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }] }
+      }
+    },
+    "supplementParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_digest", "target_role", "target_turn"],
+      "properties": {
+        "content_digest": { "$ref": "#/$defs/digest" },
+        "target_role": { "$ref": "#/$defs/role" },
+        "target_turn": { "$ref": "#/$defs/positive" }
+      }
+    },
+    "replacementParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "outgoing_claim_id",
+        "outgoing_session_fingerprint",
+        "incoming_session_fingerprint"
+      ],
+      "properties": {
+        "role": { "$ref": "#/$defs/role" },
+        "outgoing_claim_id": { "$ref": "#/$defs/id" },
+        "outgoing_session_fingerprint": { "$ref": "#/$defs/digest" },
+        "incoming_session_fingerprint": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "overrideParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_path",
+        "artifact_blob",
+        "artifact_digest",
+        "final_round",
+        "reviewer_response_path",
+        "reviewer_response_digest",
+        "unresolved_finding_ids",
+        "human_rationale_digest"
+      ],
+      "properties": {
+        "artifact_path": { "$ref": "#/$defs/path" },
+        "artifact_blob": { "$ref": "#/$defs/gitObject" },
+        "artifact_digest": { "$ref": "#/$defs/digest" },
+        "final_round": { "$ref": "#/$defs/positive" },
+        "reviewer_response_path": { "$ref": "#/$defs/path" },
+        "reviewer_response_digest": { "$ref": "#/$defs/digest" },
+        "unresolved_finding_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        },
+        "human_rationale_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
     "supplement": {
       "type": "object",
       "additionalProperties": false,
@@ -343,6 +416,7 @@
         "target_role",
         "target_turn",
         "content_retention",
+        "parameters",
         "attestation"
       ],
       "properties": {
@@ -351,6 +425,7 @@
         "target_role": { "$ref": "#/$defs/role" },
         "target_turn": { "$ref": "#/$defs/positive" },
         "content_retention": { "const": "scratch-only" },
+        "parameters": { "$ref": "#/$defs/supplementParameters" },
         "attestation": { "$ref": "#/$defs/attestation" }
       }
     },
@@ -406,7 +481,8 @@
                 "verifier_id",
                 "verifier_fingerprint",
                 "public_key",
-                "assurance_grade"
+                "assurance_grade",
+                "signer_strength"
               ],
               "properties": {
                 "kind": { "enum": ["ed25519", "host"] },
@@ -415,6 +491,15 @@
                 "public_key": { "type": ["string", "null"] },
                 "assurance_grade": {
                   "enum": ["hardened", "mutable-local", "test-fixture"]
+                },
+                "signer_strength": {
+                  "enum": [
+                    "cryptographic-external",
+                    "hardware-presence",
+                    "host-verified",
+                    "cryptographic-local",
+                    "unverified-test"
+                  ]
                 }
               }
             }
@@ -497,11 +582,18 @@
     "continuation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["intervention_id", "additional_turns", "effective_max_turns", "attestation"],
+      "required": [
+        "intervention_id",
+        "additional_turns",
+        "effective_max_turns",
+        "parameters",
+        "attestation"
+      ],
       "properties": {
         "intervention_id": { "$ref": "#/$defs/id" },
         "additional_turns": { "$ref": "#/$defs/positive" },
         "effective_max_turns": { "$ref": "#/$defs/positive" },
+        "parameters": { "$ref": "#/$defs/continueParameters" },
         "attestation": { "$ref": "#/$defs/attestation" }
       }
     },
@@ -523,6 +615,7 @@
         "role",
         "outgoing_claim",
         "incoming_participant",
+        "parameters",
         "attestation"
       ],
       "properties": {
@@ -530,26 +623,29 @@
         "role": { "$ref": "#/$defs/role" },
         "outgoing_claim": { "$ref": "#/$defs/claim" },
         "incoming_participant": { "$ref": "#/$defs/participant" },
+        "parameters": { "$ref": "#/$defs/replacementParameters" },
         "attestation": { "$ref": "#/$defs/attestation" }
       }
     },
     "overrideCommitted": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["intervention_id", "terminal", "attestation"],
+      "required": ["intervention_id", "terminal", "parameters", "attestation"],
       "properties": {
         "intervention_id": { "$ref": "#/$defs/id" },
         "terminal": { "$ref": "#/$defs/terminalCommitted" },
+        "parameters": { "$ref": "#/$defs/overrideParameters" },
         "attestation": { "$ref": "#/$defs/attestation" }
       }
     },
     "overrideUncommitted": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["intervention_id", "terminal", "attestation"],
+      "required": ["intervention_id", "terminal", "parameters", "attestation"],
       "properties": {
         "intervention_id": { "$ref": "#/$defs/id" },
         "terminal": { "$ref": "#/$defs/terminalUncommitted" },
+        "parameters": { "$ref": "#/$defs/overrideParameters" },
         "attestation": { "$ref": "#/$defs/attestation" }
       }
     },

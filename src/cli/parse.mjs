@@ -231,8 +231,10 @@ function validateConstraints(command, args, options) {
 function normalizeRequestGrant(rawOptions) {
   const action = rawOptions.get('--action');
   if (!action) usage('request-grant requires --action');
+  if (!Object.hasOwn(GRANT_PARAMETER_FIELDS, action)) {
+    usage(`unknown protected action: ${action}`);
+  }
   const allowed = GRANT_PARAMETER_FIELDS[action];
-  if (!allowed) usage(`unknown protected action: ${action}`);
   const parameters = {};
   for (const [flag, value] of rawOptions) {
     if (flag === '--action') continue;
