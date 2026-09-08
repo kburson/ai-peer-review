@@ -39,6 +39,7 @@ export function createRepositoryFixture(t) {
   mkdirSync(path.join(root, 'docs'));
   const artifactBytes = Buffer.from('# Artifact\n\nStable bytes.\n', 'utf8');
   writeFileSync(path.join(root, 'docs', 'artifact.md'), artifactBytes);
+  symlinkSync('artifact.md', path.join(root, 'docs', 'tracked-link.md'));
   writeFileSync(path.join(root, 'tracked-staged.txt'), 'initial staged\n');
   writeFileSync(path.join(root, 'tracked-unstaged.txt'), 'initial unstaged\n');
   git(root, 'add', '.');

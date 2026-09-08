@@ -55,8 +55,9 @@ function syncDirectory(directory) {
   try {
     descriptor = openSync(directory, 'r');
     fsyncSync(descriptor);
-  } catch {
-    // Directory fsync is unavailable on some supported filesystems and platforms.
+  } catch (error) {
+    const unsupported = new Set(['EINVAL', 'EISDIR', 'ENOTSUP', 'EOPNOTSUPP', 'EPERM']);
+    if (!unsupported.has(error?.code)) throw error;
   } finally {
     if (descriptor !== undefined) closeSync(descriptor);
   }
@@ -65,10 +66,10 @@ function syncDirectory(directory) {
 export function atomicWrite(file, bytes) {
   const payload = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   const directory = path.dirname(file);
-  mkdirSync(directory, { recursive: true });
   const temporary = path.join(directory, `.${path.basename(file)}.${randomUUID()}.tmp`);
   let descriptor;
   try {
+    mkdirSync(directory, { recursive: true });
     descriptor = openSync(temporary, 'wx', 0o600);
     writeFileSync(descriptor, payload);
     fsyncSync(descriptor);
@@ -102,10 +103,12 @@ export async function withReviewLock(workspace, operation) {
   const lockDirectory = path.join(workspace, 'locks');
   const lockFile = path.join(lockDirectory, 'review.lock');
   const token = randomUUID();
-  mkdirSync(lockDirectory, { recursive: true });
   let descriptor;
   let created = false;
+  let attemptedOpen = false;
   try {
+    mkdirSync(lockDirectory, { recursive: true });
+    attemptedOpen = true;
     descriptor = openSync(lockFile, 'wx', 0o600);
     created = true;
     writeFileSync(
@@ -116,7 +119,13 @@ export async function withReviewLock(workspace, operation) {
     closeSync(descriptor);
     descriptor = undefined;
   } catch (cause) {
-    if (descriptor !== undefined) closeSync(descriptor);
+    if (descriptor !== undefined) {
+      try {
+        closeSync(descriptor);
+      } catch {
+        // Preserve the acquisition failure.
+      }
+    }
     if (created) {
       try {
         unlinkSync(lockFile);
@@ -124,7 +133,7 @@ export async function withReviewLock(workspace, operation) {
         // Cleanup is limited to the lock file this acquisition created.
       }
     }
-    if (cause?.code === 'EEXIST') {
+    if (cause?.code === 'EEXIST' && attemptedOpen && !created) {
       throw new AprError('APR_REVIEW_LOCKED', 'The review is locked by another operation.', {
         recovery: `Wait for the owner recorded in ${lockFile} to finish, then retry.`,
         details: { lockFile },

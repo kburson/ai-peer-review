@@ -8,6 +8,7 @@ import { AprError } from '../errors.mjs';
 
 // cspell:ignore ACDMRTUXB
 const CHANGE_FILTER = 'ACDMRTUXB';
+const REGULAR_MODES = new Set(['100644', '100755']);
 
 function gitError(code, message, recovery, details, cause) {
   const error = new AprError(code, message, { recovery, details });
@@ -73,7 +74,26 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
   }
 
   function gitPath(cwd, name) {
-    if (typeof name !== 'string' || !name || path.isAbsolute(name) || name.includes('\0')) {
+    const segments = typeof name === 'string' ? name.split(/[\\/]/) : [];
+    if (
+      typeof name === 'string' &&
+      (path.isAbsolute(name) || segments.some((segment) => segment === '.' || segment === '..'))
+    ) {
+      throw new AprError(
+        'APR_GIT_PATH_OUTSIDE_REPOSITORY',
+        'Git metadata path escapes the common Git directory.',
+        {
+          recovery: 'Use a contained Git metadata path such as info/exclude.',
+          details: { name },
+        }
+      );
+    }
+    if (
+      typeof name !== 'string' ||
+      !name ||
+      name.includes('\0') ||
+      segments.some((segment) => !segment)
+    ) {
       throw new AprError('APR_GIT_PATH_INVALID', 'Git path name is invalid.', {
         recovery: 'Use a non-empty repository-relative Git path such as info/exclude.',
         details: { name },
@@ -81,7 +101,22 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     }
     const repositoryRoot = root(cwd);
     const value = run(repositoryRoot, ['rev-parse', '--git-path', name]);
-    return outputPath(repositoryRoot, value);
+    const common = commonDir(repositoryRoot);
+    const absolute = path.resolve(repositoryRoot, String(value).trim());
+    try {
+      return resolveContainedPath(common, path.relative(common, absolute), 'Git metadata').absolute;
+    } catch (cause) {
+      const error = new AprError(
+        'APR_GIT_PATH_OUTSIDE_REPOSITORY',
+        'Git metadata path escapes the common Git directory.',
+        {
+          recovery: 'Use a contained Git metadata path such as info/exclude.',
+          details: { name },
+        }
+      );
+      error.cause = cause;
+      throw error;
+    }
   }
 
   function status(cwd, relative = null) {
@@ -141,20 +176,21 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
       });
     }
     const head = String(run(repositoryRoot, ['rev-parse', 'HEAD'])).trim();
-    const blobValue = run(
-      repositoryRoot,
-      ['rev-parse', '--verify', '--end-of-options', `HEAD:${resolved.relative}`],
-      {
-        allowStatuses: [128],
-      }
-    );
-    if (blobValue === null) {
+    const treeValue = run(repositoryRoot, ['ls-tree', 'HEAD', '--', resolved.relative]);
+    const treeMatch = /^(\d{6}) blob ([0-9a-f]+)\t(.+)$/.exec(String(treeValue).trim());
+    if (!treeMatch) {
       throw new AprError('APR_ARTIFACT_UNCOMMITTED', 'Artifact is not present in HEAD.', {
         recovery: `Commit ${resolved.relative} before starting peer review.`,
         details: { path: resolved.relative },
       });
     }
-    const blob = String(blobValue).trim();
+    const [, headMode, blob] = treeMatch;
+    if (!REGULAR_MODES.has(entry.mode) || !REGULAR_MODES.has(headMode)) {
+      throw new AprError('APR_ARTIFACT_NOT_REGULAR', 'Artifact must be a tracked regular file.', {
+        recovery: `Replace ${resolved.relative} with a regular file, commit it, and retry.`,
+        details: { path: resolved.relative, headMode, indexMode: entry.mode },
+      });
+    }
     const worktree = workingBytes(repositoryRoot, resolved.relative);
     const headBytes = run(
       repositoryRoot,
@@ -168,7 +204,13 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
       head,
       blob,
       worktreeDigest: digest(worktree),
-      clean: entry.blob === blob && Buffer.compare(worktree, headBytes) === 0,
+      clean:
+        entry.mode === headMode &&
+        entry.blob === blob &&
+        Buffer.compare(worktree, headBytes) === 0 &&
+        run(repositoryRoot, ['diff', '--quiet', 'HEAD', '--', resolved.relative], {
+          allowStatuses: [1],
+        }) !== null,
     });
   }
 

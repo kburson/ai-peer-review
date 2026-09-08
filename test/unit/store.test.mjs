@@ -29,6 +29,17 @@ test('atomicWrite replaces through an exclusive sibling and leaves no temporary 
   assert.deepEqual(readdirSync(path.dirname(file)), ['protocol.json']);
 });
 
+test('atomicWrite converts parent creation failures to a stable APR error', (t) => {
+  const workspace = workspaceFixture(t);
+  const parent = path.join(workspace, 'not-a-directory');
+  writeFileSync(parent, 'file\n');
+  assert.throws(
+    () => atomicWrite(path.join(parent, 'protocol.json'), Buffer.from('{}\n')),
+    (error) =>
+      error.code === 'APR_ATOMIC_WRITE_FAILED' && error.details.file.endsWith('protocol.json')
+  );
+});
+
 test('withReviewLock records ownership, supports async work, and preserves return values', async (t) => {
   const workspace = workspaceFixture(t);
   const value = await withReviewLock(workspace, async ({ lockFile, token }) => {
@@ -59,6 +70,15 @@ test('withReviewLock refuses contention and never deletes another owner token', 
   });
   assert.equal(existsSync(lockFile), true);
   assert.equal(JSON.parse(readFileSync(lockFile, 'utf8')).token, 'foreign');
+});
+
+test('withReviewLock converts lock-directory failures to a stable APR error', async (t) => {
+  const workspace = workspaceFixture(t);
+  writeFileSync(path.join(workspace, 'locks'), 'not a directory\n');
+  await assert.rejects(
+    withReviewLock(workspace, async () => 'not entered'),
+    (error) => error.code === 'APR_REVIEW_LOCK_FAILED'
+  );
 });
 
 test('appendEvent writes one canonical newline-terminated record under the review lock', async (t) => {

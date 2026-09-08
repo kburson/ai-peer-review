@@ -1,5 +1,5 @@
 import { execFileSync as nodeExecFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { chmodSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -71,6 +71,40 @@ test('refuses untracked artifacts with a stable APR error', (t) => {
       error.code === 'APR_ARTIFACT_UNTRACKED' &&
       error.details.path === '.scratch/not-peer-review' &&
       /git add/.test(error.recovery)
+  );
+});
+
+test('refuses tracked symlinks and observes executable-bit-only changes', (t) => {
+  const fixture = createRepositoryFixture(t);
+  const repository = createGitRepository();
+
+  assert.throws(
+    () => repository.artifactState(fixture.root, 'docs/tracked-link.md'),
+    (error) => error.code === 'APR_ARTIFACT_NOT_REGULAR'
+  );
+
+  chmodSync(path.join(fixture.root, 'docs', 'artifact.md'), 0o755);
+  assert.equal(repository.artifactState(fixture.root, 'docs/artifact.md').clean, false);
+  nodeExecFileSync('git', ['add', '--', 'docs/artifact.md'], {
+    cwd: fixture.root,
+    stdio: 'ignore',
+    shell: false,
+  });
+  assert.equal(repository.artifactState(fixture.root, 'docs/artifact.md').clean, false);
+});
+
+test('gitPath refuses lexical traversal and physical symlink escape', (t) => {
+  const fixture = createRepositoryFixture(t);
+  const repository = createGitRepository();
+
+  assert.throws(
+    () => repository.gitPath(fixture.root, '../README.md'),
+    (error) => error.code === 'APR_GIT_PATH_OUTSIDE_REPOSITORY'
+  );
+  symlinkSync(fixture.outside, path.join(fixture.commonDir, 'escape-link'));
+  assert.throws(
+    () => repository.gitPath(fixture.root, 'escape-link/file.md'),
+    (error) => error.code === 'APR_GIT_PATH_OUTSIDE_REPOSITORY'
   );
 });
 
