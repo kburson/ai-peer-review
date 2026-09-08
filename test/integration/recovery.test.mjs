@@ -135,3 +135,20 @@ test('exclusive receipt creation refuses a race collision without overwriting it
   );
   assert.equal(readFileSync(file, 'utf8'), collision);
 });
+
+test('receipt directory setup failures use the stable delivery write error', async (t) => {
+  const fixture = await createReviewWorkspace({ repository: null, events: reviewerTurnEvents() });
+  t.after(fixture.cleanup);
+  const directory = path.join(fixture.workspace, 'blocked-deliveries');
+  writeFileSync(directory, 'not a directory\n', { flag: 'wx' });
+
+  assert.throws(
+    () =>
+      writeDeliveryReceiptExclusive(path.join(directory, 'delivery.json'), {
+        delivery_id: 'delivery-setup-failure',
+        recipient: 'reviewer',
+        digest: `sha256:${'f'.repeat(64)}`,
+      }),
+    (error) => error.code === 'APR_DELIVERY_WRITE_FAILED'
+  );
+});

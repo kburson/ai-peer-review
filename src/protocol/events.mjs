@@ -150,7 +150,11 @@ function assertFingerprint(value, label) {
 }
 
 function assertTimestamp(value, label) {
-  if (typeof value !== 'string' || !RFC3339_RE.test(value) || Number.isNaN(Date.parse(value))) {
+  if (typeof value !== 'string' || !RFC3339_RE.test(value)) throw invalid(label);
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) throw invalid(label);
+  const canonical = new Date(parsed).toISOString();
+  if (value !== canonical && value !== canonical.replace('.000Z', 'Z')) {
     throw invalid(label);
   }
 }
@@ -493,8 +497,8 @@ function validatePayload(type, payload) {
 }
 
 export function eventAdvancesRevision(type) {
+  if (!Object.hasOwn(EVENT_DEFINITIONS, type)) throw invalid('unknown type', { type });
   const definition = EVENT_DEFINITIONS[type];
-  if (!definition) throw invalid('unknown type', { type });
   return definition.advancesRevision;
 }
 
@@ -506,15 +510,11 @@ export function validateEvent(value) {
   }
   if (!Number.isSafeInteger(value.sequence) || value.sequence <= 0) throw invalid('sequence');
   if (!Number.isSafeInteger(value.revision) || value.revision < 0) throw invalid('revision');
-  if (!EVENT_DEFINITIONS[value.type]) throw invalid('unknown type', { type: value.type });
-  if (value.actor !== 'system' && !FINGERPRINT_RE.test(value.actor)) throw invalid('actor');
-  if (
-    typeof value.at !== 'string' ||
-    !RFC3339_RE.test(value.at) ||
-    Number.isNaN(Date.parse(value.at))
-  ) {
-    throw invalid('at');
+  if (!Object.hasOwn(EVENT_DEFINITIONS, value.type)) {
+    throw invalid('unknown type', { type: value.type });
   }
+  if (value.actor !== 'system' && !FINGERPRINT_RE.test(value.actor)) throw invalid('actor');
+  assertTimestamp(value.at, 'at');
   exactKeys(value.payload, EVENT_DEFINITIONS[value.type].fields, `${value.type} payload`);
   assertJsonValue(value.payload);
   validatePayload(value.type, value.payload);

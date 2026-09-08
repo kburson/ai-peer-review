@@ -130,16 +130,20 @@ function deliveryReceiptFile(workspace, delivery) {
 export function writeDeliveryReceiptExclusive(file, delivery) {
   const expected = Buffer.from(canonicalProjection(delivery));
   const directory = path.dirname(file);
-  mkdirSync(directory, { recursive: true });
   const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
   let descriptor = null;
+  let phase = 'setup';
   try {
+    mkdirSync(directory, { recursive: true });
+    phase = 'temporary';
     descriptor = openSync(temporary, 'wx', 0o600);
     writeFileSync(descriptor, expected);
     fsyncSync(descriptor);
     closeSync(descriptor);
     descriptor = null;
+    phase = 'target';
     linkSync(temporary, file);
+    phase = 'durability';
     unlinkSync(temporary);
     let directoryDescriptor = null;
     try {
@@ -162,7 +166,7 @@ export function writeDeliveryReceiptExclusive(file, delivery) {
         unlinkSync(temporary);
       } catch {}
     }
-    if (cause?.code === 'EEXIST') {
+    if (cause?.code === 'EEXIST' && phase === 'target') {
       throw authorityError(
         'APR_DELIVERY_CONFLICT',
         'A delivery receipt was created concurrently.',

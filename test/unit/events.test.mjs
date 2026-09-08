@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { EVENT_TYPES, validateEvent } from '../../src/protocol/events.mjs';
+import { EVENT_TYPES, eventAdvancesRevision, validateEvent } from '../../src/protocol/events.mjs';
 import { event } from '../helpers/review-fixture.mjs';
 
 test('schema artifacts identify the three closed v1 projections', () => {
@@ -47,6 +47,19 @@ test('rejects unknown event fields, types, and payload fields', () => {
   }
 });
 
+test('rejects prototype-key event types with the stable event error', () => {
+  for (const type of ['toString', 'constructor', '__proto__']) {
+    assert.throws(
+      () => validateEvent({ ...event('review-created'), type }),
+      (error) => error.code === 'APR_EVENT_INVALID'
+    );
+    assert.throws(
+      () => eventAdvancesRevision(type),
+      (error) => error.code === 'APR_EVENT_INVALID'
+    );
+  }
+});
+
 test('rejects malformed envelope identifiers, integers, actors, and times', () => {
   const valid = event('review-created');
   for (const patch of [
@@ -55,12 +68,14 @@ test('rejects malformed envelope identifiers, integers, actors, and times', () =
     { revision: -1 },
     { actor: '' },
     { at: 'tomorrow' },
+    { at: '2026-02-30T12:00:00.000Z' },
   ]) {
     assert.throws(
       () => validateEvent({ ...valid, ...patch }),
       (error) => error.code === 'APR_EVENT_INVALID'
     );
   }
+  assert.equal(validateEvent({ ...valid, at: '2028-02-29T12:00:00Z' }), true);
 });
 
 test('rejects malformed nested payload values with one stable error code', () => {
