@@ -1,0 +1,33 @@
+{
+  "version": "0.2",
+  "language": "en,en-US",
+  "ignorePaths": [
+    "node_modules/**",
+    "coverage/**",
+    ".git/**",
+    ".scratch/**",
+    "docs/superpowers/**",
+    "scripts/providers/**",
+    "scripts/review/**",
+    "scripts/tests/**"
+  ],
+  "words": [
+    "AITM",
+    "aitm",
+    "AprError",
+    "Burson",
+    "burson",
+    "Cuiks",
+    "frontmatter",
+    "gitleaks",
+    "kburson",
+    "Knyhl",
+    "markdownlint",
+    "prefilter",
+    "provenance",
+    "reflogs",
+    "relicensing",
+    "worktree",
+    "worktrees"
+  ]
+}

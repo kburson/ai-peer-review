@@ -1,0 +1,53 @@
+{
+  "name": "ai-peer-review",
+  "version": "0.1.0",
+  "description": "A deterministic, provider-neutral peer review protocol for AI agents",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "peer-review": "./bin/peer-review.mjs"
+  },
+  "exports": "./src/public-api.mjs",
+  "files": [
+    "bin/",
+    "src/",
+    "docs/",
+    "schemas/",
+    "templates/",
+    "skills/",
+    "provenance/",
+    "LICENSE",
+    "NOTICE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "npm run test:unit && npm run test:golden",
+    "test:unit": "node --test \"test/unit/**/*.test.mjs\"",
+    "test:golden": "node --test \"test/golden/**/*.test.mjs\"",
+    "test:integration": "node --test \"test/integration/**/*.test.mjs\"",
+    "test:packaging": "node --test \"test/packaging/**/*.test.mjs\"",
+    "test:smoke": "node --test \"test/smoke/**/*.test.mjs\"",
+    "test:mcp": "node --test \"test/mcp/**/*.test.mjs\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . && markdownlint-cli2 \"**/*.md\" && cspell --no-progress \"**/*.{md,mjs,js,json}\""
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "cspell": "8.19.4",
+    "eslint": "9.39.4",
+    "markdownlint-cli2": "0.23.0",
+    "prettier": "3.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kburson/ai-peer-review.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kburson/ai-peer-review/issues"
+  },
+  "homepage": "https://github.com/kburson/ai-peer-review#readme"
+}
