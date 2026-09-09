@@ -12,6 +12,7 @@ const execFileAsync = promisify(execFile);
 const SHA = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const SWHID = /^swh:1:(rev|dir|cnt):[0-9a-f]{40}$/;
+const RELEASE_MANIFEST_PATH = 'provenance/release-manifest.json';
 
 function fail(message) {
   throw new Error(`release verification failed: ${message}`);
@@ -120,6 +121,74 @@ async function textUrl(url) {
   return response.text();
 }
 
+function parseNulPaths(value) {
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value);
+  if (bytes.length === 0) return [];
+  if (bytes.at(-1) !== 0) fail('Git changed-path observation is not NUL terminated');
+  const paths = [];
+  let start = 0;
+  for (let index = 0; index < bytes.length; index += 1) {
+    if (bytes[index] !== 0) continue;
+    const rawPath = bytes.subarray(start, index);
+    if (rawPath.length === 0) fail('Git changed-path observation contains an empty path');
+    const decoded = rawPath.toString('utf8');
+    if (!Buffer.from(decoded).equals(rawPath))
+      fail('Git changed-path observation contains a non-UTF-8 path');
+    paths.push(decoded);
+    start = index + 1;
+  }
+  return paths;
+}
+
+export async function observeReleaseDelta(root, releaseCommit, head) {
+  try {
+    await run('git', ['merge-base', '--is-ancestor', releaseCommit, head], { cwd: root });
+  } catch (error) {
+    if (error?.code === 1) {
+      return { ancestor: false, commitCount: 0, paths: [] };
+    }
+    throw error;
+  }
+  const [{ stdout: count }, { stdout: changedPaths }] = await Promise.all([
+    run('git', ['rev-list', '--count', `${releaseCommit}..${head}`], { cwd: root }),
+    run(
+      'git',
+      [
+        'diff',
+        '--name-only',
+        '-z',
+        '--no-renames',
+        // cspell:disable-next-line
+        '--diff-filter=ACDMRTUXB',
+        `${releaseCommit}..${head}`,
+        '--',
+      ],
+      { cwd: root, encoding: null }
+    ),
+  ]);
+  return {
+    ancestor: true,
+    commitCount: Number(count.trim()),
+    paths: parseNulPaths(changedPaths),
+  };
+}
+
+async function observeReleaseManifestBlobs(root, head) {
+  const readBlob = async (revision) => {
+    // cspell:disable-next-line
+    const { stdout } = await run('git', ['show', '--no-textconv', revision], {
+      cwd: root,
+      encoding: null,
+    });
+    return Buffer.from(stdout);
+  };
+  const [headBlob, indexBlob] = await Promise.all([
+    readBlob(`${head}:${RELEASE_MANIFEST_PATH}`),
+    readBlob(`:${RELEASE_MANIFEST_PATH}`),
+  ]);
+  return { head: headBlob, index: indexBlob };
+}
+
 function defaultObservers(root) {
   return {
     async extraction() {
@@ -154,39 +223,11 @@ function defaultObservers(root) {
       const { stdout } = await run('git', ['rev-parse', 'HEAD'], { cwd: root });
       return stdout.trim();
     },
-    async releaseDelta(releaseCommit, head) {
-      try {
-        await run('git', ['merge-base', '--is-ancestor', releaseCommit, head], { cwd: root });
-      } catch (error) {
-        if (error?.code === 1) {
-          return { ancestor: false, commitCount: 0, paths: [] };
-        }
-        throw error;
-      }
-      const [{ stdout: count }, { stdout: changedPaths }] = await Promise.all([
-        run('git', ['rev-list', '--count', `${releaseCommit}..${head}`], { cwd: root }),
-        run(
-          'git',
-          [
-            'diff',
-            '--name-only',
-            '--no-renames',
-            // cspell:disable-next-line
-            '--diff-filter=ACDMRTUXB',
-            `${releaseCommit}..${head}`,
-            '--',
-          ],
-          { cwd: root }
-        ),
-      ]);
-      return {
-        ancestor: true,
-        commitCount: Number(count.trim()),
-        paths: changedPaths
-          .split(/\r?\n/)
-          .map((entry) => entry.trim())
-          .filter(Boolean),
-      };
+    releaseDelta(releaseCommit, head) {
+      return observeReleaseDelta(root, releaseCommit, head);
+    },
+    releaseManifestBlobs(head) {
+      return observeReleaseManifestBlobs(root, head);
     },
     async repository() {
       const { stdout } = await run(
@@ -225,7 +266,7 @@ function defaultObservers(root) {
   };
 }
 
-export async function verifyRelease({ root, manifest, observers } = {}) {
+export async function verifyRelease({ root, manifest, manifestBytes, observers } = {}) {
   validateReleaseManifest(manifest);
   const observed = observers ?? defaultObservers(root);
   await observed.extraction();
@@ -261,9 +302,17 @@ export async function verifyRelease({ root, manifest, observers } = {}) {
   if (
     !Array.isArray(delta.paths) ||
     delta.paths.length !== 1 ||
-    delta.paths[0] !== 'provenance/release-manifest.json'
+    delta.paths[0] !== RELEASE_MANIFEST_PATH
   )
-    fail('post-release changes are not restricted to provenance/release-manifest.json');
+    fail(`post-release changes are not restricted to ${RELEASE_MANIFEST_PATH}`);
+  if (!Buffer.isBuffer(manifestBytes)) fail('working release manifest bytes are missing');
+  const committedManifest = await observed.releaseManifestBlobs(head);
+  if (!Buffer.isBuffer(committedManifest?.head) || !Buffer.isBuffer(committedManifest?.index))
+    fail('committed release manifest observation is malformed');
+  if (!committedManifest.head.equals(committedManifest.index))
+    fail('index release manifest does not match the committed evidence blob');
+  if (!committedManifest.head.equals(manifestBytes))
+    fail('working release manifest does not match the committed evidence blob');
 
   const repository = await observed.repository();
   if (repository.url !== manifest.repository.url || repository.visibility !== 'PUBLIC')
@@ -315,10 +364,11 @@ export async function verifyRelease({ root, manifest, observers } = {}) {
 async function main() {
   if (process.argv.length !== 2) fail('usage: node scripts/verify-release.mjs');
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const manifest = JSON.parse(
-    await readFile(path.join(root, 'provenance/release-manifest.json'), 'utf8')
+  const manifestBytes = await readFile(path.join(root, RELEASE_MANIFEST_PATH));
+  const manifest = JSON.parse(manifestBytes.toString('utf8'));
+  process.stdout.write(
+    `${JSON.stringify(await verifyRelease({ root, manifest, manifestBytes }))}\n`
   );
-  process.stdout.write(`${JSON.stringify(await verifyRelease({ root, manifest }))}\n`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

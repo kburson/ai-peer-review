@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { validateReleaseManifest, verifyRelease } from '../../scripts/verify-release.mjs';
+import {
+  observeReleaseDelta,
+  validateReleaseManifest,
+  verifyRelease,
+} from '../../scripts/verify-release.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const digest = createHash('sha256').update('release tarball').digest('hex');
@@ -52,6 +58,10 @@ function manifest() {
   };
 }
 
+function manifestBytes(value) {
+  return Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+}
+
 function observers(value = manifest()) {
   return {
     extraction: async () => true,
@@ -68,6 +78,10 @@ function observers(value = manifest()) {
         commitCount: 1,
         paths: ['provenance/release-manifest.json'],
       };
+    },
+    releaseManifestBlobs: async () => {
+      const bytes = manifestBytes(value);
+      return { head: bytes, index: bytes };
     },
     repository: async () => value.repository,
     githubRelease: async () => ({
@@ -89,23 +103,48 @@ function observers(value = manifest()) {
   };
 }
 
+function verify(value, observed = observers(value), bytes = manifestBytes(value)) {
+  return verifyRelease({ root, manifest: value, manifestBytes: bytes, observers: observed });
+}
+
+function git(cwd, args, options = {}) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', ...options }).trim();
+}
+
+function temporaryRepository() {
+  const directory = mkdtempSync(path.join(os.tmpdir(), 'ai-peer-review-release-'));
+  git(directory, ['init']);
+  git(directory, ['config', 'user.name', 'Release Test']);
+  git(directory, ['config', 'user.email', 'release-test@example.invalid']);
+  mkdirSync(path.join(directory, 'provenance'), { recursive: true });
+  writeFileSync(path.join(directory, 'provenance/release-manifest.json'), '{"draft":true}\n');
+  git(directory, ['add', '.']);
+  git(directory, ['commit', '--no-gpg-sign', '-m', 'base']);
+  return directory;
+}
+
 test('release verifier binds the release commit to the signed tag target', async () => {
   const value = manifest();
-  const verified = await verifyRelease({ root, manifest: value, observers: observers(value) });
+  const verified = await verify(value);
   assert.equal(verified.releaseCommit, releaseCommit);
   assert.equal(verified.checksum, digest);
 
   const substituted = manifest();
   substituted.tag.target_commit = '0'.repeat(40);
+  const observed = observers(substituted);
+  observed.tag = async () => ({
+    target_commit: releaseCommit,
+    signer_fingerprint: substituted.tag.signer_fingerprint,
+  });
   await assert.rejects(
-    verifyRelease({ root, manifest: substituted, observers: observers(manifest()) }),
+    verify(substituted, observed),
     /signed tag target and release commit do not match/
   );
 });
 
 test('release verifier permits one evidence-only descendant', async () => {
   const value = manifest();
-  const verified = await verifyRelease({ root, manifest: value, observers: observers(value) });
+  const verified = await verify(value);
   assert.equal(verified.releaseCommit, releaseCommit);
 });
 
@@ -117,7 +156,7 @@ test('release verifier rejects unrelated post-release changes', async () => {
     paths: ['provenance/release-manifest.json', 'src/public-api.mjs'],
   });
   await assert.rejects(
-    verifyRelease({ root, manifest: manifest(), observers: unrelated }),
+    verify(manifest(), unrelated),
     /post-release changes are not restricted to provenance\/release-manifest\.json/
   );
 
@@ -128,7 +167,7 @@ test('release verifier rejects unrelated post-release changes', async () => {
     paths: [],
   });
   await assert.rejects(
-    verifyRelease({ root, manifest: manifest(), observers: unrelatedHistory }),
+    verify(manifest(), unrelatedHistory),
     /release commit is not an ancestor of checkout HEAD/
   );
 
@@ -139,8 +178,66 @@ test('release verifier rejects unrelated post-release changes', async () => {
     paths: ['provenance/release-manifest.json'],
   });
   await assert.rejects(
-    verifyRelease({ root, manifest: manifest(), observers: multipleEvidenceCommits }),
+    verify(manifest(), multipleEvidenceCommits),
     /not exactly one evidence commit/
+  );
+});
+
+test('release observer preserves adversarial path bytes and exposes renames', async (t) => {
+  const whitespaceRepo = temporaryRepository();
+  t.after(() => rmSync(whitespaceRepo, { recursive: true, force: true }));
+  const whitespaceBase = git(whitespaceRepo, ['rev-parse', 'HEAD']);
+  const blob = git(whitespaceRepo, ['hash-object', '-w', '--stdin'], { input: 'substitute\n' });
+  git(whitespaceRepo, [
+    'update-index',
+    '--add',
+    // cspell:disable-next-line
+    '--cacheinfo',
+    '100644',
+    blob,
+    'provenance/release-manifest.json ',
+  ]);
+  git(whitespaceRepo, ['commit', '--no-gpg-sign', '-m', 'adversarial path']);
+  const whitespaceHead = git(whitespaceRepo, ['rev-parse', 'HEAD']);
+  const whitespaceDelta = await observeReleaseDelta(whitespaceRepo, whitespaceBase, whitespaceHead);
+  assert.deepEqual(whitespaceDelta.paths, ['provenance/release-manifest.json ']);
+
+  const renameRepo = temporaryRepository();
+  t.after(() => rmSync(renameRepo, { recursive: true, force: true }));
+  mkdirSync(path.join(renameRepo, 'src'));
+  writeFileSync(path.join(renameRepo, 'src/old.mjs'), 'export const value = 1;\n');
+  git(renameRepo, ['add', '.']);
+  git(renameRepo, ['commit', '--no-gpg-sign', '-m', 'add source']);
+  const renameBase = git(renameRepo, ['rev-parse', 'HEAD']);
+  renameSync(path.join(renameRepo, 'src/old.mjs'), path.join(renameRepo, 'src/new.mjs'));
+  writeFileSync(path.join(renameRepo, 'provenance/release-manifest.json'), '{"draft":false}\n');
+  git(renameRepo, ['add', '-A']);
+  git(renameRepo, ['commit', '--no-gpg-sign', '-m', 'evidence and rename']);
+  const renameHead = git(renameRepo, ['rev-parse', 'HEAD']);
+  const renameDelta = await observeReleaseDelta(renameRepo, renameBase, renameHead);
+  assert.deepEqual(renameDelta.paths.sort(), [
+    'provenance/release-manifest.json',
+    'src/new.mjs',
+    'src/old.mjs',
+  ]);
+});
+
+test('release verifier rejects dirty or staged release-manifest bytes', async () => {
+  const value = manifest();
+  const dirtyBytes = Buffer.concat([manifestBytes(value), Buffer.from(' ')]);
+  await assert.rejects(
+    verify(value, observers(value), dirtyBytes),
+    /working release manifest does not match the committed evidence blob/
+  );
+
+  const staged = observers(value);
+  staged.releaseManifestBlobs = async () => ({
+    head: manifestBytes(value),
+    index: dirtyBytes,
+  });
+  await assert.rejects(
+    verify(value, staged),
+    /index release manifest does not match the committed evidence blob/
   );
 });
 
@@ -150,25 +247,18 @@ test('release manifest fails closed on draft or substituted public evidence', as
   assert.throws(() => validateReleaseManifest(draft), /release_commit/);
   const changed = manifest();
   changed.github_release.asset_sha256 = '0'.repeat(64);
-  await assert.rejects(
-    verifyRelease({ root, manifest: changed, observers: observers(manifest()) }),
-    /checksum mismatch/
-  );
+  const changedObservers = observers(changed);
+  changedObservers.sha256Url = async () => digest;
+  await assert.rejects(verify(changed, changedObservers), /checksum mismatch/);
 
   const wrongSigner = observers(manifest());
   wrongSigner.tag = async () => ({
     target_commit: releaseCommit,
     signer_fingerprint: 'SHA256:substitute',
   });
-  await assert.rejects(
-    verifyRelease({ root, manifest: manifest(), observers: wrongSigner }),
-    /fingerprint mismatch/
-  );
+  await assert.rejects(verify(manifest(), wrongSigner), /fingerprint mismatch/);
 
   const wrongChecksums = observers(manifest());
   wrongChecksums.textUrl = async () => `${'f'.repeat(64)}  ai-peer-review-0.1.0.tgz\n`;
-  await assert.rejects(
-    verifyRelease({ root, manifest: manifest(), observers: wrongChecksums }),
-    /checksum asset does not bind/
-  );
+  await assert.rejects(verify(manifest(), wrongChecksums), /checksum asset does not bind/);
 });
