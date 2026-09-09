@@ -20,7 +20,7 @@ const definitions = {
   },
   'reviewer-joined': {
     advancesRevision: true,
-    fields: ['reviewer', 'transport_capability'],
+    fields: ['reviewer', 'transport_capability', 'repository_boundary'],
   },
   'reviewer-revisions-requested': {
     advancesRevision: true,
@@ -29,7 +29,11 @@ const definitions = {
   'reviewer-accepted': { advancesRevision: true, fields: ['turn', 'response', 'finding_ids'] },
   'author-revision-committed': {
     advancesRevision: true,
-    fields: ['turn', 'response', 'artifact', 'commit'],
+    fields: ['turn', 'response', 'artifact', 'commit', 'repository_boundary'],
+  },
+  'author-revision-sealed-no-commit': {
+    advancesRevision: true,
+    fields: ['turn', 'response', 'artifact', 'snapshot', 'repository_boundary'],
   },
   'author-closing-round-committed': {
     advancesRevision: true,
@@ -38,6 +42,20 @@ const definitions = {
       'response',
       'artifact',
       'commit',
+      'repository_boundary',
+      'intervention_id',
+      'reason',
+      'interrupted_state',
+    ],
+  },
+  'author-closing-round-sealed-no-commit': {
+    advancesRevision: true,
+    fields: [
+      'turn',
+      'response',
+      'artifact',
+      'snapshot',
+      'repository_boundary',
       'intervention_id',
       'reason',
       'interrupted_state',
@@ -279,6 +297,14 @@ function validateArtifact(value, label, { initial = false } = {}) {
   if (initial) assertGitObject(value.head, `${label} head`);
   assertGitObject(value.blob, `${label} blob`);
   assertDigest(value.digest, `${label} digest`);
+}
+
+function validateRepositoryBoundary(value, label) {
+  exactKeys(value, ['head', 'branch', 'index_digest', 'worktree_digest'], label);
+  assertGitObject(value.head, `${label} head`);
+  assertString(value.branch, `${label} branch`);
+  assertDigest(value.index_digest, `${label} index_digest`);
+  assertDigest(value.worktree_digest, `${label} worktree_digest`);
 }
 
 function validateStartup(value) {
@@ -613,6 +639,10 @@ function validatePayload(type, payload, valueReviewId) {
         ['manual', 'resume-only'],
         'reviewer-joined transport capability'
       );
+      validateRepositoryBoundary(
+        payload.repository_boundary,
+        'reviewer-joined repository_boundary'
+      );
       break;
     case 'reviewer-revisions-requested':
     case 'reviewer-accepted':
@@ -626,7 +656,22 @@ function validatePayload(type, payload, valueReviewId) {
       validateResponse(payload.response, `${type} response`);
       validateArtifact(payload.artifact, `${type} artifact`);
       assertGitObject(payload.commit, `${type} commit`);
+      validateRepositoryBoundary(payload.repository_boundary, `${type} repository_boundary`);
       if (type === 'author-closing-round-committed') {
+        assertIdentifier(payload.intervention_id, `${type} intervention_id`);
+        if (payload.reason !== 'turn-budget-exhausted') throw invalid(`${type} reason`);
+        if (payload.interrupted_state !== 'reviewer-turn')
+          throw invalid(`${type} interrupted_state`);
+      }
+      break;
+    case 'author-revision-sealed-no-commit':
+    case 'author-closing-round-sealed-no-commit':
+      assertPositiveInteger(payload.turn, `${type} turn`);
+      validateResponse(payload.response, `${type} response`);
+      validateArtifact(payload.artifact, `${type} artifact`);
+      validateResponse(payload.snapshot, `${type} snapshot`);
+      validateRepositoryBoundary(payload.repository_boundary, `${type} repository_boundary`);
+      if (type === 'author-closing-round-sealed-no-commit') {
         assertIdentifier(payload.intervention_id, `${type} intervention_id`);
         if (payload.reason !== 'turn-budget-exhausted') throw invalid(`${type} reason`);
         if (payload.interrupted_state !== 'reviewer-turn')

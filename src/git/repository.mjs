@@ -1,6 +1,6 @@
 import { execFileSync as nodeExecFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, realpathSync } from 'node:fs';
+import { lstatSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { resolveContainedPath } from '../collateral/paths.mjs';
@@ -262,6 +262,43 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     });
   }
 
+  function reviewerBoundary(cwd, allowedResponse) {
+    const repositoryRoot = root(cwd);
+    const allowed = resolveContainedPath(
+      repositoryRoot,
+      allowedResponse,
+      'reviewer response'
+    ).relative;
+    const head = String(run(repositoryRoot, ['rev-parse', 'HEAD'])).trim();
+    const branch = String(run(repositoryRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+    const index = run(repositoryRoot, ['ls-files', '--stage', '-z'], { buffer: true });
+    const tracked = run(repositoryRoot, ['diff', '--binary', '--no-ext-diff', '--'], {
+      buffer: true,
+    });
+    const untracked = String(
+      run(repositoryRoot, ['ls-files', '--others', '--exclude-standard', '-z'], { buffer: true })
+    )
+      .split('\0')
+      .filter((relative) => relative && relative !== allowed)
+      .sort();
+    const worktree = createHash('sha256');
+    worktree.update(tracked);
+    for (const relative of untracked) {
+      const resolved = resolveContainedPath(repositoryRoot, relative, 'untracked path');
+      const stat = lstatSync(resolved.absolute);
+      worktree.update(`\0${relative}\0${stat.mode}\0`);
+      worktree.update(
+        stat.isSymbolicLink() ? readlinkSync(resolved.absolute) : readFileSync(resolved.absolute)
+      );
+    }
+    return Object.freeze({
+      head,
+      branch,
+      index_digest: `sha256:${digest(index)}`,
+      worktree_digest: `sha256:${worktree.digest('hex')}`,
+    });
+  }
+
   return Object.freeze({
     root,
     commonDir,
@@ -274,5 +311,6 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     changedPaths,
     checkIgnored,
     baseline,
+    reviewerBoundary,
   });
 }

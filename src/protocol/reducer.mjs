@@ -8,7 +8,9 @@ export const LIFECYCLE_EVENT_TYPES = Object.freeze([
   'reviewer-revisions-requested',
   'reviewer-accepted',
   'author-revision-committed',
+  'author-revision-sealed-no-commit',
   'author-closing-round-committed',
+  'author-closing-round-sealed-no-commit',
   'finalization-started',
   'acceptance-committed',
   'acceptance-sealed-no-commit',
@@ -36,7 +38,9 @@ const TRANSITIONS = new Map([
   ['reviewer-turn|reviewer-revisions-requested', 'author-revision'],
   ['reviewer-turn|reviewer-accepted', 'acceptance-pending'],
   ['author-revision|author-revision-committed', 'reviewer-turn'],
+  ['author-revision|author-revision-sealed-no-commit', 'reviewer-turn'],
   ['author-revision|author-closing-round-committed', 'intervention-required'],
+  ['author-revision|author-closing-round-sealed-no-commit', 'intervention-required'],
   ['acceptance-pending|finalization-started', 'author-finalization'],
   ['author-finalization|acceptance-committed', 'accepted'],
   ['author-finalization|acceptance-sealed-no-commit', 'accepted-uncommitted'],
@@ -124,6 +128,7 @@ function initialProjection() {
       claim_ttl_ms: 0,
       authority: null,
       startup: null,
+      reviewer_boundary: null,
       transports: { author: null, reviewer: null },
       turns_used: 0,
       artifact: null,
@@ -306,6 +311,24 @@ function ensureStatePreservingAllowed(protocol, event) {
 function applyLifecycle(protocol, participants, event) {
   if (!LIFECYCLE_EVENT_TYPES.includes(event.type)) return protocol.state;
   if (TERMINAL_STATES.has(protocol.state)) throw transitionError(protocol.state, event);
+  const uncommitted = new Set([
+    'author-revision-sealed-no-commit',
+    'author-closing-round-sealed-no-commit',
+    'acceptance-sealed-no-commit',
+    'override-sealed-no-commit',
+  ]);
+  const committed = new Set([
+    'author-revision-committed',
+    'author-closing-round-committed',
+    'acceptance-committed',
+    'override-committed',
+  ]);
+  if (
+    (uncommitted.has(event.type) && protocol.commit_mode !== 'no-commit') ||
+    (committed.has(event.type) && protocol.commit_mode !== 'normal')
+  ) {
+    throw transitionError(protocol.state, event, 'event differs from startup commit mode');
+  }
   const target = TRANSITIONS.get(`${String(protocol.state)}|${event.type}`);
   if (!target) {
     if (event.type === 'same-session-reclaim' && protocol.state !== 'intervention-required') {
@@ -450,12 +473,23 @@ function applyProjection(state, event) {
   } else if (event.type === 'reviewer-joined') {
     participants.reviewer = copy(event.payload.reviewer);
     protocol.transports.reviewer = event.payload.transport_capability;
+    protocol.reviewer_boundary = copy(event.payload.repository_boundary);
   }
   if (event.type === 'reviewer-revisions-requested' || event.type === 'reviewer-accepted') {
     protocol.turns_used += 1;
   }
+  if (
+    event.type === 'author-revision-committed' ||
+    event.type === 'author-revision-sealed-no-commit'
+  ) {
+    protocol.reviewer_boundary = copy(event.payload.repository_boundary);
+  }
   if (event.payload.artifact) protocol.artifact = copy(event.payload.artifact);
-  if (event.type === 'author-closing-round-committed' || event.type === 'intervention-entered') {
+  if (
+    event.type === 'author-closing-round-committed' ||
+    event.type === 'author-closing-round-sealed-no-commit' ||
+    event.type === 'intervention-entered'
+  ) {
     protocol.intervention = {
       intervention_id: event.payload.intervention_id,
       reason: event.payload.reason,

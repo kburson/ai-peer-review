@@ -15,6 +15,7 @@
     "claim_ttl_ms",
     "authority",
     "startup",
+    "reviewer_boundary",
     "transports",
     "turns_used",
     "artifact",
@@ -38,6 +39,9 @@
     "claim_ttl_ms": { "type": "integer", "minimum": 0 },
     "authority": { "type": ["object", "null"] },
     "startup": { "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/startup" }] },
+    "reviewer_boundary": {
+      "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/repositoryBoundary" }]
+    },
     "transports": {
       "type": "object",
       "additionalProperties": false,

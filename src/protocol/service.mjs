@@ -287,6 +287,11 @@ export function inspectReview(workspace) {
   return readAuthority(workspace).state;
 }
 
+export function inspectReviewAuthority(workspace) {
+  const { events, state } = readAuthority(workspace);
+  return Object.freeze({ events: Object.freeze([...events]), state });
+}
+
 export async function initializeReview(workspace, event) {
   validateEvent(event);
   if (event.type !== 'review-created' || event.sequence !== 1 || event.revision !== 1) {

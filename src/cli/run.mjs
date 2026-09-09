@@ -10,9 +10,15 @@ import {
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
-import { createResponseDraft, reserveCollateral } from '../collateral/responses.mjs';
+import {
+  createResponseDraft,
+  parseResponse,
+  reserveCollateral,
+  sealResponse,
+} from '../collateral/responses.mjs';
 import { AprError } from '../errors.mjs';
 import { createGitRepository } from '../git/repository.mjs';
+import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
 import {
   assertDistinctParticipants,
   claimRole,
@@ -24,6 +30,7 @@ import {
   canonicalProjection,
   initializeReview,
   inspectReview,
+  inspectReviewAuthority,
   mutateReview,
   repairReview,
 } from '../protocol/service.mjs';
@@ -878,16 +885,23 @@ export async function joinReview(input, deps = {}) {
       'Run peer-review status and follow its exact next action.'
     );
   }
-  const joinedEvent = eventFor(
-    state,
-    'reviewer-joined',
-    input.identity.session_fingerprint,
-    { reviewer: input.identity, transport_capability: reviewerCapability },
-    input.now ?? new Date()
-  );
   const joined = await mutateReview(values.workspace, expected(state), (current) => {
-    validateJoinAuthority({ state: current, root, invitation, values });
-    return joinedEvent;
+    const currentPaths = validateJoinAuthority({ state: current, root, invitation, values });
+    const repositoryBoundary = repository.reviewerBoundary(
+      root,
+      currentPaths.reviewerResponse(1).relative
+    );
+    return eventFor(
+      current,
+      'reviewer-joined',
+      input.identity.session_fingerprint,
+      {
+        reviewer: input.identity,
+        transport_capability: reviewerCapability,
+        repository_boundary: repositoryBoundary,
+      },
+      input.now ?? new Date()
+    );
   });
   const claimed = await mutateReview(values.workspace, expected(joined), (current) =>
     claimRole(current, input.identity, input.now ?? new Date())
@@ -984,6 +998,727 @@ export function resumeReview(workspace, options = {}) {
   });
 }
 
+function submissionAuthority(workspace) {
+  const absolute = path.resolve(workspace);
+  const authority = inspectReviewAuthority(absolute);
+  const { paths } = sealedPaths(authority.state);
+  return { absolute, paths, ...authority };
+}
+
+function assertCurrentParticipant(state, role, identity) {
+  const participant = state.participants[role];
+  const claim = state.protocol.claims[role];
+  if (
+    state.protocol.current_actor !== role ||
+    !sameParticipant(participant, identity) ||
+    claim?.session_fingerprint !== participant?.session_fingerprint
+  ) {
+    fail(
+      'APR_IDENTITY_CONFLICT',
+      `Submission does not match the current ${role} participant and claim.`,
+      `Resume from the registered ${role} session and retry.`
+    );
+  }
+}
+
+function latestHead(state, events) {
+  const committed = [...events]
+    .reverse()
+    .find((event) =>
+      ['author-revision-committed', 'author-closing-round-committed'].includes(event.type)
+    );
+  return committed?.payload.commit ?? events[0]?.payload.artifact.head ?? null;
+}
+
+function assertReviewerRepository(input, state, events, repository) {
+  const root = repository.root(input.cwd);
+  if (root !== state.protocol.startup.context.repository_root) {
+    fail(
+      'APR_REVIEWER_GIT_VIOLATION',
+      'Reviewer submission came from a different physical worktree.',
+      'Return to the exact event-authorized worktree and retry.'
+    );
+  }
+  const artifact = repository.artifactState(root, state.protocol.artifact.path);
+  const expectedHead = latestHead(state, events);
+  const response = sealedPaths(state).paths.reviewerResponse(
+    state.protocol.turns_used + 1
+  ).relative;
+  const boundary = repository.reviewerBoundary(root, response);
+  const artifactMatches =
+    state.protocol.commit_mode === 'no-commit'
+      ? artifact.head === expectedHead &&
+        `sha256:${artifact.worktreeDigest}` === state.protocol.artifact.digest
+      : artifact.clean &&
+        artifact.head === expectedHead &&
+        artifact.blob === state.protocol.artifact.blob &&
+        `sha256:${artifact.worktreeDigest}` === state.protocol.artifact.digest;
+  if (!artifactMatches || !sameValue(boundary, state.protocol.reviewer_boundary)) {
+    fail(
+      'APR_REVIEWER_GIT_VIOLATION',
+      'Reviewer submission detected artifact or HEAD mutation.',
+      'Restore the event-authorized artifact and HEAD without discarding unrelated work.'
+    );
+  }
+  return root;
+}
+
+function decisionFromResponse(file) {
+  return parseResponse(readFileSync(file)).sections.find(({ heading }) => heading === 'Decision')
+    ?.content;
+}
+
+function deliveryEvent(state, actor, recipient, deliveryId, valueDigest, now) {
+  return eventFor(
+    state,
+    'delivery-written',
+    actor,
+    { delivery: { delivery_id: deliveryId, recipient, digest: valueDigest } },
+    now
+  );
+}
+
+function checkpoint(deps, name) {
+  deps.checkpoint?.(name);
+}
+
+function sealedReviewerFromEvent(root, event) {
+  const file = path.join(root, event.payload.response.path);
+  const bytes = readFileSync(file);
+  if (sha256(bytes) !== event.payload.response.digest) {
+    fail(
+      'APR_PROTECTED_METADATA_CHANGED',
+      'Event-authorized reviewer response bytes changed.',
+      'Restore the exact sealed reviewer response before retrying the handoff.'
+    );
+  }
+  const parsed = parseResponse(bytes);
+  return Object.freeze({
+    path: file,
+    digest: event.payload.response.digest,
+    role: 'reviewer',
+    turn: event.payload.turn,
+    submitted_at: parsed.metadata.submitted_at,
+    finding_ids: Object.freeze([...event.payload.finding_ids]),
+    answered_finding_ids: Object.freeze([]),
+  });
+}
+
+async function completeReviewerHandoff({ input, deps, absolute, paths, state, sealed }) {
+  let current = state;
+  let nextResponse = null;
+  if (input.decision === 'revisions-requested') {
+    const author = current.participants.author;
+    const claim = current.protocol.claims.author;
+    if (!claim) {
+      current = await mutateReview(absolute, expected(current), (locked) =>
+        claimRole(locked, author, input.now ?? new Date())
+      );
+    } else if (claim.session_fingerprint !== author.session_fingerprint) {
+      fail(
+        'APR_CLAIM_CONFLICT',
+        'Author handoff claim differs from participant authority.',
+        'Use the governed claim recovery flow before retrying.'
+      );
+    }
+    checkpoint(deps, 'author-claimed');
+    nextResponse = createResponseDraft(
+      {
+        ...current,
+        paths,
+        pending_finding_ids: sealed.finding_ids,
+        artifact_commit: latestHead(current, inspectReviewAuthority(absolute).events),
+      },
+      'author',
+      sealed.turn
+    ).path;
+    checkpoint(deps, 'author-draft-created');
+  }
+  const deliveryId = `reviewer-turn-${sealed.turn}-to-author`;
+  const prior = current.protocol.deliveries.find((delivery) => delivery.delivery_id === deliveryId);
+  if (prior) {
+    if (prior.recipient !== 'author' || prior.digest !== sealed.digest) {
+      fail(
+        'APR_DELIVERY_CONFLICT',
+        'Reviewer handoff delivery conflicts with event authority.',
+        'Preserve the delivery and inspect the conflict before recovery.'
+      );
+    }
+  } else {
+    current = await mutateReview(absolute, expected(current), (locked) =>
+      deliveryEvent(
+        locked,
+        input.identity.session_fingerprint,
+        'author',
+        deliveryId,
+        sealed.digest,
+        input.now ?? new Date()
+      )
+    );
+  }
+  checkpoint(deps, 'delivery-written');
+  return result(
+    'submit',
+    current,
+    { workspace: absolute, response: nextResponse ?? sealed.path },
+    { decision: input.decision, response: sealed }
+  );
+}
+
+export async function submitReviewTurn(input, deps = {}) {
+  const repository = deps.repository ?? createGitRepository();
+  const { absolute, paths, events, state } = submissionAuthority(input.workspace);
+  if (state.protocol.state !== 'reviewer-turn') {
+    const decision = latestReviewerDecision(events);
+    const expectedType =
+      input.decision === 'accepted' ? 'reviewer-accepted' : 'reviewer-revisions-requested';
+    const root = state.protocol.startup.context.repository_root;
+    if (
+      decision?.type === expectedType &&
+      decision.actor === input.identity?.session_fingerprint &&
+      ['author-revision', 'acceptance-pending'].includes(state.protocol.state)
+    ) {
+      const sealed = sealedReviewerFromEvent(root, decision);
+      return completeReviewerHandoff({ input, deps, absolute, paths, state, sealed });
+    }
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Reviewer submission is not the current review action.',
+      'Read status and follow its exact next action.'
+    );
+  }
+  assertCurrentParticipant(state, 'reviewer', input.identity);
+  assertReviewerRepository(input, state, events, repository);
+  const responseFile = paths.reviewerResponse(state.protocol.turns_used + 1).absolute;
+  const authoredDecision = decisionFromResponse(responseFile);
+  if (
+    !['revisions-requested', 'accepted'].includes(input.decision) ||
+    authoredDecision !== input.decision
+  ) {
+    fail(
+      'APR_RESPONSE_INVALID',
+      'Reviewer decision differs from the response or command.',
+      'Use the same revisions-requested or accepted decision in both places.'
+    );
+  }
+  const priorFindingIds = events.flatMap((event) =>
+    ['reviewer-revisions-requested', 'reviewer-accepted'].includes(event.type)
+      ? event.payload.finding_ids
+      : []
+  );
+  const sealed = sealResponse(
+    { ...state, paths, now: input.now, prior_finding_ids: priorFindingIds },
+    responseFile,
+    input.identity
+  );
+  checkpoint(deps, 'response-sealed');
+  const eventType =
+    input.decision === 'accepted' ? 'reviewer-accepted' : 'reviewer-revisions-requested';
+  const decided = await mutateReview(absolute, expected(state), (current) => {
+    assertCurrentParticipant(current, 'reviewer', input.identity);
+    assertReviewerRepository(input, current, events, repository);
+    return eventFor(
+      current,
+      eventType,
+      input.identity.session_fingerprint,
+      {
+        turn: sealed.turn,
+        response: {
+          path: path.relative(state.protocol.startup.context.repository_root, sealed.path),
+          digest: sealed.digest,
+        },
+        finding_ids: sealed.finding_ids,
+      },
+      input.now ?? new Date()
+    );
+  });
+  checkpoint(deps, 'decision-appended');
+  return completeReviewerHandoff({ input, deps, absolute, paths, state: decided, sealed });
+}
+
+function latestReviewerDecision(events) {
+  return [...events]
+    .reverse()
+    .find((event) => ['reviewer-revisions-requested', 'reviewer-accepted'].includes(event.type));
+}
+
+function relativeSealed(root, file, sealed) {
+  return {
+    path: path.relative(root, file),
+    bytes: readFileSync(file),
+    digest: sealed.digest,
+  };
+}
+
+function latestAuthorSubmission(events) {
+  return [...events]
+    .reverse()
+    .find((event) =>
+      [
+        'author-revision-committed',
+        'author-closing-round-committed',
+        'author-revision-sealed-no-commit',
+        'author-closing-round-sealed-no-commit',
+      ].includes(event.type)
+    );
+}
+
+function sealedAuthorFromEvent(root, event) {
+  const file = path.join(root, event.payload.response.path);
+  const bytes = readFileSync(file);
+  if (sha256(bytes) !== event.payload.response.digest) {
+    fail(
+      'APR_GIT_SEAL_MISMATCH',
+      'Event-authorized author response bytes changed.',
+      'Restore the exact sealed author response before retrying the handoff.'
+    );
+  }
+  const metadata = parseResponse(bytes).metadata;
+  return Object.freeze({
+    path: file,
+    digest: event.payload.response.digest,
+    role: 'author',
+    turn: event.payload.turn,
+    submitted_at: metadata.submitted_at,
+    finding_ids: Object.freeze([]),
+    answered_finding_ids: Object.freeze([...metadata.finding_ids]),
+  });
+}
+
+function authorTrailers(state, event, decision) {
+  return {
+    'Peer-Review-ID': state.protocol.review_id,
+    'Peer-Review-Turn': String(event.payload.turn),
+    'Peer-Review-Artifact-Blob': event.payload.artifact.blob,
+    'Peer-Review-Reviewer-Response': decision.payload.response.digest,
+    'Peer-Review-Author-Response': event.payload.response.digest,
+  };
+}
+
+async function completeAuthorHandoff({
+  input,
+  deps,
+  absolute,
+  paths,
+  events,
+  state,
+  event,
+  sealedResponse,
+  artifactBytes,
+  commit,
+  snapshot = null,
+}) {
+  let current = state;
+  let nextResponse = null;
+  if (current.protocol.state === 'reviewer-turn') {
+    nextResponse = createResponseDraft(
+      {
+        ...current,
+        paths,
+        artifact_commit: event.payload.commit ?? latestHead(current, events),
+      },
+      'reviewer',
+      event.payload.turn + 1
+    ).path;
+  }
+  checkpoint(deps, 'reviewer-draft-created');
+  const deliveryId = `author-turn-${event.payload.turn}-to-reviewer`;
+  const prior = current.protocol.deliveries.find((delivery) => delivery.delivery_id === deliveryId);
+  if (prior) {
+    if (prior.recipient !== 'reviewer' || prior.digest !== sealedResponse.digest) {
+      fail(
+        'APR_DELIVERY_CONFLICT',
+        'Author handoff delivery conflicts with event authority.',
+        'Preserve the delivery and inspect the conflict before recovery.'
+      );
+    }
+  } else {
+    current = await mutateReview(absolute, expected(current), (locked) =>
+      deliveryEvent(
+        locked,
+        input.identity.session_fingerprint,
+        'reviewer',
+        deliveryId,
+        sealedResponse.digest,
+        input.now ?? new Date()
+      )
+    );
+  }
+  checkpoint(deps, 'delivery-written');
+  return result(
+    'submit',
+    current,
+    { workspace: absolute, response: nextResponse ?? sealedResponse.path },
+    {
+      response: sealedResponse,
+      artifact: {
+        path: event.payload.artifact.path,
+        bytes: artifactBytes,
+        digest: event.payload.artifact.digest,
+      },
+      commit,
+      ...(snapshot ? { snapshot } : {}),
+    }
+  );
+}
+
+async function recoverAuthorHandoff({ input, deps, authority, git, transactionRepository }) {
+  const { absolute, paths, events, state } = authority;
+  const event = latestAuthorSubmission(events);
+  const author = state.participants.author;
+  if (
+    !event ||
+    event.actor !== input.identity?.session_fingerprint ||
+    !sameParticipant(author, input.identity) ||
+    !['reviewer-turn', 'intervention-required'].includes(state.protocol.state)
+  ) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Author submission is not the current review action.',
+      'Read status and follow its exact next action.'
+    );
+  }
+  const root = git.root(input.cwd);
+  if (root !== state.protocol.startup.context.repository_root) {
+    fail(
+      'APR_GIT_WORKTREE_CHANGED',
+      'Author submission came from a different physical worktree.',
+      'Return to the exact event-authorized worktree and retry.'
+    );
+  }
+  const artifactFile = path.join(root, event.payload.artifact.path);
+  const artifactBytes = readFileSync(artifactFile);
+  if (
+    sha256(artifactBytes) !== event.payload.artifact.digest ||
+    transactionRepository.hashWorking(event.payload.artifact.path) !== event.payload.artifact.blob
+  ) {
+    fail(
+      'APR_GIT_SEAL_MISMATCH',
+      'Event-authorized artifact bytes changed.',
+      'Restore the exact submitted artifact before retrying the handoff.'
+    );
+  }
+  const sealedResponse = sealedAuthorFromEvent(root, event);
+  let commit = null;
+  let snapshot = null;
+  if (event.type.endsWith('-committed')) {
+    const decision = latestReviewerDecision(events);
+    const reviewerFile = path.join(root, decision.payload.response.path);
+    const reviewerBytes = readFileSync(reviewerFile);
+    if (sha256(reviewerBytes) !== decision.payload.response.digest) {
+      fail(
+        'APR_GIT_SEAL_MISMATCH',
+        'Event-authorized reviewer response bytes changed.',
+        'Restore the exact sealed reviewer response before retrying the handoff.'
+      );
+    }
+    const trailers = authorTrailers(state, event, decision);
+    const journal = transactionRepository.readTransaction(trailers);
+    if (!journal.record) {
+      fail(
+        'APR_GIT_RECOVERY_INVALID',
+        'The committed author handoff has no durable transaction journal.',
+        'Preserve the repository and restore the transaction journal before retrying.'
+      );
+    }
+    commit = commitExactPaths(
+      transactionRepository,
+      {
+        expected_head: journal.record.expected_head,
+        paths: [
+          {
+            path: decision.payload.response.path,
+            bytes: reviewerBytes,
+            digest: decision.payload.response.digest,
+          },
+          {
+            path: event.payload.artifact.path,
+            bytes: artifactBytes,
+            digest: event.payload.artifact.digest,
+          },
+          relativeSealed(root, sealedResponse.path, sealedResponse),
+        ],
+        commit_paths: journal.record.commit_paths,
+      },
+      journal.record.message,
+      trailers
+    );
+    if (commit.commit !== event.payload.commit) {
+      fail(
+        'APR_GIT_RECOVERY_INVALID',
+        'Recovered Git commit differs from protocol authority.',
+        'Preserve the repository and inspect the commit and protocol event.'
+      );
+    }
+  } else {
+    const baseline = state.protocol.startup.no_commit_baseline;
+    const observed = git.baseline(root);
+    const snapshotFile = path.join(absolute, event.payload.snapshot.path);
+    if (
+      observed.head !== baseline?.head ||
+      observed.index_digest !== baseline?.index_digest ||
+      !exactFile(snapshotFile, artifactBytes)
+    ) {
+      fail(
+        'APR_REVIEWER_GIT_VIOLATION',
+        'No-commit handoff recovery detected repository or snapshot mutation.',
+        'Restore the startup HEAD, index, and exact artifact snapshot before retrying.'
+      );
+    }
+    snapshot = { ...event.payload.snapshot, path: snapshotFile };
+  }
+  return completeAuthorHandoff({
+    input,
+    deps,
+    absolute,
+    paths,
+    events,
+    state,
+    event,
+    sealedResponse,
+    artifactBytes,
+    commit,
+    snapshot,
+  });
+}
+
+export async function submitAuthorTurn(input, deps = {}) {
+  const git = deps.repository ?? createGitRepository();
+  const transactionRepository =
+    deps.transactionRepository ?? createGitTransactionRepository(input.cwd);
+  const authority = submissionAuthority(input.workspace);
+  const { absolute, paths, events, state } = authority;
+  if (state.protocol.state !== 'author-revision') {
+    return recoverAuthorHandoff({ input, deps, authority, git, transactionRepository });
+  }
+  assertCurrentParticipant(state, 'author', input.identity);
+  const root = git.root(input.cwd);
+  if (root !== state.protocol.startup.context.repository_root) {
+    fail(
+      'APR_GIT_WORKTREE_CHANGED',
+      'Author submission came from a different physical worktree.',
+      'Return to the exact event-authorized worktree and retry.'
+    );
+  }
+  const decision = latestReviewerDecision(events);
+  if (!decision || decision.type !== 'reviewer-revisions-requested') {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Author revision has no event-authorized reviewer request.',
+      'Restore the exact reviewer decision event before submitting.'
+    );
+  }
+  const turn = decision.payload.turn;
+  const responseFile = paths.authorResponse(turn).absolute;
+  const artifactFile = path.join(root, state.protocol.artifact.path);
+  const artifactBytes = readFileSync(artifactFile);
+  const artifactDigest = sha256(artifactBytes);
+  const artifactChanged = artifactDigest !== state.protocol.artifact.digest;
+  if (!artifactChanged && (!input.noArtifactChange || !String(input.reason ?? '').trim())) {
+    fail(
+      'APR_ARTIFACT_UNCHANGED',
+      'Author submission did not change the artifact.',
+      'Change the artifact or use --no-artifact-change with a non-empty reason.'
+    );
+  }
+  if (artifactChanged && input.noArtifactChange) {
+    fail(
+      'APR_ARTIFACT_CHANGED',
+      'The artifact changed despite --no-artifact-change.',
+      'Remove the flag or restore the event-authorized artifact bytes.'
+    );
+  }
+  const reviewerFile = path.join(root, decision.payload.response.path);
+  const reviewerBytes = readFileSync(reviewerFile);
+  if (sha256(reviewerBytes) !== decision.payload.response.digest) {
+    fail(
+      'APR_GIT_SEAL_MISMATCH',
+      'The sealed reviewer response changed before author submission.',
+      'Restore the exact event-authorized reviewer response bytes.'
+    );
+  }
+  const sealedResponse = sealResponse(
+    {
+      ...state,
+      paths,
+      now: input.now,
+      pending_finding_ids: decision.payload.finding_ids,
+      artifact_commit: latestHead(state, events),
+    },
+    responseFile,
+    input.identity,
+    { declinedReason: input.noArtifactChange ? input.reason : null }
+  );
+  checkpoint(deps, 'response-sealed');
+  const artifactBlob = transactionRepository.hashWorking(state.protocol.artifact.path);
+  const expectedHead = latestHead(state, events);
+  if (state.protocol.commit_mode === 'no-commit') {
+    const baseline = state.protocol.startup.no_commit_baseline;
+    const observed = git.baseline(root);
+    if (observed.head !== baseline?.head || observed.index_digest !== baseline?.index_digest) {
+      fail(
+        'APR_REVIEWER_GIT_VIOLATION',
+        'No-commit submission detected HEAD or index mutation.',
+        'Restore the startup HEAD and index without discarding protocol-owned working bytes.'
+      );
+    }
+    const snapshotRelative = `artifacts/turn-${turn}.md`;
+    const snapshotFile = path.join(absolute, snapshotRelative);
+    ensureExactFile(snapshotFile, artifactBytes);
+    checkpoint(deps, 'artifact-snapshotted');
+    const snapshot = { path: snapshotRelative, digest: artifactDigest };
+    const nextReviewerPath = paths.reviewerResponse(turn + 1);
+    const repositoryBoundary = git.reviewerBoundary(root, nextReviewerPath.relative);
+    const eventType =
+      turn >= state.protocol.max_turns
+        ? 'author-closing-round-sealed-no-commit'
+        : 'author-revision-sealed-no-commit';
+    const sealedState = await mutateReview(absolute, expected(state), (current) => {
+      assertCurrentParticipant(current, 'author', input.identity);
+      const currentBaseline = git.baseline(root);
+      if (
+        currentBaseline.head !== baseline.head ||
+        currentBaseline.index_digest !== baseline.index_digest ||
+        !exactFile(snapshotFile, artifactBytes)
+      ) {
+        fail(
+          'APR_REVIEWER_GIT_VIOLATION',
+          'No-commit repository authority changed during submission.',
+          'Restore the startup HEAD, index, and exact artifact snapshot before retrying.'
+        );
+      }
+      const payload = {
+        turn,
+        response: {
+          path: path.relative(root, sealedResponse.path),
+          digest: sealedResponse.digest,
+        },
+        artifact: {
+          path: state.protocol.artifact.path,
+          blob: artifactBlob,
+          digest: artifactDigest,
+        },
+        snapshot,
+        repository_boundary: repositoryBoundary,
+      };
+      if (eventType === 'author-closing-round-sealed-no-commit') {
+        Object.assign(payload, {
+          intervention_id: `intervention-turn-budget-${turn}`,
+          reason: 'turn-budget-exhausted',
+          interrupted_state: 'reviewer-turn',
+        });
+      }
+      return eventFor(
+        current,
+        eventType,
+        input.identity.session_fingerprint,
+        payload,
+        input.now ?? new Date()
+      );
+    });
+    checkpoint(deps, 'author-event-appended');
+    const event = latestAuthorSubmission(inspectReviewAuthority(absolute).events);
+    return completeAuthorHandoff({
+      input,
+      deps,
+      absolute,
+      paths,
+      events,
+      state: sealedState,
+      event,
+      sealedResponse,
+      artifactBytes,
+      commit: null,
+      snapshot: { ...snapshot, path: snapshotFile },
+    });
+  }
+  const transaction = {
+    expected_head: expectedHead,
+    paths: [
+      {
+        path: decision.payload.response.path,
+        bytes: reviewerBytes,
+        digest: decision.payload.response.digest,
+      },
+      {
+        path: state.protocol.artifact.path,
+        bytes: artifactBytes,
+        digest: artifactDigest,
+      },
+      relativeSealed(root, responseFile, sealedResponse),
+    ],
+    commit_paths: artifactChanged
+      ? [
+          decision.payload.response.path,
+          state.protocol.artifact.path,
+          path.relative(root, responseFile),
+        ]
+      : [decision.payload.response.path, path.relative(root, responseFile)],
+  };
+  const trailers = {
+    'Peer-Review-ID': state.protocol.review_id,
+    'Peer-Review-Turn': String(turn),
+    'Peer-Review-Artifact-Blob': artifactBlob,
+    'Peer-Review-Reviewer-Response': decision.payload.response.digest,
+    'Peer-Review-Author-Response': sealedResponse.digest,
+  };
+  const message = `Peer review revision ${turn}`;
+  const commit = commitExactPaths(transactionRepository, transaction, message, trailers);
+  checkpoint(deps, 'transaction-completed');
+  const nextReviewerPath = paths.reviewerResponse(turn + 1);
+  const repositoryBoundary = git.reviewerBoundary(root, nextReviewerPath.relative);
+  const eventType =
+    turn >= state.protocol.max_turns
+      ? 'author-closing-round-committed'
+      : 'author-revision-committed';
+  const committed = await mutateReview(absolute, expected(state), (current) => {
+    assertCurrentParticipant(current, 'author', input.identity);
+    const retry = commitExactPaths(transactionRepository, transaction, message, trailers);
+    const payload = {
+      turn,
+      response: {
+        path: path.relative(root, sealedResponse.path),
+        digest: sealedResponse.digest,
+      },
+      artifact: {
+        path: state.protocol.artifact.path,
+        blob: artifactBlob,
+        digest: artifactDigest,
+      },
+      commit: retry.commit,
+      repository_boundary: repositoryBoundary,
+    };
+    if (eventType === 'author-closing-round-committed') {
+      Object.assign(payload, {
+        intervention_id: `intervention-turn-budget-${turn}`,
+        reason: 'turn-budget-exhausted',
+        interrupted_state: 'reviewer-turn',
+      });
+    }
+    return eventFor(
+      current,
+      eventType,
+      input.identity.session_fingerprint,
+      payload,
+      input.now ?? new Date()
+    );
+  });
+  checkpoint(deps, 'author-event-appended');
+  const event = latestAuthorSubmission(inspectReviewAuthority(absolute).events);
+  return completeAuthorHandoff({
+    input,
+    deps,
+    absolute,
+    paths,
+    events,
+    state: committed,
+    event,
+    sealedResponse,
+    artifactBytes,
+    commit,
+  });
+}
+
 function writeJson(stream, value) {
   stream.write(`${JSON.stringify(value)}\n`);
 }
@@ -1069,6 +1804,41 @@ export async function run(argv, io) {
       response = statusReview(path.resolve(io.cwd, parsed.args[0]), { now: io.now ?? new Date() });
     } else if (parsed.command === 'resume') {
       response = resumeReview(path.resolve(io.cwd, parsed.args[0]), { now: io.now ?? new Date() });
+    } else if (parsed.command === 'submit') {
+      const workspace = path.resolve(io.cwd, parsed.args[0]);
+      const active = inspectReview(workspace).protocol.current_actor;
+      if (active === 'reviewer') {
+        response = await submitReviewTurn({
+          cwd: io.cwd,
+          workspace,
+          identity: resolveIdentity({
+            role: 'reviewer',
+            env: io.env,
+            ...(io.identityContext ?? {}),
+          }),
+          decision: parsed.options.decision,
+          now: io.now ?? new Date(),
+        });
+      } else if (active === 'author') {
+        response = await submitAuthorTurn({
+          cwd: io.cwd,
+          workspace,
+          identity: resolveIdentity({
+            role: 'author',
+            env: io.env,
+            ...(io.identityContext ?? {}),
+          }),
+          noArtifactChange: parsed.options.noArtifactChange,
+          reason: parsed.options.reason,
+          now: io.now ?? new Date(),
+        });
+      } else {
+        fail(
+          'APR_INVALID_TRANSITION',
+          'Submit is unavailable in the current review state.',
+          'Read status and follow its exact next action.'
+        );
+      }
     } else {
       throw new AprError('APR_NOT_IMPLEMENTED', `${parsed.command} is not implemented yet`, {
         recovery: `Run peer-review help ${parsed.command} for the planned interface.`,

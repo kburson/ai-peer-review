@@ -139,7 +139,16 @@ const payloads = {
       bootstrap: null,
     },
   }),
-  'reviewer-joined': () => ({ reviewer: participant('reviewer'), transport_capability: 'manual' }),
+  'reviewer-joined': () => ({
+    reviewer: participant('reviewer'),
+    transport_capability: 'manual',
+    repository_boundary: {
+      head: '1'.repeat(40),
+      branch: 'trunk',
+      index_digest: `sha256:${'1'.repeat(64)}`,
+      worktree_digest: `sha256:${'2'.repeat(64)}`,
+    },
+  }),
   'reviewer-revisions-requested': () => ({
     turn: 1,
     response: { path: 'reviews/reviewer-response-1.md', digest: `sha256:${'4'.repeat(64)}` },
@@ -159,6 +168,28 @@ const payloads = {
       digest: `sha256:${'8'.repeat(64)}`,
     },
     commit: '9'.repeat(40),
+    repository_boundary: {
+      head: '9'.repeat(40),
+      branch: 'trunk',
+      index_digest: `sha256:${'9'.repeat(64)}`,
+      worktree_digest: `sha256:${'a'.repeat(64)}`,
+    },
+  }),
+  'author-revision-sealed-no-commit': () => ({
+    turn: 1,
+    response: { path: 'reviews/author-response-1.md', digest: `sha256:${'6'.repeat(64)}` },
+    artifact: {
+      path: 'docs/artifact.md',
+      blob: '7'.repeat(40),
+      digest: `sha256:${'8'.repeat(64)}`,
+    },
+    snapshot: { path: 'artifacts/turn-1.md', digest: `sha256:${'7'.repeat(64)}` },
+    repository_boundary: {
+      head: '1'.repeat(40),
+      branch: 'trunk',
+      index_digest: `sha256:${'9'.repeat(64)}`,
+      worktree_digest: `sha256:${'a'.repeat(64)}`,
+    },
   }),
   'author-closing-round-committed': () => ({
     turn: 1,
@@ -169,6 +200,31 @@ const payloads = {
       digest: `sha256:${'8'.repeat(64)}`,
     },
     commit: '9'.repeat(40),
+    repository_boundary: {
+      head: '9'.repeat(40),
+      branch: 'trunk',
+      index_digest: `sha256:${'9'.repeat(64)}`,
+      worktree_digest: `sha256:${'a'.repeat(64)}`,
+    },
+    intervention_id: 'intervention-budget',
+    reason: 'turn-budget-exhausted',
+    interrupted_state: 'reviewer-turn',
+  }),
+  'author-closing-round-sealed-no-commit': () => ({
+    turn: 1,
+    response: { path: 'reviews/author-response-1.md', digest: `sha256:${'6'.repeat(64)}` },
+    artifact: {
+      path: 'docs/artifact.md',
+      blob: '7'.repeat(40),
+      digest: `sha256:${'8'.repeat(64)}`,
+    },
+    snapshot: { path: 'artifacts/turn-1.md', digest: `sha256:${'7'.repeat(64)}` },
+    repository_boundary: {
+      head: '1'.repeat(40),
+      branch: 'trunk',
+      index_digest: `sha256:${'9'.repeat(64)}`,
+      worktree_digest: `sha256:${'a'.repeat(64)}`,
+    },
     intervention_id: 'intervention-budget',
     reason: 'turn-budget-exhausted',
     interrupted_state: 'reviewer-turn',

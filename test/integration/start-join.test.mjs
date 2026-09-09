@@ -12,6 +12,7 @@ import {
   digestGrantParameters,
 } from '../../src/authority/canonicalize.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
+import { createGitRepository } from '../../src/git/repository.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 
@@ -478,7 +479,17 @@ test('join resumes an identical registration interrupted before its claim event'
       type: 'reviewer-joined',
       actor: reviewer.session_fingerprint,
       at: NOW,
-      payload: { reviewer, transport_capability: 'manual' },
+      payload: {
+        reviewer,
+        transport_capability: 'manual',
+        repository_boundary: createGitRepository().reviewerBoundary(
+          fx.root,
+          path.relative(
+            createGitRepository().root(fx.root),
+            path.join(path.dirname(started.paths.reviewer_invitation), 'reviewer-response-1.md')
+          )
+        ),
+      },
     })
   );
 

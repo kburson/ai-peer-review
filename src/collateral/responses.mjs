@@ -711,7 +711,19 @@ function sealedResult(file, bytes, metadata) {
   });
 }
 
-export function sealResponse(review, file, identity) {
+function replaceSectionContent(text, heading, content, eol) {
+  const pattern = new RegExp(`(## ${heading}\\r?\\n\\r?\\n)[\\s\\S]*?(?=\\r?\\n\\r?\\n## |$)`);
+  if (!pattern.test(text)) {
+    fail(
+      'APR_RESPONSE_INVALID',
+      `Response section ${heading} is unavailable.`,
+      'Restore the generated response headings and retry.'
+    );
+  }
+  return text.replace(pattern, `$1${String(content).replaceAll('\n', eol)}`);
+}
+
+export function sealResponse(review, file, identity, { declinedReason = null } = {}) {
   if (!regularFile(file)) collision(file);
   const input = readFileSync(file);
   const parsed = parseFrontmatter(input);
@@ -723,12 +735,63 @@ export function sealResponse(review, file, identity) {
   if (metadata.submitted_at !== null) {
     const prior = (review.sealed_responses ?? []).find((item) => item.path === file);
     const result = sealedResult(file, input, metadata);
-    if (!prior || prior.digest !== result.digest) {
+    if (prior?.digest === result.digest) return result;
+    requireCurrentTurn(review, metadata.role, metadata.turn);
+    const registry = registryPath(review, metadata.role, metadata.turn);
+    let registeredMetadata;
+    try {
+      if (!regularFile(registry)) throw new Error('response registry is not a regular file');
+      registeredMetadata = JSON.parse(readFileSync(registry, 'utf8'));
+    } catch {
       fail(
         'APR_PROTECTED_METADATA_CHANGED',
-        'Sealed response bytes do not match event authority.',
-        'Restore the exact previously sealed response bytes.'
+        'Sealed response recovery authority is unavailable.',
+        'Restore the response registry and retry the exact submission.'
       );
+    }
+    const expected = expectedMetadata(review, metadata.role, metadata.turn);
+    const unsealed = {
+      ...metadata,
+      submitted_at: null,
+      finding_ids: metadata.role === 'reviewer' ? [] : metadata.finding_ids,
+    };
+    const submitted = new Date(metadata.submitted_at);
+    if (
+      !same(registeredMetadata, expected) ||
+      !same(unsealed, expected) ||
+      Number.isNaN(submitted.valueOf()) ||
+      submitted.valueOf() < Date.parse(metadata.started_at)
+    ) {
+      fail(
+        'APR_PROTECTED_METADATA_CHANGED',
+        'Sealed response bytes do not match recoverable draft authority.',
+        'Restore the exact generated response and retry the original submission.'
+      );
+    }
+    if (metadata.role === 'reviewer') {
+      const decision = sections.find(({ heading }) => heading === 'Decision').content;
+      if (
+        !['revisions-requested', 'accepted'].includes(decision) ||
+        !same(
+          metadata.finding_ids,
+          findingIds(sections, metadata.turn, review.prior_finding_ids ?? [])
+        )
+      ) {
+        fail(
+          'APR_RESPONSE_INVALID',
+          'Recovered reviewer response content differs from sealed metadata.',
+          'Restore the exact decision and finding IDs from the interrupted submission.'
+        );
+      }
+    } else {
+      const pending = review.pending_finding_ids ?? [];
+      if (!same(dispositionIds(sections), pending)) {
+        fail(
+          'APR_RESPONSE_INVALID',
+          'Recovered author dispositions differ from sealed metadata.',
+          'Restore every event-authorized finding disposition exactly once.'
+        );
+      }
     }
     return result;
   }
@@ -784,7 +847,26 @@ export function sealResponse(review, file, identity) {
     }
   }
   const frontmatter = renderFrontmatter(updated, parsed.eol);
-  const text = input.toString('utf8');
+  let text = input.toString('utf8');
+  if (declinedReason !== null) {
+    if (
+      metadata.role !== 'author' ||
+      typeof declinedReason !== 'string' ||
+      !declinedReason.trim()
+    ) {
+      fail(
+        'APR_RESPONSE_INVALID',
+        'Declined-change rationale is invalid.',
+        'Use a non-empty rationale only for the current author response.'
+      );
+    }
+    text = replaceSectionContent(
+      text,
+      'Declined changes and rationale',
+      declinedReason.trim(),
+      parsed.eol
+    );
+  }
   const frontmatterPattern = /(^|\r?\n)---\r?\n[\s\S]*?\r?\n---(?=\r?\n|$)/;
   const sealed = Buffer.from(
     text.replace(frontmatterPattern, (_match, prefix) => `${prefix}${frontmatter}`)

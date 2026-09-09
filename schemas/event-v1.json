@@ -47,8 +47,20 @@
     },
     {
       "properties": {
+        "type": { "const": "author-revision-sealed-no-commit" },
+        "payload": { "$ref": "#/$defs/authorRevisionUncommitted" }
+      }
+    },
+    {
+      "properties": {
         "type": { "const": "author-closing-round-committed" },
         "payload": { "$ref": "#/$defs/authorClosing" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "author-closing-round-sealed-no-commit" },
+        "payload": { "$ref": "#/$defs/authorClosingUncommitted" }
       }
     },
     {
@@ -502,6 +514,17 @@
         "worktree_digest": { "$ref": "#/$defs/digest" }
       }
     },
+    "repositoryBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "branch", "index_digest", "worktree_digest"],
+      "properties": {
+        "head": { "$ref": "#/$defs/gitObject" },
+        "branch": { "type": "string", "minLength": 1 },
+        "index_digest": { "$ref": "#/$defs/digest" },
+        "worktree_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
     "bootstrapEvidence": {
       "type": "object",
       "additionalProperties": false,
@@ -625,10 +648,11 @@
     "reviewerJoined": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reviewer", "transport_capability"],
+      "required": ["reviewer", "transport_capability", "repository_boundary"],
       "properties": {
         "reviewer": { "$ref": "#/$defs/participant" },
-        "transport_capability": { "enum": ["manual", "resume-only"] }
+        "transport_capability": { "enum": ["manual", "resume-only"] },
+        "repository_boundary": { "$ref": "#/$defs/repositoryBoundary" }
       }
     },
     "reviewDecision": {
@@ -644,12 +668,13 @@
     "authorRevision": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["turn", "response", "artifact", "commit"],
+      "required": ["turn", "response", "artifact", "commit", "repository_boundary"],
       "properties": {
         "turn": { "$ref": "#/$defs/positive" },
         "response": { "$ref": "#/$defs/response" },
         "artifact": { "$ref": "#/$defs/artifact" },
-        "commit": { "$ref": "#/$defs/gitObject" }
+        "commit": { "$ref": "#/$defs/gitObject" },
+        "repository_boundary": { "$ref": "#/$defs/repositoryBoundary" }
       }
     },
     "authorClosing": {
@@ -660,6 +685,7 @@
         "response",
         "artifact",
         "commit",
+        "repository_boundary",
         "intervention_id",
         "reason",
         "interrupted_state"
@@ -669,6 +695,43 @@
         "response": { "$ref": "#/$defs/response" },
         "artifact": { "$ref": "#/$defs/artifact" },
         "commit": { "$ref": "#/$defs/gitObject" },
+        "repository_boundary": { "$ref": "#/$defs/repositoryBoundary" },
+        "intervention_id": { "$ref": "#/$defs/id" },
+        "reason": { "const": "turn-budget-exhausted" },
+        "interrupted_state": { "const": "reviewer-turn" }
+      }
+    },
+    "authorRevisionUncommitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["turn", "response", "artifact", "snapshot", "repository_boundary"],
+      "properties": {
+        "turn": { "$ref": "#/$defs/positive" },
+        "response": { "$ref": "#/$defs/response" },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "snapshot": { "$ref": "#/$defs/response" },
+        "repository_boundary": { "$ref": "#/$defs/repositoryBoundary" }
+      }
+    },
+    "authorClosingUncommitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "turn",
+        "response",
+        "artifact",
+        "snapshot",
+        "repository_boundary",
+        "intervention_id",
+        "reason",
+        "interrupted_state"
+      ],
+      "properties": {
+        "turn": { "$ref": "#/$defs/positive" },
+        "response": { "$ref": "#/$defs/response" },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "snapshot": { "$ref": "#/$defs/response" },
+        "repository_boundary": { "$ref": "#/$defs/repositoryBoundary" },
         "intervention_id": { "$ref": "#/$defs/id" },
         "reason": { "const": "turn-budget-exhausted" },
         "interrupted_state": { "const": "reviewer-turn" }

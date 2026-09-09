@@ -6,8 +6,17 @@ export {
   POSITIONAL_GRAMMAR,
   parseCommand,
 } from './cli/parse.mjs';
-export { joinReview, resumeReview, run, startReview, statusReview } from './cli/run.mjs';
+export {
+  joinReview,
+  resumeReview,
+  run,
+  startReview,
+  statusReview,
+  submitAuthorTurn,
+  submitReviewTurn,
+} from './cli/run.mjs';
 export { explainError, helpRequest } from './cli/help-data.mjs';
+export { commitExactPaths, createGitTransactionRepository } from './git/transaction.mjs';
 export {
   createResponseDraft,
   parseResponse,

@@ -15,13 +15,41 @@ import {
   sequence,
 } from '../helpers/review-fixture.mjs';
 
+function noCommit(events) {
+  return events.map((item, index) =>
+    index === 0
+      ? {
+          ...item,
+          payload: {
+            ...item.payload,
+            commit_mode: 'no-commit',
+            startup: {
+              ...item.payload.startup,
+              no_commit_baseline: {
+                head: item.payload.artifact.head,
+                index_digest: `sha256:${'1'.repeat(64)}`,
+                worktree_digest: `sha256:${'2'.repeat(64)}`,
+              },
+            },
+          },
+        }
+      : item
+  );
+}
+
 const cases = [
   [[], 'review-created', 'awaiting-reviewer'],
   [sequence(['review-created']), 'reviewer-joined', 'reviewer-turn'],
   [reviewerTurnEvents(), 'reviewer-revisions-requested', 'author-revision'],
   [reviewerTurnEvents(), 'reviewer-accepted', 'acceptance-pending'],
   [authorRevisionEvents(), 'author-revision-committed', 'reviewer-turn'],
+  [noCommit(authorRevisionEvents()), 'author-revision-sealed-no-commit', 'reviewer-turn'],
   [authorRevisionEvents(), 'author-closing-round-committed', 'intervention-required'],
+  [
+    noCommit(authorRevisionEvents()),
+    'author-closing-round-sealed-no-commit',
+    'intervention-required',
+  ],
   [reviewerTurnEvents(), 'intervention-entered', 'intervention-required'],
   [authorRevisionEvents(), 'intervention-entered', 'intervention-required'],
   [acceptancePendingEvents(), 'finalization-started', 'author-finalization'],
@@ -31,7 +59,9 @@ const cases = [
     'accepted',
   ],
   [
-    sequence(['review-created', 'reviewer-joined', 'reviewer-accepted', 'finalization-started']),
+    noCommit(
+      sequence(['review-created', 'reviewer-joined', 'reviewer-accepted', 'finalization-started'])
+    ),
     'acceptance-sealed-no-commit',
     'accepted-uncommitted',
   ],
@@ -41,7 +71,7 @@ const cases = [
   [interventionEvents('participant-loss'), 'participant-replaced', 'reviewer-turn'],
   [interventionEvents('turn-budget-exhausted'), 'override-committed', 'accepted-over-objections'],
   [
-    interventionEvents('turn-budget-exhausted'),
+    noCommit(interventionEvents('turn-budget-exhausted')),
     'override-sealed-no-commit',
     'accepted-over-objections-uncommitted',
   ],
