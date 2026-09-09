@@ -170,14 +170,34 @@ function sameValue(left, right) {
   return canonicalProjection(left) === canonicalProjection(right);
 }
 
-function preservesNoCommitBaseline(baseline, observed, artifactPath) {
+function noCommitOwnedChangedPaths(state) {
+  const { context, paths } = sealedPaths(state);
+  return new Set(
+    [
+      ...Object.values(trackedStartupPaths(paths)),
+      ...everyReservedPath(paths, state.protocol.max_turns),
+    ].map((absolute) => path.relative(context.repository_root, absolute).split(path.sep).join('/'))
+  );
+}
+
+function preservesNoCommitBaseline(baseline, observed, artifactPath, ownedPaths) {
   if (observed.head !== baseline?.head || observed.index_digest !== baseline?.index_digest) {
     return false;
   }
+  const startupByPath = new Map((baseline.changed_paths ?? []).map((entry) => [entry.path, entry]));
   const currentByPath = new Map((observed.changed_paths ?? []).map((entry) => [entry.path, entry]));
-  return (baseline.changed_paths ?? [])
+  const startupPathsPreserved = (baseline.changed_paths ?? [])
     .filter((entry) => entry.path !== artifactPath)
     .every((entry) => sameValue(entry, currentByPath.get(entry.path)));
+  return (
+    startupPathsPreserved &&
+    (observed.changed_paths ?? []).every(
+      (entry) =>
+        startupByPath.has(entry.path) ||
+        entry.path === artifactPath ||
+        (ownedPaths.has(entry.path) && entry.status === '??' && entry.source_path === null)
+    )
+  );
 }
 
 function sameParticipant(left, right) {
@@ -191,6 +211,14 @@ function sameParticipant(left, right) {
 function exactFile(file, bytes) {
   try {
     return readFileSync(file).equals(Buffer.from(bytes));
+  } catch {
+    return false;
+  }
+}
+
+function exactRegularDigest(file, expectedDigest) {
+  try {
+    return lstatSync(file).isFile() && sha256(readFileSync(file)) === expectedDigest;
   } catch {
     return false;
   }
@@ -1790,6 +1818,23 @@ function assertReviewerRepository(input, state, events, repository) {
     state.protocol.turns_used + 1
   ).relative;
   const boundary = repository.reviewerBoundary(root, response);
+  const precedingNoCommitHandoff = [...events]
+    .reverse()
+    .find((event) =>
+      ['author-revision-sealed-no-commit', 'author-closing-round-sealed-no-commit'].includes(
+        event.type
+      )
+    );
+  const snapshotMatches =
+    state.protocol.commit_mode !== 'no-commit' ||
+    precedingNoCommitHandoff === undefined ||
+    exactRegularDigest(
+      path.join(
+        sealedPaths(state).paths.scratch.absolute,
+        precedingNoCommitHandoff.payload.snapshot.path
+      ),
+      precedingNoCommitHandoff.payload.snapshot.digest
+    );
   const artifactMatches =
     state.protocol.commit_mode === 'no-commit'
       ? artifact.head === expectedHead &&
@@ -1798,13 +1843,18 @@ function assertReviewerRepository(input, state, events, repository) {
         artifact.head === expectedHead &&
         artifact.blob === state.protocol.artifact.blob &&
         `sha256:${artifact.worktreeDigest}` === state.protocol.artifact.digest;
-  if (!artifactMatches || !sameValue(boundary, state.protocol.reviewer_boundary)) {
+  if (
+    !artifactMatches ||
+    !snapshotMatches ||
+    !sameValue(boundary, state.protocol.reviewer_boundary)
+  ) {
     fail(
       'APR_REVIEWER_GIT_VIOLATION',
       'Reviewer submission detected artifact or HEAD mutation.',
       'Restore the event-authorized artifact and HEAD without discarding unrelated work.',
       {
         artifact_matches: artifactMatches,
+        snapshot_matches: snapshotMatches,
         observed_boundary: boundary,
         expected_boundary: state.protocol.reviewer_boundary,
       }
@@ -2292,7 +2342,12 @@ async function recoverAuthorHandoff({ input, deps, authority, git, transactionRe
       event.payload.artifact.path
     );
     if (
-      !preservesNoCommitBaseline(baseline, observed, event.payload.artifact.path) ||
+      !preservesNoCommitBaseline(
+        baseline,
+        observed,
+        event.payload.artifact.path,
+        noCommitOwnedChangedPaths(state)
+      ) ||
       transactionRepository.workingMode(event.payload.artifact.path) !== artifactMode ||
       !exactFile(snapshotFile, artifactBytes)
     ) {
@@ -2424,7 +2479,14 @@ export async function submitAuthorTurn(input, deps = {}) {
     const store = {
       assertBaseline() {
         const observed = git.baseline(root);
-        if (!preservesNoCommitBaseline(baseline, observed, state.protocol.artifact.path)) {
+        if (
+          !preservesNoCommitBaseline(
+            baseline,
+            observed,
+            state.protocol.artifact.path,
+            noCommitOwnedChangedPaths(state)
+          )
+        ) {
           fail(
             'APR_REVIEWER_GIT_VIOLATION',
             'No-commit submission detected HEAD, index, or pre-existing path mutation.',

@@ -681,6 +681,12 @@ function validatePayload(type, payload, valueReviewId) {
       validateResponse(payload.response, `${type} response`);
       validateArtifact(payload.artifact, `${type} artifact`);
       validateResponse(payload.snapshot, `${type} snapshot`);
+      if (
+        payload.snapshot.digest !== payload.artifact.digest ||
+        payload.snapshot.path !== `artifacts/turn-${payload.turn}.md`
+      ) {
+        throw invalid(`${type} snapshot authority`);
+      }
       validateRepositoryBoundary(payload.repository_boundary, `${type} repository_boundary`);
       if (type === 'author-closing-round-sealed-no-commit') {
         assertIdentifier(payload.intervention_id, `${type} intervention_id`);

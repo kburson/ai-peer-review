@@ -137,3 +137,23 @@ test('rejects malformed nested payload values with one stable error code', () =>
     );
   }
 });
+
+test('no-commit handoff events bind the canonical snapshot path and artifact digest', () => {
+  for (const type of [
+    'author-revision-sealed-no-commit',
+    'author-closing-round-sealed-no-commit',
+  ]) {
+    const valid = event(type);
+    valid.payload.snapshot.digest = valid.payload.artifact.digest;
+    assert.equal(validateEvent(valid), true);
+    for (const snapshot of [
+      { ...valid.payload.snapshot, path: `artifacts/turn-${valid.payload.turn + 1}.md` },
+      { ...valid.payload.snapshot, digest: `sha256:${'f'.repeat(64)}` },
+    ]) {
+      assert.throws(
+        () => validateEvent({ ...valid, payload: { ...valid.payload, snapshot } }),
+        (error) => error.code === 'APR_EVENT_INVALID'
+      );
+    }
+  }
+});

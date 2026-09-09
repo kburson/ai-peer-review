@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -231,6 +231,18 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
   );
   assert.deepEqual(readFileSync(started.paths.events), preexistingMutationEvents);
   writeFileSync(path.join(fx.root, 'unstaged.txt'), before.unstaged);
+  writeFileSync(path.join(fx.root, 'foreign.txt'), 'new unrelated path\n');
+  await assert.rejects(
+    api.submitAuthorTurn({
+      cwd: fx.root,
+      workspace: started.paths.workspace,
+      identity: author,
+      now: '2026-09-09T06:02:00.000Z',
+    }),
+    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
+  );
+  assert.deepEqual(readFileSync(started.paths.events), preexistingMutationEvents);
+  rmSync(path.join(fx.root, 'foreign.txt'));
   const submitted = await api.submitAuthorTurn(
     {
       cwd: fx.root,
@@ -246,6 +258,36 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
   replaceSection(submitted.paths.response, 'Required changes', 'None.');
   replaceSection(submitted.paths.response, 'Optional suggestions', 'None.');
   replaceSection(submitted.paths.response, 'Decision', 'accepted');
+  const snapshotBytes = readFileSync(submitted.review.snapshot.path);
+  writeFileSync(submitted.review.snapshot.path, 'tampered before reviewer submit\n');
+  await assert.rejects(
+    api.submitReviewTurn(
+      {
+        cwd: fx.root,
+        workspace: started.paths.workspace,
+        identity: reviewer,
+        decision: 'accepted',
+        now: '2026-09-09T06:03:00.000Z',
+      },
+      { repository }
+    ),
+    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
+  );
+  unlinkSync(submitted.review.snapshot.path);
+  await assert.rejects(
+    api.submitReviewTurn(
+      {
+        cwd: fx.root,
+        workspace: started.paths.workspace,
+        identity: reviewer,
+        decision: 'accepted',
+        now: '2026-09-09T06:03:00.000Z',
+      },
+      { repository }
+    ),
+    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
+  );
+  writeFileSync(submitted.review.snapshot.path, snapshotBytes);
   const accepted = await api.submitReviewTurn(
     {
       cwd: fx.root,

@@ -185,7 +185,7 @@ const payloads = {
       blob: '7'.repeat(40),
       digest: `sha256:${'8'.repeat(64)}`,
     },
-    snapshot: { path: 'artifacts/turn-1.md', digest: `sha256:${'7'.repeat(64)}` },
+    snapshot: { path: 'artifacts/turn-1.md', digest: `sha256:${'8'.repeat(64)}` },
     repository_boundary: {
       head: '1'.repeat(40),
       branch: 'trunk',
@@ -222,7 +222,7 @@ const payloads = {
       blob: '7'.repeat(40),
       digest: `sha256:${'8'.repeat(64)}`,
     },
-    snapshot: { path: 'artifacts/turn-1.md', digest: `sha256:${'7'.repeat(64)}` },
+    snapshot: { path: 'artifacts/turn-1.md', digest: `sha256:${'8'.repeat(64)}` },
     repository_boundary: {
       head: '1'.repeat(40),
       branch: 'trunk',
