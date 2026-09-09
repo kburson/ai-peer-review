@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   observeReleaseDelta,
+  parseGitChangedPaths,
   validateReleaseManifest,
   verifyRelease,
 } from '../../scripts/verify-release.mjs';
@@ -183,25 +184,46 @@ test('release verifier rejects unrelated post-release changes', async () => {
   );
 });
 
-test('release observer preserves adversarial path bytes and exposes renames', async (t) => {
-  const whitespaceRepo = temporaryRepository();
-  t.after(() => rmSync(whitespaceRepo, { recursive: true, force: true }));
-  const whitespaceBase = git(whitespaceRepo, ['rev-parse', 'HEAD']);
-  const blob = git(whitespaceRepo, ['hash-object', '-w', '--stdin'], { input: 'substitute\n' });
-  git(whitespaceRepo, [
-    'update-index',
-    '--add',
-    // cspell:disable-next-line
-    '--cacheinfo',
-    '100644',
-    blob,
+test('release path parser preserves adversarial whitespace bytes', () => {
+  assert.deepEqual(parseGitChangedPaths(Buffer.from('provenance/release-manifest.json \0')), [
     'provenance/release-manifest.json ',
   ]);
-  git(whitespaceRepo, ['commit', '--no-gpg-sign', '-m', 'adversarial path']);
-  const whitespaceHead = git(whitespaceRepo, ['rev-parse', 'HEAD']);
-  const whitespaceDelta = await observeReleaseDelta(whitespaceRepo, whitespaceBase, whitespaceHead);
-  assert.deepEqual(whitespaceDelta.paths, ['provenance/release-manifest.json ']);
+});
 
+test(
+  'release observer preserves adversarial path bytes',
+  {
+    skip:
+      process.platform === 'win32'
+        ? 'Git for Windows rejects trailing-space paths before diff observation'
+        : false,
+  },
+  async (t) => {
+    const whitespaceRepo = temporaryRepository();
+    t.after(() => rmSync(whitespaceRepo, { recursive: true, force: true }));
+    const whitespaceBase = git(whitespaceRepo, ['rev-parse', 'HEAD']);
+    const blob = git(whitespaceRepo, ['hash-object', '-w', '--stdin'], { input: 'substitute\n' });
+    git(whitespaceRepo, [
+      'update-index',
+      '--add',
+      // cspell:disable-next-line
+      '--cacheinfo',
+      '100644',
+      blob,
+      'provenance/release-manifest.json ',
+    ]);
+    git(whitespaceRepo, ['commit', '--no-gpg-sign', '-m', 'adversarial path']);
+    const whitespaceHead = git(whitespaceRepo, ['rev-parse', 'HEAD']);
+    const whitespaceDelta = await observeReleaseDelta(
+      whitespaceRepo,
+      whitespaceBase,
+      whitespaceHead
+    );
+    assert.deepEqual(whitespaceDelta.paths, ['provenance/release-manifest.json ']);
+  }
+);
+
+test('release observer exposes renames as both changed paths', async (t) => {
   const renameRepo = temporaryRepository();
   t.after(() => rmSync(renameRepo, { recursive: true, force: true }));
   mkdirSync(path.join(renameRepo, 'src'));

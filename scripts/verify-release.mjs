@@ -121,7 +121,7 @@ async function textUrl(url) {
   return response.text();
 }
 
-function parseNulPaths(value) {
+export function parseGitChangedPaths(value) {
   const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value);
   if (bytes.length === 0) return [];
   if (bytes.at(-1) !== 0) fail('Git changed-path observation is not NUL terminated');
@@ -169,7 +169,7 @@ export async function observeReleaseDelta(root, releaseCommit, head) {
   return {
     ancestor: true,
     commitCount: Number(count.trim()),
-    paths: parseNulPaths(changedPaths),
+    paths: parseGitChangedPaths(changedPaths),
   };
 }
 
