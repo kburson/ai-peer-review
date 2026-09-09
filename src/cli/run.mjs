@@ -572,11 +572,12 @@ export async function startReview(input, deps = {}) {
       sealed.author_transport_capability === transport.capability &&
       authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
-    const repaired = await repairReview(paths.scratch.absolute, expected(state));
-    reserveCollateral({ ...repaired, paths });
-    ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
-    ensureExactFile(startup.author_startup, authorStartupBytes);
-    ensureExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+    const repaired = await repairReview(paths.scratch.absolute, expected(state), (current) => {
+      reserveCollateral({ ...current, paths });
+      ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
+      ensureExactFile(startup.author_startup, authorStartupBytes);
+      ensureExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+    });
     return startResult(repaired, paths, startup);
   }
 

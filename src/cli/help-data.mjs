@@ -108,6 +108,8 @@ const ERRORS = Object.freeze({
     'APR_AUTHORITY_POLICY',
     'APR_OUTPUT_COLLISION',
     'APR_GRANT_INVALID',
+    'APR_STALE_REVIEW',
+    'APR_TEMPLATE_INVALID',
   ],
   'request-grant': [
     'APR_AUTHORITY_UNAVAILABLE',
@@ -118,6 +120,9 @@ const ERRORS = Object.freeze({
     'APR_INVITATION_INVALID',
     'APR_IDENTITY_REQUIRED',
     'APR_IDENTITY_CONFLICT',
+    'APR_TRANSPORT_UNAVAILABLE',
+    'APR_STALE_REVIEW',
+    'APR_TEMPLATE_INVALID',
     'APR_OUTPUT_COLLISION',
   ],
   status: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
@@ -297,6 +302,15 @@ const ERROR_CATALOG = Object.freeze({
   APR_CLAIM_NOT_STALE: {
     message: 'The selected claim has not reached its recorded expiry.',
     recovery: 'Resume with the current claimant or wait until the recorded expiry.',
+  },
+  APR_STALE_REVIEW: {
+    message: 'The requested mutation no longer matches current event authority.',
+    recovery: 'Read current status and retry from its exact review, revision, sequence, and actor.',
+  },
+  APR_TEMPLATE_INVALID: {
+    message: 'A package template or its closed variable set is invalid.',
+    recovery:
+      'Restore the installed package template and regenerate collateral from event authority.',
   },
 });
 

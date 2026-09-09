@@ -80,6 +80,11 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   );
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_REQUIRED'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_POLICY'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));
+  assert.ok(helpRequest('join', 'json').errors.includes('APR_TRANSPORT_UNAVAILABLE'));
+  assert.equal(explainError('APR_STALE_REVIEW').code, 'APR_STALE_REVIEW');
+  assert.equal(explainError('APR_TEMPLATE_INVALID').code, 'APR_TEMPLATE_INVALID');
   assert.ok(helpRequest('review', 'json', { search: true }).matches.includes('submit'));
   assert.equal(explainError('APR_ARTIFACT_DIRTY').code, 'APR_ARTIFACT_DIRTY');
   assert.throws(

@@ -336,6 +336,25 @@ test('start refuses unsafe scratch and tracked collisions without creating autho
   assert.throws(() =>
     readFileSync(path.join(occupied.root, '.scratch/peer-review/review-occupied/events.jsonl'))
   );
+
+  const unsafeTemplate = repositoryFixture('apr-{{unsafe}}-');
+  t.after(unsafeTemplate.cleanup);
+  await assert.rejects(
+    startReview({
+      cwd: unsafeTemplate.root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-session'),
+      reviewId: 'review-unsafe-template',
+      now: NOW,
+    }),
+    (error) => error.code === 'APR_TEMPLATE_INVALID'
+  );
+  assert.throws(() =>
+    readFileSync(
+      path.join(unsafeTemplate.root, '.scratch/peer-review/review-unsafe-template/events.jsonl')
+    )
+  );
 });
 
 test('join binds the same physical worktree and a distinct reviewer before drafting', async (t) => {
@@ -350,6 +369,16 @@ test('join binds the same physical worktree and a distinct reviewer before draft
     reviewId: 'review-join',
     now: NOW,
   });
+  await assert.rejects(
+    joinReview({
+      cwd: fx.root,
+      invitation: started.paths.reviewer_invitation,
+      identity: identity('reviewer', 'reviewer-session'),
+      transportCapability: 'automatic-required',
+      now: NOW,
+    }),
+    (error) => error.code === 'APR_TRANSPORT_UNAVAILABLE'
+  );
   await assert.rejects(
     joinReview({
       cwd: fx.root,
