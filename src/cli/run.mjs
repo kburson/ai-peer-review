@@ -19,7 +19,7 @@ import {
 } from '../authority/canonicalize.mjs';
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
-import { resolveReviewPaths } from '../collateral/paths.mjs';
+import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { loadConfig } from '../config/load.mjs';
 import { setup } from '../config/setup.mjs';
 import {
@@ -190,13 +190,17 @@ function sameValue(left, right) {
   return canonicalProjection(left) === canonicalProjection(right);
 }
 
+function repositoryRelative(root, absolute, label = 'repository path') {
+  return resolveContainedPath(root, absolute, label).relative;
+}
+
 function noCommitOwnedChangedPaths(state) {
   const { context, paths } = sealedPaths(state);
   return new Set(
     [
       ...Object.values(trackedStartupPaths(paths)),
       ...everyReservedPath(paths, state.protocol.max_turns),
-    ].map((absolute) => path.relative(context.repository_root, absolute).split(path.sep).join('/'))
+    ].map((absolute) => repositoryRelative(context.repository_root, absolute))
   );
 }
 
@@ -601,7 +605,7 @@ export async function startReview(input, deps = {}) {
   const reviewPathTemplate = input.reviewPathTemplate ?? configuredReview.review_path_template;
   const requestedTransportMode = input.transportMode ?? configuredReview.transport_mode;
   const relativeArtifact = path.isAbsolute(input.artifact)
-    ? path.relative(root, input.artifact)
+    ? repositoryRelative(root, input.artifact, 'artifact')
     : input.artifact;
   const artifact = repository.artifactState(root, relativeArtifact);
   if (!artifact.clean) {
@@ -2036,7 +2040,11 @@ export async function submitReviewTurn(input, deps = {}) {
       {
         turn: sealed.turn,
         response: {
-          path: path.relative(state.protocol.startup.context.repository_root, sealed.path),
+          path: repositoryRelative(
+            state.protocol.startup.context.repository_root,
+            sealed.path,
+            'reviewer response'
+          ),
           digest: sealed.digest,
         },
         finding_ids: sealed.finding_ids,
@@ -2056,7 +2064,7 @@ function latestReviewerDecision(events) {
 
 function relativeSealed(root, file, sealed, mode = '100644') {
   return {
-    path: path.relative(root, file),
+    path: repositoryRelative(root, file, 'sealed response'),
     bytes: readFileSync(file),
     digest: sealed.digest,
     mode,
@@ -2309,7 +2317,8 @@ async function recoverAuthorHandoff({ input, deps, authority, git, transactionRe
             sealedResponse.path,
             sealedResponse,
             journal.record.paths.find(
-              (entry) => entry.path === path.relative(root, sealedResponse.path)
+              (entry) =>
+                entry.path === repositoryRelative(root, sealedResponse.path, 'sealed response')
             )?.mode
           ),
         ],
@@ -2533,7 +2542,7 @@ export async function submitAuthorTurn(input, deps = {}) {
       const payload = {
         turn,
         response: {
-          path: path.relative(root, sealedResponse.path),
+          path: repositoryRelative(root, sealedResponse.path, 'author response'),
           digest: sealedResponse.digest,
         },
         artifact: {
@@ -2596,9 +2605,9 @@ export async function submitAuthorTurn(input, deps = {}) {
       ? [
           decision.payload.response.path,
           state.protocol.artifact.path,
-          path.relative(root, responseFile),
+          repositoryRelative(root, responseFile, 'author response'),
         ]
-      : [decision.payload.response.path, path.relative(root, responseFile)],
+      : [decision.payload.response.path, repositoryRelative(root, responseFile, 'author response')],
   };
   const trailers = {
     'Peer-Review-ID': state.protocol.review_id,
@@ -2622,7 +2631,7 @@ export async function submitAuthorTurn(input, deps = {}) {
     const payload = {
       turn,
       response: {
-        path: path.relative(root, sealedResponse.path),
+        path: repositoryRelative(root, sealedResponse.path, 'author response'),
         digest: sealedResponse.digest,
       },
       artifact: {
