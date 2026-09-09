@@ -850,6 +850,21 @@ export function statusReview(workspace, { now = new Date() } = {}) {
   const observed = role
     ? deriveClaimStatus(state, role, now)
     : { status: 'not-applicable', claim: null };
+  const effectiveState =
+    observed.status === 'stale'
+      ? {
+          ...state,
+          protocol: {
+            ...state.protocol,
+            state: 'intervention-required',
+            next_action: 'human-intervention',
+            intervention: {
+              ...(state.protocol.intervention ?? {}),
+              reason: 'stale-claim',
+            },
+          },
+        }
+      : state;
   const response =
     state.protocol.state === 'reviewer-turn'
       ? resolved.reviewerResponse(state.protocol.turns_used + 1).absolute
@@ -862,10 +877,14 @@ export function statusReview(workspace, { now = new Date() } = {}) {
     ...(response ? { response } : {}),
   });
   return Object.freeze({
-    ...result('status', state, operationalPaths, {}),
+    ...result('status', effectiveState, operationalPaths, {}),
     next_action: Object.freeze({
-      action: state.protocol.next_action,
-      command: nextActionCommand(operationalPaths, state.protocol.next_action, state),
+      action: effectiveState.protocol.next_action,
+      command: nextActionCommand(
+        operationalPaths,
+        effectiveState.protocol.next_action,
+        effectiveState
+      ),
     }),
     claim: Object.freeze({
       role,
@@ -886,11 +905,13 @@ export function resumeReview(workspace, options = {}) {
     instructions:
       status.next_action.command === null
         ? 'The review is terminal; there is no next action.'
-        : role === 'reviewer'
-          ? `Open the current reviewer response ${status.paths.response} and then run: ${status.next_action.command}`
-          : role === 'author'
-            ? `Open the current author response ${status.paths.response} and then run: ${status.next_action.command}`
-            : `Follow the human intervention shown by: ${status.next_action.command}`,
+        : status.claim.status === 'stale'
+          ? `Reclaim the stale ${role} claim, then resume from event authority: ${status.next_action.command}`
+          : role === 'reviewer'
+            ? `Open the current reviewer response ${status.paths.response} and then run: ${status.next_action.command}`
+            : role === 'author'
+              ? `Open the current author response ${status.paths.response} and then run: ${status.next_action.command}`
+              : `Follow the human intervention shown by: ${status.next_action.command}`,
   });
 }
 
@@ -899,9 +920,12 @@ function writeJson(stream, value) {
 }
 
 function writeResult(stream, value) {
-  stream.write(
-    `Review ${value.review_id}: ${value.state}\nNext: ${value.next_action.command ?? value.next_action}\n`
-  );
+  const lines = [
+    `Review ${value.review_id}: ${value.state}`,
+    `Next: ${value.next_action.command ?? value.next_action}`,
+  ];
+  if (value.command === 'resume') lines.push(`Instructions: ${value.instructions}`);
+  stream.write(`${lines.join('\n')}\n`);
 }
 
 export async function run(argv, io) {
@@ -983,6 +1007,8 @@ export async function run(argv, io) {
       });
     }
     if (parsed.options.json) writeJson(io.stdout, response);
+    else if (parsed.command === 'status' && parsed.options.next)
+      io.stdout.write(`${response.next_action.command ?? ''}\n`);
     else writeResult(io.stdout, response);
     return 0;
   } catch (error) {

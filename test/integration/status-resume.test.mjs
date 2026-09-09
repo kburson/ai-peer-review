@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { joinReview, resumeReview, startReview, statusReview } from '../../src/cli/run.mjs';
+import { joinReview, resumeReview, run, startReview, statusReview } from '../../src/cli/run.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
@@ -95,10 +95,14 @@ test('status is event-derived, read-only, redacted, and returns one exact next a
     readFileSync(path.join(started.paths.workspace, 'protocol.json')),
     beforeProtocol
   );
-  assert.equal(
-    statusReview(started.paths.workspace, { now: '2026-09-09T00:00:01.000Z' }).claim.status,
-    'stale'
-  );
+  const stale = statusReview(started.paths.workspace, { now: '2026-09-09T00:00:01.000Z' });
+  assert.equal(stale.claim.status, 'stale');
+  assert.equal(stale.state, 'intervention-required');
+  assert.deepEqual(stale.next_action, {
+    action: 'human-intervention',
+    command: `peer-review recover ${started.paths.workspace} --reclaim`,
+  });
+  assert.deepEqual(readFileSync(started.paths.events), beforeEvents);
 });
 
 test('resume returns current actor instructions without polling or mutation', async (t) => {
@@ -111,4 +115,28 @@ test('resume returns current actor instructions without polling or mutation', as
   assert.equal(resumed.paths.response.endsWith('reviewer-response-1.md'), true);
   assert.match(resumed.instructions, new RegExp(resumed.paths.response.replaceAll('/', '\\/')));
   assert.deepEqual(readFileSync(started.paths.events), before);
+});
+
+test('status --next and plain resume render their exact operational output', async (t) => {
+  const started = await joinedFixture(t);
+  const invoke = async (argv) => {
+    let stdout = '';
+    let stderr = '';
+    const exitCode = await run(argv, {
+      cwd: path.dirname(started.paths.workspace),
+      env: {},
+      now: NOW,
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: (value) => (stderr += value) },
+    });
+    assert.equal(exitCode, 0, stderr);
+    return stdout;
+  };
+  assert.equal(
+    await invoke(['status', started.paths.workspace, '--next']),
+    `peer-review submit ${started.paths.workspace}\n`
+  );
+  const resume = await invoke(['resume', started.paths.workspace]);
+  assert.match(resume, /^Review review-status: reviewer-turn$/m);
+  assert.match(resume, /^Instructions: Open the current reviewer response /m);
 });
