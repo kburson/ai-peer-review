@@ -23,6 +23,11 @@ const HOST_DIR = Object.freeze({
 });
 const SKILL_SOURCE = fileURLToPath(new URL('../../skills/peer-review/SKILL.md', import.meta.url));
 const SCRATCH_RULE = '.scratch/peer-review/';
+const OFFICIAL_RESUME = Object.freeze({
+  codex: ['codex', 'resume'],
+  claude: ['claude', '--resume'],
+  grok: ['grok', 'resume'],
+});
 
 function fail(code, message, recovery, details = {}) {
   throw new AprError(code, message, { recovery, details });
@@ -120,15 +125,40 @@ function defaultExclude(cwd) {
   }
 }
 
-function packageConfigAfter(current, agents, remove, configExists) {
+function packageConfigAfter(current, agents, remove, configExists, scope, scratchRuleExists) {
   const result = clone(current);
-  if (remove) delete result.setup;
+  const selected = new Set(agents);
+  const ownedResume = new Set(current.setup?.resume_commands_added ?? []);
+  result.hosts ??= {};
+  if (remove) {
+    for (const agent of agents) {
+      if (!ownedResume.has(agent) || !result.hosts[agent]?.resume) continue;
+      delete result.hosts[agent].resume;
+      ownedResume.delete(agent);
+      if (Object.keys(result.hosts[agent]).length === 0) delete result.hosts[agent];
+    }
+  } else {
+    for (const agent of agents) {
+      if (!OFFICIAL_RESUME[agent] || result.hosts[agent]?.resume) continue;
+      result.hosts[agent] ??= {};
+      result.hosts[agent].resume = { command: [...OFFICIAL_RESUME[agent]] };
+      ownedResume.add(agent);
+    }
+  }
+  if (Object.keys(result.hosts).length === 0) delete result.hosts;
+  const nextAgents = remove
+    ? (current.setup?.agents ?? []).filter((agent) => !selected.has(agent))
+    : [...new Set([...(current.setup?.agents ?? []), ...agents])].sort();
+  if (remove && nextAgents.length === 0) delete result.setup;
   else
     result.setup = {
       owner: 'ai-peer-review',
       version: 1,
-      agents: [...agents].sort(),
+      agents: nextAgents,
       config_created: current.setup?.config_created ?? !configExists,
+      scratch_exclude_added:
+        current.setup?.scratch_exclude_added ?? (scope === 'project' && !scratchRuleExists),
+      resume_commands_added: [...ownedResume].sort(),
     };
   return result;
 }
@@ -161,13 +191,25 @@ export function setup(options = {}) {
     ...(options.platform ? { platform: options.platform } : {}),
   });
   const operations = [];
+  const excludeFile =
+    scope === 'project' ? path.resolve(cwd, options.gitExcludePath ?? defaultExclude(cwd)) : null;
+  const currentExclude =
+    excludeFile && existsSync(excludeFile) ? readFileSync(excludeFile, 'utf8') : '';
+  const scratchRuleExists = currentExclude.split(/\r?\n/).includes(SCRATCH_RULE);
   const configFile = configPaths({ cwd, home, env: options.env ?? {}, platform: options.platform })[
     scope
   ];
   const configExists = existsSync(configFile);
   const currentConfig = readJson(configFile, { schema: 'ai-peer-review.config/v1' });
   validateConfig(currentConfig);
-  const nextConfig = packageConfigAfter(currentConfig, agents, remove, configExists);
+  const nextConfig = packageConfigAfter(
+    currentConfig,
+    agents,
+    remove,
+    configExists,
+    scope,
+    scratchRuleExists
+  );
   validateConfig(nextConfig);
   if (stable(currentConfig) !== stable(nextConfig)) {
     const removeCreatedConfig =
@@ -245,11 +287,10 @@ export function setup(options = {}) {
   }
 
   if (scope === 'project') {
-    const excludeFile = path.resolve(options.gitExcludePath ?? defaultExclude(cwd));
-    const current = existsSync(excludeFile) ? readFileSync(excludeFile, 'utf8') : '';
+    const current = currentExclude;
     const lines = current.split(/\r?\n/).filter(Boolean);
     const hasRule = lines.includes(SCRATCH_RULE);
-    if (!remove && !hasRule && !options.confirmScratchExclude) {
+    if (!remove && !hasRule && !options.confirmScratchExclude && !options.dryRun) {
       fail(
         'APR_SETUP_CONFIRMATION_REQUIRED',
         'Scratch exclusion requires explicit confirmation.',
@@ -257,8 +298,12 @@ export function setup(options = {}) {
         { file: excludeFile }
       );
     }
+    const removeScratchRule =
+      remove && currentConfig.setup?.scratch_exclude_added && !nextConfig.setup?.agents.length;
     const nextLines = remove
-      ? lines.filter((line) => line !== SCRATCH_RULE)
+      ? removeScratchRule
+        ? lines.filter((line) => line !== SCRATCH_RULE)
+        : lines
       : hasRule
         ? lines
         : [...lines, SCRATCH_RULE];
@@ -276,6 +321,9 @@ export function setup(options = {}) {
         const after = entry.after === null ? null : JSON.parse(entry.after).ai_peer_review;
         return `${entry.kind} ${entry.file}\n- ai_peer_review: ${JSON.stringify(before ?? '<absent>')}\n+ ai_peer_review: ${JSON.stringify(after ?? '<absent>')}`;
       }
+      if (entry.owner === 'scratch-exclude') {
+        return `${entry.kind} ${entry.file}\n${entry.after?.includes(SCRATCH_RULE) ? '+' : '-'} ${SCRATCH_RULE}`;
+      }
       return `${entry.kind} ${entry.file}\n- ${entry.before ?? '<absent>'}\n+ ${entry.after ?? '<absent>'}`;
     })
     .join('\n');
@@ -285,7 +333,7 @@ export function setup(options = {}) {
         file: entry.file,
         owner: entry.owner,
         kind: entry.kind,
-        backup_required: entry.before !== null,
+        backup_required: entry.kind === 'modify',
       })
     )
   );
@@ -294,14 +342,14 @@ export function setup(options = {}) {
     scope,
     agents,
     changed: operations.length > 0,
-    backup_required: operations.some((entry) => entry.before !== null),
+    backup_required: operations.some((entry) => entry.kind === 'modify'),
     operations: publicOperations,
     diff,
     input,
   };
   if (!options.dryRun) {
     for (const entry of operations) {
-      if (entry.before !== null) {
+      if (entry.kind === 'modify') {
         mkdirSync(path.dirname(`${entry.file}.bak`), { recursive: true });
         copyFileSync(entry.file, `${entry.file}.bak`);
       }

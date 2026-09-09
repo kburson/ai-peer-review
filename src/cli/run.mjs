@@ -1,4 +1,5 @@
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
+import { execFile as execFileCallback } from 'node:child_process';
 import {
   existsSync,
   lstatSync,
@@ -9,6 +10,7 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 import {
   canonicalChallengeBytes,
@@ -61,6 +63,8 @@ import {
 } from '../protocol/service.mjs';
 import { atomicCreate } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
+import { manualTransport } from '../transport/manual.mjs';
+import { createResumeTransport, isOfficialResumeCommand } from '../transport/resume.mjs';
 import {
   explainError,
   helpRequest,
@@ -76,6 +80,7 @@ const DEFAULT_AUTHORITY = Object.freeze({
   verifier: null,
 });
 const REVIEWER_DECISION_TYPES = new Set(['reviewer-revisions-requested', 'reviewer-accepted']);
+const execFile = promisify(execFileCallback);
 
 function fail(code, message, recovery, details = {}) {
   throw new AprError(code, message, { recovery, details });
@@ -283,26 +288,16 @@ function configuredTransport(input) {
   return Object.freeze({ mode, capability });
 }
 
-function configuredAuthority(root, explicit) {
+function configuredAuthority(root, explicit, loaded = null) {
   if (explicit !== undefined) return explicit;
-  const file = path.join(root, '.ai-peer-review.json');
   try {
-    const config = JSON.parse(readFileSync(file, 'utf8'));
-    if (config?.schema !== 'ai-peer-review.config/v1' || !config.authority) {
-      fail(
-        'APR_AUTHORITY_REQUIRED',
-        'Project authority configuration is invalid.',
-        `Repair ${file} or remove it for consensus-only startup.`
-      );
-    }
-    return config.authority;
+    return (loaded ?? loadConfig({ cwd: root })).config.authority ?? DEFAULT_AUTHORITY;
   } catch (cause) {
-    if (cause?.code === 'ENOENT') return DEFAULT_AUTHORITY;
     if (cause instanceof AprError) throw cause;
     fail(
       'APR_AUTHORITY_REQUIRED',
-      'Project authority configuration cannot be read.',
-      `Repair ${file} or remove it for consensus-only startup.`
+      'Peer-review authority configuration cannot be read.',
+      'Repair the user or project configuration, or remove it for consensus-only startup.'
     );
   }
 }
@@ -605,6 +600,11 @@ function startResult(state, paths, startup) {
 export async function startReview(input, deps = {}) {
   const repository = deps.repository ?? createGitRepository();
   const root = repository.root(input.cwd);
+  const loaded = deps.config ?? loadConfig({ cwd: root });
+  const configuredReview = loaded.config.review ?? {};
+  const reviewsRoot = input.reviewsRoot ?? configuredReview.reviews_root;
+  const reviewPathTemplate = input.reviewPathTemplate ?? configuredReview.review_path_template;
+  const requestedTransportMode = input.transportMode ?? configuredReview.transport_mode;
   const relativeArtifact = path.isAbsolute(input.artifact)
     ? path.relative(root, input.artifact)
     : input.artifact;
@@ -632,8 +632,12 @@ export async function startReview(input, deps = {}) {
     );
   }
   const now = timestamp(input.now ?? new Date());
-  const maximum = safePositive(input.maxTurns, 10, 'maximum turns');
-  const claimTtlMs = safePositive(input.claimTtlMs, 8 * 60 * 60 * 1000, 'claim TTL');
+  const maximum = safePositive(input.maxTurns ?? configuredReview.max_turns, 10, 'maximum turns');
+  const claimTtlMs = safePositive(
+    input.claimTtlMs ?? configuredReview.claim_ttl_ms,
+    8 * 60 * 60 * 1000,
+    'claim TTL'
+  );
   const commitMode = input.noCommit ? 'no-commit' : 'normal';
   if (input.testHumanAuthority && commitMode !== 'no-commit') {
     fail(
@@ -642,8 +646,8 @@ export async function startReview(input, deps = {}) {
       'Use --no-commit with --test-human-authority.'
     );
   }
-  const transport = configuredTransport(input);
-  const requestedAuthority = configuredAuthority(root, input.authority);
+  const transport = configuredTransport({ ...input, transportMode: requestedTransportMode });
+  const requestedAuthority = configuredAuthority(root, input.authority, loaded);
   const startupAssurance = input.testHumanAuthority
     ? 'unverified-test'
     : (requestedAuthority.verifier?.signer_strength ?? 'unavailable');
@@ -654,8 +658,8 @@ export async function startReview(input, deps = {}) {
       artifact_path: artifact.path,
       artifact_head: artifact.head,
       artifact_kind: input.artifactKind,
-      reviews_root: input.reviewsRoot ?? 'docs/peer-reviews',
-      review_path_template: input.reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
+      reviews_root: reviewsRoot ?? 'docs/peer-reviews',
+      review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
       issue: input.issue ?? null,
       maximum,
       claim_ttl_ms: claimTtlMs,
@@ -668,8 +672,8 @@ export async function startReview(input, deps = {}) {
   const name = path.basename(artifact.path, path.extname(artifact.path));
   let paths = resolveReviewPaths({
     root,
-    reviewsRoot: input.reviewsRoot,
-    reviewPathTemplate: input.reviewPathTemplate,
+    reviewsRoot,
+    reviewPathTemplate,
     issue: input.issue ?? null,
     kind: input.artifactKind,
     name,
@@ -692,7 +696,7 @@ export async function startReview(input, deps = {}) {
     artifact_name: name,
     review_date: date,
     reviews_root: paths.reviewsRoot.relative,
-    review_path_template: input.reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
+    review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
     issue: input.issue ?? null,
   };
   const eventsFile = path.join(paths.scratch.absolute, 'events.jsonl');
@@ -1898,6 +1902,24 @@ function deliveryEvent(state, actor, recipient, deliveryId, valueDigest, now) {
   );
 }
 
+async function deliverAndAcknowledge({
+  transport,
+  state,
+  workspace,
+  actor,
+  deliveryId,
+  now,
+  exec = execFile,
+}) {
+  if (!transport) return { state, delivery: null };
+  const delivery = await transport.deliver({ execFile: exec, workspace });
+  if (delivery.status !== 'delivered') return { state, delivery };
+  const acknowledged = await mutateReview(workspace, expected(state), (locked) =>
+    eventFor(locked, 'delivery-acknowledged', actor, { delivery_id: deliveryId }, now ?? new Date())
+  );
+  return { state: acknowledged, delivery };
+}
+
 function checkpoint(deps, name) {
   deps.checkpoint?.(name);
 }
@@ -1989,11 +2011,25 @@ async function completeReviewerHandoff({ input, deps, absolute, paths, state, se
     );
   }
   checkpoint(deps, 'delivery-written');
+  const delivered = await deliverAndAcknowledge({
+    transport: deps.transport,
+    state: current,
+    workspace: absolute,
+    actor: input.identity.session_fingerprint,
+    deliveryId,
+    now: input.now,
+    exec: deps.execFile,
+  });
+  current = delivered.state;
   return result(
     'submit',
     current,
     { workspace: absolute, response: nextResponse ?? sealed.path },
-    { decision: input.decision, response: sealed }
+    {
+      decision: input.decision,
+      response: sealed,
+      ...(delivered.delivery ? { delivery: delivered.delivery } : {}),
+    }
   );
 }
 
@@ -2207,6 +2243,16 @@ async function completeAuthorHandoff({
     );
   }
   checkpoint(deps, 'delivery-written');
+  const delivered = await deliverAndAcknowledge({
+    transport: deps.transport,
+    state: current,
+    workspace: absolute,
+    actor: input.identity.session_fingerprint,
+    deliveryId,
+    now: input.now,
+    exec: deps.execFile,
+  });
+  current = delivered.state;
   return result(
     'submit',
     current,
@@ -2220,6 +2266,7 @@ async function completeAuthorHandoff({
       },
       commit,
       ...(snapshot ? { snapshot } : {}),
+      ...(delivered.delivery ? { delivery: delivered.delivery } : {}),
     }
   );
 }
@@ -3315,7 +3362,11 @@ function commandIdentity(io, state, role = null, { allowReplacement = false } = 
 function detectedDoctorContext(io, loaded, requestedMode) {
   let identity = null;
   try {
-    identity = resolveIdentity({ role: 'author', env: io.env, ...(io.identityContext ?? {}) });
+    identity = resolveIdentity({
+      role: 'author',
+      env: io.env,
+      ...configuredIdentityContext(io, loaded.config),
+    });
   } catch (cause) {
     if (!(cause instanceof AprError)) throw cause;
   }
@@ -3338,6 +3389,8 @@ function detectedDoctorContext(io, loaded, requestedMode) {
       existsSync(path.join(base, directories[agent], 'skills', 'peer-review', 'SKILL.md'))
     )
   );
+  const resumable = identity ? configuredResume(io, loaded.config, identity) : null;
+  const resumeHealthy = resumable && isOfficialResumeCommand(resumable.host, resumable.command);
   return {
     requestedMode,
     packageResolved: true,
@@ -3345,8 +3398,91 @@ function detectedDoctorContext(io, loaded, requestedMode) {
     identity,
     git,
     authority: loaded.config.authority,
-    transport: { mode: 'manual', healthy: requestedMode === 'manual' },
+    transport:
+      requestedMode === 'resume-only'
+        ? { mode: 'resume-only', healthy: Boolean(resumeHealthy) }
+        : { mode: 'manual', healthy: requestedMode === 'manual' },
   };
+}
+
+function configuredIdentityContext(io, config) {
+  const base = io.identityContext ?? {};
+  if (base.adapter || base.declared) return base;
+  const env = io.env ?? {};
+  const adapter =
+    env.CODEX_THREAD_ID || env.CODEX_SESSION_ID
+      ? 'codex'
+      : env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID
+        ? 'claude'
+        : env.GROK_SESSION_ID
+          ? 'grok'
+          : null;
+  if (!adapter) return base;
+  const identity = config.hosts?.[adapter]?.identity ?? {};
+  return {
+    ...base,
+    adapter,
+    runtime: {
+      ...(identity.model_id ? { modelId: identity.model_id } : {}),
+      ...(identity.model_display ? { modelDisplay: identity.model_display } : {}),
+      ...(base.runtime ?? {}),
+    },
+  };
+}
+
+function transportHost(identity) {
+  return identity?.host === 'claude-code'
+    ? 'claude'
+    : identity?.host === 'other'
+      ? 'generic'
+      : identity?.host;
+}
+
+function rawSession(io, host) {
+  const runtime = io.identityContext?.runtime;
+  if (runtime?.sessionId) return runtime.sessionId;
+  const env = io.env ?? {};
+  if (host === 'codex') return env.CODEX_THREAD_ID ?? env.CODEX_SESSION_ID ?? null;
+  if (host === 'claude') return env.CLAUDE_CODE_SESSION_ID ?? env.CLAUDE_SESSION_ID ?? null;
+  if (host === 'grok') return env.GROK_SESSION_ID ?? null;
+  return null;
+}
+
+function configuredResume(input, config, identity) {
+  const host = transportHost(identity);
+  const command = config.hosts?.[host]?.resume?.command;
+  const handle = rawSession(input, host);
+  return command && handle ? { host, command, handle } : null;
+}
+
+function resumeHandleFile(workspace, role) {
+  return path.join(workspace, 'handoffs', `${role}-resume.json`);
+}
+
+function storeResumeHandle(workspace, role, resume) {
+  if (!resume) return null;
+  const file = resumeHandleFile(workspace, role);
+  const bytes = Buffer.from(
+    `${JSON.stringify({
+      schema: 'ai-peer-review.resume-handle/v1',
+      host: resume.host,
+      handle: resume.handle,
+    })}\n`
+  );
+  ensureExactFile(file, bytes);
+  return file;
+}
+
+function resumeTransport(workspace, role, identity, config) {
+  const host = transportHost(identity);
+  const command = config.hosts?.[host]?.resume?.command;
+  if (!command) return null;
+  return createResumeTransport({
+    host,
+    command,
+    workspace,
+    scratchHandle: resumeHandleFile(workspace, role),
+  });
 }
 
 export async function run(argv, io) {
@@ -3422,63 +3558,99 @@ export async function run(argv, io) {
     }
     let response;
     if (parsed.command === 'start') {
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+      const identity = resolveIdentity({
+        role: 'author',
+        env: io.env,
+        ...configuredIdentityContext(io, loaded.config),
+      });
+      const resumable = configuredResume(io, loaded.config, identity);
+      const transportCapability = io.transportCapability ?? (resumable ? 'resume-only' : 'manual');
       response = await startReview(
         {
           cwd: io.cwd,
           artifact: parsed.args[0],
           artifactKind: parsed.options.artifactKind,
-          identity: resolveIdentity({ role: 'author', env: io.env, ...(io.identityContext ?? {}) }),
+          identity,
           now: io.now ?? new Date(),
           authority: io.authority,
-          transportCapability: io.transportCapability,
+          transportCapability,
           ...parsed.options,
         },
         {
+          config: loaded,
           verifyBootstrapGrant: io.verifyBootstrapGrant,
           verifyTestHumanAuthority: io.verifyTestHumanAuthority,
           hostVerifier: io.hostVerifier,
         }
       );
+      if (transportCapability === 'resume-only')
+        storeResumeHandle(response.paths.workspace, 'author', resumable);
     } else if (parsed.command === 'join') {
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+      const identity = resolveIdentity({
+        role: 'reviewer',
+        env: io.env,
+        ...configuredIdentityContext(io, loaded.config),
+      });
+      const resumable = configuredResume(io, loaded.config, identity);
+      const transportCapability = io.transportCapability ?? (resumable ? 'resume-only' : 'manual');
       response = await joinReview({
         cwd: io.cwd,
         invitation: path.resolve(io.cwd, parsed.args[0]),
-        identity: resolveIdentity({ role: 'reviewer', env: io.env, ...(io.identityContext ?? {}) }),
-        transportCapability: io.transportCapability,
+        identity,
+        transportCapability,
         now: io.now ?? new Date(),
       });
+      if (transportCapability === 'resume-only')
+        storeResumeHandle(response.paths.workspace, 'reviewer', resumable);
     } else if (parsed.command === 'status') {
       response = statusReview(path.resolve(io.cwd, parsed.args[0]), { now: io.now ?? new Date() });
     } else if (parsed.command === 'resume') {
       response = resumeReview(path.resolve(io.cwd, parsed.args[0]), { now: io.now ?? new Date() });
     } else if (parsed.command === 'submit') {
       const workspace = path.resolve(io.cwd, parsed.args[0]);
-      const active = inspectReview(workspace).protocol.current_actor;
+      const submitState = inspectReview(workspace);
+      const active = submitState.protocol.current_actor;
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+      const recipient = active === 'reviewer' ? 'author' : 'reviewer';
+      const participant = submitState.participants[recipient];
+      const transport =
+        submitState.protocol.startup.transport_mode === 'resume-only'
+          ? (resumeTransport(workspace, recipient, participant, loaded.config) ?? manualTransport)
+          : null;
+      const deliveryDeps = { transport, execFile: io.execFile };
       if (active === 'reviewer') {
-        response = await submitReviewTurn({
-          cwd: io.cwd,
-          workspace,
-          identity: resolveIdentity({
-            role: 'reviewer',
-            env: io.env,
-            ...(io.identityContext ?? {}),
-          }),
-          decision: parsed.options.decision,
-          now: io.now ?? new Date(),
-        });
+        response = await submitReviewTurn(
+          {
+            cwd: io.cwd,
+            workspace,
+            identity: resolveIdentity({
+              role: 'reviewer',
+              env: io.env,
+              ...configuredIdentityContext(io, loaded.config),
+            }),
+            decision: parsed.options.decision,
+            now: io.now ?? new Date(),
+          },
+          deliveryDeps
+        );
       } else if (active === 'author') {
-        response = await submitAuthorTurn({
-          cwd: io.cwd,
-          workspace,
-          identity: resolveIdentity({
-            role: 'author',
-            env: io.env,
-            ...(io.identityContext ?? {}),
-          }),
-          noArtifactChange: parsed.options.noArtifactChange,
-          reason: parsed.options.reason,
-          now: io.now ?? new Date(),
-        });
+        response = await submitAuthorTurn(
+          {
+            cwd: io.cwd,
+            workspace,
+            identity: resolveIdentity({
+              role: 'author',
+              env: io.env,
+              ...configuredIdentityContext(io, loaded.config),
+            }),
+            noArtifactChange: parsed.options.noArtifactChange,
+            reason: parsed.options.reason,
+            now: io.now ?? new Date(),
+          },
+          deliveryDeps
+        );
       } else {
         fail(
           'APR_INVALID_TRANSITION',

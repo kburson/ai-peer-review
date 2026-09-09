@@ -80,7 +80,8 @@
         "bootstrap": {
           "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/bootstrapEvidence" }]
         },
-        "claim": { "$ref": "#/$defs/claim" }
+        "claim": { "$ref": "#/$defs/claim" },
+        "delivery": { "$ref": "#/$defs/delivery" }
       }
     },
     "paths": {
@@ -245,6 +246,26 @@
         },
         "host": { "enum": ["codex", "claude-code", "grok", "other", null] },
         "expires_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "status", "transport"],
+      "properties": {
+        "schema": { "const": "ai-peer-review.delivery/v1" },
+        "status": { "enum": ["delivered", "delivery-pending"] },
+        "transport": { "enum": ["manual", "resume-only"] },
+        "reason": { "const": "resume-command-failed" },
+        "manual": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["available", "command"],
+          "properties": {
+            "available": { "const": true },
+            "command": { "type": "string", "minLength": 1 }
+          }
+        }
       }
     }
   }

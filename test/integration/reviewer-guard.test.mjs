@@ -33,6 +33,7 @@ test('reviewer guard permits only closed package commands for exact authority', 
   });
   assert.equal(guard.check(['peer-review', 'status', status.paths.workspace, '--json']), true);
   assert.equal(guard.check(['peer-review', 'resume', status.paths.workspace]), true);
+  assert.equal(guard.check(['peer-review', 'submit', status.paths.workspace]), true);
   assert.equal(
     guard.check(['peer-review', 'submit', status.paths.workspace, '--decision', 'accepted']),
     true

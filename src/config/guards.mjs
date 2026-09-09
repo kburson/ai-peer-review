@@ -50,6 +50,7 @@ export function deriveReviewerGuard(status, context) {
   const allowed = new Set([
     JSON.stringify(['peer-review', 'status', workspace, '--json']),
     JSON.stringify(['peer-review', 'resume', workspace]),
+    JSON.stringify(['peer-review', 'submit', workspace]),
     JSON.stringify(['peer-review', 'submit', workspace, '--decision', 'accepted']),
     JSON.stringify(['peer-review', 'submit', workspace, '--decision', 'revisions-requested']),
   ]);

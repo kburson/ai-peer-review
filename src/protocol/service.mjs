@@ -195,7 +195,13 @@ function deliveryReceiptFile(workspace, delivery) {
 }
 
 export function writeDeliveryReceiptExclusive(file, delivery) {
-  const expected = Buffer.from(canonicalProjection(delivery));
+  const expected = Buffer.from(
+    canonicalProjection({
+      delivery_id: delivery.delivery_id,
+      recipient: delivery.recipient,
+      digest: delivery.digest,
+    })
+  );
   const directory = path.dirname(file);
   const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
   let descriptor = null;
@@ -255,7 +261,11 @@ export function writeDeliveryReceiptExclusive(file, delivery) {
 function ensureDeliveryReceipts(workspace, state, { write = true } = {}) {
   for (const delivery of state.protocol.deliveries) {
     const file = deliveryReceiptFile(workspace, delivery);
-    const expected = canonicalProjection(delivery);
+    const expected = canonicalProjection({
+      delivery_id: delivery.delivery_id,
+      recipient: delivery.recipient,
+      digest: delivery.digest,
+    });
     if (existsSync(file)) {
       let current;
       try {

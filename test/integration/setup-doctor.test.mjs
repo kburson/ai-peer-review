@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -7,6 +8,8 @@ import test from 'node:test';
 import { loadConfig } from '../../src/config/load.mjs';
 import { planSetup, setup } from '../../src/config/setup.mjs';
 import { doctor } from '../../src/doctor.mjs';
+import { run, startReview } from '../../src/cli/run.mjs';
+import { participantIdentity } from '../../src/identity/registry.mjs';
 
 function fixture() {
   const root = mkdtempSync(path.join(os.tmpdir(), 'apr-setup-'));
@@ -100,6 +103,11 @@ test('fresh setup removes only its own files and refuses foreign provider owners
     gitExcludePath: files.exclude,
   };
   setup(options);
+  assert.deepEqual(
+    JSON.parse(readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')).hosts.codex
+      .resume.command,
+    ['codex', 'resume']
+  );
   const adapterFile = path.join(files.project, '.codex', 'config.json');
   const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
   assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.transport, 'manual');
@@ -114,6 +122,32 @@ test('fresh setup removes only its own files and refuses foreign provider owners
   assert.throws(() => setup(options), { code: 'APR_SETUP_CONFLICT' });
 });
 
+test('setup composes agents and preserves a pre-existing scratch exclusion', () => {
+  const files = fixture();
+  writeFileSync(files.exclude, '# local excludes\n.scratch/peer-review/\n');
+  const base = {
+    scope: 'project',
+    cwd: files.project,
+    home: files.home,
+    gitExcludePath: files.exclude,
+  };
+  assert.equal(setup({ ...base, agents: ['codex'], dryRun: true }).changed, true);
+  setup({ ...base, agents: ['codex'] });
+  setup({ ...base, agents: ['claude'] });
+  assert.deepEqual(
+    JSON.parse(readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')).setup.agents,
+    ['claude', 'codex']
+  );
+  setup({ ...base, agents: ['codex'], remove: true });
+  assert.deepEqual(
+    JSON.parse(readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')).setup.agents,
+    ['claude']
+  );
+  assert.match(readFileSync(files.exclude, 'utf8'), /\.scratch\/peer-review\//);
+  setup({ ...base, agents: ['claude'], remove: true });
+  assert.match(readFileSync(files.exclude, 'utf8'), /\.scratch\/peer-review\//);
+});
+
 test('user and project config merge deeply with project precedence and reject unknown keys', () => {
   const files = fixture();
   const userDir = path.join(files.home, '.config', 'ai-peer-review');
@@ -122,21 +156,38 @@ test('user and project config merge deeply with project precedence and reject un
     path.join(userDir, 'config.json'),
     `${JSON.stringify({
       schema: 'ai-peer-review.config/v1',
-      authority: { authority_policy: 'detection-allowed', challenge_ttl_ms: 900000 },
-      hosts: { codex: { identity: { provider: 'openai' } } },
+      authority: {
+        authority_policy: 'unavailable',
+        challenge_ttl_ms: 900000,
+        verifier: null,
+      },
+      hosts: {
+        codex: {
+          identity: {
+            provider: 'openai',
+            host: 'codex',
+            model_id: 'gpt-test',
+            model_display: 'GPT Test',
+          },
+        },
+      },
+      review: { reviews_root: 'docs/user-reviews', max_turns: 6 },
     })}\n`
   );
   writeFileSync(
     path.join(files.project, '.ai-peer-review.json'),
     `${JSON.stringify({
       schema: 'ai-peer-review.config/v1',
-      hosts: { codex: { resume: { command: ['codex', 'resume'], scratch_handle: 'codex.json' } } },
+      hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
+      review: { reviews_root: 'docs/project-reviews' },
     })}\n`
   );
   const loaded = loadConfig({ cwd: files.project, home: files.home, env: {} });
-  assert.equal(loaded.config.authority.authority_policy, 'detection-allowed');
+  assert.equal(loaded.config.authority.authority_policy, 'unavailable');
   assert.equal(loaded.config.hosts.codex.identity.provider, 'openai');
   assert.deepEqual(loaded.config.hosts.codex.resume.command, ['codex', 'resume']);
+  assert.equal(loaded.config.review.reviews_root, 'docs/project-reviews');
+  assert.equal(loaded.config.review.max_turns, 6);
 
   writeFileSync(
     path.join(files.project, '.ai-peer-review.json'),
@@ -176,4 +227,54 @@ test('doctor is read-only and Phase 2 rows are informational for Phase 1 modes',
   }
   assert.equal(readFileSync(files.exclude, 'utf8'), before);
   assert.equal(doctor({ ...report.input, requestedMode: 'automatic-required' }).healthy, false);
+});
+
+test('setup-only project configuration keeps consensus startup and resume diagnostics available', async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'apr-setup-start-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });
+  mkdirSync(path.join(root, 'docs'));
+  writeFileSync(path.join(root, 'docs', 'plan.md'), '# Plan\n');
+  execFileSync('git', ['add', 'docs/plan.md'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
+  setup({ scope: 'project', agents: ['codex'], cwd: root, confirmScratchExclude: true });
+  let doctorOutput = '';
+  let doctorError = '';
+  const doctorCode = await run(['doctor', '--mode', 'resume-only', '--json'], {
+    cwd: root,
+    env: {
+      CODEX_THREAD_ID: 'thread-123',
+      CODEX_MODEL_ID: 'gpt-test',
+      CODEX_MODEL_DISPLAY: 'GPT Test',
+    },
+    stdout: { write: (value) => (doctorOutput += value) },
+    stderr: { write: (value) => (doctorError += value) },
+  });
+  assert.equal(doctorCode, 0, doctorError);
+  assert.equal(JSON.parse(doctorOutput).healthy, true);
+  const configFile = path.join(root, '.ai-peer-review.json');
+  const config = JSON.parse(readFileSync(configFile, 'utf8'));
+  config.review = { reviews_root: 'docs/custom-reviews', max_turns: 4 };
+  writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+  const started = await startReview({
+    cwd: root,
+    artifact: 'docs/plan.md',
+    artifactKind: 'plan',
+    identity: participantIdentity({
+      role: 'author',
+      host: 'other',
+      provider: 'other',
+      modelId: 'test',
+      modelDisplay: 'Test',
+      sessionId: 'setup-start',
+      source: 'declared',
+      joinedAt: '2026-09-09T12:00:00.000Z',
+    }),
+    now: '2026-09-09T12:00:00.000Z',
+  });
+  assert.equal(started.review.authority.authority_policy, 'unavailable');
+  assert.equal(started.review.max_turns, 4);
+  assert.match(started.paths.reviewer_invitation, /docs\/custom-reviews/);
 });

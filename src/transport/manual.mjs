@@ -1,15 +1,22 @@
+import { renderCommand } from '../cli/help-data.mjs';
+
 export const manualTransport = Object.freeze({
   name: 'manual',
+  host: 'any',
   capability: 'manual',
   healthy: true,
-  async deliver({ invitation }) {
+  async deliver({ invitation, workspace }) {
     return Object.freeze({
       schema: 'ai-peer-review.delivery/v1',
       status: 'delivery-pending',
       transport: 'manual',
       manual: Object.freeze({
         available: true,
-        command: `peer-review join ${JSON.stringify(invitation)}`,
+        command: renderCommand([
+          'peer-review',
+          workspace ? 'resume' : 'join',
+          workspace ?? invitation,
+        ]),
       }),
     });
   },

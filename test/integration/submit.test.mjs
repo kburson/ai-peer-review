@@ -67,10 +67,79 @@ async function joinedReview(root, reviewId, options = {}) {
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
+    transportCapability: options.transportCapability,
     now: NOW,
   });
   return { author, reviewer, started, joined };
 }
+
+test('resume transport failure leaves a durable pending delivery and safe manual recovery', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const review = await joinedReview(fx.root, 'resume-delivery-pending', {
+    transportMode: 'resume-only',
+    transportCapability: 'resume-only',
+  });
+  replaceSection(review.joined.paths.response, 'Summary', 'One repair.');
+  replaceSection(review.joined.paths.response, 'Findings', '### R1-F001 — Repair\n\nFix it.');
+  replaceSection(review.joined.paths.response, 'Required changes', '- Address R1-F001.');
+  replaceSection(review.joined.paths.response, 'Optional suggestions', 'None.');
+  replaceSection(review.joined.paths.response, 'Decision', 'revisions-requested');
+  const handleFile = path.join(review.started.paths.workspace, 'handoffs', 'author-resume.json');
+  mkdirSync(path.dirname(handleFile), { recursive: true });
+  writeFileSync(
+    handleFile,
+    '{"schema":"ai-peer-review.resume-handle/v1","host":"codex","handle":"author-session"}\n'
+  );
+  const transport = api.createResumeTransport({
+    host: 'codex',
+    command: ['codex', 'resume'],
+    workspace: review.started.paths.workspace,
+    scratchHandle: handleFile,
+  });
+  const submitted = await api.submitReviewTurn(
+    {
+      cwd: fx.root,
+      workspace: review.started.paths.workspace,
+      identity: review.reviewer,
+      decision: 'revisions-requested',
+      now: NOW,
+    },
+    {
+      transport,
+      execFile: async () => {
+        throw new Error('offline with secret details');
+      },
+    }
+  );
+  assert.equal(submitted.review.delivery.status, 'delivery-pending');
+  assert.equal(submitted.review.delivery.reason, 'resume-command-failed');
+  assert.doesNotMatch(JSON.stringify(submitted.review.delivery), /secret details/);
+  assert.match(submitted.review.delivery.manual.command, /peer-review resume/);
+  const events = readFileSync(review.started.paths.events, 'utf8')
+    .trim()
+    .split('\n')
+    .map(JSON.parse);
+  assert.equal(events.filter((event) => event.type === 'delivery-written').length, 1);
+  assert.equal(events.filter((event) => event.type === 'delivery-acknowledged').length, 0);
+  const retried = await api.submitReviewTurn(
+    {
+      cwd: fx.root,
+      workspace: review.started.paths.workspace,
+      identity: review.reviewer,
+      decision: 'revisions-requested',
+      now: NOW,
+    },
+    { transport, execFile: async () => {} }
+  );
+  assert.equal(retried.review.delivery.status, 'delivered');
+  const recoveredEvents = readFileSync(review.started.paths.events, 'utf8')
+    .trim()
+    .split('\n')
+    .map(JSON.parse);
+  assert.equal(recoveredEvents.filter((event) => event.type === 'delivery-written').length, 1);
+  assert.equal(recoveredEvents.filter((event) => event.type === 'delivery-acknowledged').length, 1);
+});
 
 test('submit rejects stale reviewer and author claims without sealing responses', async (t) => {
   const reviewerFx = fixture();

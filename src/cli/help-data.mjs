@@ -96,8 +96,14 @@ const EFFECTS = Object.freeze({
   explain: ['Read-only offline error rendering.'],
 });
 const ERRORS = Object.freeze({
-  setup: ['APR_USAGE', 'APR_OUTPUT_COLLISION'],
-  doctor: ['APR_REPOSITORY_NOT_FOUND'],
+  setup: [
+    'APR_USAGE',
+    'APR_SETUP_INVALID',
+    'APR_SETUP_CONFLICT',
+    'APR_SETUP_CONFIRMATION_REQUIRED',
+    'APR_CONFIG_INVALID',
+  ],
+  doctor: ['APR_CONFIG_INVALID', 'APR_REPOSITORY_NOT_FOUND', 'APR_TRANSPORT_UNAVAILABLE'],
   start: [
     'APR_REPOSITORY_NOT_FOUND',
     'APR_ARTIFACT_UNTRACKED',
@@ -499,6 +505,26 @@ const ERROR_CATALOG = Object.freeze({
   APR_USAGE: {
     message: 'Command syntax is outside the closed grammar.',
     recovery: 'Run peer-review help --all.',
+  },
+  APR_SETUP_INVALID: {
+    message: 'Setup scope, host selection, or existing provider configuration is invalid.',
+    recovery: 'Repair the named input or configuration and preview setup again.',
+  },
+  APR_SETUP_CONFLICT: {
+    message: 'Setup encountered an existing integration it does not own.',
+    recovery: 'Preserve or relocate the foreign integration before setup.',
+  },
+  APR_SETUP_CONFIRMATION_REQUIRED: {
+    message: 'Applying the repository-local scratch exclusion requires explicit confirmation.',
+    recovery: 'Review the dry-run diff, then pass --confirm-scratch-exclude.',
+  },
+  APR_CONFIG_INVALID: {
+    message: 'Configuration is outside the closed public-only v1 schema.',
+    recovery: 'Remove unknown or secret fields and use the documented value contracts.',
+  },
+  APR_REVIEWER_GUARD: {
+    message: 'A reviewer operation is outside the exact pending response boundary.',
+    recovery: 'Use the exact status-derived command or response path.',
   },
   APR_REPOSITORY_NOT_FOUND: {
     message: 'The command is not running inside a physical Git worktree.',

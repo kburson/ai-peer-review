@@ -1,6 +1,7 @@
 import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
+import { renderCommand } from '../cli/help-data.mjs';
 import { AprError } from '../errors.mjs';
 
 const OFFICIAL = Object.freeze({
@@ -21,8 +22,12 @@ function same(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+export function isOfficialResumeCommand(host, command) {
+  return Object.hasOwn(OFFICIAL, host) && same(command, OFFICIAL[host]);
+}
+
 export function createResumeTransport({ host, command, workspace, scratchHandle }) {
-  if (!Object.hasOwn(OFFICIAL, host) || !same(command, OFFICIAL[host]))
+  if (!isOfficialResumeCommand(host, command))
     unavailable('Resume command is not an official Phase 1 form.', { host });
   let physicalWorkspace;
   let physicalHandle;
@@ -45,9 +50,10 @@ export function createResumeTransport({ host, command, workspace, scratchHandle 
   }
   return Object.freeze({
     name: `${host}-resume`,
+    host,
     capability: 'resume-only',
     healthy: true,
-    async deliver({ execFile, invitation }) {
+    async deliver({ execFile, invitation, workspace: recoveryWorkspace }) {
       try {
         await execFile(command[0], [...command.slice(1), handle.handle]);
         return Object.freeze({
@@ -55,15 +61,19 @@ export function createResumeTransport({ host, command, workspace, scratchHandle 
           status: 'delivered',
           transport: 'resume-only',
         });
-      } catch (cause) {
+      } catch {
         return Object.freeze({
           schema: 'ai-peer-review.delivery/v1',
           status: 'delivery-pending',
           transport: 'resume-only',
-          error: String(cause?.message ?? cause),
+          reason: 'resume-command-failed',
           manual: Object.freeze({
             available: true,
-            command: `peer-review join ${JSON.stringify(invitation)}`,
+            command: renderCommand([
+              'peer-review',
+              recoveryWorkspace ? 'resume' : 'join',
+              recoveryWorkspace ?? invitation,
+            ]),
           }),
         });
       }

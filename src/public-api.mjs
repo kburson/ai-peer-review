@@ -31,7 +31,7 @@ export {
   registerTransport,
   resolveTransport,
 } from './transport/registry.mjs';
-export { createResumeTransport } from './transport/resume.mjs';
+export { createResumeTransport, isOfficialResumeCommand } from './transport/resume.mjs';
 export { commitExactPaths, createGitTransactionRepository } from './git/transaction.mjs';
 export {
   buildManifest,

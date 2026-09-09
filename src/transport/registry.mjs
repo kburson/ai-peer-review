@@ -23,14 +23,21 @@ export function createTransportRegistry() {
         typeof adapter.deliver !== 'function'
       )
         unavailable(adapter?.capability);
-      adapters.set(adapter.capability, adapter);
+      adapters.set(adapter.name, adapter);
       return adapter;
     },
-    resolve(capability = 'manual') {
-      return adapters.get(capability) ?? unavailable(capability);
+    resolve(capability = 'manual', { host } = {}) {
+      const matches = [...adapters.values()].filter(
+        (adapter) =>
+          adapter.capability === capability &&
+          (!host || adapter.host === host || adapter.host === 'any')
+      );
+      return matches.length === 1 ? matches[0] : unavailable(capability);
     },
     capabilities() {
-      return Object.freeze([...adapters.keys()].sort());
+      return Object.freeze(
+        [...new Set([...adapters.values()].map((adapter) => adapter.capability))].sort()
+      );
     },
   });
 }
@@ -42,6 +49,6 @@ export function registerTransport(adapter) {
   return defaultRegistry.register(adapter);
 }
 
-export function resolveTransport(capability) {
-  return defaultRegistry.resolve(capability);
+export function resolveTransport(capability, options) {
+  return defaultRegistry.resolve(capability, options);
 }

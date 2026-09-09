@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -26,6 +27,17 @@ test('registry always offers manual and rejects unknown capabilities', () => {
   assert.throws(() => registry.resolve('automatic-required'), {
     code: 'APR_TRANSPORT_UNAVAILABLE',
   });
+});
+
+test('registry keeps host-specific resume adapters distinct', () => {
+  const registry = createTransportRegistry();
+  const codex = resumeFixture('codex', ['codex', 'resume']);
+  const claude = resumeFixture('claude', ['claude', '--resume']);
+  registry.register(codex);
+  registry.register(claude);
+  assert.equal(registry.resolve('resume-only', { host: 'codex' }), codex);
+  assert.equal(registry.resolve('resume-only', { host: 'claude' }), claude);
+  assert.throws(() => registry.resolve('resume-only'), { code: 'APR_TRANSPORT_UNAVAILABLE' });
 });
 
 for (const [host, command, expected] of [
@@ -68,4 +80,17 @@ test('resume failure preserves delivery-pending and manual recovery', async () =
   assert.equal(result.status, 'delivery-pending');
   assert.equal(result.manual.available, true);
   assert.match(result.manual.command, /peer-review join/);
+});
+
+test('manual recovery shell-quotes hostile absolute paths', async () => {
+  const invitation = "/tmp/review ' `tick` $()/invitation.md";
+  const result = await manualTransport.deliver({ invitation });
+  const observed = execFileSync(
+    '/bin/sh',
+    ['-c', `set -- ${result.manual.command}; printf '%s' "$3"`],
+    {
+      encoding: 'utf8',
+    }
+  );
+  assert.equal(observed, invitation);
 });
