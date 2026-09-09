@@ -5,36 +5,36 @@
   "source_commit": "4b3bcd43cba141a611da4a2b861433b915462806",
   "filtered_history_tip": "bfc6f9ffabd8281a815c7bd0e0824f3bacb84d9d",
   "bootstrap_commit": "fd2e636356b6b8049930d5dc6bddf383c6d56c8d",
-  "release_commit": null,
+  "release_commit": "1c86f21a8aacca77dc7ebdc8299606fabfaa7e50",
   "repository": {
     "url": "https://github.com/kburson/ai-peer-review",
-    "visibility": null
+    "visibility": "PUBLIC"
   },
   "tag": {
     "name": "v0.1.0",
-    "target_commit": null,
+    "target_commit": "1c86f21a8aacca77dc7ebdc8299606fabfaa7e50",
     "signer_fingerprint": "SHA256:5coWixpZ2nPevuuMFWsJkk7oc3UN8zybVaMpA12HNPI"
   },
   "github_release": {
-    "url": null,
-    "asset_name": null,
-    "asset_sha256": null,
-    "checksums_asset_name": null
+    "url": "https://github.com/kburson/ai-peer-review/releases/tag/v0.1.0",
+    "asset_name": "ai-peer-review-0.1.0.tgz",
+    "asset_sha256": "36f4aab8cacd8654ec2736ad54887039ece1ddfa14964c3716dd8e7ef28d406b",
+    "checksums_asset_name": "SHA256SUMS"
   },
   "npm": {
-    "tarball_url": null,
-    "integrity": null,
-    "sha256": null,
-    "provenance_url": null
+    "tarball_url": "https://registry.npmjs.org/ai-peer-review/-/ai-peer-review-0.1.0.tgz",
+    "integrity": "sha512-ZVnVmvuuechI07HWrDZDYxMerGCob0iQ1BGo4f55ubQpaowapaIOtNXooJ+VyM4am+ITpKqqn+qTypyM1YLdEA==",
+    "sha256": "36f4aab8cacd8654ec2736ad54887039ece1ddfa14964c3716dd8e7ef28d406b",
+    "provenance_url": "https://registry.npmjs.org/-/npm/v1/attestations/ai-peer-review@0.1.0"
   },
   "archives": {
     "zenodo": {
-      "doi": null,
-      "url": null
+      "doi": "10.5281/zenodo.22682163",
+      "url": "https://zenodo.org/records/22682163"
     },
     "software_heritage": {
-      "swhid": null,
-      "url": null
+      "swhid": "swh:1:rev:1c86f21a8aacca77dc7ebdc8299606fabfaa7e50",
+      "url": "https://archive.softwareheritage.org/swh:1:rev:1c86f21a8aacca77dc7ebdc8299606fabfaa7e50"
     }
   }
 }
