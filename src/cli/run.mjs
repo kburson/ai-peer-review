@@ -25,10 +25,17 @@ import {
   initializeReview,
   inspectReview,
   mutateReview,
+  repairReview,
 } from '../protocol/service.mjs';
 import { atomicCreate } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
-import { explainError, helpRequest, nextActionCommand } from './help-data.mjs';
+import {
+  explainError,
+  helpRequest,
+  markdownCodeSpan,
+  nextActionCommand,
+  renderCommand,
+} from './help-data.mjs';
 import { parseCommand } from './parse.mjs';
 
 const DEFAULT_AUTHORITY = Object.freeze({
@@ -349,14 +356,39 @@ function deterministicReviewId(input) {
 
 function startupVariables(root, artifact, paths, reviewId) {
   const startup = trackedStartupPaths(paths);
+  const artifactAbsolute = path.join(root, artifact.path);
+  const workspaceAbsolute = paths.scratch.absolute;
+  const responseAbsolute = paths.reviewerResponse(1).absolute;
+  const invitationAbsolute = startup.reviewer_invitation;
+  const invitationPayload = {
+    schema: 'ai-peer-review.invitation-routing/v1',
+    review_id: reviewId,
+    artifact: artifactAbsolute,
+    workspace: workspaceAbsolute,
+    response: responseAbsolute,
+  };
   return {
     startup,
     variables: {
       review_id: reviewId,
-      artifact_absolute: path.join(root, artifact.path),
-      workspace_absolute: paths.scratch.absolute,
-      response_absolute: paths.reviewerResponse(1).absolute,
-      invitation_absolute: startup.reviewer_invitation,
+      artifact_absolute: artifactAbsolute,
+      workspace_absolute: workspaceAbsolute,
+      response_absolute: responseAbsolute,
+      invitation_absolute: invitationAbsolute,
+      artifact_display: markdownCodeSpan(artifactAbsolute),
+      workspace_display: markdownCodeSpan(workspaceAbsolute),
+      response_display: markdownCodeSpan(responseAbsolute),
+      invitation_display: markdownCodeSpan(invitationAbsolute),
+      invitation_payload: Buffer.from(canonicalProjection(invitationPayload)).toString('base64url'),
+      installed_join_display: markdownCodeSpan(
+        renderCommand(['peer-review', 'join', invitationAbsolute])
+      ),
+      zero_install_join_display: markdownCodeSpan(
+        renderCommand(['npx', '--yes', 'ai-peer-review@0.1.0', 'join', invitationAbsolute])
+      ),
+      recovery_display: markdownCodeSpan(
+        renderCommand(['peer-review', 'resume', workspaceAbsolute])
+      ),
     },
   };
 }
@@ -540,11 +572,12 @@ export async function startReview(input, deps = {}) {
       sealed.author_transport_capability === transport.capability &&
       authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
-    reserveCollateral({ ...state, paths });
+    const repaired = await repairReview(paths.scratch.absolute, expected(state));
+    reserveCollateral({ ...repaired, paths });
     ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
     ensureExactFile(startup.author_startup, authorStartupBytes);
     ensureExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
-    return startResult(state, paths, startup);
+    return startResult(repaired, paths, startup);
   }
 
   const context = requestedContext;
@@ -648,22 +681,43 @@ function invitationValues(file) {
     error.cause = cause;
     throw error;
   }
-  const value = (label) => text.match(new RegExp(`^- ${label}: ` + '`([^`]+)`$', 'm'))?.[1];
-  const reviewId = text.match(/^Review: `([^`]+)`$/m)?.[1];
-  const values = {
-    reviewId,
-    artifact: value('Artifact'),
-    workspace: value('Workspace'),
-    response: value('Response'),
-  };
-  if (Object.values(values).some((entry) => typeof entry !== 'string' || !entry)) {
+  const encoded = text.match(/^<!-- ai-peer-review-invitation data="([A-Za-z0-9_-]+)" -->$/m)?.[1];
+  let routing;
+  try {
+    if (!encoded || Buffer.from(encoded, 'base64url').toString('base64url') !== encoded) {
+      throw new Error('non-canonical invitation payload');
+    }
+    routing = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+  } catch {
     fail(
       'APR_INVITATION_INVALID',
-      'Reviewer invitation fields are incomplete.',
-      'Regenerate the invitation from the authoritative review.'
+      'Reviewer invitation routing is incomplete.',
+      'Use the complete generated reviewer invitation.'
     );
   }
-  return values;
+  if (
+    !routing ||
+    typeof routing !== 'object' ||
+    Array.isArray(routing) ||
+    Object.keys(routing).sort().join('\n') !==
+      ['artifact', 'response', 'review_id', 'schema', 'workspace'].sort().join('\n') ||
+    routing.schema !== 'ai-peer-review.invitation-routing/v1' ||
+    [routing.review_id, routing.artifact, routing.workspace, routing.response].some(
+      (entry) => typeof entry !== 'string' || !entry
+    )
+  ) {
+    fail(
+      'APR_INVITATION_INVALID',
+      'Reviewer invitation routing is invalid.',
+      'Use the complete generated reviewer invitation.'
+    );
+  }
+  return {
+    reviewId: routing.review_id,
+    artifact: routing.artifact,
+    workspace: routing.workspace,
+    response: routing.response,
+  };
 }
 
 function pathsForContext(context) {
@@ -905,13 +959,15 @@ export function resumeReview(workspace, options = {}) {
     instructions:
       status.next_action.command === null
         ? 'The review is terminal; there is no next action.'
-        : status.claim.status === 'stale'
-          ? `Reclaim the stale ${role} claim, then resume from event authority: ${status.next_action.command}`
-          : role === 'reviewer'
-            ? `Open the current reviewer response ${status.paths.response} and then run: ${status.next_action.command}`
-            : role === 'author'
-              ? `Open the current author response ${status.paths.response} and then run: ${status.next_action.command}`
-              : `Follow the human intervention shown by: ${status.next_action.command}`,
+        : status.state === 'awaiting-reviewer'
+          ? `Join from the exact sealed invitation: ${status.next_action.command}`
+          : status.claim.status === 'stale'
+            ? `Reclaim the stale ${role} claim, then resume from event authority: ${status.next_action.command}`
+            : role === 'reviewer'
+              ? `Open the current reviewer response ${status.paths.response} and then run: ${status.next_action.command}`
+              : role === 'author'
+                ? `Open the current author response ${status.paths.response} and then run: ${status.next_action.command}`
+                : `Follow the human intervention shown by: ${status.next_action.command}`,
   });
 }
 

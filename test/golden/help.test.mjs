@@ -51,6 +51,12 @@ test('all offline help topics derive complete contracts from the frozen command 
       topic.flags.map(({ flag }) => flag),
       COMMAND_FLAGS[command]
     );
+    for (const code of topic.errors) {
+      const explanation = explainError(code);
+      assert.equal(explanation.code, code);
+      assert.doesNotMatch(explanation.message, /documented fail-closed check/i);
+      assert.ok(explanation.recovery.length > 20, code);
+    }
   }
 });
 
@@ -72,10 +78,16 @@ test('help --all, search, JSON, and stable error explanations have deterministic
     helpRequest('start', 'json').preconditions.join(' '),
     /bootstrap-grant.*pin-verifier/
   );
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_REQUIRED'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_POLICY'));
   assert.ok(helpRequest('review', 'json', { search: true }).matches.includes('submit'));
   assert.equal(explainError('APR_ARTIFACT_DIRTY').code, 'APR_ARTIFACT_DIRTY');
   assert.throws(
     () => explainError('APR_UNKNOWN'),
+    (error) => error.code === 'APR_USAGE'
+  );
+  assert.throws(
+    () => explainError('__proto__'),
     (error) => error.code === 'APR_USAGE'
   );
 });

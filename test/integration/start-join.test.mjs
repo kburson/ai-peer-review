@@ -6,20 +6,19 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { joinReview, startReview } from '../../src/cli/run.mjs';
+import { joinReview, startReview, statusReview } from '../../src/cli/run.mjs';
 import {
   canonicalChallengeBytes,
   digestGrantParameters,
 } from '../../src/authority/canonicalize.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
-import { inspectReview, mutateReview } from '../../src/protocol/service.mjs';
-import { hydrateTemplate } from '../../src/templates/index.mjs';
+import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
 
-function repositoryFixture() {
-  const root = mkdtempSync(path.join(tmpdir(), 'apr-start-'));
+function repositoryFixture(prefix = 'apr-start-') {
+  const root = mkdtempSync(path.join(tmpdir(), prefix));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });
@@ -30,6 +29,38 @@ function repositoryFixture() {
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
+
+test('generated routing and commands remain safe for shell metacharacters in paths', async (t) => {
+  const fx = repositoryFixture("apr start ' `tick` $()-");
+  t.after(fx.cleanup);
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'author-shell-path'),
+    reviewId: 'review-shell-path',
+    now: NOW,
+  });
+  const status = statusReview(started.paths.workspace, { now: NOW });
+  execFileSync(
+    '/bin/sh',
+    [
+      '-c',
+      `set -- ${status.next_action.command}; [ "$#" -eq 3 ] && [ "$3" = "$EXPECTED_INVITATION" ]`,
+    ],
+    { env: { ...process.env, EXPECTED_INVITATION: started.paths.reviewer_invitation } }
+  );
+  const invitation = readFileSync(started.paths.reviewer_invitation, 'utf8');
+  assert.match(invitation, /ai-peer-review-invitation data="[A-Za-z0-9_-]+"/);
+  assert.doesNotMatch(invitation, /Installed join: `peer-review join \/tmp\/apr start/);
+  const joined = await joinReview({
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: identity('reviewer', 'reviewer-shell-path'),
+    now: NOW,
+  });
+  assert.equal(joined.state, 'reviewer-turn');
+});
 
 function identity(role, session) {
   return participantIdentity({
@@ -99,6 +130,8 @@ test('start performs preflight checks before mutation and writes default event-f
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
 
   rmSync(started.paths.author_startup);
+  rmSync(path.join(started.paths.workspace, 'protocol.json'));
+  rmSync(path.join(started.paths.workspace, 'participants.json'));
   const recovered = await startReview({
     cwd: fx.root,
     artifact: 'docs/example.md',
@@ -108,6 +141,14 @@ test('start performs preflight checks before mutation and writes default event-f
   });
   assert.equal(recovered.review_id, started.review_id);
   assert.match(readFileSync(recovered.paths.author_startup, 'utf8'), /# Author startup/);
+  assert.equal(
+    JSON.parse(readFileSync(path.join(started.paths.workspace, 'protocol.json'))).review_id,
+    started.review_id
+  );
+  assert.equal(
+    JSON.parse(readFileSync(path.join(started.paths.workspace, 'participants.json'))).review_id,
+    started.review_id
+  );
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
 });
 
@@ -411,15 +452,21 @@ test('join rejects scratch context and invitation redirection outside sealed sta
   });
   const forged = path.join(redirected.destination.absolute, 'reviewer-invitation.md');
   mkdirSync(path.dirname(forged), { recursive: true });
+  const forgedRouting = Buffer.from(
+    canonicalProjection({
+      schema: 'ai-peer-review.invitation-routing/v1',
+      review_id: context.review_id,
+      artifact: path.join(context.repository_root, 'docs/example.md'),
+      workspace: redirected.scratch.absolute,
+      response: redirected.reviewerResponse(1).absolute,
+    })
+  ).toString('base64url');
   writeFileSync(
     forged,
-    hydrateTemplate('reviewer-invitation', {
-      review_id: context.review_id,
-      artifact_absolute: path.join(context.repository_root, 'docs/example.md'),
-      workspace_absolute: redirected.scratch.absolute,
-      response_absolute: redirected.reviewerResponse(1).absolute,
-      invitation_absolute: forged,
-    })
+    readFileSync(started.paths.reviewer_invitation, 'utf8').replace(
+      /ai-peer-review-invitation data="[A-Za-z0-9_-]+"/,
+      `ai-peer-review-invitation data="${forgedRouting}"`
+    )
   );
 
   await assert.rejects(

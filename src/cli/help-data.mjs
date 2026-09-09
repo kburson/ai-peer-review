@@ -104,6 +104,8 @@ const ERRORS = Object.freeze({
     'APR_SCRATCH_NOT_IGNORED',
     'APR_IDENTITY_REQUIRED',
     'APR_TRANSPORT_UNAVAILABLE',
+    'APR_AUTHORITY_REQUIRED',
+    'APR_AUTHORITY_POLICY',
     'APR_OUTPUT_COLLISION',
     'APR_GRANT_INVALID',
   ],
@@ -129,22 +131,70 @@ const ERRORS = Object.freeze({
   help: ['APR_USAGE'],
   explain: ['APR_USAGE'],
 });
+
+export function quoteShellArgument(value) {
+  if (typeof value !== 'string' || !value || /[\0\r\n]/.test(value)) {
+    throw new AprError(
+      'APR_PATH_TEMPLATE_INVALID',
+      'A command argument cannot be rendered safely.',
+      {
+        recovery: 'Use repository and review paths without control characters.',
+      }
+    );
+  }
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
+}
+
+export function renderCommand(argv) {
+  if (!Array.isArray(argv) || argv.length === 0) {
+    throw new AprError('APR_USAGE', 'A command requires a non-empty argument vector.', {
+      recovery: 'Use the structured command catalog.',
+    });
+  }
+  return argv.map(quoteShellArgument).join(' ');
+}
+
+export function markdownCodeSpan(value) {
+  if (typeof value !== 'string' || !value || /[\0\r\n]/.test(value)) {
+    throw new AprError('APR_PATH_TEMPLATE_INVALID', 'A Markdown value cannot be rendered safely.', {
+      recovery: 'Use repository and review paths without control characters.',
+    });
+  }
+  const longest = Math.max(0, ...(value.match(/`+/g) ?? []).map((run) => run.length));
+  const delimiter = '`'.repeat(longest + 1);
+  const padding = value.startsWith('`') || value.endsWith('`') ? ' ' : '';
+  return `${delimiter}${padding}${value}${padding}${delimiter}`;
+}
+
 const NEXT_COMMAND = Object.freeze({
-  'join-reviewer': ({ invitation }) => `peer-review join ${invitation}`,
-  'reviewer-submit': ({ workspace }) => `peer-review submit ${workspace}`,
-  'author-submit': ({ workspace }) => `peer-review submit ${workspace}`,
-  'finalize-acceptance': ({ workspace }) => `peer-review finalize ${workspace}`,
-  'commit-acceptance': ({ workspace }) => `peer-review finalize ${workspace}`,
+  'join-reviewer': ({ invitation }) => ['peer-review', 'join', invitation],
+  'reviewer-submit': ({ workspace }) => ['peer-review', 'submit', workspace],
+  'author-submit': ({ workspace }) => ['peer-review', 'submit', workspace],
+  'finalize-acceptance': ({ workspace }) => ['peer-review', 'finalize', workspace],
+  'commit-acceptance': ({ workspace }) => ['peer-review', 'finalize', workspace],
   'human-intervention': ({ workspace }, state) => {
     if (state.protocol.intervention?.reason === 'stale-claim') {
-      return `peer-review recover ${workspace} --reclaim`;
+      return ['peer-review', 'recover', workspace, '--reclaim'];
     }
     if (state.protocol.intervention?.reason === 'turn-budget-exhausted') {
       const resumeRole =
         state.protocol.intervention.interrupted_state === 'author-revision' ? 'author' : 'reviewer';
-      return `peer-review request-grant ${workspace} --action continue --additional-turns 1 --resulting-effective-maximum ${state.protocol.max_turns + 1} --resume-role ${resumeRole}`;
+      return [
+        'peer-review',
+        'request-grant',
+        workspace,
+        '--action',
+        'continue',
+        '--additional-turns',
+        '1',
+        '--resulting-effective-maximum',
+        String(state.protocol.max_turns + 1),
+        '--resume-role',
+        resumeRole,
+      ];
     }
-    return `peer-review recover ${workspace}`;
+    return ['peer-review', 'recover', workspace];
   },
 });
 const ERROR_CATALOG = Object.freeze({
@@ -171,6 +221,82 @@ const ERROR_CATALOG = Object.freeze({
   APR_USAGE: {
     message: 'Command syntax is outside the closed grammar.',
     recovery: 'Run peer-review help --all.',
+  },
+  APR_REPOSITORY_NOT_FOUND: {
+    message: 'The command is not running inside a physical Git worktree.',
+    recovery: 'Run the command from the intended Git worktree.',
+  },
+  APR_PATH_TEMPLATE_INVALID: {
+    message: 'A configured path or template cannot be rendered safely.',
+    recovery: 'Use the documented contained path placeholders and safe path values.',
+  },
+  APR_SCRATCH_NOT_IGNORED: {
+    message: 'The review scratch workspace is not ignored by Git.',
+    recovery: 'Add .scratch/peer-review/ to the repository-local Git exclude and retry.',
+  },
+  APR_IDENTITY_REQUIRED: {
+    message: 'The command could not establish its required participant identity.',
+    recovery: 'Use an official runtime identity or provide the documented declared identity.',
+  },
+  APR_TRANSPORT_UNAVAILABLE: {
+    message: 'The requested transport is not supported by the current participant.',
+    recovery: 'Use manual transport or a validated resume-only adapter in Phase 1.',
+  },
+  APR_AUTHORITY_REQUIRED: {
+    message: 'Configured startup authority is missing, unreadable, or incomplete.',
+    recovery: 'Repair .ai-peer-review.json or omit bootstrap authority for consensus-only startup.',
+  },
+  APR_AUTHORITY_POLICY: {
+    message: 'The signer or verifier does not satisfy the required authority policy.',
+    recovery: 'Use prevention-grade authority, or keep test authority in no-commit mode.',
+  },
+  APR_GRANT_INVALID: {
+    message: 'The Human Authority grant is missing or malformed.',
+    recovery: 'Use the exact complete grant for the current challenge.',
+  },
+  APR_AUTHORITY_UNAVAILABLE: {
+    message: 'The review has no verifier capable of the protected action.',
+    recovery: 'Continue ordinary consensus or use the verifier pinned at startup.',
+  },
+  APR_CHALLENGE_ACTIVE: {
+    message: 'A different live Human Authority challenge already occupies this action.',
+    recovery: 'Use or explicitly supersede the existing challenge through the documented flow.',
+  },
+  APR_GRANT_PARAMETERS_INVALID: {
+    message: 'Protected-action parameters do not match their closed canonical contract.',
+    recovery: 'Regenerate the challenge from exact current event authority.',
+  },
+  APR_INVITATION_INVALID: {
+    message: 'The reviewer invitation does not match sealed startup authority.',
+    recovery: 'Use the exact generated invitation in its original physical worktree.',
+  },
+  APR_EVENT_LOG_MISSING: {
+    message: 'The authoritative review event log is unavailable.',
+    recovery: 'Restore the exact events.jsonl review workspace and retry.',
+  },
+  APR_PROTECTED_METADATA_CHANGED: {
+    message: 'Participant-authored content changed protected response metadata.',
+    recovery: 'Restore metadata from current event authority and edit only permitted content.',
+  },
+  APR_RESPONSE_INVALID: {
+    message: 'The pending response does not satisfy its closed role and turn contract.',
+    recovery: 'Repair the exact pending response using peer-review resume guidance.',
+  },
+  APR_GRANT_MISMATCH: {
+    message: 'The grant does not bind the current challenge, action, or parameters.',
+    recovery: 'Request and sign a fresh challenge for the exact current action.',
+  },
+  APR_GRANT_REPLAYED: {
+    message: 'The Human Authority grant has already been consumed.',
+    recovery: 'Request a fresh challenge if another protected action remains necessary.',
+  },
+  APR_INVALID_TRANSITION: {
+    message: 'The requested lifecycle event is not allowed from the current state.',
+    recovery: 'Read peer-review status and perform only its exact next action.',
+  },
+  APR_CLAIM_NOT_STALE: {
+    message: 'The selected claim has not reached its recorded expiry.',
+    recovery: 'Resume with the current claimant or wait until the recorded expiry.',
   },
 });
 
@@ -297,19 +423,12 @@ export function helpRequest(name = null, format = 'text', options = {}) {
 }
 
 export function nextActionCommand(paths, action, state) {
-  return NEXT_COMMAND[action]?.(paths, state) ?? null;
+  const argv = NEXT_COMMAND[action]?.(paths, state) ?? null;
+  return argv ? renderCommand(argv) : null;
 }
 
 export function explainError(code, format = 'json') {
-  const documented = new Set(Object.values(ERRORS).flat());
-  const entry =
-    ERROR_CATALOG[code] ??
-    (documented.has(code)
-      ? {
-          message: 'The command failed a documented fail-closed check.',
-          recovery: 'Run peer-review help --all and follow the recovery for the owning command.',
-        }
-      : null);
+  const entry = Object.hasOwn(ERROR_CATALOG, code) ? ERROR_CATALOG[code] : null;
   if (!entry) usage(`Unknown APR error code: ${code}`);
   const result = Object.freeze({
     schema: 'ai-peer-review.error-help/v1',

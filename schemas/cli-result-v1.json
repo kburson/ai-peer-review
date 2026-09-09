@@ -157,7 +157,9 @@
       "required": ["role", "status", "host", "expires_at"],
       "properties": {
         "role": { "enum": ["author", "reviewer", null] },
-        "status": { "enum": ["active", "stale", "missing", "not-applicable"] },
+        "status": {
+          "enum": ["active", "stale", "unclaimed", "missing", "not-applicable"]
+        },
         "host": { "enum": ["codex", "claude-code", "grok", "other", null] },
         "expires_at": { "type": ["string", "null"], "format": "date-time" }
       }

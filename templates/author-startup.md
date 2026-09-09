@@ -4,10 +4,10 @@
 
 Review: `{{review_id}}`
 
-- Artifact: `{{artifact_absolute}}`
-- Workspace: `{{workspace_absolute}}`
-- Response: `{{response_absolute}}`
-- Reviewer invitation: `{{invitation_absolute}}`
+- Artifact: {{artifact_display}}
+- Workspace: {{workspace_display}}
+- Response: {{response_display}}
+- Reviewer invitation: {{invitation_display}}
 
 Installed help: `peer-review status --help`
 

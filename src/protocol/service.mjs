@@ -259,6 +259,18 @@ export async function readReview(workspace) {
   });
 }
 
+export async function repairReview(workspace, expected) {
+  const preflight = readAuthority(workspace).state;
+  assertExpected(preflight, expected);
+  return withReviewLock(workspace, async () => {
+    const { state } = readAuthority(workspace);
+    assertExpected(state, expected);
+    ensureDeliveryReceipts(workspace, state);
+    writeProjections(workspace, state);
+    return state;
+  });
+}
+
 export function inspectReview(workspace) {
   return readAuthority(workspace).state;
 }

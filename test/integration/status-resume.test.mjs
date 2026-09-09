@@ -73,6 +73,15 @@ test('status before join names the exact sealed invitation path', async (t) => {
   const status = statusReview(started.paths.workspace, { now: NOW });
   assert.equal(status.next_action.command, `peer-review join ${started.paths.reviewer_invitation}`);
   assert.equal(status.paths.invitation, started.paths.reviewer_invitation);
+  assert.equal(status.claim.status, 'unclaimed');
+  const resumed = resumeReview(started.paths.workspace, { now: NOW });
+  assert.equal(resumed.role, 'reviewer');
+  assert.equal(resumed.paths.response, undefined);
+  assert.equal(
+    resumed.instructions,
+    `Join from the exact sealed invitation: peer-review join ${started.paths.reviewer_invitation}`
+  );
+  assert.doesNotMatch(resumed.instructions, /undefined/);
 });
 
 test('status is event-derived, read-only, redacted, and returns one exact next action', async (t) => {
