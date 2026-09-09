@@ -129,7 +129,7 @@ function validManifest(overrides = {}) {
     relicensing_declaration_digest: SHA,
     design_source: {
       repository: 'https://github.com/kburson/ai-task-manager',
-      commit: '68de80b45b23c90874bac0fcd87cfa0c1980edd4',
+      commit: 'e7a586653bbc0adc79dd36e47915c81f3ed82bc0',
       path: 'docs/superpowers/specs/2026-09-07-ai-peer-review-extraction-design.md',
       digest: '9501a2568be49ab886961b7711dee0707bbc322e1ae89482e7a93660d09a4ea5',
     },
