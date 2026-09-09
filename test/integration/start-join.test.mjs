@@ -152,6 +152,45 @@ test('start performs preflight checks before mutation and writes default event-f
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
 });
 
+test('exact start recovery validates every collision before repairing derived files', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'author-session'),
+    reviewId: 'review-atomic-recovery',
+    now: NOW,
+  });
+  const protocol = path.join(started.paths.workspace, 'protocol.json');
+  const participants = path.join(started.paths.workspace, 'participants.json');
+  const reservation = path.join(started.paths.workspace, 'collateral-reservation.json');
+  const context = path.join(started.paths.workspace, 'review-context.json');
+  rmSync(protocol);
+  rmSync(participants);
+  rmSync(reservation);
+  writeFileSync(context, 'foreign bytes');
+
+  await assert.rejects(
+    startReview({
+      cwd: fx.root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-session'),
+      reviewId: 'review-atomic-recovery',
+      now: '2026-09-09T13:00:00.000Z',
+    }),
+    (error) => error.code === 'APR_OUTPUT_COLLISION'
+  );
+
+  assert.throws(() => readFileSync(protocol));
+  assert.throws(() => readFileSync(participants));
+  assert.throws(() => readFileSync(reservation));
+  assert.equal(readFileSync(context, 'utf8'), 'foreign bytes');
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+});
+
 test('start validates transport and seals the no-commit Git baseline', async (t) => {
   const fx = repositoryFixture();
   t.after(fx.cleanup);

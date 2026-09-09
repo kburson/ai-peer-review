@@ -259,21 +259,25 @@ export async function readReview(workspace) {
   });
 }
 
-export async function repairReview(workspace, expected, repair = () => {}) {
+export async function repairReview(workspace, expected, operations = {}) {
   const preflight = readAuthority(workspace).state;
   assertExpected(preflight, expected);
-  if (typeof repair !== 'function') {
+  const validate = operations.preflight ?? (() => {});
+  const repair = operations.repair ?? (() => {});
+  if (typeof validate !== 'function' || typeof repair !== 'function') {
     throw authorityError(
       'APR_EVENT_INVALID',
-      'Review repair requires a repair function.',
-      'Provide the exact event-authorized repair operation.'
+      'Review repair requires preflight and repair functions.',
+      'Provide the exact event-authorized preflight and repair operations.'
     );
   }
   return withReviewLock(workspace, async () => {
     const { state } = readAuthority(workspace);
     assertExpected(state, expected);
-    ensureDeliveryReceipts(workspace, state);
+    ensureDeliveryReceipts(workspace, state, { write: false });
+    await validate(state);
     writeProjections(workspace, state);
+    ensureDeliveryReceipts(workspace, state);
     await repair(state);
     return state;
   });

@@ -541,7 +541,7 @@ function recoveryPaths(review) {
   });
 }
 
-export function reserveCollateral(review, { validateForeignManifest } = {}) {
+export function reserveCollateral(review, { validateForeignManifest, write = true } = {}) {
   const registry = path.join(review.paths?.scratch?.absolute ?? '', 'collateral-reservation.json');
   if (!review.paths?.scratch?.absolute) {
     fail(
@@ -596,8 +596,10 @@ export function reserveCollateral(review, { validateForeignManifest } = {}) {
       }
       return select(recoveryPaths({ ...review, paths }), inspection.review_id);
     }
-    mkdirSync(path.dirname(registry), { recursive: true });
-    atomicWrite(registry, Buffer.from(`${JSON.stringify(record, null, 2)}\n`));
+    if (write) {
+      mkdirSync(path.dirname(registry), { recursive: true });
+      atomicWrite(registry, Buffer.from(`${JSON.stringify(record, null, 2)}\n`));
+    }
     return Object.freeze({ paths, reservation: Object.freeze(record) });
   };
   return select(review.paths);

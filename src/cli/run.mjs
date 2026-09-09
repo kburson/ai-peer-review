@@ -175,6 +175,10 @@ function ensureExactFile(file, bytes) {
   atomicCreate(file, bytes);
 }
 
+function validateExactFile(file, bytes) {
+  if (entryExists(file) && !exactFile(file, bytes)) collision(file);
+}
+
 function configuredTransport(input) {
   const mode = input.transportMode ?? 'manual';
   if (!['manual', 'resume-only'].includes(mode)) {
@@ -572,11 +576,19 @@ export async function startReview(input, deps = {}) {
       sealed.author_transport_capability === transport.capability &&
       authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
-    const repaired = await repairReview(paths.scratch.absolute, expected(state), (current) => {
-      reserveCollateral({ ...current, paths });
-      ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
-      ensureExactFile(startup.author_startup, authorStartupBytes);
-      ensureExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+    const repaired = await repairReview(paths.scratch.absolute, expected(state), {
+      preflight: (current) => {
+        reserveCollateral({ ...current, paths }, { write: false });
+        validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
+        validateExactFile(startup.author_startup, authorStartupBytes);
+        validateExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+      },
+      repair: (current) => {
+        reserveCollateral({ ...current, paths });
+        ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
+        ensureExactFile(startup.author_startup, authorStartupBytes);
+        ensureExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+      },
     });
     return startResult(repaired, paths, startup);
   }
