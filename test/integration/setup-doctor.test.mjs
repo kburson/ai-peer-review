@@ -256,6 +256,20 @@ test('setup-only project configuration keeps consensus startup and resume diagno
   assert.equal(JSON.parse(doctorOutput).healthy, true);
   const configFile = path.join(root, '.ai-peer-review.json');
   const config = JSON.parse(readFileSync(configFile, 'utf8'));
+  config.hosts.codex.resume.command = ['sh', '-c'];
+  writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+  const unavailableCode = await run(['doctor', '--mode', 'resume-only', '--json'], {
+    cwd: root,
+    env: {
+      CODEX_THREAD_ID: 'thread-123',
+      CODEX_MODEL_ID: 'gpt-test',
+      CODEX_MODEL_DISPLAY: 'GPT Test',
+    },
+    stdout: { write() {} },
+    stderr: { write() {} },
+  });
+  assert.equal(unavailableCode, 1);
+  config.hosts.codex.resume.command = ['codex', 'resume'];
   config.review = { reviews_root: 'docs/custom-reviews', max_turns: 4 };
   writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
   const started = await startReview({

@@ -256,7 +256,7 @@
         "schema": { "const": "ai-peer-review.delivery/v1" },
         "status": { "enum": ["delivered", "delivery-pending"] },
         "transport": { "enum": ["manual", "resume-only"] },
-        "reason": { "const": "resume-command-failed" },
+        "reason": { "enum": ["resume-command-failed", "resume-adapter-invalid"] },
         "manual": {
           "type": "object",
           "additionalProperties": false,

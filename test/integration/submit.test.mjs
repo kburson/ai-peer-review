@@ -158,6 +158,57 @@ test('resume transport failure leaves a durable pending delivery and safe manual
   assert.equal(repeated, false);
 });
 
+for (const [label, command] of [
+  ['missing handle', ['codex', 'resume']],
+  ['unofficial command', ['sh', '-c']],
+]) {
+  test(`CLI seals the handoff before ${label} recovery`, async (t) => {
+    const fx = fixture();
+    t.after(fx.cleanup);
+    const reviewId = `cli-${label.replace(' ', '-')}`;
+    writeFileSync(
+      path.join(fx.root, '.ai-peer-review.json'),
+      `${JSON.stringify({
+        schema: 'ai-peer-review.config/v1',
+        hosts: { codex: { resume: { command } } },
+      })}\n`
+    );
+    const review = await joinedReview(fx.root, reviewId, {
+      transportMode: 'resume-only',
+      transportCapability: 'resume-only',
+    });
+    replaceSection(review.joined.paths.response, 'Summary', 'One repair.');
+    replaceSection(review.joined.paths.response, 'Findings', '### R1-F001 — Repair\n\nFix it.');
+    replaceSection(review.joined.paths.response, 'Required changes', '- Address R1-F001.');
+    replaceSection(review.joined.paths.response, 'Optional suggestions', 'None.');
+    replaceSection(review.joined.paths.response, 'Decision', 'revisions-requested');
+    let output = '';
+    let errorOutput = '';
+    const code = await api.run(['submit', review.started.paths.workspace], {
+      cwd: fx.root,
+      env: {},
+      identityContext: {
+        adapter: 'codex',
+        runtime: {
+          sessionId: `${reviewId}-reviewer`,
+          modelId: 'gpt-test',
+          modelDisplay: 'GPT Test',
+        },
+      },
+      stdout: { write: (value) => (output += value) },
+      stderr: { write: (value) => (errorOutput += value) },
+    });
+    assert.equal(code, 0, errorOutput);
+    assert.match(output, /Manual recovery: .*peer-review resume/);
+    const events = readFileSync(review.started.paths.events, 'utf8')
+      .trim()
+      .split('\n')
+      .map(JSON.parse);
+    assert.equal(events.filter((event) => event.type === 'delivery-written').length, 1);
+    assert.equal(events.filter((event) => event.type === 'delivery-acknowledged').length, 0);
+  });
+}
+
 test('submit rejects stale reviewer and author claims without sealing responses', async (t) => {
   const reviewerFx = fixture();
   t.after(reviewerFx.cleanup);

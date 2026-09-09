@@ -3333,6 +3333,8 @@ function writeResult(stream, value) {
     `Next: ${value.next_action.command ?? value.next_action}`,
   ];
   if (value.command === 'resume') lines.push(`Instructions: ${value.instructions}`);
+  if (value.review?.delivery?.manual?.command)
+    lines.push(`Manual recovery: ${value.review.delivery.manual.command}`);
   stream.write(`${lines.join('\n')}\n`);
 }
 
@@ -3452,7 +3454,9 @@ function configuredResume(input, config, identity) {
   const host = transportHost(identity);
   const command = config.hosts?.[host]?.resume?.command;
   const handle = rawSession(input, host);
-  return command && handle ? { host, command, handle } : null;
+  return command && handle && isOfficialResumeCommand(host, command)
+    ? { host, command, handle }
+    : null;
 }
 
 function resumeHandleFile(workspace, role) {
@@ -3476,13 +3480,29 @@ function storeResumeHandle(workspace, role, resume) {
 function resumeTransport(workspace, role, identity, config) {
   const host = transportHost(identity);
   const command = config.hosts?.[host]?.resume?.command;
-  if (!command) return null;
-  return createResumeTransport({
-    host,
-    command,
-    workspace,
-    scratchHandle: resumeHandleFile(workspace, role),
-  });
+  try {
+    return createResumeTransport({
+      host,
+      command,
+      workspace,
+      scratchHandle: resumeHandleFile(workspace, role),
+    });
+  } catch (cause) {
+    if (!(cause instanceof AprError) || cause.code !== 'APR_TRANSPORT_UNAVAILABLE') throw cause;
+    return Object.freeze({
+      name: `${host ?? 'unknown'}-resume-unavailable`,
+      host: host ?? 'unknown',
+      capability: 'resume-only',
+      async deliver({ workspace: recoveryWorkspace }) {
+        const pending = await manualTransport.deliver({ workspace: recoveryWorkspace });
+        return Object.freeze({
+          ...pending,
+          transport: 'resume-only',
+          reason: 'resume-adapter-invalid',
+        });
+      },
+    });
+  }
 }
 
 export async function run(argv, io) {
@@ -3617,10 +3637,12 @@ export async function run(argv, io) {
       const participant = submitState.participants[recipient];
       const transport =
         submitState.protocol.startup.transport_mode === 'resume-only'
-          ? (resumeTransport(workspace, recipient, participant, loaded.config) ?? manualTransport)
+          ? resumeTransport(workspace, recipient, participant, loaded.config)
           : null;
       const deliveryDeps = { transport, execFile: io.execFile };
       if (active === 'reviewer') {
+        const decision =
+          parsed.options.decision ?? decisionFromResponse(statusReview(workspace).paths.response);
         response = await submitReviewTurn(
           {
             cwd: io.cwd,
@@ -3630,7 +3652,7 @@ export async function run(argv, io) {
               env: io.env,
               ...configuredIdentityContext(io, loaded.config),
             }),
-            decision: parsed.options.decision,
+            decision,
             now: io.now ?? new Date(),
           },
           deliveryDeps
