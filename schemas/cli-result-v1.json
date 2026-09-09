@@ -6,7 +6,20 @@
   "required": ["schema", "command", "review_id", "state", "next_action", "review", "paths"],
   "properties": {
     "schema": { "const": "ai-peer-review.cli-result/v1" },
-    "command": { "enum": ["start", "join", "status", "resume"] },
+    "command": {
+      "enum": [
+        "start",
+        "join",
+        "status",
+        "resume",
+        "submit",
+        "supplement",
+        "continue",
+        "finalize",
+        "recover",
+        "abandon"
+      ]
+    },
     "review_id": { "$ref": "#/$defs/id" },
     "state": { "$ref": "#/$defs/state" },
     "next_action": {
@@ -46,7 +59,19 @@
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
         },
-        "authority": { "$ref": "#/$defs/authority" },
+        "authority": {
+          "anyOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/authority" },
+            { "$ref": "#/$defs/attestation" }
+          ]
+        },
+        "commit": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/gitObject" }]
+        },
+        "manifest_digest": { "$ref": "#/$defs/digest" },
+        "acceptance_basis": { "enum": ["reviewer-consensus", "human-override"] },
+        "authority_warning": { "type": ["string", "null"] },
         "transport_mode": { "enum": ["manual", "resume-only"] },
         "author_transport_capability": { "enum": ["manual", "resume-only"] },
         "no_commit_baseline": {
@@ -145,6 +170,34 @@
         },
         "challenge_ttl_ms": { "$ref": "#/$defs/positive" },
         "verifier": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/verifier" }] }
+      }
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "strength",
+        "signer_id",
+        "signer_fingerprint",
+        "challenge_digest",
+        "verified_at"
+      ],
+      "properties": {
+        "source": { "enum": ["detached-signature", "host-approval", "test-fixture"] },
+        "strength": {
+          "enum": [
+            "cryptographic-external",
+            "hardware-presence",
+            "host-verified",
+            "cryptographic-local",
+            "unverified-test"
+          ]
+        },
+        "signer_id": { "type": "string", "minLength": 1 },
+        "signer_fingerprint": { "type": "string", "minLength": 1 },
+        "challenge_digest": { "$ref": "#/$defs/digest" },
+        "verified_at": { "type": "string", "format": "date-time" }
       }
     },
     "baseline": {

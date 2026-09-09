@@ -20,6 +20,14 @@ import { AprError } from '../errors.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
 import {
+  buildManifest,
+  finalMessage,
+  finalTrailers,
+  pathsToSeals,
+  sealHumanDecision,
+  sealManifest,
+} from '../manifest/render.mjs';
+import {
   assertDistinctParticipants,
   claimRole,
   deriveClaimStatus,
@@ -56,6 +64,7 @@ const DEFAULT_AUTHORITY = Object.freeze({
   challenge_ttl_ms: 15 * 60 * 1000,
   verifier: null,
 });
+const REVIEWER_DECISION_TYPES = new Set(['reviewer-revisions-requested', 'reviewer-accepted']);
 
 function fail(code, message, recovery, details = {}) {
   throw new AprError(code, message, { recovery, details });
@@ -2672,6 +2681,419 @@ export async function submitAuthorTurn(input, deps = {}) {
   });
 }
 
+function latestNoCommitSnapshot(events) {
+  return [...events]
+    .reverse()
+    .find((event) =>
+      ['author-revision-sealed-no-commit', 'author-closing-round-sealed-no-commit'].includes(
+        event.type
+      )
+    )?.payload.snapshot;
+}
+
+function assertFinalizationArtifact({
+  state,
+  events,
+  git,
+  transactionRepository,
+  workspace,
+  allowedHead = null,
+}) {
+  const root = state.protocol.startup.context.repository_root;
+  const expectedHead = latestHead(state, events);
+  const artifact = git.artifactState(root, state.protocol.artifact.path);
+  const digestMatches = `sha256:${artifact.worktreeDigest}` === state.protocol.artifact.digest;
+  if (state.protocol.commit_mode === 'normal') {
+    if (
+      !artifact.clean ||
+      ![expectedHead, allowedHead].includes(artifact.head) ||
+      artifact.blob !== state.protocol.artifact.blob ||
+      !digestMatches
+    ) {
+      fail(
+        'APR_ARTIFACT_CHANGED',
+        'Finalization artifact differs from accepted event authority.',
+        'Restore the exact accepted artifact commit and bytes before retrying.'
+      );
+    }
+    return expectedHead;
+  }
+  const observed = git.baseline(root);
+  const snapshot = latestNoCommitSnapshot(events);
+  const snapshotMatches =
+    snapshot === undefined ||
+    exactRegularDigest(path.join(workspace, snapshot.path), snapshot.digest);
+  if (
+    artifact.head !== expectedHead ||
+    !digestMatches ||
+    !snapshotMatches ||
+    !preservesNoCommitBaseline(
+      state.protocol.startup.no_commit_baseline,
+      observed,
+      state.protocol.artifact.path,
+      noCommitOwnedChangedPaths(state)
+    ) ||
+    transactionRepository.workingMode(state.protocol.artifact.path) !==
+      transactionRepository.modeAt(events[0].payload.artifact.head, state.protocol.artifact.path)
+  ) {
+    fail(
+      'APR_REVIEWER_GIT_VIOLATION',
+      'No-commit finalization differs from sealed artifact or repository authority.',
+      'Restore the startup repository baseline and latest sealed artifact snapshot before retrying.'
+    );
+  }
+  return expectedHead;
+}
+
+function acceptanceSeal(root, event, transactionRepository) {
+  if (!event || !REVIEWER_DECISION_TYPES.has(event.type)) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Finalization requires one event-authorized reviewer decision.',
+      'Complete the current two-sided review round before finalizing.'
+    );
+  }
+  const absolute = path.join(root, event.payload.response.path);
+  const bytes = readFileSync(absolute);
+  if (sha256(bytes) !== event.payload.response.digest) {
+    fail(
+      'APR_PROTECTED_METADATA_CHANGED',
+      'Final reviewer response bytes differ from event authority.',
+      'Restore the exact sealed reviewer response before finalizing.'
+    );
+  }
+  return Object.freeze({
+    path: event.payload.response.path,
+    bytes,
+    digest: event.payload.response.digest,
+    mode: transactionRepository.workingMode(event.payload.response.path),
+  });
+}
+
+function finalizedResult(state, absolute, paths, terminalEvent) {
+  return result(
+    'finalize',
+    state,
+    {
+      workspace: absolute,
+      manifest: paths.manifest.absolute,
+      ...(terminalEvent.type.startsWith('override-')
+        ? { human_decision: paths.humanDecision.absolute }
+        : {}),
+    },
+    {
+      commit: terminalEvent.payload.terminal.commit ?? null,
+      manifest_digest: terminalEvent.payload.terminal.manifest_digest,
+      acceptance_basis: terminalEvent.type.startsWith('override-')
+        ? 'human-override'
+        : 'reviewer-consensus',
+      authority: terminalEvent.payload.attestation ?? null,
+      authority_warning: terminalEvent.payload.attestation
+        ? detectionWarning(terminalEvent.payload.attestation)
+        : null,
+    }
+  );
+}
+
+export async function finalizeReview(input, deps = {}) {
+  const absolute = path.resolve(input.workspace);
+  let authority = inspectReviewAuthority(absolute);
+  let { state, events } = authority;
+  const { paths } = sealedPaths(state);
+  const root = state.protocol.startup.context.repository_root;
+  const git = deps.repository ?? createGitRepository();
+  const transactionRepository = deps.transactionRepository ?? createGitTransactionRepository(root);
+  const existingTerminal = [...events]
+    .reverse()
+    .find((event) =>
+      [
+        'acceptance-committed',
+        'acceptance-sealed-no-commit',
+        'override-committed',
+        'override-sealed-no-commit',
+      ].includes(event.type)
+    );
+  if (existingTerminal) return finalizedResult(state, absolute, paths, existingTerminal);
+
+  if (!input.goodEnough) {
+    if (state.protocol.state === 'acceptance-pending') {
+      assertFinalizationArtifact({
+        state,
+        events,
+        git,
+        transactionRepository,
+        workspace: absolute,
+      });
+      if (
+        input.identity?.role !== 'author' ||
+        input.identity.session_fingerprint !== state.participants.author?.session_fingerprint
+      ) {
+        fail(
+          'APR_IDENTITY_CONFLICT',
+          'Consensus finalization requires the registered author session.',
+          'Resume from the registered author session and retry.'
+        );
+      }
+      state = await ensureTurnClaim(
+        absolute,
+        state,
+        'author',
+        state.participants.author,
+        input.now ?? new Date()
+      );
+      assertSubmissionClaim(state, 'author', input.identity, input.now);
+      authority = await refreshSubmissionIdentity(
+        { absolute, paths, state },
+        'author',
+        input.identity,
+        input.now
+      );
+      state = authority.state;
+      state = await mutateReview(absolute, expected(state), (current) => {
+        assertCurrentParticipant(current, 'author', input.identity, input.now);
+        return eventFor(
+          current,
+          'finalization-started',
+          input.identity.session_fingerprint,
+          {},
+          input.now ?? new Date()
+        );
+      });
+      authority = inspectReviewAuthority(absolute);
+      ({ state, events } = authority);
+    }
+    if (state.protocol.state !== 'author-finalization') {
+      fail(
+        'APR_INVALID_TRANSITION',
+        'Consensus finalization requires reviewer acceptance.',
+        'Read status and finalize only from acceptance-pending.'
+      );
+    }
+    assertCurrentParticipant(state, 'author', input.identity, input.now);
+    const accepted = [...events].reverse().find((event) => event.type === 'reviewer-accepted');
+    const expectedHead = assertFinalizationArtifact({
+      state,
+      events,
+      git,
+      transactionRepository,
+      workspace: absolute,
+      // A prior attempt may already have created the exact transaction-recorded
+      // finalization commit and crashed before appending the terminal event.
+      // commitExactPaths below is the authority that proves that recovery.
+      allowedHead: state.protocol.commit_mode === 'normal' ? transactionRepository.head() : null,
+    });
+    const acceptance = acceptanceSeal(root, accepted, transactionRepository);
+    const targetStatus =
+      state.protocol.commit_mode === 'normal' ? 'accepted' : 'accepted-uncommitted';
+    const model = buildManifest({
+      state,
+      events,
+      status: targetStatus,
+      acceptance_basis: 'reviewer-consensus',
+      final_commit: state.protocol.commit_mode === 'normal' ? expectedHead : null,
+    });
+    const manifest = sealManifest(model, { path: paths.manifest.relative });
+    ensureExactFile(paths.manifest.absolute, manifest.bytes);
+    const terminalType =
+      state.protocol.commit_mode === 'normal'
+        ? 'acceptance-committed'
+        : 'acceptance-sealed-no-commit';
+    let commit = null;
+    let trailers = null;
+    let transaction = null;
+    if (state.protocol.commit_mode === 'normal') {
+      trailers = finalTrailers({ state, acceptance, manifest });
+      transaction = pathsToSeals([acceptance, manifest], { expected_head: expectedHead });
+      commit = commitExactPaths(transactionRepository, transaction, finalMessage(state), trailers);
+      checkpoint(deps, 'finalization-commit-created');
+    }
+    const terminal = await mutateReview(absolute, expected(state), (current) => {
+      assertCurrentParticipant(current, 'author', input.identity, input.now);
+      assertFinalizationArtifact({
+        state: current,
+        events,
+        git,
+        transactionRepository,
+        workspace: absolute,
+        allowedHead: commit?.commit ?? null,
+      });
+      if (!exactFile(paths.manifest.absolute, manifest.bytes)) {
+        fail(
+          'APR_GIT_SEAL_MISMATCH',
+          'Manifest bytes changed during finalization.',
+          'Restore the exact deterministic manifest and retry.'
+        );
+      }
+      const lockedCommit =
+        transaction === null
+          ? null
+          : commitExactPaths(transactionRepository, transaction, finalMessage(current), trailers);
+      if (commit !== null && lockedCommit.commit !== commit.commit) {
+        fail(
+          'APR_GIT_RECOVERY_INVALID',
+          'Finalization commit changed under review authority.',
+          'Preserve the repository and inspect the exact transaction journal.'
+        );
+      }
+      return eventFor(
+        current,
+        terminalType,
+        input.identity.session_fingerprint,
+        {
+          terminal:
+            lockedCommit === null
+              ? {
+                  snapshot_digest:
+                    latestNoCommitSnapshot(events)?.digest ?? current.protocol.artifact.digest,
+                  manifest_digest: manifest.digest,
+                }
+              : { commit: lockedCommit.commit, manifest_digest: manifest.digest },
+        },
+        input.now ?? new Date()
+      );
+    });
+    checkpoint(deps, 'terminal-event-appended');
+    const terminalEvent = inspectReviewAuthority(absolute).events.at(-1);
+    return finalizedResult(terminal, absolute, paths, terminalEvent);
+  }
+
+  if (state.protocol.state !== 'intervention-required') {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Good-enough finalization requires an unresolved intervention.',
+      'Complete the final two-sided round and request accept-over-objections authority.'
+    );
+  }
+  if (
+    input.identity?.role !== 'author' ||
+    input.identity.session_fingerprint !== state.participants.author?.session_fingerprint
+  ) {
+    fail(
+      'APR_IDENTITY_CONFLICT',
+      'Good-enough finalization requires the registered author session.',
+      'Resume from the registered author session and use the exact signed grant.'
+    );
+  }
+  const grant = operationalGrant(input.grant, input.cwd ?? root);
+  const parameters = grant.parameters;
+  const attestation = verifyAndConsumeGrant(state, grant, {
+    action: 'accept-over-objections',
+    parameters,
+    now: input.now ?? new Date(),
+    hostVerifier: deps.hostVerifier,
+  });
+  const expectedHead = assertFinalizationArtifact({
+    state,
+    events,
+    git,
+    transactionRepository,
+    workspace: absolute,
+    // Protected finalization has the same commit-before-event interruption
+    // window. The durable transaction validates this observed HEAD exactly
+    // before the signed grant can be consumed.
+    allowedHead: state.protocol.commit_mode === 'normal' ? transactionRepository.head() : null,
+  });
+  const decision = sealHumanDecision({
+    state,
+    events,
+    parameters,
+    attestation,
+    decided_at: timestamp(input.now ?? new Date()),
+    path: paths.humanDecision.relative,
+  });
+  const targetStatus =
+    state.protocol.commit_mode === 'normal'
+      ? 'accepted-over-objections'
+      : 'accepted-over-objections-uncommitted';
+  const model = buildManifest({
+    state,
+    events,
+    status: targetStatus,
+    acceptance_basis: 'human-override',
+    final_commit: state.protocol.commit_mode === 'normal' ? expectedHead : null,
+    human_decision: decision.model,
+  });
+  const manifest = sealManifest(model, { path: paths.manifest.relative });
+  ensureExactFile(paths.humanDecision.absolute, decision.bytes);
+  ensureExactFile(paths.manifest.absolute, manifest.bytes);
+  let commit = null;
+  let trailers = null;
+  let transaction = null;
+  if (state.protocol.commit_mode === 'normal') {
+    trailers = finalTrailers({ state, acceptance: decision, manifest });
+    transaction = pathsToSeals([decision, manifest], { expected_head: expectedHead });
+    commit = commitExactPaths(transactionRepository, transaction, finalMessage(state), trailers);
+    checkpoint(deps, 'finalization-commit-created');
+  }
+  const eventType =
+    state.protocol.commit_mode === 'normal' ? 'override-committed' : 'override-sealed-no-commit';
+  const terminal = await mutateProtectedReview(absolute, expected(state), {
+    action: 'accept-over-objections',
+    parameters,
+    grant,
+    now: input.now ?? new Date(),
+    hostVerifier: deps.hostVerifier,
+    preflight: (current) => {
+      assertFinalizationArtifact({
+        state: current,
+        events,
+        git,
+        transactionRepository,
+        workspace: absolute,
+        allowedHead: commit?.commit ?? null,
+      });
+      if (
+        !exactFile(paths.humanDecision.absolute, decision.bytes) ||
+        !exactFile(paths.manifest.absolute, manifest.bytes)
+      ) {
+        fail(
+          'APR_GIT_SEAL_MISMATCH',
+          'Protected finalization evidence changed before authority consumption.',
+          'Restore the exact decision and manifest bytes before retrying.'
+        );
+      }
+      if (transaction !== null) {
+        const locked = commitExactPaths(
+          transactionRepository,
+          transaction,
+          finalMessage(current),
+          trailers
+        );
+        if (locked.commit !== commit.commit) {
+          fail(
+            'APR_GIT_RECOVERY_INVALID',
+            'Protected finalization commit differs from its durable journal.',
+            'Preserve the repository and inspect the exact transaction journal.'
+          );
+        }
+      }
+    },
+    createEvent: (current, verified) =>
+      eventFor(
+        current,
+        eventType,
+        verified.signer_fingerprint,
+        {
+          intervention_id: current.protocol.intervention.intervention_id,
+          terminal:
+            commit === null
+              ? {
+                  snapshot_digest:
+                    latestNoCommitSnapshot(events)?.digest ?? current.protocol.artifact.digest,
+                  manifest_digest: manifest.digest,
+                }
+              : { commit: commit.commit, manifest_digest: manifest.digest },
+          parameters,
+          attestation: verified,
+        },
+        input.now ?? new Date()
+      ),
+  });
+  checkpoint(deps, 'terminal-event-appended');
+  const terminalEvent = inspectReviewAuthority(absolute).events.at(-1);
+  return finalizedResult(terminal, absolute, paths, terminalEvent);
+}
+
 function writeJson(stream, value) {
   stream.write(`${JSON.stringify(value)}\n`);
 }
@@ -2815,6 +3237,20 @@ export async function run(argv, io) {
           'Read status and follow its exact next action.'
         );
       }
+    } else if (parsed.command === 'finalize') {
+      const workspace = path.resolve(io.cwd, parsed.args[0]);
+      const state = inspectReview(workspace);
+      response = await finalizeReview(
+        {
+          cwd: io.cwd,
+          workspace,
+          identity: commandIdentity(io, state, 'author'),
+          goodEnough: parsed.options.goodEnough,
+          grant: parsed.options.grant,
+          now: io.now ?? new Date(),
+        },
+        { hostVerifier: io.hostVerifier }
+      );
     } else if (parsed.command === 'continue') {
       response = await continueReview(
         {

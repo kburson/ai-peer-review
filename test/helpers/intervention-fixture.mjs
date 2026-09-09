@@ -54,7 +54,34 @@ function fixturePrivateKey(fixtureId) {
   });
 }
 
-export async function signedGrant(workspace, action, parameters, fixtureId, requester, now) {
+export function fixtureAuthority(fixtureId) {
+  const publicKey = createPublicKey(fixturePrivateKey(fixtureId));
+  const fingerprint = `sha256:${createHash('sha256')
+    .update(publicKey.export({ type: 'spki', format: 'der' }))
+    .digest('hex')}`;
+  return {
+    authority_policy: 'detection-allowed',
+    challenge_ttl_ms: 15 * 60 * 1000,
+    verifier: {
+      kind: 'ed25519',
+      verifier_id: `test:${fixtureId}`,
+      verifier_fingerprint: fingerprint,
+      public_key: publicKey.export({ type: 'spki', format: 'pem' }),
+      assurance_grade: 'mutable-local',
+      signer_strength: 'cryptographic-local',
+    },
+  };
+}
+
+export async function signedGrant(
+  workspace,
+  action,
+  parameters,
+  fixtureId,
+  requester,
+  now,
+  source = 'test-fixture'
+) {
   const challenge = await requestGrant(workspace, action, parameters, {
     requesterFingerprint: requester.session_fingerprint,
     now,
@@ -69,7 +96,7 @@ export async function signedGrant(workspace, action, parameters, fixtureId, requ
     challenge,
     parameters,
     authorization: {
-      source: 'test-fixture',
+      source,
       signer_id: `test:${fixtureId}`,
       signer_fingerprint: fingerprint,
       verifier_fingerprint: fingerprint,

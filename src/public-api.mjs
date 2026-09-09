@@ -9,6 +9,7 @@ export {
 export {
   abandonReview,
   continueReview,
+  finalizeReview,
   joinReview,
   recoverReview,
   registerSupplement,
@@ -21,6 +22,15 @@ export {
 } from './cli/run.mjs';
 export { explainError, helpRequest } from './cli/help-data.mjs';
 export { commitExactPaths, createGitTransactionRepository } from './git/transaction.mjs';
+export {
+  buildManifest,
+  finalMessage,
+  finalTrailers,
+  pathsToSeals,
+  renderManifest,
+  sealHumanDecision,
+  sealManifest,
+} from './manifest/render.mjs';
 export { sealNoCommitHandoff } from './protocol/service.mjs';
 export {
   createResponseDraft,
