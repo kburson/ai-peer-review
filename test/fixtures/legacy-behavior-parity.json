@@ -276,22 +276,22 @@
     {
       "source": "scripts/tests/fixtures/co-review-e2e-cases.mjs",
       "behavior": "imported CLI workflow intercepts, continues with refocus, and then accepts",
-      "disposition": "ported",
+      "disposition": "intentionally-replaced",
       "owners": [
         "signed continuation adds turns and exact retry is idempotent",
         "allows the complete lifecycle matrix and derives exact states"
       ],
-      "rationale": "Signed continuation and reducer tests own bounded turn and focus behavior."
+      "rationale": "Legacy import bootstrapping was removed; event-first start replaces import while signed continuation and the reducer retain the refocus and acceptance facets."
     },
     {
       "source": "scripts/tests/fixtures/co-review-e2e-cases.mjs",
       "behavior": "concurrent identical claims serialize to one claim event without corrupting state",
-      "disposition": "ported",
+      "disposition": "intentionally-replaced",
       "owners": [
         "withReviewLock refuses contention and never deletes another owner token",
         "stale expectations and torn event bytes fail without mutation"
       ],
-      "rationale": "Exclusive review locking and no-mutation failure checks own this contention behavior."
+      "rationale": "Wait-and-serialize claim contention was removed; the standalone store uses fail-fast exclusive locking and torn-event rejection to preserve one uncorrupted authority stream."
     },
     {
       "source": "scripts/tests/fixtures/co-review-finalization-cases.mjs",
