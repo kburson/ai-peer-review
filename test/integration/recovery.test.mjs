@@ -3,7 +3,7 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import * as api from '../../src/public-api.mjs';
+import * as api from '../helpers/internal-api.mjs';
 
 import {
   canonicalProjection,

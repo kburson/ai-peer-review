@@ -6,6 +6,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  readdirSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -13,6 +14,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
+import { resolveReviewPaths } from '../collateral/paths.mjs';
+import { nextActionCommand } from '../cli/help-data.mjs';
 import { AprError } from '../errors.mjs';
 import { validateEvent } from './events.mjs';
 import { reduceEvents } from './reducer.mjs';
@@ -367,6 +370,148 @@ export function inspectReview(workspace) {
 export function inspectReviewAuthority(workspace) {
   const { events, state } = readAuthority(workspace);
   return Object.freeze({ events: Object.freeze([...events]), state });
+}
+
+function statusPaths(state) {
+  const startup = state.protocol.startup;
+  const context = startup?.context;
+  if (!context || sha256(Buffer.from(canonicalProjection(context))) !== startup.context_digest) {
+    throw authorityError(
+      'APR_INVITATION_INVALID',
+      'Review startup routing authority is invalid.',
+      'Recover the review from its intact event authority before continuing.'
+    );
+  }
+  const paths = resolveReviewPaths({
+    root: context.repository_root,
+    reviewsRoot: context.reviews_root,
+    reviewPathTemplate: context.review_path_template,
+    issue: context.issue,
+    kind: context.artifact_kind,
+    name: context.artifact_name,
+    date: context.review_date,
+    reviewId: context.review_id,
+  });
+  if (paths.destination.relative !== startup.destination) {
+    throw authorityError(
+      'APR_INVITATION_INVALID',
+      'Review destination differs from sealed startup authority.',
+      'Recover the review from its intact event authority before continuing.'
+    );
+  }
+  return paths;
+}
+
+function retainedStatusPaths(workspace, { includeReservation = false } = {}) {
+  const visit = (directory) =>
+    readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const absolute = path.join(directory, entry.name);
+      const relative = path.relative(workspace, absolute).split(path.sep).join('/');
+      if (
+        (!includeReservation && relative === 'collateral-reservation.json') ||
+        relative === 'locks/review.lock'
+      )
+        return [];
+      return entry.isDirectory() ? visit(absolute) : [relative];
+    });
+  return visit(workspace).sort();
+}
+
+function statusResult(state, paths, review = {}) {
+  const assurance = state.protocol.authority?.verifier?.signer_strength ?? 'unavailable';
+  return Object.freeze({
+    schema: 'ai-peer-review.cli-result/v1',
+    command: 'status',
+    review_id: state.protocol.review_id,
+    state: state.protocol.state,
+    next_action: state.protocol.next_action,
+    review: Object.freeze({
+      commit_mode: state.protocol.commit_mode,
+      authority_assurance: assurance,
+      mode_notice:
+        state.protocol.commit_mode === 'no-commit'
+          ? `NO-COMMIT TEST MODE — authority assurance: ${assurance}`
+          : 'NORMAL COMMIT MODE',
+      ...review,
+    }),
+    paths: Object.freeze(paths),
+  });
+}
+
+export function statusReview(workspace, { now = new Date() } = {}) {
+  const absolute = path.resolve(workspace);
+  const state = inspectReview(absolute);
+  const resolved = statusPaths(state);
+  const role = ['author', 'reviewer'].includes(state.protocol.current_actor)
+    ? state.protocol.current_actor
+    : null;
+  const claim = role ? (state.protocol.claims?.[role] ?? null) : null;
+  const claimStatus = claim
+    ? new Date(now).valueOf() >= Date.parse(claim.expires_at)
+      ? 'stale'
+      : 'active'
+    : role
+      ? 'unclaimed'
+      : 'not-applicable';
+  const effectiveState =
+    claimStatus === 'stale'
+      ? {
+          ...state,
+          protocol: {
+            ...state.protocol,
+            state: 'intervention-required',
+            next_action: 'human-intervention',
+            intervention: { ...(state.protocol.intervention ?? {}), reason: 'stale-claim' },
+          },
+        }
+      : state;
+  const response =
+    state.protocol.state === 'reviewer-turn'
+      ? resolved.reviewerResponse(state.protocol.turns_used + 1).absolute
+      : state.protocol.state === 'author-revision'
+        ? resolved.authorResponse(state.protocol.turns_used).absolute
+        : null;
+  const operationalPaths = Object.freeze({
+    workspace: absolute,
+    invitation: path.join(resolved.destination.absolute, 'reviewer-invitation.md'),
+    ...(response ? { response } : {}),
+  });
+  const ownedPaths =
+    state.protocol.commit_mode === 'no-commit'
+      ? [
+          ...retainedStatusPaths(absolute, { includeReservation: true }).map((relative) =>
+            path
+              .join(
+                path.relative(state.protocol.startup.context.repository_root, absolute),
+                relative
+              )
+              .split(path.sep)
+              .join('/')
+          ),
+          ...retainedStatusPaths(resolved.destination.absolute).map((relative) =>
+            path.join(resolved.destination.relative, relative).split(path.sep).join('/')
+          ),
+        ].sort()
+      : [];
+  return Object.freeze({
+    ...statusResult(effectiveState, operationalPaths, {
+      ...(ownedPaths.length ? { owned_paths: Object.freeze(ownedPaths) } : {}),
+    }),
+    next_action: Object.freeze({
+      action: effectiveState.protocol.next_action,
+      command: nextActionCommand(
+        operationalPaths,
+        effectiveState.protocol.next_action,
+        effectiveState
+      ),
+    }),
+    claim: Object.freeze({
+      role,
+      status: claimStatus,
+      host: claim?.host ?? null,
+      expires_at: claim?.expires_at ?? null,
+    }),
+  });
 }
 
 export async function initializeReview(workspace, event) {

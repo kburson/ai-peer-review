@@ -13,7 +13,7 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import * as api from '../../src/public-api.mjs';
+import * as api from '../helpers/internal-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 
 const NOW = '2026-09-09T02:00:00.000Z';
@@ -187,6 +187,7 @@ for (const [label, command] of [
     const code = await api.run(['submit', review.started.paths.workspace], {
       cwd: fx.root,
       env: {},
+      now: new Date(NOW),
       identityContext: {
         adapter: 'codex',
         runtime: {

@@ -18,7 +18,7 @@ test('package identity is public, dependency-free, and publish-bounded', async (
   assert.deepEqual(packageJson.devDependencies, {
     cspell: '8.19.4',
     eslint: '9.39.4',
-    'markdownlint-cli2': '0.23.0',
+    'markdownlint-cli2': '0.23.2',
     prettier: '3.8.3',
   });
   assert.deepEqual(packageJson.scripts, {
@@ -41,6 +41,8 @@ test('package identity is public, dependency-free, and publish-bounded', async (
     'templates/',
     'skills/',
     'provenance/',
+    'scripts/verify-extraction.mjs',
+    'scripts/verify-release.mjs',
     'LICENSE',
     'NOTICE',
     'README.md',

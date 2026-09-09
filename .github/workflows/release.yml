@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing signed release tag
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: node scripts/verify-extraction.mjs --require-legacy-removed
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run test:packaging
+      - run: npm run test:smoke
+      - name: Pack release artifact
+        run: |
+          npm pack
+          shasum -a 256 ai-peer-review-*.tgz > SHA256SUMS
+      - name: Publish with npm provenance
+        run: npm publish ai-peer-review-*.tgz --access public --provenance
+      - name: Create immutable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ inputs.tag || github.ref_name }}" ai-peer-review-*.tgz SHA256SUMS --verify-tag --generate-notes

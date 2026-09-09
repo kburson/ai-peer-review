@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { canonicalChallengeBytes } from '../../src/authority/canonicalize.mjs';
 import { requestGrant } from '../../src/authority/challenge.mjs';
-import * as api from '../../src/public-api.mjs';
+import * as api from './internal-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 
 export const NOW = '2026-09-09T02:00:00.000Z';

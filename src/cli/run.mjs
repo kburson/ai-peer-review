@@ -60,18 +60,13 @@ import {
   readReview,
   repairReview,
   sealNoCommitHandoff,
+  statusReview as protocolStatusReview,
 } from '../protocol/service.mjs';
 import { atomicCreate } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
 import { manualTransport } from '../transport/manual.mjs';
 import { createResumeTransport, isOfficialResumeCommand } from '../transport/resume.mjs';
-import {
-  explainError,
-  helpRequest,
-  markdownCodeSpan,
-  nextActionCommand,
-  renderCommand,
-} from './help-data.mjs';
+import { explainError, helpRequest, markdownCodeSpan, renderCommand } from './help-data.mjs';
 import { parseCommand } from './parse.mjs';
 
 const DEFAULT_AUTHORITY = Object.freeze({
@@ -1126,77 +1121,7 @@ export async function joinReview(input, deps = {}) {
 }
 
 export function statusReview(workspace, { now = new Date() } = {}) {
-  const absolute = path.resolve(workspace);
-  const state = inspectReview(absolute);
-  const { paths: resolved } = sealedPaths(state);
-  const role = ['author', 'reviewer'].includes(state.protocol.current_actor)
-    ? state.protocol.current_actor
-    : null;
-  const observed = role
-    ? deriveClaimStatus(state, role, now)
-    : { status: 'not-applicable', claim: null };
-  const effectiveState =
-    observed.status === 'stale'
-      ? {
-          ...state,
-          protocol: {
-            ...state.protocol,
-            state: 'intervention-required',
-            next_action: 'human-intervention',
-            intervention: {
-              ...(state.protocol.intervention ?? {}),
-              reason: 'stale-claim',
-            },
-          },
-        }
-      : state;
-  const response =
-    state.protocol.state === 'reviewer-turn'
-      ? resolved.reviewerResponse(state.protocol.turns_used + 1).absolute
-      : state.protocol.state === 'author-revision'
-        ? resolved.authorResponse(state.protocol.turns_used).absolute
-        : null;
-  const operationalPaths = Object.freeze({
-    workspace: absolute,
-    invitation: trackedStartupPaths(resolved).reviewer_invitation,
-    ...(response ? { response } : {}),
-  });
-  const ownedPaths =
-    state.protocol.commit_mode === 'no-commit'
-      ? [
-          ...retainedWorkspacePaths(absolute, { includeReservation: true }).map((relative) =>
-            path
-              .join(
-                path.relative(state.protocol.startup.context.repository_root, absolute),
-                relative
-              )
-              .split(path.sep)
-              .join('/')
-          ),
-          ...retainedWorkspacePaths(resolved.destination.absolute).map((relative) =>
-            path.join(resolved.destination.relative, relative).split(path.sep).join('/')
-          ),
-        ].sort()
-      : [];
-  return Object.freeze({
-    ...result('status', effectiveState, operationalPaths, {
-      ...(ownedPaths.length ? { owned_paths: Object.freeze(ownedPaths) } : {}),
-    }),
-    next_action: Object.freeze({
-      action: effectiveState.protocol.next_action,
-      command: nextActionCommand(
-        operationalPaths,
-        effectiveState.protocol.next_action,
-        effectiveState
-      ),
-    }),
-    claim: Object.freeze({
-      role,
-      status: observed.status,
-      host: observed.claim?.host ?? null,
-      expires_at: observed.claim?.expires_at ?? null,
-    }),
-  });
+  return protocolStatusReview(workspace, { now });
 }
 
 export function resumeReview(workspace, options = {}) {

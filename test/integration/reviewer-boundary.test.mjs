@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { joinReview, run, startReview, submitReviewTurn } from '../../src/public-api.mjs';
+import { joinReview, run, startReview, submitReviewTurn } from '../helpers/internal-api.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 

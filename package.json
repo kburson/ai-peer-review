@@ -19,6 +19,8 @@
     "templates/",
     "skills/",
     "provenance/",
+    "scripts/verify-extraction.mjs",
+    "scripts/verify-release.mjs",
     "LICENSE",
     "NOTICE",
     "README.md"
@@ -35,11 +37,15 @@
     "format:check": "prettier --check .",
     "lint": "eslint . && markdownlint-cli2 \"**/*.md\" && cspell --no-progress \"**/*.{md,mjs,js,json}\""
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "dependencies": {},
   "devDependencies": {
     "cspell": "8.19.4",
     "eslint": "9.39.4",
-    "markdownlint-cli2": "0.23.0",
+    "markdownlint-cli2": "0.23.2",
     "prettier": "3.8.3"
   },
   "repository": {

@@ -27,7 +27,9 @@
     "provenance",
     "reflogs",
     "relicensing",
+    "SWHID",
     "worktree",
-    "worktrees"
+    "worktrees",
+    "Zenodo"
   ]
 }

@@ -1,0 +1,40 @@
+{
+  "schema": "ai-peer-review.release/v1",
+  "package": "ai-peer-review",
+  "version": "0.1.0",
+  "source_commit": "4b3bcd43cba141a611da4a2b861433b915462806",
+  "filtered_history_tip": "bfc6f9ffabd8281a815c7bd0e0824f3bacb84d9d",
+  "bootstrap_commit": "fd2e636356b6b8049930d5dc6bddf383c6d56c8d",
+  "release_commit": null,
+  "repository": {
+    "url": "https://github.com/kburson/ai-peer-review",
+    "visibility": null
+  },
+  "tag": {
+    "name": "v0.1.0",
+    "target_commit": null,
+    "signer_fingerprint": "SHA256:5coWixpZ2nPevuuMFWsJkk7oc3UN8zybVaMpA12HNPI"
+  },
+  "github_release": {
+    "url": null,
+    "asset_name": null,
+    "asset_sha256": null,
+    "checksums_asset_name": null
+  },
+  "npm": {
+    "tarball_url": null,
+    "integrity": null,
+    "sha256": null,
+    "provenance_url": null
+  },
+  "archives": {
+    "zenodo": {
+      "doi": null,
+      "url": null
+    },
+    "software_heritage": {
+      "swhid": null,
+      "url": null
+    }
+  }
+}

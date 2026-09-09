@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import * as api from '../../src/public-api.mjs';
+import * as api from '../helpers/internal-api.mjs';
 import { budgetIntervention, fixture, signedGrant } from '../helpers/intervention-fixture.mjs';
 
 test('signed continuation adds turns and exact retry is idempotent', async (t) => {
