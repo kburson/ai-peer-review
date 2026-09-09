@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -23,16 +31,16 @@ function fixture() {
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-function identity(role, session) {
+function identity(role, session, overrides = {}) {
   return participantIdentity({
     role,
     host: 'codex',
     provider: 'openai',
-    modelId: 'gpt-test',
-    modelDisplay: 'GPT Test',
+    modelId: overrides.modelId ?? 'gpt-test',
+    modelDisplay: overrides.modelDisplay ?? 'GPT Test',
     sessionId: session,
     source: 'runtime',
-    joinedAt: NOW,
+    joinedAt: overrides.joinedAt ?? NOW,
   });
 }
 
@@ -43,7 +51,7 @@ function replaceSection(file, heading, content) {
   writeFileSync(file, text.replace(pattern, `$1${content}`));
 }
 
-async function joinedReview(root, reviewId) {
+async function joinedReview(root, reviewId, options = {}) {
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
   const started = await api.startReview({
@@ -53,6 +61,7 @@ async function joinedReview(root, reviewId) {
     identity: author,
     reviewId,
     now: NOW,
+    ...options,
   });
   const joined = await api.joinReview({
     cwd: root,
@@ -62,6 +71,100 @@ async function joinedReview(root, reviewId) {
   });
   return { author, reviewer, started, joined };
 }
+
+test('submit rejects stale reviewer and author claims without sealing responses', async (t) => {
+  const reviewerFx = fixture();
+  t.after(reviewerFx.cleanup);
+  const reviewerTurn = await joinedReview(reviewerFx.root, 'stale-reviewer', {
+    claimTtlMs: 3_600_000,
+  });
+  replaceSection(reviewerTurn.joined.paths.response, 'Summary', 'Ready.');
+  replaceSection(reviewerTurn.joined.paths.response, 'Findings', 'None.');
+  replaceSection(reviewerTurn.joined.paths.response, 'Required changes', 'None.');
+  replaceSection(reviewerTurn.joined.paths.response, 'Optional suggestions', 'None.');
+  replaceSection(reviewerTurn.joined.paths.response, 'Decision', 'accepted');
+  const reviewerResponse = readFileSync(reviewerTurn.joined.paths.response);
+  await assert.rejects(
+    api.submitReviewTurn({
+      cwd: reviewerFx.root,
+      workspace: reviewerTurn.started.paths.workspace,
+      identity: reviewerTurn.reviewer,
+      decision: 'accepted',
+      now: '2026-09-09T03:00:00.000Z',
+    }),
+    (error) => error.code === 'APR_CLAIM_INVALID'
+  );
+  assert.deepEqual(readFileSync(reviewerTurn.joined.paths.response), reviewerResponse);
+
+  const authorFx = fixture();
+  t.after(authorFx.cleanup);
+  const author = await authorTurn(authorFx.root, 'stale-author', { claimTtlMs: 3_600_000 });
+  writeFileSync(path.join(authorFx.root, 'docs/artifact.md'), '# Stale author repair\n');
+  const authorResponse = readFileSync(author.handoff.paths.response);
+  await assert.rejects(
+    api.submitAuthorTurn({
+      cwd: authorFx.root,
+      workspace: author.started.paths.workspace,
+      identity: author.author,
+      now: '2026-09-09T03:01:00.000Z',
+    }),
+    (error) => error.code === 'APR_CLAIM_INVALID'
+  );
+  assert.deepEqual(readFileSync(author.handoff.paths.response), authorResponse);
+});
+
+test('submit records same-session model refresh for reviewer and author', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const review = await joinedReview(fx.root, 'identity-refresh');
+  replaceSection(review.joined.paths.response, 'Summary', 'One repair.');
+  replaceSection(review.joined.paths.response, 'Findings', '### R1-F001 — Repair\n\nFix it.');
+  replaceSection(review.joined.paths.response, 'Required changes', '- Address R1-F001.');
+  replaceSection(review.joined.paths.response, 'Optional suggestions', 'None.');
+  replaceSection(review.joined.paths.response, 'Decision', 'revisions-requested');
+  const refreshedReviewer = identity('reviewer', 'identity-refresh-reviewer', {
+    modelId: 'gpt-refreshed-reviewer',
+    modelDisplay: 'GPT Refreshed Reviewer',
+    joinedAt: '2026-09-09T02:01:00.000Z',
+  });
+  const handoff = await api.submitReviewTurn({
+    cwd: fx.root,
+    workspace: review.started.paths.workspace,
+    identity: refreshedReviewer,
+    decision: 'revisions-requested',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+  replaceSection(handoff.paths.response, 'Summary', 'Repaired.');
+  replaceSection(handoff.paths.response, 'Finding dispositions', '- R1-F001: fixed');
+  replaceSection(handoff.paths.response, 'Changes made', 'Updated artifact.');
+  replaceSection(handoff.paths.response, 'Declined changes and rationale', 'None.');
+  replaceSection(handoff.paths.response, 'Verification', 'Verified.');
+  writeFileSync(path.join(fx.root, 'docs/artifact.md'), '# Refreshed author repair\n');
+  const refreshedAuthor = identity('author', 'identity-refresh-author', {
+    modelId: 'gpt-refreshed-author',
+    modelDisplay: 'GPT Refreshed Author',
+    joinedAt: '2026-09-09T02:02:00.000Z',
+  });
+  await api.submitAuthorTurn({
+    cwd: fx.root,
+    workspace: review.started.paths.workspace,
+    identity: refreshedAuthor,
+    now: '2026-09-09T02:02:00.000Z',
+  });
+  const events = readFileSync(review.started.paths.events, 'utf8')
+    .trim()
+    .split('\n')
+    .map(JSON.parse);
+  assert.deepEqual(
+    events.filter((event) => event.type === 'identity-changed').map((event) => event.payload.role),
+    ['reviewer', 'author']
+  );
+  assert.equal(
+    events.find((event) => event.type === 'identity-changed' && event.payload.role === 'reviewer')
+      .payload.identity.joined_at,
+    NOW
+  );
+});
 
 test('reviewer revisions submission seals, delivers, and prepares the author turn', async (t) => {
   const fx = fixture();
@@ -299,6 +402,34 @@ test('unchanged artifact requires and records an explicit rationale without muta
   assert.match(result.review.artifact.digest, /^sha256:[0-9a-f]{64}$/);
 });
 
+test('author submission refuses artifact mode drift before sealing or committing', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const { author, started, handoff } = await authorTurn(fx.root, 'author-mode-drift');
+  const responseBefore = readFileSync(handoff.paths.response);
+  const headBefore = execFileSync('git', ['rev-parse', 'HEAD'], {
+    cwd: fx.root,
+    encoding: 'utf8',
+  }).trim();
+  chmodSync(path.join(fx.root, 'docs/artifact.md'), 0o755);
+  await assert.rejects(
+    api.submitAuthorTurn({
+      cwd: fx.root,
+      workspace: started.paths.workspace,
+      identity: author,
+      noArtifactChange: true,
+      reason: 'No byte change.',
+      now: '2026-09-09T02:02:00.000Z',
+    }),
+    (error) => error.code === 'APR_GIT_SEAL_MISMATCH'
+  );
+  assert.deepEqual(readFileSync(handoff.paths.response), responseBefore);
+  assert.equal(
+    execFileSync('git', ['rev-parse', 'HEAD'], { cwd: fx.root, encoding: 'utf8' }).trim(),
+    headBefore
+  );
+});
+
 test('no-commit author submission snapshots the logical triad without Git mutation', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
@@ -440,6 +571,7 @@ test('author submission resumes every interrupted commit handoff checkpoint exac
       now: '2026-09-09T02:02:00.000Z',
     });
     assert.equal(recovered.state, 'reviewer-turn', checkpoint);
+    assert.deepEqual(recovered.review.response.answered_finding_ids, ['R1-F001'], checkpoint);
     const events = readFileSync(started.paths.events, 'utf8').trim().split('\n').map(JSON.parse);
     assert.equal(
       events.filter((event) => event.type === 'author-revision-committed').length,

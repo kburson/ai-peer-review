@@ -23,6 +23,7 @@ import {
   assertDistinctParticipants,
   claimRole,
   deriveClaimStatus,
+  identityChangeEvent,
   resolveIdentity,
 } from '../identity/registry.mjs';
 import { eventAdvancesRevision, validateEvent } from '../protocol/events.mjs';
@@ -1005,12 +1006,13 @@ function submissionAuthority(workspace) {
   return { absolute, paths, ...authority };
 }
 
-function assertCurrentParticipant(state, role, identity) {
+function assertSubmissionClaim(state, role, identity, now, { requireCurrent = true } = {}) {
   const participant = state.participants[role];
   const claim = state.protocol.claims[role];
   if (
-    state.protocol.current_actor !== role ||
-    !sameParticipant(participant, identity) ||
+    (requireCurrent && state.protocol.current_actor !== role) ||
+    identity?.role !== role ||
+    identity?.session_fingerprint !== participant?.session_fingerprint ||
     claim?.session_fingerprint !== participant?.session_fingerprint
   ) {
     fail(
@@ -1019,6 +1021,35 @@ function assertCurrentParticipant(state, role, identity) {
       `Resume from the registered ${role} session and retry.`
     );
   }
+  if (deriveClaimStatus(state, role, now ?? new Date()).status !== 'active') {
+    fail(
+      'APR_CLAIM_INVALID',
+      `The ${role} claim is stale and cannot submit.`,
+      'Run peer-review status <workspace>, then use its exact stale-claim recovery command.'
+    );
+  }
+}
+
+function assertCurrentParticipant(state, role, identity, now) {
+  assertSubmissionClaim(state, role, identity, now);
+  if (!sameParticipant(state.participants[role], identity)) {
+    fail(
+      'APR_IDENTITY_CONFLICT',
+      `Submission does not match the refreshed ${role} participant.`,
+      `Resume from the registered ${role} session and retry.`
+    );
+  }
+}
+
+async function refreshSubmissionIdentity(authority, role, identity, now) {
+  const prior = authority.state.participants[role];
+  const changed = identityChangeEvent(authority.state, prior, identity, now ?? new Date());
+  if (!changed) return authority;
+  await mutateReview(authority.absolute, expected(authority.state), (current) => {
+    assertSubmissionClaim(current, role, identity, now, { requireCurrent: false });
+    return identityChangeEvent(current, current.participants[role], identity, now ?? new Date());
+  });
+  return submissionAuthority(authority.absolute);
 }
 
 function latestHead(state, events) {
@@ -1167,7 +1198,26 @@ async function completeReviewerHandoff({ input, deps, absolute, paths, state, se
 
 export async function submitReviewTurn(input, deps = {}) {
   const repository = deps.repository ?? createGitRepository();
-  const { absolute, paths, events, state } = submissionAuthority(input.workspace);
+  let authority = submissionAuthority(input.workspace);
+  const initialDecision = latestReviewerDecision(authority.events);
+  const recoverable =
+    authority.state.protocol.state !== 'reviewer-turn' &&
+    initialDecision?.type ===
+      (input.decision === 'accepted' ? 'reviewer-accepted' : 'reviewer-revisions-requested') &&
+    initialDecision.actor === input.identity?.session_fingerprint &&
+    ['author-revision', 'acceptance-pending'].includes(authority.state.protocol.state);
+  if (authority.state.protocol.state !== 'reviewer-turn' && !recoverable) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Reviewer submission is not the current review action.',
+      'Read status and follow its exact next action.'
+    );
+  }
+  assertSubmissionClaim(authority.state, 'reviewer', input.identity, input.now, {
+    requireCurrent: !recoverable,
+  });
+  authority = await refreshSubmissionIdentity(authority, 'reviewer', input.identity, input.now);
+  const { absolute, paths, events, state } = authority;
   if (state.protocol.state !== 'reviewer-turn') {
     const decision = latestReviewerDecision(events);
     const expectedType =
@@ -1187,7 +1237,7 @@ export async function submitReviewTurn(input, deps = {}) {
       'Read status and follow its exact next action.'
     );
   }
-  assertCurrentParticipant(state, 'reviewer', input.identity);
+  assertCurrentParticipant(state, 'reviewer', input.identity, input.now);
   assertReviewerRepository(input, state, events, repository);
   const responseFile = paths.reviewerResponse(state.protocol.turns_used + 1).absolute;
   const authoredDecision = decisionFromResponse(responseFile);
@@ -1215,7 +1265,7 @@ export async function submitReviewTurn(input, deps = {}) {
   const eventType =
     input.decision === 'accepted' ? 'reviewer-accepted' : 'reviewer-revisions-requested';
   const decided = await mutateReview(absolute, expected(state), (current) => {
-    assertCurrentParticipant(current, 'reviewer', input.identity);
+    assertCurrentParticipant(current, 'reviewer', input.identity, input.now);
     assertReviewerRepository(input, current, events, repository);
     return eventFor(
       current,
@@ -1242,11 +1292,12 @@ function latestReviewerDecision(events) {
     .find((event) => ['reviewer-revisions-requested', 'reviewer-accepted'].includes(event.type));
 }
 
-function relativeSealed(root, file, sealed) {
+function relativeSealed(root, file, sealed, mode = '100644') {
   return {
     path: path.relative(root, file),
     bytes: readFileSync(file),
     digest: sealed.digest,
+    mode,
   };
 }
 
@@ -1281,7 +1332,7 @@ function sealedAuthorFromEvent(root, event) {
     turn: event.payload.turn,
     submitted_at: metadata.submitted_at,
     finding_ids: Object.freeze([]),
-    answered_finding_ids: Object.freeze([...metadata.finding_ids]),
+    answered_finding_ids: Object.freeze([...metadata.answered_finding_ids]),
   });
 }
 
@@ -1399,6 +1450,35 @@ async function recoverAuthorHandoff({ input, deps, authority, git, transactionRe
     );
   }
   const sealedResponse = sealedAuthorFromEvent(root, event);
+  const eventIndex = events.indexOf(event);
+  const priorArtifact = events
+    .slice(0, eventIndex)
+    .reverse()
+    .find((candidate) => candidate.payload.artifact)?.payload.artifact;
+  const artifactChanged = priorArtifact?.digest !== event.payload.artifact.digest;
+  if (artifactChanged && input.noArtifactChange) {
+    fail(
+      'APR_ARTIFACT_CHANGED',
+      'Recovered artifact changed despite --no-artifact-change.',
+      'Retry with the exact original author submission options.'
+    );
+  }
+  if (!artifactChanged) {
+    const reason = parseResponse(readFileSync(sealedResponse.path)).sections.find(
+      ({ heading }) => heading === 'Declined changes and rationale'
+    )?.content;
+    if (
+      !input.noArtifactChange ||
+      !String(input.reason ?? '').trim() ||
+      reason !== input.reason.trim()
+    ) {
+      fail(
+        'APR_ARTIFACT_UNCHANGED',
+        'Recovered unchanged artifact does not match the original rationale.',
+        'Retry with the exact original --no-artifact-change and --reason values.'
+      );
+    }
+  }
   let commit = null;
   let snapshot = null;
   if (event.type.endsWith('-committed')) {
@@ -1430,13 +1510,25 @@ async function recoverAuthorHandoff({ input, deps, authority, git, transactionRe
             path: decision.payload.response.path,
             bytes: reviewerBytes,
             digest: decision.payload.response.digest,
+            mode: journal.record.paths.find(
+              (entry) => entry.path === decision.payload.response.path
+            )?.mode,
           },
           {
             path: event.payload.artifact.path,
             bytes: artifactBytes,
             digest: event.payload.artifact.digest,
+            mode: journal.record.paths.find((entry) => entry.path === event.payload.artifact.path)
+              ?.mode,
           },
-          relativeSealed(root, sealedResponse.path, sealedResponse),
+          relativeSealed(
+            root,
+            sealedResponse.path,
+            sealedResponse,
+            journal.record.paths.find(
+              (entry) => entry.path === path.relative(root, sealedResponse.path)
+            )?.mode
+          ),
         ],
         commit_paths: journal.record.commit_paths,
       },
@@ -1454,9 +1546,14 @@ async function recoverAuthorHandoff({ input, deps, authority, git, transactionRe
     const baseline = state.protocol.startup.no_commit_baseline;
     const observed = git.baseline(root);
     const snapshotFile = path.join(absolute, event.payload.snapshot.path);
+    const artifactMode = transactionRepository.modeAt(
+      events[0].payload.artifact.head,
+      event.payload.artifact.path
+    );
     if (
       observed.head !== baseline?.head ||
       observed.index_digest !== baseline?.index_digest ||
+      transactionRepository.workingMode(event.payload.artifact.path) !== artifactMode ||
       !exactFile(snapshotFile, artifactBytes)
     ) {
       fail(
@@ -1486,12 +1583,28 @@ export async function submitAuthorTurn(input, deps = {}) {
   const git = deps.repository ?? createGitRepository();
   const transactionRepository =
     deps.transactionRepository ?? createGitTransactionRepository(input.cwd);
-  const authority = submissionAuthority(input.workspace);
+  let authority = submissionAuthority(input.workspace);
+  const initialSubmission = latestAuthorSubmission(authority.events);
+  const recoverable =
+    authority.state.protocol.state !== 'author-revision' &&
+    initialSubmission?.actor === input.identity?.session_fingerprint &&
+    ['reviewer-turn', 'intervention-required'].includes(authority.state.protocol.state);
+  if (authority.state.protocol.state !== 'author-revision' && !recoverable) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Author submission is not the current review action.',
+      'Read status and follow its exact next action.'
+    );
+  }
+  assertSubmissionClaim(authority.state, 'author', input.identity, input.now, {
+    requireCurrent: !recoverable,
+  });
+  authority = await refreshSubmissionIdentity(authority, 'author', input.identity, input.now);
   const { absolute, paths, events, state } = authority;
   if (state.protocol.state !== 'author-revision') {
     return recoverAuthorHandoff({ input, deps, authority, git, transactionRepository });
   }
-  assertCurrentParticipant(state, 'author', input.identity);
+  assertCurrentParticipant(state, 'author', input.identity, input.now);
   const root = git.root(input.cwd);
   if (root !== state.protocol.startup.context.repository_root) {
     fail(
@@ -1528,6 +1641,15 @@ export async function submitAuthorTurn(input, deps = {}) {
       'Remove the flag or restore the event-authorized artifact bytes.'
     );
   }
+  const expectedHead = latestHead(state, events);
+  const artifactMode = transactionRepository.modeAt(expectedHead, state.protocol.artifact.path);
+  if (transactionRepository.workingMode(state.protocol.artifact.path) !== artifactMode) {
+    fail(
+      'APR_GIT_SEAL_MISMATCH',
+      'Artifact mode differs from event-authorized Git mode.',
+      `Restore mode ${artifactMode} for ${state.protocol.artifact.path} and retry.`
+    );
+  }
   const reviewerFile = path.join(root, decision.payload.response.path);
   const reviewerBytes = readFileSync(reviewerFile);
   if (sha256(reviewerBytes) !== decision.payload.response.digest) {
@@ -1551,7 +1673,6 @@ export async function submitAuthorTurn(input, deps = {}) {
   );
   checkpoint(deps, 'response-sealed');
   const artifactBlob = transactionRepository.hashWorking(state.protocol.artifact.path);
-  const expectedHead = latestHead(state, events);
   if (state.protocol.commit_mode === 'no-commit') {
     const baseline = state.protocol.startup.no_commit_baseline;
     const observed = git.baseline(root);
@@ -1574,7 +1695,7 @@ export async function submitAuthorTurn(input, deps = {}) {
         ? 'author-closing-round-sealed-no-commit'
         : 'author-revision-sealed-no-commit';
     const sealedState = await mutateReview(absolute, expected(state), (current) => {
-      assertCurrentParticipant(current, 'author', input.identity);
+      assertCurrentParticipant(current, 'author', input.identity, input.now);
       const currentBaseline = git.baseline(root);
       if (
         currentBaseline.head !== baseline.head ||
@@ -1639,11 +1760,13 @@ export async function submitAuthorTurn(input, deps = {}) {
         path: decision.payload.response.path,
         bytes: reviewerBytes,
         digest: decision.payload.response.digest,
+        mode: '100644',
       },
       {
         path: state.protocol.artifact.path,
         bytes: artifactBytes,
         digest: artifactDigest,
+        mode: artifactMode,
       },
       relativeSealed(root, responseFile, sealedResponse),
     ],
@@ -1672,7 +1795,7 @@ export async function submitAuthorTurn(input, deps = {}) {
       ? 'author-closing-round-committed'
       : 'author-revision-committed';
   const committed = await mutateReview(absolute, expected(state), (current) => {
-    assertCurrentParticipant(current, 'author', input.identity);
+    assertCurrentParticipant(current, 'author', input.identity, input.now);
     const retry = commitExactPaths(transactionRepository, transaction, message, trailers);
     const payload = {
       turn,

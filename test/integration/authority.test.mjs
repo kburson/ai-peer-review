@@ -20,6 +20,7 @@ import { reduceEvents } from '../../src/protocol/reducer.mjs';
 import { readReview } from '../../src/protocol/service.mjs';
 import {
   FINGERPRINTS,
+  claim,
   createReviewWorkspace,
   event,
   interventionEvents,
@@ -582,9 +583,15 @@ test('unavailable authority blocks protected challenges but not ordinary consens
   );
   const consensus = withAuthority(reviewerTurnEvents(), { policy: 'detection-allowed' });
   consensus.push(
+    event('turn-claimed', {
+      sequence: consensus.length + 1,
+      revision: consensus.at(-1).revision,
+      actor: FINGERPRINTS.reviewer,
+      payload: { claim: claim('reviewer') },
+    }),
     event('reviewer-accepted', {
-      sequence: 3,
-      revision: 3,
+      sequence: consensus.length + 2,
+      revision: consensus.at(-1).revision + 1,
       actor: FINGERPRINTS.reviewer,
     })
   );

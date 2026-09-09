@@ -517,11 +517,12 @@
     "repositoryBoundary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["head", "branch", "index_digest", "worktree_digest"],
+      "required": ["head", "branch", "index_digest", "refs_digest", "worktree_digest"],
       "properties": {
         "head": { "$ref": "#/$defs/gitObject" },
         "branch": { "type": "string", "minLength": 1 },
         "index_digest": { "$ref": "#/$defs/digest" },
+        "refs_digest": { "$ref": "#/$defs/digest" },
         "worktree_digest": { "$ref": "#/$defs/digest" }
       }
     },

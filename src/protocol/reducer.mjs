@@ -457,6 +457,30 @@ function applyProjection(state, event) {
     }
   }
   consumeChallenge(protocol, event);
+  const submissionRole = ['reviewer-revisions-requested', 'reviewer-accepted'].includes(event.type)
+    ? 'reviewer'
+    : [
+          'author-revision-committed',
+          'author-closing-round-committed',
+          'author-revision-sealed-no-commit',
+          'author-closing-round-sealed-no-commit',
+        ].includes(event.type)
+      ? 'author'
+      : null;
+  if (submissionRole !== null) {
+    const participant = participants[submissionRole];
+    const claim = protocol.claims[submissionRole];
+    if (
+      protocol.current_actor !== submissionRole ||
+      !participant ||
+      !claim ||
+      event.actor !== participant.session_fingerprint ||
+      claim.session_fingerprint !== participant.session_fingerprint ||
+      Date.parse(claim.expires_at) <= Date.parse(event.at)
+    ) {
+      throw transitionError(protocol.state, event, 'submission requires one active current claim');
+    }
+  }
   const lifecycle = applyLifecycle(protocol, participants, event);
 
   if (event.type === 'review-created') {

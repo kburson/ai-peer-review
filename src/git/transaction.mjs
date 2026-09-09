@@ -116,6 +116,33 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
     return String(run(['hash-object', '--', resolved.relative])).trim();
   }
 
+  function workingMode(relative) {
+    const resolved = contained(relative);
+    const stat = lstatSync(resolved.absolute);
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      fail(
+        'APR_GIT_SEAL_MISMATCH',
+        'A sealed transaction path is not a regular file.',
+        `Restore the exact regular file for ${relative} and retry.`
+      );
+    }
+    return stat.mode & 0o111 ? '100755' : '100644';
+  }
+
+  function modeAt(revision, relative) {
+    const resolved = contained(relative);
+    const value = String(run(['ls-tree', revision, '--', resolved.relative])).trim();
+    const match = /^(\d{6}) blob [0-9a-f]+\t/.exec(value);
+    if (!match) {
+      fail(
+        'APR_GIT_SEAL_MISMATCH',
+        'A sealed transaction path has no regular-file mode at authority.',
+        `Restore ${relative} at ${revision} and retry.`
+      );
+    }
+    return match[1];
+  }
+
   function snapshotIndexOutside(ownedPaths) {
     const owned = new Set(ownedPaths);
     return Object.freeze(
@@ -169,6 +196,23 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
           'Working bytes differ from the sealed transaction.',
           `Restore the exact sealed bytes for ${sealed.path} and retry.`,
           { path: sealed.path }
+        );
+      }
+      const workingFileMode = stat.mode & 0o111 ? '100755' : '100644';
+      const stagedEntry = indexEntries(
+        run(['ls-files', '--stage', '-z', '--', sealed.path], { buffer: true })
+      ).find((entry) => entry.path === sealed.path && entry.stage === 0);
+      if (workingFileMode !== sealed.mode || stagedEntry?.mode !== sealed.mode) {
+        fail(
+          'APR_GIT_SEAL_MISMATCH',
+          'Working or index mode differs from the sealed transaction.',
+          `Restore mode ${sealed.mode} for ${sealed.path} and retry.`,
+          {
+            path: sealed.path,
+            expected: sealed.mode,
+            working: workingFileMode,
+            index: stagedEntry?.mode,
+          }
         );
       }
       const staged = run(['show', `:${sealed.path}`], { buffer: true });
@@ -282,7 +326,8 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
     }
     for (const sealed of sealedPaths) {
       const bytes = run(['show', `${commit}:${sealed.path}`], { buffer: true });
-      if (!bytes.equals(sealed.bytes) || digest(bytes) !== sealed.digest) {
+      const mode = modeAt(commit, sealed.path);
+      if (!bytes.equals(sealed.bytes) || digest(bytes) !== sealed.digest || mode !== sealed.mode) {
         fail(
           'APR_GIT_COMMIT_INVALID',
           'The recovery commit bytes differ from the sealed transaction.',
@@ -298,6 +343,8 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
     root,
     head,
     hashWorking,
+    workingMode,
+    modeAt,
     snapshotIndexOutside,
     assertNoOwnedOverlap,
     addPaths,
@@ -328,7 +375,11 @@ function validateSealed(sealed) {
     );
   }
   for (const entry of sealed.paths) {
-    if (!Buffer.isBuffer(entry.bytes) || digest(entry.bytes) !== entry.digest) {
+    if (
+      !Buffer.isBuffer(entry.bytes) ||
+      digest(entry.bytes) !== entry.digest ||
+      !['100644', '100755'].includes(entry.mode)
+    ) {
       fail(
         'APR_GIT_SEAL_MISMATCH',
         'Sealed bytes do not match their digest.',
@@ -364,9 +415,10 @@ export function commitExactPaths(repository, sealed, message, trailers) {
   const request = Object.freeze({
     schema: 'ai-peer-review.git-transaction/v1',
     expected_head: sealed.expected_head,
-    paths: sealed.paths.map(({ path: relative, digest: value }) => ({
+    paths: sealed.paths.map(({ path: relative, digest: value, mode }) => ({
       path: relative,
       digest: value,
+      mode,
     })),
     commit_paths: [...commitPaths],
     message: message.trim(),
@@ -427,7 +479,7 @@ export function commitExactPaths(repository, sealed, message, trailers) {
   repository.checkpoint?.('sealed-bytes-checked');
   repository.assertOutsideIndex(before, ownedPaths);
   repository.checkpoint?.('outside-index-checked');
-  const commit = repository.commitOnly(ownedPaths, message, trailers);
+  const commit = repository.commitOnly(commitPaths, message, trailers);
   repository.checkpoint?.('commit-created');
   repository.assertCommitPaths(commit, commitPaths);
   repository.checkpoint?.('commit-paths-checked');

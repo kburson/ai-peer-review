@@ -6,7 +6,7 @@ import path from 'node:path';
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
 
-// cspell:ignore ACDMRTUXB
+// cspell:ignore ACDMRTUXB objectname
 const CHANGE_FILTER = 'ACDMRTUXB';
 const REGULAR_MODES = new Set(['100644', '100755']);
 
@@ -272,6 +272,9 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     const head = String(run(repositoryRoot, ['rev-parse', 'HEAD'])).trim();
     const branch = String(run(repositoryRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
     const index = run(repositoryRoot, ['ls-files', '--stage', '-z'], { buffer: true });
+    const refs = run(repositoryRoot, ['for-each-ref', '--format=%(refname)%00%(objectname)%00'], {
+      buffer: true,
+    });
     const tracked = run(repositoryRoot, ['diff', '--binary', '--no-ext-diff', '--'], {
       buffer: true,
     });
@@ -295,6 +298,7 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
       head,
       branch,
       index_digest: `sha256:${digest(index)}`,
+      refs_digest: `sha256:${digest(refs)}`,
       worktree_digest: `sha256:${worktree.digest('hex')}`,
     });
   }

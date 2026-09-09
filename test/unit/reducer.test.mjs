@@ -37,11 +37,35 @@ function noCommit(events) {
   );
 }
 
+function authorFinalizationEvents() {
+  const prefix = acceptancePendingEvents();
+  return [
+    ...prefix,
+    event('finalization-started', {
+      sequence: prefix.length + 1,
+      revision: prefix.at(-1).revision + 1,
+    }),
+  ];
+}
+
+function claimedReviewerTurnEvents() {
+  const prefix = reviewerTurnEvents();
+  return [
+    ...prefix,
+    event('turn-claimed', {
+      sequence: prefix.length + 1,
+      revision: prefix.at(-1).revision,
+      actor: FINGERPRINTS.reviewer,
+      payload: { claim: claim('reviewer') },
+    }),
+  ];
+}
+
 const cases = [
   [[], 'review-created', 'awaiting-reviewer'],
   [sequence(['review-created']), 'reviewer-joined', 'reviewer-turn'],
-  [reviewerTurnEvents(), 'reviewer-revisions-requested', 'author-revision'],
-  [reviewerTurnEvents(), 'reviewer-accepted', 'acceptance-pending'],
+  [claimedReviewerTurnEvents(), 'reviewer-revisions-requested', 'author-revision'],
+  [claimedReviewerTurnEvents(), 'reviewer-accepted', 'acceptance-pending'],
   [authorRevisionEvents(), 'author-revision-committed', 'reviewer-turn'],
   [noCommit(authorRevisionEvents()), 'author-revision-sealed-no-commit', 'reviewer-turn'],
   [authorRevisionEvents(), 'author-closing-round-committed', 'intervention-required'],
@@ -53,18 +77,8 @@ const cases = [
   [reviewerTurnEvents(), 'intervention-entered', 'intervention-required'],
   [authorRevisionEvents(), 'intervention-entered', 'intervention-required'],
   [acceptancePendingEvents(), 'finalization-started', 'author-finalization'],
-  [
-    sequence(['review-created', 'reviewer-joined', 'reviewer-accepted', 'finalization-started']),
-    'acceptance-committed',
-    'accepted',
-  ],
-  [
-    noCommit(
-      sequence(['review-created', 'reviewer-joined', 'reviewer-accepted', 'finalization-started'])
-    ),
-    'acceptance-sealed-no-commit',
-    'accepted-uncommitted',
-  ],
+  [authorFinalizationEvents(), 'acceptance-committed', 'accepted'],
+  [noCommit(authorFinalizationEvents()), 'acceptance-sealed-no-commit', 'accepted-uncommitted'],
   [interventionEvents('turn-budget-exhausted'), 'continued-to-reviewer', 'reviewer-turn'],
   [interventionEvents('turn-budget-exhausted'), 'continued-to-author', 'author-revision'],
   [interventionEvents('stale-claim'), 'same-session-reclaim', 'reviewer-turn'],
@@ -225,10 +239,7 @@ test('all other reachable state and lifecycle-event pairs fail closed', () => {
     ['reviewer-turn', reviewerTurnEvents()],
     ['author-revision', authorRevisionEvents()],
     ['acceptance-pending', acceptancePendingEvents()],
-    [
-      'author-finalization',
-      sequence(['review-created', 'reviewer-joined', 'reviewer-accepted', 'finalization-started']),
-    ],
+    ['author-finalization', authorFinalizationEvents()],
     ['intervention-required', interventionEvents('turn-budget-exhausted')],
   ]);
   const allowed = new Set(
@@ -264,18 +275,49 @@ test('enforces contiguous sequence and independent revision advancement', () => 
     () => reduceEvents([valid[0], { ...valid[1], revision: valid[0].revision }]),
     (error) => error.code === 'APR_PROJECTION_DRIFT'
   );
-  const claimed = event('turn-claimed', { sequence: 3, revision: valid[1].revision });
-  assert.equal(reduceEvents([...valid, claimed]).protocol.revision, valid[1].revision);
+  const refreshed = event('identity-changed', {
+    sequence: valid.length + 1,
+    revision: valid.at(-1).revision,
+    actor: FINGERPRINTS.reviewer,
+    payload: { role: 'reviewer', identity: valid[1].payload.reviewer },
+  });
+  assert.equal(reduceEvents([...valid, refreshed]).protocol.revision, valid.at(-1).revision);
+});
+
+test('submission lifecycle events require an unexpired current-role claim', () => {
+  const prefix = claimedReviewerTurnEvents();
+  const stale = prefix.map((item, index) =>
+    index === prefix.length - 1
+      ? {
+          ...item,
+          payload: {
+            claim: claim('reviewer', { expiresAt: '2026-09-08T12:00:03.500Z' }),
+          },
+        }
+      : item
+  );
+  const decision = event('reviewer-accepted', {
+    sequence: stale.length + 1,
+    revision: stale.at(-1).revision + 1,
+    actor: FINGERPRINTS.reviewer,
+  });
+  assert.throws(
+    () => reduceEvents([...stale, decision]),
+    (error) =>
+      error.code === 'APR_INVALID_TRANSITION' &&
+      error.details.detail === 'submission requires one active current claim'
+  );
 });
 
 test('terminal states reject every later event', () => {
-  const accepted = sequence([
-    'review-created',
-    'reviewer-joined',
-    'reviewer-accepted',
-    'finalization-started',
-    'acceptance-committed',
-  ]);
+  const finalizing = authorFinalizationEvents();
+  const accepted = [
+    ...finalizing,
+    event('acceptance-committed', {
+      sequence: finalizing.length + 1,
+      revision: finalizing.at(-1).revision + 1,
+    }),
+  ];
   for (const type of [...LIFECYCLE_EVENT_TYPES, 'turn-claimed']) {
     const revision = accepted.at(-1).revision + (REVISION_NEUTRAL_TYPES.has(type) ? 0 : 1);
     assert.throws(
@@ -317,23 +359,18 @@ test('recovery restores the immutable interrupted role and refuses a live challe
 });
 
 test('outside intervention, reclaim is only an exact same-claim retry', () => {
-  const prefix = reviewerTurnEvents();
+  const prefix = claimedReviewerTurnEvents();
   const currentClaim = claim('reviewer');
-  const claimed = event('turn-claimed', {
-    sequence: 3,
-    revision: 2,
-    payload: { claim: currentClaim },
-  });
   const exactRetry = event('same-session-reclaim', {
-    sequence: 4,
-    revision: 2,
+    sequence: prefix.length + 1,
+    revision: prefix.at(-1).revision,
     payload: {
       intervention_id: 'idempotent-retry',
       old_claim: currentClaim,
       new_claim: currentClaim,
     },
   });
-  assert.equal(reduceEvents([...prefix, claimed, exactRetry]).protocol.state, 'reviewer-turn');
+  assert.equal(reduceEvents([...prefix, exactRetry]).protocol.state, 'reviewer-turn');
 
   for (const payload of [
     { ...exactRetry.payload, old_claim: claim('reviewer', { claimId: 'other' }) },
@@ -343,7 +380,7 @@ test('outside intervention, reclaim is only an exact same-claim retry', () => {
     },
   ]) {
     assert.throws(
-      () => reduceEvents([...prefix, claimed, { ...exactRetry, payload }]),
+      () => reduceEvents([...prefix, { ...exactRetry, payload }]),
       (error) => error.code === 'APR_INVALID_TRANSITION'
     );
   }
@@ -351,8 +388,14 @@ test('outside intervention, reclaim is only an exact same-claim retry', () => {
 
 test('delivery IDs are unique authority keys', () => {
   const prefix = reviewerTurnEvents();
-  const first = event('delivery-written', { sequence: 3, revision: 2 });
-  const duplicate = event('delivery-written', { sequence: 4, revision: 2 });
+  const first = event('delivery-written', {
+    sequence: prefix.length + 1,
+    revision: prefix.at(-1).revision,
+  });
+  const duplicate = event('delivery-written', {
+    sequence: prefix.length + 2,
+    revision: prefix.at(-1).revision,
+  });
   assert.throws(
     () => reduceEvents([...prefix, first, duplicate]),
     (error) => error.code === 'APR_DELIVERY_CONFLICT'

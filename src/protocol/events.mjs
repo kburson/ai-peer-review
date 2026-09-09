@@ -300,10 +300,11 @@ function validateArtifact(value, label, { initial = false } = {}) {
 }
 
 function validateRepositoryBoundary(value, label) {
-  exactKeys(value, ['head', 'branch', 'index_digest', 'worktree_digest'], label);
+  exactKeys(value, ['head', 'branch', 'index_digest', 'refs_digest', 'worktree_digest'], label);
   assertGitObject(value.head, `${label} head`);
   assertString(value.branch, `${label} branch`);
   assertDigest(value.index_digest, `${label} index_digest`);
+  assertDigest(value.refs_digest, `${label} refs_digest`);
   assertDigest(value.worktree_digest, `${label} worktree_digest`);
 }
 

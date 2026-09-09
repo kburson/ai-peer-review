@@ -10,7 +10,13 @@ import {
   writeDeliveryReceiptExclusive,
 } from '../../src/protocol/service.mjs';
 import { withReviewLock } from '../../src/protocol/store.mjs';
-import { event, reviewerTurnEvents, createReviewWorkspace } from '../helpers/review-fixture.mjs';
+import {
+  FINGERPRINTS,
+  claim,
+  event,
+  reviewerTurnEvents,
+  createReviewWorkspace,
+} from '../helpers/review-fixture.mjs';
 
 test('rebuilds missing and corrupt projections byte-for-byte from events', async (t) => {
   const fixture = await createReviewWorkspace({ repository: null, events: reviewerTurnEvents() });
@@ -28,12 +34,22 @@ test('rebuilds missing and corrupt projections byte-for-byte from events', async
 });
 
 test('mutateReview checks expected authority, appends first, and writes exact projections', async (t) => {
-  const fixture = await createReviewWorkspace({ repository: null, events: reviewerTurnEvents() });
+  const prefix = reviewerTurnEvents();
+  const events = [
+    ...prefix,
+    event('turn-claimed', {
+      sequence: prefix.length + 1,
+      revision: prefix.at(-1).revision,
+      actor: FINGERPRINTS.reviewer,
+      payload: { claim: claim('reviewer') },
+    }),
+  ];
+  const fixture = await createReviewWorkspace({ repository: null, events });
   t.after(fixture.cleanup);
   const before = fixture.readEvents();
   const result = await mutateReview(
     fixture.workspace,
-    { reviewId: 'review-01', revision: 2, sequence: 2, actor: 'reviewer' },
+    { reviewId: 'review-01', revision: 2, sequence: 3, actor: 'reviewer' },
     (state) =>
       event('reviewer-accepted', {
         sequence: state.protocol.sequence + 1,

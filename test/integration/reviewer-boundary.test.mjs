@@ -181,6 +181,32 @@ test('reviewer submit rejects a different physical worktree', async (t) => {
   assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
 });
 
+test('reviewer submit rejects a push that changes observed remote refs', async (t) => {
+  const fx = fixture();
+  const remote = mkdtempSync(path.join(tmpdir(), 'apr-reviewer-remote-'));
+  t.after(fx.cleanup);
+  t.after(() => rmSync(remote, { recursive: true, force: true }));
+  git(remote, ['init', '--bare']);
+  git(fx.root, ['remote', 'add', 'origin', remote]);
+  git(fx.root, ['push', '--set-upstream', 'origin', 'trunk']);
+  const { reviewer, started, joined } = await prepare(fx.root, 'reviewer-push');
+  const eventsBefore = readFileSync(started.paths.events);
+  const responseBefore = readFileSync(joined.paths.response);
+  git(fx.root, ['push', 'origin', 'HEAD:refs/heads/reviewer-push']);
+  await assert.rejects(
+    submitReviewTurn({
+      cwd: fx.root,
+      workspace: started.paths.workspace,
+      identity: reviewer,
+      decision: 'accepted',
+      now: '2026-09-09T02:01:00.000Z',
+    }),
+    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
+  );
+  assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
+  assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
+});
+
 test('CLI submit resolves the current reviewer and emits one closed result', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);

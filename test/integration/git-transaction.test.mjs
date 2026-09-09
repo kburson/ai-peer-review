@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -51,7 +51,9 @@ function transactionInput(root) {
     expected_head: git(root, ['rev-parse', 'HEAD']),
     paths: paths.map((relative) => {
       const bytes = readFileSync(path.join(root, relative));
-      return { path: relative, bytes, digest: sha256(bytes) };
+      const tracked = git(root, ['ls-files', '--stage', '--', relative]);
+      const mode = tracked ? tracked.slice(0, 6) : '100644';
+      return { path: relative, bytes, digest: sha256(bytes), mode };
     }),
   };
   const trailers = {
@@ -248,4 +250,23 @@ test('transaction recovery rejects a changed request and a tampered commit', (t)
       ),
     (error) => error.code === 'APR_GIT_COMMIT_INVALID'
   );
+});
+
+test('transaction seals working, index, and committed Git modes', (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const { sealed, trailers } = transactionInput(fx.root);
+  chmodSync(path.join(fx.root, 'docs/artifact.md'), 0o755);
+  const headBefore = git(fx.root, ['rev-parse', 'HEAD']);
+  assert.throws(
+    () =>
+      api.commitExactPaths(
+        api.createGitTransactionRepository(fx.root),
+        sealed,
+        'Peer review revision 1',
+        trailers
+      ),
+    (error) => error.code === 'APR_GIT_SEAL_MISMATCH'
+  );
+  assert.equal(git(fx.root, ['rev-parse', 'HEAD']), headBefore);
 });

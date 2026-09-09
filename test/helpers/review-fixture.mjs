@@ -146,6 +146,7 @@ const payloads = {
       head: '1'.repeat(40),
       branch: 'trunk',
       index_digest: `sha256:${'1'.repeat(64)}`,
+      refs_digest: `sha256:${'3'.repeat(64)}`,
       worktree_digest: `sha256:${'2'.repeat(64)}`,
     },
   }),
@@ -172,6 +173,7 @@ const payloads = {
       head: '9'.repeat(40),
       branch: 'trunk',
       index_digest: `sha256:${'9'.repeat(64)}`,
+      refs_digest: `sha256:${'b'.repeat(64)}`,
       worktree_digest: `sha256:${'a'.repeat(64)}`,
     },
   }),
@@ -188,6 +190,7 @@ const payloads = {
       head: '1'.repeat(40),
       branch: 'trunk',
       index_digest: `sha256:${'9'.repeat(64)}`,
+      refs_digest: `sha256:${'b'.repeat(64)}`,
       worktree_digest: `sha256:${'a'.repeat(64)}`,
     },
   }),
@@ -204,6 +207,7 @@ const payloads = {
       head: '9'.repeat(40),
       branch: 'trunk',
       index_digest: `sha256:${'9'.repeat(64)}`,
+      refs_digest: `sha256:${'b'.repeat(64)}`,
       worktree_digest: `sha256:${'a'.repeat(64)}`,
     },
     intervention_id: 'intervention-budget',
@@ -223,6 +227,7 @@ const payloads = {
       head: '1'.repeat(40),
       branch: 'trunk',
       index_digest: `sha256:${'9'.repeat(64)}`,
+      refs_digest: `sha256:${'b'.repeat(64)}`,
       worktree_digest: `sha256:${'a'.repeat(64)}`,
     },
     intervention_id: 'intervention-budget',
@@ -361,11 +366,13 @@ export function event(
     actor ??
     (type === 'review-created'
       ? 'system'
-      : type === 'turn-claimed'
-        ? (effectivePayload.claim?.session_fingerprint ?? FINGERPRINTS.author)
-        : type === 'identity-changed'
-          ? (effectivePayload.identity?.session_fingerprint ?? FINGERPRINTS.author)
-          : FINGERPRINTS.author);
+      : ['reviewer-joined', 'reviewer-revisions-requested', 'reviewer-accepted'].includes(type)
+        ? FINGERPRINTS.reviewer
+        : type === 'turn-claimed'
+          ? (effectivePayload.claim?.session_fingerprint ?? FINGERPRINTS.author)
+          : type === 'identity-changed'
+            ? (effectivePayload.identity?.session_fingerprint ?? FINGERPRINTS.author)
+            : FINGERPRINTS.author);
   return {
     schema: 'ai-peer-review.event/v1',
     review_id: reviewId,
@@ -386,27 +393,59 @@ export function sequence(types, overrides = {}) {
   });
 }
 
-export const reviewerTurnEvents = () => sequence(['review-created', 'reviewer-joined']);
+export const reviewerTurnEvents = () =>
+  sequence(['review-created', 'reviewer-joined'], {
+    1: { actor: FINGERPRINTS.reviewer },
+  });
 export const authorRevisionEvents = () =>
-  sequence(['review-created', 'reviewer-joined', 'reviewer-revisions-requested']);
+  sequence(
+    [
+      'review-created',
+      'reviewer-joined',
+      'turn-claimed',
+      'reviewer-revisions-requested',
+      'turn-claimed',
+    ],
+    {
+      1: { actor: FINGERPRINTS.reviewer },
+      2: {
+        actor: FINGERPRINTS.reviewer,
+        payload: { claim: claim('reviewer') },
+      },
+      3: { actor: FINGERPRINTS.reviewer },
+      4: { actor: FINGERPRINTS.author, payload: { claim: claim('author') } },
+    }
+  );
 export const acceptancePendingEvents = () =>
-  sequence(['review-created', 'reviewer-joined', 'reviewer-accepted']);
+  sequence(['review-created', 'reviewer-joined', 'turn-claimed', 'reviewer-accepted'], {
+    1: { actor: FINGERPRINTS.reviewer },
+    2: {
+      actor: FINGERPRINTS.reviewer,
+      payload: { claim: claim('reviewer') },
+    },
+    3: { actor: FINGERPRINTS.reviewer },
+  });
 export const interventionEvents = (reason, interruptedState = 'reviewer-turn') => {
   const prefix =
     interruptedState === 'author-revision' ? authorRevisionEvents() : reviewerTurnEvents();
   const role = interruptedState === 'author-revision' ? 'author' : 'reviewer';
-  const claimed = event('turn-claimed', {
-    sequence: prefix.length + 1,
-    revision: prefix.at(-1).revision,
-    payload: { claim: claim(role) },
-  });
-  let revision = claimed.revision;
+  const prepared =
+    interruptedState === 'author-revision'
+      ? prefix
+      : [
+          ...prefix,
+          event('turn-claimed', {
+            sequence: prefix.length + 1,
+            revision: prefix.at(-1).revision,
+            actor: FINGERPRINTS.reviewer,
+            payload: { claim: claim(role) },
+          }),
+        ];
   return [
-    ...prefix,
-    claimed,
+    ...prepared,
     event('intervention-entered', {
-      sequence: prefix.length + 2,
-      revision: ++revision,
+      sequence: prepared.length + 1,
+      revision: prepared.at(-1).revision + 1,
       payload: {
         intervention_id: `intervention-${reason}`,
         reason,

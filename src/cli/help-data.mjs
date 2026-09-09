@@ -127,7 +127,42 @@ const ERRORS = Object.freeze({
   ],
   status: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
   resume: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
-  submit: ['APR_PROTECTED_METADATA_CHANGED', 'APR_RESPONSE_INVALID', 'APR_IDENTITY_CONFLICT'],
+  submit: [
+    'APR_PROTECTED_METADATA_CHANGED',
+    'APR_RESPONSE_INVALID',
+    'APR_RESPONSE_WRITE_FAILED',
+    'APR_IDENTITY_CONFLICT',
+    'APR_CLAIM_INVALID',
+    'APR_CLAIM_CONFLICT',
+    'APR_INVALID_TRANSITION',
+    'APR_STALE_REVIEW',
+    'APR_EVENT_LOG_MISSING',
+    'APR_EVENT_LOG_CORRUPT',
+    'APR_OUTPUT_COLLISION',
+    'APR_REPOSITORY_NOT_FOUND',
+    'APR_ARTIFACT_UNTRACKED',
+    'APR_ARTIFACT_UNCOMMITTED',
+    'APR_ARTIFACT_NOT_REGULAR',
+    'APR_ARTIFACT_UNREADABLE',
+    'APR_ARTIFACT_CHANGED',
+    'APR_ARTIFACT_UNCHANGED',
+    'APR_DELIVERY_CONFLICT',
+    'APR_PATH_OUTSIDE_REPOSITORY',
+    'APR_GIT_FAILED',
+    'APR_GIT_PATH_INVALID',
+    'APR_GIT_PATH_OUTSIDE_REPOSITORY',
+    'APR_REVIEWER_GIT_VIOLATION',
+    'APR_GIT_WORKTREE_CHANGED',
+    'APR_GIT_HEAD_CHANGED',
+    'APR_GIT_OWNED_PATH_OVERLAP',
+    'APR_GIT_SEAL_MISMATCH',
+    'APR_GIT_INDEX_CHANGED',
+    'APR_GIT_INDEX_INVALID',
+    'APR_GIT_TRANSACTION_INVALID',
+    'APR_GIT_TRANSACTION_FAILED',
+    'APR_GIT_RECOVERY_INVALID',
+    'APR_GIT_COMMIT_INVALID',
+  ],
   supplement: ['APR_GRANT_INVALID', 'APR_GRANT_MISMATCH'],
   continue: ['APR_GRANT_INVALID', 'APR_GRANT_MISMATCH', 'APR_GRANT_REPLAYED'],
   finalize: ['APR_INVALID_TRANSITION', 'APR_GRANT_INVALID'],
@@ -214,6 +249,102 @@ const ERROR_CATALOG = Object.freeze({
   APR_IDENTITY_CONFLICT: {
     message: 'Participant identity conflicts with event authority.',
     recovery: 'Use a distinct registered session or signed participant replacement.',
+  },
+  APR_CLAIM_INVALID: {
+    message: 'The current participant claim is missing, stale, or inconsistent.',
+    recovery: 'Read peer-review status and follow its exact claim recovery command.',
+  },
+  APR_CLAIM_CONFLICT: {
+    message: 'The role claim conflicts with current participant or turn authority.',
+    recovery: 'Read peer-review status and resume from its exact registered claimant.',
+  },
+  APR_RESPONSE_WRITE_FAILED: {
+    message: 'The sealed response could not be written atomically.',
+    recovery: 'Preserve the draft, repair its parent directory, and retry exactly.',
+  },
+  APR_ARTIFACT_UNCOMMITTED: {
+    message: 'The artifact path is not present in event-authorized HEAD.',
+    recovery: 'Restore the tracked artifact at the authorized revision before retrying.',
+  },
+  APR_ARTIFACT_NOT_REGULAR: {
+    message: 'The artifact is not a tracked regular file with a supported Git mode.',
+    recovery: 'Restore a regular 100644 or 100755 artifact and retry.',
+  },
+  APR_ARTIFACT_UNREADABLE: {
+    message: 'The artifact working-tree bytes cannot be read.',
+    recovery: 'Restore a readable regular artifact at the event-authorized path.',
+  },
+  APR_ARTIFACT_CHANGED: {
+    message: 'The artifact changed despite an explicit no-artifact-change submission.',
+    recovery: 'Remove the flag or restore the event-authorized artifact bytes.',
+  },
+  APR_ARTIFACT_UNCHANGED: {
+    message: 'The author submission has no artifact change or explicit rationale.',
+    recovery: 'Change the artifact or submit --no-artifact-change with a non-empty reason.',
+  },
+  APR_DELIVERY_CONFLICT: {
+    message: 'A delivery identifier is already bound to different handoff evidence.',
+    recovery: 'Preserve the event log and inspect the conflicting delivery before recovery.',
+  },
+  APR_PATH_OUTSIDE_REPOSITORY: {
+    message: 'A transaction or collateral path escapes the physical repository.',
+    recovery: 'Use only the exact contained event-authorized repository path.',
+  },
+  APR_GIT_FAILED: {
+    message: 'A read-only Git repository observation failed.',
+    recovery: 'Repair the repository and retry from the event-authorized worktree.',
+  },
+  APR_GIT_PATH_INVALID: {
+    message: 'A Git metadata path is empty, malformed, or non-canonical.',
+    recovery: 'Use a contained repository-relative Git metadata path.',
+  },
+  APR_GIT_PATH_OUTSIDE_REPOSITORY: {
+    message: 'A Git metadata path escapes the repository common directory.',
+    recovery: 'Use only a contained repository-relative Git metadata path.',
+  },
+  APR_REVIEWER_GIT_VIOLATION: {
+    message: 'Reviewer-time repository state differs from the sealed read-only boundary.',
+    recovery: 'Restore the event-authorized repository state without discarding unrelated work.',
+  },
+  APR_GIT_WORKTREE_CHANGED: {
+    message: 'Submission is running from a different physical Git worktree.',
+    recovery: 'Return to the event-authorized worktree and retry.',
+  },
+  APR_GIT_HEAD_CHANGED: {
+    message: 'Git HEAD differs from the exact transaction authority.',
+    recovery: 'Inspect HEAD and use only exact transaction recovery.',
+  },
+  APR_GIT_OWNED_PATH_OVERLAP: {
+    message: 'A protocol-owned path already has staged changes.',
+    recovery: 'Restore that index entry without discarding working bytes, then retry.',
+  },
+  APR_GIT_SEAL_MISMATCH: {
+    message: 'Git bytes or modes differ from the sealed transaction.',
+    recovery: 'Restore the exact sealed path bytes and modes, then retry.',
+  },
+  APR_GIT_INDEX_CHANGED: {
+    message: 'Unrelated staged object IDs changed during the transaction.',
+    recovery: 'Preserve the repository and restore the unrelated index entries.',
+  },
+  APR_GIT_INDEX_INVALID: {
+    message: 'Git returned an index entry outside the supported stage-zero contract.',
+    recovery: 'Repair the Git index and retry the peer-review command.',
+  },
+  APR_GIT_TRANSACTION_INVALID: {
+    message: 'The exact-path Git transaction request is incomplete or inconsistent.',
+    recovery: 'Retry with the exact event-authorized paths, modes, message, and trailers.',
+  },
+  APR_GIT_TRANSACTION_FAILED: {
+    message: 'A literal-argument Git transaction command failed.',
+    recovery: 'Preserve repository state, inspect the command failure, and retry exactly.',
+  },
+  APR_GIT_RECOVERY_INVALID: {
+    message: 'Durable Git transaction recovery evidence is missing or inconsistent.',
+    recovery: 'Preserve the journal and repository and inspect them before retrying.',
+  },
+  APR_GIT_COMMIT_INVALID: {
+    message: 'The recovered commit differs from sealed paths, modes, ancestry, or trailers.',
+    recovery: 'Preserve the commit and inspect its exact tree and message before recovery.',
   },
   APR_OUTPUT_COLLISION: {
     message: 'A peer-review output path is occupied by conflicting content.',

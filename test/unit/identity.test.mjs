@@ -186,9 +186,10 @@ test('event authority rejects duplicate participants and fingerprint-changing re
     (error) => error.code === 'APR_INVALID_TRANSITION'
   );
 
+  const reviewerTurn = reviewerTurnEvents();
   const replacement = event('identity-changed', {
-    sequence: 3,
-    revision: 2,
+    sequence: reviewerTurn.length + 1,
+    revision: reviewerTurn.at(-1).revision,
     actor: FINGERPRINTS.replacement,
     payload: {
       role: 'reviewer',
@@ -196,13 +197,13 @@ test('event authority rejects duplicate participants and fingerprint-changing re
     },
   });
   assert.throws(
-    () => reduceEvents([...reviewerTurnEvents(), replacement]),
+    () => reduceEvents([...reviewerTurn, replacement]),
     (error) => error.code === 'APR_INVALID_TRANSITION'
   );
 
   const rewrittenJoin = event('identity-changed', {
-    sequence: 3,
-    revision: 2,
+    sequence: reviewerTurn.length + 1,
+    revision: reviewerTurn.at(-1).revision,
     actor: FINGERPRINTS.reviewer,
     payload: {
       role: 'reviewer',
@@ -214,7 +215,7 @@ test('event authority rejects duplicate participants and fingerprint-changing re
     },
   });
   assert.throws(
-    () => reduceEvents([...reviewerTurnEvents(), rewrittenJoin]),
+    () => reduceEvents([...reviewerTurn, rewrittenJoin]),
     (error) => error.code === 'APR_INVALID_TRANSITION'
   );
 });

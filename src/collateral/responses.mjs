@@ -362,6 +362,13 @@ function same(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function sameDraftMetadata(candidate, expected) {
+  return (
+    candidate?.agent?.session_fingerprint === expected.agent.session_fingerprint &&
+    same({ ...candidate, agent: expected.agent }, expected)
+  );
+}
+
 function draftVariables(role, frontmatter) {
   if (role === 'reviewer') {
     return {
@@ -757,7 +764,7 @@ export function sealResponse(review, file, identity, { declinedReason = null } =
     };
     const submitted = new Date(metadata.submitted_at);
     if (
-      !same(registeredMetadata, expected) ||
+      !sameDraftMetadata(registeredMetadata, expected) ||
       !same(unsealed, expected) ||
       Number.isNaN(submitted.valueOf()) ||
       submitted.valueOf() < Date.parse(metadata.started_at)
@@ -785,11 +792,17 @@ export function sealResponse(review, file, identity, { declinedReason = null } =
       }
     } else {
       const pending = review.pending_finding_ids ?? [];
-      if (!same(dispositionIds(sections), pending)) {
+      const recoveredReason = sections.find(
+        ({ heading }) => heading === 'Declined changes and rationale'
+      )?.content;
+      if (
+        !same(dispositionIds(sections), pending) ||
+        (declinedReason !== null && recoveredReason !== String(declinedReason).trim())
+      ) {
         fail(
           'APR_RESPONSE_INVALID',
-          'Recovered author dispositions differ from sealed metadata.',
-          'Restore every event-authorized finding disposition exactly once.'
+          'Recovered author response differs from the exact interrupted submission.',
+          'Restore every finding disposition and declined-change rationale exactly.'
         );
       }
     }
@@ -809,7 +822,10 @@ export function sealResponse(review, file, identity, { declinedReason = null } =
     );
   }
   const protectedMetadata = expectedMetadata(review, metadata.role, metadata.turn);
-  if (!same(metadata, protectedMetadata) || !same(registeredMetadata, protectedMetadata)) {
+  if (
+    !sameDraftMetadata(metadata, protectedMetadata) ||
+    !sameDraftMetadata(registeredMetadata, protectedMetadata)
+  ) {
     fail(
       'APR_PROTECTED_METADATA_CHANGED',
       'Protected response metadata changed after draft creation.',
