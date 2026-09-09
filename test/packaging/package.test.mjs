@@ -131,4 +131,28 @@ test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase
   ])
     assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(ci, /live-provider-optional:[\s\S]*continue-on-error: true/);
+  const laterNode = ci.match(/later-node:[\s\S]*?\n  phase-1-boundary:/)?.[0] ?? '';
+  const boundary = ci.match(/phase-1-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
+  for (const job of [laterNode, boundary]) {
+    for (const gate of [
+      'npm run format:check',
+      'npm run lint',
+      'npm test',
+      'npm run test:integration',
+      'npm run test:packaging',
+      'npm run test:smoke',
+      'npm pack --dry-run',
+    ])
+      assert.match(job, new RegExp(gate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  const release = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
+  const verifyIndex = release.indexOf('verify-tag "$RELEASE_TAG"');
+  const publishIndex = release.indexOf('npm publish');
+  assert.ok(
+    verifyIndex >= 0 && publishIndex > verifyIndex,
+    'tag verification must precede publish'
+  );
+  assert.match(release, /npm view[\s\S]*registry\.tgz[\s\S]*test .*SHA256SUMS/);
+  assert.match(release, /gh release view[\s\S]*gh release download[\s\S]*cmp SHA256SUMS/);
 });

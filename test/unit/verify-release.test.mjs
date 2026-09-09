@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import test from 'node:test';
@@ -8,7 +9,10 @@ import { validateReleaseManifest, verifyRelease } from '../../scripts/verify-rel
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const digest = createHash('sha256').update('release tarball').digest('hex');
-const releaseCommit = '37a30d8ec124f831aee7974957df12ac226bacbf';
+const releaseCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
+  cwd: root,
+  encoding: 'utf8',
+}).trim();
 
 function manifest() {
   return {
@@ -50,7 +54,11 @@ function manifest() {
 function observers(value = manifest()) {
   return {
     extraction: async () => true,
-    tag: async () => ({ target_commit: value.release_commit }),
+    head: async () => value.release_commit,
+    tag: async () => ({
+      target_commit: value.release_commit,
+      signer_fingerprint: value.tag.signer_fingerprint,
+    }),
     repository: async () => value.repository,
     githubRelease: async () => ({
       url: value.github_release.url,
@@ -66,6 +74,7 @@ function observers(value = manifest()) {
       attestations: { provenance: { url: value.npm.provenance_url } },
     }),
     sha256Url: async () => digest,
+    textUrl: async () => `${digest}  ${value.github_release.asset_name}\n`,
     reachable: async () => true,
   };
 }
@@ -86,5 +95,29 @@ test('release manifest fails closed on draft or substituted public evidence', as
   await assert.rejects(
     verifyRelease({ root, manifest: changed, observers: observers(manifest()) }),
     /checksum mismatch/
+  );
+
+  const wrongHead = observers(manifest());
+  wrongHead.head = async () => '0'.repeat(40);
+  await assert.rejects(
+    verifyRelease({ root, manifest: manifest(), observers: wrongHead }),
+    /checkout HEAD do not match/
+  );
+
+  const wrongSigner = observers(manifest());
+  wrongSigner.tag = async () => ({
+    target_commit: releaseCommit,
+    signer_fingerprint: 'SHA256:substitute',
+  });
+  await assert.rejects(
+    verifyRelease({ root, manifest: manifest(), observers: wrongSigner }),
+    /fingerprint mismatch/
+  );
+
+  const wrongChecksums = observers(manifest());
+  wrongChecksums.textUrl = async () => `${'f'.repeat(64)}  ai-peer-review-0.1.0.tgz\n`;
+  await assert.rejects(
+    verifyRelease({ root, manifest: manifest(), observers: wrongChecksums }),
+    /checksum asset does not bind/
   );
 });

@@ -438,8 +438,31 @@ function statusResult(state, paths, review = {}) {
   });
 }
 
+function statusInstant(value) {
+  const date = value instanceof Date ? new Date(value.valueOf()) : new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    throw authorityError(
+      'APR_CLAIM_INVALID',
+      'Status clock is invalid.',
+      'Provide a valid clock instant and retry.'
+    );
+  }
+  if (typeof value === 'string') {
+    const canonical = date.toISOString();
+    if (value !== canonical && value !== canonical.replace('.000Z', 'Z')) {
+      throw authorityError(
+        'APR_CLAIM_INVALID',
+        'Status clock is invalid.',
+        'Provide a calendar-valid RFC-3339 UTC instant.'
+      );
+    }
+  }
+  return date;
+}
+
 export function statusReview(workspace, { now = new Date() } = {}) {
   const absolute = path.resolve(workspace);
+  const observedAt = statusInstant(now);
   const state = inspectReview(absolute);
   const resolved = statusPaths(state);
   const role = ['author', 'reviewer'].includes(state.protocol.current_actor)
@@ -447,7 +470,7 @@ export function statusReview(workspace, { now = new Date() } = {}) {
     : null;
   const claim = role ? (state.protocol.claims?.[role] ?? null) : null;
   const claimStatus = claim
-    ? new Date(now).valueOf() >= Date.parse(claim.expires_at)
+    ? observedAt.valueOf() >= Date.parse(claim.expires_at)
       ? 'stale'
       : 'active'
     : role

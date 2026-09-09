@@ -114,6 +114,12 @@ async function sha256Url(url) {
     .digest('hex');
 }
 
+async function textUrl(url) {
+  const response = await fetch(url);
+  if (!response.ok) fail(`download failed (${response.status}): ${url}`);
+  return response.text();
+}
+
 function defaultObservers(root) {
   return {
     async extraction() {
@@ -127,7 +133,7 @@ function defaultObservers(root) {
       return true;
     },
     async tag(name) {
-      await run(
+      const verified = await run(
         'git',
         [
           '-c',
@@ -138,7 +144,15 @@ function defaultObservers(root) {
         { cwd: root }
       );
       const { stdout } = await run('git', ['rev-parse', `${name}^{}`], { cwd: root });
-      return { target_commit: stdout.trim() };
+      const fingerprint = `${verified.stdout}\n${verified.stderr}`.match(
+        /key (SHA256:[A-Za-z0-9+/]+={0,2})/
+      )?.[1];
+      if (!fingerprint) fail('signed tag verifier did not report a signer fingerprint');
+      return { target_commit: stdout.trim(), signer_fingerprint: fingerprint };
+    },
+    async head() {
+      const { stdout } = await run('git', ['rev-parse', 'HEAD'], { cwd: root });
+      return stdout.trim();
     },
     async repository() {
       const { stdout } = await run(
@@ -169,6 +183,7 @@ function defaultObservers(root) {
       return JSON.parse(stdout);
     },
     sha256Url,
+    textUrl,
     async reachable(url) {
       const response = await fetch(url, { redirect: 'follow' });
       return response.ok;
@@ -197,11 +212,15 @@ export async function verifyRelease({ root, manifest, observers } = {}) {
   if (bootstrapParent.trim() !== manifest.filtered_history_tip) fail('bootstrap parent mismatch');
 
   const tag = await observed.tag(manifest.tag.name);
+  const head = await observed.head();
   if (
     tag.target_commit !== manifest.tag.target_commit ||
-    manifest.tag.target_commit !== manifest.release_commit
+    manifest.tag.target_commit !== manifest.release_commit ||
+    manifest.release_commit !== head
   )
-    fail('signed tag does not resolve to the release commit');
+    fail('signed tag, release commit, and checkout HEAD do not match');
+  if (tag.signer_fingerprint !== manifest.tag.signer_fingerprint)
+    fail('signed tag fingerprint mismatch');
 
   const repository = await observed.repository();
   if (repository.url !== manifest.repository.url || repository.visibility !== 'PUBLIC')
@@ -217,8 +236,14 @@ export async function verifyRelease({ root, manifest, observers } = {}) {
   const releaseAssetDigest = await observed.sha256Url(releaseAsset.url);
   if (releaseAssetDigest !== manifest.github_release.asset_sha256)
     fail('GitHub release tarball checksum mismatch');
-  if (!release.assets.some((asset) => asset.name === manifest.github_release.checksums_asset_name))
-    fail('GitHub release checksum asset is missing');
+  const checksumsAsset = release.assets.find(
+    (asset) => asset.name === manifest.github_release.checksums_asset_name
+  );
+  if (!checksumsAsset) fail('GitHub release checksum asset is missing');
+  const checksumLines = (await observed.textUrl(checksumsAsset.url)).trim().split(/\r?\n/);
+  const expectedChecksum = `${manifest.github_release.asset_sha256}  ${manifest.github_release.asset_name}`;
+  if (checksumLines.length !== 1 || checksumLines[0] !== expectedChecksum)
+    fail('GitHub release checksum asset does not bind the tarball');
 
   const npm = await observed.npmPackage(`${manifest.package}@${manifest.version}`);
   const provenanceUrl = npm.attestations?.provenance?.url ?? npm.attestations?.url;

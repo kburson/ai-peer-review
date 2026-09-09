@@ -19,6 +19,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -41,15 +43,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
       - run: npm test
       - run: npm run test:integration
       - run: npm run test:packaging
       - run: npm run test:smoke
+      - run: npm pack --dry-run
 
   phase-1-boundary:
     name: Phase 1 boundary
@@ -65,8 +72,13 @@ jobs:
       - run: npm ci
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm ls --omit=dev --json
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:integration
       - run: npm run test:packaging
       - run: npm run test:smoke
+      - run: npm pack --dry-run
 
   live-provider-optional:
     name: Optional live-provider probe

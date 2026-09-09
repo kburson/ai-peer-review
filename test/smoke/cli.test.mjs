@@ -24,6 +24,15 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
     })
   )[0];
   const tarball = path.join(packDir, packed.filename);
+  const zeroInstallHelp = execFileSync(
+    npx,
+    ['--yes', '--package', tarball, 'ai-peer-review', '--help'],
+    {
+      cwd: host,
+      encoding: 'utf8',
+    }
+  );
+  assert.match(zeroInstallHelp, /Commands:/);
   writeFileSync(path.join(host, 'package.json'), '{"private":true}\n');
   execFileSync(npm, ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], {
     cwd: host,
@@ -43,10 +52,9 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
   writeFileSync(path.join(host, '.git/info/exclude'), '.scratch/peer-review/\n');
   execFileSync('git', ['add', 'docs/spec.md'], { cwd: host });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: host, stdio: 'ignore' });
-  const cli = path.join(host, 'node_modules/ai-peer-review/bin/peer-review.mjs');
   const started = execFileSync(
-    process.execPath,
-    [cli, 'start', 'docs/spec.md', '--artifact-kind', 'spec'],
+    npx,
+    ['--no-install', 'peer-review', 'start', 'docs/spec.md', '--artifact-kind', 'spec'],
     {
       cwd: host,
       encoding: 'utf8',

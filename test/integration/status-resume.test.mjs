@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import { joinReview, resumeReview, run, startReview, statusReview } from '../../src/cli/run.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
+import { statusReview as publicStatusReview } from '../../src/public-api.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
 
@@ -112,6 +113,16 @@ test('status is event-derived, read-only, redacted, and returns one exact next a
     command: `peer-review recover ${started.paths.workspace} --reclaim`,
   });
   assert.deepEqual(readFileSync(started.paths.events), beforeEvents);
+});
+
+test('public status rejects invalid and noncanonical clocks instead of treating claims as active', async (t) => {
+  const started = await joinedFixture(t);
+  for (const now of ['not-a-time', '2026-09-08T07:00:00-05:00', new Date(Number.NaN)]) {
+    assert.throws(
+      () => publicStatusReview(started.paths.workspace, { now }),
+      (error) => error.code === 'APR_CLAIM_INVALID'
+    );
+  }
 });
 
 test('resume returns current actor instructions without polling or mutation', async (t) => {
