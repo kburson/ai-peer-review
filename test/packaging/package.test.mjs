@@ -150,6 +150,15 @@ test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase
 
   const release = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
   assert.match(release, /npm install --global npm@11\.8\.0/);
+  const publishStep =
+    release.match(
+      /- name: Publish or verify matching npm artifact[\s\S]*?(?=\n      - name:)/
+    )?.[0] ?? '';
+  assert.match(
+    publishStep,
+    /env:\s*\n\s+NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/,
+    'the first-publication step must receive the ephemeral npm environment secret'
+  );
   assert.match(readFileSync(path.join(root, '.gitattributes'), 'utf8'), /eol=lf/);
   const verifyIndex = release.indexOf('verify-tag "$RELEASE_TAG"');
   const publishIndex = release.indexOf('npm publish');

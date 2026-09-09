@@ -46,6 +46,8 @@ jobs:
           npm pack
           shasum -a 256 ai-peer-review-*.tgz > SHA256SUMS
       - name: Publish or verify matching npm artifact
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           package="ai-peer-review@$(node -p "require('./package.json').version")"
           if tarball_url="$(npm view "$package" dist.tarball 2>/dev/null)"; then
