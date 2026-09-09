@@ -199,6 +199,8 @@ export function validateConfig(value) {
     strings(value.setup.agents, 'setup.agents');
     if (value.setup.agents.some((agent) => !HOSTS.has(agent)))
       invalid('setup.agents contains an unknown host.');
+    if (new Set(value.setup.agents).size !== value.setup.agents.length)
+      invalid('setup.agents contains duplicates.');
     if (typeof value.setup.config_created !== 'boolean')
       invalid('setup.config_created must be boolean.');
     if (typeof value.setup.scratch_exclude_added !== 'boolean')

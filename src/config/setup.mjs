@@ -252,17 +252,16 @@ export function setup(options = {}) {
             !existsSync(path.join(root, 'skills', 'peer-review', 'SKILL.md')),
         };
     const planned = planSetup({ scope, host, current, desired });
+    let adapterOperation = null;
     if (planned.changed) {
       const after = planned.operations[0].after;
       const removeCreatedAdapter =
         remove && current.ai_peer_review?.config_created && Object.keys(after).length === 0;
-      operations.push(
-        operation(
-          adapterFile,
-          adapterExists ? current : null,
-          removeCreatedAdapter ? null : after,
-          `${host}-adapter`
-        )
+      adapterOperation = operation(
+        adapterFile,
+        adapterExists ? current : null,
+        removeCreatedAdapter ? null : after,
+        `${host}-adapter`
       );
     }
     const skillFile = path.join(root, 'skills', 'peer-review', 'SKILL.md');
@@ -284,6 +283,7 @@ export function setup(options = {}) {
       continue;
     if (existingSkill !== nextSkill && !(remove && existingSkill === null))
       operations.push(operation(skillFile, existingSkill, nextSkill, `${host}-skill`));
+    if (adapterOperation) operations.push(adapterOperation);
   }
 
   if (scope === 'project') {

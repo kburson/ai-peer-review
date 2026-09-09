@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { loadConfig } from '../../src/config/load.mjs';
+import { loadConfig, validateConfig } from '../../src/config/load.mjs';
 import { planSetup, setup } from '../../src/config/setup.mjs';
 import { doctor } from '../../src/doctor.mjs';
 import { run, startReview } from '../../src/cli/run.mjs';
@@ -111,6 +111,12 @@ test('fresh setup removes only its own files and refuses foreign provider owners
   const adapterFile = path.join(files.project, '.codex', 'config.json');
   const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
   assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.transport, 'manual');
+  const removal = setup({ ...options, remove: true, dryRun: true });
+  assert.ok(
+    removal.operations.findIndex((entry) => entry.owner === 'codex-skill') <
+      removal.operations.findIndex((entry) => entry.owner === 'codex-adapter'),
+    'the owned skill must be removed before its provider ownership record'
+  );
   setup({ ...options, remove: true });
   assert.equal(readFileSync(files.exclude, 'utf8'), '# local excludes\n');
   assert.equal(existsSync(adapterFile), false);
@@ -120,6 +126,42 @@ test('fresh setup removes only its own files and refuses foreign provider owners
   mkdirSync(path.dirname(adapterFile), { recursive: true });
   writeFileSync(adapterFile, '{"ai_peer_review":{"owner":"someone-else"}}\n');
   assert.throws(() => setup(options), { code: 'APR_SETUP_CONFLICT' });
+});
+
+test('runtime and published schema share authority and setup invariants', () => {
+  const duplicateAgents = {
+    schema: 'ai-peer-review.config/v1',
+    setup: {
+      owner: 'ai-peer-review',
+      version: 1,
+      agents: ['codex', 'codex'],
+      config_created: true,
+      scratch_exclude_added: true,
+      resume_commands_added: ['codex'],
+    },
+  };
+  assert.throws(() => validateConfig(duplicateAgents), { code: 'APR_CONFIG_INVALID' });
+
+  const schema = JSON.parse(
+    readFileSync(new URL('../../schemas/config-v1.json', import.meta.url), 'utf8')
+  );
+  assert.deepEqual(schema.properties.authority.allOf, [
+    {
+      if: {
+        properties: { authority_policy: { const: 'unavailable' } },
+        required: ['authority_policy'],
+      },
+      then: { properties: { verifier: { type: 'null' } } },
+      else: { properties: { verifier: { type: 'object' } } },
+    },
+  ]);
+  assert.deepEqual(schema.properties.authority.properties.verifier.oneOf[1].allOf, [
+    {
+      if: { properties: { kind: { const: 'host' } }, required: ['kind'] },
+      then: { properties: { public_key: { type: 'null' } } },
+      else: { properties: { public_key: { type: 'string', minLength: 1 } } },
+    },
+  ]);
 });
 
 test('setup composes agents and preserves a pre-existing scratch exclusion', () => {
