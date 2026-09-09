@@ -209,6 +209,8 @@ const ERRORS = Object.freeze({
     'APR_REVIEW_LOCKED',
     'APR_REVIEW_LOCK_FAILED',
     'APR_EVENT_INVALID',
+    'APR_ATOMIC_WRITE_FAILED',
+    'APR_TEMPLATE_INVALID',
   ],
   finalize: ['APR_INVALID_TRANSITION', 'APR_GRANT_INVALID'],
   recover: [
