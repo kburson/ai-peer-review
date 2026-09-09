@@ -219,6 +219,51 @@ test('protected events cannot substitute signed parameters for any action', () =
   }
 });
 
+test('participant replacement binds the exact outgoing claim and a distinct incoming session', () => {
+  const prefix = interventionEvents('participant-loss');
+  const state = reduceEvents(prefix);
+  const replacement = event('participant-replaced', {
+    sequence: prefix.length + 1,
+    revision: state.protocol.revision + 1,
+    payload: { intervention_id: state.protocol.intervention.intervention_id },
+  });
+
+  const changedClaim = withConsumedChallenge(prefix, replacement);
+  changedClaim[changedClaim.length - 1] = {
+    ...changedClaim.at(-1),
+    payload: {
+      ...changedClaim.at(-1).payload,
+      outgoing_claim: {
+        ...changedClaim.at(-1).payload.outgoing_claim,
+        expires_at: '2026-09-09T13:00:00.000Z',
+      },
+    },
+  };
+  assert.throws(
+    () => reduceEvents(changedClaim),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
+
+  const sameAsAuthor = {
+    ...replacement,
+    payload: {
+      ...replacement.payload,
+      incoming_participant: {
+        ...replacement.payload.incoming_participant,
+        session_fingerprint: FINGERPRINTS.author,
+      },
+      parameters: {
+        ...replacement.payload.parameters,
+        incoming_session_fingerprint: FINGERPRINTS.author,
+      },
+    },
+  };
+  assert.throws(
+    () => reduceEvents(withConsumedChallenge(prefix, sameAsAuthor)),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
+});
+
 test('allows the complete lifecycle matrix and derives exact states', () => {
   for (const [prefix, type, expectedState] of cases) {
     const priorRevision = prefix.at(-1)?.revision ?? 0;

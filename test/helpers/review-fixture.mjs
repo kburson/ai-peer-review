@@ -326,6 +326,7 @@ const payloads = {
       target_role: 'reviewer',
       target_turn: 2,
       content_retention: 'scratch-only',
+      acknowledged_at: null,
       parameters: protectedParameters('supplement'),
       attestation: attestation(),
     },

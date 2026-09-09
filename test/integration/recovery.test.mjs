@@ -244,18 +244,61 @@ test('different-fingerprint recovery consumes exact replacement authority and pr
     '2026-09-09T03:00:10.000Z'
   );
   assert.equal(intervention.protocol.intervention.reason, 'participant-loss');
-  const recovered = await api.recoverReview({
-    cwd: fx.root,
-    workspace: started.paths.workspace,
-    identity: replacement,
-    replaceParticipant: 'reviewer',
-    grant,
-    now: '2026-09-09T03:01:00.000Z',
-  });
-  assert.equal(recovered.state, 'reviewer-turn');
-  assert.equal(recovered.review.prior_participant, reviewer.session_fingerprint);
-  assert.equal(recovered.review.participant.session_fingerprint, replacement.session_fingerprint);
-  assert.equal(recovered.review.participant.joined_at, '2026-09-09T03:01:00.000Z');
+  await assert.rejects(
+    api.recoverReview(
+      {
+        cwd: fx.root,
+        workspace: started.paths.workspace,
+        identity: replacement,
+        replaceParticipant: 'reviewer',
+        grant,
+        now: '2026-09-09T03:01:00.000Z',
+      },
+      {
+        checkpoint(name) {
+          if (name === 'participant-replaced') throw new Error('simulated interruption');
+        },
+      }
+    ),
+    /simulated interruption/
+  );
+  const interrupted = await readReview(started.paths.workspace);
+  assert.equal(
+    interrupted.participants.reviewer.session_fingerprint,
+    replacement.session_fingerprint
+  );
+  assert.equal(interrupted.protocol.claims.reviewer, undefined);
+  const grantFile = path.join(started.paths.workspace, 'replacement-grant.json');
+  writeFileSync(grantFile, `${JSON.stringify(grant)}\n`);
+  let stdout = '';
+  let stderr = '';
+  const exitCode = await api.run(
+    ['recover', started.paths.workspace, '--replace-participant', 'reviewer', '--grant', grantFile],
+    {
+      cwd: fx.root,
+      env: {
+        CODEX_SESSION_ID: 'replacement-new-reviewer',
+        CODEX_MODEL_ID: 'gpt-test',
+        CODEX_MODEL_DISPLAY: 'GPT Test',
+      },
+      now: '2026-09-09T03:01:00.000Z',
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: (value) => (stderr += value) },
+    }
+  );
+  assert.equal(exitCode, 0, stderr);
+  assert.match(stdout, /^Review replacement-review: reviewer-turn$/m);
+  const recovered = await readReview(started.paths.workspace);
+  assert.equal(recovered.protocol.state, 'reviewer-turn');
+  assert.equal(
+    recovered.protocol.claims.reviewer.session_fingerprint,
+    replacement.session_fingerprint
+  );
+  assert.equal(
+    recovered.participants.reviewer.session_fingerprint,
+    replacement.session_fingerprint
+  );
+  assert.equal(recovered.participants.reviewer.joined_at, '2026-09-09T03:01:00.000Z');
   const exact = readFileSync(started.paths.events);
   await api.recoverReview({
     cwd: fx.root,

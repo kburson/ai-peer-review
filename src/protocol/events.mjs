@@ -778,6 +778,7 @@ function validatePayload(type, payload, valueReviewId) {
           'target_role',
           'target_turn',
           'content_retention',
+          'acknowledged_at',
           'parameters',
           'attestation',
         ],
@@ -789,6 +790,7 @@ function validatePayload(type, payload, valueReviewId) {
       assertPositiveInteger(payload.supplement.target_turn, `${type} target_turn`);
       if (payload.supplement.content_retention !== 'scratch-only')
         throw invalid(`${type} content_retention`);
+      if (payload.supplement.acknowledged_at !== null) throw invalid(`${type} acknowledged_at`);
       validateGrantParameters('supplement', payload.supplement.parameters, type);
       validateAttestation(payload.supplement.attestation, `${type} attestation`);
       break;

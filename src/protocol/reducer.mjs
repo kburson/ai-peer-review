@@ -389,6 +389,26 @@ function applyLifecycle(protocol, participants, event) {
     ) {
       throw transitionError(protocol.state, event, 'replacement requires participant-loss');
     }
+    if (event.type === 'participant-replaced') {
+      const role = event.payload.role;
+      const otherRole = role === 'author' ? 'reviewer' : 'author';
+      const currentClaim = protocol.claims[role];
+      const currentParticipant = participants[role];
+      if (
+        !currentClaim ||
+        !currentParticipant ||
+        !exactlyEqual(currentClaim, event.payload.outgoing_claim) ||
+        currentClaim.session_fingerprint !== currentParticipant.session_fingerprint ||
+        event.payload.incoming_participant.session_fingerprint ===
+          participants[otherRole]?.session_fingerprint
+      ) {
+        throw transitionError(
+          protocol.state,
+          event,
+          'replacement must bind the current claim and preserve distinct participants'
+        );
+      }
+    }
   }
 
   if (event.type === 'participant-replaced') {
@@ -519,7 +539,9 @@ function applyProjection(state, event) {
   }
   if (
     event.type === 'author-revision-committed' ||
-    event.type === 'author-revision-sealed-no-commit'
+    event.type === 'author-revision-sealed-no-commit' ||
+    event.type === 'author-closing-round-committed' ||
+    event.type === 'author-closing-round-sealed-no-commit'
   ) {
     protocol.reviewer_boundary = copy(event.payload.repository_boundary);
   }
@@ -538,6 +560,7 @@ function applyProjection(state, event) {
   }
   if (event.type === 'continued-to-reviewer' || event.type === 'continued-to-author') {
     protocol.max_turns = event.payload.effective_max_turns;
+    delete protocol.claims[event.type === 'continued-to-reviewer' ? 'reviewer' : 'author'];
     protocol.intervention = null;
   }
   if (event.type === 'same-session-reclaim') {
@@ -572,6 +595,29 @@ function applyProjection(state, event) {
   }
   if (event.type === 'supplement-registered') {
     protocol.supplements.push(copy(event.payload.supplement));
+  }
+  const acknowledgedRole = ['reviewer-revisions-requested', 'reviewer-accepted'].includes(
+    event.type
+  )
+    ? 'reviewer'
+    : [
+          'author-revision-committed',
+          'author-revision-sealed-no-commit',
+          'author-closing-round-committed',
+          'author-closing-round-sealed-no-commit',
+        ].includes(event.type)
+      ? 'author'
+      : null;
+  if (acknowledgedRole) {
+    for (const supplement of protocol.supplements) {
+      if (
+        supplement.target_role === acknowledgedRole &&
+        supplement.target_turn === event.payload.turn &&
+        supplement.acknowledged_at === null
+      ) {
+        supplement.acknowledged_at = event.at;
+      }
+    }
   }
   if (event.type === 'delivery-written') {
     if (

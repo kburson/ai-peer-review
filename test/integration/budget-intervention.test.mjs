@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -120,6 +120,49 @@ test('continuation freezes an exact repository focus and rejects a conflicting r
       now: '2026-09-09T02:04:00.000Z',
     }),
     (error) => error.code === 'APR_IDEMPOTENCY_CONFLICT'
+  );
+  assert.deepEqual(readFileSync(review.started.paths.events), eventBytes);
+});
+
+test('continuation output collision fails before protected authority is consumed', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const review = await budgetIntervention(fx.root, 'focus-collision-intervention');
+  const focus = path.join(fx.root, 'docs/focus-collision.md');
+  const bytes = Buffer.from('# Authorized focus\n');
+  writeFileSync(focus, bytes);
+  const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  const parameters = {
+    additional_turns: 1,
+    resulting_effective_maximum: 2,
+    resume_role: 'reviewer',
+    focus_path: 'docs/focus-collision.md',
+    focus_digest: digest,
+  };
+  const grant = await signedGrant(
+    review.started.paths.workspace,
+    'continue',
+    parameters,
+    review.fixtureId,
+    review.author,
+    '2026-09-09T02:03:00.000Z'
+  );
+  const focusDirectory = path.join(review.started.paths.workspace, 'focus');
+  mkdirSync(focusDirectory, { recursive: true });
+  writeFileSync(
+    path.join(focusDirectory, `${digest.slice('sha256:'.length)}.md`),
+    'conflicting bytes\n'
+  );
+  const eventBytes = readFileSync(review.started.paths.events);
+  await assert.rejects(
+    api.continueReview({
+      cwd: fx.root,
+      workspace: review.started.paths.workspace,
+      focus,
+      grant,
+      now: '2026-09-09T02:04:00.000Z',
+    }),
+    (error) => error.code === 'APR_OUTPUT_COLLISION'
   );
   assert.deepEqual(readFileSync(review.started.paths.events), eventBytes);
 });

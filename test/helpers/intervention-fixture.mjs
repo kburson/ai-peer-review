@@ -78,7 +78,7 @@ export async function signedGrant(workspace, action, parameters, fixtureId, requ
   };
 }
 
-export async function budgetIntervention(root, reviewId = 'budget-intervention') {
+export async function budgetIntervention(root, reviewId = 'budget-intervention', authorDeps = {}) {
   const fixtureId = `${reviewId}-authority`;
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
@@ -116,13 +116,16 @@ export async function budgetIntervention(root, reviewId = 'budget-intervention')
   replaceSection(handoff.paths.response, 'Changes made', 'Rationale only.');
   replaceSection(handoff.paths.response, 'Declined changes and rationale', 'No byte change.');
   replaceSection(handoff.paths.response, 'Verification', 'Verified.');
-  const closed = await api.submitAuthorTurn({
-    cwd: root,
-    workspace: started.paths.workspace,
-    identity: author,
-    noArtifactChange: true,
-    reason: 'No byte change.',
-    now: '2026-09-09T02:02:00.000Z',
-  });
+  const closed = await api.submitAuthorTurn(
+    {
+      cwd: root,
+      workspace: started.paths.workspace,
+      identity: author,
+      noArtifactChange: true,
+      reason: 'No byte change.',
+      now: '2026-09-09T02:02:00.000Z',
+    },
+    authorDeps
+  );
   return { author, reviewer, started, closed, fixtureId };
 }

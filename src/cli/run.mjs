@@ -320,6 +320,15 @@ function supplementPath(workspace, supplementId) {
   return path.join(workspace, 'supplements', `${supplementId}.md`);
 }
 
+function validateNewResponseDraft(workspace, state, role) {
+  const { paths } = sealedPaths(state);
+  const turn = role === 'reviewer' ? state.protocol.turns_used + 1 : state.protocol.turns_used;
+  const response = paths[`${role}Response`](turn).absolute;
+  const registry = path.join(workspace, 'responses', `${role}-${turn}.json`);
+  if (entryExists(response)) collision(response);
+  if (entryExists(registry)) collision(registry);
+}
+
 function actionRetry(events, grant, types) {
   let digest;
   try {
@@ -1102,6 +1111,23 @@ function continuedResult(state, workspace, response, event) {
   );
 }
 
+async function ensureTurnClaim(workspace, state, role, participant, now) {
+  const existing = state.protocol.claims[role];
+  if (!existing) {
+    return mutateReview(workspace, expected(state), (current) =>
+      claimRole(current, participant, now)
+    );
+  }
+  if (existing.session_fingerprint !== participant?.session_fingerprint) {
+    fail(
+      'APR_CLAIM_CONFLICT',
+      'Turn claim differs from participant authority.',
+      'Use the governed participant recovery flow.'
+    );
+  }
+  return state;
+}
+
 export async function continueReview(input, deps = {}) {
   const absolute = path.resolve(input.workspace);
   const authority = inspectReviewAuthority(absolute);
@@ -1147,12 +1173,17 @@ export async function continueReview(input, deps = {}) {
       stableConflict('Continuation retry differs from the already authorized result.');
     }
     let response = null;
-    const { paths } = sealedPaths(authority.state);
     const role = prior.payload.parameters.resume_role;
+    const resumed = await ensureTurnClaim(
+      absolute,
+      authority.state,
+      role,
+      authority.state.participants[role],
+      input.now ?? new Date()
+    );
+    const { paths } = sealedPaths(resumed);
     const turn =
-      role === 'reviewer'
-        ? authority.state.protocol.turns_used + 1
-        : authority.state.protocol.turns_used;
+      role === 'reviewer' ? resumed.protocol.turns_used + 1 : resumed.protocol.turns_used;
     if (focus) {
       ensureExactFile(
         path.join(absolute, 'focus', `${focus.digest.slice('sha256:'.length)}.md`),
@@ -1160,12 +1191,12 @@ export async function continueReview(input, deps = {}) {
       );
     }
     const currentTurn =
-      (role === 'reviewer' && authority.state.protocol.state === 'reviewer-turn') ||
-      (role === 'author' && authority.state.protocol.state === 'author-revision');
+      (role === 'reviewer' && resumed.protocol.state === 'reviewer-turn') ||
+      (role === 'author' && resumed.protocol.state === 'author-revision');
     if (currentTurn) {
-      response = createResponseDraft({ ...authority.state, paths }, role, turn).path;
+      response = createResponseDraft({ ...resumed, paths }, role, turn).path;
     }
-    return continuedResult(authority.state, absolute, response, prior);
+    return continuedResult(resumed, absolute, response, prior);
   }
   const state = authority.state;
   if (state.protocol.state !== 'intervention-required') {
@@ -1199,7 +1230,7 @@ export async function continueReview(input, deps = {}) {
     grant,
     now: input.now ?? new Date(),
     hostVerifier: deps.hostVerifier,
-    createEvent: (current, attestation) => {
+    preflight: (current) => {
       if (focus && sha256(regularInputFile(focus.source, 'APR_FOCUS_INVALID')) !== focus.digest) {
         fail(
           'APR_FOCUS_CHANGED',
@@ -1207,6 +1238,15 @@ export async function continueReview(input, deps = {}) {
           'Request a new challenge for the current focus bytes.'
         );
       }
+      if (focus) {
+        validateExactFile(
+          path.join(absolute, 'focus', `${focus.digest.slice('sha256:'.length)}.md`),
+          focus.bytes
+        );
+      }
+      validateNewResponseDraft(absolute, current, resumeRole);
+    },
+    createEvent: (current, attestation) => {
       return eventFor(
         current,
         `continued-to-${resumeRole}`,
@@ -1228,12 +1268,22 @@ export async function continueReview(input, deps = {}) {
       focus.bytes
     );
   }
-  const { paths } = sealedPaths(continued);
+  const resumed = await ensureTurnClaim(
+    absolute,
+    continued,
+    resumeRole,
+    continued.participants[resumeRole],
+    input.now ?? new Date()
+  );
+  const { paths } = sealedPaths(resumed);
   const turn =
-    resumeRole === 'reviewer' ? continued.protocol.turns_used + 1 : continued.protocol.turns_used;
-  const response = createResponseDraft({ ...continued, paths }, resumeRole, turn).path;
-  const event = inspectReviewAuthority(absolute).events.at(-1);
-  return continuedResult(continued, absolute, response, event);
+    resumeRole === 'reviewer' ? resumed.protocol.turns_used + 1 : resumed.protocol.turns_used;
+  const response = createResponseDraft({ ...resumed, paths }, resumeRole, turn).path;
+  const event = actionRetry(inspectReviewAuthority(absolute).events, grant, [
+    'continued-to-reviewer',
+    'continued-to-author',
+  ]);
+  return continuedResult(resumed, absolute, response, event);
 }
 
 function supplementResult(state, workspace, event) {
@@ -1298,7 +1348,7 @@ export async function registerSupplement(input, deps = {}) {
     grant,
     now: input.now ?? new Date(),
     hostVerifier: deps.hostVerifier,
-    createEvent: (current, attestation) => {
+    preflight: () => {
       if (sha256(normalizedSupplement(regularInputFile(source))) !== digest) {
         fail(
           'APR_SUPPLEMENT_CHANGED',
@@ -1306,6 +1356,9 @@ export async function registerSupplement(input, deps = {}) {
           'Request a new challenge for the current normalized content.'
         );
       }
+      validateExactFile(supplementPath(absolute, supplementId), bytes);
+    },
+    createEvent: (current, attestation) => {
       return eventFor(
         current,
         'supplement-registered',
@@ -1317,6 +1370,7 @@ export async function registerSupplement(input, deps = {}) {
             target_role: input.forRole,
             target_turn: targetTurn,
             content_retention: 'scratch-only',
+            acknowledged_at: null,
             parameters,
             attestation,
           },
@@ -1499,6 +1553,13 @@ export async function recoverReview(input, deps = {}) {
     ) {
       stableConflict('Participant replacement retry differs from the authorized result.');
     }
+    state = await ensureTurnClaim(
+      absolute,
+      state,
+      replacementRole,
+      input.identity,
+      input.now ?? new Date()
+    );
     return recoveryResult(state, absolute, {
       mutation: true,
       recovery: 'participant-replaced',
@@ -1519,6 +1580,8 @@ export async function recoverReview(input, deps = {}) {
       'Enter participant-loss intervention and retry with the exact replacement role.'
     );
   }
+  const otherRole = replacementRole === 'author' ? 'reviewer' : 'author';
+  assertDistinctParticipants(input.identity, state.participants[otherRole]);
   const parameters = {
     role: replacementRole,
     outgoing_claim_id: outgoing.claim_id,
@@ -1547,8 +1610,13 @@ export async function recoverReview(input, deps = {}) {
         input.now ?? new Date()
       ),
   });
-  state = await mutateReview(absolute, expected(state), (current) =>
-    claimRole(current, input.identity, input.now ?? new Date())
+  await deps.checkpoint?.('participant-replaced');
+  state = await ensureTurnClaim(
+    absolute,
+    state,
+    replacementRole,
+    input.identity,
+    input.now ?? new Date()
   );
   return recoveryResult(state, absolute, {
     mutation: true,
@@ -1655,7 +1723,12 @@ function assertReviewerRepository(input, state, events, repository) {
     fail(
       'APR_REVIEWER_GIT_VIOLATION',
       'Reviewer submission detected artifact or HEAD mutation.',
-      'Restore the event-authorized artifact and HEAD without discarding unrelated work.'
+      'Restore the event-authorized artifact and HEAD without discarding unrelated work.',
+      {
+        artifact_matches: artifactMatches,
+        observed_boundary: boundary,
+        expected_boundary: state.protocol.reviewer_boundary,
+      }
     );
   }
   return root;
@@ -2444,7 +2517,7 @@ function writeResult(stream, value) {
   stream.write(`${lines.join('\n')}\n`);
 }
 
-function commandIdentity(io, state, role = null) {
+function commandIdentity(io, state, role = null, { allowReplacement = false } = {}) {
   const roles = role ? [role] : ['author', 'reviewer'];
   for (const candidateRole of roles) {
     const identity = resolveIdentity({
@@ -2453,6 +2526,7 @@ function commandIdentity(io, state, role = null) {
       ...(io.identityContext ?? {}),
     });
     if (
+      allowReplacement ||
       !state?.participants?.[candidateRole] ||
       state.participants[candidateRole].session_fingerprint === identity.session_fingerprint
     ) {
@@ -2616,7 +2690,9 @@ export async function run(argv, io) {
           grant: parsed.options.grant,
           identity:
             parsed.options.reclaim || parsed.options.replaceParticipant
-              ? commandIdentity(io, state, role)
+              ? commandIdentity(io, state, role, {
+                  allowReplacement: Boolean(parsed.options.replaceParticipant),
+                })
               : null,
           now: io.now ?? new Date(),
         },

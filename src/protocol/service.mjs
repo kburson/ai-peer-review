@@ -347,7 +347,7 @@ export async function mutateReview(workspace, expected, createEvent) {
 export async function mutateProtectedReview(
   workspace,
   expected,
-  { action, parameters, grant, now = new Date(), hostVerifier, createEvent }
+  { action, parameters, grant, now = new Date(), hostVerifier, preflight, createEvent }
 ) {
   if (typeof createEvent !== 'function') {
     throw authorityError(
@@ -357,6 +357,16 @@ export async function mutateProtectedReview(
     );
   }
   return mutateReview(workspace, expected, (current) => {
+    if (preflight !== undefined) {
+      if (typeof preflight !== 'function') {
+        throw authorityError(
+          'APR_EVENT_INVALID',
+          'Protected review mutation preflight must be a function.',
+          'Provide a function that validates event-derived outputs under the review lock.'
+        );
+      }
+      preflight(current);
+    }
     const attestation = verifyAndConsumeGrant(current, grant, {
       action,
       parameters,

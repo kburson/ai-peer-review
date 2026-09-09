@@ -428,6 +428,7 @@
         "target_role",
         "target_turn",
         "content_retention",
+        "acknowledged_at",
         "parameters",
         "attestation"
       ],
@@ -437,6 +438,7 @@
         "target_role": { "$ref": "#/$defs/role" },
         "target_turn": { "$ref": "#/$defs/positive" },
         "content_retention": { "const": "scratch-only" },
+        "acknowledged_at": { "type": "null" },
         "parameters": { "$ref": "#/$defs/supplementParameters" },
         "attestation": { "$ref": "#/$defs/attestation" }
       }
