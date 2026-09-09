@@ -37,7 +37,21 @@ export function resolveContainedPath(root, candidate, label) {
   if (typeof candidate !== 'string' || !candidate || candidate.includes('\0')) {
     throw pathError(label, candidate);
   }
-  const absolute = path.resolve(physicalRoot, candidate);
+  const requested = path.resolve(physicalRoot, candidate);
+  const existingParent = nearestExistingParent(requested);
+  let physicalParent;
+  let existingMetadata;
+  try {
+    existingMetadata = lstatSync(existingParent);
+    physicalParent = realpathSync(existingParent);
+  } catch {
+    throw pathError(label, candidate);
+  }
+  if (!isInsideOrEqual(physicalRoot, physicalParent)) throw pathError(label, candidate);
+  const absolute =
+    existingParent === requested && existingMetadata.isSymbolicLink()
+      ? path.join(realpathSync(path.dirname(existingParent)), path.basename(existingParent))
+      : path.resolve(physicalParent, path.relative(existingParent, requested));
   const relative = path.relative(physicalRoot, absolute);
   if (
     !relative ||
@@ -47,13 +61,6 @@ export function resolveContainedPath(root, candidate, label) {
   ) {
     throw pathError(label, candidate);
   }
-  let physicalParent;
-  try {
-    physicalParent = realpathSync(nearestExistingParent(absolute));
-  } catch {
-    throw pathError(label, candidate);
-  }
-  if (!isInsideOrEqual(physicalRoot, physicalParent)) throw pathError(label, candidate);
   return Object.freeze({ absolute, relative: relative.split(path.sep).join('/') });
 }
 

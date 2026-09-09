@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -23,6 +23,18 @@ test('resolves contained future paths and returns POSIX-relative output', (t) =>
   const resolved = resolveContainedPath(root, 'docs/reviews/future.md', 'response');
   assert.equal(resolved.absolute, path.join(root, 'docs', 'reviews', 'future.md'));
   assert.equal(resolved.relative, 'docs/reviews/future.md');
+});
+
+test('accepts an alternate lexical path whose physical target is inside the repository', (t) => {
+  const { root } = containedFixture(t);
+  const alias = path.join(path.dirname(root), 'repository-alias');
+  symlinkSync(root, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  writeFileSync(path.join(root, 'docs', 'focus.md'), '# Focus\n');
+
+  const resolved = resolveContainedPath(root, path.join(alias, 'docs', 'focus.md'), 'focus');
+
+  assert.equal(resolved.absolute, path.join(root, 'docs', 'focus.md'));
+  assert.equal(resolved.relative, 'docs/focus.md');
 });
 
 test('refuses traversal, the repository root, and physical symlink escapes', (t) => {

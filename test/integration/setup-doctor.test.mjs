@@ -376,5 +376,5 @@ test('setup-only project configuration keeps consensus startup and resume diagno
   });
   assert.equal(started.review.authority.authority_policy, 'unavailable');
   assert.equal(started.review.max_turns, 4);
-  assert.match(started.paths.reviewer_invitation, /docs\/custom-reviews/);
+  assert.match(started.paths.reviewer_invitation, /docs[\\/]custom-reviews/);
 });
