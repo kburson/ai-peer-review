@@ -1,4 +1,4 @@
-import { lstatSync, realpathSync } from 'node:fs';
+import { lstatSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
@@ -27,9 +27,20 @@ function nearestExistingParent(candidate) {
   }
 }
 
-function isInsideOrEqual(root, candidate) {
-  const relative = path.relative(root, candidate);
-  return !path.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${path.sep}`);
+function sameIdentity(left, right) {
+  const leftStat = statSync(left, { bigint: true });
+  const rightStat = statSync(right, { bigint: true });
+  return leftStat.dev === rightStat.dev && leftStat.ino === rightStat.ino;
+}
+
+function relativeToPhysicalRoot(root, candidate) {
+  let current = candidate;
+  while (true) {
+    if (sameIdentity(root, current)) return path.relative(current, candidate);
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
 }
 
 export function resolveContainedPath(root, candidate, label) {
@@ -47,11 +58,21 @@ export function resolveContainedPath(root, candidate, label) {
   } catch {
     throw pathError(label, candidate);
   }
-  if (!isInsideOrEqual(physicalRoot, physicalParent)) throw pathError(label, candidate);
-  const absolute =
-    existingParent === requested && existingMetadata.isSymbolicLink()
-      ? path.join(realpathSync(path.dirname(existingParent)), path.basename(existingParent))
-      : path.resolve(physicalParent, path.relative(existingParent, requested));
+  const physicalRelative = relativeToPhysicalRoot(physicalRoot, physicalParent);
+  if (physicalRelative === null) throw pathError(label, candidate);
+  let absolute;
+  if (existingParent === requested && existingMetadata.isSymbolicLink()) {
+    const physicalLogicalParent = realpathSync(path.dirname(existingParent));
+    const logicalParentRelative = relativeToPhysicalRoot(physicalRoot, physicalLogicalParent);
+    if (logicalParentRelative === null) throw pathError(label, candidate);
+    absolute = path.resolve(physicalRoot, logicalParentRelative, path.basename(existingParent));
+  } else {
+    absolute = path.resolve(
+      physicalRoot,
+      physicalRelative,
+      path.relative(existingParent, requested)
+    );
+  }
   const relative = path.relative(physicalRoot, absolute);
   if (
     !relative ||
