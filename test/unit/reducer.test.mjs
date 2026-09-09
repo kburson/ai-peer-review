@@ -80,7 +80,11 @@ const cases = [
   [authorFinalizationEvents(), 'acceptance-committed', 'accepted'],
   [noCommit(authorFinalizationEvents()), 'acceptance-sealed-no-commit', 'accepted-uncommitted'],
   [interventionEvents('turn-budget-exhausted'), 'continued-to-reviewer', 'reviewer-turn'],
-  [interventionEvents('turn-budget-exhausted'), 'continued-to-author', 'author-revision'],
+  [
+    interventionEvents('turn-budget-exhausted', 'author-revision'),
+    'continued-to-author',
+    'author-revision',
+  ],
   [interventionEvents('stale-claim'), 'same-session-reclaim', 'reviewer-turn'],
   [interventionEvents('participant-loss'), 'participant-replaced', 'reviewer-turn'],
   [interventionEvents('turn-budget-exhausted'), 'override-committed', 'accepted-over-objections'],

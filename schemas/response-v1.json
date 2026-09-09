@@ -17,7 +17,8 @@
     "started_at",
     "submitted_at",
     "finding_ids",
-    "answered_finding_ids"
+    "answered_finding_ids",
+    "acknowledged_supplement_ids"
   ],
   "properties": {
     "schema": { "const": "ai-peer-review.response/v1" },
@@ -72,6 +73,11 @@
       "type": "array",
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^R[1-9][0-9]*-F[0-9]{3}$" }
+    },
+    "acknowledged_supplement_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }
     }
   }
 }

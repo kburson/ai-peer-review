@@ -3,6 +3,8 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import * as api from '../../src/public-api.mjs';
+
 import {
   canonicalProjection,
   mutateReview,
@@ -17,6 +19,11 @@ import {
   reviewerTurnEvents,
   createReviewWorkspace,
 } from '../helpers/review-fixture.mjs';
+import {
+  fixture as interventionFixture,
+  identity as interventionIdentity,
+  signedGrant,
+} from '../helpers/intervention-fixture.mjs';
 
 test('rebuilds missing and corrupt projections byte-for-byte from events', async (t) => {
   const fixture = await createReviewWorkspace({ repository: null, events: reviewerTurnEvents() });
@@ -167,4 +174,96 @@ test('receipt directory setup failures use the stable delivery write error', asy
       }),
     (error) => error.code === 'APR_DELIVERY_WRITE_FAILED'
   );
+});
+
+test('different-fingerprint recovery consumes exact replacement authority and preserves provenance', async (t) => {
+  const fx = interventionFixture();
+  t.after(fx.cleanup);
+  const fixtureId = 'replacement-authority';
+  const author = interventionIdentity('author', 'replacement-author');
+  const reviewer = interventionIdentity('reviewer', 'replacement-reviewer');
+  const replacement = interventionIdentity(
+    'reviewer',
+    'replacement-new-reviewer',
+    '2026-09-09T03:01:00.000Z'
+  );
+  const started = await api.startReview({
+    cwd: fx.root,
+    artifact: 'docs/artifact.md',
+    artifactKind: 'spec',
+    identity: author,
+    reviewId: 'replacement-review',
+    noCommit: true,
+    testHumanAuthority: fixtureId,
+    claimTtlMs: 60 * 60 * 1000,
+    now: '2026-09-09T02:00:00.000Z',
+  });
+  await api.joinReview({
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: '2026-09-09T02:00:00.000Z',
+  });
+  const state = await readReview(started.paths.workspace);
+  const outgoing = state.protocol.claims.reviewer;
+  const intervention = await mutateReview(
+    started.paths.workspace,
+    {
+      reviewId: state.protocol.review_id,
+      revision: state.protocol.revision,
+      sequence: state.protocol.sequence,
+      actor: state.protocol.current_actor,
+    },
+    (current) => ({
+      schema: 'ai-peer-review.event/v1',
+      review_id: current.protocol.review_id,
+      sequence: current.protocol.sequence + 1,
+      revision: current.protocol.revision + 1,
+      type: 'intervention-entered',
+      actor: 'system',
+      at: '2026-09-09T03:00:00.000Z',
+      payload: {
+        intervention_id: 'intervention-participant-loss',
+        reason: 'participant-loss',
+        interrupted_state: 'reviewer-turn',
+      },
+    })
+  );
+  const parameters = {
+    role: 'reviewer',
+    outgoing_claim_id: outgoing.claim_id,
+    outgoing_session_fingerprint: outgoing.session_fingerprint,
+    incoming_session_fingerprint: replacement.session_fingerprint,
+  };
+  const grant = await signedGrant(
+    started.paths.workspace,
+    'replace-participant',
+    parameters,
+    fixtureId,
+    author,
+    '2026-09-09T03:00:10.000Z'
+  );
+  assert.equal(intervention.protocol.intervention.reason, 'participant-loss');
+  const recovered = await api.recoverReview({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: replacement,
+    replaceParticipant: 'reviewer',
+    grant,
+    now: '2026-09-09T03:01:00.000Z',
+  });
+  assert.equal(recovered.state, 'reviewer-turn');
+  assert.equal(recovered.review.prior_participant, reviewer.session_fingerprint);
+  assert.equal(recovered.review.participant.session_fingerprint, replacement.session_fingerprint);
+  assert.equal(recovered.review.participant.joined_at, '2026-09-09T03:01:00.000Z');
+  const exact = readFileSync(started.paths.events);
+  await api.recoverReview({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: replacement,
+    replaceParticipant: 'reviewer',
+    grant,
+    now: '2026-09-09T03:01:00.000Z',
+  });
+  assert.deepEqual(readFileSync(started.paths.events), exact);
 });

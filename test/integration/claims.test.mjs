@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+
+import * as api from '../../src/public-api.mjs';
 
 import {
   claimRole,
@@ -19,6 +22,10 @@ import {
   participant,
   reviewerTurnEvents,
 } from '../helpers/review-fixture.mjs';
+import {
+  fixture as interventionFixture,
+  identity as interventionIdentity,
+} from '../helpers/intervention-fixture.mjs';
 
 const now = new Date('2026-09-08T12:00:00.000Z');
 
@@ -298,4 +305,51 @@ test('reclaim refuses a different fingerprint and an unexpired authority challen
     () => reclaimRole(challenged, participant('reviewer'), new Date('2026-09-08T20:01:00Z')),
     (error) => error.code === 'APR_CLAIM_CHALLENGED'
   );
+});
+
+test('recover inspection is read-only and same-session reclaim is idempotent', async (t) => {
+  const fx = interventionFixture();
+  t.after(fx.cleanup);
+  const author = interventionIdentity('author', 'recover-author');
+  const reviewer = interventionIdentity('reviewer', 'recover-reviewer');
+  const started = await api.startReview({
+    cwd: fx.root,
+    artifact: 'docs/artifact.md',
+    artifactKind: 'spec',
+    identity: author,
+    reviewId: 'recover-review',
+    claimTtlMs: 60 * 60 * 1000,
+    now: '2026-09-09T02:00:00.000Z',
+  });
+  await api.joinReview({
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: '2026-09-09T02:00:00.000Z',
+  });
+  const before = readFileSync(started.paths.events);
+  const plan = await api.recoverReview({
+    workspace: started.paths.workspace,
+    now: '2026-09-09T03:00:00.000Z',
+  });
+  assert.equal(plan.review.mutation, false);
+  assert.equal(plan.review.claim_status, 'stale');
+  assert.deepEqual(readFileSync(started.paths.events), before);
+
+  const recovered = await api.recoverReview({
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    reclaim: true,
+    now: '2026-09-09T03:01:00.000Z',
+  });
+  assert.equal(recovered.state, 'reviewer-turn');
+  assert.equal(recovered.review.recovery, 'same-session-reclaim');
+  const exact = readFileSync(started.paths.events);
+  await api.recoverReview({
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    reclaim: true,
+    now: '2026-09-09T03:01:00.000Z',
+  });
+  assert.deepEqual(readFileSync(started.paths.events), exact);
 });

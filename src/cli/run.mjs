@@ -1,5 +1,5 @@
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
-import { lstatSync, readFileSync } from 'node:fs';
+import { lstatSync, readFileSync, readdirSync, realpathSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 
 import {
@@ -23,7 +23,9 @@ import {
   assertDistinctParticipants,
   claimRole,
   deriveClaimStatus,
+  enterStaleClaimIntervention,
   identityChangeEvent,
+  reclaimRole,
   resolveIdentity,
 } from '../identity/registry.mjs';
 import { eventAdvancesRevision, validateEvent } from '../protocol/events.mjs';
@@ -33,6 +35,7 @@ import {
   inspectReview,
   inspectReviewAuthority,
   mutateReview,
+  mutateProtectedReview,
   readReview,
   repairReview,
 } from '../protocol/service.mjs';
@@ -262,6 +265,88 @@ function readGrant(file, root) {
     error.cause = cause;
     throw error;
   }
+}
+
+function operationalGrant(value, root) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  return readGrant(value, root);
+}
+
+function stableConflict(message) {
+  fail(
+    'APR_IDEMPOTENCY_CONFLICT',
+    message,
+    'Retry with the exact original protected action inputs or request a new challenge.'
+  );
+}
+
+function detectionWarning(attestation) {
+  return ['hardware-presence', 'host-verified', 'cryptographic-external'].includes(
+    attestation.strength
+  )
+    ? null
+    : `Human Authority was detection-grade (${attestation.strength}); verify the retained attestation.`;
+}
+
+function normalizedSupplement(bytes) {
+  let text;
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    fail(
+      'APR_SUPPLEMENT_INVALID',
+      'Supplement content is not valid UTF-8 text.',
+      'Provide a valid UTF-8 Markdown supplement.'
+    );
+  }
+  return Buffer.from(text.normalize('NFC').replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
+}
+
+function regularInputFile(file, code = 'APR_SUPPLEMENT_INVALID') {
+  try {
+    if (!lstatSync(file).isFile()) throw new Error('not a regular file');
+    return readFileSync(file);
+  } catch (cause) {
+    const error = new AprError(code, 'Input must be an existing regular file.', {
+      recovery: 'Use an existing regular file and retry.',
+      details: { file },
+    });
+    error.cause = cause;
+    throw error;
+  }
+}
+
+function supplementPath(workspace, supplementId) {
+  return path.join(workspace, 'supplements', `${supplementId}.md`);
+}
+
+function actionRetry(events, grant, types) {
+  let digest;
+  try {
+    digest = digestChallenge(grant.challenge);
+  } catch {
+    return null;
+  }
+  return [...events]
+    .reverse()
+    .find(
+      (event) =>
+        types.includes(event.type) &&
+        (event.payload.attestation ?? event.payload.supplement?.attestation)?.challenge_digest ===
+          digest
+    );
+}
+
+function interventionTurn(state, role) {
+  const turn = state.protocol.turns_used + 1;
+  if (!['author', 'reviewer'].includes(role) || !Number.isSafeInteger(turn) || turn <= 0) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Supplement target cannot be derived from current intervention authority.',
+      'Read current status and target author or reviewer during intervention.'
+    );
+  }
+  return turn;
 }
 
 function verifyBootstrapInput({
@@ -1000,6 +1085,479 @@ export function resumeReview(workspace, options = {}) {
   });
 }
 
+function continuedResult(state, workspace, response, event) {
+  const warning = detectionWarning(event.payload.attestation);
+  return result(
+    'continue',
+    state,
+    { workspace, ...(response ? { response } : {}) },
+    {
+      max_turns: state.protocol.max_turns,
+      additional_turns: event.payload.additional_turns,
+      resume_role: event.payload.parameters.resume_role,
+      focus_path: event.payload.parameters.focus_path,
+      authority: event.payload.attestation,
+      authority_warning: warning,
+    }
+  );
+}
+
+export async function continueReview(input, deps = {}) {
+  const absolute = path.resolve(input.workspace);
+  const authority = inspectReviewAuthority(absolute);
+  const root = authority.state.protocol.startup.context.repository_root;
+  const grant = operationalGrant(input.grant, input.cwd ?? root);
+  const prior = actionRetry(authority.events, grant, [
+    'continued-to-reviewer',
+    'continued-to-author',
+  ]);
+  let focus = null;
+  if (input.focus !== undefined && input.focus !== null) {
+    const requested = path.resolve(input.cwd ?? root, input.focus);
+    const physicalRoot = realpathSync(root);
+    let physical;
+    try {
+      physical = realpathSync(requested);
+    } catch (cause) {
+      const error = new AprError('APR_FOCUS_INVALID', 'Continuation focus cannot be read.', {
+        recovery: 'Use a regular file inside the review repository.',
+        details: { file: requested },
+      });
+      error.cause = cause;
+      throw error;
+    }
+    const relative = path.relative(physicalRoot, physical).split(path.sep).join('/');
+    if (!relative || relative.startsWith('../') || path.isAbsolute(relative)) {
+      fail(
+        'APR_FOCUS_INVALID',
+        'Continuation focus is outside the review repository.',
+        'Use a regular repository file as the continuation focus.'
+      );
+    }
+    const bytes = regularInputFile(physical, 'APR_FOCUS_INVALID');
+    focus = { source: physical, path: relative, bytes, digest: sha256(bytes) };
+  }
+  if (prior) {
+    if (
+      !sameValue(grant.parameters, prior.payload.parameters) ||
+      prior.payload.additional_turns !== (input.additionalTurns ?? 1) ||
+      prior.payload.parameters.focus_path !== (focus?.path ?? null) ||
+      prior.payload.parameters.focus_digest !== (focus?.digest ?? null)
+    ) {
+      stableConflict('Continuation retry differs from the already authorized result.');
+    }
+    let response = null;
+    const { paths } = sealedPaths(authority.state);
+    const role = prior.payload.parameters.resume_role;
+    const turn =
+      role === 'reviewer'
+        ? authority.state.protocol.turns_used + 1
+        : authority.state.protocol.turns_used;
+    if (focus) {
+      ensureExactFile(
+        path.join(absolute, 'focus', `${focus.digest.slice('sha256:'.length)}.md`),
+        focus.bytes
+      );
+    }
+    const currentTurn =
+      (role === 'reviewer' && authority.state.protocol.state === 'reviewer-turn') ||
+      (role === 'author' && authority.state.protocol.state === 'author-revision');
+    if (currentTurn) {
+      response = createResponseDraft({ ...authority.state, paths }, role, turn).path;
+    }
+    return continuedResult(authority.state, absolute, response, prior);
+  }
+  const state = authority.state;
+  if (state.protocol.state !== 'intervention-required') {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Continuation requires an active intervention.',
+      'Read status and continue only the frozen intervention.'
+    );
+  }
+  if (state.protocol.intervention?.reason !== 'turn-budget-exhausted') {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Budget continuation requires a turn-budget intervention.',
+      'Use reclaim for stale claims or participant replacement for participant loss.'
+    );
+  }
+  const additional = safePositive(input.additionalTurns, 1, 'additional turns');
+  const resumeRole = state.protocol.intervention.interrupted_state.startsWith('reviewer')
+    ? 'reviewer'
+    : 'author';
+  const parameters = {
+    additional_turns: additional,
+    resulting_effective_maximum: state.protocol.max_turns + additional,
+    resume_role: resumeRole,
+    focus_path: focus?.path ?? null,
+    focus_digest: focus?.digest ?? null,
+  };
+  const continued = await mutateProtectedReview(absolute, expected(state), {
+    action: 'continue',
+    parameters,
+    grant,
+    now: input.now ?? new Date(),
+    hostVerifier: deps.hostVerifier,
+    createEvent: (current, attestation) => {
+      if (focus && sha256(regularInputFile(focus.source, 'APR_FOCUS_INVALID')) !== focus.digest) {
+        fail(
+          'APR_FOCUS_CHANGED',
+          'Continuation focus changed while authority was being consumed.',
+          'Request a new challenge for the current focus bytes.'
+        );
+      }
+      return eventFor(
+        current,
+        `continued-to-${resumeRole}`,
+        attestation.signer_fingerprint,
+        {
+          intervention_id: current.protocol.intervention.intervention_id,
+          additional_turns: additional,
+          effective_max_turns: parameters.resulting_effective_maximum,
+          parameters,
+          attestation,
+        },
+        input.now ?? new Date()
+      );
+    },
+  });
+  if (focus) {
+    ensureExactFile(
+      path.join(absolute, 'focus', `${focus.digest.slice('sha256:'.length)}.md`),
+      focus.bytes
+    );
+  }
+  const { paths } = sealedPaths(continued);
+  const turn =
+    resumeRole === 'reviewer' ? continued.protocol.turns_used + 1 : continued.protocol.turns_used;
+  const response = createResponseDraft({ ...continued, paths }, resumeRole, turn).path;
+  const event = inspectReviewAuthority(absolute).events.at(-1);
+  return continuedResult(continued, absolute, response, event);
+}
+
+function supplementResult(state, workspace, event) {
+  const supplement = event.payload.supplement;
+  return result(
+    'supplement',
+    state,
+    { workspace, supplement: supplementPath(workspace, supplement.supplement_id) },
+    {
+      supplement,
+      authority_warning: detectionWarning(supplement.attestation),
+    }
+  );
+}
+
+export async function registerSupplement(input, deps = {}) {
+  const absolute = path.resolve(input.workspace);
+  const authority = inspectReviewAuthority(absolute);
+  const root = authority.state.protocol.startup.context.repository_root;
+  const grant = operationalGrant(input.grant, input.cwd ?? root);
+  const source = path.resolve(input.cwd ?? root, input.file);
+  const bytes = normalizedSupplement(regularInputFile(source));
+  const digest = sha256(bytes);
+  const prior = actionRetry(authority.events, grant, ['supplement-registered']);
+  if (prior) {
+    const supplement = prior.payload.supplement;
+    if (
+      !sameValue(grant.parameters, supplement.parameters) ||
+      supplement.digest !== digest ||
+      supplement.target_role !== input.forRole
+    ) {
+      stableConflict('Supplement retry differs from the already authorized result.');
+    }
+    ensureExactFile(supplementPath(absolute, supplement.supplement_id), bytes);
+    return supplementResult(authority.state, absolute, prior);
+  }
+  const state = authority.state;
+  if (state.protocol.state !== 'intervention-required') {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Supplement registration requires an active intervention.',
+      'Read status and register supplements only against frozen intervention authority.'
+    );
+  }
+  if (state.protocol.intervention?.reason !== 'turn-budget-exhausted') {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Supplement registration requires a turn-budget intervention.',
+      'Resolve stale claims or participant loss with their dedicated recovery action.'
+    );
+  }
+  const targetTurn = interventionTurn(state, input.forRole);
+  const parameters = {
+    content_digest: digest,
+    target_role: input.forRole,
+    target_turn: targetTurn,
+  };
+  const supplementId = `supplement-${digest.slice('sha256:'.length, 'sha256:'.length + 16)}-${input.forRole}-${targetTurn}`;
+  const registered = await mutateProtectedReview(absolute, expected(state), {
+    action: 'supplement',
+    parameters,
+    grant,
+    now: input.now ?? new Date(),
+    hostVerifier: deps.hostVerifier,
+    createEvent: (current, attestation) => {
+      if (sha256(normalizedSupplement(regularInputFile(source))) !== digest) {
+        fail(
+          'APR_SUPPLEMENT_CHANGED',
+          'Supplement changed while authority was being consumed.',
+          'Request a new challenge for the current normalized content.'
+        );
+      }
+      return eventFor(
+        current,
+        'supplement-registered',
+        attestation.signer_fingerprint,
+        {
+          supplement: {
+            supplement_id: supplementId,
+            digest,
+            target_role: input.forRole,
+            target_turn: targetTurn,
+            content_retention: 'scratch-only',
+            parameters,
+            attestation,
+          },
+        },
+        input.now ?? new Date()
+      );
+    },
+  });
+  ensureExactFile(supplementPath(absolute, supplementId), bytes);
+  return supplementResult(registered, absolute, inspectReviewAuthority(absolute).events.at(-1));
+}
+
+function retainedWorkspacePaths(workspace) {
+  const visit = (directory) =>
+    readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const absolute = path.join(directory, entry.name);
+      const relative = path.relative(workspace, absolute).split(path.sep).join('/');
+      if (relative === 'collateral-reservation.json' || relative === 'locks/review.lock') return [];
+      return entry.isDirectory() ? visit(absolute) : [relative];
+    });
+  return visit(workspace).sort();
+}
+
+function releaseReservation(workspace, reviewId) {
+  const file = path.join(workspace, 'collateral-reservation.json');
+  if (!entryExists(file)) return;
+  let record;
+  try {
+    record = JSON.parse(readFileSync(file, 'utf8'));
+  } catch {
+    collision(file);
+  }
+  if (
+    record?.schema !== 'ai-peer-review.collateral-reservation/v1' ||
+    record.review_id !== reviewId
+  ) {
+    collision(file);
+  }
+  unlinkSync(file);
+}
+
+export async function abandonReview(input) {
+  const absolute = path.resolve(input.workspace);
+  const authority = inspectReviewAuthority(absolute);
+  const state = authority.state;
+  const reason = String(input.reason ?? '').trim();
+  const prior = [...authority.events].reverse().find((event) => event.type === 'abandoned');
+  if (prior) {
+    if (prior.actor !== input.identity?.session_fingerprint || prior.payload.reason !== reason) {
+      stableConflict('Abandonment retry differs from the terminal event.');
+    }
+    releaseReservation(absolute, state.protocol.review_id);
+    return result(
+      'abandon',
+      state,
+      { workspace: absolute },
+      {
+        actor: prior.actor,
+        reason,
+        retained_paths: prior.payload.retained_paths,
+      }
+    );
+  }
+  if (
+    state.protocol.state !== 'intervention-required' ||
+    !reason ||
+    !['author', 'reviewer'].some(
+      (role) =>
+        state.participants[role]?.session_fingerprint === input.identity?.session_fingerprint
+    )
+  ) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Abandonment requires one registered participant during intervention.',
+      'Resume from the registered author or reviewer session and provide a reason.'
+    );
+  }
+  const retainedPaths = retainedWorkspacePaths(absolute);
+  const abandoned = await mutateReview(absolute, expected(state), (current) =>
+    eventFor(
+      current,
+      'abandoned',
+      input.identity.session_fingerprint,
+      {
+        intervention_id: current.protocol.intervention.intervention_id,
+        reason,
+        retained_paths: retainedPaths,
+      },
+      input.now ?? new Date()
+    )
+  );
+  releaseReservation(absolute, abandoned.protocol.review_id);
+  return result(
+    'abandon',
+    abandoned,
+    { workspace: absolute },
+    {
+      actor: input.identity.session_fingerprint,
+      reason,
+      retained_paths: retainedPaths,
+    }
+  );
+}
+
+function recoveryResult(state, workspace, review = {}) {
+  return result('recover', state, { workspace }, review);
+}
+
+export async function recoverReview(input, deps = {}) {
+  const absolute = path.resolve(input.workspace);
+  const authority = inspectReviewAuthority(absolute);
+  let state = authority.state;
+  const role = state.protocol.intervention?.interrupted_state?.startsWith('author')
+    ? 'author'
+    : state.protocol.intervention?.interrupted_state?.startsWith('reviewer')
+      ? 'reviewer'
+      : state.protocol.current_actor;
+  if (!input.reclaim && !input.replaceParticipant) {
+    const observed = ['author', 'reviewer'].includes(role)
+      ? deriveClaimStatus(state, role, input.now ?? new Date())
+      : { status: 'not-applicable', claim: null };
+    return recoveryResult(state, absolute, {
+      mutation: false,
+      role,
+      claim_status: observed.status,
+      intervention: state.protocol.intervention,
+      deliveries: state.protocol.deliveries,
+      terminal_evidence: state.protocol.terminal_evidence,
+    });
+  }
+  if (input.reclaim) {
+    if (!['author', 'reviewer'].includes(role) || input.identity?.role !== role) {
+      fail(
+        'APR_CLAIM_CONFLICT',
+        'Recovery identity does not match the stale role.',
+        'Resume from the same registered role session.'
+      );
+    }
+    const previous = [...authority.events]
+      .reverse()
+      .find(
+        (event) => event.type === 'same-session-reclaim' && event.payload.new_claim.role === role
+      );
+    if (
+      previous &&
+      state.protocol.claims[role]?.claim_id === previous.payload.new_claim.claim_id &&
+      previous.payload.new_claim.session_fingerprint === input.identity.session_fingerprint
+    ) {
+      return recoveryResult(state, absolute, {
+        mutation: true,
+        recovery: 'same-session-reclaim',
+        claim: state.protocol.claims[role],
+      });
+    }
+    if (state.protocol.state !== 'intervention-required') {
+      state = await mutateReview(absolute, expected(state), (current) =>
+        enterStaleClaimIntervention(current, role, input.now ?? new Date())
+      );
+    }
+    state = await mutateReview(absolute, expected(state), (current) =>
+      reclaimRole(current, input.identity, input.now ?? new Date())
+    );
+    return recoveryResult(state, absolute, {
+      mutation: true,
+      recovery: 'same-session-reclaim',
+      claim: state.protocol.claims[role],
+    });
+  }
+  const replacementRole = input.replaceParticipant;
+  const grant = operationalGrant(
+    input.grant,
+    input.cwd ?? state.protocol.startup.context.repository_root
+  );
+  const prior = actionRetry(authority.events, grant, ['participant-replaced']);
+  if (prior) {
+    if (
+      !sameValue(grant.parameters, prior.payload.parameters) ||
+      prior.payload.role !== replacementRole ||
+      prior.payload.incoming_participant.session_fingerprint !== input.identity?.session_fingerprint
+    ) {
+      stableConflict('Participant replacement retry differs from the authorized result.');
+    }
+    return recoveryResult(state, absolute, {
+      mutation: true,
+      recovery: 'participant-replaced',
+      prior_participant: prior.payload.outgoing_claim.session_fingerprint,
+      participant: state.participants[replacementRole],
+    });
+  }
+  const outgoing = state.protocol.claims[replacementRole];
+  if (
+    state.protocol.state !== 'intervention-required' ||
+    state.protocol.intervention?.reason !== 'participant-loss' ||
+    !outgoing ||
+    input.identity?.role !== replacementRole
+  ) {
+    fail(
+      'APR_CLAIM_CONFLICT',
+      'Participant replacement does not match participant-loss authority.',
+      'Enter participant-loss intervention and retry with the exact replacement role.'
+    );
+  }
+  const parameters = {
+    role: replacementRole,
+    outgoing_claim_id: outgoing.claim_id,
+    outgoing_session_fingerprint: outgoing.session_fingerprint,
+    incoming_session_fingerprint: input.identity.session_fingerprint,
+  };
+  state = await mutateProtectedReview(absolute, expected(state), {
+    action: 'replace-participant',
+    parameters,
+    grant,
+    now: input.now ?? new Date(),
+    hostVerifier: deps.hostVerifier,
+    createEvent: (current, attestation) =>
+      eventFor(
+        current,
+        'participant-replaced',
+        attestation.signer_fingerprint,
+        {
+          intervention_id: current.protocol.intervention.intervention_id,
+          role: replacementRole,
+          outgoing_claim: outgoing,
+          incoming_participant: input.identity,
+          parameters,
+          attestation,
+        },
+        input.now ?? new Date()
+      ),
+  });
+  state = await mutateReview(absolute, expected(state), (current) =>
+    claimRole(current, input.identity, input.now ?? new Date())
+  );
+  return recoveryResult(state, absolute, {
+    mutation: true,
+    recovery: 'participant-replaced',
+    prior_participant: outgoing.session_fingerprint,
+    participant: state.participants[replacementRole],
+  });
+}
+
 function submissionAuthority(workspace) {
   const absolute = path.resolve(workspace);
   const authority = inspectReviewAuthority(absolute);
@@ -1141,6 +1699,9 @@ function sealedReviewerFromEvent(root, event) {
     submitted_at: parsed.metadata.submitted_at,
     finding_ids: Object.freeze([...event.payload.finding_ids]),
     answered_finding_ids: Object.freeze([]),
+    acknowledged_supplement_ids: Object.freeze([
+      ...(parsed.metadata.acknowledged_supplement_ids ?? []),
+    ]),
   });
 }
 
@@ -1351,6 +1912,7 @@ function sealedAuthorFromEvent(root, event) {
     submitted_at: metadata.submitted_at,
     finding_ids: Object.freeze([]),
     answered_finding_ids: Object.freeze([...metadata.answered_finding_ids]),
+    acknowledged_supplement_ids: Object.freeze([...(metadata.acknowledged_supplement_ids ?? [])]),
   });
 }
 
@@ -1882,6 +2444,28 @@ function writeResult(stream, value) {
   stream.write(`${lines.join('\n')}\n`);
 }
 
+function commandIdentity(io, state, role = null) {
+  const roles = role ? [role] : ['author', 'reviewer'];
+  for (const candidateRole of roles) {
+    const identity = resolveIdentity({
+      role: candidateRole,
+      env: io.env,
+      ...(io.identityContext ?? {}),
+    });
+    if (
+      !state?.participants?.[candidateRole] ||
+      state.participants[candidateRole].session_fingerprint === identity.session_fingerprint
+    ) {
+      return identity;
+    }
+  }
+  fail(
+    'APR_IDENTITY_CONFLICT',
+    'Current session does not match the requested review participant.',
+    'Resume from the registered participant session.'
+  );
+}
+
 export async function run(argv, io) {
   try {
     const parsed = parseCommand(argv);
@@ -1989,6 +2573,64 @@ export async function run(argv, io) {
           'Read status and follow its exact next action.'
         );
       }
+    } else if (parsed.command === 'continue') {
+      response = await continueReview(
+        {
+          cwd: io.cwd,
+          workspace: path.resolve(io.cwd, parsed.args[0]),
+          additionalTurns: parsed.options.additionalTurns,
+          focus: parsed.options.focus,
+          grant: parsed.options.grant,
+          now: io.now ?? new Date(),
+        },
+        { hostVerifier: io.hostVerifier }
+      );
+    } else if (parsed.command === 'supplement') {
+      response = await registerSupplement(
+        {
+          cwd: io.cwd,
+          workspace: path.resolve(io.cwd, parsed.args[0]),
+          file: parsed.args[1],
+          forRole: parsed.options.for,
+          grant: parsed.options.grant,
+          now: io.now ?? new Date(),
+        },
+        { hostVerifier: io.hostVerifier }
+      );
+    } else if (parsed.command === 'recover') {
+      const workspace = path.resolve(io.cwd, parsed.args[0]);
+      const state = inspectReview(workspace);
+      const role =
+        parsed.options.replaceParticipant ??
+        (state.protocol.intervention?.interrupted_state?.startsWith('author')
+          ? 'author'
+          : state.protocol.intervention?.interrupted_state?.startsWith('reviewer')
+            ? 'reviewer'
+            : state.protocol.current_actor);
+      response = await recoverReview(
+        {
+          cwd: io.cwd,
+          workspace,
+          reclaim: parsed.options.reclaim,
+          replaceParticipant: parsed.options.replaceParticipant,
+          grant: parsed.options.grant,
+          identity:
+            parsed.options.reclaim || parsed.options.replaceParticipant
+              ? commandIdentity(io, state, role)
+              : null,
+          now: io.now ?? new Date(),
+        },
+        { hostVerifier: io.hostVerifier }
+      );
+    } else if (parsed.command === 'abandon') {
+      const workspace = path.resolve(io.cwd, parsed.args[0]);
+      const state = inspectReview(workspace);
+      response = await abandonReview({
+        workspace,
+        identity: commandIdentity(io, state),
+        reason: parsed.options.reason,
+        now: io.now ?? new Date(),
+      });
     } else {
       throw new AprError('APR_NOT_IMPLEMENTED', `${parsed.command} is not implemented yet`, {
         recovery: `Run peer-review help ${parsed.command} for the planned interface.`,

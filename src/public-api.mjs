@@ -7,7 +7,11 @@ export {
   parseCommand,
 } from './cli/parse.mjs';
 export {
+  abandonReview,
+  continueReview,
   joinReview,
+  recoverReview,
+  registerSupplement,
   resumeReview,
   run,
   startReview,

@@ -368,6 +368,21 @@ function applyLifecycle(protocol, participants, event) {
         throw transitionError(protocol.state, event, 'conflicting reclaim');
       }
     }
+    if (event.type === 'continued-to-reviewer' || event.type === 'continued-to-author') {
+      const resumeRole = event.type === 'continued-to-reviewer' ? 'reviewer' : 'author';
+      const interruptedRole = protocol.intervention?.interrupted_state?.replace(/-.+$/, '');
+      if (
+        protocol.intervention?.reason !== 'turn-budget-exhausted' ||
+        resumeRole !== interruptedRole ||
+        event.payload.effective_max_turns !== protocol.max_turns + event.payload.additional_turns
+      ) {
+        throw transitionError(
+          protocol.state,
+          event,
+          'continuation must add to the frozen budget and restore the interrupted role'
+        );
+      }
+    }
     if (
       event.type === 'participant-replaced' &&
       protocol.intervention?.reason !== 'participant-loss'

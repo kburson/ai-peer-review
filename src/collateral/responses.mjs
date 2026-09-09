@@ -32,6 +32,7 @@ const METADATA_KEYS = Object.freeze([
   'submitted_at',
   'finding_ids',
   'answered_finding_ids',
+  'acknowledged_supplement_ids',
 ]);
 const AGENT_KEYS = Object.freeze([
   'host',
@@ -136,6 +137,9 @@ function expectedMetadata(review, role, turn) {
     submitted_at: null,
     finding_ids: [],
     answered_finding_ids: role === 'author' ? [...(review.pending_finding_ids ?? [])] : [],
+    acknowledged_supplement_ids: (protocol.supplements ?? [])
+      .filter((supplement) => supplement.target_role === role && supplement.target_turn === turn)
+      .map((supplement) => supplement.supplement_id),
   };
 }
 
@@ -715,6 +719,7 @@ function sealedResult(file, bytes, metadata) {
     submitted_at: metadata.submitted_at,
     finding_ids: Object.freeze([...metadata.finding_ids]),
     answered_finding_ids: Object.freeze([...metadata.answered_finding_ids]),
+    acknowledged_supplement_ids: Object.freeze([...(metadata.acknowledged_supplement_ids ?? [])]),
   });
 }
 

@@ -12,6 +12,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
+import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { AprError } from '../errors.mjs';
 import { validateEvent } from './events.mjs';
 import { reduceEvents } from './reducer.mjs';
@@ -340,5 +341,28 @@ export async function mutateReview(workspace, expected, createEvent) {
     writeProjections(workspace, next);
     ensureDeliveryReceipts(workspace, next);
     return next;
+  });
+}
+
+export async function mutateProtectedReview(
+  workspace,
+  expected,
+  { action, parameters, grant, now = new Date(), hostVerifier, createEvent }
+) {
+  if (typeof createEvent !== 'function') {
+    throw authorityError(
+      'APR_EVENT_INVALID',
+      'Protected review mutation requires an event factory.',
+      'Provide a function that creates the authorized event.'
+    );
+  }
+  return mutateReview(workspace, expected, (current) => {
+    const attestation = verifyAndConsumeGrant(current, grant, {
+      action,
+      parameters,
+      now,
+      hostVerifier,
+    });
+    return createEvent(current, attestation);
   });
 }
