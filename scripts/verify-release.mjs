@@ -154,6 +154,40 @@ function defaultObservers(root) {
       const { stdout } = await run('git', ['rev-parse', 'HEAD'], { cwd: root });
       return stdout.trim();
     },
+    async releaseDelta(releaseCommit, head) {
+      try {
+        await run('git', ['merge-base', '--is-ancestor', releaseCommit, head], { cwd: root });
+      } catch (error) {
+        if (error?.code === 1) {
+          return { ancestor: false, commitCount: 0, paths: [] };
+        }
+        throw error;
+      }
+      const [{ stdout: count }, { stdout: changedPaths }] = await Promise.all([
+        run('git', ['rev-list', '--count', `${releaseCommit}..${head}`], { cwd: root }),
+        run(
+          'git',
+          [
+            'diff',
+            '--name-only',
+            '--no-renames',
+            // cspell:disable-next-line
+            '--diff-filter=ACDMRTUXB',
+            `${releaseCommit}..${head}`,
+            '--',
+          ],
+          { cwd: root }
+        ),
+      ]);
+      return {
+        ancestor: true,
+        commitCount: Number(count.trim()),
+        paths: changedPaths
+          .split(/\r?\n/)
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      };
+    },
     async repository() {
       const { stdout } = await run(
         'gh',
@@ -215,12 +249,21 @@ export async function verifyRelease({ root, manifest, observers } = {}) {
   const head = await observed.head();
   if (
     tag.target_commit !== manifest.tag.target_commit ||
-    manifest.tag.target_commit !== manifest.release_commit ||
-    manifest.release_commit !== head
+    manifest.tag.target_commit !== manifest.release_commit
   )
-    fail('signed tag, release commit, and checkout HEAD do not match');
+    fail('signed tag target and release commit do not match');
   if (tag.signer_fingerprint !== manifest.tag.signer_fingerprint)
     fail('signed tag fingerprint mismatch');
+  const delta = await observed.releaseDelta(manifest.release_commit, head);
+  if (delta?.ancestor !== true) fail('release commit is not an ancestor of checkout HEAD');
+  if (!Number.isInteger(delta.commitCount) || delta.commitCount !== 1)
+    fail('checkout HEAD is not exactly one evidence commit after the release commit');
+  if (
+    !Array.isArray(delta.paths) ||
+    delta.paths.length !== 1 ||
+    delta.paths[0] !== 'provenance/release-manifest.json'
+  )
+    fail('post-release changes are not restricted to provenance/release-manifest.json');
 
   const repository = await observed.repository();
   if (repository.url !== manifest.repository.url || repository.visibility !== 'PUBLIC')

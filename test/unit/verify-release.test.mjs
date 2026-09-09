@@ -13,6 +13,7 @@ const releaseCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
   cwd: root,
   encoding: 'utf8',
 }).trim();
+const evidenceCommit = 'e'.repeat(40);
 
 function manifest() {
   return {
@@ -54,11 +55,20 @@ function manifest() {
 function observers(value = manifest()) {
   return {
     extraction: async () => true,
-    head: async () => value.release_commit,
+    head: async () => evidenceCommit,
     tag: async () => ({
       target_commit: value.release_commit,
       signer_fingerprint: value.tag.signer_fingerprint,
     }),
+    releaseDelta: async (base, head) => {
+      assert.equal(base, value.release_commit);
+      assert.equal(head, evidenceCommit);
+      return {
+        ancestor: true,
+        commitCount: 1,
+        paths: ['provenance/release-manifest.json'],
+      };
+    },
     repository: async () => value.repository,
     githubRelease: async () => ({
       url: value.github_release.url,
@@ -79,11 +89,59 @@ function observers(value = manifest()) {
   };
 }
 
-test('release verifier binds extraction, public release, npm provenance, checksum, and archives', async () => {
+test('release verifier binds the release commit to the signed tag target', async () => {
   const value = manifest();
   const verified = await verifyRelease({ root, manifest: value, observers: observers(value) });
   assert.equal(verified.releaseCommit, releaseCommit);
   assert.equal(verified.checksum, digest);
+
+  const substituted = manifest();
+  substituted.tag.target_commit = '0'.repeat(40);
+  await assert.rejects(
+    verifyRelease({ root, manifest: substituted, observers: observers(manifest()) }),
+    /signed tag target and release commit do not match/
+  );
+});
+
+test('release verifier permits one evidence-only descendant', async () => {
+  const value = manifest();
+  const verified = await verifyRelease({ root, manifest: value, observers: observers(value) });
+  assert.equal(verified.releaseCommit, releaseCommit);
+});
+
+test('release verifier rejects unrelated post-release changes', async () => {
+  const unrelated = observers(manifest());
+  unrelated.releaseDelta = async () => ({
+    ancestor: true,
+    commitCount: 1,
+    paths: ['provenance/release-manifest.json', 'src/public-api.mjs'],
+  });
+  await assert.rejects(
+    verifyRelease({ root, manifest: manifest(), observers: unrelated }),
+    /post-release changes are not restricted to provenance\/release-manifest\.json/
+  );
+
+  const unrelatedHistory = observers(manifest());
+  unrelatedHistory.releaseDelta = async () => ({
+    ancestor: false,
+    commitCount: 0,
+    paths: [],
+  });
+  await assert.rejects(
+    verifyRelease({ root, manifest: manifest(), observers: unrelatedHistory }),
+    /release commit is not an ancestor of checkout HEAD/
+  );
+
+  const multipleEvidenceCommits = observers(manifest());
+  multipleEvidenceCommits.releaseDelta = async () => ({
+    ancestor: true,
+    commitCount: 2,
+    paths: ['provenance/release-manifest.json'],
+  });
+  await assert.rejects(
+    verifyRelease({ root, manifest: manifest(), observers: multipleEvidenceCommits }),
+    /not exactly one evidence commit/
+  );
 });
 
 test('release manifest fails closed on draft or substituted public evidence', async () => {
@@ -95,13 +153,6 @@ test('release manifest fails closed on draft or substituted public evidence', as
   await assert.rejects(
     verifyRelease({ root, manifest: changed, observers: observers(manifest()) }),
     /checksum mismatch/
-  );
-
-  const wrongHead = observers(manifest());
-  wrongHead.head = async () => '0'.repeat(40);
-  await assert.rejects(
-    verifyRelease({ root, manifest: manifest(), observers: wrongHead }),
-    /checkout HEAD do not match/
   );
 
   const wrongSigner = observers(manifest());
