@@ -60,7 +60,7 @@ export const COMMAND_FLAGS = Object.freeze({
   submit: frozenList(['--decision', '--no-artifact-change', '--reason']),
   supplement: frozenList(['--for', '--grant']),
   continue: frozenList(['--additional-turns', '--focus', '--grant']),
-  finalize: frozenList(['--good-enough', '--grant']),
+  finalize: frozenList(['--good-enough', '--grant', '--rationale']),
   recover: frozenList(['--reclaim', '--replace-participant', '--grant']),
   abandon: frozenList(['--reason']),
   help: frozenList(['--all', '--json']),
@@ -85,7 +85,8 @@ export const COMMAND_USAGE = Object.freeze({
     'peer-review supplement <workspace> <file> --for <author|reviewer> --grant <signed-grant>',
   continue:
     'peer-review continue <workspace> [--additional-turns <N>] [--focus <file>] --grant <signed-grant>',
-  finalize: 'peer-review finalize <workspace> [--good-enough --grant <signed-grant>]',
+  finalize:
+    'peer-review finalize <workspace> [--good-enough --grant <signed-grant> --rationale <file>]',
   recover:
     'peer-review recover <workspace> [--reclaim | --replace-participant <role> --grant <signed-grant>]',
   abandon: 'peer-review abandon <workspace> --reason <text>',
@@ -234,8 +235,13 @@ function validateConstraints(command, args, options) {
     if (!options.for || !options.grant) usage('supplement requires --for and --grant');
   }
   if (command === 'continue' && !options.grant) usage('continue requires --grant');
-  if (command === 'finalize' && Boolean(options.goodEnough) !== Boolean(options.grant)) {
-    usage('finalize requires --good-enough and --grant together');
+  if (command === 'finalize') {
+    if (
+      Boolean(options.goodEnough) !== Boolean(options.grant) ||
+      Boolean(options.goodEnough) !== Boolean(options.rationale)
+    ) {
+      usage('finalize requires --good-enough, --grant, and --rationale together');
+    }
   }
   if (command === 'abandon' && (typeof options.reason !== 'string' || !options.reason.trim())) {
     usage('abandon requires a non-empty --reason');

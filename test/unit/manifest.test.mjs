@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,7 +65,15 @@ test('manifest preserves bounded identity, claim, recovery, and supplement histo
   const reclaim = event('same-session-reclaim', { sequence: base.length + 2 });
   const supplement = event('supplement-registered', { sequence: base.length + 3 });
   const state = structuredClone(reduceEvents(base));
-  state.protocol.supplements = [structuredClone(supplement.payload.supplement)];
+  const accepted = base.find((item) => item.type === 'reviewer-accepted');
+  state.protocol.supplements = [
+    {
+      ...structuredClone(supplement.payload.supplement),
+      target_turn: 1,
+      acknowledged_at: accepted.at,
+      parameters: { ...supplement.payload.supplement.parameters, target_turn: 1 },
+    },
+  ];
   const model = buildManifest({
     state,
     events: [...base, identityChange, reclaim, supplement],
@@ -77,6 +86,7 @@ test('manifest preserves bounded identity, claim, recovery, and supplement histo
   assert.equal(Object.hasOwn(model.claims[0], 'pid'), false);
   assert.equal(model.recoveries[0].type, 'same-session-reclaim');
   assert.equal(model.supplements[0].content_retention, 'scratch-only');
+  assert.deepEqual(model.supplements[0].acknowledgment_response, accepted.payload.response);
   assert.equal(Object.isFrozen(identityChange.payload.identity), false);
 });
 
@@ -94,6 +104,7 @@ test('human decision and manifest seals bind exact override authority', () => {
   const reviewer = [...events]
     .reverse()
     .find((item) => item.type === 'reviewer-revisions-requested');
+  const rationale = Buffer.from('Ship despite the bounded unresolved finding.\n');
   const parameters = {
     ...protectedParameters('accept-over-objections'),
     artifact_path: state.protocol.artifact.path,
@@ -103,18 +114,34 @@ test('human decision and manifest seals bind exact override authority', () => {
     reviewer_response_path: reviewer.payload.response.path,
     reviewer_response_digest: reviewer.payload.response.digest,
     unresolved_finding_ids: reviewer.payload.finding_ids,
+    human_rationale_digest: `sha256:${createHash('sha256').update(rationale).digest('hex')}`,
   };
   const decision = sealHumanDecision({
     state,
     events,
     parameters,
     attestation: attestation(),
+    rationale_bytes: rationale,
     decided_at: '2026-09-09T12:00:00.000Z',
     path: 'reviews/human-decision.md',
   });
   assert.equal(decision.model.unresolved_findings[0].finding_ids[0], 'finding-001');
   assert.match(decision.bytes.toString(), /human_rationale_digest/);
+  assert.match(decision.bytes.toString(), /Ship despite the bounded unresolved finding/);
   assert.equal(Object.isFrozen(decision), true);
+  assert.throws(
+    () =>
+      sealHumanDecision({
+        state,
+        events,
+        parameters,
+        attestation: attestation(),
+        rationale_bytes: Buffer.from('Different rationale.\n'),
+        decided_at: '2026-09-09T12:00:00.000Z',
+        path: 'reviews/human-decision.md',
+      }),
+    (error) => error.code === 'APR_MANIFEST_INVALID'
+  );
 
   const manifest = sealManifest(
     buildManifest(
@@ -137,6 +164,28 @@ test('human decision and manifest seals bind exact override authority', () => {
   assert.equal(
     finalTrailers({ state, acceptance: decision, manifest })['Peer-Review-Manifest'],
     manifest.digest
+  );
+});
+
+test('manifest sealing rejects contradictory terminal claims', () => {
+  const events = acceptancePendingEvents();
+  events[0].payload.commit_mode = 'no-commit';
+  events[0].payload.startup.no_commit_baseline = {
+    head: events[0].payload.artifact.head,
+    index_digest: `sha256:${'1'.repeat(64)}`,
+    worktree_digest: `sha256:${'2'.repeat(64)}`,
+    changed_paths: [],
+  };
+  const valid = buildManifest(
+    review(events, {
+      status: 'accepted-uncommitted',
+      acceptance_basis: 'reviewer-consensus',
+      final_commit: null,
+    })
+  );
+  assert.throws(
+    () => sealManifest({ ...valid, status: 'accepted', final_commit: '1'.repeat(40) }),
+    (error) => error.code === 'APR_MANIFEST_INVALID'
   );
 });
 

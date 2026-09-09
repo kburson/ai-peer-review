@@ -77,7 +77,7 @@
     "recoveries": { "type": "array", "items": { "$ref": "#/$defs/recovery" } },
     "supplements": {
       "type": "array",
-      "items": { "$ref": "event-v1.json#/$defs/supplement" }
+      "items": { "$ref": "#/$defs/supplement" }
     },
     "authority": { "$ref": "#/$defs/authority" },
     "human_decision": {
@@ -259,6 +259,36 @@
         },
         "attestation": {
           "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/attestation" }]
+        }
+      }
+    },
+    "supplement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supplement_id",
+        "digest",
+        "target_role",
+        "target_turn",
+        "content_retention",
+        "acknowledged_at",
+        "parameters",
+        "attestation",
+        "acknowledgment_response"
+      ],
+      "properties": {
+        "supplement_id": { "$ref": "#/$defs/id" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "target_role": { "enum": ["author", "reviewer"] },
+        "target_turn": { "$ref": "#/$defs/positive" },
+        "content_retention": { "const": "scratch-only" },
+        "acknowledged_at": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/time" }]
+        },
+        "parameters": { "$ref": "event-v1.json#/$defs/supplementParameters" },
+        "attestation": { "$ref": "event-v1.json#/$defs/attestation" },
+        "acknowledgment_response": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/response" }]
         }
       }
     },

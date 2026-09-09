@@ -2770,6 +2770,46 @@ function acceptanceSeal(root, event, transactionRepository) {
   });
 }
 
+function humanRationaleBytes(value, root) {
+  if (Buffer.isBuffer(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) {
+    fail(
+      'APR_HUMAN_RATIONALE_INVALID',
+      'Good-enough finalization requires the exact signed rationale file.',
+      'Pass --rationale with the regular UTF-8 file whose digest is in the signed grant.'
+    );
+  }
+  return regularInputFile(
+    path.isAbsolute(value) ? value : path.resolve(root, value),
+    'APR_HUMAN_RATIONALE_INVALID'
+  );
+}
+
+function closingRoundAuthority(state, events) {
+  const intervention = state.protocol.intervention;
+  const closing = [...events]
+    .reverse()
+    .find((event) =>
+      ['author-closing-round-committed', 'author-closing-round-sealed-no-commit'].includes(
+        event.type
+      )
+    );
+  if (
+    intervention?.reason !== 'turn-budget-exhausted' ||
+    !closing ||
+    closing.payload.intervention_id !== intervention.intervention_id ||
+    closing.payload.reason !== 'turn-budget-exhausted' ||
+    closing.payload.turn !== state.protocol.turns_used
+  ) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Good-enough finalization requires the exact completed turn-budget closing round.',
+      'Resolve stale or lost participants through recovery; only a bounded closing round can be overridden.'
+    );
+  }
+  return closing;
+}
+
 function finalizedResult(state, absolute, paths, terminalEvent) {
   return result(
     'finalize',
@@ -2795,6 +2835,116 @@ function finalizedResult(state, absolute, paths, terminalEvent) {
   );
 }
 
+function validateTerminalFinalization({
+  input,
+  state,
+  events,
+  terminalEvent,
+  absolute,
+  paths,
+  git,
+  transactionRepository,
+}) {
+  if (
+    input.identity?.role !== 'author' ||
+    input.identity.session_fingerprint !== state.participants.author?.session_fingerprint
+  ) {
+    fail(
+      'APR_IDENTITY_CONFLICT',
+      'Finalization retry requires the registered author session.',
+      'Resume from the registered author session and retry the exact finalization inputs.'
+    );
+  }
+  const override = terminalEvent.type.startsWith('override-');
+  const expectedHead = latestHead(state, events);
+  assertFinalizationArtifact({
+    state,
+    events,
+    git,
+    transactionRepository,
+    workspace: absolute,
+    allowedHead: terminalEvent.payload.terminal.commit ?? null,
+  });
+  let acceptance;
+  let decision = null;
+  if (override) {
+    const closing = [...events]
+      .reverse()
+      .find(
+        (event) =>
+          ['author-closing-round-committed', 'author-closing-round-sealed-no-commit'].includes(
+            event.type
+          ) && event.payload.intervention_id === terminalEvent.payload.intervention_id
+      );
+    if (!closing || closing.payload.turn !== terminalEvent.payload.parameters.final_round) {
+      fail(
+        'APR_INVALID_TRANSITION',
+        'Terminal override is not bound to its completed closing round.',
+        'Preserve the review and inspect its terminal event authority.'
+      );
+    }
+    decision = sealHumanDecision({
+      state,
+      events,
+      parameters: terminalEvent.payload.parameters,
+      attestation: terminalEvent.payload.attestation,
+      rationale_bytes: humanRationaleBytes(
+        input.rationale,
+        input.cwd ?? state.protocol.startup.context.repository_root
+      ),
+      decided_at: terminalEvent.at,
+      path: paths.humanDecision.relative,
+    });
+    acceptance = decision;
+  } else {
+    acceptance = acceptanceSeal(
+      state.protocol.startup.context.repository_root,
+      [...events].reverse().find((event) => event.type === 'reviewer-accepted'),
+      transactionRepository
+    );
+  }
+  const model = buildManifest({
+    state,
+    events,
+    status: state.protocol.state,
+    acceptance_basis: override ? 'human-override' : 'reviewer-consensus',
+    final_commit: state.protocol.commit_mode === 'normal' ? expectedHead : null,
+    human_decision: decision?.model ?? null,
+  });
+  const manifest = sealManifest(model, { path: paths.manifest.relative });
+  if (
+    !exactFile(paths.manifest.absolute, manifest.bytes) ||
+    manifest.digest !== terminalEvent.payload.terminal.manifest_digest ||
+    (decision && !exactFile(paths.humanDecision.absolute, decision.bytes))
+  ) {
+    fail(
+      'APR_GIT_SEAL_MISMATCH',
+      'Terminal finalization evidence differs from event authority.',
+      'Restore the exact manifest and decision evidence before retrying.'
+    );
+  }
+  if (state.protocol.commit_mode === 'normal') {
+    const trailers = finalTrailers({ state, acceptance, manifest });
+    const transaction = pathsToSeals(decision ? [decision, manifest] : [acceptance, manifest], {
+      expected_head: expectedHead,
+    });
+    const recovered = commitExactPaths(
+      transactionRepository,
+      transaction,
+      finalMessage(state),
+      trailers
+    );
+    if (recovered.commit !== terminalEvent.payload.terminal.commit) {
+      fail(
+        'APR_GIT_RECOVERY_INVALID',
+        'Terminal commit differs from its exact finalization transaction.',
+        'Preserve the repository and inspect the finalization transaction journal.'
+      );
+    }
+  }
+  return finalizedResult(state, absolute, paths, terminalEvent);
+}
+
 export async function finalizeReview(input, deps = {}) {
   const absolute = path.resolve(input.workspace);
   let authority = inspectReviewAuthority(absolute);
@@ -2813,7 +2963,18 @@ export async function finalizeReview(input, deps = {}) {
         'override-sealed-no-commit',
       ].includes(event.type)
     );
-  if (existingTerminal) return finalizedResult(state, absolute, paths, existingTerminal);
+  if (existingTerminal) {
+    return validateTerminalFinalization({
+      input,
+      state,
+      events,
+      terminalEvent: existingTerminal,
+      absolute,
+      paths,
+      git,
+      transactionRepository,
+    });
+  }
 
   if (!input.goodEnough) {
     if (state.protocol.state === 'acceptance-pending') {
@@ -2964,6 +3125,7 @@ export async function finalizeReview(input, deps = {}) {
       'Complete the final two-sided round and request accept-over-objections authority.'
     );
   }
+  const closing = closingRoundAuthority(state, events);
   if (
     input.identity?.role !== 'author' ||
     input.identity.session_fingerprint !== state.participants.author?.session_fingerprint
@@ -2976,6 +3138,14 @@ export async function finalizeReview(input, deps = {}) {
   }
   const grant = operationalGrant(input.grant, input.cwd ?? root);
   const parameters = grant.parameters;
+  if (parameters?.final_round !== closing.payload.turn) {
+    fail(
+      'APR_GRANT_MISMATCH',
+      'Good-enough grant final round differs from closing-round authority.',
+      'Request and sign a grant for the exact completed closing round.'
+    );
+  }
+  const rationale = humanRationaleBytes(input.rationale, input.cwd ?? root);
   const attestation = verifyAndConsumeGrant(state, grant, {
     action: 'accept-over-objections',
     parameters,
@@ -2998,6 +3168,7 @@ export async function finalizeReview(input, deps = {}) {
     events,
     parameters,
     attestation,
+    rationale_bytes: rationale,
     decided_at: timestamp(input.now ?? new Date()),
     path: paths.humanDecision.relative,
   });
@@ -3247,6 +3418,7 @@ export async function run(argv, io) {
           identity: commandIdentity(io, state, 'author'),
           goodEnough: parsed.options.goodEnough,
           grant: parsed.options.grant,
+          rationale: parsed.options.rationale,
           now: io.now ?? new Date(),
         },
         { hostVerifier: io.hostVerifier }

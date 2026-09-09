@@ -145,6 +145,19 @@ test('enforces no-commit and no-artifact-change constraints', () => {
     ['submit', 'workspace', '--no-artifact-change', '--reason', '   '],
     /reason.*non-empty|non-empty.*reason/i
   );
+  usage(['finalize', 'workspace', '--good-enough', '--grant', 'signed'], /requires.*--rationale/i);
+  assert.deepEqual(
+    parseCommand([
+      'finalize',
+      'workspace',
+      '--good-enough',
+      '--grant',
+      'signed',
+      '--rationale',
+      'decision.md',
+    ]).options,
+    { goodEnough: true, grant: 'signed', rationale: 'decision.md' }
+  );
 });
 
 test('enforces command-specific enums and recovery option relationships', () => {

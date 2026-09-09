@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict';
 
 import * as api from '../../src/public-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
-import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
+import { inspectReviewAuthority, mutateReview } from '../../src/protocol/service.mjs';
 import {
   budgetIntervention,
   fixtureAuthority,
@@ -15,6 +16,7 @@ import {
 } from '../helpers/intervention-fixture.mjs';
 
 const NOW = '2026-09-09T12:00:00.000Z';
+const RATIONALE = Buffer.from('Accept this bounded residual risk for the release.\n');
 
 function git(root, args, options = {}) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', ...options });
@@ -99,7 +101,7 @@ function overrideParameters(workspace) {
     reviewer_response_path: reviewer.payload.response.path,
     reviewer_response_digest: reviewer.payload.response.digest,
     unresolved_finding_ids: reviewer.payload.finding_ids,
-    human_rationale_digest: `sha256:${'a'.repeat(64)}`,
+    human_rationale_digest: `sha256:${createHash('sha256').update(RATIONALE).digest('hex')}`,
   };
 }
 
@@ -235,6 +237,87 @@ test('no-commit consensus finalization writes retained manifest without Git muta
   assert.match(api.resumeReview(review.started.paths.workspace).instructions, /terminal/);
 });
 
+test('terminal retry rejects a tampered retained manifest', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const review = await acceptedReview(fx.root, 'finalize-tampered', { noCommit: true });
+  const finalized = await api.finalizeReview({
+    cwd: fx.root,
+    workspace: review.started.paths.workspace,
+    identity: review.author,
+    now: '2026-09-09T12:02:00.000Z',
+  });
+  writeFileSync(finalized.paths.manifest, '# Tampered\n');
+  await assert.rejects(
+    api.finalizeReview({
+      cwd: fx.root,
+      workspace: review.started.paths.workspace,
+      identity: review.author,
+      now: '2026-09-09T12:02:00.000Z',
+    }),
+    (error) => error.code === 'APR_GIT_SEAL_MISMATCH'
+  );
+});
+
+test('good-enough finalization rejects non-budget intervention authority', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const author = identity('author', 'stale-finalize-author');
+  const reviewer = identity('reviewer', 'stale-finalize-reviewer');
+  const started = await api.startReview({
+    cwd: fx.root,
+    artifact: 'docs/artifact.md',
+    artifactKind: 'spec',
+    identity: author,
+    reviewId: 'stale-finalize',
+    noCommit: true,
+    testHumanAuthority: 'stale-finalize-authority',
+    now: NOW,
+  });
+  await api.joinReview({
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: NOW,
+  });
+  const current = inspectReviewAuthority(started.paths.workspace).state;
+  await mutateReview(
+    started.paths.workspace,
+    {
+      reviewId: current.protocol.review_id,
+      revision: current.protocol.revision,
+      sequence: current.protocol.sequence,
+      actor: current.protocol.current_actor,
+    },
+    (state) => ({
+      schema: 'ai-peer-review.event/v1',
+      review_id: state.protocol.review_id,
+      sequence: state.protocol.sequence + 1,
+      revision: state.protocol.revision + 1,
+      type: 'intervention-entered',
+      actor: reviewer.session_fingerprint,
+      at: '2026-09-09T12:01:00.000Z',
+      payload: {
+        intervention_id: 'intervention-stale-finalize',
+        reason: 'stale-claim',
+        interrupted_state: 'reviewer-turn',
+      },
+    })
+  );
+  await assert.rejects(
+    api.finalizeReview({
+      cwd: fx.root,
+      workspace: started.paths.workspace,
+      identity: author,
+      goodEnough: true,
+      grant: {},
+      rationale: RATIONALE,
+      now: '2026-09-09T12:02:00.000Z',
+    }),
+    (error) => error.code === 'APR_INVALID_TRANSITION'
+  );
+});
+
 test('normal human override recovers an exact commit after interruption', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
@@ -259,6 +342,7 @@ test('normal human override recovers an exact commit after interruption', async 
         identity: review.author,
         goodEnough: true,
         grant,
+        rationale: RATIONALE,
         now: '2026-09-09T12:04:00.000Z',
       },
       {
@@ -282,6 +366,7 @@ test('normal human override recovers an exact commit after interruption', async 
     identity: review.author,
     goodEnough: true,
     grant,
+    rationale: RATIONALE,
     now: '2026-09-09T12:04:00.000Z',
   });
   assert.equal(finalized.state, 'accepted-over-objections');
@@ -326,6 +411,7 @@ test('no-commit human override seals retained decision without Git mutation', as
     identity: review.author,
     goodEnough: true,
     grant,
+    rationale: RATIONALE,
     now: '2026-09-09T02:04:00.000Z',
   });
   assert.equal(finalized.state, 'accepted-over-objections-uncommitted');
@@ -339,6 +425,7 @@ test('no-commit human override seals retained decision without Git mutation', as
     identity: review.author,
     goodEnough: true,
     grant,
+    rationale: RATIONALE,
     now: '2026-09-09T02:04:00.000Z',
   });
   assert.equal(retry.state, finalized.state);

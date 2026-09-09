@@ -38,6 +38,15 @@ function canonical(value) {
   return `${JSON.stringify(ordered(value), null, 2)}\n`;
 }
 
+function exactKeys(value, keys, label) {
+  const actual =
+    value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).sort() : [];
+  const expected = [...keys].sort();
+  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
+    fail(`${label} does not match the closed manifest schema.`, { fields: actual });
+  }
+}
+
 function deepFreeze(value) {
   if (ArrayBuffer.isView(value)) return value;
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -176,6 +185,75 @@ function recoveryHistory(events) {
     }));
 }
 
+function supplementHistory(protocol, events) {
+  return (protocol.supplements ?? []).map((supplement) => {
+    const acknowledgment = events.find((event) => {
+      const role = ['reviewer-revisions-requested', 'reviewer-accepted'].includes(event.type)
+        ? 'reviewer'
+        : AUTHOR_HANDOFFS.has(event.type)
+          ? 'author'
+          : null;
+      return (
+        role === supplement.target_role &&
+        event.payload.turn === supplement.target_turn &&
+        event.at === supplement.acknowledged_at
+      );
+    });
+    return {
+      ...structuredClone(supplement),
+      acknowledgment_response: acknowledgment ? { ...acknowledgment.payload.response } : null,
+    };
+  });
+}
+
+function assertManifestTruth(model, { closed = false } = {}) {
+  if (closed) {
+    exactKeys(
+      model,
+      [
+        'schema',
+        'review_id',
+        'status',
+        'acceptance_basis',
+        'commit_mode',
+        'authority_assurance',
+        'residual_risk',
+        'startup_commit',
+        'final_commit',
+        'artifact_path',
+        'artifact_history',
+        'participants',
+        'turns',
+        'identity_changes',
+        'claims',
+        'recoveries',
+        'supplements',
+        'authority',
+        'human_decision',
+      ],
+      'Manifest model'
+    );
+  }
+  if (model.schema !== 'ai-peer-review.manifest/v1') fail('Manifest model schema is invalid.');
+  const key = `${model.commit_mode}|${model.acceptance_basis}`;
+  const expectedStatus = {
+    'normal|reviewer-consensus': 'accepted',
+    'normal|human-override': 'accepted-over-objections',
+    'no-commit|reviewer-consensus': 'accepted-uncommitted',
+    'no-commit|human-override': 'accepted-over-objections-uncommitted',
+  }[key];
+  const needsCommit = model.commit_mode === 'normal';
+  const needsDecision = model.acceptance_basis === 'human-override';
+  if (
+    model.status !== expectedStatus ||
+    (needsCommit ? typeof model.final_commit !== 'string' : model.final_commit !== null) ||
+    (needsDecision ? model.human_decision === null : model.human_decision !== null)
+  ) {
+    fail('Manifest terminal fields contradict their mode or acceptance authority.');
+  }
+  return model;
+}
+
 function safeVerifier(verifier) {
   if (!verifier) return null;
   return Object.fromEntries(
@@ -232,7 +310,7 @@ export function buildManifest(review) {
       .filter((event) => event.type === 'turn-claimed')
       .map((event) => safeClaim(event.payload.claim)),
     recoveries: recoveryHistory(events),
-    supplements: (protocol.supplements ?? []).map((supplement) => structuredClone(supplement)),
+    supplements: supplementHistory(protocol, events),
     authority: {
       policy: protocol.authority?.authority_policy ?? 'unavailable',
       verifier: safeVerifier(protocol.authority?.verifier),
@@ -242,11 +320,11 @@ export function buildManifest(review) {
     },
     human_decision: review.human_decision ? structuredClone(review.human_decision) : null,
   };
-  return deepFreeze(model);
+  return deepFreeze(assertManifestTruth(model, { closed: true }));
 }
 
 export function renderManifest(model) {
-  if (model?.schema !== 'ai-peer-review.manifest/v1') fail('Manifest model schema is invalid.');
+  assertManifestTruth(model);
   const modeBanner =
     model.commit_mode === 'no-commit'
       ? `> **NO-COMMIT TEST MODE** — authority assurance: \`${model.authority_assurance}\``
@@ -308,6 +386,21 @@ export function sealHumanDecision(input) {
   ) {
     fail('Human decision parameters differ from unresolved event authority.');
   }
+  if (!Buffer.isBuffer(input.rationale_bytes)) {
+    fail('Human decision requires canonical signed rationale bytes.');
+  }
+  let rationaleText;
+  try {
+    rationaleText = new TextDecoder('utf-8', { fatal: true }).decode(input.rationale_bytes);
+  } catch {
+    fail('Human decision rationale is not valid UTF-8.');
+  }
+  const normalizedRationale = Buffer.from(
+    `${rationaleText.normalize('NFC').replaceAll('\r\n', '\n').replaceAll('\r', '\n').trimEnd()}\n`
+  );
+  if (!rationaleText.trim() || sha256(normalizedRationale) !== parameters.human_rationale_digest) {
+    fail('Human decision rationale differs from signed authority.');
+  }
   const model = deepFreeze({
     schema: 'ai-peer-review.human-decision/v1',
     review_id: protocol.review_id,
@@ -327,9 +420,11 @@ export function sealHumanDecision(input) {
     decided_at: input.decided_at,
   });
   const rationale = [
-    'Human Authority approved acceptance over the listed unresolved findings.',
+    normalizedRationale.toString('utf8').trimEnd(),
     '',
     `human_rationale_digest: ${parameters.human_rationale_digest}`,
+    '',
+    'Unresolved findings accepted by Human Authority:',
     '',
     ...parameters.unresolved_finding_ids.map((findingId) => `- ${findingId}`),
   ].join('\n');
@@ -352,6 +447,7 @@ export function sealHumanDecision(input) {
 }
 
 export function sealManifest(model, { path: relative = 'review-manifest.md' } = {}) {
+  assertManifestTruth(model, { closed: true });
   const bytes = renderManifest(model);
   return deepFreeze({ path: relative, bytes, digest: sha256(bytes), mode: '100644', model });
 }
