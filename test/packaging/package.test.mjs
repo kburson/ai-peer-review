@@ -114,6 +114,8 @@ test('public exports and command guidance remain narrow and installation-aware',
 test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase 1 gate', () => {
   const ci = readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
   for (const required of [
+    'actions/checkout@v6',
+    'actions/setup-node@v6',
     'ubuntu-latest',
     'macos-latest',
     'windows-latest',
@@ -147,6 +149,8 @@ test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase
   }
 
   const release = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
+  assert.match(release, /npm install --global npm@11\.8\.0/);
+  assert.match(readFileSync(path.join(root, '.gitattributes'), 'utf8'), /eol=lf/);
   const verifyIndex = release.indexOf('verify-tag "$RELEASE_TAG"');
   const publishIndex = release.indexOf('npm publish');
   assert.ok(
