@@ -275,15 +275,18 @@ export function setup(options = {}) {
         { file: skillFile }
       );
     }
-    if (
+    if (!remove && adapterOperation) operations.push(adapterOperation);
+    const preserveSkillOnRemoval =
       remove &&
       (!current.ai_peer_review?.skill_created ||
-        (existingSkill !== null && existingSkill !== skillBytes))
+        (existingSkill !== null && existingSkill !== skillBytes));
+    if (
+      !preserveSkillOnRemoval &&
+      existingSkill !== nextSkill &&
+      !(remove && existingSkill === null)
     )
-      continue;
-    if (existingSkill !== nextSkill && !(remove && existingSkill === null))
       operations.push(operation(skillFile, existingSkill, nextSkill, `${host}-skill`));
-    if (adapterOperation) operations.push(adapterOperation);
+    if (remove && adapterOperation) operations.push(adapterOperation);
   }
 
   if (scope === 'project') {

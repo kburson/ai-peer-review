@@ -102,6 +102,12 @@ test('fresh setup removes only its own files and refuses foreign provider owners
     confirmScratchExclude: true,
     gitExcludePath: files.exclude,
   };
+  const installation = setup({ ...options, dryRun: true });
+  assert.ok(
+    installation.operations.findIndex((entry) => entry.owner === 'codex-adapter') <
+      installation.operations.findIndex((entry) => entry.owner === 'codex-skill'),
+    'the provider ownership record must be installed before the owned skill'
+  );
   setup(options);
   assert.deepEqual(
     JSON.parse(readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')).hosts.codex
@@ -126,6 +132,30 @@ test('fresh setup removes only its own files and refuses foreign provider owners
   mkdirSync(path.dirname(adapterFile), { recursive: true });
   writeFileSync(adapterFile, '{"ai_peer_review":{"owner":"someone-else"}}\n');
   assert.throws(() => setup(options), { code: 'APR_SETUP_CONFLICT' });
+});
+
+test('removal preserves a pre-existing exact skill while removing provider ownership', () => {
+  const files = fixture();
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  mkdirSync(path.dirname(skillFile), { recursive: true });
+  writeFileSync(
+    skillFile,
+    readFileSync(new URL('../../skills/peer-review/SKILL.md', import.meta.url), 'utf8')
+  );
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const adapterFile = path.join(files.project, '.codex', 'config.json');
+  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.skill_created, false);
+  setup({ ...options, remove: true });
+  assert.equal(existsSync(skillFile), true);
+  assert.equal(existsSync(adapterFile), false);
 });
 
 test('runtime and published schema share authority and setup invariants', () => {
