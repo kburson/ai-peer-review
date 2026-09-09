@@ -70,7 +70,10 @@ test('every immutable legacy test behavior has an exact standalone parity owner'
   const keys = new Set();
   for (const entry of ledger.entries) {
     assert.ok(['ported', 'intentionally-replaced'].includes(entry.disposition), entry.behavior);
-    assert.equal(currentNames.has(entry.owner), true, `${entry.behavior} -> ${entry.owner}`);
+    assert.ok(entry.rationale.length >= 40, entry.behavior);
+    assert.ok(entry.owners.length > 0, entry.behavior);
+    for (const owner of entry.owners)
+      assert.equal(currentNames.has(owner), true, `${entry.behavior} -> ${owner}`);
     const key = `${entry.source}\0${entry.behavior}`;
     assert.equal(keys.has(key), false, key);
     keys.add(key);
