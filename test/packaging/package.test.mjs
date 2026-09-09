@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+import { runNpm } from '../helpers/npm-command.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SOURCE = '4b3bcd43cba141a611da4a2b861433b915462806';
@@ -14,11 +15,10 @@ const BOOTSTRAP = 'fd2e636356b6b8049930d5dc6bddf383c6d56c8d';
 function pack(t) {
   const destination = mkdtempSync(path.join(os.tmpdir(), 'apr-pack-'));
   t.after(() => rmSync(destination, { recursive: true, force: true }));
-  const output = execFileSync(
-    process.platform === 'win32' ? 'npm.cmd' : 'npm',
-    ['pack', '--json', '--pack-destination', destination],
-    { cwd: root, encoding: 'utf8' }
-  );
+  const output = runNpm('npm', ['pack', '--json', '--pack-destination', destination], {
+    cwd: root,
+    encoding: 'utf8',
+  });
   return JSON.parse(output)[0];
 }
 
@@ -72,7 +72,7 @@ test('published tarball is a closed standalone package with zero production depe
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.deepEqual(packageJson.dependencies ?? {}, {});
   const dependencyTree = JSON.parse(
-    execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['ls', '--omit=dev', '--json'], {
+    runNpm('npm', ['ls', '--omit=dev', '--json'], {
       cwd: root,
       encoding: 'utf8',
     })

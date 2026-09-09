@@ -6,9 +6,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { runNpm } from '../helpers/npm-command.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
 test('packed CLI installs into a non-Node host and starts a review', (t) => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'apr-installed-'));
@@ -18,14 +18,14 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
   mkdirSync(packDir);
   mkdirSync(host);
   const packed = JSON.parse(
-    execFileSync(npm, ['pack', '--json', '--pack-destination', packDir], {
+    runNpm('npm', ['pack', '--json', '--pack-destination', packDir], {
       cwd: root,
       encoding: 'utf8',
     })
   )[0];
   const tarball = path.join(packDir, packed.filename);
-  const zeroInstallHelp = execFileSync(
-    npx,
+  const zeroInstallHelp = runNpm(
+    'npx',
     ['--yes', '--package', tarball, 'ai-peer-review', '--help'],
     {
       cwd: host,
@@ -34,11 +34,11 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
   );
   assert.match(zeroInstallHelp, /Commands:/);
   writeFileSync(path.join(host, 'package.json'), '{"private":true}\n');
-  execFileSync(npm, ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], {
+  runNpm('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], {
     cwd: host,
     stdio: 'pipe',
   });
-  const help = execFileSync(npx, ['--no-install', 'peer-review', '--help'], {
+  const help = runNpm('npx', ['--no-install', 'peer-review', '--help'], {
     cwd: host,
     encoding: 'utf8',
   });
@@ -52,8 +52,8 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
   writeFileSync(path.join(host, '.git/info/exclude'), '.scratch/peer-review/\n');
   execFileSync('git', ['add', 'docs/spec.md'], { cwd: host });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: host, stdio: 'ignore' });
-  const started = execFileSync(
-    npx,
+  const started = runNpm(
+    'npx',
     ['--no-install', 'peer-review', 'start', 'docs/spec.md', '--artifact-kind', 'spec'],
     {
       cwd: host,
