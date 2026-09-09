@@ -51,6 +51,30 @@ async function joinedFixture(t) {
   return started;
 }
 
+test('status before join names the exact sealed invitation path', async (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'apr-status-invite-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });
+  mkdirSync(path.join(root, 'docs'));
+  writeFileSync(path.join(root, 'docs/example.md'), '# Example\n');
+  writeFileSync(path.join(root, '.git/info/exclude'), '.scratch/peer-review/\n');
+  execFileSync('git', ['add', 'docs/example.md'], { cwd: root });
+  execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
+  const started = await startReview({
+    cwd: root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'author-session'),
+    reviewId: 'review-status-invite',
+    now: NOW,
+  });
+  const status = statusReview(started.paths.workspace, { now: NOW });
+  assert.equal(status.next_action.command, `peer-review join ${started.paths.reviewer_invitation}`);
+  assert.equal(status.paths.invitation, started.paths.reviewer_invitation);
+});
+
 test('status is event-derived, read-only, redacted, and returns one exact next action', async (t) => {
   const started = await joinedFixture(t);
   const beforeEvents = readFileSync(started.paths.events);
@@ -84,5 +108,7 @@ test('resume returns current actor instructions without polling or mutation', as
   assert.equal(resumed.command, 'resume');
   assert.equal(resumed.role, 'reviewer');
   assert.match(resumed.instructions, /reviewer response/i);
+  assert.equal(resumed.paths.response.endsWith('reviewer-response-1.md'), true);
+  assert.match(resumed.instructions, new RegExp(resumed.paths.response.replaceAll('/', '\\/')));
   assert.deepEqual(readFileSync(started.paths.events), before);
 });

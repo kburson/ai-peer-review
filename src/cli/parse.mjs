@@ -207,6 +207,11 @@ function validateConstraints(command, args, options) {
     if (options.testHumanAuthority && !options.noCommit) {
       usage('--test-human-authority requires --no-commit');
     }
+    validateEnum(options, 'transportMode', '--transport-mode', [
+      'manual',
+      'resume-only',
+      'automatic-required',
+    ]);
     if (options.transportMode === 'automatic-required') {
       usage('automatic-required is unavailable until Phase 2');
     }

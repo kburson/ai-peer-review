@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -6,8 +7,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { joinReview, startReview } from '../../src/cli/run.mjs';
+import {
+  canonicalChallengeBytes,
+  digestGrantParameters,
+} from '../../src/authority/canonicalize.mjs';
+import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { inspectReview, mutateReview } from '../../src/protocol/service.mjs';
+import { hydrateTemplate } from '../../src/templates/index.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
 
@@ -66,7 +73,6 @@ test('start performs preflight checks before mutation and writes default event-f
     artifact: 'docs/example.md',
     artifactKind: 'spec',
     identity: identity('author', 'author-session'),
-    reviewId: 'review-01',
     now: NOW,
   });
   assert.equal(started.schema, 'ai-peer-review.cli-result/v1');
@@ -75,6 +81,9 @@ test('start performs preflight checks before mutation and writes default event-f
   assert.equal(started.review.max_turns, 10);
   assert.equal(started.review.claim_ttl_ms, 8 * 60 * 60 * 1000);
   assert.equal(started.review.commit_mode, 'normal');
+  assert.equal(started.review.transport_mode, 'manual');
+  assert.equal(started.review.author_transport_capability, 'manual');
+  assert.equal(started.review.no_commit_baseline, null);
   assert.equal(started.review.authority.authority_policy, 'unavailable');
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
   assert.match(readFileSync(started.paths.author_startup, 'utf8'), /# Author startup/);
@@ -84,11 +93,156 @@ test('start performs preflight checks before mutation and writes default event-f
     artifact: 'docs/example.md',
     artifactKind: 'spec',
     identity: identity('author', 'author-session'),
-    reviewId: 'review-01',
     now: '2026-09-08T13:00:00.000Z',
   });
   assert.equal(retried.paths.events, started.paths.events);
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+
+  rmSync(started.paths.author_startup);
+  const recovered = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'author-session'),
+    now: '2026-09-09T13:00:00.000Z',
+  });
+  assert.equal(recovered.review_id, started.review_id);
+  assert.match(readFileSync(recovered.paths.author_startup, 'utf8'), /# Author startup/);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+});
+
+test('start validates transport and seals the no-commit Git baseline', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  await assert.rejects(
+    startReview({
+      cwd: fx.root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-session'),
+      reviewId: 'review-bad-transport',
+      transportMode: 'carrier-pigeon',
+      now: NOW,
+    }),
+    (error) => error.code === 'APR_TRANSPORT_UNAVAILABLE'
+  );
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'author-session'),
+    reviewId: 'review-no-commit',
+    noCommit: true,
+    testHumanAuthority: 'fixture-a',
+    now: NOW,
+  });
+  assert.equal(started.review.commit_mode, 'no-commit');
+  assert.equal(started.review.no_commit_baseline.head.length, 40);
+  assert.match(started.review.no_commit_baseline.index_digest, /^sha256:[0-9a-f]{64}$/);
+  assert.match(started.review.no_commit_baseline.worktree_digest, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(started.review.authority.verifier.assurance_grade, 'test-fixture');
+  assert.equal(started.review.bootstrap.challenge.action, 'pin-verifier');
+  assert.equal(started.review.bootstrap.attestation.strength, 'unverified-test');
+  assert.deepEqual(
+    inspectReview(started.paths.workspace).protocol.startup.no_commit_baseline,
+    started.review.no_commit_baseline
+  );
+  const retried = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'author-session'),
+    reviewId: 'review-no-commit',
+    noCommit: true,
+    testHumanAuthority: 'fixture-a',
+    now: '2026-09-08T13:00:00.000Z',
+  });
+  assert.equal(retried.paths.events, started.paths.events);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+
+  await assert.rejects(
+    startReview({
+      cwd: fx.root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'other-author-session'),
+      reviewId: 'review-test-normal-mode',
+      testHumanAuthority: 'fixture-a',
+      now: NOW,
+    }),
+    (error) => error.code === 'APR_AUTHORITY_POLICY'
+  );
+});
+
+test('start verifies and consumes an exact prevention-grade pin-verifier grant', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const fingerprint = `sha256:${createHash('sha256')
+    .update(publicKey.export({ type: 'spki', format: 'der' }))
+    .digest('hex')}`;
+  const authority = {
+    authority_policy: 'prevention-required',
+    challenge_ttl_ms: 15 * 60 * 1000,
+    verifier: {
+      kind: 'ed25519',
+      verifier_id: 'human:test-hardware',
+      verifier_fingerprint: fingerprint,
+      public_key: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      assurance_grade: 'hardened',
+      signer_strength: 'cryptographic-external',
+    },
+  };
+  const parameters = {
+    verifier_fingerprint: fingerprint,
+    assurance_grade: 'hardened',
+    authority_policy: 'prevention-required',
+    artifact_path: 'docs/example.md',
+    artifact_kind: 'spec',
+    reviews_root: 'docs/peer-reviews',
+    path_template: '<kind>/<date>-<name>-<review-id>',
+    issue_id: null,
+    maximum_turns: 10,
+    commit_mode: 'normal',
+  };
+  const challenge = {
+    schema: 'ai-peer-review.grant-challenge/v1',
+    challenge_id: 'challenge-bootstrap',
+    review_id: 'review-bootstrap',
+    intervention_id: null,
+    protocol_revision: 0,
+    action: 'pin-verifier',
+    parameters_digest: digestGrantParameters('pin-verifier', parameters),
+    nonce: 'a'.repeat(43),
+    expires_at: '2026-09-08T12:15:00.000Z',
+  };
+  const grant = {
+    schema: 'ai-peer-review.grant/v1',
+    challenge,
+    parameters,
+    authorization: {
+      source: 'detached-signature',
+      signer_id: authority.verifier.verifier_id,
+      signer_fingerprint: fingerprint,
+      verifier_fingerprint: fingerprint,
+      signature: sign(null, canonicalChallengeBytes(challenge), privateKey).toString('base64url'),
+    },
+  };
+  const grantFile = path.join(fx.root, 'bootstrap-grant.json');
+  writeFileSync(grantFile, JSON.stringify(grant));
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'author-session'),
+    reviewId: 'review-bootstrap',
+    authority,
+    bootstrapGrant: grantFile,
+    now: NOW,
+  });
+  assert.equal(started.review.bootstrap.challenge.challenge_id, 'challenge-bootstrap');
+  assert.equal(started.review.bootstrap.attestation.strength, 'cryptographic-external');
+  assert.equal(inspectReview(started.paths.workspace).protocol.startup.bootstrap !== null, true);
 });
 
 test('start refuses unsafe scratch and tracked collisions without creating authority', async (t) => {
@@ -115,18 +269,29 @@ test('start refuses unsafe scratch and tracked collisions without creating autho
   );
   mkdirSync(path.dirname(output), { recursive: true });
   writeFileSync(output, 'foreign bytes');
+  let verifierCalled = false;
   await assert.rejects(
-    startReview({
-      cwd: occupied.root,
-      artifact: 'docs/example.md',
-      artifactKind: 'spec',
-      identity: identity('author', 'author-session'),
-      reviewId: 'review-occupied',
-      now: NOW,
-    }),
+    startReview(
+      {
+        cwd: occupied.root,
+        artifact: 'docs/example.md',
+        artifactKind: 'spec',
+        identity: identity('author', 'author-session'),
+        reviewId: 'review-occupied',
+        bootstrapGrant: 'must-not-be-consumed.json',
+        now: NOW,
+      },
+      {
+        verifyBootstrapGrant: () => {
+          verifierCalled = true;
+          throw new Error('must not run');
+        },
+      }
+    ),
     (error) => error.code === 'APR_OUTPUT_COLLISION'
   );
   assert.equal(readFileSync(output, 'utf8'), 'foreign bytes');
+  assert.equal(verifierCalled, false);
   assert.throws(() =>
     readFileSync(path.join(occupied.root, '.scratch/peer-review/review-occupied/events.jsonl'))
   );
@@ -204,7 +369,7 @@ test('join resumes an identical registration interrupted before its claim event'
       type: 'reviewer-joined',
       actor: reviewer.session_fingerprint,
       at: NOW,
-      payload: { reviewer },
+      payload: { reviewer, transport_capability: 'manual' },
     })
   );
 
@@ -217,4 +382,54 @@ test('join resumes an identical registration interrupted before its claim event'
   assert.equal(joined.state, 'reviewer-turn');
   assert.equal(joined.review.claim.role, 'reviewer');
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
+});
+
+test('join rejects scratch context and invitation redirection outside sealed startup authority', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'plan',
+    identity: identity('author', 'author-session'),
+    reviewId: 'review-redirection',
+    now: NOW,
+  });
+  const contextFile = path.join(started.paths.workspace, 'review-context.json');
+  const context = JSON.parse(readFileSync(contextFile, 'utf8'));
+  context.reviews_root = 'docs/redirected-reviews';
+  writeFileSync(contextFile, `${JSON.stringify(context, null, 2)}\n`);
+  const redirected = resolveReviewPaths({
+    root: fx.root,
+    reviewsRoot: context.reviews_root,
+    reviewPathTemplate: context.review_path_template,
+    issue: context.issue,
+    kind: context.artifact_kind,
+    name: context.artifact_name,
+    date: context.review_date,
+    reviewId: context.review_id,
+  });
+  const forged = path.join(redirected.destination.absolute, 'reviewer-invitation.md');
+  mkdirSync(path.dirname(forged), { recursive: true });
+  writeFileSync(
+    forged,
+    hydrateTemplate('reviewer-invitation', {
+      review_id: context.review_id,
+      artifact_absolute: path.join(context.repository_root, 'docs/example.md'),
+      workspace_absolute: redirected.scratch.absolute,
+      response_absolute: redirected.reviewerResponse(1).absolute,
+      invitation_absolute: forged,
+    })
+  );
+
+  await assert.rejects(
+    joinReview({
+      cwd: fx.root,
+      invitation: forged,
+      identity: identity('reviewer', 'reviewer-session'),
+      now: NOW,
+    }),
+    (error) => error.code === 'APR_INVITATION_INVALID'
+  );
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
 });

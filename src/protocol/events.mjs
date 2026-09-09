@@ -1,12 +1,27 @@
 import { AprError } from '../errors.mjs';
-import { canonicalGrantParameters } from '../authority/canonicalize.mjs';
+import {
+  canonicalGrantParameters,
+  digestChallenge,
+  digestGrantParameters,
+} from '../authority/canonicalize.mjs';
 
 const definitions = {
   'review-created': {
     advancesRevision: true,
-    fields: ['commit_mode', 'max_turns', 'claim_ttl_ms', 'authority', 'artifact', 'author'],
+    fields: [
+      'commit_mode',
+      'max_turns',
+      'claim_ttl_ms',
+      'authority',
+      'artifact',
+      'author',
+      'startup',
+    ],
   },
-  'reviewer-joined': { advancesRevision: true, fields: ['reviewer'] },
+  'reviewer-joined': {
+    advancesRevision: true,
+    fields: ['reviewer', 'transport_capability'],
+  },
   'reviewer-revisions-requested': {
     advancesRevision: true,
     fields: ['turn', 'response', 'finding_ids'],
@@ -266,6 +281,91 @@ function validateArtifact(value, label, { initial = false } = {}) {
   assertDigest(value.digest, `${label} digest`);
 }
 
+function validateStartup(value) {
+  exactKeys(
+    value,
+    [
+      'context',
+      'context_digest',
+      'destination',
+      'author_startup_digest',
+      'reviewer_invitation_digest',
+      'transport_mode',
+      'author_transport_capability',
+      'no_commit_baseline',
+      'bootstrap',
+    ],
+    'review-created startup'
+  );
+  const context = value.context;
+  exactKeys(
+    context,
+    [
+      'schema',
+      'review_id',
+      'repository_root',
+      'artifact_kind',
+      'artifact_name',
+      'review_date',
+      'reviews_root',
+      'review_path_template',
+      'issue',
+    ],
+    'review-created startup context'
+  );
+  if (context.schema !== 'ai-peer-review.context/v1') throw invalid('startup context schema');
+  assertIdentifier(context.review_id, 'startup context review_id');
+  assertString(context.repository_root, 'startup context repository_root');
+  assertEnum(context.artifact_kind, ['spec', 'plan'], 'startup context artifact_kind');
+  assertIdentifier(context.artifact_name, 'startup context artifact_name');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(context.review_date)) throw invalid('startup review_date');
+  assertPath(context.reviews_root, 'startup context reviews_root');
+  assertString(context.review_path_template, 'startup context review_path_template');
+  if (context.issue !== null) assertPositiveInteger(context.issue, 'startup context issue');
+  assertDigest(value.context_digest, 'startup context_digest');
+  assertPath(value.destination, 'startup destination');
+  assertDigest(value.author_startup_digest, 'startup author_startup_digest');
+  assertDigest(value.reviewer_invitation_digest, 'startup reviewer_invitation_digest');
+  assertEnum(value.transport_mode, ['manual', 'resume-only'], 'startup transport_mode');
+  assertEnum(
+    value.author_transport_capability,
+    ['manual', 'resume-only'],
+    'startup author transport capability'
+  );
+  if (value.no_commit_baseline !== null) {
+    exactKeys(
+      value.no_commit_baseline,
+      ['head', 'index_digest', 'worktree_digest'],
+      'startup no_commit_baseline'
+    );
+    assertGitObject(value.no_commit_baseline.head, 'startup baseline head');
+    assertDigest(value.no_commit_baseline.index_digest, 'startup baseline index_digest');
+    assertDigest(value.no_commit_baseline.worktree_digest, 'startup baseline worktree_digest');
+  }
+  if (value.bootstrap !== null) {
+    exactKeys(value.bootstrap, ['challenge', 'parameters', 'attestation'], 'startup bootstrap');
+    validateChallenge(value.bootstrap.challenge, 'startup bootstrap challenge');
+    if (value.bootstrap.challenge.action !== 'pin-verifier')
+      throw invalid('startup bootstrap action');
+    validateAttestation(value.bootstrap.attestation, 'startup bootstrap attestation');
+    try {
+      canonicalGrantParameters('pin-verifier', value.bootstrap.parameters);
+    } catch {
+      throw invalid('startup bootstrap parameters');
+    }
+    if (
+      value.bootstrap.challenge.review_id !== context.review_id ||
+      value.bootstrap.challenge.protocol_revision !== 0 ||
+      value.bootstrap.challenge.intervention_id !== null ||
+      value.bootstrap.challenge.parameters_digest !==
+        digestGrantParameters('pin-verifier', value.bootstrap.parameters) ||
+      value.bootstrap.attestation.challenge_digest !== digestChallenge(value.bootstrap.challenge)
+    ) {
+      throw invalid('startup bootstrap authority binding');
+    }
+  }
+}
+
 function validateResponse(value, label) {
   exactKeys(value, ['path', 'digest'], label);
   assertPath(value.path, `${label} path`);
@@ -454,7 +554,7 @@ function validateChallenge(value, label) {
   assertTimestamp(value.expires_at, `${label} expires_at`);
 }
 
-function validatePayload(type, payload) {
+function validatePayload(type, payload, valueReviewId) {
   switch (type) {
     case 'review-created':
       assertEnum(payload.commit_mode, ['normal', 'no-commit'], 'review-created commit_mode');
@@ -467,10 +567,52 @@ function validatePayload(type, payload) {
       validateArtifact(payload.artifact, 'review-created artifact', { initial: true });
       validateParticipant(payload.author, 'review-created author');
       if (payload.author.role !== 'author') throw invalid('review-created author role');
+      validateStartup(payload.startup);
+      if ((payload.commit_mode === 'no-commit') !== (payload.startup.no_commit_baseline !== null)) {
+        throw invalid('review-created no-commit baseline');
+      }
+      if (
+        payload.startup.transport_mode === 'resume-only' &&
+        payload.startup.author_transport_capability !== 'resume-only'
+      ) {
+        throw invalid('review-created author transport capability');
+      }
+      if (
+        (payload.authority.verifier?.signer_strength === 'unverified-test' ||
+          payload.startup.bootstrap?.attestation.strength === 'unverified-test') &&
+        payload.commit_mode !== 'no-commit'
+      ) {
+        throw invalid('review-created test authority commit mode');
+      }
+      if (payload.startup.context.review_id !== valueReviewId) {
+        throw invalid('review-created startup review identity');
+      }
+      if (payload.startup.bootstrap) {
+        const parameters = payload.startup.bootstrap.parameters;
+        if (
+          parameters.verifier_fingerprint !== payload.authority.verifier?.verifier_fingerprint ||
+          parameters.assurance_grade !== payload.authority.verifier?.assurance_grade ||
+          parameters.authority_policy !== payload.authority.authority_policy ||
+          parameters.artifact_path !== payload.artifact.path ||
+          parameters.artifact_kind !== payload.startup.context.artifact_kind ||
+          parameters.reviews_root !== payload.startup.context.reviews_root ||
+          parameters.path_template !== payload.startup.context.review_path_template ||
+          parameters.issue_id !== payload.startup.context.issue ||
+          parameters.maximum_turns !== payload.max_turns ||
+          parameters.commit_mode !== payload.commit_mode
+        ) {
+          throw invalid('review-created bootstrap configuration');
+        }
+      }
       break;
     case 'reviewer-joined':
       validateParticipant(payload.reviewer, 'reviewer-joined reviewer');
       if (payload.reviewer.role !== 'reviewer') throw invalid('reviewer-joined reviewer role');
+      assertEnum(
+        payload.transport_capability,
+        ['manual', 'resume-only'],
+        'reviewer-joined transport capability'
+      );
       break;
     case 'reviewer-revisions-requested':
     case 'reviewer-accepted':
@@ -636,6 +778,6 @@ export function validateEvent(value) {
   assertTimestamp(value.at, 'at');
   exactKeys(value.payload, EVENT_DEFINITIONS[value.type].fields, `${value.type} payload`);
   assertJsonValue(value.payload);
-  validatePayload(value.type, value.payload);
+  validatePayload(value.type, value.payload, value.review_id);
   return true;
 }

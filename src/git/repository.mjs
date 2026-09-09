@@ -246,6 +246,22 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     );
   }
 
+  function baseline(cwd) {
+    const repositoryRoot = root(cwd);
+    const head = String(run(repositoryRoot, ['rev-parse', 'HEAD'])).trim();
+    const index = run(repositoryRoot, ['ls-files', '--stage', '-z'], { buffer: true });
+    const worktree = run(
+      repositoryRoot,
+      ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+      { buffer: true }
+    );
+    return Object.freeze({
+      head,
+      index_digest: `sha256:${digest(index)}`,
+      worktree_digest: `sha256:${digest(worktree)}`,
+    });
+  }
+
   return Object.freeze({
     root,
     commonDir,
@@ -257,5 +273,6 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     commitTree,
     changedPaths,
     checkIgnored,
+    baseline,
   });
 }

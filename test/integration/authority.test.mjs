@@ -80,6 +80,17 @@ function withAuthority(events, options = {}) {
             ...item.payload,
             commit_mode: configured.commitMode,
             authority: configured.value,
+            startup: {
+              ...item.payload.startup,
+              no_commit_baseline:
+                configured.commitMode === 'no-commit'
+                  ? {
+                      head: '1'.repeat(40),
+                      index_digest: `sha256:${'2'.repeat(64)}`,
+                      worktree_digest: `sha256:${'3'.repeat(64)}`,
+                    }
+                  : null,
+            },
           },
         }
       : item

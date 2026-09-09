@@ -117,8 +117,29 @@ const payloads = {
       digest: `sha256:${'3'.repeat(64)}`,
     },
     author: participant('author'),
+    startup: {
+      context: {
+        schema: 'ai-peer-review.context/v1',
+        review_id: 'review-01',
+        repository_root: '/repo',
+        artifact_kind: 'spec',
+        artifact_name: 'artifact',
+        review_date: '2026-09-08',
+        reviews_root: 'docs/reviews',
+        review_path_template: '<kind>/<date>-<name>-<review-id>',
+        issue: null,
+      },
+      context_digest: `sha256:${'a'.repeat(64)}`,
+      destination: 'docs/reviews/spec/2026-09-08-artifact-review-01',
+      author_startup_digest: `sha256:${'b'.repeat(64)}`,
+      reviewer_invitation_digest: `sha256:${'c'.repeat(64)}`,
+      transport_mode: 'manual',
+      author_transport_capability: 'manual',
+      no_commit_baseline: null,
+      bootstrap: null,
+    },
   }),
-  'reviewer-joined': () => ({ reviewer: participant('reviewer') }),
+  'reviewer-joined': () => ({ reviewer: participant('reviewer'), transport_capability: 'manual' }),
   'reviewer-revisions-requested': () => ({
     turn: 1,
     response: { path: 'reviews/reviewer-response-1.md', digest: `sha256:${'4'.repeat(64)}` },
@@ -274,6 +295,12 @@ export function event(
 ) {
   const effectiveRevision = revision ?? (REVISION_NEUTRAL_TYPES.has(type) ? 0 : 1);
   const effectivePayload = { ...payloads[type]?.(), ...payload };
+  if (type === 'review-created' && effectivePayload.startup) {
+    effectivePayload.startup = {
+      ...effectivePayload.startup,
+      context: { ...effectivePayload.startup.context, review_id: reviewId },
+    };
+  }
   const effectiveActor =
     actor ??
     (type === 'review-created'

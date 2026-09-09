@@ -9,6 +9,7 @@ const values = Object.freeze({
   artifact_absolute: '/repo/docs/example.md',
   workspace_absolute: '/repo/.scratch/peer-review/review-01',
   response_absolute: '/repo/docs/peer-reviews/spec/example/reviewer-response-1.md',
+  invitation_absolute: '/repo/docs/peer-reviews/spec/example/reviewer-invitation.md',
   frontmatter: '---\nschema: "ai-peer-review.response/v1"\n---',
   summary: 'Summary text.',
   findings: 'None.',
@@ -44,8 +45,18 @@ test('startup templates use absolute paths and document installed and zero-insta
     assert.match(output, /\/repo\/docs\/example\.md/);
     assert.match(output, /\/repo\/\.scratch\/peer-review\/review-01/);
     assert.match(output, /`peer-review /);
-    assert.match(output, /`npx --yes ai-peer-review@0\.1\.0 peer-review /);
+    assert.match(output, /`npx --yes ai-peer-review@0\.1\.0 (?:status|join) /);
   }
+  const invitation = hydrateTemplate('reviewer-invitation', {
+    review_id: values.review_id,
+    artifact_absolute: values.artifact_absolute,
+    workspace_absolute: values.workspace_absolute,
+    response_absolute: values.response_absolute,
+    invitation_absolute: values.invitation_absolute,
+  }).toString();
+  assert.match(invitation, new RegExp(`peer-review join ${values.invitation_absolute}`));
+  assert.match(invitation, /Do not edit the reviewed artifact, create commits, or push/);
+  assert.match(invitation, /peer-review resume \/repo\/\.scratch/);
 });
 
 test('hydration rejects unknown templates, incomplete variables, extras, and template injection', () => {

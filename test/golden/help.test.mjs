@@ -12,6 +12,12 @@ test('all offline help topics derive complete contracts from the frozen command 
   );
   assert.equal(resultSchema.$id, 'ai-peer-review.cli-result/v1');
   assert.equal(resultSchema.additionalProperties, false);
+  assert.equal(resultSchema.properties.review.additionalProperties, false);
+  assert.equal(resultSchema.properties.paths.additionalProperties, false);
+  assert.equal(resultSchema.properties.next_action.oneOf[1].additionalProperties, false);
+  for (const [name, definition] of Object.entries(resultSchema.$defs)) {
+    if (definition.type === 'object') assert.equal(definition.additionalProperties, false, name);
+  }
   for (const command of COMMANDS) {
     const topic = helpRequest(command, 'json');
     assert.equal(topic.schema, 'ai-peer-review.help/v1');

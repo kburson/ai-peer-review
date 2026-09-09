@@ -123,6 +123,8 @@ function initialProjection() {
       max_turns: 0,
       claim_ttl_ms: 0,
       authority: null,
+      startup: null,
+      transports: { author: null, reviewer: null },
       turns_used: 0,
       artifact: null,
       claims: {},
@@ -441,10 +443,13 @@ function applyProjection(state, event) {
     protocol.max_turns = event.payload.max_turns;
     protocol.claim_ttl_ms = event.payload.claim_ttl_ms;
     protocol.authority = copy(event.payload.authority);
+    protocol.startup = copy(event.payload.startup);
+    protocol.transports.author = event.payload.startup.author_transport_capability;
     protocol.artifact = copy(event.payload.artifact);
     participants.author = copy(event.payload.author);
   } else if (event.type === 'reviewer-joined') {
     participants.reviewer = copy(event.payload.reviewer);
+    protocol.transports.reviewer = event.payload.transport_capability;
   }
   if (event.type === 'reviewer-revisions-requested' || event.type === 'reviewer-accepted') {
     protocol.turns_used += 1;

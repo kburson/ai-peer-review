@@ -79,8 +79,39 @@ test('rejects malformed envelope identifiers, integers, actors, and times', () =
 });
 
 test('rejects malformed nested payload values with one stable error code', () => {
+  const noCommit = event('review-created');
+  noCommit.payload.commit_mode = 'no-commit';
+  noCommit.payload.startup.no_commit_baseline = {
+    head: '1'.repeat(40),
+    index_digest: `sha256:${'2'.repeat(64)}`,
+    worktree_digest: `sha256:${'3'.repeat(64)}`,
+  };
   const cases = [
     event('review-created', { payload: { max_turns: 'unbounded' } }),
+    event('review-created', {
+      payload: {
+        startup: {
+          ...event('review-created').payload.startup,
+          no_commit_baseline: noCommit.payload.startup.no_commit_baseline,
+        },
+      },
+    }),
+    event('review-created', {
+      payload: {
+        authority: {
+          authority_policy: 'detection-allowed',
+          challenge_ttl_ms: 15 * 60 * 1000,
+          verifier: {
+            kind: 'ed25519',
+            verifier_id: 'test:fixture-a',
+            verifier_fingerprint: `sha256:${'4'.repeat(64)}`,
+            public_key: 'test key',
+            assurance_grade: 'test-fixture',
+            signer_strength: 'unverified-test',
+          },
+        },
+      },
+    }),
     event('reviewer-accepted', { payload: { turn: Number.MAX_SAFE_INTEGER + 1 } }),
     event('turn-claimed', { payload: { claim: null } }),
     event('turn-claimed', {

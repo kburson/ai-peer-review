@@ -11,12 +11,14 @@ const catalog = Object.assign(Object.create(null), {
     'artifact_absolute',
     'workspace_absolute',
     'response_absolute',
+    'invitation_absolute',
   ]),
   'reviewer-invitation': fields([
     'review_id',
     'artifact_absolute',
     'workspace_absolute',
     'response_absolute',
+    'invitation_absolute',
   ]),
   'reviewer-response': fields([
     'frontmatter',

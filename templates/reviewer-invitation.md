@@ -7,7 +7,18 @@ Review: `{{review_id}}`
 - Artifact: `{{artifact_absolute}}`
 - Workspace: `{{workspace_absolute}}`
 - Response: `{{response_absolute}}`
+- Invitation: `{{invitation_absolute}}`
 
-Installed help: `peer-review join --help`
+Role: reviewer. Join from a distinct session in the same physical worktree.
 
-Zero-install help: `npx --yes ai-peer-review@0.1.0 peer-review join --help`
+Installed join: `peer-review join {{invitation_absolute}}`
+
+Zero-install join: `npx --yes ai-peer-review@0.1.0 join {{invitation_absolute}}`
+
+Rules of engagement:
+
+- Edit only the exact pending reviewer response shown above.
+- Do not edit the reviewed artifact, create commits, or push.
+- Query `peer-review help join` instead of guessing command syntax.
+
+Recovery: `peer-review resume {{workspace_absolute}}`

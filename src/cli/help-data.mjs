@@ -19,7 +19,6 @@ const PURPOSE = Object.freeze({
   explain: 'Explain one stable APR error and its recovery.',
 });
 
-const READ_ONLY = new Set(['doctor', 'status', 'resume', 'help', 'explain']);
 const HUMAN_GATED = new Set(['supplement', 'continue']);
 const ROLES = Object.freeze({
   setup: ['human'],
@@ -55,13 +54,98 @@ const STATES = Object.freeze({
   help: ['any'],
   explain: ['any'],
 });
+const PRECONDITIONS = Object.freeze({
+  setup: ['Explicit scope and a readable host configuration surface.'],
+  doctor: ['A readable local package; named repository checks require a Git worktree.'],
+  start: [
+    'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
+    'Optional --bootstrap-grant must authorize the exact protected pin-verifier action.',
+  ],
+  'request-grant': ['Exact event authority and complete parameters for one protected action.'],
+  join: ['The exact sealed invitation, original physical worktree, and a distinct reviewer.'],
+  status: ['A readable event-authoritative review workspace.'],
+  resume: ['A readable event-authoritative review workspace.'],
+  submit: ['The registered current actor, active claim, and exact pending response.'],
+  supplement: ['Intervention authority plus an exact signed supplement grant.'],
+  continue: ['Turn-budget intervention plus an exact signed continuation grant.'],
+  finalize: ['Reviewer acceptance or an exact accept-over-objections grant.'],
+  recover: ['A stale or missing participant condition authorized by event state.'],
+  abandon: ['An active intervention and a non-empty retained-evidence reason.'],
+  help: ['A readable installed package.'],
+  explain: ['A known stable APR error code.'],
+});
+const EFFECTS = Object.freeze({
+  setup: ['Previews or applies reversible owned configuration changes; never pushes.'],
+  doctor: ['Read-only inspection; changes no files, Git, configuration, or transport.'],
+  start: [
+    'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
+  ],
+  'request-grant': ['Appends or reuses one challenge event; performs no Git operation.'],
+  join: ['Appends reviewer identity and claim events and creates one reviewer draft.'],
+  status: ['Read-only event reduction; performs no repair, polling, wake, or Git operation.'],
+  resume: ['Read-only instruction reconstruction; performs no polling, wake, or Git operation.'],
+  submit: ['Seals one response and appends its lifecycle and delivery events.'],
+  supplement: ['Registers digest-bound scratch context and its signed authority event.'],
+  continue: ['Consumes one signed grant and resumes exactly one interrupted role.'],
+  finalize: ['Produces terminal manifest evidence and author-only Git work in normal mode.'],
+  recover: ['Performs only the selected event-authorized reclaim or replacement.'],
+  abandon: ['Appends terminal abandonment while preserving listed evidence paths.'],
+  help: ['Read-only offline rendering.'],
+  explain: ['Read-only offline error rendering.'],
+});
+const ERRORS = Object.freeze({
+  setup: ['APR_USAGE', 'APR_OUTPUT_COLLISION'],
+  doctor: ['APR_REPOSITORY_NOT_FOUND'],
+  start: [
+    'APR_REPOSITORY_NOT_FOUND',
+    'APR_ARTIFACT_UNTRACKED',
+    'APR_ARTIFACT_DIRTY',
+    'APR_PATH_TEMPLATE_INVALID',
+    'APR_SCRATCH_NOT_IGNORED',
+    'APR_IDENTITY_REQUIRED',
+    'APR_TRANSPORT_UNAVAILABLE',
+    'APR_OUTPUT_COLLISION',
+    'APR_GRANT_INVALID',
+  ],
+  'request-grant': [
+    'APR_AUTHORITY_UNAVAILABLE',
+    'APR_CHALLENGE_ACTIVE',
+    'APR_GRANT_PARAMETERS_INVALID',
+  ],
+  join: [
+    'APR_INVITATION_INVALID',
+    'APR_IDENTITY_REQUIRED',
+    'APR_IDENTITY_CONFLICT',
+    'APR_OUTPUT_COLLISION',
+  ],
+  status: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
+  resume: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
+  submit: ['APR_PROTECTED_METADATA_CHANGED', 'APR_RESPONSE_INVALID', 'APR_IDENTITY_CONFLICT'],
+  supplement: ['APR_GRANT_INVALID', 'APR_GRANT_MISMATCH'],
+  continue: ['APR_GRANT_INVALID', 'APR_GRANT_MISMATCH', 'APR_GRANT_REPLAYED'],
+  finalize: ['APR_INVALID_TRANSITION', 'APR_GRANT_INVALID'],
+  recover: ['APR_CLAIM_NOT_STALE', 'APR_GRANT_INVALID', 'APR_IDENTITY_CONFLICT'],
+  abandon: ['APR_INVALID_TRANSITION', 'APR_USAGE'],
+  help: ['APR_USAGE'],
+  explain: ['APR_USAGE'],
+});
 const NEXT_COMMAND = Object.freeze({
-  'join-reviewer': () => COMMAND_USAGE.join,
-  'reviewer-submit': (workspace) => `peer-review submit ${workspace}`,
-  'author-submit': (workspace) => `peer-review submit ${workspace}`,
-  'finalize-acceptance': (workspace) => `peer-review finalize ${workspace}`,
-  'commit-acceptance': (workspace) => `peer-review finalize ${workspace}`,
-  'human-intervention': (workspace) => `peer-review status ${workspace} --next`,
+  'join-reviewer': ({ invitation }) => `peer-review join ${invitation}`,
+  'reviewer-submit': ({ workspace }) => `peer-review submit ${workspace}`,
+  'author-submit': ({ workspace }) => `peer-review submit ${workspace}`,
+  'finalize-acceptance': ({ workspace }) => `peer-review finalize ${workspace}`,
+  'commit-acceptance': ({ workspace }) => `peer-review finalize ${workspace}`,
+  'human-intervention': ({ workspace }, state) => {
+    if (state.protocol.intervention?.reason === 'stale-claim') {
+      return `peer-review recover ${workspace} --reclaim`;
+    }
+    if (state.protocol.intervention?.reason === 'turn-budget-exhausted') {
+      const resumeRole =
+        state.protocol.intervention.interrupted_state === 'author-revision' ? 'author' : 'reviewer';
+      return `peer-review request-grant ${workspace} --action continue --additional-turns 1 --resulting-effective-maximum ${state.protocol.max_turns + 1} --resume-role ${resumeRole}`;
+    }
+    return `peer-review recover ${workspace}`;
+  },
 });
 const ERROR_CATALOG = Object.freeze({
   APR_ARTIFACT_DIRTY: {
@@ -92,7 +176,6 @@ const ERROR_CATALOG = Object.freeze({
 
 function topic(command) {
   const grammar = POSITIONAL_GRAMMAR[command];
-  const mutating = !READ_ONLY.has(command);
   return Object.freeze({
     schema: 'ai-peer-review.help/v1',
     command,
@@ -103,7 +186,7 @@ function topic(command) {
     arguments: { minimum: grammar.min, maximum: grammar.max },
     flags: COMMAND_FLAGS[command].map((flag) => ({
       flag,
-      description: `Closed ${flag.slice(2).replaceAll('-', ' ')} option.`,
+      description: `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
     })),
     defaults:
       command === 'start'
@@ -117,22 +200,8 @@ function topic(command) {
     environment: [
       'Official provider session metadata when available; declared identity is explicit.',
     ],
-    preconditions:
-      command === 'start'
-        ? [
-            'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
-            'Optional --bootstrap-grant must authorize the exact protected pin-verifier action.',
-          ]
-        : [
-            READ_ONLY.has(command)
-              ? 'A readable local package and any named workspace.'
-              : 'Exact current event authority and all command-specific preflight checks.',
-          ],
-    effects: [
-      mutating
-        ? 'May append the documented event and its derived files.'
-        : 'No files, Git, configuration, or transport are changed.',
-    ],
+    preconditions: PRECONDITIONS[command],
+    effects: EFFECTS[command],
     commit:
       command === 'submit' || command === 'finalize'
         ? 'Author-only when normal mode requires it.'
@@ -156,7 +225,7 @@ function topic(command) {
       command === 'status' || command === 'resume'
         ? 'Exactly one event-derived action and command.'
         : 'Read peer-review status for the next event-derived action.',
-    errors: Object.keys(ERROR_CATALOG),
+    errors: ERRORS[command],
     json_schema: 'ai-peer-review.cli-result/v1',
   });
 }
@@ -227,12 +296,20 @@ export function helpRequest(name = null, format = 'text', options = {}) {
   return format === 'json' ? result : render(result);
 }
 
-export function nextActionCommand(workspace, action) {
-  return NEXT_COMMAND[action]?.(workspace) ?? null;
+export function nextActionCommand(paths, action, state) {
+  return NEXT_COMMAND[action]?.(paths, state) ?? null;
 }
 
 export function explainError(code, format = 'json') {
-  const entry = ERROR_CATALOG[code];
+  const documented = new Set(Object.values(ERRORS).flat());
+  const entry =
+    ERROR_CATALOG[code] ??
+    (documented.has(code)
+      ? {
+          message: 'The command failed a documented fail-closed check.',
+          recovery: 'Run peer-review help --all and follow the recovery for the owning command.',
+        }
+      : null);
   if (!entry) usage(`Unknown APR error code: ${code}`);
   const result = Object.freeze({
     schema: 'ai-peer-review.error-help/v1',

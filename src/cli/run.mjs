@@ -1,9 +1,14 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
 import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { canonicalChallengeBytes } from '../authority/canonicalize.mjs';
+import {
+  canonicalChallengeBytes,
+  digestChallenge,
+  digestGrantParameters,
+} from '../authority/canonicalize.mjs';
 import { requestGrant } from '../authority/challenge.mjs';
+import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 import { createResponseDraft, reserveCollateral } from '../collateral/responses.mjs';
 import { AprError } from '../errors.mjs';
@@ -151,6 +156,211 @@ function exactFile(file, bytes) {
   }
 }
 
+function sha256(bytes) {
+  return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function ensureExactFile(file, bytes) {
+  if (entryExists(file)) {
+    if (!exactFile(file, bytes)) collision(file);
+    return;
+  }
+  atomicCreate(file, bytes);
+}
+
+function configuredTransport(input) {
+  const mode = input.transportMode ?? 'manual';
+  if (!['manual', 'resume-only'].includes(mode)) {
+    fail(
+      'APR_TRANSPORT_UNAVAILABLE',
+      'The requested Phase 1 transport mode is unavailable.',
+      'Use manual transport or configure a validated resume-only adapter.'
+    );
+  }
+  const capability = input.transportCapability ?? 'manual';
+  if (
+    !['manual', 'resume-only'].includes(capability) ||
+    (mode === 'resume-only' && capability !== mode)
+  ) {
+    fail(
+      'APR_TRANSPORT_UNAVAILABLE',
+      'The current author session cannot satisfy the requested transport mode.',
+      'Use manual transport or configure a validated resume-only adapter.'
+    );
+  }
+  return Object.freeze({ mode, capability });
+}
+
+function configuredAuthority(root, explicit) {
+  if (explicit !== undefined) return explicit;
+  const file = path.join(root, '.ai-peer-review.json');
+  try {
+    const config = JSON.parse(readFileSync(file, 'utf8'));
+    if (config?.schema !== 'ai-peer-review.config/v1' || !config.authority) {
+      fail(
+        'APR_AUTHORITY_REQUIRED',
+        'Project authority configuration is invalid.',
+        `Repair ${file} or remove it for consensus-only startup.`
+      );
+    }
+    return config.authority;
+  } catch (cause) {
+    if (cause?.code === 'ENOENT') return DEFAULT_AUTHORITY;
+    if (cause instanceof AprError) throw cause;
+    fail(
+      'APR_AUTHORITY_REQUIRED',
+      'Project authority configuration cannot be read.',
+      `Repair ${file} or remove it for consensus-only startup.`
+    );
+  }
+}
+
+function pinVerifierParameters({ authority, artifact, context, maximum, commitMode }) {
+  return {
+    verifier_fingerprint: authority.verifier?.verifier_fingerprint,
+    assurance_grade: authority.verifier?.assurance_grade,
+    authority_policy: authority.authority_policy,
+    artifact_path: artifact.path,
+    artifact_kind: context.artifact_kind,
+    reviews_root: context.reviews_root,
+    path_template: context.review_path_template,
+    issue_id: context.issue,
+    maximum_turns: maximum,
+    commit_mode: commitMode,
+  };
+}
+
+function readGrant(file, root) {
+  const absolute = path.isAbsolute(file) ? file : path.resolve(root, file);
+  try {
+    return JSON.parse(readFileSync(absolute, 'utf8'));
+  } catch (cause) {
+    const error = new AprError('APR_GRANT_INVALID', 'Bootstrap grant cannot be read.', {
+      recovery: 'Use the exact signed pin-verifier grant JSON file.',
+      details: { file: absolute },
+    });
+    error.cause = cause;
+    throw error;
+  }
+}
+
+function verifyBootstrapInput({
+  input,
+  root,
+  authority,
+  artifact,
+  context,
+  maximum,
+  commitMode,
+  reviewId,
+  now,
+  hostVerifier,
+}) {
+  const grant = readGrant(input.bootstrapGrant, root);
+  const parameters = pinVerifierParameters({ authority, artifact, context, maximum, commitMode });
+  const challenge = grant.challenge;
+  const protocol = {
+    review_id: reviewId,
+    revision: 0,
+    intervention: { intervention_id: null },
+    authority,
+    commit_mode: commitMode,
+    challenges: [{ ...challenge, consumed_at: null, superseded_at: null }],
+  };
+  const attestation = verifyAndConsumeGrant({ protocol }, grant, {
+    action: 'pin-verifier',
+    parameters,
+    now,
+    hostVerifier,
+  });
+  if (
+    !['hardware-presence', 'host-verified', 'cryptographic-external'].includes(attestation.strength)
+  ) {
+    fail(
+      'APR_AUTHORITY_POLICY',
+      'Bootstrap verifier pinning requires prevention-grade authority.',
+      'Use a hardware-presence, host-verified, or cryptographic-external signer boundary.'
+    );
+  }
+  return { authority, evidence: { challenge, parameters, attestation } };
+}
+
+function testAuthorityEvidence({
+  fixtureId,
+  artifact,
+  context,
+  maximum,
+  commitMode,
+  reviewId,
+  now,
+}) {
+  const seed = createHash('sha256')
+    .update(`ai-peer-review.test-authority/v1\n${fixtureId}`)
+    .digest();
+  const privateKey = createPrivateKey({
+    key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), seed]),
+    format: 'der',
+    type: 'pkcs8',
+  });
+  const publicKey = createPublicKey(privateKey);
+  const fingerprint = `sha256:${createHash('sha256')
+    .update(publicKey.export({ type: 'spki', format: 'der' }))
+    .digest('hex')}`;
+  const authority = {
+    authority_policy: 'detection-allowed',
+    challenge_ttl_ms: 15 * 60 * 1000,
+    verifier: {
+      kind: 'ed25519',
+      verifier_id: `test:${fixtureId}`,
+      verifier_fingerprint: fingerprint,
+      public_key: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      assurance_grade: 'test-fixture',
+      signer_strength: 'unverified-test',
+    },
+  };
+  const parameters = pinVerifierParameters({ authority, artifact, context, maximum, commitMode });
+  const at = new Date(now);
+  const challenge = {
+    schema: 'ai-peer-review.grant-challenge/v1',
+    challenge_id: `challenge-test-${createHash('sha256').update(fixtureId).digest('hex').slice(0, 16)}`,
+    review_id: reviewId,
+    intervention_id: null,
+    protocol_revision: 0,
+    action: 'pin-verifier',
+    parameters_digest: digestGrantParameters('pin-verifier', parameters),
+    nonce: createHash('sha256').update(`nonce\n${fixtureId}`).digest('base64url'),
+    expires_at: new Date(at.valueOf() + authority.challenge_ttl_ms).toISOString(),
+  };
+  const attestation = {
+    source: 'test-fixture',
+    strength: 'unverified-test',
+    signer_id: authority.verifier.verifier_id,
+    signer_fingerprint: fingerprint,
+    challenge_digest: digestChallenge(challenge),
+    verified_at: at.toISOString(),
+  };
+  return { authority, evidence: { challenge, parameters, attestation } };
+}
+
+function deterministicReviewId(input) {
+  const bytes = Buffer.from(canonicalProjection(input));
+  return `review-${createHash('sha256').update(bytes).digest('hex').slice(0, 32)}`;
+}
+
+function startupVariables(root, artifact, paths, reviewId) {
+  const startup = trackedStartupPaths(paths);
+  return {
+    startup,
+    variables: {
+      review_id: reviewId,
+      artifact_absolute: path.join(root, artifact.path),
+      workspace_absolute: paths.scratch.absolute,
+      response_absolute: paths.reviewerResponse(1).absolute,
+      invitation_absolute: startup.reviewer_invitation,
+    },
+  };
+}
+
 function startResult(state, paths, startup) {
   return result(
     'start',
@@ -165,6 +375,10 @@ function startResult(state, paths, startup) {
       claim_ttl_ms: state.protocol.claim_ttl_ms,
       commit_mode: state.protocol.commit_mode,
       authority: state.protocol.authority,
+      transport_mode: state.protocol.startup.transport_mode,
+      author_transport_capability: state.protocol.startup.author_transport_capability,
+      no_commit_baseline: state.protocol.startup.no_commit_baseline,
+      bootstrap: state.protocol.startup.bootstrap,
     }
   );
 }
@@ -198,13 +412,39 @@ export async function startReview(input, deps = {}) {
       'Resolve the author identity and retry.'
     );
   }
-  const reviewId = input.reviewId ?? `review-${randomUUID()}`;
   const now = timestamp(input.now ?? new Date());
   const maximum = safePositive(input.maxTurns, 10, 'maximum turns');
   const claimTtlMs = safePositive(input.claimTtlMs, 8 * 60 * 60 * 1000, 'claim TTL');
+  const commitMode = input.noCommit ? 'no-commit' : 'normal';
+  if (input.testHumanAuthority && commitMode !== 'no-commit') {
+    fail(
+      'APR_AUTHORITY_POLICY',
+      'Test-only authority is forbidden in normal commit mode.',
+      'Use --no-commit with --test-human-authority.'
+    );
+  }
+  const transport = configuredTransport(input);
+  const requestedAuthority = configuredAuthority(root, input.authority);
+  const reviewId =
+    input.reviewId ??
+    deterministicReviewId({
+      repository_root: root,
+      artifact_path: artifact.path,
+      artifact_head: artifact.head,
+      artifact_kind: input.artifactKind,
+      reviews_root: input.reviewsRoot ?? 'docs/peer-reviews',
+      review_path_template: input.reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
+      issue: input.issue ?? null,
+      maximum,
+      claim_ttl_ms: claimTtlMs,
+      commit_mode: commitMode,
+      author_fingerprint: input.identity.session_fingerprint,
+      authority: requestedAuthority,
+      transport_mode: transport.mode,
+    });
   const date = now.slice(0, 10);
   const name = path.basename(artifact.path, path.extname(artifact.path));
-  const paths = resolveReviewPaths({
+  let paths = resolveReviewPaths({
     root,
     reviewsRoot: input.reviewsRoot,
     reviewPathTemplate: input.reviewPathTemplate,
@@ -222,19 +462,7 @@ export async function startReview(input, deps = {}) {
       { path: paths.scratch.relative }
     );
   }
-  let authority = input.authority ?? DEFAULT_AUTHORITY;
-  if (input.bootstrapGrant) {
-    if (typeof deps.verifyBootstrapGrant !== 'function') {
-      fail(
-        'APR_AUTHORITY_REQUIRED',
-        'A bootstrap grant requires a configured prevention-grade verifier.',
-        'Configure the verifier or omit --bootstrap-grant for consensus-only startup.'
-      );
-    }
-    authority = await deps.verifyBootstrapGrant({ ...input, root, artifact, paths, reviewId });
-  }
-  const startup = trackedStartupPaths(paths);
-  const context = {
+  const requestedContext = {
     schema: 'ai-peer-review.context/v1',
     review_id: reviewId,
     repository_root: root,
@@ -245,30 +473,52 @@ export async function startReview(input, deps = {}) {
     review_path_template: input.reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
     issue: input.issue ?? null,
   };
-  const contextBytes = Buffer.from(canonicalProjection(context));
-  const variables = {
-    review_id: reviewId,
-    artifact_absolute: path.join(root, artifact.path),
-    workspace_absolute: paths.scratch.absolute,
-    response_absolute: paths.reviewerResponse(1).absolute,
-  };
-  const authorStartupBytes = hydrateTemplate('author-startup', variables);
-  const reviewerInvitationBytes = hydrateTemplate('reviewer-invitation', variables);
   const eventsFile = path.join(paths.scratch.absolute, 'events.jsonl');
 
   if (entryExists(eventsFile)) {
-    if (!exactFile(contextFile(paths.scratch.absolute), contextBytes)) {
-      collision(contextFile(paths.scratch.absolute));
-    }
     const state = inspectReview(paths.scratch.absolute);
-    const existingContext = readContext(paths.scratch.absolute);
+    const sealed = state.protocol.startup;
+    if (!sealed?.context) collision(eventsFile);
+    const context = sealed.context;
+    paths = pathsForContext(context);
+    const { startup, variables } = startupVariables(root, artifact, paths, reviewId);
+    const contextBytes = Buffer.from(canonicalProjection(context));
+    const authorStartupBytes = hydrateTemplate('author-startup', variables);
+    const reviewerInvitationBytes = hydrateTemplate('reviewer-invitation', variables);
+    const authorityRetryMatches = (() => {
+      if (input.bootstrapGrant) {
+        const grant = readGrant(input.bootstrapGrant, root);
+        return (
+          sealed.bootstrap !== null &&
+          sameValue(state.protocol.authority, requestedAuthority) &&
+          sameValue(grant.challenge, sealed.bootstrap.challenge) &&
+          sameValue(grant.parameters, sealed.bootstrap.parameters)
+        );
+      }
+      if (input.testHumanAuthority) {
+        const expectedTest = testAuthorityEvidence({
+          fixtureId: input.testHumanAuthority,
+          artifact,
+          context,
+          maximum,
+          commitMode,
+          reviewId,
+          now,
+        });
+        return (
+          sealed.bootstrap?.attestation.signer_id === `test:${input.testHumanAuthority}` &&
+          sameValue(state.protocol.authority, expectedTest.authority) &&
+          sameValue(sealed.bootstrap.parameters, expectedTest.evidence.parameters)
+        );
+      }
+      return sealed.bootstrap === null && sameValue(state.protocol.authority, requestedAuthority);
+    })();
     const exactRetry =
       state.protocol.state === 'awaiting-reviewer' &&
       state.protocol.review_id === reviewId &&
       state.protocol.max_turns === maximum &&
       state.protocol.claim_ttl_ms === claimTtlMs &&
-      state.protocol.commit_mode === (input.noCommit ? 'no-commit' : 'normal') &&
-      sameValue(state.protocol.authority, authority) &&
+      state.protocol.commit_mode === commitMode &&
       sameValue(state.protocol.artifact, {
         path: artifact.path,
         head: artifact.head,
@@ -276,13 +526,32 @@ export async function startReview(input, deps = {}) {
         digest: `sha256:${artifact.worktreeDigest}`,
       }) &&
       sameParticipant(state.participants.author, input.identity) &&
-      sameValue(existingContext, context) &&
-      exactFile(startup.author_startup, authorStartupBytes) &&
-      exactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+      context.repository_root === root &&
+      context.artifact_kind === input.artifactKind &&
+      context.artifact_name === name &&
+      context.reviews_root === requestedContext.reviews_root &&
+      context.review_path_template === requestedContext.review_path_template &&
+      context.issue === requestedContext.issue &&
+      sealed.context_digest === sha256(contextBytes) &&
+      sealed.destination === paths.destination.relative &&
+      sealed.author_startup_digest === sha256(authorStartupBytes) &&
+      sealed.reviewer_invitation_digest === sha256(reviewerInvitationBytes) &&
+      sealed.transport_mode === transport.mode &&
+      sealed.author_transport_capability === transport.capability &&
+      authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
     reserveCollateral({ ...state, paths });
+    ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
+    ensureExactFile(startup.author_startup, authorStartupBytes);
+    ensureExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
     return startResult(state, paths, startup);
   }
+
+  const context = requestedContext;
+  const contextBytes = Buffer.from(canonicalProjection(context));
+  const { startup, variables } = startupVariables(root, artifact, paths, reviewId);
+  const authorStartupBytes = hydrateTemplate('author-startup', variables);
+  const reviewerInvitationBytes = hydrateTemplate('reviewer-invitation', variables);
 
   for (const file of [
     contextFile(paths.scratch.absolute),
@@ -295,13 +564,56 @@ export async function startReview(input, deps = {}) {
   ]) {
     if (entryExists(file)) collision(file);
   }
+  const noCommitBaseline = commitMode === 'no-commit' ? repository.baseline(root) : null;
+  let authority = requestedAuthority;
+  let bootstrap = null;
+  const authorityRequest = input.bootstrapGrant ?? input.testHumanAuthority;
+  if (authorityRequest) {
+    const verifier = input.bootstrapGrant
+      ? (deps.verifyBootstrapGrant ?? verifyBootstrapInput)
+      : (deps.verifyTestHumanAuthority ??
+        ((details) => testAuthorityEvidence({ ...details, fixtureId: input.testHumanAuthority })));
+    const verified = await verifier({
+      input,
+      root,
+      authority: requestedAuthority,
+      artifact,
+      context,
+      maximum,
+      commitMode,
+      paths,
+      reviewId,
+      now,
+      hostVerifier: deps.hostVerifier,
+    });
+    if (!verified?.authority || !verified?.evidence) {
+      fail(
+        'APR_AUTHORITY_REQUIRED',
+        'Startup authority verification did not return complete evidence.',
+        'Use a verifier that returns exact authority and bootstrap evidence.'
+      );
+    }
+    authority = verified.authority;
+    bootstrap = verified.evidence;
+  }
+  const startupAuthority = {
+    context,
+    context_digest: sha256(contextBytes),
+    destination: paths.destination.relative,
+    author_startup_digest: sha256(authorStartupBytes),
+    reviewer_invitation_digest: sha256(reviewerInvitationBytes),
+    transport_mode: transport.mode,
+    author_transport_capability: transport.capability,
+    no_commit_baseline: noCommitBaseline,
+    bootstrap,
+  };
   const initial = eventFor(
     null,
     'review-created',
     'system',
     {
       review_id: reviewId,
-      commit_mode: input.noCommit ? 'no-commit' : 'normal',
+      commit_mode: commitMode,
       max_turns: maximum,
       claim_ttl_ms: claimTtlMs,
       authority,
@@ -312,6 +624,7 @@ export async function startReview(input, deps = {}) {
         digest: `sha256:${artifact.worktreeDigest}`,
       },
       author: input.identity,
+      startup: startupAuthority,
     },
     now
   );
@@ -353,21 +666,6 @@ function invitationValues(file) {
   return values;
 }
 
-function readContext(workspace) {
-  try {
-    const value = JSON.parse(readFileSync(contextFile(workspace), 'utf8'));
-    if (value?.schema !== 'ai-peer-review.context/v1') throw new Error('context schema');
-    return value;
-  } catch (cause) {
-    const error = new AprError('APR_INVITATION_INVALID', 'Review context is unavailable.', {
-      recovery: 'Restore the generated scratch review-context.json and retry join.',
-      details: { workspace },
-    });
-    error.cause = cause;
-    throw error;
-  }
-}
-
 function pathsForContext(context) {
   return resolveReviewPaths({
     root: context.repository_root,
@@ -381,26 +679,71 @@ function pathsForContext(context) {
   });
 }
 
-export async function joinReview(input, deps = {}) {
-  const repository = deps.repository ?? createGitRepository();
-  const invitation = path.resolve(input.invitation);
-  const values = invitationValues(invitation);
-  const state = inspectReview(values.workspace);
-  const context = readContext(values.workspace);
-  const root = repository.root(input.cwd);
+function sealedPaths(state) {
+  const startup = state.protocol.startup;
+  const context = startup?.context;
+  if (!context || sha256(Buffer.from(canonicalProjection(context))) !== startup.context_digest) {
+    fail(
+      'APR_INVITATION_INVALID',
+      'Review startup routing authority is invalid.',
+      'Recover the review from its intact event authority before continuing.'
+    );
+  }
   const paths = pathsForContext(context);
+  if (paths.destination.relative !== startup.destination) {
+    fail(
+      'APR_INVITATION_INVALID',
+      'Review destination differs from sealed startup authority.',
+      'Recover the review from its intact event authority before continuing.'
+    );
+  }
+  return { startup, context, paths };
+}
+
+function validateJoinAuthority({ state, root, invitation, values }) {
+  const { startup, context, paths } = sealedPaths(state);
+  const contextBytes = Buffer.from(canonicalProjection(context));
+  const expectedInvitation = hydrateTemplate(
+    'reviewer-invitation',
+    startupVariables(root, state.protocol.artifact, paths, state.protocol.review_id).variables
+  );
   if (
     root !== context.repository_root ||
     values.reviewId !== state.protocol.review_id ||
     values.workspace !== paths.scratch.absolute ||
     values.artifact !== path.join(root, state.protocol.artifact.path) ||
     values.response !== paths.reviewerResponse(1).absolute ||
-    invitation !== trackedStartupPaths(paths).reviewer_invitation
+    invitation !== trackedStartupPaths(paths).reviewer_invitation ||
+    !exactFile(contextFile(paths.scratch.absolute), contextBytes) ||
+    sha256(expectedInvitation) !== startup.reviewer_invitation_digest ||
+    !exactFile(invitation, expectedInvitation)
   ) {
     fail(
       'APR_INVITATION_INVALID',
-      'Invitation does not match current review and physical worktree authority.',
-      'Join from the generated invitation inside its original physical worktree.'
+      'Invitation does not match sealed review and physical worktree authority.',
+      'Join from the exact generated invitation inside its original physical worktree.'
+    );
+  }
+  return paths;
+}
+
+export async function joinReview(input, deps = {}) {
+  const repository = deps.repository ?? createGitRepository();
+  const invitation = path.resolve(input.invitation);
+  const values = invitationValues(invitation);
+  const state = inspectReview(values.workspace);
+  const root = repository.root(input.cwd);
+  const paths = validateJoinAuthority({ state, root, invitation, values });
+  const reviewerCapability = input.transportCapability ?? 'manual';
+  if (
+    !['manual', 'resume-only'].includes(reviewerCapability) ||
+    (state.protocol.startup.transport_mode === 'resume-only' &&
+      reviewerCapability !== 'resume-only')
+  ) {
+    fail(
+      'APR_TRANSPORT_UNAVAILABLE',
+      'The reviewer session cannot satisfy the startup-pinned transport mode.',
+      'Join from a validated resume-only adapter or start a manual review.'
     );
   }
   if (input.identity?.role !== 'reviewer') {
@@ -414,7 +757,11 @@ export async function joinReview(input, deps = {}) {
   if (state.protocol.state === 'reviewer-turn') {
     const registered = state.participants.reviewer;
     const claim = state.protocol.claims.reviewer;
-    if (sameParticipant(registered, input.identity) && !claim) {
+    if (
+      sameParticipant(registered, input.identity) &&
+      state.protocol.transports.reviewer === reviewerCapability &&
+      !claim
+    ) {
       const claimed = await mutateReview(values.workspace, expected(state), (current) =>
         claimRole(current, registered, input.now ?? new Date())
       );
@@ -434,6 +781,7 @@ export async function joinReview(input, deps = {}) {
     }
     if (
       sameParticipant(registered, input.identity) &&
+      state.protocol.transports.reviewer === reviewerCapability &&
       claim?.session_fingerprint === input.identity.session_fingerprint
     ) {
       const draft = createResponseDraft({ ...state, paths }, 'reviewer', 1);
@@ -467,10 +815,13 @@ export async function joinReview(input, deps = {}) {
     state,
     'reviewer-joined',
     input.identity.session_fingerprint,
-    { reviewer: input.identity },
+    { reviewer: input.identity, transport_capability: reviewerCapability },
     input.now ?? new Date()
   );
-  const joined = await mutateReview(values.workspace, expected(state), () => joinedEvent);
+  const joined = await mutateReview(values.workspace, expected(state), (current) => {
+    validateJoinAuthority({ state: current, root, invitation, values });
+    return joinedEvent;
+  });
   const claimed = await mutateReview(values.workspace, expected(joined), (current) =>
     claimRole(current, input.identity, input.now ?? new Date())
   );
@@ -492,17 +843,29 @@ export async function joinReview(input, deps = {}) {
 export function statusReview(workspace, { now = new Date() } = {}) {
   const absolute = path.resolve(workspace);
   const state = inspectReview(absolute);
+  const { paths: resolved } = sealedPaths(state);
   const role = ['author', 'reviewer'].includes(state.protocol.current_actor)
     ? state.protocol.current_actor
     : null;
   const observed = role
     ? deriveClaimStatus(state, role, now)
     : { status: 'not-applicable', claim: null };
+  const response =
+    state.protocol.state === 'reviewer-turn'
+      ? resolved.reviewerResponse(state.protocol.turns_used + 1).absolute
+      : state.protocol.state === 'author-revision'
+        ? resolved.authorResponse(state.protocol.turns_used).absolute
+        : null;
+  const operationalPaths = Object.freeze({
+    workspace: absolute,
+    invitation: trackedStartupPaths(resolved).reviewer_invitation,
+    ...(response ? { response } : {}),
+  });
   return Object.freeze({
-    ...result('status', state, { workspace: absolute }, {}),
+    ...result('status', state, operationalPaths, {}),
     next_action: Object.freeze({
       action: state.protocol.next_action,
-      command: nextActionCommand(absolute, state.protocol.next_action),
+      command: nextActionCommand(operationalPaths, state.protocol.next_action, state),
     }),
     claim: Object.freeze({
       role,
@@ -521,11 +884,13 @@ export function resumeReview(workspace, options = {}) {
     command: 'resume',
     role,
     instructions:
-      role === 'reviewer'
-        ? `Open the current reviewer response and then run: ${status.next_action.command}`
-        : role === 'author'
-          ? `Open the current author response and then run: ${status.next_action.command}`
-          : `Follow the human intervention shown by: ${status.next_action.command}`,
+      status.next_action.command === null
+        ? 'The review is terminal; there is no next action.'
+        : role === 'reviewer'
+          ? `Open the current reviewer response ${status.paths.response} and then run: ${status.next_action.command}`
+          : role === 'author'
+            ? `Open the current author response ${status.paths.response} and then run: ${status.next_action.command}`
+            : `Follow the human intervention shown by: ${status.next_action.command}`,
   });
 }
 
@@ -582,19 +947,29 @@ export async function run(argv, io) {
     }
     let response;
     if (parsed.command === 'start') {
-      response = await startReview({
-        cwd: io.cwd,
-        artifact: parsed.args[0],
-        artifactKind: parsed.options.artifactKind,
-        identity: resolveIdentity({ role: 'author', env: io.env, ...(io.identityContext ?? {}) }),
-        now: io.now ?? new Date(),
-        ...parsed.options,
-      });
+      response = await startReview(
+        {
+          cwd: io.cwd,
+          artifact: parsed.args[0],
+          artifactKind: parsed.options.artifactKind,
+          identity: resolveIdentity({ role: 'author', env: io.env, ...(io.identityContext ?? {}) }),
+          now: io.now ?? new Date(),
+          authority: io.authority,
+          transportCapability: io.transportCapability,
+          ...parsed.options,
+        },
+        {
+          verifyBootstrapGrant: io.verifyBootstrapGrant,
+          verifyTestHumanAuthority: io.verifyTestHumanAuthority,
+          hostVerifier: io.hostVerifier,
+        }
+      );
     } else if (parsed.command === 'join') {
       response = await joinReview({
         cwd: io.cwd,
         invitation: path.resolve(io.cwd, parsed.args[0]),
         identity: resolveIdentity({ role: 'reviewer', env: io.env, ...(io.identityContext ?? {}) }),
+        transportCapability: io.transportCapability,
         now: io.now ?? new Date(),
       });
     } else if (parsed.command === 'status') {

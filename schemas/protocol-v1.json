@@ -14,6 +14,8 @@
     "max_turns",
     "claim_ttl_ms",
     "authority",
+    "startup",
+    "transports",
     "turns_used",
     "artifact",
     "claims",
@@ -35,6 +37,16 @@
     "max_turns": { "type": "integer", "minimum": 0 },
     "claim_ttl_ms": { "type": "integer", "minimum": 0 },
     "authority": { "type": ["object", "null"] },
+    "startup": { "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/startup" }] },
+    "transports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["author", "reviewer"],
+      "properties": {
+        "author": { "enum": ["manual", "resume-only", null] },
+        "reviewer": { "enum": ["manual", "resume-only", null] }
+      }
+    },
     "turns_used": { "type": "integer", "minimum": 0 },
     "artifact": { "type": ["object", "null"] },
     "claims": { "type": "object" },

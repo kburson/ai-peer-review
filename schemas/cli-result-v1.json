@@ -6,14 +6,161 @@
   "required": ["schema", "command", "review_id", "state", "next_action", "review", "paths"],
   "properties": {
     "schema": { "const": "ai-peer-review.cli-result/v1" },
-    "command": { "type": "string" },
-    "review_id": { "type": ["string", "null"] },
-    "state": { "type": ["string", "null"] },
-    "next_action": {},
-    "review": { "type": "object" },
-    "paths": { "type": "object" },
-    "claim": { "type": "object" },
-    "role": { "type": "string" },
-    "instructions": { "type": "string" }
+    "command": { "enum": ["start", "join", "status", "resume"] },
+    "review_id": { "$ref": "#/$defs/id" },
+    "state": { "$ref": "#/$defs/state" },
+    "next_action": {
+      "oneOf": [
+        { "$ref": "#/$defs/action" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "command"],
+          "properties": {
+            "action": { "$ref": "#/$defs/action" },
+            "command": { "type": ["string", "null"] }
+          }
+        }
+      ]
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_turns": { "$ref": "#/$defs/positive" },
+        "claim_ttl_ms": { "$ref": "#/$defs/positive" },
+        "commit_mode": { "enum": ["normal", "no-commit"] },
+        "authority": { "$ref": "#/$defs/authority" },
+        "transport_mode": { "enum": ["manual", "resume-only"] },
+        "author_transport_capability": { "enum": ["manual", "resume-only"] },
+        "no_commit_baseline": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/baseline" }]
+        },
+        "bootstrap": {
+          "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/bootstrapEvidence" }]
+        },
+        "claim": { "$ref": "#/$defs/claim" }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workspace": { "type": "string", "minLength": 1 },
+        "events": { "type": "string", "minLength": 1 },
+        "author_startup": { "type": "string", "minLength": 1 },
+        "reviewer_invitation": { "type": "string", "minLength": 1 },
+        "invitation": { "type": "string", "minLength": 1 },
+        "response": { "type": "string", "minLength": 1 },
+        "human_decision": { "type": "string", "minLength": 1 },
+        "manifest": { "type": "string", "minLength": 1 }
+      }
+    },
+    "claim": { "$ref": "#/$defs/statusClaim" },
+    "role": { "enum": ["author", "reviewer", "human"] },
+    "instructions": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "positive": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "gitObject": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" },
+    "state": {
+      "enum": [
+        "awaiting-reviewer",
+        "reviewer-turn",
+        "author-revision",
+        "acceptance-pending",
+        "author-finalization",
+        "intervention-required",
+        "accepted",
+        "accepted-uncommitted",
+        "accepted-over-objections",
+        "accepted-over-objections-uncommitted",
+        "abandoned"
+      ]
+    },
+    "action": {
+      "enum": [
+        "join-reviewer",
+        "reviewer-submit",
+        "author-submit",
+        "finalize-acceptance",
+        "commit-acceptance",
+        "human-intervention",
+        null
+      ]
+    },
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "verifier_id",
+        "verifier_fingerprint",
+        "public_key",
+        "assurance_grade",
+        "signer_strength"
+      ],
+      "properties": {
+        "kind": { "enum": ["ed25519", "host"] },
+        "verifier_id": { "type": "string", "minLength": 1 },
+        "verifier_fingerprint": { "$ref": "#/$defs/digest" },
+        "public_key": { "type": ["string", "null"] },
+        "assurance_grade": { "enum": ["hardened", "mutable-local", "test-fixture"] },
+        "signer_strength": {
+          "enum": [
+            "cryptographic-external",
+            "hardware-presence",
+            "host-verified",
+            "cryptographic-local",
+            "unverified-test"
+          ]
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_policy", "challenge_ttl_ms", "verifier"],
+      "properties": {
+        "authority_policy": {
+          "enum": ["prevention-required", "detection-allowed", "unavailable"]
+        },
+        "challenge_ttl_ms": { "$ref": "#/$defs/positive" },
+        "verifier": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/verifier" }] }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "index_digest", "worktree_digest"],
+      "properties": {
+        "head": { "$ref": "#/$defs/gitObject" },
+        "index_digest": { "$ref": "#/$defs/digest" },
+        "worktree_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "host", "expires_at"],
+      "properties": {
+        "role": { "enum": ["author", "reviewer"] },
+        "host": { "enum": ["codex", "claude-code", "grok", "other"] },
+        "expires_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "statusClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "status", "host", "expires_at"],
+      "properties": {
+        "role": { "enum": ["author", "reviewer", null] },
+        "status": { "enum": ["active", "stale", "missing", "not-applicable"] },
+        "host": { "enum": ["codex", "claude-code", "grok", "other", null] },
+        "expires_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    }
   }
 }

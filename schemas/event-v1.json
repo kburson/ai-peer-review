@@ -442,7 +442,15 @@
     "reviewCreated": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["commit_mode", "max_turns", "claim_ttl_ms", "authority", "artifact", "author"],
+      "required": [
+        "commit_mode",
+        "max_turns",
+        "claim_ttl_ms",
+        "authority",
+        "artifact",
+        "author",
+        "startup"
+      ],
       "properties": {
         "commit_mode": { "enum": ["normal", "no-commit"] },
         "max_turns": { "$ref": "#/$defs/positive" },
@@ -454,7 +462,114 @@
         },
         "authority": { "$ref": "#/$defs/authority" },
         "artifact": { "$ref": "#/$defs/initialArtifact" },
-        "author": { "$ref": "#/$defs/participant" }
+        "author": { "$ref": "#/$defs/participant" },
+        "startup": { "$ref": "#/$defs/startup" }
+      }
+    },
+    "startupContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "review_id",
+        "repository_root",
+        "artifact_kind",
+        "artifact_name",
+        "review_date",
+        "reviews_root",
+        "review_path_template",
+        "issue"
+      ],
+      "properties": {
+        "schema": { "const": "ai-peer-review.context/v1" },
+        "review_id": { "$ref": "#/$defs/id" },
+        "repository_root": { "type": "string", "minLength": 1 },
+        "artifact_kind": { "enum": ["spec", "plan"] },
+        "artifact_name": { "$ref": "#/$defs/id" },
+        "review_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "reviews_root": { "$ref": "#/$defs/path" },
+        "review_path_template": { "type": "string", "minLength": 1 },
+        "issue": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/positive" }] }
+      }
+    },
+    "noCommitBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "index_digest", "worktree_digest"],
+      "properties": {
+        "head": { "$ref": "#/$defs/gitObject" },
+        "index_digest": { "$ref": "#/$defs/digest" },
+        "worktree_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "bootstrapEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["challenge", "parameters", "attestation"],
+      "properties": {
+        "challenge": { "$ref": "#/$defs/challenge" },
+        "parameters": { "$ref": "#/$defs/pinVerifierParameters" },
+        "attestation": { "$ref": "#/$defs/attestation" }
+      }
+    },
+    "pinVerifierParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verifier_fingerprint",
+        "assurance_grade",
+        "authority_policy",
+        "artifact_path",
+        "artifact_kind",
+        "reviews_root",
+        "path_template",
+        "issue_id",
+        "maximum_turns",
+        "commit_mode"
+      ],
+      "properties": {
+        "verifier_fingerprint": { "$ref": "#/$defs/digest" },
+        "assurance_grade": { "enum": ["hardened", "mutable-local", "test-fixture"] },
+        "authority_policy": {
+          "enum": ["prevention-required", "detection-allowed", "unavailable"]
+        },
+        "artifact_path": { "$ref": "#/$defs/path" },
+        "artifact_kind": { "enum": ["spec", "plan"] },
+        "reviews_root": { "$ref": "#/$defs/path" },
+        "path_template": { "type": "string", "minLength": 1 },
+        "issue_id": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/positive" }] },
+        "maximum_turns": { "$ref": "#/$defs/positive" },
+        "commit_mode": { "enum": ["normal", "no-commit"] }
+      }
+    },
+    "startup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "context_digest",
+        "destination",
+        "author_startup_digest",
+        "reviewer_invitation_digest",
+        "transport_mode",
+        "author_transport_capability",
+        "no_commit_baseline",
+        "bootstrap"
+      ],
+      "properties": {
+        "context": { "$ref": "#/$defs/startupContext" },
+        "context_digest": { "$ref": "#/$defs/digest" },
+        "destination": { "$ref": "#/$defs/path" },
+        "author_startup_digest": { "$ref": "#/$defs/digest" },
+        "reviewer_invitation_digest": { "$ref": "#/$defs/digest" },
+        "transport_mode": { "enum": ["manual", "resume-only"] },
+        "author_transport_capability": { "enum": ["manual", "resume-only"] },
+        "no_commit_baseline": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/noCommitBaseline" }]
+        },
+        "bootstrap": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/bootstrapEvidence" }]
+        }
       }
     },
     "authority": {
@@ -510,8 +625,11 @@
     "reviewerJoined": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reviewer"],
-      "properties": { "reviewer": { "$ref": "#/$defs/participant" } }
+      "required": ["reviewer", "transport_capability"],
+      "properties": {
+        "reviewer": { "$ref": "#/$defs/participant" },
+        "transport_capability": { "enum": ["manual", "resume-only"] }
+      }
     },
     "reviewDecision": {
       "type": "object",
