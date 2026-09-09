@@ -39,7 +39,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           git -c gpg.ssh.allowedSignersFile=provenance/allowed-signers verify-tag "$RELEASE_TAG"
-          test "$(git rev-parse "$RELEASE_TAG^{}")" = "$GITHUB_SHA"
+          test "$(git rev-parse "$RELEASE_TAG^{}")" = "$(git rev-parse HEAD)"
       - name: Pack release artifact
         run: |
           npm pack

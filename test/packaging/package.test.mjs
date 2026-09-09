@@ -153,6 +153,8 @@ test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase
     verifyIndex >= 0 && publishIndex > verifyIndex,
     'tag verification must precede publish'
   );
+  assert.match(release, /rev-parse "\$RELEASE_TAG\^\{\}"[\s\S]*rev-parse HEAD/);
+  assert.doesNotMatch(release, /rev-parse "\$RELEASE_TAG\^\{\}"[^\n]*GITHUB_SHA/);
   assert.match(release, /npm view[\s\S]*registry\.tgz[\s\S]*test .*SHA256SUMS/);
   assert.match(release, /gh release view[\s\S]*gh release download[\s\S]*cmp SHA256SUMS/);
 });
