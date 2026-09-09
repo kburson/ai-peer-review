@@ -187,6 +187,16 @@ test('manifest sealing rejects contradictory terminal claims', () => {
     () => sealManifest({ ...valid, status: 'accepted', final_commit: '1'.repeat(40) }),
     (error) => error.code === 'APR_MANIFEST_INVALID'
   );
+  assert.throws(
+    () =>
+      sealManifest({
+        ...valid,
+        commit_mode: undefined,
+        acceptance_basis: undefined,
+        status: undefined,
+      }),
+    (error) => error.code === 'APR_MANIFEST_INVALID'
+  );
 });
 
 test('no-commit manifest carries explicit non-durable status and residual risk', () => {

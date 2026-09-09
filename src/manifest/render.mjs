@@ -242,6 +242,17 @@ function assertManifestTruth(model, { closed = false } = {}) {
     'no-commit|reviewer-consensus': 'accepted-uncommitted',
     'no-commit|human-override': 'accepted-over-objections-uncommitted',
   }[key];
+  if (
+    expectedStatus === undefined ||
+    ![
+      'accepted',
+      'accepted-uncommitted',
+      'accepted-over-objections',
+      'accepted-over-objections-uncommitted',
+    ].includes(model.status)
+  ) {
+    fail('Manifest mode, acceptance basis, or status is outside the closed terminal enums.');
+  }
   const needsCommit = model.commit_mode === 'normal';
   const needsDecision = model.acceptance_basis === 'human-override';
   if (
