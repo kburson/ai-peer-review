@@ -202,6 +202,17 @@ function validateEnum(options, key, flag, values) {
 }
 
 function validateConstraints(command, args, options) {
+  if (command === 'setup') {
+    validateEnum(options, 'scope', '--scope', ['user', 'project']);
+    for (const agent of options.agent ?? []) {
+      if (!['codex', 'claude', 'grok', 'generic'].includes(agent)) {
+        usage('--agent must be one of: codex, claude, grok, generic');
+      }
+    }
+  }
+  if (command === 'doctor') {
+    validateEnum(options, 'mode', '--mode', ['manual', 'resume-only', 'automatic-required']);
+  }
   if (command === 'start') {
     if (!options.artifactKind) usage('start requires --artifact-kind');
     validateEnum(options, 'artifactKind', '--artifact-kind', ['spec', 'plan']);

@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kburson/ai-peer-review/schemas/config-v1.json",
+  "title": "AI Peer Review configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema"],
+  "properties": {
+    "schema": { "const": "ai-peer-review.config/v1" },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_policy"],
+      "properties": {
+        "authority_policy": { "enum": ["unavailable", "prevention-required", "detection-allowed"] },
+        "challenge_ttl_ms": { "type": "integer", "minimum": 1 },
+        "verifier": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "kind": { "type": "string", "minLength": 1 },
+                "verifier_id": { "type": "string", "minLength": 1 },
+                "verifier_fingerprint": { "type": "string", "minLength": 1 },
+                "public_key": { "type": "string", "minLength": 1 },
+                "assurance_grade": { "type": "string", "minLength": 1 },
+                "signer_strength": { "type": "string", "minLength": 1 }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "hosts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codex": { "$ref": "#/$defs/host" },
+        "claude": { "$ref": "#/$defs/host" },
+        "grok": { "$ref": "#/$defs/host" },
+        "generic": { "$ref": "#/$defs/host" }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "version", "agents", "config_created"],
+      "properties": {
+        "owner": { "const": "ai-peer-review" },
+        "version": { "const": 1 },
+        "agents": {
+          "type": "array",
+          "items": { "enum": ["codex", "claude", "grok", "generic"] },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "config_created": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": { "type": "string", "minLength": 1 },
+            "host": { "type": "string", "minLength": 1 },
+            "model_id": { "type": "string", "minLength": 1 },
+            "model_display": { "type": "string", "minLength": 1 }
+          }
+        },
+        "resume": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["command", "scratch_handle"],
+          "properties": {
+            "command": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            },
+            "scratch_handle": { "type": "string", "minLength": 1 }
+          }
+        },
+        "reviewer_guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "command": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

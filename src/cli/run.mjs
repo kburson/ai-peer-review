@@ -1,5 +1,13 @@
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
-import { lstatSync, readFileSync, readdirSync, realpathSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  unlinkSync,
+} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import {
@@ -10,6 +18,8 @@ import {
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
+import { loadConfig } from '../config/load.mjs';
+import { setup } from '../config/setup.mjs';
 import {
   createResponseDraft,
   parseResponse,
@@ -17,6 +27,7 @@ import {
   sealResponse,
 } from '../collateral/responses.mjs';
 import { AprError } from '../errors.mjs';
+import { doctor } from '../doctor.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
 import {
@@ -3301,6 +3312,43 @@ function commandIdentity(io, state, role = null, { allowReplacement = false } = 
   );
 }
 
+function detectedDoctorContext(io, loaded, requestedMode) {
+  let identity = null;
+  try {
+    identity = resolveIdentity({ role: 'author', env: io.env, ...(io.identityContext ?? {}) });
+  } catch (cause) {
+    if (!(cause instanceof AprError)) throw cause;
+  }
+  let git = { repository: false, worktreeSafe: false, scratchIgnored: false };
+  try {
+    const repository = createGitRepository();
+    const root = repository.root(io.cwd);
+    git = {
+      repository: true,
+      worktreeSafe: realpathSync(root) === root,
+      scratchIgnored: repository.checkIgnored(root, '.scratch/peer-review/probe'),
+    };
+  } catch (cause) {
+    if (!(cause instanceof AprError)) throw cause;
+  }
+  const directories = { codex: '.codex', claude: '.claude', grok: '.grok', generic: '.agents' };
+  const agents = loaded.config.setup?.agents ?? [];
+  const skillAvailable = agents.some((agent) =>
+    [io.cwd, os.homedir()].some((base) =>
+      existsSync(path.join(base, directories[agent], 'skills', 'peer-review', 'SKILL.md'))
+    )
+  );
+  return {
+    requestedMode,
+    packageResolved: true,
+    skillAvailable,
+    identity,
+    git,
+    authority: loaded.config.authority,
+    transport: { mode: 'manual', healthy: requestedMode === 'manual' },
+  };
+}
+
 export async function run(argv, io) {
   try {
     const parsed = parseCommand(argv);
@@ -3320,6 +3368,36 @@ export async function run(argv, io) {
       if (format === 'json') writeJson(io.stdout, response);
       else io.stdout.write(response);
       return 0;
+    }
+    if (parsed.command === 'setup') {
+      const response = setup({
+        scope: parsed.options.scope,
+        agents: parsed.options.agent,
+        dryRun: parsed.options.dryRun,
+        remove: parsed.options.remove,
+        confirmScratchExclude: parsed.options.confirmScratchExclude,
+        cwd: io.cwd,
+        env: io.env,
+      });
+      if (parsed.options.dryRun)
+        io.stdout.write(response.diff ? `${response.diff}\n` : 'No changes.\n');
+      else writeJson(io.stdout, response);
+      return 0;
+    }
+    if (parsed.command === 'doctor') {
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+      const detected = detectedDoctorContext(io, loaded, parsed.options.mode ?? 'manual');
+      const context = io.doctorContext ?? {};
+      const response = doctor({
+        ...detected,
+        ...context,
+      });
+      if (parsed.options.json) writeJson(io.stdout, response);
+      else
+        io.stdout.write(
+          `${response.healthy ? 'healthy' : 'unhealthy'}\n${response.rows.map((entry) => `${entry.id}: ${entry.status}`).join('\n')}\n`
+        );
+      return response.healthy ? 0 : 1;
     }
     if (parsed.command === 'request-grant') {
       const workspace = path.isAbsolute(parsed.args[0])

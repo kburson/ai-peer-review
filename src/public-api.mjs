@@ -21,6 +21,17 @@ export {
   submitReviewTurn,
 } from './cli/run.mjs';
 export { explainError, helpRequest } from './cli/help-data.mjs';
+export { configPaths, loadConfig, validateConfig } from './config/load.mjs';
+export { deriveReviewerGuard } from './config/guards.mjs';
+export { planSetup, setup } from './config/setup.mjs';
+export { doctor } from './doctor.mjs';
+export { manualTransport } from './transport/manual.mjs';
+export {
+  createTransportRegistry,
+  registerTransport,
+  resolveTransport,
+} from './transport/registry.mjs';
+export { createResumeTransport } from './transport/resume.mjs';
 export { commitExactPaths, createGitTransactionRepository } from './git/transaction.mjs';
 export {
   buildManifest,
