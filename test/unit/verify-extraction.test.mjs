@@ -79,6 +79,7 @@ function validManifest(overrides = {}) {
         'test',
       ],
       exact: [
+        '.gitattributes',
         '.gitignore',
         '.gitleaks.toml',
         '.markdownlint-cli2.jsonc',

@@ -43,6 +43,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'test',
   ],
   exact: [
+    '.gitattributes',
     '.gitignore',
     '.gitleaks.toml',
     '.markdownlint-cli2.jsonc',
