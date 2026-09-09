@@ -15,6 +15,7 @@ import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
+import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
 
@@ -43,14 +44,7 @@ test('generated routing and commands remain safe for shell metacharacters in pat
     now: NOW,
   });
   const status = statusReview(started.paths.workspace, { now: NOW });
-  execFileSync(
-    '/bin/sh',
-    [
-      '-c',
-      `set -- ${status.next_action.command}; [ "$#" -eq 3 ] && [ "$3" = "$EXPECTED_INVITATION" ]`,
-    ],
-    { env: { ...process.env, EXPECTED_INVITATION: started.paths.reviewer_invitation } }
-  );
+  assert.equal(executeJoinCommand(status.next_action.command), started.paths.reviewer_invitation);
   const invitation = readFileSync(started.paths.reviewer_invitation, 'utf8');
   assert.match(invitation, /ai-peer-review-invitation data="[A-Za-z0-9_-]+"/);
   assert.doesNotMatch(invitation, /Installed join: `peer-review join \/tmp\/apr start/);

@@ -12,6 +12,8 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+// cspell:ignore filemode
+
 function git(cwd, ...args) {
   return execFileSync('git', args, {
     cwd,
@@ -60,13 +62,24 @@ export function createRepositoryFixture(t) {
   symlinkSync(outside, path.join(root, 'docs', 'outside-link'));
   git(root, 'worktree', 'add', '-b', 'linked-fixture', linked, 'HEAD');
 
+  // Git for Windows may expand an 8.3 tmpdir component (for example,
+  // RUNNER~1) while Node preserves the spelling it was given. Derive the
+  // expected roots through Git so the fixture compares canonical repository
+  // identities rather than two valid spellings of the same directory.
+  const canonicalRoot = realpathSync(git(root, 'rev-parse', '--show-toplevel'));
+  const canonicalLinked = realpathSync(git(linked, 'rev-parse', '--show-toplevel'));
+  const canonicalCommonDir = realpathSync(
+    path.resolve(canonicalRoot, git(canonicalRoot, 'rev-parse', '--git-common-dir'))
+  );
+
   t.after(() => rmSync(parent, { recursive: true, force: true }));
   return {
     parent,
-    root: realpathSync(root),
-    linked: realpathSync(linked),
+    root: canonicalRoot,
+    linked: canonicalLinked,
     outside: realpathSync(outside),
-    commonDir,
+    commonDir: canonicalCommonDir,
+    fileMode: git(canonicalRoot, 'config', '--bool', 'core.filemode') === 'true',
     head,
     artifactBlob,
     artifactBytes,

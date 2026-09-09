@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +7,7 @@ import test from 'node:test';
 import { manualTransport } from '../../src/transport/manual.mjs';
 import { createTransportRegistry } from '../../src/transport/registry.mjs';
 import { createResumeTransport } from '../../src/transport/resume.mjs';
+import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
 function resumeFixture(host, command) {
   const workspace = mkdtempSync(path.join(os.tmpdir(), 'apr-resume-'));
@@ -84,13 +84,17 @@ test('resume failure preserves delivery-pending and manual recovery', async () =
 
 test('manual recovery shell-quotes hostile absolute paths', async () => {
   const invitation = "/tmp/review ' `tick` $()/invitation.md";
-  const result = await manualTransport.deliver({ invitation });
-  const observed = execFileSync(
-    '/bin/sh',
-    ['-c', `set -- ${result.manual.command}; printf '%s' "$3"`],
-    {
-      encoding: 'utf8',
-    }
+  const posix = await manualTransport.deliver({ invitation, platform: 'linux' });
+  assert.equal(
+    posix.manual.command,
+    "peer-review join '/tmp/review '\"'\"' `tick` $()/invitation.md'"
   );
-  assert.equal(observed, invitation);
+  const powershell = await manualTransport.deliver({ invitation, platform: 'win32' });
+  assert.equal(
+    powershell.manual.command,
+    "peer-review join '/tmp/review " + "''" + " `tick` $()/invitation.md'"
+  );
+
+  const native = process.platform === 'win32' ? powershell : posix;
+  assert.equal(executeJoinCommand(native.manual.command), invitation);
 });

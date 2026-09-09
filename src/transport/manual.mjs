@@ -5,18 +5,17 @@ export const manualTransport = Object.freeze({
   host: 'any',
   capability: 'manual',
   healthy: true,
-  async deliver({ invitation, workspace }) {
+  async deliver({ invitation, workspace, platform = process.platform }) {
     return Object.freeze({
       schema: 'ai-peer-review.delivery/v1',
       status: 'delivery-pending',
       transport: 'manual',
       manual: Object.freeze({
         available: true,
-        command: renderCommand([
-          'peer-review',
-          workspace ? 'resume' : 'join',
-          workspace ?? invitation,
-        ]),
+        command: renderCommand(
+          ['peer-review', workspace ? 'resume' : 'join', workspace ?? invitation],
+          { platform }
+        ),
       }),
     });
   },

@@ -294,13 +294,28 @@ export function quoteShellArgument(value) {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
-export function renderCommand(argv) {
+export function quotePowerShellArgument(value) {
+  if (typeof value !== 'string' || !value || /[\0\r\n]/.test(value)) {
+    throw new AprError(
+      'APR_PATH_TEMPLATE_INVALID',
+      'A command argument cannot be rendered safely.',
+      {
+        recovery: 'Use repository and review paths without control characters.',
+      }
+    );
+  }
+  if (/^[A-Za-z0-9_./:-]+$/.test(value)) return value;
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
+export function renderCommand(argv, { platform = process.platform } = {}) {
   if (!Array.isArray(argv) || argv.length === 0) {
     throw new AprError('APR_USAGE', 'A command requires a non-empty argument vector.', {
       recovery: 'Use the structured command catalog.',
     });
   }
-  return argv.map(quoteShellArgument).join(' ');
+  const quoteArgument = platform === 'win32' ? quotePowerShellArgument : quoteShellArgument;
+  return argv.map(quoteArgument).join(' ');
 }
 
 export function markdownCodeSpan(value) {

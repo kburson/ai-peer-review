@@ -32,7 +32,9 @@ npx --yes ai-peer-review@0.1.0 status .scratch/peer-review/<review-id> --next
 The generated invitation and status output contain the exact next command and
 absolute paths. Do not reconstruct them manually. Phase 1 supports manual and
 validated resume-only handoff. If resume delivery fails, the sealed handoff
-remains pending and the CLI prints a shell-safe manual recovery command.
+remains pending and the CLI prints a shell-safe manual recovery command. Command
+arguments use POSIX shell quoting on macOS and Linux and PowerShell quoting on
+Windows.
 
 ## Safety model
 

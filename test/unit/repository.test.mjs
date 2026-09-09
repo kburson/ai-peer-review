@@ -74,7 +74,7 @@ test('refuses untracked artifacts with a stable APR error', (t) => {
   );
 });
 
-test('refuses tracked symlinks and observes executable-bit-only changes', (t) => {
+test('refuses tracked symlinks', (t) => {
   const fixture = createRepositoryFixture(t);
   const repository = createGitRepository();
 
@@ -82,6 +82,15 @@ test('refuses tracked symlinks and observes executable-bit-only changes', (t) =>
     () => repository.artifactState(fixture.root, 'docs/tracked-link.md'),
     (error) => error.code === 'APR_ARTIFACT_NOT_REGULAR'
   );
+});
+
+test('observes executable-bit-only changes where the filesystem supports them', (t) => {
+  const fixture = createRepositoryFixture(t);
+  if (!fixture.fileMode) {
+    t.skip('Git reports that file-mode tracking is disabled on this filesystem');
+    return;
+  }
+  const repository = createGitRepository();
 
   chmodSync(path.join(fixture.root, 'docs', 'artifact.md'), 0o755);
   assert.equal(repository.artifactState(fixture.root, 'docs/artifact.md').clean, false);
