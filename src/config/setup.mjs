@@ -348,7 +348,13 @@ export function setup(options = {}) {
     input,
   };
   if (!options.dryRun) {
-    for (const entry of operations) {
+    const applicationOrder = remove
+      ? [
+          ...operations.filter((entry) => entry.owner !== 'package-config'),
+          ...operations.filter((entry) => entry.owner === 'package-config'),
+        ]
+      : operations;
+    for (const entry of applicationOrder) {
       if (entry.kind === 'modify') {
         mkdirSync(path.dirname(`${entry.file}.bak`), { recursive: true });
         copyFileSync(entry.file, `${entry.file}.bak`);

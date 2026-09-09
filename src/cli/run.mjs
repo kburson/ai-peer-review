@@ -2012,7 +2012,7 @@ async function completeReviewerHandoff({ input, deps, absolute, paths, state, se
   }
   checkpoint(deps, 'delivery-written');
   const delivered = await deliverAndAcknowledge({
-    transport: deps.transport,
+    transport: prior?.acknowledged_at ? null : deps.transport,
     state: current,
     workspace: absolute,
     actor: input.identity.session_fingerprint,
@@ -2244,7 +2244,7 @@ async function completeAuthorHandoff({
   }
   checkpoint(deps, 'delivery-written');
   const delivered = await deliverAndAcknowledge({
-    transport: deps.transport,
+    transport: prior?.acknowledged_at ? null : deps.transport,
     state: current,
     workspace: absolute,
     actor: input.identity.session_fingerprint,

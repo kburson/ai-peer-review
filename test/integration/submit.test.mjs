@@ -139,6 +139,23 @@ test('resume transport failure leaves a durable pending delivery and safe manual
     .map(JSON.parse);
   assert.equal(recoveredEvents.filter((event) => event.type === 'delivery-written').length, 1);
   assert.equal(recoveredEvents.filter((event) => event.type === 'delivery-acknowledged').length, 1);
+  let repeated = false;
+  await api.submitReviewTurn(
+    {
+      cwd: fx.root,
+      workspace: review.started.paths.workspace,
+      identity: review.reviewer,
+      decision: 'revisions-requested',
+      now: NOW,
+    },
+    {
+      transport,
+      execFile: async () => {
+        repeated = true;
+      },
+    }
+  );
+  assert.equal(repeated, false);
 });
 
 test('submit rejects stale reviewer and author claims without sealing responses', async (t) => {
