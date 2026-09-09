@@ -478,10 +478,13 @@ test('join resumes an identical registration interrupted before its claim event'
         transport_capability: 'manual',
         repository_boundary: createGitRepository().reviewerBoundary(
           fx.root,
-          path.relative(
-            createGitRepository().root(fx.root),
-            path.join(path.dirname(started.paths.reviewer_invitation), 'reviewer-response-1.md')
-          )
+          path
+            .relative(
+              createGitRepository().root(fx.root),
+              path.join(path.dirname(started.paths.reviewer_invitation), 'reviewer-response-1.md')
+            )
+            .split(path.sep)
+            .join('/')
         ),
       },
     })

@@ -178,8 +178,8 @@ test('consensus finalization commits only acceptance and deterministic manifest'
       .split('\n')
       .sort(),
     [
-      path.relative(physicalRoot, review.accepted.paths.response),
-      path.relative(physicalRoot, finalized.paths.manifest),
+      path.relative(physicalRoot, review.accepted.paths.response).split(path.sep).join('/'),
+      path.relative(physicalRoot, finalized.paths.manifest).split(path.sep).join('/'),
     ].sort()
   );
   const manifest = readFileSync(finalized.paths.manifest, 'utf8');
@@ -379,8 +379,8 @@ test('normal human override recovers an exact commit after interruption', async 
       .split('\n')
       .sort(),
     [
-      path.relative(physicalRoot, finalized.paths.human_decision),
-      path.relative(physicalRoot, finalized.paths.manifest),
+      path.relative(physicalRoot, finalized.paths.human_decision).split(path.sep).join('/'),
+      path.relative(physicalRoot, finalized.paths.manifest).split(path.sep).join('/'),
     ].sort()
   );
   assert.match(readFileSync(finalized.paths.human_decision, 'utf8'), /R1-F001/);

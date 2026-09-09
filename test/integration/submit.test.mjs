@@ -1,13 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -15,6 +7,8 @@ import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
+
+// cspell:ignore filemode
 
 const NOW = '2026-09-09T02:00:00.000Z';
 
@@ -29,6 +23,14 @@ function fixture() {
   execFileSync('git', ['add', 'docs/artifact.md'], { cwd: root });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+function repositoryRelative(root, file) {
+  const canonicalRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim();
+  return path.relative(canonicalRoot, file).split(path.sep).join('/');
 }
 
 function identity(role, session, overrides = {}) {
@@ -416,10 +418,11 @@ test('author revision commits the sealed triad before returning control to the r
     changed,
     [
       'docs/artifact.md',
-      path
-        .relative(realpathSync(fx.root), reviewerResult.paths.response)
-        .replace('author-response', 'reviewer-response'),
-      path.relative(realpathSync(fx.root), reviewerResult.paths.response),
+      repositoryRelative(fx.root, reviewerResult.paths.response).replace(
+        'author-response',
+        'reviewer-response'
+      ),
+      repositoryRelative(fx.root, reviewerResult.paths.response),
     ].sort()
   );
   const events = readFileSync(started.paths.events, 'utf8').trim().split('\n').map(JSON.parse);
@@ -531,10 +534,11 @@ test('unchanged artifact requires and records an explicit rationale without muta
   assert.deepEqual(
     changed,
     [
-      path
-        .relative(realpathSync(fx.root), handoff.paths.response)
-        .replace('author-response', 'reviewer-response'),
-      path.relative(realpathSync(fx.root), handoff.paths.response),
+      repositoryRelative(fx.root, handoff.paths.response).replace(
+        'author-response',
+        'reviewer-response'
+      ),
+      repositoryRelative(fx.root, handoff.paths.response),
     ].sort()
   );
   assert.match(result.review.artifact.digest, /^sha256:[0-9a-f]{64}$/);
@@ -543,6 +547,15 @@ test('unchanged artifact requires and records an explicit rationale without muta
 test('author submission refuses artifact mode drift before sealing or committing', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
+  if (
+    execFileSync('git', ['config', '--bool', 'core.filemode'], {
+      cwd: fx.root,
+      encoding: 'utf8',
+    }).trim() !== 'true'
+  ) {
+    t.skip('Git reports that file-mode tracking is disabled on this filesystem');
+    return;
+  }
   const { author, started, handoff } = await authorTurn(fx.root, 'author-mode-drift');
   const responseBefore = readFileSync(handoff.paths.response);
   const headBefore = execFileSync('git', ['rev-parse', 'HEAD'], {

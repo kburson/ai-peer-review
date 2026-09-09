@@ -87,7 +87,10 @@ test('supplement bytes are normalized, frozen, and acknowledged by the next targ
     parseResponse(readFileSync(continued.paths.response)).metadata.acknowledged_supplement_ids,
     [registered.review.supplement.supplement_id]
   );
-  assert.equal(path.relative(physicalRoot, continued.paths.response), responseRelative);
+  assert.equal(
+    path.relative(physicalRoot, continued.paths.response).split(path.sep).join('/'),
+    responseRelative
+  );
   assert.deepEqual(
     repository.reviewerBoundary(fx.root, responseRelative),
     inspectReview(review.started.paths.workspace).protocol.reviewer_boundary

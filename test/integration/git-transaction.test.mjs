@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
 
+// cspell:ignore filemode
+
 function git(cwd, args, options = {}) {
   return execFileSync('git', args, {
     cwd,
@@ -255,6 +257,10 @@ test('transaction recovery rejects a changed request and a tampered commit', (t)
 test('transaction seals working, index, and committed Git modes', (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
+  if (git(fx.root, ['config', '--bool', 'core.filemode']) !== 'true') {
+    t.skip('Git reports that file-mode tracking is disabled on this filesystem');
+    return;
+  }
   const { sealed, trailers } = transactionInput(fx.root);
   chmodSync(path.join(fx.root, 'docs/artifact.md'), 0o755);
   const headBefore = git(fx.root, ['rev-parse', 'HEAD']);

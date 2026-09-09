@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { loadConfig, validateConfig } from '../../src/config/load.mjs';
+import { configPaths, loadConfig, validateConfig } from '../../src/config/load.mjs';
 import { planSetup, setup } from '../../src/config/setup.mjs';
 import { doctor } from '../../src/doctor.mjs';
 import { run, startReview } from '../../src/cli/run.mjs';
@@ -22,6 +22,20 @@ function fixture() {
   writeFileSync(path.join(project, '.gitignore'), 'dist/\n');
   return { root, home, project, exclude: path.join(git, 'info', 'exclude') };
 }
+
+test('Windows configuration falls back to the supplied home when APPDATA is absent', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  assert.equal(
+    configPaths({
+      cwd: files.project,
+      home: files.home,
+      env: {},
+      platform: 'win32',
+    }).user,
+    path.join(files.home, '.config', 'ai-peer-review', 'config.json')
+  );
+});
 
 for (const host of ['codex', 'claude', 'grok', 'generic']) {
   test(`setup preview is idempotent and reversible for ${host}`, () => {

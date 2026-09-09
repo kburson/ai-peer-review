@@ -1196,10 +1196,11 @@ export async function continueReview(input, deps = {}) {
   let focus = null;
   if (input.focus !== undefined && input.focus !== null) {
     const requested = path.resolve(input.cwd ?? root, input.focus);
-    const physicalRoot = realpathSync(root);
     let physical;
+    let relative;
     try {
       physical = realpathSync(requested);
+      relative = repositoryRelative(root, physical, 'continuation focus');
     } catch (cause) {
       const error = new AprError('APR_FOCUS_INVALID', 'Continuation focus cannot be read.', {
         recovery: 'Use a regular file inside the review repository.',
@@ -1207,14 +1208,6 @@ export async function continueReview(input, deps = {}) {
       });
       error.cause = cause;
       throw error;
-    }
-    const relative = path.relative(physicalRoot, physical).split(path.sep).join('/');
-    if (!relative || relative.startsWith('../') || path.isAbsolute(relative)) {
-      fail(
-        'APR_FOCUS_INVALID',
-        'Continuation focus is outside the review repository.',
-        'Use a regular repository file as the continuation focus.'
-      );
     }
     const bytes = regularInputFile(physical, 'APR_FOCUS_INVALID');
     focus = { source: physical, path: relative, bytes, digest: sha256(bytes) };

@@ -254,7 +254,9 @@ export function configPaths({
   home = os.homedir(),
 } = {}) {
   const userRoot =
-    platform === 'win32' ? env.APPDATA : (env.XDG_CONFIG_HOME ?? path.join(home, '.config'));
+    platform === 'win32'
+      ? (env.APPDATA ?? env.XDG_CONFIG_HOME ?? path.join(home, '.config'))
+      : (env.XDG_CONFIG_HOME ?? path.join(home, '.config'));
   if (!userRoot) invalid('A platform configuration directory is unavailable.');
   return Object.freeze({
     user: path.join(userRoot, 'ai-peer-review', 'config.json'),
