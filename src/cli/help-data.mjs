@@ -128,6 +128,8 @@ const ERRORS = Object.freeze({
   status: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
   resume: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
   submit: [
+    'APR_INVITATION_INVALID',
+    'APR_TEMPLATE_INVALID',
     'APR_PROTECTED_METADATA_CHANGED',
     'APR_RESPONSE_INVALID',
     'APR_RESPONSE_WRITE_FAILED',
@@ -147,6 +149,14 @@ const ERRORS = Object.freeze({
     'APR_ARTIFACT_CHANGED',
     'APR_ARTIFACT_UNCHANGED',
     'APR_DELIVERY_CONFLICT',
+    'APR_DELIVERY_INVALID',
+    'APR_DELIVERY_WRITE_FAILED',
+    'APR_REVIEW_LOCKED',
+    'APR_REVIEW_LOCK_FAILED',
+    'APR_ATOMIC_WRITE_FAILED',
+    'APR_STORE_VALUE_INVALID',
+    'APR_PROJECTION_DRIFT',
+    'APR_EVENT_INVALID',
     'APR_PATH_OUTSIDE_REPOSITORY',
     'APR_GIT_FAILED',
     'APR_GIT_PATH_INVALID',
@@ -285,6 +295,38 @@ const ERROR_CATALOG = Object.freeze({
   APR_DELIVERY_CONFLICT: {
     message: 'A delivery identifier is already bound to different handoff evidence.',
     recovery: 'Preserve the event log and inspect the conflicting delivery before recovery.',
+  },
+  APR_DELIVERY_INVALID: {
+    message: 'Event authority contains an invalid delivery identifier.',
+    recovery: 'Repair the delivery event through the documented recovery flow.',
+  },
+  APR_DELIVERY_WRITE_FAILED: {
+    message: 'An event-derived delivery receipt could not be created durably.',
+    recovery: 'Repair the delivery directory and retry exact handoff recovery.',
+  },
+  APR_REVIEW_LOCKED: {
+    message: 'Another process currently owns the review mutation lock.',
+    recovery: 'Wait for that mutation to finish, then reread event authority and retry.',
+  },
+  APR_REVIEW_LOCK_FAILED: {
+    message: 'The review mutation lock could not be acquired or released safely.',
+    recovery: 'Inspect the review lock path and retry only after resolving the filesystem error.',
+  },
+  APR_ATOMIC_WRITE_FAILED: {
+    message: 'An authority-owned file could not be replaced atomically.',
+    recovery: 'Preserve the workspace, repair its filesystem, and retry from event authority.',
+  },
+  APR_STORE_VALUE_INVALID: {
+    message: 'A value cannot be serialized into canonical authority storage.',
+    recovery: 'Retry with complete JSON-compatible event-authorized values.',
+  },
+  APR_PROJECTION_DRIFT: {
+    message: 'The event log cannot produce the expected contiguous projection.',
+    recovery: 'Restore the exact authoritative event history before retrying.',
+  },
+  APR_EVENT_INVALID: {
+    message: 'A proposed or stored event violates the closed event schema.',
+    recovery: 'Restore valid event authority and retry the exact documented operation.',
   },
   APR_PATH_OUTSIDE_REPOSITORY: {
     message: 'A transaction or collateral path escapes the physical repository.',

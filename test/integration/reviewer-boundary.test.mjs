@@ -6,6 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { joinReview, run, startReview, submitReviewTurn } from '../../src/public-api.mjs';
+import { createGitRepository } from '../../src/git/repository.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 
 const NOW = '2026-09-09T02:00:00.000Z';
@@ -18,18 +19,25 @@ function git(cwd, args) {
   }).trim();
 }
 
-function identity(role, session) {
+function identity(role, session, overrides = {}) {
   return participantIdentity({
     role,
     host: 'codex',
     provider: 'openai',
-    modelId: 'gpt-test',
-    modelDisplay: 'GPT Test',
+    modelId: overrides.modelId ?? 'gpt-test',
+    modelDisplay: overrides.modelDisplay ?? 'GPT Test',
     sessionId: session,
     source: 'runtime',
     joinedAt: NOW,
   });
 }
+
+test('reviewer repository capability exposes observations but no mutation methods', () => {
+  const repository = createGitRepository();
+  for (const method of ['add', 'commit', 'amend', 'switch', 'checkout', 'push']) {
+    assert.equal(repository[method], undefined, method);
+  }
+});
 
 function fixture() {
   const root = mkdtempSync(path.join(tmpdir(), 'apr-reviewer-boundary-'));
@@ -205,6 +213,30 @@ test('reviewer submit rejects a push that changes observed remote refs', async (
   );
   assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
   assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
+});
+
+test('refreshed reviewer identity does not mutate authority before repository preflight', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const { reviewer, started } = await prepare(fx.root, 'reviewer-refresh-preflight');
+  const refreshed = identity('reviewer', 'reviewer-refresh-preflight-reviewer', {
+    modelId: 'gpt-test-refresh',
+    modelDisplay: 'GPT Test Refresh',
+  });
+  assert.equal(refreshed.session_fingerprint, reviewer.session_fingerprint);
+  writeFileSync(path.join(fx.root, 'docs/artifact.md'), '# Reviewer changed artifact\n');
+  const eventsBefore = readFileSync(started.paths.events);
+  await assert.rejects(
+    submitReviewTurn({
+      cwd: fx.root,
+      workspace: started.paths.workspace,
+      identity: refreshed,
+      decision: 'accepted',
+      now: '2026-09-09T02:01:00.000Z',
+    }),
+    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
+  );
+  assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
 });
 
 test('CLI submit resolves the current reviewer and emits one closed result', async (t) => {

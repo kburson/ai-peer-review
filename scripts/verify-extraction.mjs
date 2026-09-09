@@ -76,7 +76,7 @@ const EXPECTED_DESIGN_SOURCE = Object.freeze({
   repository: EXPECTED_SOURCE_REPOSITORY,
   commit: '68de80b45b23c90874bac0fcd87cfa0c1980edd4',
   path: 'docs/superpowers/specs/2026-09-07-ai-peer-review-extraction-design.md',
-  digest: 'abe9bbd815e0022735ba6cd2b3088cc83c7f71075d452c814bfbeb8781ed5dc8',
+  digest: '9501a2568be49ab886961b7711dee0707bbc322e1ae89482e7a93660d09a4ea5',
 });
 const AUTHORIZATION_STATEMENT =
   'I, Kendrick Burson, as copyright holder, approve relicensing the extracted ai-peer-review code covered by AITM source commit 4b3bcd43cba141a611da4a2b861433b915462806 under Apache-2.0, accept the proprietary-fork consequence, and authorize use of my existing SSH Ed25519 key to sign the declaration and proceed with public publication.';

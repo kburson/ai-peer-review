@@ -33,6 +33,7 @@ import {
   inspectReview,
   inspectReviewAuthority,
   mutateReview,
+  readReview,
   repairReview,
 } from '../protocol/service.mjs';
 import { atomicCreate } from '../protocol/store.mjs';
@@ -1006,7 +1007,13 @@ function submissionAuthority(workspace) {
   return { absolute, paths, ...authority };
 }
 
-function assertSubmissionClaim(state, role, identity, now, { requireCurrent = true } = {}) {
+function assertSubmissionClaim(
+  state,
+  role,
+  identity,
+  now,
+  { requireCurrent = true, requireActive = true } = {}
+) {
   const participant = state.participants[role];
   const claim = state.protocol.claims[role];
   if (
@@ -1021,7 +1028,7 @@ function assertSubmissionClaim(state, role, identity, now, { requireCurrent = tr
       `Resume from the registered ${role} session and retry.`
     );
   }
-  if (deriveClaimStatus(state, role, now ?? new Date()).status !== 'active') {
+  if (requireActive && deriveClaimStatus(state, role, now ?? new Date()).status !== 'active') {
     fail(
       'APR_CLAIM_INVALID',
       `The ${role} claim is stale and cannot submit.`,
@@ -1032,21 +1039,23 @@ function assertSubmissionClaim(state, role, identity, now, { requireCurrent = tr
 
 function assertCurrentParticipant(state, role, identity, now) {
   assertSubmissionClaim(state, role, identity, now);
-  if (!sameParticipant(state.participants[role], identity)) {
-    fail(
-      'APR_IDENTITY_CONFLICT',
-      `Submission does not match the refreshed ${role} participant.`,
-      `Resume from the registered ${role} session and retry.`
-    );
-  }
 }
 
-async function refreshSubmissionIdentity(authority, role, identity, now) {
+async function refreshSubmissionIdentity(
+  authority,
+  role,
+  identity,
+  now,
+  { requireActive = true } = {}
+) {
   const prior = authority.state.participants[role];
   const changed = identityChangeEvent(authority.state, prior, identity, now ?? new Date());
   if (!changed) return authority;
   await mutateReview(authority.absolute, expected(authority.state), (current) => {
-    assertSubmissionClaim(current, role, identity, now, { requireCurrent: false });
+    assertSubmissionClaim(current, role, identity, now, {
+      requireCurrent: false,
+      requireActive,
+    });
     return identityChangeEvent(current, current.participants[role], identity, now ?? new Date());
   });
   return submissionAuthority(authority.absolute);
@@ -1136,7 +1145,15 @@ function sealedReviewerFromEvent(root, event) {
 }
 
 async function completeReviewerHandoff({ input, deps, absolute, paths, state, sealed }) {
-  let current = state;
+  let current = (
+    await refreshSubmissionIdentity(
+      { absolute, paths, state },
+      'reviewer',
+      input.identity,
+      input.now,
+      { requireActive: false }
+    )
+  ).state;
   let nextResponse = null;
   if (input.decision === 'revisions-requested') {
     const author = current.participants.author;
@@ -1175,6 +1192,7 @@ async function completeReviewerHandoff({ input, deps, absolute, paths, state, se
         'Preserve the delivery and inspect the conflict before recovery.'
       );
     }
+    current = await readReview(absolute);
   } else {
     current = await mutateReview(absolute, expected(current), (locked) =>
       deliveryEvent(
@@ -1198,7 +1216,7 @@ async function completeReviewerHandoff({ input, deps, absolute, paths, state, se
 
 export async function submitReviewTurn(input, deps = {}) {
   const repository = deps.repository ?? createGitRepository();
-  let authority = submissionAuthority(input.workspace);
+  const authority = submissionAuthority(input.workspace);
   const initialDecision = latestReviewerDecision(authority.events);
   const recoverable =
     authority.state.protocol.state !== 'reviewer-turn' &&
@@ -1215,8 +1233,8 @@ export async function submitReviewTurn(input, deps = {}) {
   }
   assertSubmissionClaim(authority.state, 'reviewer', input.identity, input.now, {
     requireCurrent: !recoverable,
+    requireActive: !recoverable,
   });
-  authority = await refreshSubmissionIdentity(authority, 'reviewer', input.identity, input.now);
   const { absolute, paths, events, state } = authority;
   if (state.protocol.state !== 'reviewer-turn') {
     const decision = latestReviewerDecision(events);
@@ -1359,7 +1377,15 @@ async function completeAuthorHandoff({
   commit,
   snapshot = null,
 }) {
-  let current = state;
+  let current = (
+    await refreshSubmissionIdentity(
+      { absolute, paths, state },
+      'author',
+      input.identity,
+      input.now,
+      { requireActive: false }
+    )
+  ).state;
   let nextResponse = null;
   if (current.protocol.state === 'reviewer-turn') {
     nextResponse = createResponseDraft(
@@ -1383,6 +1409,7 @@ async function completeAuthorHandoff({
         'Preserve the delivery and inspect the conflict before recovery.'
       );
     }
+    current = await readReview(absolute);
   } else {
     current = await mutateReview(absolute, expected(current), (locked) =>
       deliveryEvent(
@@ -1420,7 +1447,7 @@ async function recoverAuthorHandoff({ input, deps, authority, git, transactionRe
   if (
     !event ||
     event.actor !== input.identity?.session_fingerprint ||
-    !sameParticipant(author, input.identity) ||
+    author?.session_fingerprint !== input.identity?.session_fingerprint ||
     !['reviewer-turn', 'intervention-required'].includes(state.protocol.state)
   ) {
     fail(
@@ -1583,7 +1610,7 @@ export async function submitAuthorTurn(input, deps = {}) {
   const git = deps.repository ?? createGitRepository();
   const transactionRepository =
     deps.transactionRepository ?? createGitTransactionRepository(input.cwd);
-  let authority = submissionAuthority(input.workspace);
+  const authority = submissionAuthority(input.workspace);
   const initialSubmission = latestAuthorSubmission(authority.events);
   const recoverable =
     authority.state.protocol.state !== 'author-revision' &&
@@ -1598,8 +1625,8 @@ export async function submitAuthorTurn(input, deps = {}) {
   }
   assertSubmissionClaim(authority.state, 'author', input.identity, input.now, {
     requireCurrent: !recoverable,
+    requireActive: !recoverable,
   });
-  authority = await refreshSubmissionIdentity(authority, 'author', input.identity, input.now);
   const { absolute, paths, events, state } = authority;
   if (state.protocol.state !== 'author-revision') {
     return recoverAuthorHandoff({ input, deps, authority, git, transactionRepository });

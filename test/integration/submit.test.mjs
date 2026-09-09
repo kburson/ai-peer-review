@@ -504,6 +504,9 @@ test('reviewer submission resumes every interrupted handoff checkpoint exactly o
       ),
       new RegExp(`injected after ${checkpoint}`)
     );
+    if (checkpoint === 'delivery-written') {
+      rmSync(path.join(started.paths.workspace, 'deliveries/reviewer-turn-1-to-author.json'));
+    }
     const recovered = await api.submitReviewTurn({
       cwd: fx.root,
       workspace: started.paths.workspace,
@@ -527,7 +530,53 @@ test('reviewer submission resumes every interrupted handoff checkpoint exactly o
       1,
       checkpoint
     );
+    assert.match(
+      readFileSync(
+        path.join(started.paths.workspace, 'deliveries/reviewer-turn-1-to-author.json'),
+        'utf8'
+      ),
+      /reviewer-turn-1-to-author/,
+      checkpoint
+    );
   }
+});
+
+test('reviewer handoff recovery remains authorized after the original claim expires', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const { reviewer, started, joined } = await joinedReview(fx.root, 'reviewer-expired-retry', {
+    claimTtlMs: 3_600_000,
+  });
+  replaceSection(joined.paths.response, 'Summary', 'One required repair.');
+  replaceSection(joined.paths.response, 'Findings', '### R1-F001 — Repair\n\nFix it.');
+  replaceSection(joined.paths.response, 'Required changes', '- Address R1-F001.');
+  replaceSection(joined.paths.response, 'Optional suggestions', 'None.');
+  replaceSection(joined.paths.response, 'Decision', 'revisions-requested');
+  await assert.rejects(
+    api.submitReviewTurn(
+      {
+        cwd: fx.root,
+        workspace: started.paths.workspace,
+        identity: reviewer,
+        decision: 'revisions-requested',
+        now: '2026-09-09T02:01:00.000Z',
+      },
+      {
+        checkpoint(name) {
+          if (name === 'decision-appended') throw new Error('injected after decision-appended');
+        },
+      }
+    ),
+    /injected after decision-appended/
+  );
+  const recovered = await api.submitReviewTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'revisions-requested',
+    now: '2026-09-09T04:00:00.000Z',
+  });
+  assert.equal(recovered.state, 'author-revision');
 });
 
 test('author submission resumes every interrupted commit handoff checkpoint exactly once', async (t) => {
@@ -564,6 +613,9 @@ test('author submission resumes every interrupted commit handoff checkpoint exac
       ),
       new RegExp(`injected after ${checkpoint}`)
     );
+    if (checkpoint === 'delivery-written') {
+      rmSync(path.join(started.paths.workspace, 'deliveries/author-turn-1-to-reviewer.json'));
+    }
     const recovered = await api.submitAuthorTurn({
       cwd: fx.root,
       workspace: started.paths.workspace,
@@ -599,7 +651,49 @@ test('author submission resumes every interrupted commit handoff checkpoint exac
       checkpoint
     );
     assert.match(readFileSync(handoff.paths.response, 'utf8'), /submitted_at:/);
+    assert.match(
+      readFileSync(
+        path.join(started.paths.workspace, 'deliveries/author-turn-1-to-reviewer.json'),
+        'utf8'
+      ),
+      /author-turn-1-to-reviewer/,
+      checkpoint
+    );
   }
+});
+
+test('author handoff recovery remains authorized after the original claim expires', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const { author, started } = await authorTurn(fx.root, 'author-expired-retry', {
+    claimTtlMs: 3_600_000,
+  });
+  writeFileSync(path.join(fx.root, 'docs/artifact.md'), '# Delayed recovery repair\n');
+  await assert.rejects(
+    api.submitAuthorTurn(
+      {
+        cwd: fx.root,
+        workspace: started.paths.workspace,
+        identity: author,
+        now: '2026-09-09T02:02:00.000Z',
+      },
+      {
+        checkpoint(name) {
+          if (name === 'author-event-appended') {
+            throw new Error('injected after author-event-appended');
+          }
+        },
+      }
+    ),
+    /injected after author-event-appended/
+  );
+  const recovered = await api.submitAuthorTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T04:00:00.000Z',
+  });
+  assert.equal(recovered.state, 'reviewer-turn');
 });
 
 test('no-commit author submission resumes without changing HEAD or index', async (t) => {
