@@ -29,6 +29,44 @@ function digest(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+function changedPathInventory(repositoryRoot, statusBytes) {
+  const records = statusBytes.toString('utf8').split('\0');
+  const inventory = [];
+  for (let index = 0; index < records.length; index += 1) {
+    const record = records[index];
+    if (!record) continue;
+    const status = record.slice(0, 2);
+    const relative = record.slice(3);
+    const sourcePath = ['R', 'C'].includes(status[0]) ? (records[++index] ?? null) : null;
+    const resolved = resolveContainedPath(repositoryRoot, relative, 'changed path');
+    const resolvedSource =
+      sourcePath === null
+        ? null
+        : resolveContainedPath(repositoryRoot, sourcePath, 'changed source path').relative;
+    let workingDigest = null;
+    try {
+      const metadata = lstatSync(resolved.absolute);
+      if (metadata.isSymbolicLink() || metadata.isFile()) {
+        const bytes = metadata.isSymbolicLink()
+          ? Buffer.from(readlinkSync(resolved.absolute))
+          : readFileSync(resolved.absolute);
+        workingDigest = `sha256:${digest(bytes)}`;
+      }
+    } catch (cause) {
+      if (cause?.code !== 'ENOENT') throw cause;
+    }
+    inventory.push(
+      Object.freeze({
+        path: resolved.relative,
+        status,
+        source_path: resolvedSource,
+        digest: workingDigest,
+      })
+    );
+  }
+  return Object.freeze(inventory.sort((left, right) => left.path.localeCompare(right.path)));
+}
+
 export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
   function run(cwd, args, { buffer = false, allowStatuses = [], code = 'APR_GIT_FAILED' } = {}) {
     try {
@@ -259,6 +297,7 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
       head,
       index_digest: `sha256:${digest(index)}`,
       worktree_digest: `sha256:${digest(worktree)}`,
+      changed_paths: changedPathInventory(repositoryRoot, worktree),
     });
   }
 

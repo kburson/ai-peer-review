@@ -38,6 +38,7 @@ import {
   mutateProtectedReview,
   readReview,
   repairReview,
+  sealNoCommitHandoff,
 } from '../protocol/service.mjs';
 import { atomicCreate } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
@@ -116,13 +117,23 @@ function expected(review) {
 }
 
 function result(command, state, paths = {}, review = {}) {
+  const assurance = state.protocol.authority?.verifier?.signer_strength ?? 'unavailable';
+  const modeNotice =
+    state.protocol.commit_mode === 'no-commit'
+      ? `NO-COMMIT TEST MODE — authority assurance: ${assurance}`
+      : 'NORMAL COMMIT MODE';
   return Object.freeze({
     schema: 'ai-peer-review.cli-result/v1',
     command,
     review_id: state.protocol.review_id,
     state: state.protocol.state,
     next_action: state.protocol.next_action,
-    review: Object.freeze(review),
+    review: Object.freeze({
+      commit_mode: state.protocol.commit_mode,
+      authority_assurance: assurance,
+      mode_notice: modeNotice,
+      ...review,
+    }),
     paths: Object.freeze(paths),
   });
 }
@@ -157,6 +168,16 @@ function safePositive(value, fallback, label) {
 
 function sameValue(left, right) {
   return canonicalProjection(left) === canonicalProjection(right);
+}
+
+function preservesNoCommitBaseline(baseline, observed, artifactPath) {
+  if (observed.head !== baseline?.head || observed.index_digest !== baseline?.index_digest) {
+    return false;
+  }
+  const currentByPath = new Map((observed.changed_paths ?? []).map((entry) => [entry.path, entry]));
+  return (baseline.changed_paths ?? [])
+    .filter((entry) => entry.path !== artifactPath)
+    .every((entry) => sameValue(entry, currentByPath.get(entry.path)));
 }
 
 function sameParticipant(left, right) {
@@ -461,7 +482,14 @@ function deterministicReviewId(input) {
   return `review-${createHash('sha256').update(bytes).digest('hex').slice(0, 32)}`;
 }
 
-function startupVariables(root, artifact, paths, reviewId) {
+function startupVariables(
+  root,
+  artifact,
+  paths,
+  reviewId,
+  commitMode = 'normal',
+  authorityAssurance = 'unavailable'
+) {
   const startup = trackedStartupPaths(paths);
   const artifactAbsolute = path.join(root, artifact.path);
   const workspaceAbsolute = paths.scratch.absolute;
@@ -478,6 +506,10 @@ function startupVariables(root, artifact, paths, reviewId) {
     startup,
     variables: {
       review_id: reviewId,
+      mode_banner:
+        commitMode === 'no-commit'
+          ? `> **NO-COMMIT TEST MODE** — authority assurance: \`${authorityAssurance}\``
+          : 'Mode: `normal`',
       artifact_absolute: artifactAbsolute,
       workspace_absolute: workspaceAbsolute,
       response_absolute: responseAbsolute,
@@ -564,6 +596,9 @@ export async function startReview(input, deps = {}) {
   }
   const transport = configuredTransport(input);
   const requestedAuthority = configuredAuthority(root, input.authority);
+  const startupAssurance = input.testHumanAuthority
+    ? 'unverified-test'
+    : (requestedAuthority.verifier?.signer_strength ?? 'unavailable');
   const reviewId =
     input.reviewId ??
     deterministicReviewId({
@@ -620,7 +655,14 @@ export async function startReview(input, deps = {}) {
     if (!sealed?.context) collision(eventsFile);
     const context = sealed.context;
     paths = pathsForContext(context);
-    const { startup, variables } = startupVariables(root, artifact, paths, reviewId);
+    const { startup, variables } = startupVariables(
+      root,
+      artifact,
+      paths,
+      reviewId,
+      commitMode,
+      startupAssurance
+    );
     const contextBytes = Buffer.from(canonicalProjection(context));
     const authorStartupBytes = hydrateTemplate('author-startup', variables);
     const reviewerInvitationBytes = hydrateTemplate('reviewer-invitation', variables);
@@ -698,7 +740,14 @@ export async function startReview(input, deps = {}) {
 
   const context = requestedContext;
   const contextBytes = Buffer.from(canonicalProjection(context));
-  const { startup, variables } = startupVariables(root, artifact, paths, reviewId);
+  const { startup, variables } = startupVariables(
+    root,
+    artifact,
+    paths,
+    reviewId,
+    commitMode,
+    startupAssurance
+  );
   const authorStartupBytes = hydrateTemplate('author-startup', variables);
   const reviewerInvitationBytes = hydrateTemplate('reviewer-invitation', variables);
 
@@ -875,7 +924,14 @@ function validateJoinAuthority({ state, root, invitation, values }) {
   const contextBytes = Buffer.from(canonicalProjection(context));
   const expectedInvitation = hydrateTemplate(
     'reviewer-invitation',
-    startupVariables(root, state.protocol.artifact, paths, state.protocol.review_id).variables
+    startupVariables(
+      root,
+      state.protocol.artifact,
+      paths,
+      state.protocol.review_id,
+      state.protocol.commit_mode,
+      state.protocol.authority?.verifier?.signer_strength ?? 'unavailable'
+    ).variables
   );
   if (
     root !== context.repository_root ||
@@ -1053,8 +1109,27 @@ export function statusReview(workspace, { now = new Date() } = {}) {
     invitation: trackedStartupPaths(resolved).reviewer_invitation,
     ...(response ? { response } : {}),
   });
+  const ownedPaths =
+    state.protocol.commit_mode === 'no-commit'
+      ? [
+          ...retainedWorkspacePaths(absolute, { includeReservation: true }).map((relative) =>
+            path
+              .join(
+                path.relative(state.protocol.startup.context.repository_root, absolute),
+                relative
+              )
+              .split(path.sep)
+              .join('/')
+          ),
+          ...retainedWorkspacePaths(resolved.destination.absolute).map((relative) =>
+            path.join(resolved.destination.relative, relative).split(path.sep).join('/')
+          ),
+        ].sort()
+      : [];
   return Object.freeze({
-    ...result('status', effectiveState, operationalPaths, {}),
+    ...result('status', effectiveState, operationalPaths, {
+      ...(ownedPaths.length ? { owned_paths: Object.freeze(ownedPaths) } : {}),
+    }),
     next_action: Object.freeze({
       action: effectiveState.protocol.next_action,
       command: nextActionCommand(
@@ -1383,12 +1458,16 @@ export async function registerSupplement(input, deps = {}) {
   return supplementResult(registered, absolute, inspectReviewAuthority(absolute).events.at(-1));
 }
 
-function retainedWorkspacePaths(workspace) {
+function retainedWorkspacePaths(workspace, { includeReservation = false } = {}) {
   const visit = (directory) =>
     readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
       const absolute = path.join(directory, entry.name);
       const relative = path.relative(workspace, absolute).split(path.sep).join('/');
-      if (relative === 'collateral-reservation.json' || relative === 'locks/review.lock') return [];
+      if (
+        (!includeReservation && relative === 'collateral-reservation.json') ||
+        relative === 'locks/review.lock'
+      )
+        return [];
       return entry.isDirectory() ? visit(absolute) : [relative];
     });
   return visit(workspace).sort();
@@ -2213,8 +2292,7 @@ async function recoverAuthorHandoff({ input, deps, authority, git, transactionRe
       event.payload.artifact.path
     );
     if (
-      observed.head !== baseline?.head ||
-      observed.index_digest !== baseline?.index_digest ||
+      !preservesNoCommitBaseline(baseline, observed, event.payload.artifact.path) ||
       transactionRepository.workingMode(event.payload.artifact.path) !== artifactMode ||
       !exactFile(snapshotFile, artifactBytes)
     ) {
@@ -2337,19 +2415,46 @@ export async function submitAuthorTurn(input, deps = {}) {
   const artifactBlob = transactionRepository.hashWorking(state.protocol.artifact.path);
   if (state.protocol.commit_mode === 'no-commit') {
     const baseline = state.protocol.startup.no_commit_baseline;
-    const observed = git.baseline(root);
-    if (observed.head !== baseline?.head || observed.index_digest !== baseline?.index_digest) {
-      fail(
-        'APR_REVIEWER_GIT_VIOLATION',
-        'No-commit submission detected HEAD or index mutation.',
-        'Restore the startup HEAD and index without discarding protocol-owned working bytes.'
-      );
-    }
     const snapshotRelative = `artifacts/turn-${turn}.md`;
     const snapshotFile = path.join(absolute, snapshotRelative);
-    ensureExactFile(snapshotFile, artifactBytes);
+    const responses = [
+      { digest: decision.payload.response.digest },
+      { digest: sealedResponse.digest },
+    ];
+    const store = {
+      assertBaseline() {
+        const observed = git.baseline(root);
+        if (!preservesNoCommitBaseline(baseline, observed, state.protocol.artifact.path)) {
+          fail(
+            'APR_REVIEWER_GIT_VIOLATION',
+            'No-commit submission detected HEAD, index, or pre-existing path mutation.',
+            'Restore the startup HEAD, index, and unrelated changed paths without discarding protocol-owned working bytes.'
+          );
+        }
+      },
+      writeExclusiveSnapshot(reviewId, sequence, bytes) {
+        if (reviewId !== state.protocol.review_id || sequence !== state.protocol.sequence + 1) {
+          fail(
+            'APR_STALE_REVIEW',
+            'No-commit snapshot request differs from current event authority.',
+            'Read current status and retry the exact author handoff.'
+          );
+        }
+        ensureExactFile(snapshotFile, bytes);
+        return { relative: snapshotRelative, digest: sha256(bytes) };
+      },
+    };
+    const noCommitSeal = sealNoCommitHandoff({
+      review: state,
+      artifactBytes,
+      responses,
+      store,
+    });
     checkpoint(deps, 'artifact-snapshotted');
-    const snapshot = { path: snapshotRelative, digest: artifactDigest };
+    const snapshot = {
+      path: noCommitSeal.snapshot_path,
+      digest: noCommitSeal.snapshot_digest,
+    };
     const nextReviewerPath = paths.reviewerResponse(turn + 1);
     const repositoryBoundary = git.reviewerBoundary(root, nextReviewerPath.relative);
     const eventType =
@@ -2358,12 +2463,13 @@ export async function submitAuthorTurn(input, deps = {}) {
         : 'author-revision-sealed-no-commit';
     const sealedState = await mutateReview(absolute, expected(state), (current) => {
       assertCurrentParticipant(current, 'author', input.identity, input.now);
-      const currentBaseline = git.baseline(root);
-      if (
-        currentBaseline.head !== baseline.head ||
-        currentBaseline.index_digest !== baseline.index_digest ||
-        !exactFile(snapshotFile, artifactBytes)
-      ) {
+      const lockedSeal = sealNoCommitHandoff({
+        review: current,
+        artifactBytes,
+        responses,
+        store,
+      });
+      if (!sameValue(lockedSeal, noCommitSeal) || !exactFile(snapshotFile, artifactBytes)) {
         fail(
           'APR_REVIEWER_GIT_VIOLATION',
           'No-commit repository authority changed during submission.',
@@ -2379,7 +2485,7 @@ export async function submitAuthorTurn(input, deps = {}) {
         artifact: {
           path: state.protocol.artifact.path,
           blob: artifactBlob,
-          digest: artifactDigest,
+          digest: noCommitSeal.artifact_digest,
         },
         snapshot,
         repository_boundary: repositoryBoundary,

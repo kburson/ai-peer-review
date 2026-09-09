@@ -2,4 +2,6 @@
 
 # Review manifest
 
+{{mode_banner}}
+
 {{manifest_body}}

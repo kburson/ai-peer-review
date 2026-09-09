@@ -5,6 +5,8 @@
 
 Review: `{{review_id}}`
 
+{{mode_banner}}
+
 - Artifact: {{artifact_display}}
 - Workspace: {{workspace_display}}
 - Response: {{response_display}}

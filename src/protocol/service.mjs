@@ -9,7 +9,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
@@ -32,6 +32,72 @@ function ordered(value) {
 
 export function canonicalProjection(value) {
   return `${JSON.stringify(ordered(value), null, 2)}\n`;
+}
+
+function sha256(bytes) {
+  return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+export function sealNoCommitHandoff({ review, artifactBytes, responses, store }) {
+  const protocol = review?.protocol ?? review;
+  if (protocol?.commit_mode !== 'no-commit' || !protocol.startup?.no_commit_baseline) {
+    throw authorityError(
+      'APR_INVALID_TRANSITION',
+      'No-commit handoff sealing requires immutable no-commit review authority.',
+      'Start a new review with --no-commit; an existing review mode cannot be converted.'
+    );
+  }
+  if (!Buffer.isBuffer(artifactBytes) || !Array.isArray(responses) || responses.length === 0) {
+    throw authorityError(
+      'APR_RESPONSE_INVALID',
+      'No-commit handoff sealing requires artifact bytes and sealed responses.',
+      'Pass the exact event-authorized artifact bytes and response seals.'
+    );
+  }
+  const responseDigests = responses.map((response) => response?.digest);
+  if (responseDigests.some((digest) => !/^sha256:[0-9a-f]{64}$/.test(digest ?? ''))) {
+    throw authorityError(
+      'APR_RESPONSE_INVALID',
+      'No-commit response seal digest is invalid.',
+      'Pass only exact sealed response digests.'
+    );
+  }
+  if (
+    typeof store?.assertBaseline !== 'function' ||
+    typeof store?.writeExclusiveSnapshot !== 'function'
+  ) {
+    throw authorityError(
+      'APR_ATOMIC_WRITE_FAILED',
+      'No-commit snapshot store is unavailable.',
+      'Provide baseline validation and exclusive snapshot storage.'
+    );
+  }
+  store.assertBaseline(review);
+  const artifactDigest = sha256(artifactBytes);
+  const snapshot = store.writeExclusiveSnapshot(
+    protocol.review_id,
+    protocol.sequence + 1,
+    artifactBytes
+  );
+  if (
+    typeof snapshot?.relative !== 'string' ||
+    !snapshot.relative ||
+    path.isAbsolute(snapshot.relative) ||
+    snapshot.relative.split(/[\\/]/).includes('..') ||
+    snapshot.digest !== artifactDigest
+  ) {
+    throw authorityError(
+      'APR_ATOMIC_WRITE_FAILED',
+      'No-commit snapshot store returned an invalid seal.',
+      'Preserve the snapshot and retry only with its exact relative path and digest.'
+    );
+  }
+  return Object.freeze({
+    artifact_digest: artifactDigest,
+    snapshot_path: snapshot.relative.split(path.sep).join('/'),
+    snapshot_digest: snapshot.digest,
+    response_digests: Object.freeze([...responseDigests]),
+  });
 }
 
 function appendLockedEvent(file, priorBytes, event) {

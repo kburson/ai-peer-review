@@ -30,6 +30,22 @@
         "max_turns": { "$ref": "#/$defs/positive" },
         "claim_ttl_ms": { "$ref": "#/$defs/positive" },
         "commit_mode": { "enum": ["normal", "no-commit"] },
+        "authority_assurance": {
+          "enum": [
+            "unavailable",
+            "cryptographic-external",
+            "hardware-presence",
+            "host-verified",
+            "cryptographic-local",
+            "unverified-test"
+          ]
+        },
+        "mode_notice": { "type": "string", "minLength": 1 },
+        "owned_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
         "authority": { "$ref": "#/$defs/authority" },
         "transport_mode": { "enum": ["manual", "resume-only"] },
         "author_transport_capability": { "enum": ["manual", "resume-only"] },
@@ -134,11 +150,25 @@
     "baseline": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["head", "index_digest", "worktree_digest"],
+      "required": ["head", "index_digest", "worktree_digest", "changed_paths"],
       "properties": {
         "head": { "$ref": "#/$defs/gitObject" },
         "index_digest": { "$ref": "#/$defs/digest" },
-        "worktree_digest": { "$ref": "#/$defs/digest" }
+        "worktree_digest": { "$ref": "#/$defs/digest" },
+        "changed_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "status", "source_path", "digest"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "status": { "type": "string", "minLength": 2, "maxLength": 2 },
+              "source_path": { "type": ["string", "null"] },
+              "digest": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }] }
+            }
+          }
+        }
       }
     },
     "claim": {

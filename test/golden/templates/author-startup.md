@@ -1,8 +1,10 @@
-<!-- ai-peer-review-template version="1" digest="sha256:c574a1d3e52ab50adfeb9d4098bf01abad1ed427629ecf950c4888c3062fff1a" -->
+<!-- ai-peer-review-template version="1" digest="sha256:88a188c21b98ea2a1a01d66bc3b8089ef0b545749b717ad18df016646b605100" -->
 
 # Author startup
 
 Review: `review-01`
+
+Mode: `normal`
 
 - Artifact: `/repo/docs/example.md`
 - Workspace: `/repo/.scratch/peer-review/review-01`

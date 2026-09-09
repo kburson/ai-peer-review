@@ -9,6 +9,7 @@
     "role",
     "turn",
     "commit_mode",
+    "authority_assurance",
     "artifact_path",
     "artifact_commit",
     "artifact_blob",
@@ -26,6 +27,16 @@
     "role": { "enum": ["author", "reviewer"] },
     "turn": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
     "commit_mode": { "enum": ["normal", "no-commit"] },
+    "authority_assurance": {
+      "enum": [
+        "unavailable",
+        "cryptographic-external",
+        "hardware-presence",
+        "host-verified",
+        "cryptographic-local",
+        "unverified-test"
+      ]
+    },
     "artifact_path": { "type": "string", "minLength": 1 },
     "artifact_commit": {
       "anyOf": [

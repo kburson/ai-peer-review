@@ -1,10 +1,12 @@
-<!-- ai-peer-review-template version="1" digest="sha256:27e2315f0e109aa5cb973c22e10ac36c20ea09e82ed89cb11f1b5ed16611890f" -->
+<!-- ai-peer-review-template version="1" digest="sha256:012479d9d4816c66fbab1c1e1c2cc737b8d2c3a0b942cd30374b4d1184f2a9b5" -->
 
 <!-- protected-frontmatter -->
 
 ---
 schema: "ai-peer-review.response/v1"
 ---
+
+Mode: `normal`
 
 ## Human rationale
 

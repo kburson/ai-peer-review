@@ -1,9 +1,11 @@
-<!-- ai-peer-review-template version="1" digest="sha256:8b80dbd7ab800b458b81166d624449e6f5dca19aa34fca293eabf46b38eb2ba0" -->
+<!-- ai-peer-review-template version="1" digest="sha256:762a582a5c7ab89ca9755f3129d3bb11db6e67e33b035cc43da714a3bbff4d9a" -->
 <!-- ai-peer-review-invitation data="cGF5bG9hZA" -->
 
 # Reviewer invitation
 
 Review: `review-01`
+
+Mode: `normal`
 
 - Artifact: `/repo/docs/example.md`
 - Workspace: `/repo/.scratch/peer-review/review-01`

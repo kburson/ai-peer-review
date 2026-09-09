@@ -4,6 +4,8 @@
 
 {{frontmatter}}
 
+{{mode_banner}}
+
 ## Summary
 
 {{summary}}

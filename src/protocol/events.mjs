@@ -362,12 +362,22 @@ function validateStartup(value) {
   if (value.no_commit_baseline !== null) {
     exactKeys(
       value.no_commit_baseline,
-      ['head', 'index_digest', 'worktree_digest'],
+      ['head', 'index_digest', 'worktree_digest', 'changed_paths'],
       'startup no_commit_baseline'
     );
     assertGitObject(value.no_commit_baseline.head, 'startup baseline head');
     assertDigest(value.no_commit_baseline.index_digest, 'startup baseline index_digest');
     assertDigest(value.no_commit_baseline.worktree_digest, 'startup baseline worktree_digest');
+    if (!Array.isArray(value.no_commit_baseline.changed_paths))
+      throw invalid('startup baseline changed_paths');
+    for (const changed of value.no_commit_baseline.changed_paths) {
+      exactKeys(changed, ['path', 'status', 'source_path', 'digest'], 'startup changed path');
+      assertPath(changed.path, 'startup changed path');
+      if (typeof changed.status !== 'string' || changed.status.length !== 2)
+        throw invalid('startup changed path status');
+      if (changed.source_path !== null) assertPath(changed.source_path, 'startup source path');
+      if (changed.digest !== null) assertDigest(changed.digest, 'startup changed path digest');
+    }
   }
   if (value.bootstrap !== null) {
     exactKeys(value.bootstrap, ['challenge', 'parameters', 'attestation'], 'startup bootstrap');

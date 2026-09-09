@@ -1,5 +1,7 @@
-<!-- ai-peer-review-template version="1" digest="sha256:98cef410ae78b1fecf442679307085961e533ba14fb222ba3a6289912a1fb403" -->
+<!-- ai-peer-review-template version="1" digest="sha256:e53bf4d9991ae94a699fede1d62fd90324e45923de951babcb8d9ad237900bd9" -->
 
 # Review manifest
+
+Mode: `normal`
 
 Manifest evidence.

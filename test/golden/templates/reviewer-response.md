@@ -1,10 +1,12 @@
-<!-- ai-peer-review-template version="1" digest="sha256:0f4424ff3e5d47b00dbd066d1dc1d9f92ccb0636762736dacb38e0569fea42d7" -->
+<!-- ai-peer-review-template version="1" digest="sha256:78e9a634af9d540baaf6790db82952eaf39cf7ab59a6cdc7938319ae07a4cbed" -->
 
 <!-- protected-frontmatter -->
 
 ---
 schema: "ai-peer-review.response/v1"
 ---
+
+Mode: `normal`
 
 ## Summary
 

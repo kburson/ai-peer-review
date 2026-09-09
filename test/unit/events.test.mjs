@@ -85,6 +85,7 @@ test('rejects malformed nested payload values with one stable error code', () =>
     head: '1'.repeat(40),
     index_digest: `sha256:${'2'.repeat(64)}`,
     worktree_digest: `sha256:${'3'.repeat(64)}`,
+    changed_paths: [],
   };
   const cases = [
     event('review-created', { payload: { max_turns: 'unbounded' } }),

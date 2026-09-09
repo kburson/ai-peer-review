@@ -509,11 +509,27 @@
     "noCommitBaseline": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["head", "index_digest", "worktree_digest"],
+      "required": ["head", "index_digest", "worktree_digest", "changed_paths"],
       "properties": {
         "head": { "$ref": "#/$defs/gitObject" },
         "index_digest": { "$ref": "#/$defs/digest" },
-        "worktree_digest": { "$ref": "#/$defs/digest" }
+        "worktree_digest": { "$ref": "#/$defs/digest" },
+        "changed_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "status", "source_path", "digest"],
+            "properties": {
+              "path": { "$ref": "#/$defs/path" },
+              "status": { "type": "string", "minLength": 2, "maxLength": 2 },
+              "source_path": {
+                "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/path" }]
+              },
+              "digest": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }] }
+            }
+          }
+        }
       }
     },
     "repositoryBoundary": {

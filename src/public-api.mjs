@@ -21,6 +21,7 @@ export {
 } from './cli/run.mjs';
 export { explainError, helpRequest } from './cli/help-data.mjs';
 export { commitExactPaths, createGitTransactionRepository } from './git/transaction.mjs';
+export { sealNoCommitHandoff } from './protocol/service.mjs';
 export {
   createResponseDraft,
   parseResponse,

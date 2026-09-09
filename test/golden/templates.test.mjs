@@ -6,6 +6,7 @@ import { TEMPLATE_NAMES, TEMPLATE_VARIABLES, hydrateTemplate } from '../../src/t
 
 const values = Object.freeze({
   review_id: 'review-01',
+  mode_banner: 'Mode: `normal`',
   artifact_absolute: '/repo/docs/example.md',
   workspace_absolute: '/repo/.scratch/peer-review/review-01',
   response_absolute: '/repo/docs/peer-reviews/spec/example/reviewer-response-1.md',

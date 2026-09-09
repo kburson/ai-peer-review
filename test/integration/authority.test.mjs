@@ -89,6 +89,7 @@ function withAuthority(events, options = {}) {
                       head: '1'.repeat(40),
                       index_digest: `sha256:${'2'.repeat(64)}`,
                       worktree_digest: `sha256:${'3'.repeat(64)}`,
+                      changed_paths: [],
                     }
                   : null,
             },

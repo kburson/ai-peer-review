@@ -8,6 +8,7 @@ const fields = (values) => Object.freeze(values);
 const catalog = Object.assign(Object.create(null), {
   'author-startup': fields([
     'review_id',
+    'mode_banner',
     'artifact_absolute',
     'workspace_absolute',
     'response_absolute',
@@ -23,6 +24,7 @@ const catalog = Object.assign(Object.create(null), {
   ]),
   'reviewer-invitation': fields([
     'review_id',
+    'mode_banner',
     'artifact_absolute',
     'workspace_absolute',
     'response_absolute',
@@ -38,6 +40,7 @@ const catalog = Object.assign(Object.create(null), {
   ]),
   'reviewer-response': fields([
     'frontmatter',
+    'mode_banner',
     'summary',
     'findings',
     'required_changes',
@@ -46,14 +49,15 @@ const catalog = Object.assign(Object.create(null), {
   ]),
   'author-response': fields([
     'frontmatter',
+    'mode_banner',
     'summary',
     'finding_dispositions',
     'changes_made',
     'declined_changes',
     'verification',
   ]),
-  'human-decision': fields(['frontmatter', 'human_rationale']),
-  'review-manifest': fields(['manifest_body']),
+  'human-decision': fields(['frontmatter', 'mode_banner', 'human_rationale']),
+  'review-manifest': fields(['mode_banner', 'manifest_body']),
 });
 
 export const TEMPLATE_VARIABLES = Object.freeze(catalog);

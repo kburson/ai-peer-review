@@ -23,6 +23,7 @@ const METADATA_KEYS = Object.freeze([
   'role',
   'turn',
   'commit_mode',
+  'authority_assurance',
   'artifact_path',
   'artifact_commit',
   'artifact_blob',
@@ -128,6 +129,7 @@ function expectedMetadata(review, role, turn) {
     role,
     turn,
     commit_mode: protocol.commit_mode,
+    authority_assurance: protocol.authority?.verifier?.signer_strength ?? 'unavailable',
     artifact_path: artifact?.path,
     artifact_commit: artifact?.head ?? review.artifact_commit ?? null,
     artifact_blob: artifact?.blob ?? null,
@@ -373,10 +375,16 @@ function sameDraftMetadata(candidate, expected) {
   );
 }
 
-function draftVariables(role, frontmatter) {
+function draftVariables(role, frontmatter, protocol) {
+  const assurance = protocol.authority?.verifier?.signer_strength ?? 'unavailable';
+  const modeBanner =
+    protocol.commit_mode === 'no-commit'
+      ? `> **NO-COMMIT TEST MODE** — authority assurance: \`${assurance}\``
+      : 'Mode: `normal`';
   if (role === 'reviewer') {
     return {
       frontmatter,
+      mode_banner: modeBanner,
       summary: '<!-- Write the review summary. -->',
       findings: '<!-- List numbered findings or write None. -->',
       required_changes: '<!-- List required changes or write None. -->',
@@ -386,6 +394,7 @@ function draftVariables(role, frontmatter) {
   }
   return {
     frontmatter,
+    mode_banner: modeBanner,
     summary: '<!-- Summarize the revision. -->',
     finding_dispositions: '<!-- Disposition every sealed finding ID. -->',
     changes_made: '<!-- Describe changes made. -->',
@@ -642,7 +651,7 @@ export function createResponseDraft(review, role, turn) {
   const metadata = expectedMetadata(review, role, turn);
   const bytes = hydrateTemplate(
     `${role}-response`,
-    draftVariables(role, renderFrontmatter(metadata))
+    draftVariables(role, renderFrontmatter(metadata), protocolOf(review))
   );
   mkdirSync(path.dirname(file), { recursive: true });
   mkdirSync(path.dirname(registry), { recursive: true });

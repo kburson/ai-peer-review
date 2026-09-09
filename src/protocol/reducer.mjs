@@ -545,7 +545,12 @@ function applyProjection(state, event) {
   ) {
     protocol.reviewer_boundary = copy(event.payload.repository_boundary);
   }
-  if (event.payload.artifact) protocol.artifact = copy(event.payload.artifact);
+  if (event.payload.artifact) {
+    protocol.artifact = {
+      ...copy(event.payload.artifact),
+      head: event.payload.commit ?? protocol.artifact?.head,
+    };
+  }
   if (
     event.type === 'author-closing-round-committed' ||
     event.type === 'author-closing-round-sealed-no-commit' ||

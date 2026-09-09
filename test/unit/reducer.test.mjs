@@ -29,6 +29,7 @@ function noCommit(events) {
                 head: item.payload.artifact.head,
                 index_digest: `sha256:${'1'.repeat(64)}`,
                 worktree_digest: `sha256:${'2'.repeat(64)}`,
+                changed_paths: [],
               },
             },
           },
