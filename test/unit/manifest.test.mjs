@@ -58,6 +58,28 @@ test('manifest rendering is deterministic, ordered, and privacy bounded', () => 
   assert.match(first.toString(), /reviewer-consensus/);
 });
 
+test('manifest preserves bounded identity, claim, recovery, and supplement history', () => {
+  const base = acceptancePendingEvents();
+  const identityChange = event('identity-changed', { sequence: base.length + 1 });
+  const reclaim = event('same-session-reclaim', { sequence: base.length + 2 });
+  const supplement = event('supplement-registered', { sequence: base.length + 3 });
+  const state = structuredClone(reduceEvents(base));
+  state.protocol.supplements = [structuredClone(supplement.payload.supplement)];
+  const model = buildManifest({
+    state,
+    events: [...base, identityChange, reclaim, supplement],
+    status: 'accepted',
+    acceptance_basis: 'reviewer-consensus',
+    final_commit: state.protocol.artifact.head,
+  });
+  assert.equal(model.identity_changes[0].identity.identity_source, 'runtime');
+  assert.equal(model.claims.length, 1);
+  assert.equal(Object.hasOwn(model.claims[0], 'pid'), false);
+  assert.equal(model.recoveries[0].type, 'same-session-reclaim');
+  assert.equal(model.supplements[0].content_retention, 'scratch-only');
+  assert.equal(Object.isFrozen(identityChange.payload.identity), false);
+});
+
 test('human decision and manifest seals bind exact override authority', () => {
   const events = authorRevisionEvents();
   events[0].payload.max_turns = 1;
@@ -105,6 +127,8 @@ test('human decision and manifest seals bind exact override authority', () => {
     ),
     { path: 'reviews/review-manifest.md' }
   );
+  assert.equal(manifest.model.authority_assurance, 'unverified-test');
+  assert.equal(manifest.model.residual_risk.includes('detection-grade-authority'), true);
   const sealed = pathsToSeals([decision, manifest], {
     expected_head: state.protocol.artifact.head,
   });

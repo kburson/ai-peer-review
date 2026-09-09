@@ -143,7 +143,11 @@ function artifactHistory(events) {
 function identityChanges(events) {
   return events
     .filter((event) => event.type === 'identity-changed')
-    .map((event) => ({ sequence: event.sequence, ...event.payload }));
+    .map((event) => ({
+      sequence: event.sequence,
+      role: event.payload.role,
+      identity: safeParticipant(event.payload.identity),
+    }));
 }
 
 function recoveryHistory(events) {
@@ -196,7 +200,10 @@ export function buildManifest(review) {
   ) {
     fail('Manifest terminal status or acceptance basis is invalid.');
   }
-  const assurance = protocol.authority?.verifier?.signer_strength ?? 'unavailable';
+  const assurance =
+    review.human_decision?.human_attestation?.strength ??
+    protocol.authority?.verifier?.signer_strength ??
+    'unavailable';
   const residualRisk = [];
   if (protocol.commit_mode === 'no-commit') residualRisk.push('uncommitted-test-evidence');
   if (assurance === 'unavailable') residualRisk.push('human-authority-unavailable');
@@ -225,13 +232,15 @@ export function buildManifest(review) {
       .filter((event) => event.type === 'turn-claimed')
       .map((event) => safeClaim(event.payload.claim)),
     recoveries: recoveryHistory(events),
-    supplements: (protocol.supplements ?? []).map((supplement) => ({ ...supplement })),
+    supplements: (protocol.supplements ?? []).map((supplement) => structuredClone(supplement)),
     authority: {
       policy: protocol.authority?.authority_policy ?? 'unavailable',
       verifier: safeVerifier(protocol.authority?.verifier),
-      acceptance_attestation: review.human_decision?.human_attestation ?? null,
+      acceptance_attestation: review.human_decision?.human_attestation
+        ? structuredClone(review.human_decision.human_attestation)
+        : null,
     },
-    human_decision: review.human_decision ?? null,
+    human_decision: review.human_decision ? structuredClone(review.human_decision) : null,
   };
   return deepFreeze(model);
 }
