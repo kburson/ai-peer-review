@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+
+// cspell:words DataCite dois Zenodo zenodo
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -8,19 +10,21 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  classifyZenodoHealth,
+  defaultObservers,
   observeReleaseDelta,
   parseGitChangedPaths,
   validateReleaseManifest,
+  validateZenodoAuthority,
   verifyRelease,
 } from '../../scripts/verify-release.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const digest = createHash('sha256').update('release tarball').digest('hex');
-const releaseCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
-  cwd: root,
-  encoding: 'utf8',
-}).trim();
-const evidenceCommit = 'e'.repeat(40);
+const releaseCommit = '1c86f21a8aacca77dc7ebdc8299606fabfaa7e50';
+const evidenceCommit = '5b06e29a54ddac959f6b3d8c90c3fea8737d2766';
+const readmeCommit = '7990fffe336deeb7ee55d53e34bb0a6eb9b89ae0';
+const correctionCommit = 'c'.repeat(40);
 
 function manifest() {
   return {
@@ -50,10 +54,37 @@ function manifest() {
       provenance_url: 'https://registry.npmjs.org/-/npm/v1/attestations/fixture',
     },
     archives: {
-      zenodo: { doi: '10.5281/zenodo.1234567', url: 'https://doi.org/10.5281/zenodo.1234567' },
+      zenodo: {
+        doi: '10.5281/zenodo.1234567',
+        url: 'https://zenodo.org/records/1234567',
+      },
       software_heritage: {
         swhid: 'swh:1:rev:37a30d8ec124f831aee7974957df12ac226bacbf',
         url: 'https://archive.softwareheritage.org/swh:1:rev:37a30d8ec124f831aee7974957df12ac226bacbf',
+      },
+    },
+  };
+}
+
+function zenodoRecord(value = manifest()) {
+  return {
+    data: {
+      id: value.archives.zenodo.doi,
+      type: 'dois',
+      attributes: {
+        doi: value.archives.zenodo.doi,
+        state: 'findable',
+        publisher: 'Zenodo',
+        version: `v${value.version}`,
+        titles: [{ title: `kburson/ai-peer-review: v${value.version}` }],
+        relatedIdentifiers: [
+          {
+            relationType: 'IsSupplementTo',
+            relatedIdentifier: `${value.repository.url}/tree/v${value.version}`,
+            resourceTypeGeneral: 'Software',
+            relatedIdentifierType: 'URL',
+          },
+        ],
       },
     },
   };
@@ -66,23 +97,29 @@ function manifestBytes(value) {
 function observers(value = manifest()) {
   return {
     extraction: async () => true,
-    head: async () => evidenceCommit,
+    head: async () => correctionCommit,
     tag: async () => ({
       target_commit: value.release_commit,
       signer_fingerprint: value.tag.signer_fingerprint,
     }),
     releaseDelta: async (base, head) => {
       assert.equal(base, value.release_commit);
-      assert.equal(head, evidenceCommit);
+      assert.equal(head, correctionCommit);
       return {
         ancestor: true,
-        commitCount: 1,
-        paths: ['provenance/release-manifest.json'],
+        commits: [
+          { sha: evidenceCommit, paths: ['provenance/release-manifest.json'] },
+          { sha: readmeCommit, paths: ['README.md'] },
+          {
+            sha: correctionCommit,
+            paths: ['scripts/verify-release.mjs', 'test/unit/verify-release.test.mjs'],
+          },
+        ],
       };
     },
     releaseManifestBlobs: async () => {
       const bytes = manifestBytes(value);
-      return { head: bytes, index: bytes };
+      return { evidence: bytes, head: bytes, index: bytes };
     },
     repository: async () => value.repository,
     githubRelease: async () => ({
@@ -100,6 +137,8 @@ function observers(value = manifest()) {
     }),
     sha256Url: async () => digest,
     textUrl: async () => `${digest}  ${value.github_release.asset_name}\n`,
+    zenodoDoi: async () => zenodoRecord(value),
+    zenodoHealth: async () => ({ status: 200 }),
     reachable: async () => true,
   };
 }
@@ -143,45 +182,54 @@ test('release verifier binds the release commit to the signed tag target', async
   );
 });
 
-test('release verifier permits one evidence-only descendant', async () => {
+test('release verifier permits the exact evidence, README, and correction sequence', async () => {
   const value = manifest();
   const verified = await verify(value);
   assert.equal(verified.releaseCommit, releaseCommit);
 });
 
 test('release verifier rejects unrelated post-release changes', async () => {
-  const unrelated = observers(manifest());
-  unrelated.releaseDelta = async () => ({
-    ancestor: true,
-    commitCount: 1,
-    paths: ['provenance/release-manifest.json', 'src/public-api.mjs'],
-  });
-  await assert.rejects(
-    verify(manifest(), unrelated),
-    /post-release changes are not restricted to provenance\/release-manifest\.json/
-  );
-
-  const unrelatedHistory = observers(manifest());
-  unrelatedHistory.releaseDelta = async () => ({
-    ancestor: false,
-    commitCount: 0,
-    paths: [],
-  });
-  await assert.rejects(
-    verify(manifest(), unrelatedHistory),
-    /release commit is not an ancestor of checkout HEAD/
-  );
-
-  const multipleEvidenceCommits = observers(manifest());
-  multipleEvidenceCommits.releaseDelta = async () => ({
-    ancestor: true,
-    commitCount: 2,
-    paths: ['provenance/release-manifest.json'],
-  });
-  await assert.rejects(
-    verify(manifest(), multipleEvidenceCommits),
-    /not exactly one evidence commit/
-  );
+  const validCommits = [
+    { sha: evidenceCommit, paths: ['provenance/release-manifest.json'] },
+    { sha: readmeCommit, paths: ['README.md'] },
+    {
+      sha: correctionCommit,
+      paths: ['scripts/verify-release.mjs', 'test/unit/verify-release.test.mjs'],
+    },
+  ];
+  const invalidDeltas = [
+    { ancestor: false, commits: [] },
+    { ancestor: true, commits: [] },
+    { ancestor: true, commits: validCommits.slice(0, 1) },
+    {
+      ancestor: true,
+      commits: [{ ...validCommits[0], sha: 'd'.repeat(40) }, ...validCommits.slice(1)],
+    },
+    {
+      ancestor: true,
+      commits: [validCommits[0], { ...validCommits[1], sha: 'e'.repeat(40) }, validCommits[2]],
+    },
+    {
+      ancestor: true,
+      commits: [validCommits[0], { ...validCommits[1], paths: ['CHANGELOG.md'] }, validCommits[2]],
+    },
+    {
+      ancestor: true,
+      commits: [
+        ...validCommits.slice(0, 2),
+        { ...validCommits[2], paths: ['scripts/verify-release.mjs', 'src/public-api.mjs'] },
+      ],
+    },
+    {
+      ancestor: true,
+      commits: [...validCommits, { sha: 'f'.repeat(40), paths: ['CHANGELOG.md'] }],
+    },
+  ];
+  for (const delta of invalidDeltas) {
+    const observed = observers(manifest());
+    observed.releaseDelta = async () => delta;
+    await assert.rejects(verify(manifest(), observed), /post-release history/);
+  }
 });
 
 test('release path parser preserves adversarial whitespace bytes', () => {
@@ -219,7 +267,9 @@ test(
       whitespaceBase,
       whitespaceHead
     );
-    assert.deepEqual(whitespaceDelta.paths, ['provenance/release-manifest.json ']);
+    assert.deepEqual(whitespaceDelta.commits, [
+      { sha: whitespaceHead, paths: ['provenance/release-manifest.json '] },
+    ]);
   }
 );
 
@@ -237,11 +287,28 @@ test('release observer exposes renames as both changed paths', async (t) => {
   git(renameRepo, ['commit', '--no-gpg-sign', '-m', 'evidence and rename']);
   const renameHead = git(renameRepo, ['rev-parse', 'HEAD']);
   const renameDelta = await observeReleaseDelta(renameRepo, renameBase, renameHead);
-  assert.deepEqual(renameDelta.paths.sort(), [
-    'provenance/release-manifest.json',
-    'src/new.mjs',
-    'src/old.mjs',
+  assert.deepEqual(renameDelta.commits, [
+    {
+      sha: renameHead,
+      paths: ['provenance/release-manifest.json', 'src/new.mjs', 'src/old.mjs'],
+    },
   ]);
+});
+
+test('release observer follows the public first-parent chain through a merge', async (t) => {
+  const mergeRepo = temporaryRepository();
+  t.after(() => rmSync(mergeRepo, { recursive: true, force: true }));
+  const base = git(mergeRepo, ['rev-parse', 'HEAD']);
+  const trunkBranch = git(mergeRepo, ['branch', '--show-current']);
+  git(mergeRepo, ['checkout', '-b', 'readme-topic']);
+  writeFileSync(path.join(mergeRepo, 'README.md'), '# Public documentation\n');
+  git(mergeRepo, ['add', 'README.md']);
+  git(mergeRepo, ['commit', '--no-gpg-sign', '-m', 'README update']);
+  git(mergeRepo, ['checkout', trunkBranch]);
+  git(mergeRepo, ['merge', '--no-ff', '--no-gpg-sign', '-m', 'merge README', 'readme-topic']);
+  const mergeHead = git(mergeRepo, ['rev-parse', 'HEAD']);
+  const delta = await observeReleaseDelta(mergeRepo, base, mergeHead);
+  assert.deepEqual(delta.commits, [{ sha: mergeHead, paths: ['README.md'] }]);
 });
 
 test('release verifier rejects dirty or staged release-manifest bytes', async () => {
@@ -254,12 +321,119 @@ test('release verifier rejects dirty or staged release-manifest bytes', async ()
 
   const staged = observers(value);
   staged.releaseManifestBlobs = async () => ({
+    evidence: manifestBytes(value),
     head: manifestBytes(value),
     index: dirtyBytes,
   });
   await assert.rejects(
     verify(value, staged),
     /index release manifest does not match the committed evidence blob/
+  );
+
+  const substitutedEvidence = observers(value);
+  substitutedEvidence.releaseManifestBlobs = async () => ({
+    evidence: dirtyBytes,
+    head: manifestBytes(value),
+    index: manifestBytes(value),
+  });
+  await assert.rejects(
+    verify(value, substitutedEvidence),
+    /HEAD release manifest does not match the immutable evidence blob/
+  );
+});
+
+test('valid DOI authority tolerates transient Zenodo health failures', async () => {
+  for (const health of [{ status: 504 }, { error: 'timeout' }, { error: 'network' }]) {
+    const value = manifest();
+    const observed = observers(value);
+    observed.zenodoHealth = async () => health;
+    const result = await verify(value, observed);
+    assert.deepEqual(result.warnings, [
+      {
+        provider: 'zenodo',
+        category: 'temporary-unavailability',
+        ...health,
+      },
+    ]);
+  }
+});
+
+test('healthy Zenodo produces no warning', async () => {
+  const result = await verify(manifest());
+  assert.deepEqual(result.warnings, []);
+});
+
+test('Zenodo 4xx and malformed health observations fail closed', async () => {
+  for (const health of [{ status: 404 }, { status: 302 }, {}, { error: 'unexpected' }]) {
+    const value = manifest();
+    const observed = observers(value);
+    observed.zenodoHealth = async () => health;
+    await assert.rejects(verify(value, observed), /Zenodo health observation/);
+  }
+});
+
+test('Zenodo DOI authority validates every release identity field', async () => {
+  const substitutions = [
+    (record) => (record.data.type = 'substitute'),
+    (record) => (record.data.id = '10.5281/zenodo.7654321'),
+    (record) => (record.data.attributes.doi = '10.5281/zenodo.7654321'),
+    (record) => (record.data.attributes.state = 'draft'),
+    (record) => (record.data.attributes.publisher = 'Substitute'),
+    (record) => (record.data.attributes.version = 'v9.9.9'),
+    (record) => (record.data.attributes.titles = [{ title: 'Substitute' }]),
+    (record) => (record.data.attributes.relatedIdentifiers = []),
+  ];
+  for (const substitute of substitutions) {
+    const value = manifest();
+    const observed = observers(value);
+    const record = structuredClone(zenodoRecord(value));
+    substitute(record);
+    observed.zenodoDoi = async () => record;
+    await assert.rejects(verify(value, observed), /Zenodo DOI authority/);
+  }
+
+  const wrongUrl = manifest();
+  wrongUrl.archives.zenodo.url = 'https://zenodo.org/records/7654321';
+  await assert.rejects(verify(wrongUrl), /Zenodo DOI authority/);
+
+  const unavailable = observers(manifest());
+  unavailable.zenodoDoi = async () => {
+    throw new Error('provider unavailable');
+  };
+  await assert.rejects(verify(manifest(), unavailable), /Zenodo DOI authority/);
+
+  const softwareHeritageDown = observers(manifest());
+  softwareHeritageDown.reachable = async () => false;
+  await assert.rejects(verify(manifest(), softwareHeritageDown), /archive is not reachable/);
+});
+
+test('Zenodo authority and health seams are pure and closed', () => {
+  const value = manifest();
+  assert.equal(validateZenodoAuthority({ manifest: value, record: zenodoRecord(value) }), true);
+  assert.equal(classifyZenodoHealth({ status: 204 }), null);
+  assert.deepEqual(classifyZenodoHealth({ error: 'timeout' }), {
+    provider: 'zenodo',
+    category: 'temporary-unavailability',
+    error: 'timeout',
+  });
+});
+
+test('default Zenodo health observer identifies the verifier without live I/O', async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://zenodo.org/records/1234567');
+    assert.equal(
+      options.headers['user-agent'],
+      'ai-peer-review-release-verifier/0.1.0 (+https://github.com/kburson/ai-peer-review)'
+    );
+    return { status: 200 };
+  };
+  assert.deepEqual(
+    await defaultObservers(root).zenodoHealth('https://zenodo.org/records/1234567'),
+    { status: 200 }
   );
 });
 

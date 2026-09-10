@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// cspell:words DataCite dois Zenodo zenodo
+
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -13,6 +15,13 @@ const SHA = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const SWHID = /^swh:1:(rev|dir|cnt):[0-9a-f]{40}$/;
 const RELEASE_MANIFEST_PATH = 'provenance/release-manifest.json';
+const EVIDENCE_COMMIT = '5b06e29a54ddac959f6b3d8c90c3fea8737d2766';
+const README_COMMIT = '7990fffe336deeb7ee55d53e34bb0a6eb9b89ae0';
+const CORRECTION_PATHS = ['scripts/verify-release.mjs', 'test/unit/verify-release.test.mjs'];
+const ZENODO_DOI = /^10\.5281\/zenodo\.(\d+)$/i;
+const FETCH_TIMEOUT_MS = 15_000;
+const RELEASE_VERIFIER_USER_AGENT =
+  'ai-peer-review-release-verifier/0.1.0 (+https://github.com/kburson/ai-peer-review)';
 
 function fail(message) {
   throw new Error(`release verification failed: ${message}`);
@@ -99,6 +108,81 @@ export function validateReleaseManifest(manifest) {
   return manifest;
 }
 
+export function validateZenodoAuthority({ manifest, record }) {
+  const expectedDoi = manifest.archives.zenodo.doi;
+  const doiMatch = ZENODO_DOI.exec(expectedDoi);
+  if (!doiMatch) fail('Zenodo DOI authority: manifest DOI is invalid');
+  const data = record?.data;
+  const attributes = data?.attributes;
+  if (data?.type !== 'dois') fail('Zenodo DOI authority: resource type mismatch');
+  if (typeof data.id !== 'string' || data.id.toLowerCase() !== expectedDoi.toLowerCase())
+    fail('Zenodo DOI authority: resource identifier mismatch');
+  if (
+    typeof attributes?.doi !== 'string' ||
+    attributes.doi.toLowerCase() !== expectedDoi.toLowerCase()
+  )
+    fail('Zenodo DOI authority: DOI attribute mismatch');
+  if (attributes.state !== 'findable') fail('Zenodo DOI authority: DOI is not findable');
+  if (attributes.publisher !== 'Zenodo') fail('Zenodo DOI authority: publisher mismatch');
+  if (attributes.version !== `v${manifest.version}`) fail('Zenodo DOI authority: version mismatch');
+  const expectedTitle = `kburson/ai-peer-review: v${manifest.version}`;
+  if (
+    !Array.isArray(attributes.titles) ||
+    !attributes.titles.some((entry) => entry?.title === expectedTitle)
+  )
+    fail('Zenodo DOI authority: title mismatch');
+  const expectedRepositoryTag = `${manifest.repository.url}/tree/v${manifest.version}`;
+  if (
+    !Array.isArray(attributes.relatedIdentifiers) ||
+    !attributes.relatedIdentifiers.some(
+      (entry) =>
+        entry?.relationType === 'IsSupplementTo' &&
+        entry.relatedIdentifier === expectedRepositoryTag &&
+        entry.resourceTypeGeneral === 'Software' &&
+        entry.relatedIdentifierType === 'URL'
+    )
+  )
+    fail('Zenodo DOI authority: repository tag relation mismatch');
+
+  let archiveUrl;
+  try {
+    archiveUrl = new URL(manifest.archives.zenodo.url);
+  } catch {
+    fail('Zenodo DOI authority: archive URL is invalid');
+  }
+  if (
+    archiveUrl.protocol !== 'https:' ||
+    archiveUrl.hostname !== 'zenodo.org' ||
+    archiveUrl.pathname !== `/records/${doiMatch[1]}` ||
+    archiveUrl.search !== '' ||
+    archiveUrl.hash !== ''
+  )
+    fail('Zenodo DOI authority: archive URL does not match DOI record');
+  return true;
+}
+
+export function classifyZenodoHealth(observation) {
+  if (Number.isInteger(observation?.status)) {
+    if (observation.status >= 200 && observation.status < 300) return null;
+    if (observation.status >= 500 && observation.status < 600) {
+      return Object.freeze({
+        provider: 'zenodo',
+        category: 'temporary-unavailability',
+        status: observation.status,
+      });
+    }
+    fail(`Zenodo health observation is not retryable: HTTP ${observation.status}`);
+  }
+  if (observation?.error === 'timeout' || observation?.error === 'network') {
+    return Object.freeze({
+      provider: 'zenodo',
+      category: 'temporary-unavailability',
+      error: observation.error,
+    });
+  }
+  fail('Zenodo health observation is malformed');
+}
+
 async function run(command, args, options = {}) {
   return execFileAsync(command, args, {
     encoding: 'utf8',
@@ -145,31 +229,42 @@ export async function observeReleaseDelta(root, releaseCommit, head) {
     await run('git', ['merge-base', '--is-ancestor', releaseCommit, head], { cwd: root });
   } catch (error) {
     if (error?.code === 1) {
-      return { ancestor: false, commitCount: 0, paths: [] };
+      return { ancestor: false, commits: [] };
     }
     throw error;
   }
-  const [{ stdout: count }, { stdout: changedPaths }] = await Promise.all([
-    run('git', ['rev-list', '--count', `${releaseCommit}..${head}`], { cwd: root }),
-    run(
+  const { stdout } = await run(
+    'git',
+    ['rev-list', '--reverse', '--first-parent', `${releaseCommit}..${head}`],
+    { cwd: root }
+  );
+  const shas = stdout.trim() ? stdout.trim().split('\n') : [];
+  const commits = [];
+  for (const sha of shas) {
+    if (!SHA.test(sha)) fail('Git release-history observation contains an invalid commit SHA');
+    const { stdout: changedPaths } = await run(
       'git',
       [
-        'diff',
+        'diff-tree',
+        '-m',
+        '--first-parent',
+        '--no-commit-id',
         '--name-only',
         '-z',
         '--no-renames',
         // cspell:disable-next-line
         '--diff-filter=ACDMRTUXB',
-        `${releaseCommit}..${head}`,
+        '-r',
+        sha,
         '--',
       ],
       { cwd: root, encoding: null }
-    ),
-  ]);
+    );
+    commits.push({ sha, paths: parseGitChangedPaths(changedPaths) });
+  }
   return {
     ancestor: true,
-    commitCount: Number(count.trim()),
-    paths: parseGitChangedPaths(changedPaths),
+    commits,
   };
 }
 
@@ -182,14 +277,15 @@ async function observeReleaseManifestBlobs(root, head) {
     });
     return Buffer.from(stdout);
   };
-  const [headBlob, indexBlob] = await Promise.all([
+  const [evidenceBlob, headBlob, indexBlob] = await Promise.all([
+    readBlob(`${EVIDENCE_COMMIT}:${RELEASE_MANIFEST_PATH}`),
     readBlob(`${head}:${RELEASE_MANIFEST_PATH}`),
     readBlob(`:${RELEASE_MANIFEST_PATH}`),
   ]);
-  return { head: headBlob, index: indexBlob };
+  return { evidence: evidenceBlob, head: headBlob, index: indexBlob };
 }
 
-function defaultObservers(root) {
+export function defaultObservers(root) {
   return {
     async extraction() {
       await run(
@@ -259,6 +355,38 @@ function defaultObservers(root) {
     },
     sha256Url,
     textUrl,
+    async zenodoDoi(doi) {
+      let response;
+      try {
+        response = await fetch(`https://api.datacite.org/dois/${encodeURIComponent(doi)}`, {
+          headers: { 'user-agent': RELEASE_VERIFIER_USER_AGENT },
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+      } catch {
+        fail('Zenodo DOI authority: DataCite observation failed');
+      }
+      if (!response.ok) fail(`Zenodo DOI authority: DataCite returned HTTP ${response.status}`);
+      try {
+        return await response.json();
+      } catch {
+        fail('Zenodo DOI authority: DataCite response is not valid JSON');
+      }
+    },
+    async zenodoHealth(url) {
+      try {
+        const response = await fetch(url, {
+          headers: { 'user-agent': RELEASE_VERIFIER_USER_AGENT },
+          redirect: 'follow',
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+        return { status: response.status };
+      } catch (error) {
+        if (error?.name === 'TimeoutError' || error?.name === 'AbortError')
+          return { error: 'timeout' };
+        if (error instanceof TypeError) return { error: 'network' };
+        throw error;
+      }
+    },
     async reachable(url) {
       const response = await fetch(url, { redirect: 'follow' });
       return response.ok;
@@ -296,19 +424,36 @@ export async function verifyRelease({ root, manifest, manifestBytes, observers }
   if (tag.signer_fingerprint !== manifest.tag.signer_fingerprint)
     fail('signed tag fingerprint mismatch');
   const delta = await observed.releaseDelta(manifest.release_commit, head);
-  if (delta?.ancestor !== true) fail('release commit is not an ancestor of checkout HEAD');
-  if (!Number.isInteger(delta.commitCount) || delta.commitCount !== 1)
-    fail('checkout HEAD is not exactly one evidence commit after the release commit');
+  if (delta?.ancestor !== true)
+    fail('post-release history: release commit is not an ancestor of checkout HEAD');
+  const commits = delta?.commits;
+  const exactPaths = (actual, expected) =>
+    Array.isArray(actual) &&
+    actual.length === expected.length &&
+    [...actual].sort().every((entry, index) => entry === [...expected].sort()[index]);
   if (
-    !Array.isArray(delta.paths) ||
-    delta.paths.length !== 1 ||
-    delta.paths[0] !== RELEASE_MANIFEST_PATH
+    !Array.isArray(commits) ||
+    commits.length !== 3 ||
+    commits[0]?.sha !== EVIDENCE_COMMIT ||
+    !exactPaths(commits[0]?.paths, [RELEASE_MANIFEST_PATH]) ||
+    commits[1]?.sha !== README_COMMIT ||
+    !exactPaths(commits[1]?.paths, ['README.md']) ||
+    commits[2]?.sha !== head ||
+    !exactPaths(commits[2]?.paths, CORRECTION_PATHS)
   )
-    fail(`post-release changes are not restricted to ${RELEASE_MANIFEST_PATH}`);
+    fail(
+      'post-release history does not match the pinned evidence, README, and correction sequence'
+    );
   if (!Buffer.isBuffer(manifestBytes)) fail('working release manifest bytes are missing');
   const committedManifest = await observed.releaseManifestBlobs(head);
-  if (!Buffer.isBuffer(committedManifest?.head) || !Buffer.isBuffer(committedManifest?.index))
+  if (
+    !Buffer.isBuffer(committedManifest?.evidence) ||
+    !Buffer.isBuffer(committedManifest?.head) ||
+    !Buffer.isBuffer(committedManifest?.index)
+  )
     fail('committed release manifest observation is malformed');
+  if (!committedManifest.evidence.equals(committedManifest.head))
+    fail('HEAD release manifest does not match the immutable evidence blob');
   if (!committedManifest.head.equals(committedManifest.index))
     fail('index release manifest does not match the committed evidence blob');
   if (!committedManifest.head.equals(manifestBytes))
@@ -349,15 +494,29 @@ export async function verifyRelease({ root, manifest, manifestBytes, observers }
   if (npmDigest !== manifest.npm.sha256 || npmDigest !== manifest.github_release.asset_sha256)
     fail('npm and GitHub tarballs do not share the recorded checksum');
 
-  for (const archive of [manifest.archives.zenodo, manifest.archives.software_heritage]) {
-    if (!(await observed.reachable(archive.url))) fail(`archive is not reachable: ${archive.url}`);
+  let zenodoRecord;
+  try {
+    zenodoRecord = await observed.zenodoDoi(manifest.archives.zenodo.doi);
+  } catch (error) {
+    if (error?.message?.startsWith('release verification failed: Zenodo DOI authority:'))
+      throw error;
+    fail('Zenodo DOI authority: DataCite observation failed');
   }
+  validateZenodoAuthority({ manifest, record: zenodoRecord });
+  const warnings = [];
+  const zenodoWarning = classifyZenodoHealth(
+    await observed.zenodoHealth(manifest.archives.zenodo.url)
+  );
+  if (zenodoWarning) warnings.push(zenodoWarning);
+  if (!(await observed.reachable(manifest.archives.software_heritage.url)))
+    fail(`archive is not reachable: ${manifest.archives.software_heritage.url}`);
 
   return Object.freeze({
     releaseCommit: manifest.release_commit,
     tag: manifest.tag.name,
     package: `${manifest.package}@${manifest.version}`,
     checksum: manifest.npm.sha256,
+    warnings: Object.freeze(warnings),
   });
 }
 
