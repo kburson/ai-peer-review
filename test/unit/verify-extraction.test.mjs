@@ -92,6 +92,7 @@ function validManifest(overrides = {}) {
         'README.md',
         'cspell.json',
         'docs/dependency-audit-mcp.md',
+        'docs/manual-cross-provider-peer-review.md',
         'docs/spdx-policy.md',
         'eslint.config.mjs',
         'package-lock.json',
