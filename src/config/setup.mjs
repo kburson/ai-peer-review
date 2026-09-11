@@ -28,6 +28,24 @@ const OFFICIAL_RESUME = Object.freeze({
   claude: ['claude', '--resume'],
   grok: ['grok', 'resume'],
 });
+const AUTOMATIC_ADAPTER = Object.freeze({
+  codex: Object.freeze({
+    adapter_version: '2.0.0',
+    capability: 'live-wait',
+    server_command: Object.freeze(['peer-review-mcp']),
+    tool_timeout_ms: 28_800_000,
+    heartbeat_interval_ms: 15_000,
+    lease_ttl_ms: 60_000,
+  }),
+  claude: Object.freeze({
+    adapter_version: '2.0.0',
+    capability: 'live-wait',
+    server_command: Object.freeze(['peer-review-mcp']),
+    tool_timeout_ms: 28_800_000,
+    heartbeat_interval_ms: 15_000,
+    lease_ttl_ms: 60_000,
+  }),
+});
 
 function fail(code, message, recovery, details = {}) {
   throw new AprError(code, message, { recovery, details });
@@ -129,13 +147,20 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
   const result = clone(current);
   const selected = new Set(agents);
   const ownedResume = new Set(current.setup?.resume_commands_added ?? []);
+  const ownedAutomatic = new Set(current.setup?.automatic_adapters_added ?? []);
   result.hosts ??= {};
   if (remove) {
     for (const agent of agents) {
-      if (!ownedResume.has(agent) || !result.hosts[agent]?.resume) continue;
-      delete result.hosts[agent].resume;
-      ownedResume.delete(agent);
-      if (Object.keys(result.hosts[agent]).length === 0) delete result.hosts[agent];
+      if (ownedResume.has(agent) && result.hosts[agent]?.resume) {
+        delete result.hosts[agent].resume;
+        ownedResume.delete(agent);
+      }
+      if (ownedAutomatic.has(agent) && result.hosts[agent]?.automatic) {
+        delete result.hosts[agent].automatic;
+        ownedAutomatic.delete(agent);
+      }
+      if (result.hosts[agent] && Object.keys(result.hosts[agent]).length === 0)
+        delete result.hosts[agent];
     }
   } else {
     for (const agent of agents) {
@@ -143,6 +168,12 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
       result.hosts[agent] ??= {};
       result.hosts[agent].resume = { command: [...OFFICIAL_RESUME[agent]] };
       ownedResume.add(agent);
+    }
+    for (const agent of agents) {
+      if (!AUTOMATIC_ADAPTER[agent] || result.hosts[agent]?.automatic) continue;
+      result.hosts[agent] ??= {};
+      result.hosts[agent].automatic = clone(AUTOMATIC_ADAPTER[agent]);
+      ownedAutomatic.add(agent);
     }
   }
   if (Object.keys(result.hosts).length === 0) delete result.hosts;
@@ -153,12 +184,13 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
   else
     result.setup = {
       owner: 'ai-peer-review',
-      version: 1,
+      version: 2,
       agents: nextAgents,
       config_created: current.setup?.config_created ?? !configExists,
       scratch_exclude_added:
         current.setup?.scratch_exclude_added ?? (scope === 'project' && !scratchRuleExists),
       resume_commands_added: [...ownedResume].sort(),
+      automatic_adapters_added: [...ownedAutomatic].sort(),
     };
   return result;
 }
@@ -242,10 +274,16 @@ export function setup(options = {}) {
       ? null
       : {
           owner: 'ai-peer-review',
-          version: 1,
+          version: 2,
+          adapter_version: '2.0.0',
           reviewer_guard: { installed: false, enforcement: 'advisory' },
           resume_adapter: host !== 'generic',
-          transport: 'manual',
+          transport: nextConfig.setup?.automatic_adapters_added.includes(host)
+            ? 'live-wait'
+            : 'manual',
+          mcp: nextConfig.setup?.automatic_adapters_added.includes(host)
+            ? clone(AUTOMATIC_ADAPTER[host])
+            : null,
           config_created: current.ai_peer_review?.config_created ?? !adapterExists,
           skill_created:
             current.ai_peer_review?.skill_created ??

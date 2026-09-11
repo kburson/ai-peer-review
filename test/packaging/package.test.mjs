@@ -52,6 +52,7 @@ test('published tarball is closed and exact-pins its audited production dependen
     'LICENSE',
     'NOTICE',
     'README.md',
+    'bin/peer-review-mcp.mjs',
     'bin/peer-review.mjs',
     'schemas/config-v1.json',
     'skills/peer-review/SKILL.md',
@@ -104,7 +105,16 @@ test('public exports and command guidance remain narrow and installation-aware',
   const publicApi = readFileSync(path.join(root, 'src/public-api.mjs'), 'utf8');
   assert.equal(
     publicApi,
-    "export { explainError } from './cli/help-data.mjs';\nexport { statusReview } from './protocol/service.mjs';\n"
+    "export { explainError } from './cli/help-data.mjs';\n" +
+      "export { statusReview } from './protocol/service.mjs';\n" +
+      'export {\n' +
+      '  refreshResidentLease,\n' +
+      '  residentHealth,\n' +
+      '  residentLivenessEvent,\n' +
+      '  validateResidentLease,\n' +
+      "} from './transport/resident.mjs';\n" +
+      "export { createNativePushTransport } from './transport/native-push.mjs';\n" +
+      "export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';\n"
   );
   const sources = [
     'README.md',

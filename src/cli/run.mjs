@@ -70,6 +70,7 @@ import {
   validateAutomaticParticipant,
 } from '../transport/registry.mjs';
 import { createResumeTransport, isOfficialResumeCommand } from '../transport/resume.mjs';
+import { residentHealth } from '../transport/resident.mjs';
 import { explainError, helpRequest, markdownCodeSpan, renderCommand } from './help-data.mjs';
 import { parseCommand } from './parse.mjs';
 
@@ -3363,6 +3364,32 @@ function detectedDoctorContext(io, loaded, requestedMode) {
   );
   const resumable = identity ? configuredResume(io, loaded.config, identity) : null;
   const resumeHealthy = resumable && isOfficialResumeCommand(resumable.host, resumable.command);
+  const host = transportHost(identity);
+  const automaticConfig = loaded.config.hosts?.[host]?.automatic ?? null;
+  const observedResident =
+    automaticConfig && io.residentLease
+      ? residentHealth(
+          io.residentLease,
+          { host: identity.host, adapter_version: automaticConfig.adapter_version },
+          io.now ?? Date.now()
+        )
+      : { healthy: false, reason: 'unavailable', lease: null };
+  const phaseTwo = io.phaseTwo ?? {
+    mcp: {
+      healthy: Boolean(automaticConfig && io.mcpConnected),
+      adapter_version: automaticConfig?.adapter_version ?? null,
+    },
+    resident: observedResident,
+    timeout: {
+      healthy: Boolean(automaticConfig?.tool_timeout_ms >= 30 * 60 * 1000),
+      milliseconds: automaticConfig?.tool_timeout_ms ?? null,
+    },
+    automatic: {
+      healthy: Boolean(automaticConfig && io.automaticHealthy),
+      reason: io.automaticHealthy ? 'round-trip-ok' : 'unavailable',
+    },
+  };
+  const automaticHealthy = Object.values(phaseTwo).every((entry) => entry?.healthy === true);
   return {
     requestedMode,
     packageResolved: true,
@@ -3373,7 +3400,10 @@ function detectedDoctorContext(io, loaded, requestedMode) {
     transport:
       requestedMode === 'resume-only'
         ? { mode: 'resume-only', healthy: Boolean(resumeHealthy) }
-        : { mode: 'manual', healthy: requestedMode === 'manual' },
+        : requestedMode === 'automatic-required'
+          ? { mode: 'automatic-required', healthy: automaticHealthy }
+          : { mode: 'manual', healthy: requestedMode === 'manual' },
+    phaseTwo,
   };
 }
 

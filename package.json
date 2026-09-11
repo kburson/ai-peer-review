@@ -9,7 +9,8 @@
   },
   "bin": {
     "ai-peer-review": "./bin/peer-review.mjs",
-    "peer-review": "./bin/peer-review.mjs"
+    "peer-review": "./bin/peer-review.mjs",
+    "peer-review-mcp": "./bin/peer-review-mcp.mjs"
   },
   "exports": "./src/public-api.mjs",
   "files": [

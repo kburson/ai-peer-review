@@ -4,8 +4,11 @@ import test from 'node:test';
 import {
   refreshResidentLease,
   residentHealth,
+  residentLivenessEvent,
   validateResidentLease,
 } from '../../src/transport/resident.mjs';
+import { reduceEvents } from '../../src/protocol/reducer.mjs';
+import { claim, event, FINGERPRINTS, reviewerTurnEvents } from '../helpers/review-fixture.mjs';
 
 const NOW = Date.parse('2026-09-11T09:00:00.000Z');
 
@@ -144,4 +147,46 @@ test('classifies current expiry downgrade and participant-loss without liveness 
     ),
     { healthy: false, reason: 'expired', lease: null }
   );
+});
+
+test('derives the existing participant-loss intervention for an expired active resident', () => {
+  const prefix = reviewerTurnEvents().map((item, index) =>
+    index === 0
+      ? {
+          ...item,
+          payload: {
+            ...item.payload,
+            startup: {
+              ...item.payload.startup,
+              transport_mode: 'automatic-required',
+              author_transport_capability: 'live-wait',
+            },
+          },
+        }
+      : index === 1
+        ? { ...item, payload: { ...item.payload, transport_capability: 'live-wait' } }
+        : item
+  );
+  prefix.push(
+    event('turn-claimed', {
+      sequence: prefix.length + 1,
+      revision: prefix.at(-1).revision,
+      actor: FINGERPRINTS.reviewer,
+      payload: { claim: claim('reviewer') },
+    })
+  );
+  const state = reduceEvents(prefix);
+  const intervention = residentLivenessEvent(
+    state,
+    'reviewer',
+    lease({ expires_at: '2026-09-11T09:00:00.000Z' }),
+    { host: 'codex', adapter_version: '2.0.0' },
+    NOW
+  );
+  const reduced = reduceEvents([...prefix, intervention]);
+  assert.equal(intervention.type, 'intervention-entered');
+  assert.equal(intervention.payload.reason, 'participant-loss');
+  assert.equal(intervention.payload.interrupted_state, 'reviewer-turn');
+  assert.equal(reduced.protocol.state, 'intervention-required');
+  assert.equal(reduced.protocol.intervention.reason, 'participant-loss');
 });

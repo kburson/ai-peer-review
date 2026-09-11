@@ -63,7 +63,20 @@ for (const host of ['codex', 'claude', 'grok', 'generic']) {
 
     const applied = setup({ ...preview.input, dryRun: false });
     assert.equal(applied.changed, true);
-    assert.deepEqual(JSON.parse(readFileSync(adapterFile, 'utf8')).preserved, { value: host });
+    const configuredAdapter = JSON.parse(readFileSync(adapterFile, 'utf8'));
+    assert.deepEqual(configuredAdapter.preserved, { value: host });
+    assert.equal(configuredAdapter.ai_peer_review.version, 2);
+    assert.equal(configuredAdapter.ai_peer_review.adapter_version, '2.0.0');
+    if (['codex', 'claude'].includes(host)) {
+      assert.deepEqual(configuredAdapter.ai_peer_review.mcp.server_command, ['peer-review-mcp']);
+      assert.equal(configuredAdapter.ai_peer_review.mcp.tool_timeout_ms, 28_800_000);
+      assert.equal(configuredAdapter.ai_peer_review.mcp.heartbeat_interval_ms, 15_000);
+      assert.equal(configuredAdapter.ai_peer_review.mcp.lease_ttl_ms, 60_000);
+      assert.equal(configuredAdapter.ai_peer_review.transport, 'live-wait');
+    } else {
+      assert.equal(configuredAdapter.ai_peer_review.mcp, null);
+      assert.equal(configuredAdapter.ai_peer_review.transport, 'manual');
+    }
     assert.match(readFileSync(files.exclude, 'utf8'), /\.scratch\/peer-review\//);
     assert.equal(readFileSync(path.join(files.project, '.gitignore'), 'utf8'), 'dist/\n');
     assert.equal(setup({ ...preview.input, dryRun: false }).changed, false);
@@ -130,7 +143,19 @@ test('fresh setup removes only its own files and refuses foreign provider owners
   );
   const adapterFile = path.join(files.project, '.codex', 'config.json');
   const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
-  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.transport, 'manual');
+  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.transport, 'live-wait');
+  assert.deepEqual(
+    JSON.parse(readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')).hosts.codex
+      .automatic,
+    {
+      adapter_version: '2.0.0',
+      capability: 'live-wait',
+      server_command: ['peer-review-mcp'],
+      tool_timeout_ms: 28_800_000,
+      heartbeat_interval_ms: 15_000,
+      lease_ttl_ms: 60_000,
+    }
+  );
   const removal = setup({ ...options, remove: true, dryRun: true });
   assert.ok(
     removal.operations.findIndex((entry) => entry.owner === 'codex-skill') <
@@ -284,7 +309,7 @@ test('user and project config merge deeply with project precedence and reject un
   });
 });
 
-test('doctor is read-only and Phase 2 rows are informational for Phase 1 modes', () => {
+test('doctor runs active Phase 2 checks without making them mandatory for permissive modes', () => {
   const files = fixture();
   const before = readFileSync(files.exclude, 'utf8');
   const report = doctor({
@@ -300,19 +325,40 @@ test('doctor is read-only and Phase 2 rows are informational for Phase 1 modes',
     transport: { mode: 'manual', healthy: true },
   });
   assert.equal(report.healthy, true);
-  for (const id of [
-    'mcp-connectivity',
-    'resident-liveness',
-    'long-timeout',
-    'automatic-required',
-  ]) {
-    assert.equal(
-      report.rows.find((row) => row.id === id).status,
-      'not-installed (Phase 2 optional)'
-    );
-  }
+  for (const id of ['mcp-connectivity', 'resident-liveness', 'long-timeout'])
+    assert.equal(report.rows.find((row) => row.id === id).status, 'unavailable');
+  assert.equal(report.rows.find((row) => row.id === 'automatic-required').status, 'unavailable');
   assert.equal(readFileSync(files.exclude, 'utf8'), before);
   assert.equal(doctor({ ...report.input, requestedMode: 'automatic-required' }).healthy, false);
+
+  const automatic = doctor({
+    ...report.input,
+    requestedMode: 'automatic-required',
+    transport: { mode: 'automatic-required', healthy: true },
+    phaseTwo: {
+      mcp: { healthy: true, adapter_version: '2.0.0' },
+      resident: { healthy: true, reason: 'ok' },
+      timeout: { healthy: true, milliseconds: 28_800_000 },
+      automatic: { healthy: true, reason: 'round-trip-ok' },
+    },
+  });
+  assert.equal(automatic.healthy, true);
+  assert.deepEqual(
+    automatic.rows.slice(-4).map(({ id, status, required }) => ({ id, status, required })),
+    [
+      { id: 'mcp-connectivity', status: 'ok', required: true },
+      { id: 'resident-liveness', status: 'ok', required: true },
+      { id: 'long-timeout', status: 'ok', required: true },
+      { id: 'automatic-required', status: 'ok', required: true },
+    ]
+  );
+  assert.equal(
+    doctor({
+      ...automatic.input,
+      phaseTwo: { ...automatic.input.phaseTwo, resident: { healthy: false, reason: 'expired' } },
+    }).healthy,
+    false
+  );
 });
 
 test('setup-only project configuration keeps consensus startup and resume diagnostics available', async (t) => {

@@ -1,4 +1,5 @@
 import { AprError } from '../errors.mjs';
+import { enterParticipantLossIntervention } from '../identity/registry.mjs';
 
 const LEASE_SCHEMA = 'ai-peer-review.resident-lease/v1';
 const LEASE_CAPABILITY = 'resident-liveness';
@@ -143,4 +144,9 @@ export function residentHealth(lease, expected = {}, now = Date.now()) {
     return Object.freeze({ healthy: false, reason: 'adapter-downgrade', lease: null });
   }
   return Object.freeze({ healthy: true, reason: 'ok', lease: current });
+}
+
+export function residentLivenessEvent(review, role, lease, expected, now = Date.now()) {
+  const health = residentHealth(lease, expected, now);
+  return health.healthy ? null : enterParticipantLossIntervention(review, role, now);
 }

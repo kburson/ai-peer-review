@@ -3,6 +3,7 @@ export { statusReview } from './protocol/service.mjs';
 export {
   refreshResidentLease,
   residentHealth,
+  residentLivenessEvent,
   validateResidentLease,
 } from './transport/resident.mjs';
 export { createNativePushTransport } from './transport/native-push.mjs';
