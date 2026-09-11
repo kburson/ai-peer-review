@@ -135,11 +135,11 @@ This is why the normal npm audit result does not approve the v2 package.
 The exact Phase 1 project tarball and the approved projected manifest were
 measured from isolated archives:
 
-| Measure                | Phase 1 baseline | Projected manifest |     Delta |
-| ---------------------- | ---------------: | -----------------: | --------: |
-| Packed project tarball |    143,809 bytes |      143,825 bytes | +16 bytes |
-| Unpacked project files |    627,837 bytes |      627,882 bytes | +45 bytes |
-| Published file count   |               59 |                 59 |         0 |
+| Measure                | Phase 1 baseline | Approved manifest |     Delta |
+| ---------------------- | ---------------: | ----------------: | --------: |
+| Packed project tarball |    143,809 bytes |     143,838 bytes | +29 bytes |
+| Unpacked project files |    627,837 bytes |     627,902 bytes | +65 bytes |
+| Published file count   |               59 |                59 |         0 |
 
 Dependencies are installed by the consumer and are not copied into the
 `ai-peer-review` tarball. The approved SDK itself measures 582,844 packed bytes
@@ -190,7 +190,7 @@ npm view @modelcontextprotocol/server@2.0.0 version license engines dependencies
   dist.unpackedSize dist.integrity time.modified --json
 npm view @modelcontextprotocol/sdk@1.30.0 version license engines dependencies \
   dist.unpackedSize dist.integrity time.modified --json
-npm install --ignore-scripts --save-exact @modelcontextprotocol/sdk@1.30.0
+npm install --ignore-scripts --save-exact @modelcontextprotocol/sdk@1.30.0 zod@4.6.2
 npm prune --omit=dev
 npm ls --omit=dev --all --json
 npm audit --omit=dev --json
