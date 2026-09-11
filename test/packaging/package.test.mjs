@@ -22,7 +22,7 @@ function pack(t) {
   return JSON.parse(output)[0];
 }
 
-test('published tarball is a closed standalone package with zero production dependencies', (t) => {
+test('published tarball is closed and exact-pins its audited production dependency', (t) => {
   const result = pack(t);
   const files = result.files.map((entry) => entry.path).sort();
   const allowedPrefixes = [
@@ -70,14 +70,22 @@ test('published tarball is a closed standalone package with zero production depe
   assert.ok(!files.some((file) => /(token|transcript|\.env|ai-task-manager)/i.test(file)));
 
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.deepEqual(packageJson.dependencies ?? {}, {});
+  assert.deepEqual(packageJson.dependencies ?? {}, {
+    '@modelcontextprotocol/sdk': '1.30.0',
+    zod: '4.6.2',
+  });
   const dependencyTree = JSON.parse(
     runNpm('npm', ['ls', '--omit=dev', '--json'], {
       cwd: root,
       encoding: 'utf8',
     })
   );
-  assert.deepEqual(dependencyTree.dependencies ?? {}, {});
+  assert.deepEqual(Object.keys(dependencyTree.dependencies ?? {}).sort(), [
+    '@modelcontextprotocol/sdk',
+    'zod',
+  ]);
+  assert.equal(dependencyTree.dependencies['@modelcontextprotocol/sdk'].version, '1.30.0');
+  assert.equal(dependencyTree.dependencies.zod.version, '4.6.2');
 });
 
 test('README and NOTICE bind the exact source, filtered tip, bootstrap, and license split', () => {

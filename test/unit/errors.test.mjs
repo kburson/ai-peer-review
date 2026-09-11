@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import { AprError } from '../../src/errors.mjs';
 
-test('package identity is public, dependency-free, and publish-bounded', async () => {
+test('package identity is public, dependency-audited, and publish-bounded', async () => {
   const packageJson = JSON.parse(
     await readFile(new URL('../../package.json', import.meta.url), 'utf8')
   );
@@ -14,7 +14,10 @@ test('package identity is public, dependency-free, and publish-bounded', async (
   assert.equal(packageJson.type, 'module');
   assert.equal(packageJson.engines.node, '>=22');
   assert.equal(packageJson.bin['peer-review'], './bin/peer-review.mjs');
-  assert.deepEqual(packageJson.dependencies, {});
+  assert.deepEqual(packageJson.dependencies, {
+    '@modelcontextprotocol/sdk': '1.30.0',
+    zod: '4.6.2',
+  });
   assert.deepEqual(packageJson.devDependencies, {
     cspell: '8.19.4',
     eslint: '9.39.4',

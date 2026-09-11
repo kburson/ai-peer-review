@@ -3705,3 +3705,8 @@ export async function run(argv, io) {
     return rendered.exitCode;
   }
 }
+
+export async function runHandoffMcpStdio(options) {
+  const { serveHandoffMcpStdio } = await import('../mcp/server.mjs');
+  return serveHandoffMcpStdio(options);
+}
