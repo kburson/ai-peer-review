@@ -14,10 +14,18 @@ const VERIFIER = new Set([
   'assurance_grade',
   'signer_strength',
 ]);
-const HOST = new Set(['identity', 'resume', 'reviewer_guard']);
+const HOST = new Set(['identity', 'resume', 'reviewer_guard', 'automatic']);
 const IDENTITY = new Set(['provider', 'host', 'model_id', 'model_display']);
 const RESUME = new Set(['command']);
 const GUARD = new Set(['enabled', 'command']);
+const AUTOMATIC = new Set([
+  'adapter_version',
+  'capability',
+  'server_command',
+  'tool_timeout_ms',
+  'heartbeat_interval_ms',
+  'lease_ttl_ms',
+]);
 const REVIEW = new Set([
   'reviews_root',
   'review_path_template',
@@ -32,6 +40,7 @@ const SETUP = new Set([
   'config_created',
   'scratch_exclude_added',
   'resume_commands_added',
+  'automatic_adapters_added',
 ]);
 const HOSTS = new Set(['codex', 'claude', 'grok', 'generic']);
 
@@ -174,6 +183,21 @@ export function validateConfig(value) {
         if (host.reviewer_guard.command !== undefined)
           strings(host.reviewer_guard.command, `hosts.${name}.reviewer_guard.command`);
       }
+      if (host.automatic !== undefined) {
+        closed(host.automatic, AUTOMATIC, `hosts.${name}.automatic`);
+        required(host.automatic, [...AUTOMATIC], `hosts.${name}.automatic`);
+        if (host.automatic.adapter_version !== '2.0.0')
+          invalid(`hosts.${name}.automatic.adapter_version is invalid.`);
+        if (host.automatic.capability !== 'live-wait')
+          invalid(`hosts.${name}.automatic.capability is invalid.`);
+        strings(host.automatic.server_command, `hosts.${name}.automatic.server_command`);
+        for (const key of ['tool_timeout_ms', 'heartbeat_interval_ms', 'lease_ttl_ms']) {
+          if (!Number.isSafeInteger(host.automatic[key]) || host.automatic[key] <= 0)
+            invalid(`hosts.${name}.automatic.${key} must be a safe positive integer.`);
+        }
+        if (host.automatic.lease_ttl_ms <= host.automatic.heartbeat_interval_ms)
+          invalid(`hosts.${name}.automatic lease must outlive its heartbeat interval.`);
+      }
     }
   }
   if (value.review !== undefined) {
@@ -188,13 +212,17 @@ export function validateConfig(value) {
     }
     if (
       value.review.transport_mode !== undefined &&
-      !['manual', 'resume-only'].includes(value.review.transport_mode)
+      !['manual', 'resume-only', 'automatic-required'].includes(value.review.transport_mode)
     )
       invalid('review.transport_mode is invalid.');
   }
   if (value.setup !== undefined) {
     closed(value.setup, SETUP, 'setup');
-    if (value.setup.owner !== 'ai-peer-review' || value.setup.version !== 1)
+    if (
+      value.setup.owner !== 'ai-peer-review' ||
+      ![1, 2].includes(value.setup.version) ||
+      (value.setup.version === 2 && !Object.hasOwn(value.setup, 'automatic_adapters_added'))
+    )
       invalid('setup ownership metadata is invalid.');
     strings(value.setup.agents, 'setup.agents');
     if (value.setup.agents.some((agent) => !HOSTS.has(agent)))
@@ -213,6 +241,12 @@ export function validateConfig(value) {
       new Set(value.setup.resume_commands_added).size !== value.setup.resume_commands_added.length
     )
       invalid('setup.resume_commands_added contains duplicates.');
+    const automatic = value.setup.automatic_adapters_added ?? [];
+    if (!Array.isArray(automatic)) invalid('setup.automatic_adapters_added must be an array.');
+    if (automatic.some((agent) => !['codex', 'claude'].includes(agent)))
+      invalid('setup.automatic_adapters_added contains an unsupported host.');
+    if (new Set(automatic).size !== automatic.length)
+      invalid('setup.automatic_adapters_added contains duplicates.');
   }
   return value;
 }

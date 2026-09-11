@@ -604,8 +604,10 @@
         "destination": { "$ref": "#/$defs/path" },
         "author_startup_digest": { "$ref": "#/$defs/digest" },
         "reviewer_invitation_digest": { "$ref": "#/$defs/digest" },
-        "transport_mode": { "enum": ["manual", "resume-only"] },
-        "author_transport_capability": { "enum": ["manual", "resume-only"] },
+        "transport_mode": { "enum": ["manual", "resume-only", "automatic-required"] },
+        "author_transport_capability": {
+          "enum": ["manual", "resume-only", "live-wait", "native-push"]
+        },
         "no_commit_baseline": {
           "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/noCommitBaseline" }]
         },
@@ -670,7 +672,9 @@
       "required": ["reviewer", "transport_capability", "repository_boundary"],
       "properties": {
         "reviewer": { "$ref": "#/$defs/participant" },
-        "transport_capability": { "enum": ["manual", "resume-only"] },
+        "transport_capability": {
+          "enum": ["manual", "resume-only", "live-wait", "native-push"]
+        },
         "repository_boundary": { "$ref": "#/$defs/repositoryBoundary" }
       }
     },

@@ -10,10 +10,11 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   );
 
   assert.equal(packageJson.name, 'ai-peer-review');
-  assert.equal(packageJson.version, '0.1.0');
+  assert.equal(packageJson.version, '0.2.0');
   assert.equal(packageJson.type, 'module');
   assert.equal(packageJson.engines.node, '>=22');
   assert.equal(packageJson.bin['peer-review'], './bin/peer-review.mjs');
+  assert.equal(packageJson.bin['peer-review-mcp'], './bin/peer-review-mcp.mjs');
   assert.deepEqual(packageJson.dependencies, {
     '@modelcontextprotocol/sdk': '1.30.0',
     zod: '4.6.2',
@@ -32,6 +33,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     'test:packaging': 'node --test "test/packaging/**/*.test.mjs"',
     'test:smoke': 'node --test "test/smoke/**/*.test.mjs"',
     'test:mcp': 'node --test "test/mcp/**/*.test.mjs"',
+    'test:slow': 'npm run test:integration && npm run test:mcp && npm run test:smoke',
     format: 'prettier --write .',
     'format:check': 'prettier --check .',
     lint: 'eslint . && markdownlint-cli2 "**/*.md" && cspell --no-progress "**/*.{md,mjs,js,json}"',

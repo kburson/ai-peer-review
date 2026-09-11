@@ -14,7 +14,8 @@ export function doctor(context = {}) {
   const transportViable =
     context.transport?.healthy &&
     (requestedMode === 'manual' ||
-      (requestedMode === 'resume-only' && context.transport.mode === 'resume-only'));
+      (requestedMode === 'resume-only' && context.transport.mode === 'resume-only') ||
+      (requestedMode === 'automatic-required' && context.transport.mode === 'automatic-required'));
   const phaseOne = [
     row('package', context.packageResolved ? 'ok' : 'unavailable', true),
     row('skill', context.skillAvailable ? 'ok' : 'unavailable', true),
@@ -37,9 +38,33 @@ export function doctor(context = {}) {
     row('transport', context.transport?.healthy ? context.transport.mode : 'unavailable', true),
     row('requested-mode', transportViable ? 'ok' : 'unavailable', true, requestedMode),
   ];
-  const phaseTwo = PHASE_TWO.map((id) =>
-    row(id, 'not-installed (Phase 2 optional)', requestedMode === 'automatic-required')
-  );
+  const required = requestedMode === 'automatic-required';
+  const phaseTwo = [
+    row(
+      PHASE_TWO[0],
+      context.phaseTwo?.mcp?.healthy ? 'ok' : 'unavailable',
+      required,
+      context.phaseTwo?.mcp ?? null
+    ),
+    row(
+      PHASE_TWO[1],
+      context.phaseTwo?.resident?.healthy ? 'ok' : 'unavailable',
+      required,
+      context.phaseTwo?.resident ?? null
+    ),
+    row(
+      PHASE_TWO[2],
+      context.phaseTwo?.timeout?.healthy ? 'ok' : 'unavailable',
+      required,
+      context.phaseTwo?.timeout ?? null
+    ),
+    row(
+      PHASE_TWO[3],
+      context.phaseTwo?.automatic?.healthy ? 'ok' : 'unavailable',
+      required,
+      context.phaseTwo?.automatic ?? null
+    ),
+  ];
   const rows = Object.freeze([...phaseOne, ...phaseTwo]);
   const healthy = rows.every(
     (entry) =>

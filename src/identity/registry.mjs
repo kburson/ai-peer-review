@@ -335,6 +335,36 @@ export function enterStaleClaimIntervention(review, role, now = new Date()) {
   );
 }
 
+export function enterParticipantLossIntervention(review, role, now = new Date()) {
+  const protocol = protocolOf(review);
+  const interruptedState = role === 'reviewer' ? 'reviewer-turn' : 'author-revision';
+  if (
+    !ROLES.has(role) ||
+    protocol.startup?.transport_mode !== 'automatic-required' ||
+    protocol.current_actor !== role ||
+    protocol.state !== interruptedState ||
+    protocol.claims?.[role]?.role !== role
+  ) {
+    fail(
+      'APR_CLAIM_INVALID',
+      'Participant-loss intervention does not match an active automatic turn.',
+      'Read current event authority and retry only for its claimed automatic participant.'
+    );
+  }
+  return eventEnvelope(
+    review,
+    'intervention-entered',
+    'system',
+    now,
+    {
+      intervention_id: `intervention-${randomUUID()}`,
+      reason: 'participant-loss',
+      interrupted_state: interruptedState,
+    },
+    1
+  );
+}
+
 export async function recordStaleClaimIntervention(workspace, expected, role, now = new Date()) {
   return mutateReview(workspace, expected, (current) =>
     enterStaleClaimIntervention(current, role, now)

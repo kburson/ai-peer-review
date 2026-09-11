@@ -28,7 +28,7 @@ export function isOfficialResumeCommand(host, command) {
 
 export function createResumeTransport({ host, command, workspace, scratchHandle }) {
   if (!isOfficialResumeCommand(host, command))
-    unavailable('Resume command is not an official Phase 1 form.', { host });
+    unavailable('Resume command is not an official provider form.', { host });
   let physicalWorkspace;
   let physicalHandle;
   let handle;

@@ -16,6 +16,9 @@ test('installable skill states the complete provider-neutral operating contract'
     'NO-COMMIT TEST MODE',
     'relay only the reviewer invitation',
     'manual recovery',
+    'automatic-required',
+    'wait_for_handoff',
+    'resident lease',
   ]) {
     assert.match(text, new RegExp(phrase, 'i'), phrase);
   }

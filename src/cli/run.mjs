@@ -65,7 +65,12 @@ import {
 import { atomicCreate } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
 import { manualTransport } from '../transport/manual.mjs';
+import {
+  negotiateAutomaticRequired,
+  validateAutomaticParticipant,
+} from '../transport/registry.mjs';
 import { createResumeTransport, isOfficialResumeCommand } from '../transport/resume.mjs';
+import { residentHealth } from '../transport/resident.mjs';
 import { explainError, helpRequest, markdownCodeSpan, renderCommand } from './help-data.mjs';
 import { parseCommand } from './parse.mjs';
 
@@ -266,10 +271,24 @@ function validateExactFile(file, bytes) {
 
 function configuredTransport(input) {
   const mode = input.transportMode ?? 'manual';
+  if (mode === 'automatic-required') {
+    const observation = validateAutomaticParticipant(input.transportObservation, input.now);
+    if (
+      input.transportCapability !== undefined &&
+      input.transportCapability !== observation.capability
+    ) {
+      fail(
+        'APR_TRANSPORT_UNAVAILABLE',
+        'The author transport capability conflicts with its resident observation.',
+        'Use manual transport or restore the exact validated automatic adapter.'
+      );
+    }
+    return Object.freeze({ mode, capability: observation.capability });
+  }
   if (!['manual', 'resume-only'].includes(mode)) {
     fail(
       'APR_TRANSPORT_UNAVAILABLE',
-      'The requested Phase 1 transport mode is unavailable.',
+      'The requested transport mode is unavailable.',
       'Use manual transport or configure a validated resume-only adapter.'
     );
   }
@@ -565,7 +584,7 @@ function startupVariables(
         renderCommand(['peer-review', 'join', invitationAbsolute])
       ),
       zero_install_join_display: markdownCodeSpan(
-        renderCommand(['npx', '--yes', 'ai-peer-review@0.1.0', 'join', invitationAbsolute])
+        renderCommand(['npx', '--yes', 'ai-peer-review@0.2.0', 'join', invitationAbsolute])
       ),
       recovery_display: markdownCodeSpan(
         renderCommand(['peer-review', 'resume', workspaceAbsolute])
@@ -645,7 +664,7 @@ export async function startReview(input, deps = {}) {
       'Use --no-commit with --test-human-authority.'
     );
   }
-  const transport = configuredTransport({ ...input, transportMode: requestedTransportMode });
+  const transport = configuredTransport({ ...input, transportMode: requestedTransportMode, now });
   const requestedAuthority = configuredAuthority(root, input.authority, loaded);
   const startupAssurance = input.testHumanAuthority
     ? 'unverified-test'
@@ -1011,18 +1030,6 @@ export async function joinReview(input, deps = {}) {
   const state = inspectReview(values.workspace);
   const root = repository.root(input.cwd);
   const paths = validateJoinAuthority({ state, root, invitation, values });
-  const reviewerCapability = input.transportCapability ?? 'manual';
-  if (
-    !['manual', 'resume-only'].includes(reviewerCapability) ||
-    (state.protocol.startup.transport_mode === 'resume-only' &&
-      reviewerCapability !== 'resume-only')
-  ) {
-    fail(
-      'APR_TRANSPORT_UNAVAILABLE',
-      'The reviewer session cannot satisfy the startup-pinned transport mode.',
-      'Join from a validated resume-only adapter or start a manual review.'
-    );
-  }
   if (input.identity?.role !== 'reviewer') {
     fail(
       'APR_IDENTITY_REQUIRED',
@@ -1031,6 +1038,43 @@ export async function joinReview(input, deps = {}) {
     );
   }
   assertDistinctParticipants(state.participants.author, input.identity);
+  const requestedMode = state.protocol.startup.transport_mode;
+  let reviewerCapability = input.transportCapability ?? 'manual';
+  if (requestedMode === 'automatic-required') {
+    const negotiated = await negotiateAutomaticRequired({
+      author: input.authorTransportObservation,
+      reviewer: input.transportObservation,
+      healthCheck: input.transportHealthCheck,
+      now: input.now,
+    });
+    reviewerCapability = negotiated.reviewer_capability;
+    if (
+      input.transportCapability !== undefined &&
+      input.transportCapability !== reviewerCapability
+    ) {
+      fail(
+        'APR_TRANSPORT_UNAVAILABLE',
+        'The reviewer transport capability conflicts with its resident observation.',
+        'Use manual transport or restore the exact validated automatic adapter.'
+      );
+    }
+    if (negotiated.author_capability !== state.protocol.startup.author_transport_capability) {
+      fail(
+        'APR_TRANSPORT_UNAVAILABLE',
+        'The current author observation differs from sealed startup capability.',
+        'Use manual transport or restore the exact validated author adapter.'
+      );
+    }
+  } else if (
+    !['manual', 'resume-only'].includes(reviewerCapability) ||
+    (requestedMode === 'resume-only' && reviewerCapability !== 'resume-only')
+  ) {
+    fail(
+      'APR_TRANSPORT_UNAVAILABLE',
+      'The reviewer session cannot satisfy the startup-pinned transport mode.',
+      'Join from a validated resume-only adapter or start a manual review.'
+    );
+  }
   if (state.protocol.state === 'reviewer-turn') {
     const registered = state.participants.reviewer;
     const claim = state.protocol.claims.reviewer;
@@ -3320,6 +3364,32 @@ function detectedDoctorContext(io, loaded, requestedMode) {
   );
   const resumable = identity ? configuredResume(io, loaded.config, identity) : null;
   const resumeHealthy = resumable && isOfficialResumeCommand(resumable.host, resumable.command);
+  const host = transportHost(identity);
+  const automaticConfig = loaded.config.hosts?.[host]?.automatic ?? null;
+  const observedResident =
+    automaticConfig && io.residentLease
+      ? residentHealth(
+          io.residentLease,
+          { host: identity.host, adapter_version: automaticConfig.adapter_version },
+          io.now ?? Date.now()
+        )
+      : { healthy: false, reason: 'unavailable', lease: null };
+  const phaseTwo = io.phaseTwo ?? {
+    mcp: {
+      healthy: Boolean(automaticConfig && io.mcpConnected),
+      adapter_version: automaticConfig?.adapter_version ?? null,
+    },
+    resident: observedResident,
+    timeout: {
+      healthy: Boolean(automaticConfig?.tool_timeout_ms >= 30 * 60 * 1000),
+      milliseconds: automaticConfig?.tool_timeout_ms ?? null,
+    },
+    automatic: {
+      healthy: Boolean(automaticConfig && io.automaticHealthy),
+      reason: io.automaticHealthy ? 'round-trip-ok' : 'unavailable',
+    },
+  };
+  const automaticHealthy = Object.values(phaseTwo).every((entry) => entry?.healthy === true);
   return {
     requestedMode,
     packageResolved: true,
@@ -3330,7 +3400,10 @@ function detectedDoctorContext(io, loaded, requestedMode) {
     transport:
       requestedMode === 'resume-only'
         ? { mode: 'resume-only', healthy: Boolean(resumeHealthy) }
-        : { mode: 'manual', healthy: requestedMode === 'manual' },
+        : requestedMode === 'automatic-required'
+          ? { mode: 'automatic-required', healthy: automaticHealthy }
+          : { mode: 'manual', healthy: requestedMode === 'manual' },
+    phaseTwo,
   };
 }
 
@@ -3512,7 +3585,10 @@ export async function run(argv, io) {
         ...configuredIdentityContext(io, loaded.config),
       });
       const resumable = configuredResume(io, loaded.config, identity);
-      const transportCapability = io.transportCapability ?? (resumable ? 'resume-only' : 'manual');
+      const transportCapability =
+        io.transportCapability ??
+        io.transportObservation?.capability ??
+        (resumable ? 'resume-only' : 'manual');
       response = await startReview(
         {
           cwd: io.cwd,
@@ -3522,6 +3598,7 @@ export async function run(argv, io) {
           now: io.now ?? new Date(),
           authority: io.authority,
           transportCapability,
+          transportObservation: io.transportObservation,
           ...parsed.options,
         },
         {
@@ -3541,12 +3618,18 @@ export async function run(argv, io) {
         ...configuredIdentityContext(io, loaded.config),
       });
       const resumable = configuredResume(io, loaded.config, identity);
-      const transportCapability = io.transportCapability ?? (resumable ? 'resume-only' : 'manual');
+      const transportCapability =
+        io.transportCapability ??
+        io.transportObservation?.capability ??
+        (resumable ? 'resume-only' : 'manual');
       response = await joinReview({
         cwd: io.cwd,
         invitation: path.resolve(io.cwd, parsed.args[0]),
         identity,
         transportCapability,
+        transportObservation: io.transportObservation,
+        authorTransportObservation: io.authorTransportObservation,
+        transportHealthCheck: io.transportHealthCheck,
         now: io.now ?? new Date(),
       });
       if (transportCapability === 'resume-only')

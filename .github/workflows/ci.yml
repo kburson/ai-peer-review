@@ -30,6 +30,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:integration
+      - run: npm run test:mcp
       - run: npm run test:packaging
       - run: npm run test:smoke
       - run: npm pack --dry-run
@@ -54,12 +55,13 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:integration
+      - run: npm run test:mcp
       - run: npm run test:packaging
       - run: npm run test:smoke
       - run: npm pack --dry-run
 
-  phase-1-boundary:
-    name: Phase 1 boundary
+  phase-2-boundary:
+    name: Phase 2 boundary
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -76,6 +78,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run test:integration
+      - run: npm run test:mcp
       - run: npm run test:packaging
       - run: npm run test:smoke
       - run: npm pack --dry-run

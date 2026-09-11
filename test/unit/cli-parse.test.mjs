@@ -93,7 +93,7 @@ test('rejects unknown syntax, boolean values, duplicates, and invalid positions'
   usage(['start', 'x', '--artifact-kind', 'spec', '--artifact-kind', 'plan'], /duplicate/i);
 });
 
-test('rejects invalid positive integers and Phase 1 automatic-required mode', () => {
+test('rejects invalid positive integers and accepts Phase 2 automatic-required mode', () => {
   for (const [flag, value] of [
     ['--issue', '0'],
     ['--max-turns', '-1'],
@@ -101,9 +101,16 @@ test('rejects invalid positive integers and Phase 1 automatic-required mode', ()
   ]) {
     usage(['start', 'x', '--artifact-kind', 'spec', flag, value], /positive integer/i);
   }
-  usage(
-    ['start', 'x', '--artifact-kind', 'spec', '--transport-mode', 'automatic-required'],
-    /Phase 2/i
+  assert.equal(
+    parseCommand([
+      'start',
+      'x',
+      '--artifact-kind',
+      'spec',
+      '--transport-mode',
+      'automatic-required',
+    ]).options.transportMode,
+    'automatic-required'
   );
 });
 

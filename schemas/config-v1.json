@@ -89,7 +89,7 @@
         "review_path_template": { "type": "string", "minLength": 1 },
         "max_turns": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
         "claim_ttl_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
-        "transport_mode": { "enum": ["manual", "resume-only"] }
+        "transport_mode": { "enum": ["manual", "resume-only", "automatic-required"] }
       }
     },
     "setup": {
@@ -103,9 +103,15 @@
         "scratch_exclude_added",
         "resume_commands_added"
       ],
+      "allOf": [
+        {
+          "if": { "properties": { "version": { "const": 2 } }, "required": ["version"] },
+          "then": { "required": ["automatic_adapters_added"] }
+        }
+      ],
       "properties": {
         "owner": { "const": "ai-peer-review" },
-        "version": { "const": 1 },
+        "version": { "enum": [1, 2] },
         "agents": {
           "type": "array",
           "items": { "enum": ["codex", "claude", "grok", "generic"] },
@@ -117,6 +123,11 @@
         "resume_commands_added": {
           "type": "array",
           "items": { "enum": ["codex", "claude", "grok", "generic"] },
+          "uniqueItems": true
+        },
+        "automatic_adapters_added": {
+          "type": "array",
+          "items": { "enum": ["codex", "claude"] },
           "uniqueItems": true
         }
       }
@@ -161,6 +172,30 @@
               "items": { "type": "string", "minLength": 1 },
               "minItems": 1
             }
+          }
+        },
+        "automatic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "adapter_version",
+            "capability",
+            "server_command",
+            "tool_timeout_ms",
+            "heartbeat_interval_ms",
+            "lease_ttl_ms"
+          ],
+          "properties": {
+            "adapter_version": { "const": "2.0.0" },
+            "capability": { "const": "live-wait" },
+            "server_command": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            },
+            "tool_timeout_ms": { "type": "integer", "minimum": 1 },
+            "heartbeat_interval_ms": { "type": "integer", "minimum": 1 },
+            "lease_ttl_ms": { "type": "integer", "minimum": 1 }
           }
         }
       }

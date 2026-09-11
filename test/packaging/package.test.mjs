@@ -52,6 +52,7 @@ test('published tarball is closed and exact-pins its audited production dependen
     'LICENSE',
     'NOTICE',
     'README.md',
+    'bin/peer-review-mcp.mjs',
     'bin/peer-review.mjs',
     'schemas/config-v1.json',
     'skills/peer-review/SKILL.md',
@@ -104,7 +105,16 @@ test('public exports and command guidance remain narrow and installation-aware',
   const publicApi = readFileSync(path.join(root, 'src/public-api.mjs'), 'utf8');
   assert.equal(
     publicApi,
-    "export { explainError } from './cli/help-data.mjs';\nexport { statusReview } from './protocol/service.mjs';\n"
+    "export { explainError } from './cli/help-data.mjs';\n" +
+      "export { statusReview } from './protocol/service.mjs';\n" +
+      'export {\n' +
+      '  refreshResidentLease,\n' +
+      '  residentHealth,\n' +
+      '  residentLivenessEvent,\n' +
+      '  validateResidentLease,\n' +
+      "} from './transport/resident.mjs';\n" +
+      "export { createNativePushTransport } from './transport/native-push.mjs';\n" +
+      "export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';\n"
   );
   const sources = [
     'README.md',
@@ -119,7 +129,7 @@ test('public exports and command guidance remain narrow and installation-aware',
   }
 });
 
-test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase 1 gate', () => {
+test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase 2 gate', () => {
   const ci = readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
   for (const required of [
     'actions/checkout@v6',
@@ -134,6 +144,7 @@ test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase
     'npm run lint',
     'npm test',
     'npm run test:integration',
+    'npm run test:mcp',
     'npm run test:packaging',
     'npm run test:smoke',
     'npm pack --dry-run',
@@ -141,14 +152,15 @@ test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase
   ])
     assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(ci, /live-provider-optional:[\s\S]*continue-on-error: true/);
-  const laterNode = ci.match(/later-node:[\s\S]*?\n  phase-1-boundary:/)?.[0] ?? '';
-  const boundary = ci.match(/phase-1-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
+  const laterNode = ci.match(/later-node:[\s\S]*?\n  phase-2-boundary:/)?.[0] ?? '';
+  const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [laterNode, boundary]) {
     for (const gate of [
       'npm run format:check',
       'npm run lint',
       'npm test',
       'npm run test:integration',
+      'npm run test:mcp',
       'npm run test:packaging',
       'npm run test:smoke',
       'npm pack --dry-run',

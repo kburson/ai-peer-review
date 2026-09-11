@@ -47,8 +47,8 @@
       "additionalProperties": false,
       "required": ["author", "reviewer"],
       "properties": {
-        "author": { "enum": ["manual", "resume-only", null] },
-        "reviewer": { "enum": ["manual", "resume-only", null] }
+        "author": { "enum": ["manual", "resume-only", "live-wait", "native-push", null] },
+        "reviewer": { "enum": ["manual", "resume-only", "live-wait", "native-push", null] }
       }
     },
     "turns_used": { "type": "integer", "minimum": 0 },
