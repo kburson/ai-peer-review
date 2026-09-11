@@ -42,7 +42,9 @@
     "access": "public",
     "provenance": true
   },
-  "dependencies": {},
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0"
+  },
   "devDependencies": {
     "cspell": "8.19.4",
     "eslint": "9.39.4",

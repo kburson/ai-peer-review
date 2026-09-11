@@ -16,12 +16,11 @@ export function createTransportRegistry() {
   const adapters = new Map();
   return Object.freeze({
     register(adapter) {
-      if (
-        !adapter ||
-        typeof adapter.name !== 'string' ||
-        !['manual', 'resume-only'].includes(adapter.capability) ||
-        typeof adapter.deliver !== 'function'
-      )
+      const delivers =
+        ['manual', 'resume-only'].includes(adapter?.capability) &&
+        typeof adapter?.deliver === 'function';
+      const waits = adapter?.capability === 'live-wait' && typeof adapter?.wait === 'function';
+      if (!adapter || typeof adapter.name !== 'string' || (!delivers && !waits))
         unavailable(adapter?.capability);
       adapters.set(adapter.name, adapter);
       return adapter;
@@ -42,7 +41,7 @@ export function createTransportRegistry() {
   });
 }
 
-const defaultRegistry = createTransportRegistry([manualTransport]);
+const defaultRegistry = createTransportRegistry();
 defaultRegistry.register(manualTransport);
 
 export function registerTransport(adapter) {
