@@ -30,3 +30,13 @@ Manual transport is always available. Resume-only transport may be used only
 when doctor validates the provider's official resume command and scratch-only
 handle. If delivery fails, leave it pending and use the printed manual recovery
 command; never improvise shell composition or an undocumented wake mechanism.
+
+Use `automatic-required` only after `peer-review doctor --mode
+automatic-required` reports every Phase 2 row healthy. Both participants must
+advertise `live-wait` or an official `native-push` adapter, present a current
+resident lease, use compatible adapter versions, and pass the end-to-end health
+check. After submitting in live-wait mode, call `wait_for_handoff` once with the
+review ID, participant role, and last observed sequence; do not poll or spend
+model turns while idle. An expired lease or changed process instance requires
+the recorded participant-loss intervention. If any automatic delivery remains
+pending, use the exact printed manual recovery command.

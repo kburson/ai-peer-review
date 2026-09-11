@@ -129,7 +129,7 @@ test('public exports and command guidance remain narrow and installation-aware',
   }
 });
 
-test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase 1 gate', () => {
+test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase 2 gate', () => {
   const ci = readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
   for (const required of [
     'actions/checkout@v6',
@@ -144,6 +144,7 @@ test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase
     'npm run lint',
     'npm test',
     'npm run test:integration',
+    'npm run test:mcp',
     'npm run test:packaging',
     'npm run test:smoke',
     'npm pack --dry-run',
@@ -151,14 +152,15 @@ test('CI contract covers Node 22 cross-platform, later runtimes, and every Phase
   ])
     assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(ci, /live-provider-optional:[\s\S]*continue-on-error: true/);
-  const laterNode = ci.match(/later-node:[\s\S]*?\n  phase-1-boundary:/)?.[0] ?? '';
-  const boundary = ci.match(/phase-1-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
+  const laterNode = ci.match(/later-node:[\s\S]*?\n  phase-2-boundary:/)?.[0] ?? '';
+  const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [laterNode, boundary]) {
     for (const gate of [
       'npm run format:check',
       'npm run lint',
       'npm test',
       'npm run test:integration',
+      'npm run test:mcp',
       'npm run test:packaging',
       'npm run test:smoke',
       'npm pack --dry-run',

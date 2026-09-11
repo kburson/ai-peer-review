@@ -1,6 +1,6 @@
 {
   "name": "ai-peer-review",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A deterministic, provider-neutral peer review protocol for AI agents",
   "type": "module",
   "license": "Apache-2.0",
@@ -35,6 +35,7 @@
     "test:packaging": "node --test \"test/packaging/**/*.test.mjs\"",
     "test:smoke": "node --test \"test/smoke/**/*.test.mjs\"",
     "test:mcp": "node --test \"test/mcp/**/*.test.mjs\"",
+    "test:slow": "npm run test:integration && npm run test:mcp && npm run test:smoke",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . && markdownlint-cli2 \"**/*.md\" && cspell --no-progress \"**/*.{md,mjs,js,json}\""

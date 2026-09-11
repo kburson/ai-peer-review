@@ -584,7 +584,7 @@ function startupVariables(
         renderCommand(['peer-review', 'join', invitationAbsolute])
       ),
       zero_install_join_display: markdownCodeSpan(
-        renderCommand(['npx', '--yes', 'ai-peer-review@0.1.0', 'join', invitationAbsolute])
+        renderCommand(['npx', '--yes', 'ai-peer-review@0.2.0', 'join', invitationAbsolute])
       ),
       recovery_display: markdownCodeSpan(
         renderCommand(['peer-review', 'resume', workspaceAbsolute])

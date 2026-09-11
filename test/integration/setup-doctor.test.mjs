@@ -259,6 +259,48 @@ test('setup composes agents and preserves a pre-existing scratch exclusion', () 
   assert.match(readFileSync(files.exclude, 'utf8'), /\.scratch\/peer-review\//);
 });
 
+test('setup migrates an owned v1 installation to reversible Phase 2 adapters', () => {
+  const files = fixture();
+  writeFileSync(
+    path.join(files.project, '.ai-peer-review.json'),
+    `${JSON.stringify({
+      schema: 'ai-peer-review.config/v1',
+      hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
+      setup: {
+        owner: 'ai-peer-review',
+        version: 1,
+        agents: ['codex'],
+        config_created: false,
+        scratch_exclude_added: false,
+        resume_commands_added: ['codex'],
+      },
+    })}\n`
+  );
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+
+  setup(options);
+  const migrated = JSON.parse(
+    readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')
+  );
+  assert.equal(migrated.setup.version, 2);
+  assert.deepEqual(migrated.setup.automatic_adapters_added, ['codex']);
+  assert.equal(migrated.hosts.codex.automatic.capability, 'live-wait');
+
+  setup({ ...options, remove: true });
+  const removed = JSON.parse(
+    readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')
+  );
+  assert.equal(removed.hosts, undefined);
+  assert.equal(removed.setup, undefined);
+});
+
 test('user and project config merge deeply with project precedence and reject unknown keys', () => {
   const files = fixture();
   const userDir = path.join(files.home, '.config', 'ai-peer-review');

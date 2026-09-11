@@ -559,7 +559,8 @@ const ERROR_CATALOG = Object.freeze({
   },
   APR_TRANSPORT_UNAVAILABLE: {
     message: 'The requested transport is not supported by the current participant.',
-    recovery: 'Use manual transport or a validated resume-only adapter in Phase 1.',
+    recovery:
+      'Use manual transport, or restore the validated resume-only or resident automatic adapter.',
   },
   APR_AUTHORITY_REQUIRED: {
     message: 'Configured startup authority is missing, unreadable, or incomplete.',
@@ -696,7 +697,10 @@ function topic(command) {
     block: HUMAN_GATED.has(command)
       ? 'Blocks without a valid exact grant.'
       : 'Fails closed on unmet preconditions.',
-    wake: 'never in Phase 1',
+    wake:
+      command === 'submit'
+        ? 'Automatic mode writes one durable handoff for resident wait or official native push.'
+        : 'No background polling or undocumented wake mechanism.',
     tokens: 'No background polling or model-token spending.',
     no_commit:
       command === 'start' || command === 'submit' || command === 'finalize'
@@ -704,7 +708,7 @@ function topic(command) {
         : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [
       COMMAND_USAGE[command],
-      `npx --yes ai-peer-review@0.1.0 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      `npx --yes ai-peer-review@0.2.0 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
     ],
     result: 'A versioned JSON result envelope or deterministic offline text.',
     next_action:

@@ -13,4 +13,4 @@ Review: `{{review_id}}`
 
 Installed help: `peer-review status --help`
 
-Zero-install help: `npx --yes ai-peer-review@0.1.0 status --help`
+Zero-install help: `npx --yes ai-peer-review@0.2.0 status --help`

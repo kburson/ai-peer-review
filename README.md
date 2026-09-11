@@ -9,7 +9,8 @@ every commit. What you get back is the review itself, committed next to the work
 it reviewed.
 
 It works with Claude Code, Codex, Grok, or any agent that can run a shell
-command. Node.js 22 or later, and no runtime dependencies.
+command. It requires Node.js 22 or later and uses two exact-pinned runtime
+dependencies for its MCP transport and closed validation boundary.
 
 ## Why bother
 
@@ -48,7 +49,9 @@ Then, back in the first session, whenever the reviewer hands work back:
 > Read the review findings, revise the spec, and submit the round.
 
 The two agents pass the document back and forth until the reviewer accepts it.
-You are the courier between the two sessions, and the tie-breaker when they
+Manual and resume-only modes keep you as the courier. With two healthy resident
+adapters, `automatic-required` lets each session block on `wait_for_handoff` and
+resume without polling or idle model turns. You remain the tie-breaker when they
 cannot agree.
 
 ## Setting it up
@@ -90,8 +93,14 @@ Worth doing once before you rely on it:
 
 `doctor` only reads. It reports whether your agent host is exposing session
 identity, whether the scratch directory is ignored, and whether the transport
-you asked for is actually available. Anything it calls out, it also tells you
-how to fix.
+you asked for is actually available. For `automatic-required`, it also checks
+MCP connectivity, a current resident lease, the configured long timeout, and an
+end-to-end transport probe. Anything it calls out, it also tells you how to fix.
+
+Codex and Claude Code setup install package-owned versioned settings for the
+`peer-review-mcp` server, an eight-hour tool timeout, and a lease heartbeat.
+Grok and generic hosts remain manual unless a future official adapter implements
+and passes the same contract. Preview and removal preserve all foreign settings.
 
 ## Running a review
 
@@ -203,8 +212,11 @@ The things that stop this quietly going wrong:
 - Human authority is graded as the weaker of signer isolation and verifier
   binding — it will not flatter itself.
 - `--no-commit` is explicitly non-durable and never implies Git evidence.
-- No MCP servers, resident processes, or background polling; nothing burns
-  tokens while it waits.
+- Automatic handoff blocks inside the local MCP tool, not in model turns; there
+  is no background prompt polling while it waits.
+- Resident liveness comes from a process instance or official opaque handle plus
+  a refreshed lease. A bare PID is never treated as authority.
+- Manual recovery remains available after every transport failure.
 
 Commands fail closed. When one refuses, it returns a stable `APR_` code, and
 `peer-review explain <code>` says what to do about it — which is usually the
@@ -229,10 +241,10 @@ locally. Before that — or if you would rather install nothing at all — call 
 by its full registry name:
 
 ```bash
-npx --yes ai-peer-review@0.1.0 --help
-npx --yes ai-peer-review@0.1.0 setup --scope project --agent claude --dry-run
-npx --yes ai-peer-review@0.1.0 start docs/spec.md --artifact-kind spec
-npx --yes ai-peer-review@0.1.0 status .scratch/peer-review/<review-id> --next
+npx --yes ai-peer-review@0.2.0 --help
+npx --yes ai-peer-review@0.2.0 setup --scope project --agent claude --dry-run
+npx --yes ai-peer-review@0.2.0 start docs/spec.md --artifact-kind spec
+npx --yes ai-peer-review@0.2.0 status .scratch/peer-review/<review-id> --next
 ```
 
 | Command         | Role            | What it does                                   |
@@ -265,10 +277,18 @@ POSIX-safe on macOS and Linux and PowerShell-safe on Windows.
 
 ## Public API
 
-The supported programmatic surface is intentionally read-only:
+The supported programmatic surface keeps protocol mutation in the CLI while
+exposing the adapter validation needed by official host integrations:
 
 ```js
-import { explainError, statusReview } from 'ai-peer-review';
+import {
+  createNativePushTransport,
+  explainError,
+  negotiateAutomaticRequired,
+  residentHealth,
+  statusReview,
+  validateResidentLease,
+} from 'ai-peer-review';
 ```
 
 All workflow mutation is routed through the CLI, so every host — human or agent
@@ -276,16 +296,17 @@ All workflow mutation is routed through the CLI, so every host — human or agen
 
 ## Verification
 
-Releases run unit, golden, integration, packaging, installed-host smoke, format,
-spelling, and lint gates on Node 22 across Ubuntu, macOS, and Windows, plus
-later LTS and current Node releases on Ubuntu. Production dependencies are
-intentionally empty.
+Releases run unit, golden, integration, MCP, packaging, installed-host smoke,
+format, spelling, and lint gates on Node 22 across Ubuntu, macOS, and Windows,
+plus later LTS and current Node releases on Ubuntu. Production dependencies are
+exact-pinned and audited.
 
 Locally:
 
 ```bash
 npm test
 npm run test:integration
+npm run test:mcp
 npm run test:packaging
 npm run test:smoke
 npm run lint
