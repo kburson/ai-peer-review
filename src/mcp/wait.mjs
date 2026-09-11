@@ -2,6 +2,7 @@ import { AprError } from '../errors.mjs';
 
 const inflightBySource = new WeakMap();
 const REVIEW_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 function invalid(message, details = {}) {
   throw new AprError('APR_WAIT_INVALID', message, {
@@ -23,8 +24,14 @@ function validate({ reviewId, participant, afterSequence, deliveries, signal, ti
       after_sequence: afterSequence,
     });
   }
-  if (timeoutMs !== undefined && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0)) {
-    invalid('Wait timeout must be a positive safe integer.', { timeout_ms: timeoutMs });
+  if (
+    timeoutMs !== undefined &&
+    (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > MAX_TIMEOUT_MS)
+  ) {
+    invalid('Wait timeout must fit the supported Node timer range.', {
+      timeout_ms: timeoutMs,
+      maximum_timeout_ms: MAX_TIMEOUT_MS,
+    });
   }
   if (
     signal !== undefined &&

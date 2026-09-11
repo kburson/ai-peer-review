@@ -57,6 +57,37 @@ function reviewWorkspace(repositoryRoot, reviewId) {
   }
 }
 
+function directoryIdentity(repositoryRoot, directory, label) {
+  try {
+    const metadata = lstatSync(directory);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+      throw new Error(`${label} is not a physical directory`);
+    }
+    const physical = realpathSync(directory);
+    resolveContainedPath(repositoryRoot, physical, label);
+    return Object.freeze({ device: metadata.dev, inode: metadata.ino, physical });
+  } catch (cause) {
+    throw new AprError('APR_WAIT_INVALID', `${label} identity cannot be verified.`, {
+      recovery: 'Stop the resident server, inspect the review workspace, and restart safely.',
+      details: { directory, cause: cause?.code ?? cause?.message ?? 'unknown' },
+    });
+  }
+}
+
+function assertDirectoryIdentity(repositoryRoot, directory, expected, label) {
+  const current = directoryIdentity(repositoryRoot, directory, label);
+  if (
+    current.physical !== expected.physical ||
+    current.device !== expected.device ||
+    current.inode !== expected.inode
+  ) {
+    throw new AprError('APR_WAIT_INVALID', `${label} identity changed during the wait.`, {
+      recovery: 'Stop the resident server, inspect the review workspace, and restart safely.',
+      details: { directory },
+    });
+  }
+}
+
 function receipt(workspace, delivery) {
   let file;
   try {
@@ -119,35 +150,62 @@ export function createLiveDeliverySource({ repositoryRoot, reviewId, watch = wat
     'delivery directory'
   ).absolute;
   mkdirSync(deliveryDirectory, { recursive: true });
+  const workspaceIdentity = directoryIdentity(repositoryRoot, workspace, 'review workspace');
+  const deliveryDirectoryIdentity = directoryIdentity(
+    repositoryRoot,
+    deliveryDirectory,
+    'delivery directory'
+  );
+  const assertBoundIdentity = () => {
+    assertDirectoryIdentity(repositoryRoot, workspace, workspaceIdentity, 'review workspace');
+    assertDirectoryIdentity(
+      repositoryRoot,
+      deliveryDirectory,
+      deliveryDirectoryIdentity,
+      'delivery directory'
+    );
+  };
 
   return Object.freeze({
     readAfter(input) {
       if (input?.reviewId !== reviewId) invalid('Wait review ID does not match its source.');
-      const { events } = inspectReviewAuthority(workspace);
-      const matched = events.find(
-        (candidate) =>
-          candidate.sequence > input.afterSequence &&
-          candidate.type === 'delivery-written' &&
-          candidate.payload.delivery.recipient === input.participant
-      );
-      if (!matched || receipt(workspace, matched.payload.delivery) === null) return null;
-      return Object.freeze({
-        schema: 'ai-peer-review.delivery/v1',
-        status: 'delivered',
-        review_id: reviewId,
-        participant: input.participant,
-        sequence: matched.sequence,
-        delivery_id: matched.payload.delivery.delivery_id,
-        digest: matched.payload.delivery.digest,
-      });
+      assertBoundIdentity();
+      try {
+        const { events } = inspectReviewAuthority(workspace);
+        const matched = events.find(
+          (candidate) =>
+            candidate.sequence > input.afterSequence &&
+            candidate.type === 'delivery-written' &&
+            candidate.payload.delivery.recipient === input.participant
+        );
+        if (!matched || receipt(workspace, matched.payload.delivery) === null) return null;
+        return Object.freeze({
+          schema: 'ai-peer-review.delivery/v1',
+          status: 'delivered',
+          review_id: reviewId,
+          participant: input.participant,
+          sequence: matched.sequence,
+          delivery_id: matched.payload.delivery.delivery_id,
+          digest: matched.payload.delivery.digest,
+        });
+      } finally {
+        assertBoundIdentity();
+      }
     },
     subscribe({ reviewId: requestedReviewId, onChange, onError }) {
       if (requestedReviewId !== reviewId) invalid('Wait review ID does not match its source.');
       if (typeof onChange !== 'function' || typeof onError !== 'function') {
         invalid('Wait subscription callbacks are invalid.');
       }
+      assertBoundIdentity();
       const watcher = watch(deliveryDirectory, onChange);
-      watcher.on?.('error', onError);
+      try {
+        assertBoundIdentity();
+        watcher.on?.('error', onError);
+      } catch (error) {
+        watcher.close();
+        throw error;
+      }
       return Object.freeze({
         close() {
           watcher.close();
@@ -155,6 +213,7 @@ export function createLiveDeliverySource({ repositoryRoot, reviewId, watch = wat
       });
     },
     manualRecovery() {
+      assertBoundIdentity();
       return Object.freeze({
         available: true,
         command: renderCommand(['peer-review', 'resume', workspace]),

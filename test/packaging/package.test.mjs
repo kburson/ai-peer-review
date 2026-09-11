@@ -72,6 +72,7 @@ test('published tarball is closed and exact-pins its audited production dependen
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.deepEqual(packageJson.dependencies ?? {}, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    zod: '4.6.2',
   });
   const dependencyTree = JSON.parse(
     runNpm('npm', ['ls', '--omit=dev', '--json'], {
@@ -79,8 +80,12 @@ test('published tarball is closed and exact-pins its audited production dependen
       encoding: 'utf8',
     })
   );
-  assert.deepEqual(Object.keys(dependencyTree.dependencies ?? {}), ['@modelcontextprotocol/sdk']);
+  assert.deepEqual(Object.keys(dependencyTree.dependencies ?? {}).sort(), [
+    '@modelcontextprotocol/sdk',
+    'zod',
+  ]);
   assert.equal(dependencyTree.dependencies['@modelcontextprotocol/sdk'].version, '1.30.0');
+  assert.equal(dependencyTree.dependencies.zod.version, '4.6.2');
 });
 
 test('README and NOTICE bind the exact source, filtered tip, bootstrap, and license split', () => {

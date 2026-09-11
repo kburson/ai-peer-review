@@ -57,7 +57,10 @@ production install entries representing 92 unique package/version pairs. License
 metadata across those entries is 86 MIT, 7 ISC, 2 BSD-3-Clause, and 1
 BSD-2-Clause; no unknown or copyleft license was observed.
 
-The approved package declares these 17 direct runtime dependencies:
+The approved SDK declares these 17 direct runtime dependencies. This project
+also declares exact `zod@4.6.2` directly because `src/mcp/server.mjs` imports it;
+the direct declaration prevents reliance on npm hoisting and adds no package to
+the already-audited installed graph.
 
 | Package              | Declared range        | Audited resolution |
 | -------------------- | --------------------- | ------------------ |
@@ -122,8 +125,8 @@ including authority-confusion and path/host parsing defects. Because the bytes
 are statically bundled, adding a patched top-level dependency or npm override
 does not replace them. The package-level MIT registry label is also incomplete:
 its published license describes an Apache-2.0/MIT transition and CC-BY-4.0
-documentation, while the embedded packages include MIT, BSD-2-Clause, and
-BSD-3-Clause code.
+documentation, while the embedded packages include six MIT, one BSD-2-Clause,
+and one BSD-3-Clause component.
 
 This is why the normal npm audit result does not approve the v2 package.
 

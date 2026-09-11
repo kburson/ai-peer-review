@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  realpathSync,
+  renameSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
@@ -372,6 +379,13 @@ test('validates identifiers, participant, cursor, timeout, signal, and source', 
       timeoutMs: 0,
       deliveries,
     },
+    {
+      reviewId: 'review-01',
+      participant: 'author',
+      afterSequence: 0,
+      timeoutMs: 2_147_483_648,
+      deliveries,
+    },
     { reviewId: 'review-01', participant: 'author', afterSequence: 0, signal: {}, deliveries },
     { reviewId: 'review-01', participant: 'author', afterSequence: 0, deliveries: {} },
   ];
@@ -379,6 +393,51 @@ test('validates identifiers, participant, cursor, timeout, signal, and source', 
     await assert.rejects(waitForHandoff(input), { code: 'APR_WAIT_INVALID' });
   }
 });
+
+test(
+  'cached live source rejects a workspace replaced by an outside-repository symlink',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const inside = await createReviewWorkspace({ events: reviewerTurnEvents() });
+    const outsideEvents = reviewerTurnEvents();
+    const outside = await createReviewWorkspace({ events: outsideEvents });
+    t.after(inside.cleanup);
+    t.after(outside.cleanup);
+    const deliveryEvent = event('delivery-written', {
+      sequence: outsideEvents.length + 1,
+      revision: outsideEvents.at(-1).revision,
+      payload: {
+        delivery: { delivery_id: 'external-delivery', recipient: 'author', digest },
+      },
+    });
+    await appendEvent(outside.events, deliveryEvent);
+    mkdirSync(path.join(outside.workspace, 'deliveries'), { recursive: true });
+    writeFileSync(
+      path.join(outside.workspace, 'deliveries', 'external-delivery.json'),
+      canonicalProjection({
+        delivery_id: 'external-delivery',
+        recipient: 'author',
+        digest,
+      })
+    );
+    const source = createLiveDeliverySource({
+      repositoryRoot: inside.root,
+      reviewId: 'review-01',
+    });
+    renameSync(inside.workspace, `${inside.workspace}.original`);
+    symlinkSync(outside.workspace, inside.workspace, 'dir');
+
+    assert.throws(
+      () =>
+        source.readAfter({
+          reviewId: 'review-01',
+          participant: 'author',
+          afterSequence: 2,
+        }),
+      { code: 'APR_WAIT_INVALID' }
+    );
+  }
+);
 
 test('live source reads the first event-authorized matching receipt after the cursor', async (t) => {
   const events = reviewerTurnEvents();
