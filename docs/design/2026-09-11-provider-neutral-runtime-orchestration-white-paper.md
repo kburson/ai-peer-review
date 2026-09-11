@@ -37,10 +37,10 @@ The recommended product direction is:
    down deterministically at every terminal or unrecoverable boundary.
 5. Support provider differences through capability-negotiated adapters rather
    than provider branches in the protocol.
-6. Add Gemini through its documented CLI and Agent Client Protocol (ACP) first.
-   The new Gemini desktop applications are credible interactive surfaces, but
-   Google currently documents them as user-facing desktop assistants, not as
-   inbound session-control APIs.[^1][^2]
+6. Treat Google's agent products as a provider family, not one interchangeable
+   executable. Use Gemini CLI only for eligible enterprise, Google Cloud, or
+   paid API-key accounts; prefer Antigravity CLI for consumer accounts; and gate
+   desktop cross-window automation on a tested control surface.[^17]
 
 The key distinction is simple:
 
@@ -100,6 +100,8 @@ Claude Code documents print mode, JSON/streaming JSON, exact session resume,
 turn limits, and unattended permission controls.[^5] Grok Build documents
 headless JSON output and exact-ID resume.[^6] Gemini CLI documents `-p`, JSON or
 JSONL output, session metadata, tool events, and process exit classes.[^7]
+Antigravity CLI separately documents one-shot headless execution, exact
+conversation resume, and a persistent NDJSON stdin/stdout session.[^18]
 
 The coordinator owns:
 
@@ -125,14 +127,17 @@ answered by the configured policy become explicit intervention events.
 
 In session-managed mode, a reviewer session already exists in another window,
 application, IDE, or host process. `ai-peer-review` does not create or own that
-session. It holds an opaque handle granted by an official session API, sends a
-bounded prompt to that exact session, observes structured lifecycle events, and
-collects the result.
+session. It holds an opaque handle granted by an official session API or proven
+by an approved remote-control adapter, sends a bounded prompt to that exact
+session, observes lifecycle evidence, and collects the result.
 
-The distinction from UI automation is essential. Keyboard injection, window
-focus, accessibility scraping, and private transcript edits are not acceptable
-control planes. They are ambiguous under multiple windows, break on interface
-changes, and can deliver review authority to the wrong conversation.
+The control surface matters. An official session API is preferred. A
+vendor-provided remote-control UI may be considered as an experimental
+automation surface only if the adapter can prove exact session identity,
+observe terminal state, and fail closed on layout or authentication changes.
+Raw keyboard injection, native-window focus, accessibility transcript scraping,
+and private transcript edits remain unacceptable: they are ambiguous under
+multiple windows and can deliver review authority to the wrong conversation.
 
 Codex App Server is a strong example of the intended surface: it exposes
 `thread/start`, `thread/resume`, `turn/start`, streamed item notifications, and
@@ -140,6 +145,10 @@ explicit approval/sandbox policy through JSON-RPC.[^8] The Codex SDK can also
 resume a thread by ID and run another turn.[^9] Gemini CLI's ACP mode is another
 example: a client controls an agent over JSON-RPC on stdio using methods for
 initialization, authentication, new/load session, prompt, and cancellation.[^10]
+Antigravity Remote Control can drive desktop sessions from a browser, but Google
+documents a user-facing dashboard, not a programmatic session API; it is
+therefore a conformance-gated automation candidate rather than a supported
+session adapter today.[^19]
 
 This mode may be fully automatic, or a person may also interact with the window.
 Human presence is permitted but is not part of the activation contract. The
@@ -147,9 +156,10 @@ adapter must detect or prevent concurrent turns, bind every message to an exact
 session, and preserve provider-issued identifiers only in untracked scratch.
 
 A pre-existing window is not automatically controllable. Session-managed mode
-is available only when the host exposes a documented inbound API and an
-end-to-end capability probe succeeds. Otherwise the user must choose headless or
-handoff. A runtime must never fall back to manipulating the UI.
+is available only when an official API or explicitly selected vendor remote-
+control surface passes an end-to-end capability probe. Otherwise the user must
+choose headless or handoff. A runtime must never fall back silently from an API
+to generic UI manipulation.
 
 ### 3. Cooperative handoff
 
@@ -228,16 +238,18 @@ changing protocol semantics.
 Runtime support should be declared as tested capabilities, not inferred from a
 provider name. At start, `doctor` records a versioned capability observation:
 
-| Capability          | Meaning                                               |
-| ------------------- | ----------------------------------------------------- |
-| `launch`            | Start a fresh non-interactive reviewer                |
-| `structured-output` | Parse an unambiguous result/event stream              |
-| `exact-resume`      | Continue a recorded provider session by exact ID      |
-| `session-inject`    | Send a turn through a documented session API          |
-| `turn-observe`      | Observe completion, failure, and permission requests  |
-| `cancel`            | Cancel the exact in-flight turn                       |
-| `read-only`         | Enforce the configured reviewer non-mutation boundary |
-| `identity`          | Return stable provider/session/model evidence         |
+| Capability          | Meaning                                                |
+| ------------------- | ------------------------------------------------------ |
+| `launch`            | Start a fresh non-interactive reviewer                 |
+| `structured-output` | Parse an unambiguous result/event stream               |
+| `exact-resume`      | Continue a recorded provider session by exact ID       |
+| `session-inject`    | Send a turn through a documented session API           |
+| `turn-observe`      | Observe completion, failure, and permission requests   |
+| `cancel`            | Cancel the exact in-flight turn                        |
+| `read-only`         | Enforce the configured reviewer non-mutation boundary  |
+| `identity`          | Return stable provider/session/model evidence          |
+| `eligible-account`  | Prove the selected product accepts the configured auth |
+| `effective-policy`  | Report the permission/trust mode actually in force     |
 
 The selected runtime is pinned in the start event. Capability observations are
 diagnostic snapshots and must be refreshed before each activation. If an update
@@ -247,7 +259,8 @@ rather than degrading into a different ownership model.
 Fallback is therefore ordered but bounded. A reasonable handoff chain is:
 
 ```text
-official session API -> exact CLI resume -> MCP live wait -> user recovery
+official session API -> approved remote control -> exact CLI resume ->
+MCP live wait -> user recovery
 ```
 
 Only methods explicitly authorized at review start may run automatically. A
@@ -300,11 +313,14 @@ The ordered shutdown sequence is:
 1. Mark the instance `stopping` and reject new activation work.
 2. Close the watcher and cancel timers and pending API calls.
 3. Request graceful cancellation of the exact active provider turn.
-4. Wait for a bounded provider-specific grace period.
-5. Terminate only the exact child instance still owned by this coordinator.
-6. Flush a final scratch diagnostic and recovery record.
-7. Remove the lock/lease only if its instance UUID still matches.
-8. Exit with a stable coordinator status code.
+4. For stdin-driven protocols, close stdin and continue draining stdout/stderr.
+5. Wait for a bounded provider-specific grace period and the child `close`
+   event.
+6. Terminate only the exact captured process group or Windows job object still
+   owned by this coordinator; signalling a launcher PID alone is insufficient.
+7. Flush a final scratch diagnostic and recovery record.
+8. Remove the lock/lease only if its instance UUID still matches.
+9. Exit with a stable coordinator status code.
 
 Windows signal behavior differs from POSIX and must be tested separately; Node
 documents that several familiar signals terminate a Windows child abruptly.[^12]
@@ -331,8 +347,12 @@ write, secret, and external-system capabilities must be separately declared.
 Provider “bypass permissions” modes are not a substitute for a review policy.
 Claude offers plan/restricted modes and explicit behavior for unattended
 permission prompts.[^5] Gemini has folder-trust and headless behavior that can
-fail on an untrusted workspace; while it offers `--skip-trust`, an adapter should
-not use that flag to trust an arbitrary directory automatically.[^13]
+override a requested approval mode on an untrusted workspace. The adapter must
+verify the effective mode, not merely the requested flag, and must not use
+`--skip-trust` to trust an arbitrary directory automatically.[^13] Antigravity
+headless mode similarly reports its effective permission mode in the `init`
+event; some denied tools are soft failures with exit code zero, so semantic
+status and diagnostics are required in addition to the OS exit code.[^18]
 
 Credentials remain in provider-owned stores or environment references. Raw
 tokens, desktop cookies, and provider transcript files never enter tracked
@@ -340,49 +360,94 @@ review collateral.
 
 ## Provider feasibility
 
-| Provider surface             | Headless-managed                            | Session-managed              | Cooperative handoff | Recommended first integration                |
-| ---------------------------- | ------------------------------------------- | ---------------------------- | ------------------- | -------------------------------------------- |
-| Codex CLI / SDK / App Server | Strong                                      | Strong                       | Strong              | App Server plus exact `codex exec resume`    |
-| Claude Code                  | Strong                                      | Moderate; host/SDK dependent | Strong              | Print-mode adapter plus exact session resume |
-| Grok Build                   | Strong                                      | Strong where ACP is enabled  | Strong              | Headless JSON, then ACP                      |
-| Gemini CLI                   | Strong                                      | Strong through ACP           | Strong              | Headless/ACP conformance adapter             |
-| Gemini desktop app           | Interactive only on current public evidence | Not yet established          | Human-assisted only | Capability research; no UI automation        |
+| Provider surface             | Headless-managed                        | Session-managed                          | Cooperative handoff | Recommended first integration                     |
+| ---------------------------- | --------------------------------------- | ---------------------------------------- | ------------------- | ------------------------------------------------- |
+| Codex CLI / SDK / App Server | Strong                                  | Strong                                   | Strong              | App Server plus exact `codex exec resume`         |
+| Claude Code                  | Strong                                  | Moderate; host/SDK dependent             | Strong              | Print-mode adapter plus exact session resume      |
+| Grok Build                   | Strong                                  | Strong where ACP is enabled              | Strong              | Headless JSON, then ACP                           |
+| Gemini CLI, eligible account | Promising; inference unverified locally | ACP structure confirmed; readiness gated | Promising           | Enterprise/API conformance adapter                |
+| Antigravity CLI (`agy`)      | Strong in docs; not locally tested      | Owned persistent process, not desktop    | Strong on exact ID  | Consumer headless/streaming conformance adapter   |
+| Antigravity Remote Control   | Not applicable                          | Experimental official-browser surface    | Human-assisted      | Exact-session UI-automation spike                 |
+| Gemini consumer desktop app  | Interactive only on current evidence    | No documented inbound control surface    | Human-assisted      | No automation until a suitable surface is exposed |
 
 The official Grok Build repository describes the CLI as usable interactively,
 headlessly, and through ACP, which makes the session path credible but still
 subject to installed-version conformance testing.[^16]
 
-### Gemini assessment
+### Google agent-surface assessment
 
 Google now documents native Gemini apps for macOS and Windows. The Mac app
 requires Apple Silicon and macOS 15 or later and supports interactive chat,
 window sharing, and “Speak to Window”; the Windows app supports interactive
-desktop access on Windows 10 or later.[^1][^2] Local inspection for this research
-confirmed the user's Mac app is installed and running as version `1.111.1.839`;
-the separate `gemini` CLI executable was not present on `PATH`.
+desktop access on Windows 10 or later.[^1][^2] Those applications remain useful
+for human-assisted handoff, but their public help does not establish an inbound
+session API.
 
-That is valuable for human-assisted review but does not prove an inbound
-automation API. The public desktop help pages do not document a way for an
-external process to address a specific Gemini conversation, inject a prompt,
-observe a turn, or answer a permission request. Undocumented URL schemes,
-accessibility automation, and private application files are explicitly outside
-the design.
+#### Local Gemini CLI experiments, September 11, 2026
 
-Gemini CLI is a much stronger delivery target:
+The newly installed executable was `/opt/homebrew/bin/gemini`, version `0.46.0`.
+For drift comparison, the current npm package `@google/gemini-cli@0.59.0` was
+also inspected without installing it globally. Both exposed headless prompting,
+JSON/stream-JSON output, exact `--resume`/`--session-id`, project session
+listing, approval modes, folder-trust controls, and ACP.[^14]
 
-- headless mode returns JSON or JSONL with session, message, tool, error, and
-  final-result events;[^7]
-- sessions are stored per project and can be resumed by full UUID;[^14]
-- ACP supplies JSON-RPC programmatic control, session loading, prompts, and
-  cancellation;[^10]
-- cached authentication works headlessly, while new environments can use an API
-  key or Vertex AI configuration;[^15] and
-- folder trust has explicit automated-environment behavior.[^13]
+| Probe                    | Observation                                                                                                                             | Design consequence                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Personal OAuth inference | Both versions rejected the cached individual account with `UNSUPPORTED_CLIENT` before a model turn                                      | Product/account eligibility is a preflight capability, not an authentication footnote |
+| Headless JSON failure    | Startup/authentication errors were human-readable diagnostics rather than a JSON result envelope                                        | Parse pre-protocol stderr and plain startup failures before requiring JSON            |
+| Folder trust             | In the repository without explicit trust, requested `plan` mode was overridden to `default`                                             | Compare requested and effective policy; reject a weakened reviewer boundary           |
+| Session listing          | Sessions were scoped to the canonical project and full UUIDs were exposed; listing could print an auth error and still exit zero        | Use the canonical root and exact IDs; never treat exit code alone as success          |
+| ACP initialize           | Versions `0.46.0` and `0.59.0` negotiated protocol version 1 and advertised load-session support plus OAuth/API-key/Vertex auth methods | ACP initialization proves syntax and capability advertisement, not account readiness  |
+| ACP session open         | `session/new` returned a structured unsupported-account error                                                                           | Preflight must include a readiness probe beyond `initialize`                          |
+| Shutdown                 | Closing ACP stdin drained the process tree and exited cleanly; signalling only the Homebrew wrapper left descendants alive              | Close stdin first, drain, then escalate against the captured process group/job object |
 
-The adapter should invoke Gemini from the canonical repository root, record the
-full session UUID, and capability-test the installed CLI version. Installation
-of the desktop app and installation/authentication of Gemini CLI are separate
-preconditions. Supporting one does not imply the other.
+The experiments could not validate model output, read-only enforcement during a
+tool turn, cancellation of an active model turn, or resumed conversational
+continuity because Google ended Gemini CLI access for individual consumer
+accounts on June 18, 2026. Google continues Gemini CLI for enterprise, Google
+Cloud, and paid API-key access and directs consumer users to Antigravity
+CLI.[^15][^17] Homebrew also reports the installed `gemini-cli` formula as
+deprecated with `antigravity-cli` as its replacement. Failed probes created
+provider-owned, project-scoped session metadata, another reason diagnostics and
+cleanup policy must include provider artifacts without deleting them
+automatically.
+
+#### Antigravity implications
+
+The standalone Antigravity CLI was not available on this host's `PATH`, so its
+behavior was researched from current official documentation rather than
+represented as locally proven. Its `agy` executable offers a stronger consumer
+path than the ineligible Gemini CLI login:
+
+- `agy -p` returns text, JSON, or NDJSON and separates response stdout from
+  diagnostic stderr;
+- `--conversation <id>` resumes one exact conversation, while `--continue`
+  selects the latest and is therefore unsuitable for automatic routing;
+- `--input-format stream-json --output-format stream-json` supports multiple
+  turns in one owned process, one `result` per turn, with effective permission
+  mode in the `init` event; and
+- closing stdin is the documented graceful session shutdown.[^18]
+
+This persistent stream is a headless-owned runtime, not proof that `agy` can
+inject into an arbitrary desktop window. Antigravity 2.0 separately offers an
+official Remote Control browser UI that can view and drive desktop
+conversations. Its documentation exposes service start/status/stop commands and
+browser interaction, but no external session API.[^19] It should therefore be
+tested as an explicit experimental cross-window adapter, with API/CLI exact
+resume remaining the preferred unattended control plane. Its optional headless
+daemon is an OS service and is not review-scoped; `ai-peer-review` must neither
+start it implicitly nor claim ownership of a user-managed instance.
+
+Google also publishes a stateful Python Antigravity SDK for API-key and Vertex
+configurations.[^20] It is a credible future headless adapter, but adding a
+Python runtime is unnecessary while the `agy` stream satisfies the lightweight
+Node coordinator's process contract.
+
+The Google provider adapter should consequently resolve and pin a product
+surface: `gemini-cli` for eligible enterprise/API configurations,
+`antigravity-cli` for the consumer headless path, or a future approved
+`antigravity-remote-control` adapter. Installation or authentication of one
+surface must never be inferred from another.
 
 ## Recovery as a product surface
 
@@ -477,10 +542,11 @@ portable comparison.
    and Grok adapters.
 5. Add session-managed Codex App Server support and a general session adapter
    contract.
-6. Add Gemini CLI headless and ACP adapters after a focused safety/conformance
-   spike.
-7. Keep Gemini desktop session automation gated on a documented Google control
-   surface.
+6. Add a Google-surface resolver and separate conformance gates for eligible
+   Gemini CLI and Antigravity CLI installations.
+7. Keep Gemini desktop automation unsupported; evaluate Antigravity Remote
+   Control separately as an explicit, fail-closed cross-window automation
+   adapter.
 
 This ordering proves the dangerous lifecycle code independently of provider
 quirks and delivers useful no-poll handoff early.
@@ -535,3 +601,11 @@ coordinator stops, and the user receives one exact way to continue.
 [^15]: Google, [Gemini CLI authentication setup](https://geminicli.com/docs/get-started/authentication/), updated August 17, 2026.
 
 [^16]: xAI, [Grok Build repository and product documentation](https://github.com/xai-org/grok-build), accessed September 11, 2026.
+
+[^17]: Google, [An important update: Transitioning Gemini CLI to Antigravity CLI](https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/), published June 18, 2026.
+
+[^18]: Google, [Antigravity CLI headless mode](https://antigravity.google/docs/cli/headless/), accessed September 11, 2026.
+
+[^19]: Google, [Antigravity Remote Control](https://antigravity.google/docs/remote-control/), accessed September 11, 2026.
+
+[^20]: Google, [Antigravity SDK overview](https://antigravity.google/docs/sdk/overview/), accessed September 11, 2026.
