@@ -21,34 +21,33 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const digest = createHash('sha256').update('release tarball').digest('hex');
-const releaseCommit = '1c86f21a8aacca77dc7ebdc8299606fabfaa7e50';
-const evidenceCommit = '5b06e29a54ddac959f6b3d8c90c3fea8737d2766';
-const readmeCommit = '7990fffe336deeb7ee55d53e34bb0a6eb9b89ae0';
+const releaseCommit = '7921042427a0be6b53d9c3e41fd75d7099e86a78';
+const evidenceCommit = 'd5eb8e2ec411a554d526064c0987acb870cdc126';
 const correctionCommit = 'c'.repeat(40);
 
 function manifest() {
   return {
     schema: 'ai-peer-review.release/v1',
     package: 'ai-peer-review',
-    version: '0.1.0',
+    version: '0.2.0',
     source_commit: '4b3bcd43cba141a611da4a2b861433b915462806',
     filtered_history_tip: 'bfc6f9ffabd8281a815c7bd0e0824f3bacb84d9d',
     bootstrap_commit: 'fd2e636356b6b8049930d5dc6bddf383c6d56c8d',
     release_commit: releaseCommit,
     repository: { url: 'https://github.com/kburson/ai-peer-review', visibility: 'PUBLIC' },
     tag: {
-      name: 'v0.1.0',
+      name: 'v0.2.0',
       target_commit: releaseCommit,
       signer_fingerprint: 'SHA256:5coWixpZ2nPevuuMFWsJkk7oc3UN8zybVaMpA12HNPI',
     },
     github_release: {
-      url: 'https://github.com/kburson/ai-peer-review/releases/tag/v0.1.0',
-      asset_name: 'ai-peer-review-0.1.0.tgz',
+      url: 'https://github.com/kburson/ai-peer-review/releases/tag/v0.2.0',
+      asset_name: 'ai-peer-review-0.2.0.tgz',
       asset_sha256: digest,
       checksums_asset_name: 'SHA256SUMS',
     },
     npm: {
-      tarball_url: 'https://registry.npmjs.org/ai-peer-review/-/ai-peer-review-0.1.0.tgz',
+      tarball_url: 'https://registry.npmjs.org/ai-peer-review/-/ai-peer-review-0.2.0.tgz',
       integrity: 'sha512-fixture',
       sha256: digest,
       provenance_url: 'https://registry.npmjs.org/-/npm/v1/attestations/fixture',
@@ -109,7 +108,6 @@ function observers(value = manifest()) {
         ancestor: true,
         commits: [
           { sha: evidenceCommit, paths: ['provenance/release-manifest.json'] },
-          { sha: readmeCommit, paths: ['README.md'] },
           {
             sha: correctionCommit,
             paths: ['scripts/verify-release.mjs', 'test/unit/verify-release.test.mjs'],
@@ -182,7 +180,7 @@ test('release verifier binds the release commit to the signed tag target', async
   );
 });
 
-test('release verifier permits the exact evidence, README, and correction sequence', async () => {
+test('release verifier permits the exact Phase 2 evidence and correction sequence', async () => {
   const value = manifest();
   const verified = await verify(value);
   assert.equal(verified.releaseCommit, releaseCommit);
@@ -191,7 +189,6 @@ test('release verifier permits the exact evidence, README, and correction sequen
 test('release verifier rejects unrelated post-release changes', async () => {
   const validCommits = [
     { sha: evidenceCommit, paths: ['provenance/release-manifest.json'] },
-    { sha: readmeCommit, paths: ['README.md'] },
     {
       sha: correctionCommit,
       paths: ['scripts/verify-release.mjs', 'test/unit/verify-release.test.mjs'],
@@ -207,17 +204,17 @@ test('release verifier rejects unrelated post-release changes', async () => {
     },
     {
       ancestor: true,
-      commits: [validCommits[0], { ...validCommits[1], sha: 'e'.repeat(40) }, validCommits[2]],
+      commits: [validCommits[0], { ...validCommits[1], sha: 'e'.repeat(40) }],
     },
     {
       ancestor: true,
-      commits: [validCommits[0], { ...validCommits[1], paths: ['CHANGELOG.md'] }, validCommits[2]],
+      commits: [validCommits[0], { ...validCommits[1], paths: ['CHANGELOG.md'] }],
     },
     {
       ancestor: true,
       commits: [
-        ...validCommits.slice(0, 2),
-        { ...validCommits[2], paths: ['scripts/verify-release.mjs', 'src/public-api.mjs'] },
+        validCommits[0],
+        { ...validCommits[1], paths: ['scripts/verify-release.mjs', 'src/public-api.mjs'] },
       ],
     },
     {
@@ -427,7 +424,7 @@ test('default Zenodo health observer identifies the verifier without live I/O', 
     assert.equal(url, 'https://zenodo.org/records/1234567');
     assert.equal(
       options.headers['user-agent'],
-      'ai-peer-review-release-verifier/0.1.0 (+https://github.com/kburson/ai-peer-review)'
+      'ai-peer-review-release-verifier/0.2.0 (+https://github.com/kburson/ai-peer-review)'
     );
     return { status: 200 };
   };
@@ -455,6 +452,6 @@ test('release manifest fails closed on draft or substituted public evidence', as
   await assert.rejects(verify(manifest(), wrongSigner), /fingerprint mismatch/);
 
   const wrongChecksums = observers(manifest());
-  wrongChecksums.textUrl = async () => `${'f'.repeat(64)}  ai-peer-review-0.1.0.tgz\n`;
+  wrongChecksums.textUrl = async () => `${'f'.repeat(64)}  ai-peer-review-0.2.0.tgz\n`;
   await assert.rejects(verify(manifest(), wrongChecksums), /checksum asset does not bind/);
 });

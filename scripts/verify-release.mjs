@@ -15,13 +15,12 @@ const SHA = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const SWHID = /^swh:1:(rev|dir|cnt):[0-9a-f]{40}$/;
 const RELEASE_MANIFEST_PATH = 'provenance/release-manifest.json';
-const EVIDENCE_COMMIT = '5b06e29a54ddac959f6b3d8c90c3fea8737d2766';
-const README_COMMIT = '7990fffe336deeb7ee55d53e34bb0a6eb9b89ae0';
+const EVIDENCE_COMMIT = 'd5eb8e2ec411a554d526064c0987acb870cdc126';
 const CORRECTION_PATHS = ['scripts/verify-release.mjs', 'test/unit/verify-release.test.mjs'];
 const ZENODO_DOI = /^10\.5281\/zenodo\.(\d+)$/i;
 const FETCH_TIMEOUT_MS = 15_000;
 const RELEASE_VERIFIER_USER_AGENT =
-  'ai-peer-review-release-verifier/0.1.0 (+https://github.com/kburson/ai-peer-review)';
+  'ai-peer-review-release-verifier/0.2.0 (+https://github.com/kburson/ai-peer-review)';
 
 function fail(message) {
   throw new Error(`release verification failed: ${message}`);
@@ -58,7 +57,7 @@ export function validateReleaseManifest(manifest) {
     'manifest'
   );
   if (manifest.schema !== 'ai-peer-review.release/v1') fail('schema mismatch');
-  if (manifest.package !== 'ai-peer-review' || manifest.version !== '0.1.0')
+  if (manifest.package !== 'ai-peer-review' || manifest.version !== '0.2.0')
     fail('package identity mismatch');
   for (const field of [
     'source_commit',
@@ -433,17 +432,13 @@ export async function verifyRelease({ root, manifest, manifestBytes, observers }
     [...actual].sort().every((entry, index) => entry === [...expected].sort()[index]);
   if (
     !Array.isArray(commits) ||
-    commits.length !== 3 ||
+    commits.length !== 2 ||
     commits[0]?.sha !== EVIDENCE_COMMIT ||
     !exactPaths(commits[0]?.paths, [RELEASE_MANIFEST_PATH]) ||
-    commits[1]?.sha !== README_COMMIT ||
-    !exactPaths(commits[1]?.paths, ['README.md']) ||
-    commits[2]?.sha !== head ||
-    !exactPaths(commits[2]?.paths, CORRECTION_PATHS)
+    commits[1]?.sha !== head ||
+    !exactPaths(commits[1]?.paths, CORRECTION_PATHS)
   )
-    fail(
-      'post-release history does not match the pinned evidence, README, and correction sequence'
-    );
+    fail('post-release history does not match the pinned evidence and correction sequence');
   if (!Buffer.isBuffer(manifestBytes)) fail('working release manifest bytes are missing');
   const committedManifest = await observed.releaseManifestBlobs(head);
   if (
