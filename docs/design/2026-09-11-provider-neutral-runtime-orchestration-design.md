@@ -10,7 +10,7 @@
   authorized by this document
 - **Related evidence:**
   [manual cross-provider case study](../manual-cross-provider-peer-review.md),
-  [runtime orchestration white paper](../white-papers/2026-09-11-provider-neutral-peer-review-runtime-orchestration.md),
+  [runtime orchestration white paper](2026-09-11-provider-neutral-runtime-orchestration-white-paper.md),
   and
   [original extraction design](2026-09-07-ai-peer-review-extraction-design.md)
 
