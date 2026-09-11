@@ -39,6 +39,13 @@ test('accepts one official opaque handle instead of a diagnostic PID', () => {
   assert.equal(validated.opaque_handle, 'host-process:opaque-01');
 });
 
+test('accepts the package ISO timestamp form for the observation clock', () => {
+  assert.equal(
+    validateResidentLease(lease(), '2026-09-11T09:00:00.000Z').process_instance_id,
+    'process-01'
+  );
+});
+
 test('rejects incomplete unknown stale and ambiguous resident observations', () => {
   const cases = [
     { value: { ...lease(), host: undefined }, reason: 'incomplete' },

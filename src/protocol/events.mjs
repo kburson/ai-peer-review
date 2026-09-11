@@ -353,10 +353,14 @@ function validateStartup(value) {
   assertPath(value.destination, 'startup destination');
   assertDigest(value.author_startup_digest, 'startup author_startup_digest');
   assertDigest(value.reviewer_invitation_digest, 'startup reviewer_invitation_digest');
-  assertEnum(value.transport_mode, ['manual', 'resume-only'], 'startup transport_mode');
+  assertEnum(
+    value.transport_mode,
+    ['manual', 'resume-only', 'automatic-required'],
+    'startup transport_mode'
+  );
   assertEnum(
     value.author_transport_capability,
-    ['manual', 'resume-only'],
+    ['manual', 'resume-only', 'live-wait', 'native-push'],
     'startup author transport capability'
   );
   if (value.no_commit_baseline !== null) {
@@ -615,6 +619,12 @@ function validatePayload(type, payload, valueReviewId) {
         throw invalid('review-created author transport capability');
       }
       if (
+        payload.startup.transport_mode === 'automatic-required' &&
+        !['live-wait', 'native-push'].includes(payload.startup.author_transport_capability)
+      ) {
+        throw invalid('review-created author automatic transport capability');
+      }
+      if (
         (payload.authority.verifier?.signer_strength === 'unverified-test' ||
           payload.startup.bootstrap?.attestation.strength === 'unverified-test') &&
         payload.commit_mode !== 'no-commit'
@@ -647,7 +657,7 @@ function validatePayload(type, payload, valueReviewId) {
       if (payload.reviewer.role !== 'reviewer') throw invalid('reviewer-joined reviewer role');
       assertEnum(
         payload.transport_capability,
-        ['manual', 'resume-only'],
+        ['manual', 'resume-only', 'live-wait', 'native-push'],
         'reviewer-joined transport capability'
       );
       validateRepositoryBoundary(

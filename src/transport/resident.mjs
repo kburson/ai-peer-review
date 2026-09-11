@@ -39,7 +39,7 @@ function instant(value) {
 }
 
 function nowValue(now) {
-  const value = now instanceof Date ? now.valueOf() : now;
+  const value = now instanceof Date ? now.valueOf() : typeof now === 'string' ? instant(now) : now;
   if (!Number.isFinite(value))
     participantLoss('Resident observation time is invalid.', 'incomplete');
   return value;

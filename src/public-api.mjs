@@ -5,3 +5,5 @@ export {
   residentHealth,
   validateResidentLease,
 } from './transport/resident.mjs';
+export { createNativePushTransport } from './transport/native-push.mjs';
+export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';

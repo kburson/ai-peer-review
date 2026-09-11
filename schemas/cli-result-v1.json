@@ -72,8 +72,10 @@
         "manifest_digest": { "$ref": "#/$defs/digest" },
         "acceptance_basis": { "enum": ["reviewer-consensus", "human-override"] },
         "authority_warning": { "type": ["string", "null"] },
-        "transport_mode": { "enum": ["manual", "resume-only"] },
-        "author_transport_capability": { "enum": ["manual", "resume-only"] },
+        "transport_mode": { "enum": ["manual", "resume-only", "automatic-required"] },
+        "author_transport_capability": {
+          "enum": ["manual", "resume-only", "live-wait", "native-push"]
+        },
         "no_commit_baseline": {
           "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/baseline" }]
         },
@@ -255,8 +257,10 @@
       "properties": {
         "schema": { "const": "ai-peer-review.delivery/v1" },
         "status": { "enum": ["delivered", "delivery-pending"] },
-        "transport": { "enum": ["manual", "resume-only"] },
-        "reason": { "enum": ["resume-command-failed", "resume-adapter-invalid"] },
+        "transport": { "enum": ["manual", "resume-only", "native-push"] },
+        "reason": {
+          "enum": ["resume-command-failed", "resume-adapter-invalid", "native-push-failed"]
+        },
         "manual": {
           "type": "object",
           "additionalProperties": false,

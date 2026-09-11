@@ -188,7 +188,7 @@ export function validateConfig(value) {
     }
     if (
       value.review.transport_mode !== undefined &&
-      !['manual', 'resume-only'].includes(value.review.transport_mode)
+      !['manual', 'resume-only', 'automatic-required'].includes(value.review.transport_mode)
     )
       invalid('review.transport_mode is invalid.');
   }

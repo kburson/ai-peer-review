@@ -224,9 +224,6 @@ function validateConstraints(command, args, options) {
       'resume-only',
       'automatic-required',
     ]);
-    if (options.transportMode === 'automatic-required') {
-      usage('automatic-required is unavailable until Phase 2');
-    }
     if (options.claimTtlMs === undefined) options.claimTtlMs = 8 * 60 * 60 * 1000;
   }
   if (command === 'submit') {
