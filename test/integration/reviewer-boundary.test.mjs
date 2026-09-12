@@ -123,6 +123,7 @@ test('reviewer submit tolerates Codex checkpoint refs created after join', async
   });
 
   assert.equal(result.state, 'acceptance-pending');
+  assert.equal(result.next_action, 'finalize-acceptance');
 });
 
 test('reviewer submit rejects a retained ref and explains legacy restart without mutation', async (t) => {

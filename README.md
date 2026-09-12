@@ -265,10 +265,10 @@ locally. Before that — or if you would rather install nothing at all — call 
 by its full registry name:
 
 ```bash
-npx --yes ai-peer-review@0.2.1 --help
-npx --yes ai-peer-review@0.2.1 setup --scope project --agent claude --dry-run
-npx --yes ai-peer-review@0.2.1 start docs/spec.md --artifact-kind spec
-npx --yes ai-peer-review@0.2.1 status .scratch/peer-review/<review-id> --next
+npx --yes ai-peer-review@0.2.2 --help
+npx --yes ai-peer-review@0.2.2 setup --scope project --agent claude --dry-run
+npx --yes ai-peer-review@0.2.2 start docs/spec.md --artifact-kind spec
+npx --yes ai-peer-review@0.2.2 status .scratch/peer-review/<review-id> --next
 ```
 
 | Command         | Role            | What it does                                   |
