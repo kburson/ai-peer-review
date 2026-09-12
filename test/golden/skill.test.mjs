@@ -19,6 +19,11 @@ test('installable skill states the complete provider-neutral operating contract'
     'automatic-required',
     'wait_for_handoff',
     'resident lease',
+    'refs/codex/turn-diffs/checkpoints/',
+    'every other ref',
+    '0.2.1',
+    'preserve the existing review workspace',
+    'draft evidence',
   ]) {
     assert.match(text, new RegExp(phrase, 'i'), phrase);
   }

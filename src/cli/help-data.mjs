@@ -459,7 +459,8 @@ const ERROR_CATALOG = Object.freeze({
   },
   APR_REVIEWER_GIT_VIOLATION: {
     message: 'Reviewer-time repository state differs from the sealed read-only boundary.',
-    recovery: 'Restore the event-authorized repository state without discarding unrelated work.',
+    recovery:
+      'For a 0.2.1 ref-only failure, preserve the existing review workspace and not-yet-submitted response, then restart with the fixed package. Otherwise restore the event-authorized repository state without discarding unrelated work.',
   },
   APR_GIT_WORKTREE_CHANGED: {
     message: 'Submission is running from a different physical Git worktree.',
@@ -708,7 +709,7 @@ function topic(command) {
         : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [
       COMMAND_USAGE[command],
-      `npx --yes ai-peer-review@0.2.1 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      `npx --yes ai-peer-review@0.2.2 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
     ],
     result: 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
