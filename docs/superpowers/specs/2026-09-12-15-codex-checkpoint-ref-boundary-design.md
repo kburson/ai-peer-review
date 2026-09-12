@@ -116,4 +116,3 @@ The defect is released as patch version 0.2.2. The implementation is merged to
 published by the existing tag-triggered GitHub Actions release workflow. Public
 npm metadata, the GitHub release artifact and checksum, tag signature, release
 workflow, and post-merge CI must be verified before completion is reported.
-
