@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:3d30a49821b81f52a8ac1bef4cfcd3fb7b31e1f7401a3a788d31dd4946ffeb5b" -->
+<!-- ai-peer-review-template version="1" digest="sha256:5ef8111dbcec622861cb5118bef715ab6c5d3180270da80c9637357b933a2f80" -->
 
 # Author startup
 
@@ -13,4 +13,4 @@ Mode: `normal`
 
 Installed help: `peer-review status --help`
 
-Zero-install help: `npx --yes ai-peer-review@0.2.1 status --help`
+Zero-install help: `npx --yes ai-peer-review@0.2.2 status --help`

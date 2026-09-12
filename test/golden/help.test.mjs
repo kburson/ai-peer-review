@@ -87,6 +87,10 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.equal(explainError('APR_TEMPLATE_INVALID').code, 'APR_TEMPLATE_INVALID');
   assert.ok(helpRequest('review', 'json', { search: true }).matches.includes('submit'));
   assert.equal(explainError('APR_ARTIFACT_DIRTY').code, 'APR_ARTIFACT_DIRTY');
+  assert.match(
+    explainError('APR_REVIEWER_GIT_VIOLATION').recovery,
+    /0\.2\.1.*preserve.*workspace.*restart/i
+  );
   assert.throws(
     () => explainError('APR_UNKNOWN'),
     (error) => error.code === 'APR_USAGE'

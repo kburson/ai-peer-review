@@ -1,5 +1,5 @@
 import { execFileSync as nodeExecFileSync } from 'node:child_process';
-import { chmodSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -59,6 +59,61 @@ test('reports commit trees, changed paths, and ignored probes', (t) => {
   assert.deepEqual(repository.changedPaths(fixture.root, 'HEAD', 'HEAD'), []);
   assert.equal(repository.checkIgnored(fixture.root, '.scratch/peer-review/probe'), true);
   assert.equal(repository.checkIgnored(fixture.root, '.scratch/not-peer-review'), false);
+});
+
+test('reviewer boundary excludes only exact Codex checkpoint refs', (t) => {
+  const fixture = createRepositoryFixture(t);
+  const repository = createGitRepository();
+  const response = 'reviews/response.md';
+  unlinkSync(path.join(fixture.root, 'docs', 'outside-link'));
+  const initial = repository.reviewerBoundary(fixture.root, response);
+  const checkpoint = 'refs/codex/turn-diffs/checkpoints/session/turn-1';
+
+  nodeExecFileSync('git', ['update-ref', checkpoint, fixture.head], {
+    cwd: fixture.root,
+    stdio: 'ignore',
+    shell: false,
+  });
+  assert.deepEqual(repository.reviewerBoundary(fixture.root, response), initial);
+
+  nodeExecFileSync('git', ['update-ref', checkpoint, fixture.artifactBlob], {
+    cwd: fixture.root,
+    stdio: 'ignore',
+    shell: false,
+  });
+  assert.deepEqual(repository.reviewerBoundary(fixture.root, response), initial);
+
+  let retained = initial;
+  for (const refname of [
+    'refs/codex/turn-diffs/checkpoint/session/turn-1',
+    'refs/codex/turn-diffs/checkpoints-evil/session/turn-1',
+    'refs/heads/reviewer-boundary-control',
+  ]) {
+    nodeExecFileSync('git', ['update-ref', refname, fixture.head], {
+      cwd: fixture.root,
+      stdio: 'ignore',
+      shell: false,
+    });
+    const observed = repository.reviewerBoundary(fixture.root, response);
+    assert.notEqual(observed.refs_digest, retained.refs_digest, refname);
+    retained = observed;
+  }
+});
+
+test('reviewer boundary fails closed on a malformed ref inventory', (t) => {
+  const fixture = createRepositoryFixture(t);
+  unlinkSync(path.join(fixture.root, 'docs', 'outside-link'));
+  const repository = createGitRepository({
+    execFileSync(command, args, options) {
+      if (args[0] === 'for-each-ref') return Buffer.from('refs/heads/trunk\0\0\n');
+      return nodeExecFileSync(command, args, options);
+    },
+  });
+
+  assert.throws(
+    () => repository.reviewerBoundary(fixture.root, 'reviews/response.md'),
+    (error) => error.code === 'APR_GIT_FAILED' && /malformed ref inventory/.test(error.message)
+  );
 });
 
 test('refuses untracked artifacts with a stable APR error', (t) => {

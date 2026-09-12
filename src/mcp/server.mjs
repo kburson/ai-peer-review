@@ -52,7 +52,7 @@ function toolResult(value, { error = false } = {}) {
 export function createHandoffMcpServer({
   createServer = (identity) => new McpServer(identity),
   repositoryRoot,
-  version = '0.2.1',
+  version = '0.2.2',
   wait = waitForHandoff,
   createDeliveries = createLiveDeliverySource,
 } = {}) {
