@@ -708,7 +708,7 @@ function topic(command) {
         : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [
       COMMAND_USAGE[command],
-      `npx --yes ai-peer-review@0.2.0 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      `npx --yes ai-peer-review@0.2.1 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
     ],
     result: 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
