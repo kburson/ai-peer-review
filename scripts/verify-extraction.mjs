@@ -35,6 +35,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     '.github/workflows',
     'bin',
     'docs/design',
+    'docs/whitepapers',
     'provenance',
     'schemas',
     'skills/peer-review',

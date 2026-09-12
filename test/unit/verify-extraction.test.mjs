@@ -71,6 +71,7 @@ function validManifest(overrides = {}) {
         '.github/workflows',
         'bin',
         'docs/design',
+        'docs/whitepapers',
         'provenance',
         'schemas',
         'skills/peer-review',
@@ -287,6 +288,19 @@ test('rejects a foreign path in standalone HEAD', async () => {
   );
 });
 
+test('accepts the bounded standalone white-paper documentation path', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: [
+        'LICENSE',
+        'docs/whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md',
+      ].join('\n'),
+    }),
+  });
+});
+
 test('rejects dangling or otherwise invalid Git refs', async () => {
   await assert.rejects(
     verifyExtraction({
@@ -341,6 +355,11 @@ for (const [name, mutate, pattern] of [
     'widened retained path rules',
     (m) => m.retained_path_rules.prefixes.push('private'),
     /retained path rules/,
+  ],
+  [
+    'widened standalone path rules',
+    (manifest) => manifest.standalone_path_rules.prefixes.push('private'),
+    /standalone path rules/,
   ],
   [
     'changed retained path inventory digest',
