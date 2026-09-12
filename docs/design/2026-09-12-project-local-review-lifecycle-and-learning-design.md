@@ -716,13 +716,19 @@ knowledge snapshot.
 
 Shared-database concurrency does not authorize concurrent retained-ref
 mutation. The Git common directory owns a durable coordination lease distinct
-from SQLite's short write transactions. Joining or resuming a reviewer turn
-registers an active reviewer interval with its sealed retained-ref digest.
+from SQLite's short write transactions. A sealed reviewer interval begins at
+the instant protocol authority installs its retained-ref boundary, not when the
+reviewer process later joins or resumes. Initial join captures the boundary and
+registers the interval atomically while holding the clone-wide mutation lease.
+Author submission performs its exact commit, captures the resulting reviewer
+boundary, and registers the next interval before releasing that same lease.
+
 Intake, author submission, finalization, migration, and experiment-arm commits
-must acquire the clone-wide mutation lease and prove that no reviewer interval
-is active in any linked worktree before changing a retained ref. If one is
-active, the operation returns `APR_GIT_COORDINATION_BUSY` with the exact waiting
-or resume action and performs no Git mutation.
+must acquire the clone-wide mutation lease and prove that no other sealed
+reviewer interval is active in any linked worktree before changing a retained
+ref. If one is active, the operation returns `APR_GIT_COORDINATION_BUSY` with
+the exact waiting or resume action and performs no Git mutation. A reviewer
+resume binds to the existing seal and never silently replaces its ref baseline.
 
 Agent reasoning and provider calls do not hold the SQLite write lock, and
 reviews may reason, edit isolated worktrees, and write row-isolated transient
@@ -733,6 +739,15 @@ boundary; no branch namespace beyond the existing package-defined private
 checkpoint exclusion is broadly exempted. Phase 2 must deliver this contract
 before advertising cross-worktree concurrency, and Phase 5 experiment arms
 depend on it.
+
+The sealed interval ends only when reviewer submission atomically validates the
+boundary and advances protocol authority away from that reviewer turn, or when
+a governed abandonment or participant-replacement intervention explicitly
+invalidates the old seal and records its disposition. Pending delivery, a
+dormant or suspended reviewer session, process loss, and an interruption after
+author handoff all retain the interval. Recovery resumes against the same
+boundary or enters intervention; it does not clear protection merely because no
+reviewer process is resident.
 
 Two experiment arms at the same baseline reuse one snapshot and indexed corpus
 while storing separate review-session rows.
@@ -789,6 +804,15 @@ The initial retrieval engine uses deterministic metadata filters plus SQLite
 full-text ranking. Optional embeddings remain local derived data and must record
 their model and compiler versions. They may supplement lexical ranking but may
 not bypass lifecycle, scope, committed-snapshot, or acceptance filters.
+
+Every ranking input is snapshot-local. Full-text corpus statistics, document
+frequencies, normalization values, embedding candidates, tie-breakers, and any
+learned features must be computed only from cases in the review's pinned
+snapshot and from the recorded query and configuration. Filtering a shared FTS5
+ranking after scoring is insufficient because out-of-snapshot rows can change
+the scores of eligible cases. An implementation may materialize a
+snapshot-scoped ranking table or use a scoring method whose result is provably
+independent of rows outside the snapshot.
 
 Every review manifest records:
 
@@ -1100,6 +1124,9 @@ phase's authority implicitly.
 - While one reviewer interval is active, reject another worktree's author commit
   without ref mutation; after the interval ends, serialize and receipt that
   commit successfully.
+- After author A seals a handoff but before reviewer A resumes, reject author
+  B's retained-ref mutation; preserve the same seal across interrupted delivery
+  and reviewer process loss until submission or governed intervention.
 - Reject an unauthorized retained-ref transition as a reviewer boundary
   violation even when the artifact, worktree, branch, `HEAD`, and index match.
 - Prove branch-only events cannot appear in another snapshot's retrieval.
@@ -1121,6 +1148,9 @@ phase's authority implicitly.
 - Never activate a scope solely from a similar directory name.
 - Exclude candidate, rejected, retired, superseded, uncommitted, and
   out-of-snapshot lessons.
+- Return the same ordering and selected cases in a fresh clone and in a clone
+  whose shared index also contains unrelated branch events outside the pinned
+  snapshot.
 - Enforce the token and case-count budgets deterministically.
 - Record a reproducible context digest and exact case list.
 
