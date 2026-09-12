@@ -1833,6 +1833,14 @@ function assertReviewerRepository(input, state, events, repository) {
         artifact.head === expectedHead &&
         artifact.blob === state.protocol.artifact.blob &&
         `sha256:${artifact.worktreeDigest}` === state.protocol.artifact.digest;
+  const nonRefBoundaryMatches = ['head', 'branch', 'index_digest', 'worktree_digest'].every(
+    (field) => boundary[field] === state.protocol.reviewer_boundary[field]
+  );
+  const refOnlyMismatch =
+    artifactMatches &&
+    snapshotMatches &&
+    nonRefBoundaryMatches &&
+    boundary.refs_digest !== state.protocol.reviewer_boundary.refs_digest;
   if (
     !artifactMatches ||
     !snapshotMatches ||
@@ -1840,8 +1848,12 @@ function assertReviewerRepository(input, state, events, repository) {
   ) {
     fail(
       'APR_REVIEWER_GIT_VIOLATION',
-      'Reviewer submission detected artifact or HEAD mutation.',
-      'Restore the event-authorized artifact and HEAD without discarding unrelated work.',
+      refOnlyMismatch
+        ? 'Reviewer submission detected retained-ref drift or a legacy ref boundary.'
+        : 'Reviewer submission detected artifact or HEAD mutation.',
+      refOnlyMismatch
+        ? 'A retained ref changed, or the review was sealed by the 0.2.1 legacy all-ref policy. Preserve the existing review workspace and unsubmitted response, then restart the review with the fixed package; do not treat the draft as accepted evidence.'
+        : 'Restore the event-authorized artifact and HEAD without discarding unrelated work.',
       {
         artifact_matches: artifactMatches,
         snapshot_matches: snapshotMatches,

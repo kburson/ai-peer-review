@@ -104,6 +104,52 @@ test('reviewer submit tolerates unchanged pre-existing staged and unstaged work'
   assert.deepEqual(readFileSync(path.join(fx.root, 'outside-working.txt')), working);
 });
 
+test('reviewer submit tolerates Codex checkpoint refs created after join', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const { reviewer, started } = await prepare(fx.root, 'reviewer-codex-checkpoint');
+  git(fx.root, [
+    'update-ref',
+    'refs/codex/turn-diffs/checkpoints/session/turn-1/checkpoint',
+    'HEAD',
+  ]);
+
+  const result = await submitReviewTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'accepted',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+
+  assert.equal(result.state, 'acceptance-pending');
+});
+
+test('reviewer submit rejects a retained ref and explains legacy restart without mutation', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const { reviewer, started, joined } = await prepare(fx.root, 'reviewer-retained-ref-control');
+  const eventsBefore = readFileSync(started.paths.events);
+  const responseBefore = readFileSync(joined.paths.response);
+  git(fx.root, ['update-ref', 'refs/heads/reviewer-boundary-control', 'HEAD']);
+
+  await assert.rejects(
+    submitReviewTurn({
+      cwd: fx.root,
+      workspace: started.paths.workspace,
+      identity: reviewer,
+      decision: 'accepted',
+      now: '2026-09-09T02:01:00.000Z',
+    }),
+    (error) =>
+      error.code === 'APR_REVIEWER_GIT_VIOLATION' &&
+      /retained ref changed|legacy all-ref policy/i.test(error.recovery) &&
+      /preserve.*workspace.*restart/i.test(error.recovery)
+  );
+  assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
+  assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
+});
+
 test('reviewer submit rejects post-join index, branch, and protocol-path drift without mutation', async (t) => {
   const cases = [
     {

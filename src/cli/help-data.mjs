@@ -459,7 +459,8 @@ const ERROR_CATALOG = Object.freeze({
   },
   APR_REVIEWER_GIT_VIOLATION: {
     message: 'Reviewer-time repository state differs from the sealed read-only boundary.',
-    recovery: 'Restore the event-authorized repository state without discarding unrelated work.',
+    recovery:
+      'For a 0.2.1 ref-only failure, preserve the existing review workspace and unsubmitted response, then restart with the fixed package. Otherwise restore the event-authorized repository state without discarding unrelated work.',
   },
   APR_GIT_WORKTREE_CHANGED: {
     message: 'Submission is running from a different physical Git worktree.',
