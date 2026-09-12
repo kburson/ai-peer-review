@@ -343,15 +343,23 @@ Plans inherit the specification's `chainId` and identify the source
 Peer-review accepts one explicit artifact path and never scans a directory to
 guess which file should be reviewed.
 
-If a submitted Superpowers artifact is still directly under
-`docs/superpowers/specs` or `docs/superpowers/plans`, author-side intake moves it
-to the matching date-sharded `proposed` directory before binding the review. The
-move uses an exact-path Git transaction and receives a path-history receipt. The
-review begins only after the moved artifact is committed and clean.
+In normal commit mode, if a submitted Superpowers artifact is still directly
+under `docs/superpowers/specs` or `docs/superpowers/plans`, author-side intake
+moves it to the matching date-sharded `proposed` directory before binding the
+review. The move uses an exact-path Git transaction and receives a path-history
+receipt. The review begins only after the moved artifact is committed and clean.
+
+No-commit test mode never performs intake movement. It binds the FUR at the
+explicit original path and records any proposed lifecycle projection only in
+the transient review state. It does not write a production catalog event or
+regenerate a human index.
 
 An artifact already under `proposed` is used in place. An artifact outside the
 configured Superpowers lifecycle may still be reviewed, but no lifecycle move
-is implied.
+is implied. An approved or delivered artifact path is not valid intake for a
+new review: matching recorded bytes fail with `APR_ARTIFACT_ALREADY_APPROVED`,
+and digest drift fails with `APR_APPROVED_ARTIFACT_CHANGED`. Both recoveries
+direct the author to create an explicit successor under `proposed`.
 
 ### Review revisions
 
@@ -374,6 +382,14 @@ terminal agreement and manifest, and commits the exact finalization bundle.
 There is never a proposed and approved complete copy of the same artifact in one
 commit.
 
+In no-commit test mode, finalization does not move the FUR, create a Git commit,
+write a production catalog event, or regenerate an index. It may retain the
+existing uncommitted response, patch, agreement, and manifest outputs required
+by the test protocol, all labeled `NO-COMMIT TEST MODE`. The terminal state is
+`accepted-uncommitted`, which has no production approval or delivery effect.
+Production catalog readers and downstream consumers consider only committed
+normal-mode lifecycle events.
+
 ### Delivery
 
 Delivery never moves the file again. A specification becomes delivered when a
@@ -383,6 +399,21 @@ items. The artifact catalog retains the receipt, time, host, target IDs,
 commits, and digests.
 
 The approved path therefore remains a stable source for downstream references.
+
+### Post-approval changes
+
+An approved or delivered artifact is immutable at its recorded path and digest.
+A substantive change requires a successor with a new `artifactId`, a distinct
+proposed path, the same `chainId`, and a `supersedesArtifactId` link to the prior
+artifact. The predecessor's approval and delivery receipts remain historical
+facts and its stable path remains byte-identical.
+
+Within a chain, current readiness always points to one explicitly approved
+artifact ID and digest. Until a successor is approved, the predecessor remains
+current. After successor approval, indexes and downstream consumers expose the
+successor's readiness while retaining the predecessor under historical delivery
+or supersession. A catalog/path digest mismatch is a fail-closed needs-attention
+condition; it never silently changes which bytes are approved or delivered.
 
 ### Disposition
 
@@ -405,7 +436,8 @@ artifacts into:
 
 Each row shows the chain and links specification, plan, backlog receipt, current
 artifact path, and latest review manifest. Regeneration must be deterministic,
-and CI rejects index drift.
+and CI rejects index drift. Current-readiness rows include the authoritative
+artifact digest and refuse to project a path whose bytes do not match it.
 
 ## Review evidence model
 
@@ -447,7 +479,17 @@ The review manifest records for each revision:
 - author-response path and digest;
 - patch path and digest;
 - finding IDs and dispositions; and
-- the commit containing the complete turn evidence bundle.
+- the prior commit containing the artifact, responses, patch, and other evidence
+  to which the manifest checkpoint refers.
+
+Commit receipts use explicit predecessor ordering; a manifest never claims to
+contain the hash of its own commit. For a normal revision, the package first
+creates evidence commit `C1` containing the verified FUR transition, responses,
+and patch. It then writes a manifest checkpoint that records `C1` and commits
+that checkpoint as `C2`. Git history identifies `C2` as the commit containing
+the checkpoint; `C2` may be recorded only by a later monotonic checkpoint or an
+amendment, never inside its own bytes. The terminal checkpoint becomes immutable
+after `C2`.
 
 Patch files preserve the visible change associated with each review cycle after
 squash integration. They are not required to reconstruct the FUR. If historical
@@ -473,6 +515,12 @@ transaction. On startup, reconciliation compares manifest receipts, expected
 paths, file digests, Git commits, and database operations. Complete identical
 work is reused idempotently. Missing, partial, or conflicting output fails
 closed and preserves all bytes.
+
+A crash after `C1` but before `C2` leaves durable evidence that is not yet a
+verified manifest checkpoint. Reconciliation verifies the reserved operation,
+exact `C1` tree, and expected checkpoint bytes before creating or reusing `C2`;
+any mismatch enters intervention without rewriting `C1` or fabricating a
+self-referential receipt.
 
 Deleting SQLite may lose provider handles, leases, and uncommitted no-commit
 snapshots. It may inconvenience or interrupt an active review, but it must not
@@ -665,6 +713,26 @@ Several worktrees may run reviews concurrently. The database may contain events
 observed on many branches, but `snapshot_events` prevents cross-branch leakage:
 a review can query only event IDs that are members of its pinned committed
 knowledge snapshot.
+
+Shared-database concurrency does not authorize concurrent retained-ref
+mutation. The Git common directory owns a durable coordination lease distinct
+from SQLite's short write transactions. Joining or resuming a reviewer turn
+registers an active reviewer interval with its sealed retained-ref digest.
+Intake, author submission, finalization, migration, and experiment-arm commits
+must acquire the clone-wide mutation lease and prove that no reviewer interval
+is active in any linked worktree before changing a retained ref. If one is
+active, the operation returns `APR_GIT_COORDINATION_BUSY` with the exact waiting
+or resume action and performs no Git mutation.
+
+Agent reasoning and provider calls do not hold the SQLite write lock, and
+reviews may reason, edit isolated worktrees, and write row-isolated transient
+state concurrently. Only the short ref-changing transaction is serialized. Its
+receipt records the operation ID and exact before/after ref values. An
+unexpected retained-ref change still invalidates every affected reviewer
+boundary; no branch namespace beyond the existing package-defined private
+checkpoint exclusion is broadly exempted. Phase 2 must deliver this contract
+before advertising cross-worktree concurrency, and Phase 5 experiment arms
+depend on it.
 
 Two experiment arms at the same baseline reuse one snapshot and indexed corpus
 while storing separate review-session rows.
@@ -897,9 +965,12 @@ storage.
 ### Superpowers compatibility
 
 The package continues to accept explicit paths emitted by existing Superpowers
-skills. Intake normalization is owned by peer-review and occurs before review;
-approval movement occurs only after acceptance. Executing-plans and other
-consumers continue to receive an explicit final path.
+skills. In normal commit mode, intake normalization is owned by peer-review and
+occurs before review; approval movement occurs only after acceptance. In
+no-commit test mode both movements are disabled, the original explicit path is
+retained, and the accepted-uncommitted result is never exposed as production
+readiness. Executing-plans and other consumers continue to receive an explicit,
+committed final path.
 
 Patch, response, and knowledge files live outside `docs/superpowers/specs` and
 `plans`, so filename-based skill behavior cannot mistake them for canonical
@@ -942,6 +1013,8 @@ change.
 - Add `.peer-review` project configuration and schemas.
 - Add artifact IDs, chain IDs, catalog records, and generated indexes.
 - Add proposed-to-approved path normalization.
+- Preserve end-to-end no-commit semantics across intake, acceptance,
+  finalization, catalogs, indexes, and delivery gates.
 - Move new review evidence to `.peer-review/reviews`.
 - Generate and verify per-turn patches.
 - Add terminal immutability and amendments.
@@ -953,6 +1026,8 @@ change.
 - Materialize current protocol and completed review receipts.
 - Replace new-review scratch coordination with SQLite tables.
 - Add startup reconciliation, cross-worktree concurrency, and rebuild behavior.
+- Add the clone-wide retained-ref mutation lease before enabling concurrent
+  cross-worktree author commits.
 - Preserve no-commit behavior and current protocol parity.
 
 ### Phase 3: Project-local knowledge retrieval
@@ -999,6 +1074,11 @@ phase's authority implicitly.
 - Preserve one complete FUR through review and approval movement.
 - Record exact path history across moves.
 - Keep approved paths stable after downstream delivery.
+- Reject mutation or review intake at an approved path and require a distinct
+  digest-bound successor while preserving historical approval and delivery.
+- Complete a no-commit review that starts from a root Superpowers path without
+  moving the FUR, changing `HEAD` or the index, or affecting production indexes
+  and delivery eligibility.
 - Generate deterministic human indexes and detect drift.
 
 ### Patch tests
@@ -1017,6 +1097,11 @@ phase's authority implicitly.
 - Rebuild after deletion or compatible corruption.
 - Preserve or safely interrupt active sessions during incompatible recovery.
 - Run simultaneous reviews from several worktrees without row collision.
+- While one reviewer interval is active, reject another worktree's author commit
+  without ref mutation; after the interval ends, serialize and receipt that
+  commit successfully.
+- Reject an unauthorized retained-ref transition as a reviewer boundary
+  violation even when the artifact, worktree, branch, `HEAD`, and index match.
 - Prove branch-only events cannot appear in another snapshot's retrieval.
 
 ### Recovery and parity tests
@@ -1024,6 +1109,8 @@ phase's authority implicitly.
 - Delete SQLite and reconstruct durably completed review state from tracked
   evidence.
 - Interrupt each writing, written, and verified transition and reconcile safely.
+- Interrupt between evidence commit `C1` and manifest-checkpoint commit `C2`,
+  then reuse exact completed work without a self-referential commit receipt.
 - Prove current event-reducer and no-commit behavior against retained golden
   fixtures before retiring scratch workspaces for new reviews.
 - Prove terminal files cannot be modified and amendments remain append-only.
@@ -1090,7 +1177,13 @@ The architecture is complete when:
 13. provider diversity is recommended and measurable but never mandatory;
 14. provider-comparison arms begin with identical controlled inputs and do not
     deliver a variant automatically; and
-15. existing Superpowers behavior remains unchanged when peer-review is not
+15. concurrent linked-worktree reviews serialize retained-ref mutations without
+    weakening the reviewer boundary;
+16. approved and delivered bytes remain immutable, with later work represented
+    by a digest-bound successor;
+17. no-commit test mode leaves `HEAD`, the index, lifecycle catalogs, indexes,
+    approval, and delivery authority unchanged; and
+18. existing Superpowers behavior remains unchanged when peer-review is not
     invoked.
 
 ## Final decision
