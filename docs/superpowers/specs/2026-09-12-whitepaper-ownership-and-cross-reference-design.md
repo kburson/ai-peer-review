@@ -3,8 +3,9 @@
 ## Status
 
 - Date: 2026-09-12
-- Status: Approved for written-spec review
-- Scope: Documentation organization and cross-repository linking only
+- Status: Approved with bounded provenance amendment
+- Scope: Documentation organization, cross-repository linking, and explicit
+  standalone-path authorization
 
 ## Decision
 
@@ -27,6 +28,18 @@ The normative runtime design remains under `docs/design/` and updates its
 relative link to the new white-paper path. The move preserves the current paper
 content, including any uncommitted research revisions present in the primary
 clone when implementation begins.
+
+The extraction verifier enforces a closed standalone repository layout. The
+move therefore adds `docs/whitepapers` to the standalone prefix allowlist and
+adds the following planning records as exact standalone paths:
+
+- `docs/superpowers/specs/2026-09-12-whitepaper-ownership-and-cross-reference-design.md`
+- `docs/superpowers/plans/2026-09-12-whitepaper-ownership-and-cross-reference.md`
+
+The manifest, verifier constant, and test fixture must change together. The
+authorization does not modify the immutable retained-history rules, retained
+path inventory, extraction source, contributor audit, secret-scan evidence, or
+relicensing record.
 
 Writing Studio's Article 16 remains at:
 
@@ -55,6 +68,8 @@ Implementation changes only:
 
 - the white paper's location in `ai-peer-review`;
 - links in `ai-peer-review` that target the old location; and
+- the standalone-layout manifest, verifier expectation, and focused tests
+  required to authorize the new documentation paths; and
 - the contextual source reference in Writing Studio Article 16.
 
 It does not revise the paper's prose, complete the draft article, add a white-
@@ -68,6 +83,8 @@ The implementation must prove:
 - the old white-paper path no longer exists;
 - the new path contains the current paper without content loss;
 - all repository-local links resolve;
+- the extraction verifier accepts the three bounded documentation additions
+  while continuing to reject unrelated foreign paths and manifest drift;
 - the Article 16 reference targets the public `trunk` URL;
 - Markdown, spelling, formatting, and local-link checks pass in each affected
   repository; and
