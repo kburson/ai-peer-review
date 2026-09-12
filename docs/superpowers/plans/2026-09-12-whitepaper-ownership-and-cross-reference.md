@@ -13,11 +13,13 @@ architectural foundation.
 
 **Architecture:** `ai-peer-review` keeps the normative design under
 `docs/design/` and moves the canonical paper under `docs/whitepapers/`.
-Its closed extraction verifier explicitly authorizes that prefix plus the two
-exact planning-record paths without widening retained-history rules. Writing
-Studio keeps only an editorial interpretation and a public GitHub link; there
-is no copied or synchronized paper. The two repository changes are committed
-independently and integrated in source-before-link order.
+Its closed extraction verifier explicitly authorizes only that new prefix
+without widening retained-history rules. The publishable parity guard
+additionally requires the approved design to move into `docs/design/` and the
+execution plan to be removed from delivered HEAD.
+Writing Studio keeps only an editorial interpretation and a public GitHub link;
+there is no copied or synchronized paper. The two repository changes are
+committed independently and integrated in source-before-link order.
 
 **Tech Stack:** Markdown, Git, Prettier, Markdownlint, CSpell, Node.js test and
 publication checks
@@ -30,8 +32,10 @@ publication checks
 - Do not modify, stash, discard, or commit unrelated dirty files in either
   primary repository.
 - Writing Studio links to the public `trunk` document and contains no mirror.
-- Add only `docs/whitepapers` as a standalone prefix and the approved design and
-  plan as exact standalone paths; do not widen `docs/superpowers` generally.
+- Add only `docs/whitepapers` as a standalone prefix; do not authorize any new
+  `docs/superpowers` path.
+- Deliver the approved ownership design under `docs/design/`; retain this plan
+  in branch history but remove it from publishable HEAD.
 - Do not change retained-history rules, retained path inventory, extraction
   source identity, contributor evidence, secret-scan evidence, or relicensing
   evidence.
@@ -56,7 +60,7 @@ publication checks
 - Modify: `scripts/verify-extraction.mjs`
 - Modify: `test/unit/verify-extraction.test.mjs`
 - Reference:
-  `docs/superpowers/specs/2026-09-12-whitepaper-ownership-and-cross-reference-design.md`
+  `docs/design/2026-09-12-whitepaper-ownership-and-cross-reference-design.md`
 
 **Interfaces:**
 
@@ -145,18 +149,12 @@ document retains the old same-directory relative link.
 - [ ] **Step 5: Add a focused failing standalone-layout test**
 
 In `validManifest()` in `test/unit/verify-extraction.test.mjs`, add
-`docs/whitepapers` to `standalone_path_rules.prefixes` and these two entries to
-`standalone_path_rules.exact`:
-
-```js
-'docs/superpowers/plans/2026-09-12-whitepaper-ownership-and-cross-reference.md',
-'docs/superpowers/specs/2026-09-12-whitepaper-ownership-and-cross-reference-design.md',
-```
+`docs/whitepapers` to `standalone_path_rules.prefixes`.
 
 Add this test after `rejects a foreign path in standalone HEAD`:
 
 ```js
-test('accepts the bounded standalone white-paper documentation paths', async () => {
+test('accepts the bounded standalone white-paper documentation path', async () => {
   await verifyExtraction({
     root: '/repo',
     manifest: validManifest(),
@@ -164,8 +162,6 @@ test('accepts the bounded standalone white-paper documentation paths', async () 
       current: [
         'LICENSE',
         'docs/whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md',
-        'docs/superpowers/plans/2026-09-12-whitepaper-ownership-and-cross-reference.md',
-        'docs/superpowers/specs/2026-09-12-whitepaper-ownership-and-cross-reference-design.md',
       ].join('\n'),
     }),
   });
@@ -198,8 +194,7 @@ yet authorize the new paths.
 In both `provenance/extraction-manifest.json` and
 `EXPECTED_STANDALONE_PATH_RULES` in `scripts/verify-extraction.mjs`:
 
-- add `docs/whitepapers` to `prefixes`; and
-- add the two exact planning-record paths from Step 5 to `exact`.
+- add `docs/whitepapers` to `prefixes`.
 
 Do not change `retained_path_rules`, `legacy_retained_path_rules`,
 `retained_path_inventory`, or any extraction identity/evidence field.
@@ -216,7 +211,25 @@ node scripts/verify-extraction.mjs
 Expected: the focused acceptance and rejection tests pass, and the executable
 verifier exits 0 against the current worktree.
 
-- [ ] **Step 7: Run the `ai-peer-review` quality gates**
+- [ ] **Step 7: Remove non-publishable workflow collateral**
+
+Move the approved design to
+`docs/design/2026-09-12-whitepaper-ownership-and-cross-reference-design.md`.
+Use `apply_patch` to delete this implementation plan from delivered HEAD after
+all remaining execution steps have been captured in the active session.
+
+Run:
+
+```bash
+test -f docs/design/2026-09-12-whitepaper-ownership-and-cross-reference-design.md
+test ! -e docs/superpowers/specs/2026-09-12-whitepaper-ownership-and-cross-reference-design.md
+test ! -e docs/superpowers/plans/2026-09-12-whitepaper-ownership-and-cross-reference.md
+```
+
+Expected: the approved decision remains publishable under `docs/design/` and no
+new `docs/superpowers/` file remains at HEAD.
+
+- [ ] **Step 8: Run the `ai-peer-review` quality gates**
 
 Run:
 
@@ -230,7 +243,7 @@ git diff --check
 
 Expected: every command exits 0. The test summaries report zero failures.
 
-- [ ] **Step 8: Commit the bounded implementation**
+- [ ] **Step 9: Commit the bounded implementation**
 
 Run:
 
@@ -238,7 +251,10 @@ Run:
 git status --short
 git add \
   docs/design/2026-09-11-provider-neutral-runtime-orchestration-design.md \
+  docs/design/2026-09-12-whitepaper-ownership-and-cross-reference-design.md \
   docs/whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md \
+  docs/superpowers/plans/2026-09-12-whitepaper-ownership-and-cross-reference.md \
+  docs/superpowers/specs/2026-09-12-whitepaper-ownership-and-cross-reference-design.md \
   provenance/extraction-manifest.json \
   scripts/verify-extraction.mjs \
   test/unit/verify-extraction.test.mjs
@@ -248,9 +264,10 @@ git commit -m "docs: organize canonical runtime white paper"
 ```
 
 Expected: the staged patch contains the research revisions, relative-link
-update, three synchronized standalone-rule changes, and focused regression
-test, with no unrelated paths. A previously committed pure rename may appear in
-branch history rather than this staged patch.
+update, design-record relocation, plan removal, three synchronized prefix-rule
+changes, and focused regression tests, with no unrelated paths. A previously
+committed pure paper rename may appear in branch history rather than this staged
+patch.
 
 ### Task 2: Link Writing Studio Article 16 to the Canonical Paper
 

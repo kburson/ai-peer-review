@@ -30,16 +30,16 @@ content, including any uncommitted research revisions present in the primary
 clone when implementation begins.
 
 The extraction verifier enforces a closed standalone repository layout. The
-move therefore adds `docs/whitepapers` to the standalone prefix allowlist and
-adds the following planning records as exact standalone paths:
+move therefore adds only `docs/whitepapers` to the standalone prefix allowlist.
+This approved design is delivered under the already-authorized `docs/design/`
+boundary. The execution plan remains recoverable in branch history but is
+removed from publishable HEAD because the parity guard forbids workflow
+collateral under `docs/superpowers/`.
 
-- `docs/superpowers/specs/2026-09-12-whitepaper-ownership-and-cross-reference-design.md`
-- `docs/superpowers/plans/2026-09-12-whitepaper-ownership-and-cross-reference.md`
-
-The manifest, verifier constant, and test fixture must change together. The
-authorization does not modify the immutable retained-history rules, retained
-path inventory, extraction source, contributor audit, secret-scan evidence, or
-relicensing record.
+The manifest, verifier constant, and test fixture change together. The
+authorization does not admit any new `docs/superpowers/` path or modify the
+immutable retained-history rules, retained path inventory, extraction source,
+contributor audit, secret-scan evidence, or relicensing record.
 
 Writing Studio's Article 16 remains at:
 
@@ -83,8 +83,9 @@ The implementation must prove:
 - the old white-paper path no longer exists;
 - the new path contains the current paper without content loss;
 - all repository-local links resolve;
-- the extraction verifier accepts the three bounded documentation additions
-  while continuing to reject unrelated foreign paths and manifest drift;
+- the extraction verifier accepts the new white-paper prefix while continuing
+  to reject publishable `docs/superpowers/` collateral, unrelated foreign
+  paths, and manifest drift;
 - the Article 16 reference targets the public `trunk` URL;
 - Markdown, spelling, formatting, and local-link checks pass in each affected
   repository; and
