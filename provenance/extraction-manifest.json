@@ -30,6 +30,7 @@
       ".github/workflows",
       "bin",
       "docs/design",
+      "docs/whitepapers",
       "provenance",
       "schemas",
       "skills/peer-review",

@@ -5,12 +5,12 @@
 ## Document status
 
 - **Date:** 2026-09-11
-- **Status:** Draft for human review
+- **Status:** Research-updated draft for human review
 - **Scope:** Design only; no runtime implementation or backlog issues are
   authorized by this document
 - **Related evidence:**
   [manual cross-provider case study](../manual-cross-provider-peer-review.md),
-  [runtime orchestration white paper](2026-09-11-provider-neutral-runtime-orchestration-white-paper.md),
+  [runtime orchestration white paper](../whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md),
   and
   [original extraction design](2026-09-07-ai-peer-review-extraction-design.md)
 
@@ -20,8 +20,8 @@ Extend `ai-peer-review` with three explicit, start-time runtime modes:
 
 1. `headless`: the package launches and owns a provider CLI agent;
 2. `session`: the package addresses an existing agent session through an
-   official session API or an explicitly approved vendor remote-control
-   surface; and
+   official session API or an explicitly approved, conformance-gated
+   cross-window surface; and
 3. `handoff`: independently owned agents exchange sealed results through the
    review workspace and are activated by a configured wake chain.
 
@@ -32,11 +32,12 @@ surfaces, and shuts down deterministically. Existing MCP live-wait behavior is
 retained as an optional wake adapter.
 
 The design adds a Google provider-family resolver and separate, conformance-
-gated adapters for eligible Gemini CLI and Antigravity CLI installations.
-Gemini consumer desktop UI automation remains unsupported. Antigravity Remote
-Control is an experimental cross-window candidate because it is official, but
-it does not become supported until exact-session browser automation passes the
-same identity, lifecycle, permission, and recovery contract as an API adapter.
+gated adapters for eligible Gemini CLI and Antigravity CLI installations. Local
+experiments prove Antigravity headless exact resume and active-conversation
+automation on the desktop app, Antigravity IDE, and VS Code extension. These UI
+surfaces remain experimental until they prove exact-session selection, cold
+resume, transactional submission, permission mediation, and fail-closed UI
+drift. Gemini consumer desktop UI automation remains unsupported.
 
 ## Goals
 
@@ -50,6 +51,10 @@ same identity, lifecycle, permission, and recovery contract as an API adapter.
 - Remove timer-driven model wakeups from normal orchestration.
 - Preserve exact provider-session continuity without publishing raw handles in
   tracked collateral.
+- Treat a cross-window timeout as an unknown outcome and reconcile target state
+  before any retry.
+- Correlate every automated prompt, submission, response, and retry with one
+  idempotent activation operation.
 - Provide an automatic, preauthorized wake fallback chain that never changes
   participant identity or runtime ownership silently.
 - Leave one exact recovery action when automatic activation fails.
@@ -63,10 +68,14 @@ same identity, lifecycle, permission, and recovery contract as an API adapter.
 
 ## Non-goals
 
-- Automating native provider desktop interfaces with generic keyboard/mouse
-  focus, accessibility transcript scraping, or undocumented URL schemes.
-- Treating a vendor remote-control web UI as supported until an explicit
-  adapter proves exact-session binding and fail-closed layout detection.
+- Treating generic window focus, cached coordinates, cached accessibility
+  indexes, or an unverified active conversation as exact-session authority.
+- Treating any native, IDE, extension, or vendor remote-control UI as supported
+  until a versioned adapter proves exact-session binding, transactional
+  submission, terminal observation, permission handling, and fail-closed layout
+  detection.
+- Reading or editing private provider transcript/session storage to compensate
+  for a missing public session locator.
 - Creating a universal provider transcript format.
 - Treating provider telemetry, process status, or session files as protocol
   authority.
@@ -85,8 +94,8 @@ same identity, lifecycle, permission, and recovery contract as an API adapter.
 ### Runtime mode
 
 The ownership model for the agent session that performs review turns. A session
-runtime may use an API or approved remote-control adapter, but neither changes
-the fact that the provider/host owns the existing session.
+runtime may use an API or approved cross-window adapter, but neither changes the
+fact that the provider/host owns the existing session.
 
 ### Wake adapter
 
@@ -103,6 +112,20 @@ observes provider events, and returns normalized output.
 
 A versioned implementation of provider-specific launch, session, identity,
 permission, output, and cancellation behavior.
+
+### Cross-window adapter
+
+A versioned session driver for one named application surface. It locates an
+exact conversation through exposed UI state, observes composer/turn/permission
+states, and performs an idempotent prompt-submission transaction. Application
+focus or a visible title alone is not a session locator.
+
+### Activation operation
+
+One attempt to deliver one governed invitation to one exact recipient session.
+It has a unique ID and immutable prompt, target-session, delivery, and cursor
+digests. A timeout can leave its outcome unknown; a new operation is forbidden
+until the old one is reconciled.
 
 ### Coordinator
 
@@ -124,24 +147,31 @@ a person is or is not present.
    change after startup.
 3. A fallback may change wake mechanism only. It may not change the registered
    participant, provider session, or runtime mode.
-4. Every programmatic activation targets an exact opaque session handle. No
-   automatic path may select “latest” or use a title when an exact ID exists.
+4. Every programmatic activation targets an exact opaque session handle or a
+   conformance-approved UI session locator. No automatic path may select
+   “latest,” rely on application focus, or use a title when an exact ID exists.
 5. Provider handles and process metadata remain under ignored review scratch.
 6. Wake notifications contain a review ID, recipient, and event cursor—not
    response content or secrets.
 7. The recipient revalidates event authority and sealed content after every
    activation.
 8. Delivery retries are idempotent and never create a second protocol turn.
-9. Exactly one valid coordinator lease may exist for one review.
-10. The coordinator removes only its own matching lease and terminates only its
+9. Every activation has one operation ID. A timeout becomes
+   `outcome-unknown`; it never authorizes immediate repeated injection.
+10. Cross-window submission is proven by one matching conversation-log entry,
+    not by a successful click, an empty composer, or a transport return value.
+11. Accessibility indexes and screen coordinates are ephemeral observations,
+    not persisted target identity.
+12. Exactly one valid coordinator lease may exist for one review.
+13. The coordinator removes only its own matching lease and terminates only its
     own exact child instances.
-11. Terminal review state and unrecoverable coordinator state trigger shutdown.
-12. An activation failure leaves the sealed turn recoverable and emits one exact
+14. Terminal review state and unrecoverable coordinator state trigger shutdown.
+15. An activation failure leaves the sealed turn recoverable and emits one exact
     next action.
-13. The reviewer non-mutation boundary applies equally in all runtime modes.
-14. Session/API capability must be documented and probed. An official remote-
-    control UI may be selected only through a conformance-approved adapter; UI
-    automation is never an implicit fallback.
+16. The reviewer non-mutation boundary applies equally in all runtime modes.
+17. Session/API capability must be documented and probed. A cross-window UI may
+    be selected only through a conformance-approved adapter; UI automation is
+    never an implicit fallback.
 
 ## Architecture
 
@@ -160,7 +190,7 @@ CLI / package API
        |                |                    |          |
  provider adapter  wake adapters       CLI/help        |
        |                |                               |
- headless/ACP/API   session API -> remote control ->    |
+ headless/ACP/API   session API -> cross-window ->      |
                     CLI resume -> MCP -> user recovery  |
                         |                               |
                         +---- durable workspace --------+
@@ -221,7 +251,7 @@ command string. The child process is launched without a shell.
 WakeAdapter = {
   name:
     | 'session-api'
-    | 'remote-control'
+    | 'cross-window'
     | 'cli-resume'
     | 'mcp-live-wait'
     | 'user-recovery',
@@ -234,6 +264,27 @@ WakeAdapter = {
 A `delivered` result means the target surface acknowledged the invitation. It
 does not mean the agent read or accepted the review result. The subsequent
 protocol event supplies that evidence.
+
+### Cross-window adapter interface
+
+```js
+CrossWindowAdapter = {
+  surface: '<application-and-extension-version>',
+  async locate(sessionReference): UiSessionObservation,
+  async observe(target): UiTurnObservation,
+  async prepare(operation): PreparedUiActivation,
+  async submit(prepared, signal): UiSubmissionResult,
+  async reconcile(operation): UiReconciliationResult,
+  recovery(operation): RecoveryInstruction,
+}
+```
+
+`locate` must return a stable conversation locator at the adapter's declared
+evidence strength. `prepare` proves the exact target is idle and normalizes the
+composer to zero or one copy of the operation prompt. `submit` never retries
+internally after an ambiguous timeout. `reconcile` re-reads fresh semantic UI
+state and proves `not-submitted`, `submitted-once`, `responded`, or
+`intervention-required`; it may not infer success from a control call alone.
 
 ### Recovery reporter
 
@@ -262,6 +313,7 @@ review:
       - user-recovery
     attempts_per_adapter: 1
     activation_timeout_ms: 30000
+    unknown_outcome_settle_ms: 3000
   coordinator:
     owner_loss_grace_ms: 5000
     provider_shutdown_grace_ms: 10000
@@ -288,6 +340,7 @@ adapter_requirements:
   protocol: '>=1'
   exact_resume: true
   read_only: true
+  idempotent_submit: true
 ```
 
 `reviewer_surface: auto` is resolved before mutation using account eligibility,
@@ -324,6 +377,10 @@ prints a deprecation notice for v1 configuration with an exact `config migrate
 peer-review start <artifact> --runtime headless --reviewer claude
 peer-review start <artifact> --runtime session \
   --reviewer codex --reviewer-session <opaque-reference>
+peer-review start <artifact> --runtime session \
+  --reviewer gemini --reviewer-surface antigravity-desktop \
+  --reviewer-session <opaque-reference> \
+  --wake cross-window,cli-resume,user-recovery
 peer-review start <artifact> --runtime handoff \
   --reviewer gemini --reviewer-surface antigravity-cli \
   --wake cli-resume,mcp-live-wait,user-recovery
@@ -350,15 +407,19 @@ peer-review help runtimes
 peer-review help runtime headless
 peer-review help runtime session
 peer-review help runtime handoff
+peer-review help wake cross-window
 peer-review explain runtime:handoff
 peer-review explain APR_WAKE_FAILED
 peer-review explain APR_COORDINATOR_STALE
 ```
 
 Help topics are offline, available in prose and `--json`, and golden-tested.
-Each runtime topic documents ownership, session prerequisites, human interaction,
-permission behavior, wake/fallback, evidence, failure states, security boundary,
-examples, and recovery.
+Each runtime topic documents ownership, session prerequisites, human
+interaction, permission behavior, wake/fallback, evidence, failure states,
+security boundary, examples, and recovery. Cross-window help additionally
+explains exact session locators, ephemeral UI indexes, operation IDs,
+outcome-unknown settling, permission intervention, and the prohibition on blind
+retry.
 
 ### Coordinator commands
 
@@ -407,25 +468,38 @@ status or can soft-deny a permission request.
 
 ### Session runtime
 
-1. User or host supplies an opaque exact-session reference.
-2. Adapter establishes a documented API or approved remote-control connection
+1. User or host supplies an opaque exact-session reference or an approved UI
+   session locator.
+2. Adapter establishes a documented API or approved cross-window connection
    and proves the session is addressable and idle.
 3. The session identity is normalized and compared with the registered reviewer
    fingerprint.
-4. Driver sends a bounded prompt naming the review, cursor, and governed result
-   paths.
-5. Adapter streams turn lifecycle and handles permission requests according to
+4. Driver creates an immutable activation operation naming the review, delivery,
+   cursor, governed result paths, target-session digest, and prompt digest.
+5. API drivers send the bounded prompt once. Cross-window drivers prepare and
+   re-read the composer until exactly one normalized prompt is visible, then
+   submit it once.
+6. A transport timeout becomes `outcome-unknown`. The driver stops retrying,
+   allows a bounded settling period, and reconciles the composer and
+   conversation log from fresh UI state.
+7. Submission is proven only when the conversation log contains one matching
+   activation operation. A cleared composer or successful UI action is not
+   proof.
+8. Adapter streams turn lifecycle and handles permission requests according to
    the sealed policy.
-6. Output is returned to the protocol service for validation and sealing.
-7. Loss of the control connection may use an authorized exact-resume fallback
-   only when it addresses the same provider session.
+9. Output is correlated with the activation operation and returned to the
+   protocol service for validation and sealing.
+10. Loss of the control connection may use an authorized exact-resume fallback
+    only when it addresses the same provider session.
 
-An official vendor remote-control UI may implement this runtime only through a
-separately named experimental adapter. It must bind an immutable session
-identifier before sending input, detect layout/version drift before every turn,
-observe the resulting terminal state, and stop on any ambiguous focus,
-authentication, or permission state. Generic native-window automation is not a
-session driver.
+A native app, IDE, extension, or vendor remote-control UI may implement this
+runtime only through a separately named experimental adapter. It must bind an
+immutable session identifier or approved UI locator before sending input,
+reacquire semantic UI state after every transition, detect layout/version drift
+before every turn, observe terminal state, and stop on ambiguous focus,
+authentication, permission, composer, or submission state. Cached accessibility
+indexes and coordinates are never reused as identity. Generic window automation
+without this contract is not a session driver.
 
 Concurrent external interaction is allowed between turns. If a person starts a
 turn while the coordinator is activating the session, the adapter returns
@@ -455,8 +529,8 @@ revalidated even if the watcher supplies a filename.
 The supported ordered adapters are:
 
 1. `session-api`: inject through an official host/provider session API;
-2. `remote-control`: automate an explicitly selected, conformance-approved
-   vendor browser surface;
+2. `cross-window`: automate an explicitly selected, conformance-approved native,
+   IDE, extension, or vendor remote-control surface;
 3. `cli-resume`: invoke the provider's exact resume form with a bounded prompt;
 4. `mcp-live-wait`: satisfy the current pending `wait_for_handoff` call; and
 5. `user-recovery`: print and persist the exact manual continuation command.
@@ -467,13 +541,19 @@ Rules:
 - Automatic adapters must be explicitly listed or implied by the selected
   runtime's documented default and confirmed in startup output.
 - Each adapter has a bounded attempt count and timeout.
-- Transient retry uses capped exponential backoff within the same adapter and
-  does not wake the model between attempts.
+- A timeout after a potentially side-effecting API or UI action is
+  `outcome-unknown`, not transient failure. Reconciliation must prove
+  `not-submitted` before retry.
+- A proven pre-submission transient failure may use capped exponential backoff
+  within the same adapter and does not wake the model between attempts.
 - Permanent capability, identity, integrity, or permission errors skip retry.
 - No adapter can target a session whose handle digest/fingerprint differs from
   startup authority.
 - Successful API/CLI invocation without subsequent protocol consumption before
   the activation deadline becomes `APR_WAKE_UNCONFIRMED`, not success.
+- A cross-window adapter may fall back only before submission or after proving
+  the recorded operation was not submitted. An unknown or submitted outcome
+  blocks another wake adapter from injecting the same turn again.
 - Fallback attempts are append-only scratch diagnostics. A final
   intervention-required transition is authoritative.
 
@@ -598,7 +678,7 @@ behavior are never inferred across surfaces.
   configurations. Detect the consumer `UNSUPPORTED_CLIENT` response as a
   permanent product-eligibility failure and recommend `antigravity-cli`.
 - Version: the locally observed Homebrew `0.46.0` and npm `0.59.0` surfaces are
-  evidence inputs, not an approved support range. Story 8 pins the range.
+  evidence inputs, not an approved support range. Story 9 pins the range.
 - Headless: use `gemini -p` with JSON/stream JSON only after readiness succeeds.
   Parse plain stderr/startup failures that occur before a JSON envelope.
 - Session: ACP requires `initialize`, supported authentication, and a successful
@@ -616,11 +696,15 @@ behavior are never inferred across surfaces.
 
 #### Antigravity CLI (`antigravity-cli`)
 
-- Availability: use executable `agy`; a standalone CLI was not on `PATH` and
-  this surface was therefore documented but not locally exercised during the
-  September 11 experiment.
-- Headless one-shot: use `-p --output-format stream-json` and require a terminal
-  `result.status` in addition to the exit code.
+- Availability: use executable `agy`. Version 1.2.1 is installed on this host;
+  sandbox-controlled JSON one-shot and exact-ID cross-process resume both completed
+  successful model turns during the September 11 experiment.
+- Headless one-shot: use `--print=<prompt> --output-format stream-json` and
+  require a terminal `result.status` in addition to the exit code.
+- Arguments: use a non-shell argument vector and the tested attached-value form
+  for short print syntax. Version 1.2.1 treated bare `-p` followed by another
+  option as that option being the prompt. Conformance fixtures must verify the
+  exact vector used by each supported version.
 - Headless multi-turn: use streaming input and output (`--input-format
 stream-json` and `--output-format stream-json`), hold stdin open, and submit
   the next prompt only after one terminal `result` for the current turn.
@@ -628,14 +712,34 @@ stream-json` and `--output-format stream-json`), hold stdin open, and submit
   `--continue` automatically because it selects the latest conversation.
 - Permissions: validate `init.permission_mode`; a soft-denied tool can leave
   exit code zero and must become permission intervention when it violates the
-  reviewer contract. Never use `--dangerously-skip-permissions` for review.
+  reviewer contract. Version 1.2.1 also warned that `--mode plan` has no effect
+  when slash-command expansion is disabled. Never use
+  `--dangerously-skip-permissions` for review, and fail preflight when requested
+  and effective controls differ.
 - Shutdown: close stdin and drain the final `result`/process close within the
   configured bound before process-group/job-object escalation.
+- Ownership: the locally exercised one-shot processes exited normally. Existing
+  `agy --hub` processes owned by Antigravity IDE or the VS Code extension are
+  outside the review process tree and must never be stopped as orphan cleanup.
 
 #### Desktop and Remote Control
 
 - Gemini consumer desktop remains `interactive-only`; no documented inbound
   session-control surface was found.
+- Antigravity desktop 2.13.0, Antigravity IDE 2.5.5, and VS Code 1.137.0 with
+  Antigravity extension 1.3.0 all passed local active-conversation prompt,
+  response-capture, read-only workspace, and blind-continuity probes.
+- The IDE required two one-time approvals for read-only terminal commands while
+  desktop and VS Code required none. Permission mediation is therefore a
+  surface capability, not a provider-wide default.
+- VS Code produced a delayed-success race: a clipboard operation timed out and
+  later altered the composer while recovery was underway. Its adapter must use
+  activation IDs, outcome-unknown settling, fresh state reads, draft
+  normalization, and conversation-log confirmation before retry or fallback.
+- The desktop accessibility state exposed a conversation-bearing URL. The IDE
+  and VS Code probes did not establish a durable externally addressable
+  conversation ID. None of the three surfaces is approved for exact-session
+  automation until multi-conversation and cold-resume tests pass.
 - Antigravity Remote Control is a separately gated experimental session adapter.
   It may automate only Google's official browser dashboard, must prove exact
   conversation binding and terminal observation, and must fail closed on UI
@@ -664,6 +768,13 @@ matching allow or deny rule. An unmatched request records
 the recovery action, and stops automatic progress. Headless mode does not wait
 indefinitely for a person who may be absent.
 
+Cross-window adapters normalize visible application permission dialogs into the
+same record. They may choose a one-time allow/deny action only when the request,
+capability, target, and action exactly match sealed policy. They must not choose
+“always allow,” change application trust settings, or infer approval from a
+previous surface. A dialog that cannot be parsed unambiguously stops automatic
+progress without dismissing it.
+
 Reviewers default to deny filesystem write, external mutation, secret access,
 and unbounded shell. A provider without enforceable read-only capability fails
 the corresponding unattended preflight.
@@ -682,7 +793,7 @@ this design:
 ├── sessions/
 │   └── <participant>.json
 ├── activation/
-│   └── <delivery-id>-<attempt>.json
+│   └── <operation-id>.json
 └── providers/
     └── <provider>/<turn-id>.jsonl
 ```
@@ -690,6 +801,12 @@ this design:
 Provider streams are size-limited, redacted, ignored, and diagnostic. The
 sealed tracked response and protocol event digest remain authoritative. A user
 can opt out of raw provider diagnostics without weakening the review.
+
+Each activation record contains the delivery ID, recipient fingerprint, event
+cursor, target-session digest, prompt digest, adapter/surface version, phase,
+attempt timestamps, last observed composer digest, matching conversation-log
+count, response digest when present, and recovery instruction. It never stores
+raw session handles or accessibility indexes.
 
 ## Stable errors
 
@@ -701,6 +818,10 @@ can opt out of raw provider diagnostics without weakening the review.
 | `APR_SESSION_BUSY`                     | Another turn owns the session                         | Wait for or explicitly resolve the active turn                 |
 | `APR_WAKE_FAILED`                      | Authorized wake chain exhausted                       | Run `status <workspace> --next`                                |
 | `APR_WAKE_UNCONFIRMED`                 | Invocation succeeded but delivery was not consumed    | Inspect exact session, then run the printed resume command     |
+| `APR_ACTIVATION_OUTCOME_UNKNOWN`       | A send may still complete after the control timeout   | Reconcile the printed operation; do not retry                  |
+| `APR_UI_SESSION_AMBIGUOUS`             | UI adapter cannot prove one exact conversation        | Select/register the exact session or use another runtime       |
+| `APR_UI_DRAFT_CONFLICT`                | Composer does not contain zero or one expected prompt | Inspect the draft and run the printed normalization recovery   |
+| `APR_UI_PERMISSION_AMBIGUOUS`          | Permission dialog cannot be matched to sealed policy  | Resolve it in the owning app, then resume the exact operation  |
 | `APR_COORDINATOR_ACTIVE`               | A valid instance already owns the review              | Run `coordinator status <workspace>`                           |
 | `APR_COORDINATOR_STALE`                | Lease exists without proven owner liveness            | Run `coordinator recover <workspace>`                          |
 | `APR_COORDINATOR_OWNER_LOST`           | Host/CLI ownership channel ended                      | Run `status <workspace> --next`                                |
@@ -709,7 +830,7 @@ can opt out of raw provider diagnostics without weakening the review.
 | `APR_PROVIDER_PROTOCOL_INVALID`        | Structured provider output violated adapter contract  | Preserve diagnostic and run provider doctor                    |
 | `APR_PROVIDER_ACCOUNT_UNSUPPORTED`     | Product does not accept the configured account tier   | Select the printed eligible surface or configure eligible auth |
 | `APR_PROVIDER_POLICY_MISMATCH`         | Effective trust/permission mode is weaker than sealed | Correct trust/policy, then run the printed exact resume action |
-| `APR_REMOTE_CONTROL_AMBIGUOUS`         | Official UI adapter cannot prove exact target/state   | Stop automation and use the printed exact resume/handoff path  |
+| `APR_CROSS_WINDOW_STATE_AMBIGUOUS`     | UI adapter cannot prove target, submission, or state  | Stop automation and use the printed exact resume/handoff path  |
 | `APR_GEMINI_DESKTOP_UNSUPPORTED`       | Gemini desktop has no supported inbound control       | Use Antigravity CLI, eligible Gemini CLI, or human handoff     |
 
 Each `explain` topic contains safe structured details and exactly one primary
@@ -723,7 +844,9 @@ recovery command.
 - runtime/wake separation and forbidden fallback transitions;
 - provider event parsers with captured, redacted fixtures;
 - exact-session identity binding;
-- adapter timeout/retry classification;
+- activation operation identity, phase transitions, and prompt/target digests;
+- adapter timeout/retry classification, including outcome-unknown reconciliation;
+- composer normalization and duplicate-submission prevention;
 - coordinator lease acquisition, heartbeat, and identity match;
 - idempotent shutdown under every trigger pair;
 - stale lease reconciliation and PID-reuse simulation;
@@ -740,7 +863,13 @@ recovery command.
   cancellation, and child/wrapper descendants ignoring graceful termination;
 - session API disconnect, busy turn, permission request, wrong handle, and exact
   resume fallback;
-- handoff session API -> approved remote control -> CLI resume -> MCP -> user
+- cross-window stale element indexes, layout drift, ambiguous focus, empty or
+  conflicting composers, delayed clipboard success after timeout, duplicate
+  draft insertion, click-without-frame, keyboard submission fallback, response
+  correlation, and concurrent human input;
+- cross-window permission absent, one-time allow, persistent allow offered,
+  unmatched request, and unparsable dialog;
+- handoff session API -> approved cross-window -> CLI resume -> MCP -> user
   recovery chain;
 - terminal review and failure paths leave no coordinator or owned child alive;
 - stdin EOF drains the final result and closes nested launchers before bounded
@@ -770,10 +899,16 @@ Google-surface conformance additionally tests:
   initialization, folder trust, requested/effective policy, and exit-zero
   diagnostics;
 - Antigravity exact conversation resume, one-result-per-turn streaming, stdin
-  EOF shutdown, permission soft-denial, and terminal semantic status; and
+  EOF shutdown, print-argument ordering, requested/effective permission
+  mismatch, host-owned hub exclusion, permission soft-denial, and terminal
+  semantic status;
+- Antigravity desktop, IDE, and VS Code extension exact-session selection among
+  multiple conversations, cold application restart, active-session continuity,
+  busy/permission states, delayed-action recovery, layout drift, auth refresh,
+  and fail-closed fallback; and
 - Remote Control exact-session selection, busy/permission states, layout drift,
-  reconnect behavior, and fail-closed recovery before it can leave
-  experimental status.
+  reconnect behavior, and fail-closed recovery before any cross-window surface
+  can leave experimental status.
 
 ### Packaging and smoke tests
 
@@ -782,6 +917,8 @@ Google-surface conformance additionally tests:
 - MCP remains optional and setup remains valid;
 - coordinator exits when parent process/IPC closes;
 - package uninstall during no active review leaves no daemon;
+- review cleanup leaves host-owned Antigravity IDE/extension hub processes
+  untouched;
 - all example/help commands parse;
 - release package contains no test credentials, provider transcripts, or local
   session handles.
@@ -795,7 +932,10 @@ Google-surface conformance additionally tests:
 - provider product surface, executable/version, account eligibility, and
   requested versus effective permission mode;
 - coordinator instance state and lease age;
-- current adapter/attempt and deadline;
+- current adapter, activation operation, phase, attempt, settling bound, and
+  deadline;
+- cross-window target-locator evidence strength, composer digest, matching
+  conversation-log count, and permission state;
 - provider child/API state at the adapter's stated evidence strength;
 - last delivery acknowledgment and consumption evidence;
 - shutdown status; and
@@ -877,37 +1017,55 @@ official Codex App Server adapter.
 complete a review turn without UI automation; wrong/busy sessions fail closed;
 fallback targets only the same session.
 
-### Story 8: Google agent-surface safety and conformance spike
+### Story 8: Transactional cross-window adapter foundation
 
-Turn the September 11 Gemini CLI evidence into a repeatable harness. Pin
-candidate version ranges and validate eligible Gemini CLI authentication,
-headless/ACP model turns, full UUID resume, read-only behavior, trust,
-cancellation, semantic errors, and process-tree shutdown on macOS and Windows.
-Install and exercise Antigravity CLI separately for one-shot, continuous-stream,
-exact-conversation resume, permissions, errors, and EOF shutdown. Evaluate
-Antigravity Remote Control exact-session automation without touching private app
-state or generic native-window focus.
+Implement the cross-window interface, activation operation state machine,
+semantic state observation, exact UI locator contract, composer normalization,
+outcome-unknown settling, conversation-log submission proof, response
+correlation, permission normalization, and recovery reporting. Build a fake UI
+surface that can delay a successful action beyond its caller's timeout.
+
+**Acceptance:** delayed success, dropped acknowledgments, duplicate draft
+insertion, stale element indexes, click-without-frame, concurrent human input,
+and ambiguous permission dialogs never create a duplicate governed turn. A
+retry occurs only after `not-submitted` is proven; every other ambiguous state
+ends with one exact recovery action.
+
+### Story 9: Google agent-surface safety and conformance spike
+
+Turn both September 11 experiment sets into a repeatable harness. Pin candidate
+version ranges and validate eligible Gemini CLI authentication, headless/ACP
+model turns, full UUID resume, read-only behavior, trust, cancellation, semantic
+errors, and process-tree shutdown on macOS and Windows. Expand the proven `agy`
+1.2.1 one-shot/exact-resume baseline to continuous streaming, argument-vector
+fixtures, permissions, errors, cancellation, and EOF shutdown. Evaluate
+Antigravity desktop, IDE, VS Code extension, and Remote Control separately for
+exact-session selection, multiple conversations, cold restart, permission
+states, delayed-action recovery, authentication refresh, and layout drift
+without reading private app state.
 
 **Acceptance:** commit redacted fixtures and a per-surface capability matrix.
 Every untested or failed capability is disabled. The report distinguishes local
-observation, official documentation, and successful model-turn proof; it gives
-a go/no-go decision for each runtime/control surface.
+observation, official documentation, successful model-turn proof, active-window
+continuity, and exact-session proof; it gives a go/no-go decision for each
+runtime/control surface.
 
-### Story 9: Approved Google provider-family adapters
+### Story 10: Approved Google provider-family adapters
 
-Implement the surface resolver and only the modes approved by Story 8:
+Implement the surface resolver and only the modes approved by Story 9:
 `gemini-cli` for eligible enterprise/API accounts, `antigravity-cli` for its
-approved headless/resume paths, and Remote Control only if its exact-session UI
-adapter passes the session contract. Include precise install/auth/help and
-surface-specific recovery guidance.
+approved headless/resume paths, and each cross-window surface independently only
+if its exact-session adapter passes the session contract. Include precise
+install/auth/help and surface-specific recovery guidance.
 
 **Acceptance:** approved Google surfaces pass the shared provider suite;
 consumer Gemini CLI receives `APR_PROVIDER_ACCOUNT_UNSUPPORTED` with an
 Antigravity recovery path; Gemini desktop-only systems receive
-`APR_GEMINI_DESKTOP_UNSUPPORTED`; no private app-state automation exists; no
+`APR_GEMINI_DESKTOP_UNSUPPORTED`; no private app-state automation exists;
+review cleanup leaves host-owned `agy --hub` processes untouched; and no
 review-owned process survives shutdown.
 
-### Story 10: Migration, documentation, and release hardening
+### Story 11: Migration, documentation, and release hardening
 
 Update setup, full help, security model, architecture docs, examples, package
 smoke tests, and deprecation messaging. Validate the complete fallback and
@@ -924,12 +1082,14 @@ proves no coordinator remains after all terminal scenarios.
 - Headless review can complete author/reviewer turns without human input when
   provider policy permits and stops cleanly on an unmatched permission request.
 - Session review can address an exact existing supported session through an
-  official API or an explicitly selected, approved vendor remote-control
-  adapter without generic native-window automation.
+  official API or an explicitly selected, conformance-approved cross-window
+  adapter without relying on generic window focus or cached UI coordinates.
 - Handoff review can use a Node filesystem coordinator with no model polling and
   preserve the MCP wait as an optional fallback.
 - Every automatic fallback is visible, bounded, preauthorized, and identity
   preserving.
+- Every cross-window activation has one operation ID. A timeout is reconciled as
+  an unknown outcome, and no retry or fallback can duplicate a submission.
 - Every failed activation leaves the ledger and sealed response valid and
   provides one exact recovery command.
 - Review completion, abandonment, unrecoverable transport failure, owner loss,
@@ -938,9 +1098,9 @@ proves no coordinator remains after all terminal scenarios.
 - Stale coordinator recovery does not kill by PID alone.
 - Codex, Claude, Grok, and each approved Google product surface pass a common
   provider conformance suite.
-- Gemini desktop is reported accurately as interactive-only. Antigravity Remote
-  Control remains experimental unless its official browser surface passes the
-  same session adapter contract.
+- Gemini desktop is reported accurately as interactive-only. Antigravity
+  desktop, IDE, VS Code extension, and Remote Control remain independently
+  experimental unless each passes the same exact-session adapter contract.
 - Existing v1 reviews and MCP live-wait installations remain usable.
 
 ## Decisions captured for peer review
@@ -952,11 +1112,15 @@ proves no coordinator remains after all terminal scenarios.
 - Fallback is automatic only inside a start-time authorized chain and may not
   switch reviewer or ownership mode.
 - Manual exact-session recovery is always available.
+- Cross-window automation is a supported architecture category but every
+  application surface is disabled until its versioned adapter proves exact
+  identity, transactional submission, permissions, and fail-closed recovery.
 - The coordinator is review-scoped and non-detached with deterministic,
   identity-matched cleanup.
 - Google delivery resolves and pins eligible Gemini CLI or Antigravity CLI;
   their authentication, sessions, and lifecycle semantics are not conflated.
-- Gemini desktop is not automated. Antigravity Remote Control may be evaluated
-  only as an explicit, fail-closed official-browser adapter.
+- Gemini desktop is not automated. Antigravity desktop, IDE, VS Code extension,
+  and Remote Control may be evaluated only as separately named, explicit,
+  fail-closed adapters.
 - This design is ready for human review, then independent peer review. It does
   not authorize implementation.
