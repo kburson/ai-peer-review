@@ -1,10 +1,11 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 
 import * as api from '../helpers/internal-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
@@ -17,6 +18,7 @@ import {
 
 const NOW = '2026-09-09T12:00:00.000Z';
 const RATIONALE = Buffer.from('Accept this bounded residual risk for the release.\n');
+const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../bin/peer-review.mjs');
 
 function git(root, args, options = {}) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', ...options });
@@ -45,6 +47,27 @@ function identity(role, session) {
     sessionId: session,
     source: 'runtime',
     joinedAt: NOW,
+  });
+}
+
+function finalizeWithCli(root, workspace, session) {
+  const env = { ...process.env };
+  for (const key of [
+    'CLAUDE_CODE_SESSION_ID',
+    'CLAUDE_SESSION_ID',
+    'CODEX_SESSION_ID',
+    'CODEX_THREAD_ID',
+    'GROK_SESSION_ID',
+  ]) {
+    delete env[key];
+  }
+  env.CODEX_THREAD_ID = session;
+  env.CODEX_MODEL_ID = 'gpt-test';
+  env.CODEX_MODEL_DISPLAY = 'GPT Test';
+  return spawnSync(process.execPath, [CLI, 'finalize', workspace], {
+    cwd: root,
+    encoding: 'utf8',
+    env,
   });
 }
 
@@ -194,6 +217,24 @@ test('consensus finalization commits only acceptance and deterministic manifest'
     now: '2026-09-09T12:02:00.000Z',
   });
   assert.equal(retried.review.commit, finalized.review.commit);
+  assert.deepEqual(readFileSync(review.started.paths.events), eventBytes);
+});
+
+test('terminal finalization CLI renders success and preserves idempotent retry', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const review = await acceptedReview(fx.root, 'finalize-cli');
+
+  const first = finalizeWithCli(fx.root, review.started.paths.workspace, 'finalize-cli-author');
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /Review finalize-cli: accepted/);
+  const commit = git(fx.root, ['rev-parse', 'HEAD']).trim();
+  const eventBytes = readFileSync(review.started.paths.events);
+
+  const retry = finalizeWithCli(fx.root, review.started.paths.workspace, 'finalize-cli-author');
+  assert.equal(retry.status, 0, retry.stderr);
+  assert.match(retry.stdout, /Review finalize-cli: accepted/);
+  assert.equal(git(fx.root, ['rev-parse', 'HEAD']).trim(), commit);
   assert.deepEqual(readFileSync(review.started.paths.events), eventBytes);
 });
 

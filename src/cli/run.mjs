@@ -584,7 +584,7 @@ function startupVariables(
         renderCommand(['peer-review', 'join', invitationAbsolute])
       ),
       zero_install_join_display: markdownCodeSpan(
-        renderCommand(['npx', '--yes', 'ai-peer-review@0.2.0', 'join', invitationAbsolute])
+        renderCommand(['npx', '--yes', 'ai-peer-review@0.2.1', 'join', invitationAbsolute])
       ),
       recovery_display: markdownCodeSpan(
         renderCommand(['peer-review', 'resume', workspaceAbsolute])
@@ -3299,10 +3299,8 @@ function writeJson(stream, value) {
 }
 
 function writeResult(stream, value) {
-  const lines = [
-    `Review ${value.review_id}: ${value.state}`,
-    `Next: ${value.next_action.command ?? value.next_action}`,
-  ];
+  const nextAction = value.next_action?.command ?? value.next_action ?? 'none';
+  const lines = [`Review ${value.review_id}: ${value.state}`, `Next: ${nextAction}`];
   if (value.command === 'resume') lines.push(`Instructions: ${value.instructions}`);
   if (value.review?.delivery?.manual?.command)
     lines.push(`Manual recovery: ${value.review.delivery.manual.command}`);
