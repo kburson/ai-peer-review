@@ -47,7 +47,7 @@ function retainedReviewerRefs(bytes) {
     if (
       separator <= 0 ||
       record.indexOf(0, separator + 1) !== record.length - 1 ||
-      separator === record.length - 1
+      separator + 1 >= record.length - 1
     ) {
       throw new AprError('APR_GIT_FAILED', 'Git returned a malformed ref inventory.', {
         recovery: 'Verify the repository refs and retry the peer-review command.',

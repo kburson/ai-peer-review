@@ -100,6 +100,22 @@ test('reviewer boundary excludes only exact Codex checkpoint refs', (t) => {
   }
 });
 
+test('reviewer boundary fails closed on a malformed ref inventory', (t) => {
+  const fixture = createRepositoryFixture(t);
+  unlinkSync(path.join(fixture.root, 'docs', 'outside-link'));
+  const repository = createGitRepository({
+    execFileSync(command, args, options) {
+      if (args[0] === 'for-each-ref') return Buffer.from('refs/heads/trunk\0\0\n');
+      return nodeExecFileSync(command, args, options);
+    },
+  });
+
+  assert.throws(
+    () => repository.reviewerBoundary(fixture.root, 'reviews/response.md'),
+    (error) => error.code === 'APR_GIT_FAILED' && /malformed ref inventory/.test(error.message)
+  );
+});
+
 test('refuses untracked artifacts with a stable APR error', (t) => {
   const fixture = createRepositoryFixture(t);
   const repository = createGitRepository();
