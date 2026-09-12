@@ -1852,7 +1852,7 @@ function assertReviewerRepository(input, state, events, repository) {
         ? 'Reviewer submission detected retained-ref drift or a legacy ref boundary.'
         : 'Reviewer submission detected artifact or HEAD mutation.',
       refOnlyMismatch
-        ? 'A retained ref changed, or the review was sealed by the 0.2.1 legacy all-ref policy. Preserve the existing review workspace and unsubmitted response, then restart the review with the fixed package; do not treat the draft as accepted evidence.'
+        ? 'A retained ref changed, or the review was sealed by the 0.2.1 legacy all-ref policy. Preserve the existing review workspace and not-yet-submitted response, then restart the review with the fixed package; do not treat the draft as accepted evidence.'
         : 'Restore the event-authorized artifact and HEAD without discarding unrelated work.',
       {
         artifact_matches: artifactMatches,
