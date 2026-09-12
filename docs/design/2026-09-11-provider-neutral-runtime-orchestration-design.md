@@ -945,6 +945,50 @@ It must label inference. “Process exists” is not “agent is reasoning,” a
 acknowledged” is not “delivery consumed.” Provider token, time, and cost data are
 optional diagnostics and never used to decide agreement.
 
+## Reconciled transport and identity findings
+
+A Claude Code investigation performed against the shipped `0.1.0` CLI found two
+gaps that remain relevant to this design. The investigation belongs to the
+[original Claude Code session](https://claude.ai/code/session_01Ugy1ph5Fq611yMbe2RdqzR)
+and is preserved by commits
+[`9c07577`](https://github.com/kburson/ai-peer-review/commit/9c07577ba01c4326a7fe2eb25c764609e35561f0),
+[`2594677`](https://github.com/kburson/ai-peer-review/commit/2594677d128043c90c60fbe6f05ab6e150f23904),
+and
+[`01183ad`](https://github.com/kburson/ai-peer-review/commit/01183ada4ec32c36743921363c627430630c36d8).
+
+The original branch document is not normative. Its statements that MCP waiting
+and resident automatic handoff had not landed were superseded by
+kburson/ai-task-manager#1547 and #1548. The following two observations are
+carried forward against the current code and architecture instead.
+
+### Executable identity recovery
+
+The v1 generic adapter accepts caller-injected declared identity, but the CLI has
+no declared-identity option. `APR_IDENTITY_REQUIRED` therefore names a declared
+fallback that a CLI user cannot execute. Compatibility work must make that
+recovery truthful: either expose a deliberately restricted CLI declaration path
+or direct the user to a supported, conformance-approved provider adapter.
+
+Any declaration path remains `identity_source: declared`, exposes only `manual`
+and `staleness-only`, keeps raw session handles in scratch, and cannot claim
+runtime, wake, or provider-conformance capabilities. Arbitrary identity JSON
+must never become a shortcut around provider validation.
+
+### Evidence for resume acknowledgment
+
+The v1 resume adapter reports `delivered` when an official resume command exits
+zero, after which the CLI appends `delivery-acknowledged`. A no-op command stub
+demonstrated that process success alone does not prove that the exact target
+surface acknowledged the invitation or that the recipient consumed the sealed
+delivery.
+
+The v2 wake model must not inherit that inference. Exit zero without stronger
+adapter evidence is a wake attempt with an unconfirmed outcome. It leaves the
+durable delivery pending, records bounded diagnostics, and produces
+`APR_WAKE_UNCONFIRMED` plus exact recovery. `delivery-acknowledged` requires
+authenticated or otherwise conformance-approved adapter evidence;
+claim/consumption remains a separate later fact.
+
 ## Delivery backlog
 
 The following issue-ready stories are ordered by dependency. Issue IDs are not
@@ -958,7 +1002,9 @@ migration `--check` and golden help updates.
 
 **Acceptance:** existing v1 reviews remain readable/resumable; new reviews seal
 one mode and ordered wake chain; runtime ownership cannot change through
-fallback or recovery.
+fallback or recovery. Every identity recovery printed by the CLI is executable
+from the CLI or directs the user to a supported adapter, and declared identity
+cannot acquire runtime or automatic-wake capabilities.
 
 ### Story 2: Coordinator lifecycle foundation
 
@@ -977,7 +1023,9 @@ stable recovery errors.
 
 **Acceptance:** no timer wakes the model; missed/duplicate watcher events do not
 lose or duplicate a turn; exhausted fallback leaves a sealed delivery and one
-exact manual action.
+exact manual action. A no-op or exit-zero-only wake cannot create
+`delivery-acknowledged`; acknowledgment and later consumption expose distinct,
+reviewable evidence.
 
 ### Story 4: Cooperative handoff runtime
 
@@ -986,7 +1034,9 @@ recovery. Add start/help/doctor behavior and end-to-end two-session fixtures.
 
 **Acceptance:** a complete review can advance unattended where exact resume is
 available, or recover manually without changing the reviewer; the coordinator
-exits at terminal agreement.
+exits at terminal agreement. CLI resume sends the bounded invitation to the
+exact registered session, and an exit-zero result without target evidence
+returns `APR_WAKE_UNCONFIRMED` while preserving `delivery-pending`.
 
 ### Story 5: Generic headless driver
 
