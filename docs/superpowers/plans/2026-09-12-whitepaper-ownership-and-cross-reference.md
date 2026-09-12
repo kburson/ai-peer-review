@@ -121,13 +121,15 @@ cmp \
 test -f docs/design/../whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md
 rg -n \
   'provider-neutral-runtime-orchestration-white-paper\.md' \
-  --glob '!node_modules/**' \
-  --glob '!.git/**' .
+  docs/design docs/whitepapers
+! rg -n \
+  '\]\(2026-09-11-provider-neutral-runtime-orchestration-white-paper\.md\)' \
+  docs/design
 ```
 
 Expected: the old path is absent, `cmp` exits 0, the relative-link target
-exists, and tracked content contains no reference to the old `docs/design/`
-paper location.
+exists, operational documentation links target the new path, and no design
+document retains the old same-directory relative link.
 
 - [ ] **Step 5: Run the `ai-peer-review` quality gates**
 
