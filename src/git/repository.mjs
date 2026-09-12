@@ -9,6 +9,9 @@ import { AprError } from '../errors.mjs';
 // cspell:ignore ACDMRTUXB objectname
 const CHANGE_FILTER = 'ACDMRTUXB';
 const REGULAR_MODES = new Set(['100644', '100755']);
+const EXCLUDED_REVIEWER_REF_PREFIXES = Object.freeze([
+  Buffer.from('refs/codex/turn-diffs/checkpoints/'),
+]);
 
 function gitError(code, message, recovery, details, cause) {
   const error = new AprError(code, message, { recovery, details });
@@ -27,6 +30,38 @@ function lines(value) {
 
 function digest(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function retainedReviewerRefs(bytes) {
+  const retained = [];
+  let offset = 0;
+  while (offset < bytes.length) {
+    const newline = bytes.indexOf(0x0a, offset);
+    if (newline === -1) {
+      throw new AprError('APR_GIT_FAILED', 'Git returned an incomplete ref inventory.', {
+        recovery: 'Verify the repository refs and retry the peer-review command.',
+      });
+    }
+    const record = bytes.subarray(offset, newline);
+    const separator = record.indexOf(0);
+    if (
+      separator <= 0 ||
+      record.indexOf(0, separator + 1) !== record.length - 1 ||
+      separator === record.length - 1
+    ) {
+      throw new AprError('APR_GIT_FAILED', 'Git returned a malformed ref inventory.', {
+        recovery: 'Verify the repository refs and retry the peer-review command.',
+      });
+    }
+    const refname = record.subarray(0, separator);
+    const excluded = EXCLUDED_REVIEWER_REF_PREFIXES.some(
+      (prefix) =>
+        refname.length > prefix.length && refname.subarray(0, prefix.length).equals(prefix)
+    );
+    if (!excluded) retained.push(bytes.subarray(offset, newline + 1));
+    offset = newline + 1;
+  }
+  return Buffer.concat(retained);
 }
 
 function changedPathInventory(repositoryRoot, statusBytes) {
@@ -311,9 +346,13 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     const head = String(run(repositoryRoot, ['rev-parse', 'HEAD'])).trim();
     const branch = String(run(repositoryRoot, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim();
     const index = run(repositoryRoot, ['ls-files', '--stage', '-z'], { buffer: true });
-    const refs = run(repositoryRoot, ['for-each-ref', '--format=%(refname)%00%(objectname)%00'], {
-      buffer: true,
-    });
+    const refs = retainedReviewerRefs(
+      run(
+        repositoryRoot,
+        ['for-each-ref', '--sort=refname', '--format=%(refname)%00%(objectname)%00'],
+        { buffer: true }
+      )
+    );
     const tracked = run(repositoryRoot, ['diff', '--binary', '--no-ext-diff', '--'], {
       buffer: true,
     });
