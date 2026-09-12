@@ -79,6 +79,7 @@ function validManifest(overrides = {}) {
         'test',
       ],
       exact: [
+        '.github/CODEOWNERS',
         '.gitattributes',
         '.gitignore',
         '.gitleaks.toml',
