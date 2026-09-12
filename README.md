@@ -218,6 +218,30 @@ The things that stop this quietly going wrong:
   a refreshed lease. A bare PID is never treated as authority.
 - Manual recovery remains available after every transport failure.
 
+### Reviewer Git ref policy
+
+The reviewer boundary retains every Git ref except the exact package-defined
+namespace `refs/codex/turn-diffs/checkpoints/**`. Codex creates those private
+checkpoint refs as author-session bookkeeping; they cannot change the reviewed
+artifact, checked-out `HEAD`, branch, index, or worktree. Creating or advancing
+one therefore does not invalidate an otherwise unchanged reviewer turn.
+
+Every other ref remains part of the sealed digest, including branches, remote
+tracking refs, tags, replacement refs, notes, stash refs, worktree refs, and
+lookalikes such as `refs/codex/turn-diffs/checkpoints-evil/**`. The exclusion is
+a frozen package constant. Repository configuration, environment variables,
+command flags, and ref contents cannot widen it.
+
+Reviews joined with 0.2.1 may have sealed the former all-ref aggregate digest.
+That digest does not retain enough evidence to prove that only a Codex
+checkpoint changed, so it cannot be migrated safely. For a ref-only failure,
+preserve the existing review workspace and its not-yet-submitted response, upgrade,
+and restart the review under the fixed package. Use a distinct review output
+path if the prior collateral path is occupied. The old response remains draft
+evidence, not accepted review authority: recreate or copy its text only into the new
+protocol-authorized reviewer response, then submit normally from the distinct
+reviewer session.
+
 Commands fail closed. When one refuses, it returns a stable `APR_` code, and
 `peer-review explain <code>` says what to do about it — which is usually the
 fastest way to unstick an agent:

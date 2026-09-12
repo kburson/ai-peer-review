@@ -23,6 +23,20 @@ scratch transition. The Author Git boundary permits only package-generated,
 exact-path protocol commits; inspect status before every submit or finalize.
 Keep author and reviewer sessions distinct.
 
+The Reviewer Git boundary excludes only
+`refs/codex/turn-diffs/checkpoints/**`, which is provider-private author-session
+bookkeeping. Every other ref remains sealed, as do the artifact, checked-out
+`HEAD`, branch, index, and worktree. This exclusion is package-defined and must
+not be widened through repository configuration, environment, command input, or
+lookalike ref names.
+
+If a review joined with 0.2.1 reports a ref-only
+`APR_REVIEWER_GIT_VIOLATION`, preserve the existing review workspace and
+response, upgrade, and restart under the fixed package with a distinct output
+path when required. The old response is draft evidence, never
+accepted authority; recreate or copy its text only into the new authorized
+reviewer response before submitting from the distinct reviewer session.
+
 If startup reports `NO-COMMIT TEST MODE`, disclose that mode and its authority
 assurance in every handoff. It is test evidence, not normal acceptance evidence.
 
