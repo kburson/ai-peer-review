@@ -6,8 +6,7 @@ import test from 'node:test';
 import { canonicalProjection } from '../../src/protocol/service.mjs';
 import { run } from '../../src/cli/run.mjs';
 import { decideWake } from '../../src/coordinator/decision.mjs';
-import { acquireCoordinatorLease } from '../../src/coordinator/lease.mjs';
-import { requestCoordinatorStop } from '../../src/coordinator/lease.mjs';
+import { acquireCoordinatorLease, requestCoordinatorStop } from '../../src/coordinator/lease.mjs';
 import { reserveWakeOperation } from '../../src/coordinator/ledger.mjs';
 import {
   coordinatorStatus,
@@ -296,6 +295,48 @@ test('foreground coordinator honors only its exact durable stop request', async 
 
   assert.equal(result.status, 'stopped');
   assert.equal(wakeAdapter.calls.length, 1);
+});
+
+test('default observation ignores its own heartbeat and reacts to only an exact stop hint', async (t) => {
+  const root = workspace(t);
+  writeReceipt(root);
+  const watchers = [];
+  let inspections = 0;
+  const result = await runCoordinator({
+    ...input(root, adapter()),
+    inspect() {
+      inspections += 1;
+      return authority();
+    },
+    owner: { kind: 'cli', pid: 42 },
+    leaseOptions: { instanceId: 'coordinator-watch-01', nonce: 'nonce-watch-01' },
+    watch(target, callback) {
+      const watcher = {
+        target,
+        callback,
+        on() {},
+        close() {},
+      };
+      watchers.push(watcher);
+      return watcher;
+    },
+    async waitForStop() {
+      assert.equal(watchers.length, 3);
+      const coordinatorWatcher = watchers.find(
+        ({ target }) => path.basename(target) === 'coordinator'
+      );
+      coordinatorWatcher.callback('change', 'coordinator-lease.json');
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(inspections, 2);
+
+      requestCoordinatorStop(root, new Date(NOW + 1000));
+      coordinatorWatcher.callback('rename', 'stop-request.json');
+      await new Promise((resolve) => setImmediate(resolve));
+    },
+  });
+
+  assert.equal(result.status, 'stopped');
+  assert.equal(inspections, 2);
 });
 
 test('integrity and unsupported-capability failures invoke no adapter', async (t) => {

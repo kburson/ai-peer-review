@@ -191,16 +191,22 @@ export function coordinatorStatus(workspace) {
   });
 }
 
-function defaultSubscribe(workspace, { onChange, onError }) {
+function defaultSubscribe(workspace, { onChange, onError }, watch = watchFilesystem) {
   const deliveries = path.join(workspace, 'deliveries');
   const coordinator = path.join(workspace, 'coordinator');
   mkdirSync(deliveries, { recursive: true });
   mkdirSync(coordinator, { recursive: true });
-  const watchers = [path.join(workspace, 'events.jsonl'), deliveries, coordinator].map((target) => {
-    const watcher = watchFilesystem(target, onChange);
+  const targets = [path.join(workspace, 'events.jsonl'), deliveries];
+  const watchers = targets.map((target) => {
+    const watcher = watch(target, onChange);
     watcher.on('error', onError);
     return watcher;
   });
+  const stopWatcher = watch(coordinator, (_event, filename) => {
+    if (String(filename ?? '') === 'stop-request.json') onChange();
+  });
+  stopWatcher.on('error', onError);
+  watchers.push(stopWatcher);
   return Object.freeze({ close: () => watchers.forEach((watcher) => watcher.close()) });
 }
 
@@ -265,13 +271,17 @@ export async function runCoordinator(input = {}) {
   };
   try {
     await reconcile();
-    subscription = (input.subscribe ?? defaultSubscribe)(input.workspace, {
-      onChange: () => void reconcile(),
-      onError: (error) => {
-        fatal = error;
-        stop();
+    subscription = (input.subscribe ?? defaultSubscribe)(
+      input.workspace,
+      {
+        onChange: () => void reconcile(),
+        onError: (error) => {
+          fatal = error;
+          stop();
+        },
       },
-    });
+      input.watch
+    );
     await reconcile();
     if (!stopped) {
       await (input.waitForStop ?? signalWait)({
