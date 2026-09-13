@@ -3407,10 +3407,9 @@ function consolidationResult(plan, applied = null) {
     mode: applied ? 'apply' : 'dry-run',
     next_action: null,
     review: Object.freeze({
-      commit_mode:
-        plan.attempts.every(({ commit_mode: mode }) => mode === 'no-commit')
-          ? 'no-commit'
-          : 'normal',
+      commit_mode: plan.attempts.every(({ commit_mode: mode }) => mode === 'no-commit')
+        ? 'no-commit'
+        : 'normal',
       commit: applied?.commit ?? null,
       recovered: applied?.recovered ?? false,
     }),

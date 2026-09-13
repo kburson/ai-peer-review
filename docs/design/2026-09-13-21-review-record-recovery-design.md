@@ -166,4 +166,4 @@ Keep #21 as one issue with four internal checkpoints: capture boundary, identity
 
 ## Dependency Order
 
-#21 precedes #9 because durable wake/recovery must consume truthful attempt and terminal authority. #9 precedes #10 because phased sessions consume the wake coordinator's transport boundary. The remaining sequence is #21, #9, then #10, subject to a fresh live dependency check after each delivery.
+Issue #21 precedes #9 because durable wake/recovery must consume truthful attempt and terminal authority. #9 precedes #10 because phased sessions consume the wake coordinator's transport boundary. The remaining sequence is #21, #9, then #10, subject to a fresh live dependency check after each delivery.

@@ -187,8 +187,16 @@ test('three recovery attempts consolidate into one truthful terminal review reco
   const sourceBytes = new Map(
     dryRun.mappings.map(({ source }) => [source, readFileSync(path.join(root, source))])
   );
-  assert.equal(dryRun.mappings.every(({ collision }) => collision === 'none'), true);
-  assert.equal(dryRun.mappings.every(({ source, digest: expected }) => digest(sourceBytes.get(source)) === expected), true);
+  assert.equal(
+    dryRun.mappings.every(({ collision }) => collision === 'none'),
+    true
+  );
+  assert.equal(
+    dryRun.mappings.every(
+      ({ source, digest: expected }) => digest(sourceBytes.get(source)) === expected
+    ),
+    true
+  );
 
   const applyOut = [];
   const applyErr = [];
@@ -206,7 +214,10 @@ test('three recovery attempts consolidate into one truthful terminal review reco
   const applied = JSON.parse(applyOut.join(''));
   assert.match(applied.review.commit, /^[0-9a-f]{40,64}$/);
   for (const mapping of applied.mappings) {
-    assert.deepEqual(readFileSync(path.join(root, mapping.destination)), sourceBytes.get(mapping.source));
+    assert.deepEqual(
+      readFileSync(path.join(root, mapping.destination)),
+      sourceBytes.get(mapping.source)
+    );
     assert.equal(existsSync(path.join(root, mapping.source)), false);
   }
   assert.deepEqual(
@@ -218,7 +229,10 @@ test('three recovery attempts consolidate into one truthful terminal review reco
     ),
     unsubmittedBytes
   );
-  assert.equal([...sourceBytes.values()].some((bytes) => bytes.equals(incompleteBytes)), true);
+  assert.equal(
+    [...sourceBytes.values()].some((bytes) => bytes.equals(incompleteBytes)),
+    true
+  );
   const history = readFileSync(path.join(root, applied.paths.history), 'utf8');
   assert.match(
     history,
@@ -226,5 +240,8 @@ test('three recovery attempts consolidate into one truthful terminal review reco
   );
   const receipt = JSON.parse(readFileSync(path.join(root, applied.receipt), 'utf8'));
   assert.equal(receipt.attempts.filter(({ state }) => state === 'accepted').length, 1);
-  assert.equal(receipt.mappings.every(({ digest: expected }) => /^sha256:[0-9a-f]{64}$/.test(expected)), true);
+  assert.equal(
+    receipt.mappings.every(({ digest: expected }) => /^sha256:[0-9a-f]{64}$/.test(expected)),
+    true
+  );
 });

@@ -3,14 +3,7 @@ import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
 
-const PLACEHOLDERS = Object.freeze([
-  'issue',
-  'kind',
-  'name',
-  'date',
-  'review-id',
-  'record-id',
-]);
+const PLACEHOLDERS = Object.freeze(['issue', 'kind', 'name', 'date', 'review-id', 'record-id']);
 
 function pathError(label, candidate) {
   return new AprError('APR_PATH_OUTSIDE_REPOSITORY', `${label} path escapes the repository.`, {

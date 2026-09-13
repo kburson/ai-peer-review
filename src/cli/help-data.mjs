@@ -779,8 +779,8 @@ function topic(command) {
       command === 'consolidate'
         ? 'Exact relocation paths only in normal mode.'
         : command === 'submit' || command === 'finalize'
-        ? 'Author-only when normal mode requires it.'
-        : 'never',
+          ? 'Author-only when normal mode requires it.'
+          : 'never',
     push: 'never',
     block: HUMAN_GATED.has(command)
       ? 'Blocks without a valid exact grant.'
@@ -794,8 +794,8 @@ function topic(command) {
       command === 'consolidate'
         ? 'Dry-run never mutates; apply uses exact-path Git commit in normal mode.'
         : command === 'start' || command === 'submit' || command === 'finalize'
-        ? 'Uses explicit non-durable snapshot evidence and never implies a Git commit.'
-        : 'Mode is read from protocol authority and cannot be changed here.',
+          ? 'Uses explicit non-durable snapshot evidence and never implies a Git commit.'
+          : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [
       COMMAND_USAGE[command],
       `npx --yes ai-peer-review@0.2.2 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,

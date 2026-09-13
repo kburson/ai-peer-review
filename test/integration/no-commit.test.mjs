@@ -313,7 +313,9 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
     true
   );
   assert.equal(
-    status.review.owned_paths.some((file) => file.endsWith('/reviewer-response-2.md')),
+    status.review.owned_paths.some((file) =>
+      file.endsWith('/no-commit-dialogue-reviewer-response-2.md')
+    ),
     true
   );
   assert.equal(submitted.review.commit, null);

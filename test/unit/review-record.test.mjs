@@ -96,17 +96,14 @@ function attemptFixture(root, reviewId, recordId, disposition, { draft = null } 
       : disposition === 'superseded'
         ? ['superseded']
         : [];
-  let events = sequence(
-    ['review-created', 'reviewer-joined', 'turn-claimed', ...terminalTypes],
-    {
-      1: { actor: FINGERPRINTS.reviewer },
-      2: {
-        actor: FINGERPRINTS.reviewer,
-        payload: { claim: claim('reviewer') },
-      },
-      3: { actor: FINGERPRINTS.reviewer },
-    }
-  );
+  let events = sequence(['review-created', 'reviewer-joined', 'turn-claimed', ...terminalTypes], {
+    1: { actor: FINGERPRINTS.reviewer },
+    2: {
+      actor: FINGERPRINTS.reviewer,
+      payload: { claim: claim('reviewer') },
+    },
+    3: { actor: FINGERPRINTS.reviewer },
+  });
   const context = {
     ...events[0].payload.startup.context,
     review_id: reviewId,
@@ -204,10 +201,15 @@ test('plans one immutable ordered record without promoting drafts to decisions',
     ]
   );
   assert.deepEqual(
-    plan.entries.filter(({ kind }) => kind === 'reviewer-response').map(({ classification }) => classification),
+    plan.entries
+      .filter(({ kind }) => kind === 'reviewer-response')
+      .map(({ classification }) => classification),
     ['not-submitted', 'incomplete', 'submitted']
   );
-  assert.equal(plan.mappings.every(({ collision }) => collision === 'none'), true);
+  assert.equal(
+    plan.mappings.every(({ collision }) => collision === 'none'),
+    true
+  );
   assert.equal(Object.isFrozen(plan), true);
   assert.equal(Object.isFrozen(plan.mappings[0].source), true);
   const history = renderReviewHistory(plan);
@@ -325,7 +327,10 @@ test('applies a byte-identical relocation only after every destination verifies'
   assert.equal(result.recovered, false);
   assert.equal(result.commit, null);
   for (const mapping of plan.mappings) {
-    assert.deepEqual(readFileSync(mapping.destination.absolute), sourceBytes.get(mapping.source.relative));
+    assert.deepEqual(
+      readFileSync(mapping.destination.absolute),
+      sourceBytes.get(mapping.source.relative)
+    );
     assert.equal(existsSync(mapping.source.absolute), false);
   }
   assert.equal(existsSync(first.paths.destination.absolute), false);
@@ -389,8 +394,14 @@ test('rolls back created destinations and retains every source after a copy fail
       }),
     (error) => error.code === 'APR_REVIEW_RECORD_APPLY'
   );
-  assert.equal(plan.mappings.every(({ source }) => existsSync(source.absolute)), true);
-  assert.equal(plan.mappings.every(({ destination }) => !existsSync(destination.absolute)), true);
+  assert.equal(
+    plan.mappings.every(({ source }) => existsSync(source.absolute)),
+    true
+  );
+  assert.equal(
+    plan.mappings.every(({ destination }) => !existsSync(destination.absolute)),
+    true
+  );
 });
 
 test('detects a destination digest mismatch before deleting any source', async (t) => {
@@ -415,8 +426,14 @@ test('detects a destination digest mismatch before deleting any source', async (
       }),
     (error) => error.code === 'APR_REVIEW_RECORD_DIGEST'
   );
-  assert.equal(plan.mappings.every(({ source }) => existsSync(source.absolute)), true);
-  assert.equal(plan.mappings.every(({ destination }) => !existsSync(destination.absolute)), true);
+  assert.equal(
+    plan.mappings.every(({ source }) => existsSync(source.absolute)),
+    true
+  );
+  assert.equal(
+    plan.mappings.every(({ destination }) => !existsSync(destination.absolute)),
+    true
+  );
 });
 
 test('normal mode commits only relocation paths and preserves unrelated staged bytes', async (t) => {
@@ -476,6 +493,52 @@ test('normal mode commits only relocation paths and preserves unrelated staged b
   );
 });
 
+test('normal mode exact retry commits a verified relocation interrupted after source cleanup', async (t) => {
+  const { planReviewRecord, applyReviewRecord } = await recordModule();
+  const { root, first, second } = acceptedRecord(t);
+  execFileSync('git', ['add', 'docs'], { cwd: root, stdio: 'ignore', shell: false });
+  execFileSync('git', ['commit', '-m', 'fixture collateral'], {
+    cwd: root,
+    stdio: 'ignore',
+    shell: false,
+  });
+  const plan = planReviewRecord({
+    workspaces: [first.workspace, second.workspace],
+    destination: 'docs/peer-reviews/spec/record-01',
+    now: new Date('2026-09-08T13:00:00.000Z'),
+  });
+
+  assert.throws(
+    () =>
+      applyReviewRecord(plan, {
+        mode: 'normal',
+        checkpoint(phase) {
+          if (phase === 'sources-removed') throw new Error('injected interruption');
+        },
+      }),
+    (error) => error.code === 'APR_REVIEW_RECORD_APPLY'
+  );
+
+  const result = applyReviewRecord(plan, { mode: 'normal' });
+
+  assert.equal(result.recovered, true);
+  assert.match(result.commit, /^[0-9a-f]{40}$/);
+  const committed = execFileSync(
+    'git',
+    ['diff-tree', '--no-commit-id', '--name-only', '-r', result.commit],
+    { cwd: root, encoding: 'utf8', shell: false }
+  )
+    .trim()
+    .split('\n')
+    .sort();
+  const expected = [
+    ...plan.mappings.flatMap(({ source, destination }) => [source.relative, destination.relative]),
+    plan.history.relative,
+    plan.receipt.relative,
+  ].sort();
+  assert.deepEqual(committed, expected);
+});
+
 test('consolidate dry-run renders a deterministic CLI result without mutation', async (t) => {
   const { root, first, second } = acceptedRecord(t);
   const stdout = [];
@@ -507,7 +570,10 @@ test('consolidate dry-run renders a deterministic CLI result without mutation', 
   assert.equal(result.record_id, 'record-01');
   assert.equal(result.mode, 'dry-run');
   assert.equal(result.mappings.length > 0, true);
-  assert.equal(result.mappings.every(({ collision }) => collision === 'none'), true);
+  assert.equal(
+    result.mappings.every(({ collision }) => collision === 'none'),
+    true
+  );
   assert.equal(result.receipt, 'docs/peer-reviews/spec/record-01/relocation-receipt.json');
   assert.equal(existsSync(path.join(root, destination)), false);
   assert.equal(existsSync(first.paths.destination.absolute), true);

@@ -117,10 +117,7 @@ function resolvedAttempt(workspace) {
   const protocol = state.protocol;
   const startup = protocol.startup;
   const context = startup?.context;
-  if (
-    !context ||
-    digest(Buffer.from(canonicalProjection(context))) !== startup.context_digest
-  ) {
+  if (!context || digest(Buffer.from(canonicalProjection(context))) !== startup.context_digest) {
     fail(
       'APR_REVIEW_RECORD_AUTHORITY',
       'Review startup routing authority is invalid.',
@@ -198,8 +195,8 @@ function responseClassification(parsed, source, events) {
     return response?.path === source.relative && response.digest === source.digest;
   });
   if (submitted && parsed.metadata.submitted_at !== null) return 'submitted';
-  const untouched = parsed.sections.every(
-    ({ content }) => /^<!-- [\s\S]* -->$/.test(content.trim())
+  const untouched = parsed.sections.every(({ content }) =>
+    /^<!-- [\s\S]* -->$/.test(content.trim())
   );
   return untouched ? 'incomplete' : 'not-submitted';
 }
@@ -311,9 +308,15 @@ export function planReviewRecord({ workspaces, destination, now = new Date() } =
       if (existsSync(target.absolute)) {
         const status = lstatSync(target.absolute);
         if (!status.isFile() || status.isSymbolicLink()) collision = 'conflict';
-        else collision = digest(readFileSync(target.absolute)) === sourceDigest ? 'identical' : 'conflict';
+        else
+          collision =
+            digest(readFileSync(target.absolute)) === sourceDigest ? 'identical' : 'conflict';
       }
-      const sourceEntry = { absolute: source.absolute, relative: source.relative, digest: sourceDigest };
+      const sourceEntry = {
+        absolute: source.absolute,
+        relative: source.relative,
+        digest: sourceDigest,
+      };
       const destinationEntry = { absolute: target.absolute, relative: target.relative };
       mappings.push({
         review_id: attempt.protocol.review_id,
@@ -363,7 +366,11 @@ export function planReviewRecord({ workspaces, destination, now = new Date() } =
       started_at: events[0].at,
       ended_at: events.at(-1).at,
     }))
-    .sort((left, right) => left.started_at.localeCompare(right.started_at) || left.review_id.localeCompare(right.review_id));
+    .sort(
+      (left, right) =>
+        left.started_at.localeCompare(right.started_at) ||
+        left.review_id.localeCompare(right.review_id)
+    );
   return deepFreeze({
     schema: 'ai-peer-review.relocation-plan/v1',
     record_id: recordId,
@@ -373,8 +380,16 @@ export function planReviewRecord({ workspaces, destination, now = new Date() } =
     attempts: plannedAttempts,
     entries,
     mappings,
-    history: resolveContainedPath(root, path.join(recordDestination.relative, 'review-history.md'), 'review history'),
-    receipt: resolveContainedPath(root, path.join(recordDestination.relative, 'relocation-receipt.json'), 'relocation receipt'),
+    history: resolveContainedPath(
+      root,
+      path.join(recordDestination.relative, 'review-history.md'),
+      'review history'
+    ),
+    receipt: resolveContainedPath(
+      root,
+      path.join(recordDestination.relative, 'relocation-receipt.json'),
+      'relocation receipt'
+    ),
   });
 }
 
@@ -565,6 +580,50 @@ export function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () =>
   transaction?.assertNoOwnedOverlap(uniqueOwnedPaths);
   const trackedOwnedPaths = transaction?.trackedPaths(uniqueOwnedPaths) ?? [];
   const expectedHead = transaction?.head() ?? null;
+  function commitVerifiedRelocation({ allowNoDelta = false } = {}) {
+    if (!transaction) return null;
+    if (transaction.head() !== expectedHead) {
+      fail(
+        'APR_GIT_HEAD_CHANGED',
+        'Repository HEAD changed during review-record consolidation.',
+        'Preserve the verified relocation receipt and reconcile the exact repository head.'
+      );
+    }
+    const addablePaths = [
+      ...new Set([
+        ...trackedOwnedPaths,
+        ...plan.mappings.map(({ destination: target }) => target.relative),
+        plan.history.relative,
+        plan.receipt.relative,
+      ]),
+    ];
+    transaction.addPaths(addablePaths);
+    transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
+    const trackedSourcePaths = new Set(
+      trackedOwnedPaths.filter((relative) =>
+        plan.mappings.some(({ source }) => source.relative === relative)
+      )
+    );
+    const commitPaths = [
+      ...new Set([...transaction.changedOwnedPaths(uniqueOwnedPaths), ...trackedSourcePaths]),
+    ].sort();
+    if (commitPaths.length === 0) {
+      if (allowNoDelta) return null;
+      fail(
+        'APR_GIT_TRANSACTION_INVALID',
+        'Review-record relocation produced no exact Git delta.',
+        'Inspect the receipt and repository before retrying the relocation.'
+      );
+    }
+    const commit = transaction.commitOnly(
+      commitPaths,
+      `Consolidate review record ${plan.record_id}`,
+      { 'Peer-Review-Record-ID': plan.record_id }
+    );
+    transaction.assertCommitPaths(commit, commitPaths);
+    transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
+    return commit;
+  }
   const allSourcesMissing = plan.mappings.every(({ source }) => !existsSync(source.absolute));
   if (existsSync(plan.receipt.absolute) && allSourcesMissing) {
     assertRegularDigest(plan.receipt.absolute, receiptDigest);
@@ -572,11 +631,12 @@ export function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () =>
     for (const mapping of plan.mappings) {
       assertRegularDigest(mapping.destination.absolute, mapping.source.digest);
     }
+    const commit = commitVerifiedRelocation({ allowNoDelta: true });
     return deepFreeze({
       schema: 'ai-peer-review.relocation-result/v1',
       record_id: plan.record_id,
       recovered: true,
-      commit: null,
+      commit,
       receipt: plan.receipt.relative,
       receipt_digest: receiptDigest,
       history: plan.history.relative,
@@ -622,8 +682,9 @@ export function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () =>
 
   try {
     for (const mapping of plan.mappings) removeIfPresent(mapping.source.absolute);
-    const sourceDirectories = [...new Set(plan.mappings.map(({ source }) => path.dirname(source.absolute)))]
-      .sort((left, right) => right.length - left.length);
+    const sourceDirectories = [
+      ...new Set(plan.mappings.map(({ source }) => path.dirname(source.absolute))),
+    ].sort((left, right) => right.length - left.length);
     for (const directory of sourceDirectories) pruneEmpty(directory, plan.repository_root);
     checkpoint('sources-removed', { mappings: plan.mappings });
   } catch (cause) {
@@ -638,47 +699,7 @@ export function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () =>
 
   let commit = null;
   if (transaction) {
-    if (transaction.head() !== expectedHead) {
-      fail(
-        'APR_GIT_HEAD_CHANGED',
-        'Repository HEAD changed during review-record consolidation.',
-        'Preserve the verified relocation receipt and reconcile the exact repository head.'
-      );
-    }
-    const addablePaths = [
-      ...new Set([
-        ...trackedOwnedPaths,
-        ...plan.mappings.map(({ destination: target }) => target.relative),
-        plan.history.relative,
-        plan.receipt.relative,
-      ]),
-    ];
-    transaction.addPaths(addablePaths);
-    transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
-    const commitPaths = [
-      ...new Set([
-        ...trackedOwnedPaths,
-        ...plan.mappings
-          .filter(({ collision }) => collision === 'none')
-          .map(({ destination: target }) => target.relative),
-        plan.history.relative,
-        plan.receipt.relative,
-      ]),
-    ].sort();
-    if (commitPaths.length === 0) {
-      fail(
-        'APR_GIT_TRANSACTION_INVALID',
-        'Review-record relocation produced no exact Git delta.',
-        'Inspect the receipt and repository before retrying the relocation.'
-      );
-    }
-    commit = transaction.commitOnly(
-      commitPaths,
-      `Consolidate review record ${plan.record_id}`,
-      { 'Peer-Review-Record-ID': plan.record_id }
-    );
-    transaction.assertCommitPaths(commit, commitPaths);
-    transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
+    commit = commitVerifiedRelocation();
   }
 
   return deepFreeze({

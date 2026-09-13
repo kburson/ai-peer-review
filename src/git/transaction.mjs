@@ -192,10 +192,9 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
 
   function stagedOwnedPaths(ownedPaths) {
     const owned = new Set(ownedPaths);
-    const staged = run(
-      ['diff', '--cached', '--name-only', '-z', 'HEAD', '--', ...ownedPaths],
-      { buffer: true }
-    )
+    const staged = run(['diff', '--cached', '--name-only', '-z', 'HEAD', '--', ...ownedPaths], {
+      buffer: true,
+    })
       .toString('utf8')
       .split('\0')
       .filter(Boolean)
