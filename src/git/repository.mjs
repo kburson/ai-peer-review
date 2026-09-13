@@ -11,6 +11,7 @@ const CHANGE_FILTER = 'ACDMRTUXB';
 const REGULAR_MODES = new Set(['100644', '100755']);
 const EXCLUDED_REVIEWER_REF_PREFIXES = Object.freeze([
   Buffer.from('refs/codex/turn-diffs/checkpoints/'),
+  Buffer.from('refs/codex/turn-diffs/captures/'),
 ]);
 
 function gitError(code, message, recovery, details, cause) {
