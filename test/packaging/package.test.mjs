@@ -129,6 +129,8 @@ test('public exports and command guidance remain narrow and installation-aware',
       '  renderReviewHistory,\n' +
       "} from './collateral/review-record.mjs';\n" +
       "export { statusReview } from './protocol/service.mjs';\n" +
+      "export { currentPhase, isFinalPhase, isPhased, parsePhaseKinds } from './protocol/phases.mjs';\n" +
+      "export { buildPhaseManifest, sealPhaseManifest } from './manifest/render.mjs';\n" +
       "export { decideWake, canonicalWakeCapsule, wakeOperationKey } from './coordinator/decision.mjs';\n" +
       "export { inspectCoordinatorLease, requestCoordinatorStop } from './coordinator/lease.mjs';\n" +
       'export {\n' +

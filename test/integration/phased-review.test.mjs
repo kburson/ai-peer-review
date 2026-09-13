@@ -54,7 +54,13 @@ async function accept(root, workspace, response, reviewer, now) {
   replaceSection(response, 'Required changes', 'None.');
   replaceSection(response, 'Optional suggestions', 'None.');
   replaceSection(response, 'Decision', 'accepted');
-  return api.submitReviewTurn({ cwd: root, workspace, identity: reviewer, decision: 'accepted', now });
+  return api.submitReviewTurn({
+    cwd: root,
+    workspace,
+    identity: reviewer,
+    decision: 'accepted',
+    now,
+  });
 }
 
 test('normal spec-plan session advances exactly once and finalizes terminally', async (t) => {
@@ -76,7 +82,13 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
     identity: reviewer,
     now: NOW,
   });
-  await accept(root, started.paths.workspace, joined.paths.response, reviewer, '2026-09-09T12:01:00.000Z');
+  await accept(
+    root,
+    started.paths.workspace,
+    joined.paths.response,
+    reviewer,
+    '2026-09-09T12:01:00.000Z'
+  );
   const phase = await api.finalizeReview({
     cwd: root,
     workspace: started.paths.workspace,
@@ -114,7 +126,13 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
   assert.equal(retried.state, 'reviewer-turn');
   assert.deepEqual(readFileSync(started.paths.events), beforeRetry);
 
-  await accept(root, started.paths.workspace, advanced.paths.response, reviewer, '2026-09-09T12:04:00.000Z');
+  await accept(
+    root,
+    started.paths.workspace,
+    advanced.paths.response,
+    reviewer,
+    '2026-09-09T12:04:00.000Z'
+  );
   const terminal = await api.finalizeReview({
     cwd: root,
     workspace: started.paths.workspace,
@@ -138,6 +156,80 @@ test('legacy start result and projection omit phase authority', async (t) => {
     now: NOW,
   });
   assert.equal(Object.hasOwn(started, 'phases'), false);
-  assert.equal(Object.hasOwn(inspectReviewAuthority(started.paths.workspace).state.protocol, 'phases'), false);
+  assert.equal(
+    Object.hasOwn(inspectReviewAuthority(started.paths.workspace).state.protocol, 'phases'),
+    false
+  );
 });
 
+test('no-commit phase advance seals next artifact bytes without Git mutation', async (t) => {
+  const root = fixture(t);
+  writeFileSync(path.join(root, 'docs/plan.md'), '# Plan baseline\n');
+  git(root, ['add', 'docs/plan.md']);
+  git(root, ['commit', '-m', 'plan baseline']);
+  const baseline = git(root, ['rev-parse', 'HEAD']);
+  const author = identity('author');
+  const reviewer = identity('reviewer');
+  const started = await api.startReview({
+    cwd: root,
+    artifact: 'docs/spec.md',
+    artifactKind: 'spec',
+    phases: 'spec,plan',
+    noCommit: true,
+    identity: author,
+    reviewId: 'phased-no-commit',
+    now: NOW,
+  });
+  const joined = await api.joinReview({
+    cwd: root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: NOW,
+  });
+  await accept(
+    root,
+    started.paths.workspace,
+    joined.paths.response,
+    reviewer,
+    '2026-09-09T12:01:00.000Z'
+  );
+  await api.finalizeReview({
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:02:00.000Z',
+  });
+  writeFileSync(path.join(root, 'docs/plan.md'), '# Plan working bytes\n');
+  const advanced = await api.advanceReview({
+    cwd: root,
+    workspace: started.paths.workspace,
+    artifact: 'docs/plan.md',
+    identity: author,
+    now: '2026-09-09T12:03:00.000Z',
+  });
+  assert.equal(advanced.state, 'reviewer-turn');
+  assert.equal(advanced.review.commit, null);
+  assert.equal(
+    readFileSync(path.join(started.paths.workspace, advanced.review.snapshot.path), 'utf8'),
+    '# Plan working bytes\n'
+  );
+  assert.equal(git(root, ['rev-parse', 'HEAD']), baseline);
+});
+
+test('invalid phase declarations fail before creating review authority', async (t) => {
+  const root = fixture(t);
+  for (const phases of ['', 'spec,spec', 'spec,report', 'plan,spec']) {
+    await assert.rejects(
+      api.startReview({
+        cwd: root,
+        artifact: 'docs/spec.md',
+        artifactKind: 'spec',
+        phases,
+        identity: identity('author'),
+        reviewId: `invalid-${phases || 'empty'}`.replaceAll(',', '-'),
+        now: NOW,
+      }),
+      { code: 'APR_PHASE_INVALID' }
+    );
+  }
+});

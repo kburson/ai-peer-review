@@ -128,7 +128,10 @@ test('non-final phased acceptance produces durable evidence without terminating'
   assert.equal(finalized.review.phase.kind, 'spec');
   assert.equal(finalized.paths.phase_manifest.endsWith('phase-01-spec-review-manifest.md'), true);
   assert.equal(readFileSync(finalized.paths.phase_manifest, 'utf8').includes('phase_status'), true);
-  assert.equal(existsSync(path.join(path.dirname(finalized.paths.phase_manifest), 'review-manifest.md')), false);
+  assert.equal(
+    existsSync(path.join(path.dirname(finalized.paths.phase_manifest), 'review-manifest.md')),
+    false
+  );
 });
 
 function overrideParameters(workspace) {

@@ -407,12 +407,32 @@ export function buildPhaseManifest(review) {
       verifier: safeVerifier(protocol.authority?.verifier),
     },
   };
-  exactKeys(model, [
-    'schema', 'review_id', 'record_id', 'phase_index', 'phase_kind', 'phase_status',
-    'commit_mode', 'authority_assurance', 'residual_risk', 'phase_start_commit',
-    'final_commit', 'artifact_path', 'artifact_history', 'participants', 'turns',
-    'identity_changes', 'claims', 'recoveries', 'supplements', 'authority',
-  ], 'Phase manifest model');
+  exactKeys(
+    model,
+    [
+      'schema',
+      'review_id',
+      'record_id',
+      'phase_index',
+      'phase_kind',
+      'phase_status',
+      'commit_mode',
+      'authority_assurance',
+      'residual_risk',
+      'phase_start_commit',
+      'final_commit',
+      'artifact_path',
+      'artifact_history',
+      'participants',
+      'turns',
+      'identity_changes',
+      'claims',
+      'recoveries',
+      'supplements',
+      'authority',
+    ],
+    'Phase manifest model'
+  );
   return deepFreeze(model);
 }
 

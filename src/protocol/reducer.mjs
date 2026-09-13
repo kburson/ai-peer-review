@@ -362,10 +362,9 @@ function applyLifecycle(protocol, participants, event) {
     'phase-acceptance-committed',
     'phase-acceptance-sealed-no-commit',
   ].includes(event.type);
-  const phaseArtifact = [
-    'phase-artifact-committed',
-    'phase-artifact-sealed-no-commit',
-  ].includes(event.type);
+  const phaseArtifact = ['phase-artifact-committed', 'phase-artifact-sealed-no-commit'].includes(
+    event.type
+  );
   if (phaseAcceptance) {
     const phases = protocol.phases;
     if (
@@ -627,7 +626,10 @@ function applyProjection(state, event) {
   ) {
     protocol.phases.completed.push(copy(event.payload));
   }
-  if (event.type === 'phase-artifact-committed' || event.type === 'phase-artifact-sealed-no-commit') {
+  if (
+    event.type === 'phase-artifact-committed' ||
+    event.type === 'phase-artifact-sealed-no-commit'
+  ) {
     protocol.phases.cursor = event.payload.cursor;
     protocol.phases.current_kind = event.payload.kind;
     protocol.phases.phase_turns_used = 0;

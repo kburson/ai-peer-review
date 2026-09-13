@@ -3386,8 +3386,7 @@ export async function finalizeReview(input, deps = {}) {
         git,
         transactionRepository,
         workspace: absolute,
-        allowedHead:
-          state.protocol.commit_mode === 'normal' ? transactionRepository.head() : null,
+        allowedHead: state.protocol.commit_mode === 'normal' ? transactionRepository.head() : null,
       });
       const phasePath = paths.phaseManifest(phase.cursor, phase.current_kind);
       const model = buildPhaseManifest({
@@ -3416,12 +3415,7 @@ export async function finalizeReview(input, deps = {}) {
         const locked =
           transaction === null
             ? null
-            : commitExactPaths(
-                transactionRepository,
-                transaction,
-                finalMessage(current),
-                trailers
-              );
+            : commitExactPaths(transactionRepository, transaction, finalMessage(current), trailers);
         if (committed && locked.commit !== committed.commit) {
           fail(
             'APR_GIT_RECOVERY_INVALID',

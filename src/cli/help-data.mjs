@@ -872,7 +872,10 @@ function topic(command) {
     no_commit:
       command === 'consolidate'
         ? 'Dry-run never mutates; apply uses exact-path Git commit in normal mode.'
-        : command === 'start' || command === 'submit' || command === 'finalize' || command === 'advance'
+        : command === 'start' ||
+            command === 'submit' ||
+            command === 'finalize' ||
+            command === 'advance'
           ? 'Uses explicit non-durable snapshot evidence and never implies a Git commit.'
           : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [

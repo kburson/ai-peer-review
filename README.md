@@ -213,6 +213,24 @@ The first attempt defaults both IDs to the same value. A replacement gets a new
 `review_id` and explicitly reuses the original `record_id`, so protocol authority
 never overlaps while the human evidence stays together.
 
+## Phased specification and plan reviews
+
+One review can govern an immutable ordered artifact sequence. Phase authority
+comes only from `events.jsonl`; provider transcripts are never consulted:
+
+```bash
+peer-review start docs/spec.md --artifact-kind spec --phases spec,plan
+# review and finalize the specification, then follow status --next:
+peer-review advance .scratch/peer-review/<review-id> docs/plan.md
+# review and finalize the plan normally
+```
+
+Non-final acceptance writes a phase manifest and returns control to the
+registered author. `advance` derives the next kind and cursor from authority,
+binds the exact artifact, and resumes the same reviewer with a fresh phase turn
+budget. The final phase retains the ordinary terminal manifest and archive
+contract. Omitting `--phases` preserves the single-artifact workflow.
+
 ## Recovering one review across attempts
 
 If an attempt cannot finish, preserve it and start the replacement under the
@@ -362,6 +380,7 @@ npx --yes ai-peer-review@0.2.2 status .scratch/peer-review/<review-id> --next
 | `setup`         | you             | install or remove the agent integration         |
 | `doctor`        | anyone          | read-only readiness check                       |
 | `start`         | author          | begin a review of a tracked artifact            |
+| `advance`       | author          | bind the next phased artifact and resume review |
 | `join`          | reviewer        | join from an invitation                         |
 | `status`        | anyone          | current state and the single next action        |
 | `resume`        | anyone          | rebuild the current actor's instructions        |

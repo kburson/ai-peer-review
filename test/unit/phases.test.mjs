@@ -60,20 +60,23 @@ function phasedCreated() {
 }
 
 function phasedAuthorFinalization({ noCommit = false } = {}) {
-  const events = sequence([
-    'review-created',
-    'reviewer-joined',
-    'turn-claimed',
-    'reviewer-accepted',
-    'turn-claimed',
-    'finalization-started',
-  ], {
-    0: { payload: { phases: { kinds: ['spec', 'plan'] } } },
-    1: { actor: FINGERPRINTS.reviewer },
-    2: { actor: FINGERPRINTS.reviewer, payload: { claim: claim('reviewer') } },
-    3: { actor: FINGERPRINTS.reviewer },
-    4: { actor: FINGERPRINTS.author, payload: { claim: claim('author') } },
-  });
+  const events = sequence(
+    [
+      'review-created',
+      'reviewer-joined',
+      'turn-claimed',
+      'reviewer-accepted',
+      'turn-claimed',
+      'finalization-started',
+    ],
+    {
+      0: { payload: { phases: { kinds: ['spec', 'plan'] } } },
+      1: { actor: FINGERPRINTS.reviewer },
+      2: { actor: FINGERPRINTS.reviewer, payload: { claim: claim('reviewer') } },
+      3: { actor: FINGERPRINTS.reviewer },
+      4: { actor: FINGERPRINTS.author, payload: { claim: claim('author') } },
+    }
+  );
   if (noCommit) {
     events[0].payload.commit_mode = 'no-commit';
     events[0].payload.startup.no_commit_baseline = {
@@ -100,10 +103,12 @@ test('adds phase projection only when phased creation authority exists', () => {
 
 test('advances only through exact non-final phase evidence and preserves global turns', () => {
   const accepted = phasedAuthorFinalization();
-  accepted.push(event('phase-acceptance-committed', {
-    sequence: 7,
-    revision: 5,
-  }));
+  accepted.push(
+    event('phase-acceptance-committed', {
+      sequence: 7,
+      revision: 5,
+    })
+  );
   const waiting = reduceEvents(accepted);
   assert.equal(waiting.protocol.state, 'awaiting-phase-artifact');
   assert.equal(waiting.protocol.current_actor, 'author');
@@ -112,10 +117,12 @@ test('advances only through exact non-final phase evidence and preserves global 
   assert.equal(waiting.protocol.phases.phase_turns_used, 1);
   assert.equal(waiting.protocol.phases.completed.length, 1);
 
-  accepted.push(event('phase-artifact-committed', {
-    sequence: 8,
-    revision: 6,
-  }));
+  accepted.push(
+    event('phase-artifact-committed', {
+      sequence: 8,
+      revision: 6,
+    })
+  );
   const advanced = reduceEvents(accepted);
   assert.equal(advanced.protocol.state, 'reviewer-turn');
   assert.equal(advanced.protocol.phases.cursor, 1);
@@ -128,22 +135,31 @@ test('advances only through exact non-final phase evidence and preserves global 
 test('rejects wrong-mode, wrong-cursor, and final-cursor phase lifecycle events', () => {
   const normal = phasedAuthorFinalization();
   assert.throws(
-    () => reduceEvents([...normal, event('phase-acceptance-sealed-no-commit', { sequence: 7, revision: 5 })]),
+    () =>
+      reduceEvents([
+        ...normal,
+        event('phase-acceptance-sealed-no-commit', { sequence: 7, revision: 5 }),
+      ]),
     { code: 'APR_INVALID_TRANSITION' }
   );
   assert.throws(
-    () => reduceEvents([...normal, event('phase-acceptance-committed', {
-      sequence: 7,
-      revision: 5,
-      payload: { cursor: 1 },
-    })]),
+    () =>
+      reduceEvents([
+        ...normal,
+        event('phase-acceptance-committed', {
+          sequence: 7,
+          revision: 5,
+          payload: { cursor: 1 },
+        }),
+      ]),
     { code: 'APR_INVALID_TRANSITION' }
   );
 
   const single = phasedAuthorFinalization();
   single[0].payload.phases = { kinds: ['spec'] };
   assert.throws(
-    () => reduceEvents([...single, event('phase-acceptance-committed', { sequence: 7, revision: 5 })]),
+    () =>
+      reduceEvents([...single, event('phase-acceptance-committed', { sequence: 7, revision: 5 })]),
     { code: 'APR_INVALID_TRANSITION' }
   );
 });
