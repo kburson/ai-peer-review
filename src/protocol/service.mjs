@@ -391,6 +391,7 @@ function statusPaths(state) {
     name: context.artifact_name,
     date: context.review_date,
     reviewId: context.review_id,
+    recordId: context.record_id ?? context.review_id,
   });
   if (paths.destination.relative !== startup.destination) {
     throw authorityError(
@@ -423,6 +424,7 @@ function statusResult(state, paths, review = {}) {
     schema: 'ai-peer-review.cli-result/v1',
     command: 'status',
     review_id: state.protocol.review_id,
+    record_id: state.protocol.startup?.context?.record_id ?? state.protocol.review_id,
     state: state.protocol.state,
     next_action: state.protocol.next_action,
     review: Object.freeze({
@@ -496,7 +498,7 @@ export function statusReview(workspace, { now = new Date() } = {}) {
         : null;
   const operationalPaths = Object.freeze({
     workspace: absolute,
-    invitation: path.join(resolved.destination.absolute, 'reviewer-invitation.md'),
+    invitation: resolved.reviewerInvitation.absolute,
     ...(response ? { response } : {}),
   });
   const ownedPaths =

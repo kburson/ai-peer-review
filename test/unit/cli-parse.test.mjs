@@ -51,6 +51,8 @@ test('start options have stable names, repeatability, and defaults', () => {
     '--artifact-kind',
     'spec',
     '--issue=1531',
+    '--record-id',
+    'record-1531',
     '--max-turns',
     '4',
     '--claim-ttl',
@@ -65,6 +67,7 @@ test('start options have stable names, repeatability, and defaults', () => {
     options: {
       artifactKind: 'spec',
       issue: 1531,
+      recordId: 'record-1531',
       maxTurns: 4,
       claimTtlMs: 12 * 60 * 60 * 1000,
       noCommit: true,

@@ -151,6 +151,7 @@ function result(command, state, paths = {}, review = {}) {
     schema: 'ai-peer-review.cli-result/v1',
     command,
     review_id: state.protocol.review_id,
+    record_id: state.protocol.startup?.context?.record_id ?? state.protocol.review_id,
     state: state.protocol.state,
     next_action: state.protocol.next_action,
     review: Object.freeze({
@@ -169,8 +170,8 @@ function contextFile(workspace) {
 
 function trackedStartupPaths(paths) {
   return {
-    author_startup: path.join(paths.destination.absolute, 'author-startup.md'),
-    reviewer_invitation: path.join(paths.destination.absolute, 'reviewer-invitation.md'),
+    author_startup: paths.authorStartup.absolute,
+    reviewer_invitation: paths.reviewerInvitation.absolute,
   };
 }
 
@@ -677,7 +678,7 @@ export async function startReview(input, deps = {}) {
       artifact_head: artifact.head,
       artifact_kind: input.artifactKind,
       reviews_root: reviewsRoot ?? 'docs/peer-reviews',
-      review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
+      review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<record-id>',
       issue: input.issue ?? null,
       maximum,
       claim_ttl_ms: claimTtlMs,
@@ -686,6 +687,7 @@ export async function startReview(input, deps = {}) {
       authority: requestedAuthority,
       transport_mode: transport.mode,
     });
+  const recordId = input.recordId ?? reviewId;
   const date = now.slice(0, 10);
   const name = path.basename(artifact.path, path.extname(artifact.path));
   let paths = resolveReviewPaths({
@@ -697,6 +699,7 @@ export async function startReview(input, deps = {}) {
     name,
     date,
     reviewId,
+    recordId,
   });
   if (!repository.checkIgnored(root, paths.scratch.relative)) {
     fail(
@@ -709,12 +712,13 @@ export async function startReview(input, deps = {}) {
   const requestedContext = {
     schema: 'ai-peer-review.context/v1',
     review_id: reviewId,
+    record_id: recordId,
     repository_root: root,
     artifact_kind: input.artifactKind,
     artifact_name: name,
     review_date: date,
     reviews_root: paths.reviewsRoot.relative,
-    review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
+    review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<record-id>',
     issue: input.issue ?? null,
   };
   const eventsFile = path.join(paths.scratch.absolute, 'events.jsonl');
@@ -780,6 +784,7 @@ export async function startReview(input, deps = {}) {
       context.repository_root === root &&
       context.artifact_kind === input.artifactKind &&
       context.artifact_name === name &&
+      (context.record_id ?? context.review_id) === recordId &&
       context.reviews_root === requestedContext.reviews_root &&
       context.review_path_template === requestedContext.review_path_template &&
       context.issue === requestedContext.issue &&
@@ -965,6 +970,7 @@ function pathsForContext(context) {
     name: context.artifact_name,
     date: context.review_date,
     reviewId: context.review_id,
+    recordId: context.record_id ?? context.review_id,
   });
 }
 

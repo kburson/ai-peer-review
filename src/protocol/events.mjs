@@ -325,23 +325,24 @@ function validateStartup(value) {
     'review-created startup'
   );
   const context = value.context;
-  exactKeys(
-    context,
-    [
-      'schema',
-      'review_id',
-      'repository_root',
-      'artifact_kind',
-      'artifact_name',
-      'review_date',
-      'reviews_root',
-      'review_path_template',
-      'issue',
-    ],
-    'review-created startup context'
-  );
+  const contextFields = [
+    'schema',
+    'review_id',
+    'repository_root',
+    'artifact_kind',
+    'artifact_name',
+    'review_date',
+    'reviews_root',
+    'review_path_template',
+    'issue',
+  ];
+  if (Object.hasOwn(context, 'record_id')) contextFields.push('record_id');
+  exactKeys(context, contextFields, 'review-created startup context');
   if (context.schema !== 'ai-peer-review.context/v1') throw invalid('startup context schema');
   assertIdentifier(context.review_id, 'startup context review_id');
+  if (context.record_id !== undefined) {
+    assertIdentifier(context.record_id, 'startup context record_id');
+  }
   assertString(context.repository_root, 'startup context repository_root');
   assertEnum(context.artifact_kind, ['spec', 'plan'], 'startup context artifact_kind');
   assertIdentifier(context.artifact_name, 'startup context artifact_name');
