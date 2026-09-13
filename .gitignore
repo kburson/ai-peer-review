@@ -1,6 +1,5 @@
 node_modules/
 coverage/
-*.tgz
 .scratch/peer-review/
 
 # ai-task-manager — local edit backups (do not commit)
