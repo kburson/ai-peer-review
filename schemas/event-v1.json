@@ -83,6 +83,30 @@
     },
     {
       "properties": {
+        "type": { "const": "phase-acceptance-committed" },
+        "payload": { "$ref": "#/$defs/phaseAcceptanceCommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "phase-acceptance-sealed-no-commit" },
+        "payload": { "$ref": "#/$defs/phaseAcceptanceUncommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "phase-artifact-committed" },
+        "payload": { "$ref": "#/$defs/phaseArtifactCommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "phase-artifact-sealed-no-commit" },
+        "payload": { "$ref": "#/$defs/phaseArtifactUncommitted" }
+      }
+    },
+    {
+      "properties": {
         "type": { "const": "intervention-entered" },
         "payload": { "$ref": "#/$defs/intervention" }
       }
@@ -483,7 +507,22 @@
         "authority": { "$ref": "#/$defs/authority" },
         "artifact": { "$ref": "#/$defs/initialArtifact" },
         "author": { "$ref": "#/$defs/participant" },
-        "startup": { "$ref": "#/$defs/startup" }
+        "startup": { "$ref": "#/$defs/startup" },
+        "phases": { "$ref": "#/$defs/phases" }
+      }
+    },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kinds"],
+      "properties": {
+        "kinds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["spec", "plan"] }
+        }
       }
     },
     "startupContext": {
@@ -778,6 +817,54 @@
       "additionalProperties": false,
       "required": ["terminal"],
       "properties": { "terminal": { "$ref": "#/$defs/terminalUncommitted" } }
+    },
+    "phaseAcceptanceCommitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cursor", "kind", "artifact", "manifest", "commit"],
+      "properties": {
+        "cursor": { "$ref": "#/$defs/nonNegative" },
+        "kind": { "enum": ["spec", "plan"] },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "manifest": { "$ref": "#/$defs/response" },
+        "commit": { "$ref": "#/$defs/gitObject" }
+      }
+    },
+    "phaseAcceptanceUncommitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cursor", "kind", "artifact", "manifest", "snapshot"],
+      "properties": {
+        "cursor": { "$ref": "#/$defs/nonNegative" },
+        "kind": { "enum": ["spec", "plan"] },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "manifest": { "$ref": "#/$defs/response" },
+        "snapshot": { "$ref": "#/$defs/response" }
+      }
+    },
+    "phaseArtifactCommitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cursor", "kind", "artifact", "commit", "repository_boundary"],
+      "properties": {
+        "cursor": { "$ref": "#/$defs/nonNegative" },
+        "kind": { "enum": ["spec", "plan"] },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "commit": { "$ref": "#/$defs/gitObject" },
+        "repository_boundary": { "$ref": "#/$defs/repositoryBoundary" }
+      }
+    },
+    "phaseArtifactUncommitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cursor", "kind", "artifact", "snapshot", "repository_boundary"],
+      "properties": {
+        "cursor": { "$ref": "#/$defs/nonNegative" },
+        "kind": { "enum": ["spec", "plan"] },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "snapshot": { "$ref": "#/$defs/response" },
+        "repository_boundary": { "$ref": "#/$defs/repositoryBoundary" }
+      }
     },
     "intervention": {
       "type": "object",
