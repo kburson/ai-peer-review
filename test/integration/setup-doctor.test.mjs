@@ -90,6 +90,38 @@ for (const host of ['codex', 'claude', 'grok', 'generic']) {
   });
 }
 
+test('Claude setup preview, apply, and removal preserve foreign hooks and status line', () => {
+  const files = fixture();
+  const settingsFile = path.join(files.project, '.claude', 'settings.json');
+  mkdirSync(path.dirname(settingsFile), { recursive: true });
+  const foreignSettings = `${JSON.stringify(
+    {
+      hooks: { SessionStart: [{ command: 'user-owned-session-hook' }] },
+      statusLine: { type: 'command', command: 'user-owned-status-line' },
+    },
+    null,
+    2
+  )}\n`;
+  writeFileSync(settingsFile, foreignSettings);
+  const options = {
+    scope: 'project',
+    agents: ['claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+
+  setup({ ...options, dryRun: true });
+  assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
+  setup(options);
+  assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
+  setup({ ...options, remove: true, dryRun: true });
+  assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
+  setup({ ...options, remove: true });
+  assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
+});
+
 test('setup requires explicit scratch-exclude confirmation and exposes deterministic plans', () => {
   const files = fixture();
   assert.throws(

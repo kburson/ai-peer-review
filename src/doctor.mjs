@@ -19,7 +19,12 @@ export function doctor(context = {}) {
   const phaseOne = [
     row('package', context.packageResolved ? 'ok' : 'unavailable', true),
     row('skill', context.skillAvailable ? 'ok' : 'unavailable', true),
-    row('identity-source', context.identity?.identity_source ?? 'unavailable', true),
+    row(
+      'identity-source',
+      context.identity?.identity_source ?? 'unavailable',
+      true,
+      context.identity ? null : (context.identityRecovery ?? null)
+    ),
     row(
       'session-fingerprint',
       context.identity?.session_fingerprint ? 'available' : 'unavailable',

@@ -556,7 +556,8 @@ const ERROR_CATALOG = Object.freeze({
   },
   APR_IDENTITY_REQUIRED: {
     message: 'The command could not establish its required participant identity.',
-    recovery: 'Use an official runtime identity or provide the documented declared identity.',
+    recovery:
+      'Use official runtime identity. For a Claude session without model metadata, set hosts.claude.identity.model_id and model_display in .ai-peer-review.json; configuration cannot supply the session.',
   },
   APR_TRANSPORT_UNAVAILABLE: {
     message: 'The requested transport is not supported by the current participant.',
@@ -687,6 +688,7 @@ function topic(command) {
         : ['stored review authority'],
     environment: [
       'Official provider session metadata when available; declared identity is explicit.',
+      'Claude partial-runtime recovery requires a genuine runtime session plus hosts.claude.identity model_id and model_display; the result is labeled declared.',
     ],
     preconditions: PRECONDITIONS[command],
     effects: EFFECTS[command],

@@ -106,10 +106,40 @@ you asked for is actually available. For `automatic-required`, it also checks
 MCP connectivity, a current resident lease, the configured long timeout, and an
 end-to-end transport probe. Anything it calls out, it also tells you how to fix.
 
+Claude Code must expose a genuine current session through
+`CLAUDE_CODE_SESSION_ID` (or `CLAUDE_SESSION_ID`). When the host does not expose
+model metadata, declare only the model fields in the project or user
+`.ai-peer-review.json`:
+
+```json
+{
+  "schema": "ai-peer-review.config/v1",
+  "hosts": {
+    "claude": {
+      "identity": {
+        "provider": "anthropic",
+        "host": "claude-code",
+        "model_id": "claude-opus-5",
+        "model_display": "Claude Opus 5"
+      }
+    }
+  }
+}
+```
+
+The session fingerprint still derives only from the genuine current Claude
+session. Configuration cannot supply a session ID, and the package never
+guesses the active model. A runtime session combined with configured model
+metadata is labeled `identity_source: declared`; complete runtime session and
+model metadata remains `runtime`. Doctor, start, join, submit, finalize, grant,
+recovery, and abandonment all use this same resolution contract.
+
 Codex and Claude Code setup install package-owned versioned settings for the
 `peer-review-mcp` server, an eight-hour tool timeout, and a lease heartbeat.
 Grok and generic hosts remain manual unless a future official adapter implements
-and passes the same contract. Preview and removal preserve all foreign settings.
+and passes the same contract. Setup does not install a Claude identity hook or
+status-line bridge. Preview, apply, and removal preserve all foreign hooks,
+status-line configuration, and other settings.
 
 ## Running a review
 
