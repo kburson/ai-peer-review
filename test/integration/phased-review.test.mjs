@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
+import { reconcileWake } from '../../src/coordinator/service.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
 
@@ -40,6 +41,26 @@ function identity(role) {
     source: 'runtime',
     joinedAt: NOW,
   });
+}
+
+function wakeObservation(participant, observedAt) {
+  return {
+    session_fingerprint: participant.session_fingerprint,
+    capability: 'native-push',
+    adapter: 'codex-app',
+    adapter_version: '2.0.0',
+    lease: {
+      schema: 'ai-peer-review.resident-lease/v1',
+      process_instance_id: `phased-${participant.role}-process`,
+      pid: null,
+      opaque_handle: `codex:${participant.role}-session`,
+      host: 'codex',
+      adapter_version: '2.0.0',
+      heartbeat_sequence: 1,
+      observed_at: observedAt,
+      expires_at: '2026-09-09T12:30:00.000Z',
+    },
+  };
 }
 
 function replaceSection(file, heading, content) {
@@ -96,10 +117,58 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
     now: '2026-09-09T12:02:00.000Z',
   });
   assert.equal(phase.state, 'awaiting-phase-artifact');
+  const wakes = [];
+  const authorWake = await reconcileWake({
+    workspace: started.paths.workspace,
+    observation: wakeObservation(author, '2026-09-09T12:02:01.000Z'),
+    adapter: {
+      async deliver(input) {
+        wakes.push(input);
+        return { status: 'acknowledged', reason: 'test-acknowledged' };
+      },
+      async reconcile() {
+        return { status: 'not-submitted', reason: 'test-not-submitted' };
+      },
+    },
+    now: Date.parse('2026-09-09T12:02:01.000Z'),
+  });
+  assert.equal(authorWake.status, 'acknowledged');
+  assert.equal(wakes.length, 1);
+  assert.equal(wakes[0].capsule.target_role, 'author');
+  const authorDelivery = path.join(started.paths.workspace, 'deliveries/phase-0-to-author.json');
+  const eventsBeforeFinalizeRetry = readFileSync(started.paths.events);
+  rmSync(authorDelivery);
+  await api.finalizeReview({
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:02:00.000Z',
+  });
+  assert.equal(existsSync(authorDelivery), true);
+  assert.deepEqual(readFileSync(started.paths.events), eventsBeforeFinalizeRetry);
 
   writeFileSync(path.join(root, 'docs/plan.md'), '# Plan\n');
   git(root, ['add', 'docs/plan.md']);
   git(root, ['commit', '-m', 'add plan']);
+  await assert.rejects(
+    api.advanceReview(
+      {
+        cwd: root,
+        workspace: started.paths.workspace,
+        artifact: 'docs/plan.md',
+        identity: author,
+        now: '2026-09-09T12:03:00.000Z',
+      },
+      {
+        checkpoint(name) {
+          if (name === 'phase-artifact-appended') {
+            throw new Error('injected after phase-artifact-appended');
+          }
+        },
+      }
+    ),
+    /injected after phase-artifact-appended/
+  );
   const advanced = await api.advanceReview({
     cwd: root,
     workspace: started.paths.workspace,
@@ -114,6 +183,22 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
   assert.equal(advanced.phases.completed.length, 1);
   assert.equal(advanced.review.artifact.path, 'docs/plan.md');
   assert.equal(advanced.paths.response.endsWith('reviewer-response-2.md'), true);
+  const advancedEvents = readFileSync(started.paths.events, 'utf8')
+    .trim()
+    .split('\n')
+    .map(JSON.parse);
+  assert.equal(
+    advancedEvents.filter((event) => event.type === 'phase-artifact-committed').length,
+    1
+  );
+  assert.equal(
+    advancedEvents.filter(
+      (event) =>
+        event.type === 'delivery-written' &&
+        event.payload.delivery.delivery_id === 'phase-1-to-reviewer'
+    ).length,
+    1
+  );
 
   const beforeRetry = readFileSync(started.paths.events);
   const retried = await api.advanceReview({

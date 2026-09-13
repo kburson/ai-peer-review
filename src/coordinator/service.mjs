@@ -55,7 +55,7 @@ function verifiedDelivery(workspace, authority) {
       { delivery_id: delivery.delivery_id, cause: cause?.code ?? cause?.message ?? 'unknown' }
     );
   }
-  const expected = Buffer.from(`${canonicalProjection(delivery)}\n`, 'utf8');
+  const expected = Buffer.from(canonicalProjection(delivery), 'utf8');
   if (!readFileSync(file).equals(expected)) {
     fail(
       'APR_DELIVERY_CONFLICT',

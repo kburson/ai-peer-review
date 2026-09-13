@@ -1941,11 +1941,26 @@ export async function advanceReview(input, deps = {}) {
       'reviewer',
       state.protocol.turns_used + 1
     );
+    const delivered = await ensureRoleDelivery({
+      transport: deps.transport,
+      state,
+      workspace: absolute,
+      actor: input.identity.session_fingerprint,
+      recipient: 'reviewer',
+      deliveryId: `phase-${phase.cursor}-to-reviewer`,
+      valueDigest: observedArtifact.digest,
+      now: input.now,
+      exec: deps.execFile,
+    });
     return result(
       'advance',
-      state,
+      delivered.state,
       { workspace: absolute, response: draft.path },
-      { artifact: observedArtifact, commit: prior.payload.commit ?? null }
+      {
+        artifact: observedArtifact,
+        commit: prior.payload.commit ?? null,
+        ...(delivered.delivery ? { delivery: delivered.delivery } : {}),
+      }
     );
   }
   if (!phase || state.protocol.state !== 'awaiting-phase-artifact') {
@@ -1983,7 +1998,7 @@ export async function advanceReview(input, deps = {}) {
     };
     ensureExactFile(path.join(absolute, snapshot.path), bytes);
   }
-  let current = await mutateReview(absolute, expected(state), (locked) => {
+  const current = await mutateReview(absolute, expected(state), (locked) => {
     assertCurrentParticipant(locked, 'author', input.identity, input.now);
     return eventFor(
       locked,
@@ -2001,28 +2016,21 @@ export async function advanceReview(input, deps = {}) {
       input.now ?? new Date()
     );
   });
+  checkpoint(deps, 'phase-artifact-appended');
   const draft = createResponseDraft(
     { ...current, paths, artifact_commit: observed.head },
     'reviewer',
     current.protocol.turns_used + 1
   );
   const deliveryId = `phase-${nextCursor}-to-reviewer`;
-  current = await mutateReview(absolute, expected(current), (locked) =>
-    deliveryEvent(
-      locked,
-      input.identity.session_fingerprint,
-      'reviewer',
-      deliveryId,
-      observedArtifact.digest,
-      input.now ?? new Date()
-    )
-  );
-  const delivered = await deliverAndAcknowledge({
+  const delivered = await ensureRoleDelivery({
     transport: deps.transport,
     state: current,
     workspace: absolute,
     actor: input.identity.session_fingerprint,
+    recipient: 'reviewer',
     deliveryId,
+    valueDigest: observedArtifact.digest,
     now: input.now,
     exec: deps.execFile,
   });
@@ -2142,6 +2150,44 @@ async function deliverAndAcknowledge({
     eventFor(locked, 'delivery-acknowledged', actor, { delivery_id: deliveryId }, now ?? new Date())
   );
   return { state: acknowledged, delivery };
+}
+
+async function ensureRoleDelivery({
+  transport,
+  state,
+  workspace,
+  actor,
+  recipient,
+  deliveryId,
+  valueDigest,
+  now,
+  exec,
+}) {
+  const prior = state.protocol.deliveries.find((delivery) => delivery.delivery_id === deliveryId);
+  let current = state;
+  if (prior) {
+    if (prior.recipient !== recipient || prior.digest !== valueDigest) {
+      fail(
+        'APR_DELIVERY_CONFLICT',
+        'Phase handoff delivery conflicts with event authority.',
+        'Preserve the delivery and inspect the conflict before recovery.'
+      );
+    }
+    current = await readReview(workspace);
+  } else {
+    current = await mutateReview(workspace, expected(current), (locked) =>
+      deliveryEvent(locked, actor, recipient, deliveryId, valueDigest, now ?? new Date())
+    );
+  }
+  return deliverAndAcknowledge({
+    transport: prior?.acknowledged_at ? null : transport,
+    state: current,
+    workspace,
+    actor,
+    deliveryId,
+    now,
+    exec,
+  });
 }
 
 function checkpoint(deps, name) {
@@ -3272,9 +3318,20 @@ export async function finalizeReview(input, deps = {}) {
         'Restore the exact phase manifest and retry.'
       );
     }
+    const delivered = await ensureRoleDelivery({
+      transport: deps.transport,
+      state,
+      workspace: absolute,
+      actor: input.identity.session_fingerprint,
+      recipient: 'author',
+      deliveryId: `phase-${existingPhaseAcceptance.payload.cursor}-to-author`,
+      valueDigest: existingPhaseAcceptance.payload.manifest.digest,
+      now: input.now,
+      exec: deps.execFile,
+    });
     return result(
       'finalize',
-      state,
+      delivered.state,
       { workspace: absolute, phase_manifest: phasePath.absolute },
       {
         phase: {
@@ -3284,6 +3341,7 @@ export async function finalizeReview(input, deps = {}) {
         commit: existingPhaseAcceptance.payload.commit ?? null,
         manifest_digest: existingPhaseAcceptance.payload.manifest.digest,
         acceptance_basis: 'reviewer-consensus',
+        ...(delivered.delivery ? { delivery: delivered.delivery } : {}),
       }
     );
   }
@@ -3448,15 +3506,28 @@ export async function finalizeReview(input, deps = {}) {
         );
       });
       checkpoint(deps, 'terminal-event-appended');
+      const delivered = await ensureRoleDelivery({
+        transport: deps.transport,
+        state: phaseState,
+        workspace: absolute,
+        actor: input.identity.session_fingerprint,
+        recipient: 'author',
+        deliveryId: `phase-${phase.cursor}-to-author`,
+        valueDigest: manifest.digest,
+        now: input.now,
+        exec: deps.execFile,
+      });
+      checkpoint(deps, 'delivery-written');
       return result(
         'finalize',
-        phaseState,
+        delivered.state,
         { workspace: absolute, phase_manifest: phasePath.absolute },
         {
           phase: { cursor: phase.cursor, kind: phase.current_kind },
           commit: committed?.commit ?? null,
           manifest_digest: manifest.digest,
           acceptance_basis: 'reviewer-consensus',
+          ...(delivered.delivery ? { delivery: delivered.delivery } : {}),
         }
       );
     }
