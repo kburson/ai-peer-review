@@ -12,7 +12,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   assert.equal(packageJson.name, 'ai-peer-review');
   assert.equal(packageJson.version, '0.2.2');
   assert.equal(packageJson.type, 'module');
-  assert.equal(packageJson.engines.node, '>=22');
+  assert.equal(packageJson.engines.node, '>=24');
   assert.equal(packageJson.bin['peer-review'], './bin/peer-review.mjs');
   assert.equal(packageJson.bin['peer-review-mcp'], './bin/peer-review-mcp.mjs');
   assert.deepEqual(packageJson.dependencies, {

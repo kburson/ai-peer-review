@@ -53,6 +53,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     '.gitleaks.toml',
     '.markdownlint-cli2.jsonc',
     '.npmrc',
+    '.nvmrc',
     '.prettierignore',
     '.prettierrc.json',
     'CONTRIBUTING.md',

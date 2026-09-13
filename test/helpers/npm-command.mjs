@@ -27,3 +27,12 @@ export function runNpm(tool, args, options = {}) {
   }
   return execFileSync(tool, args, options);
 }
+
+export function parseNpmPackOutput(output) {
+  const parsed = JSON.parse(output);
+  const entries = Array.isArray(parsed) ? parsed : Object.values(parsed);
+  if (entries.length !== 1) {
+    throw new Error(`Expected one packed package, received ${entries.length}`);
+  }
+  return entries[0];
+}
