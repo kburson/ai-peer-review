@@ -1,5 +1,7 @@
 node_modules/
 coverage/
+*.tgz
+!vendors/kburson-ai-task-manager-1.0.0.tgz
 .scratch/peer-review/
 
 # ai-task-manager — local edit backups (do not commit)

@@ -1,4 +1,5 @@
 <!-- ai-task-manager:codex-superpowers:start -->
+
 ## AI Task Manager: Codex Superpowers Bootstrap
 
 AITM added this this workspace AGENTS.md block to approximate Claude Code Superpowers startup behavior in Codex.
@@ -26,4 +27,5 @@ States: `Backlog → Refine → Ready for Planning → Plan → Develop → Test
 - `/task close #N` — Review → Done (refused unless `approve` marker present)
 
 Test → Review: agent self-report REVIEW_COMPLETE (no CLI verb).
+
 <!-- ai-task-manager:codex-superpowers:end -->
