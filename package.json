@@ -45,6 +45,7 @@
     "provenance": true
   },
   "dependencies": {
+    "@kburson/ai-task-manager": "file:vendors/kburson-ai-task-manager-1.0.0.tgz",
     "@modelcontextprotocol/sdk": "1.30.0",
     "zod": "4.6.2"
   },
