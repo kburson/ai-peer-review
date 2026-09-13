@@ -636,7 +636,9 @@ function applyProjection(state, event) {
     event.type === 'author-revision-committed' ||
     event.type === 'author-revision-sealed-no-commit' ||
     event.type === 'author-closing-round-committed' ||
-    event.type === 'author-closing-round-sealed-no-commit'
+    event.type === 'author-closing-round-sealed-no-commit' ||
+    event.type === 'phase-artifact-committed' ||
+    event.type === 'phase-artifact-sealed-no-commit'
   ) {
     protocol.reviewer_boundary = copy(event.payload.repository_boundary);
   }

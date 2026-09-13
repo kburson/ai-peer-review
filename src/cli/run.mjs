@@ -1881,9 +1881,162 @@ function latestHead(state, events) {
   const committed = [...events]
     .reverse()
     .find((event) =>
-      ['author-revision-committed', 'author-closing-round-committed'].includes(event.type)
+      [
+        'author-revision-committed',
+        'author-closing-round-committed',
+        'phase-acceptance-committed',
+        'phase-artifact-committed',
+      ].includes(event.type)
     );
   return committed?.payload.commit ?? events[0]?.payload.artifact.head ?? null;
+}
+
+export async function advanceReview(input, deps = {}) {
+  const absolute = path.resolve(input.workspace);
+  const authority = submissionAuthority(absolute);
+  const { state, paths } = authority;
+  const phase = state.protocol.phases;
+  const prior = [...authority.events]
+    .reverse()
+    .find((event) =>
+      ['phase-artifact-committed', 'phase-artifact-sealed-no-commit'].includes(event.type)
+    );
+  const requestedRoot = (deps.repository ?? createGitRepository()).root(input.cwd);
+  if (requestedRoot !== state.protocol.startup.context.repository_root) {
+    fail(
+      'APR_REPOSITORY_NOT_FOUND',
+      'Phase advance came from a different physical worktree.',
+      'Return to the event-authorized repository and retry.'
+    );
+  }
+  const repository = deps.repository ?? createGitRepository();
+  const relativeArtifact = path.isAbsolute(input.artifact)
+    ? repositoryRelative(requestedRoot, input.artifact, 'artifact')
+    : input.artifact;
+  const observed = repository.artifactState(requestedRoot, relativeArtifact);
+  const observedArtifact = {
+    path: observed.path,
+    blob: observed.blob,
+    digest: `sha256:${observed.worktreeDigest}`,
+  };
+  if (
+    prior &&
+    phase &&
+    prior.payload.cursor === phase.cursor &&
+    state.protocol.state === 'reviewer-turn'
+  ) {
+    if (
+      input.identity?.role !== 'author' ||
+      input.identity.session_fingerprint !== state.participants.author?.session_fingerprint ||
+      !sameValue(prior.payload.artifact, observedArtifact)
+    ) {
+      fail(
+        'APR_PHASE_CONFLICT',
+        'Phase artifact retry differs from event authority.',
+        'Retry with the exact registered author and artifact bytes.'
+      );
+    }
+    const draft = createResponseDraft(
+      { ...state, paths, artifact_commit: prior.payload.commit ?? observed.head },
+      'reviewer',
+      state.protocol.turns_used + 1
+    );
+    return result(
+      'advance',
+      state,
+      { workspace: absolute, response: draft.path },
+      { artifact: observedArtifact, commit: prior.payload.commit ?? null }
+    );
+  }
+  if (!phase || state.protocol.state !== 'awaiting-phase-artifact') {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Phase advance is not the current review action.',
+      'Read status and follow its exact next action.'
+    );
+  }
+  assertSubmissionClaim(state, 'author', input.identity, input.now);
+  const nextCursor = phase.cursor + 1;
+  const nextKind = phase.kinds[nextCursor];
+  if (!nextKind || observed.path === state.protocol.artifact.path) {
+    fail(
+      'APR_PHASE_CONFLICT',
+      'Phase advance does not bind the exact next artifact.',
+      'Provide a distinct tracked artifact for the event-derived next phase.'
+    );
+  }
+  if (state.protocol.commit_mode === 'normal' && !observed.clean) {
+    fail(
+      'APR_ARTIFACT_DIRTY',
+      'The next phased artifact differs from HEAD.',
+      `Commit or restore ${observed.path}, then retry peer-review advance.`
+    );
+  }
+  const nextResponsePath = paths.reviewerResponse(state.protocol.turns_used + 1);
+  const boundary = repository.reviewerBoundary(requestedRoot, nextResponsePath.relative);
+  let snapshot = null;
+  if (state.protocol.commit_mode === 'no-commit') {
+    const bytes = repository.workingBytes(requestedRoot, observed.path);
+    snapshot = {
+      path: `artifacts/phase-${String(nextCursor + 1).padStart(2, '0')}-${nextKind}.md`,
+      digest: observedArtifact.digest,
+    };
+    ensureExactFile(path.join(absolute, snapshot.path), bytes);
+  }
+  let current = await mutateReview(absolute, expected(state), (locked) => {
+    assertCurrentParticipant(locked, 'author', input.identity, input.now);
+    return eventFor(
+      locked,
+      state.protocol.commit_mode === 'normal'
+        ? 'phase-artifact-committed'
+        : 'phase-artifact-sealed-no-commit',
+      input.identity.session_fingerprint,
+      {
+        cursor: nextCursor,
+        kind: nextKind,
+        artifact: observedArtifact,
+        ...(snapshot ? { snapshot } : { commit: observed.head }),
+        repository_boundary: boundary,
+      },
+      input.now ?? new Date()
+    );
+  });
+  const draft = createResponseDraft(
+    { ...current, paths, artifact_commit: observed.head },
+    'reviewer',
+    current.protocol.turns_used + 1
+  );
+  const deliveryId = `phase-${nextCursor}-to-reviewer`;
+  current = await mutateReview(absolute, expected(current), (locked) =>
+    deliveryEvent(
+      locked,
+      input.identity.session_fingerprint,
+      'reviewer',
+      deliveryId,
+      observedArtifact.digest,
+      input.now ?? new Date()
+    )
+  );
+  const delivered = await deliverAndAcknowledge({
+    transport: deps.transport,
+    state: current,
+    workspace: absolute,
+    actor: input.identity.session_fingerprint,
+    deliveryId,
+    now: input.now,
+    exec: deps.execFile,
+  });
+  return result(
+    'advance',
+    delivered.state,
+    { workspace: absolute, response: draft.path },
+    {
+      artifact: observedArtifact,
+      commit: state.protocol.commit_mode === 'normal' ? observed.head : null,
+      ...(snapshot ? { snapshot } : {}),
+      ...(delivered.delivery ? { delivery: delivered.delivery } : {}),
+    }
+  );
 }
 
 function assertReviewerRepository(input, state, events, repository) {
@@ -4088,6 +4241,25 @@ export async function run(argv, io) {
           'Read status and follow its exact next action.'
         );
       }
+    } else if (parsed.command === 'advance') {
+      const workspace = path.resolve(io.cwd, parsed.args[0]);
+      const state = inspectReview(workspace);
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+      const reviewer = state.participants.reviewer;
+      const transport =
+        state.protocol.startup.transport_mode === 'resume-only'
+          ? resumeTransport(workspace, 'reviewer', reviewer, loaded.config)
+          : null;
+      response = await advanceReview(
+        {
+          cwd: io.cwd,
+          workspace,
+          artifact: parsed.args[1],
+          identity: commandIdentity(io, state, 'author', { config: loaded.config }),
+          now: io.now ?? new Date(),
+        },
+        { transport, execFile: io.execFile }
+      );
     } else if (parsed.command === 'finalize') {
       const workspace = path.resolve(io.cwd, parsed.args[0]);
       const state = inspectReview(workspace);
