@@ -27,5 +27,14 @@ test('installable skill states the complete provider-neutral operating contract'
   ]) {
     assert.match(text, new RegExp(phrase, 'i'), phrase);
   }
+  const normalized = text.replace(/\s+/g, ' ');
+  for (const phrase of [
+    'Communication policy (v1)',
+    'all later turns, resumes, handoffs, and finalization',
+    'do not rely on a chat summary',
+    'unless the human explicitly requests it',
+  ]) {
+    assert.ok(normalized.toLowerCase().includes(phrase.toLowerCase()), phrase);
+  }
   assert.doesNotMatch(text, /\baitm\b|\/task\b/i);
 });

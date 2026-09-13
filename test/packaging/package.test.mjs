@@ -89,6 +89,23 @@ test('published tarball is closed and exact-pins its audited production dependen
   assert.equal(dependencyTree.dependencies.zod.version, '4.6.2');
 });
 
+test('published tarball retains the participant communication policy', (t) => {
+  const result = pack(t);
+  for (const file of [
+    'templates/author-startup.md',
+    'templates/reviewer-invitation.md',
+    'skills/peer-review/SKILL.md',
+  ]) {
+    assert.ok(
+      result.files.some((entry) => entry.path === file),
+      `missing ${file}`
+    );
+    const bytes = readFileSync(path.join(root, file), 'utf8');
+    assert.match(bytes, /## Communication policy \(v1\)/, file);
+    assert.match(bytes.replace(/\s+/g, ' '), /do not rely on a chat summary/i, file);
+  }
+});
+
 test('README and NOTICE bind the exact source, filtered tip, bootstrap, and license split', () => {
   const readme = readFileSync(path.join(root, 'README.md'), 'utf8');
   const notice = readFileSync(path.join(root, 'NOTICE'), 'utf8');
