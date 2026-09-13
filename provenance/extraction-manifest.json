@@ -28,8 +28,10 @@
   "standalone_path_rules": {
     "prefixes": [
       ".github/workflows",
+      ".codex",
       "bin",
       "docs/design",
+      "docs/peer-reviews",
       "docs/whitepapers",
       "provenance",
       "schemas",
@@ -39,6 +41,7 @@
       "test"
     ],
     "exact": [
+      ".ai-peer-review.json",
       ".github/CODEOWNERS",
       ".gitattributes",
       ".gitignore",
