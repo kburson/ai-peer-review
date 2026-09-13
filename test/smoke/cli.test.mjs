@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { runNpm } from '../helpers/npm-command.mjs';
+import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -17,12 +17,12 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
   const host = path.join(fixture, 'host');
   mkdirSync(packDir);
   mkdirSync(host);
-  const packed = JSON.parse(
+  const packed = parseNpmPackOutput(
     runNpm('npm', ['pack', '--json', '--pack-destination', packDir], {
       cwd: root,
       encoding: 'utf8',
     })
-  )[0];
+  );
   const tarball = path.join(packDir, packed.filename);
   const zeroInstallHelp = runNpm(
     'npx',

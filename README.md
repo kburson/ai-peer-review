@@ -9,8 +9,9 @@ every commit. What you get back is the review itself, committed next to the work
 it reviewed.
 
 It works with Claude Code, Codex, Grok, or any agent that can run a shell
-command. It requires Node.js 22 or later and uses two exact-pinned runtime
-dependencies for its MCP transport and closed validation boundary.
+command. It requires Node.js 24 or later, recommends Node.js 26 or later, and
+uses two exact-pinned runtime dependencies for its MCP transport and closed
+validation boundary.
 
 ## Why bother
 
@@ -321,9 +322,10 @@ All workflow mutation is routed through the CLI, so every host — human or agen
 ## Verification
 
 Releases run unit, golden, integration, MCP, packaging, installed-host smoke,
-format, spelling, and lint gates on Node 22 across Ubuntu, macOS, and Windows,
-plus later LTS and current Node releases on Ubuntu. Production dependencies are
-exact-pinned and audited.
+format, spelling, and lint gates on the minimum supported Node 24 across Ubuntu,
+macOS, and Windows, plus the preferred Node 26 and current Node releases on
+Ubuntu. Release publication and Phase 2 boundary checks use Node 26. Production
+dependencies are exact-pinned and audited.
 
 Locally:
 

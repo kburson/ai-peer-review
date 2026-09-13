@@ -48,6 +48,7 @@
       ".gitleaks.toml",
       ".markdownlint-cli2.jsonc",
       ".npmrc",
+      ".nvmrc",
       ".prettierignore",
       ".prettierrc.json",
       "CONTRIBUTING.md",
