@@ -13,6 +13,11 @@
     },
     "scratchDir": "./.scratch/"
   },
+  "trunkRef": "origin/trunk",
+  "fullAutoMerge": {
+    "mechanism": "provider-action",
+    "mergeMethod": "squash"
+  },
   "kanbanOptionReadyForPlan": "7974dcb1",
   "repo": "kburson/ai-peer-review",
   "projectId": "PVT_kwHOABCEY84Bi8GF",
