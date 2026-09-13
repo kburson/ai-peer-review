@@ -20,6 +20,7 @@ import {
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
+import { applyReviewRecord, planReviewRecord } from '../collateral/review-record.mjs';
 import { loadConfig } from '../config/load.mjs';
 import { setup } from '../config/setup.mjs';
 import {
@@ -3396,6 +3397,56 @@ function writeResult(stream, value) {
   stream.write(`${lines.join('\n')}\n`);
 }
 
+function consolidationResult(plan, applied = null) {
+  return Object.freeze({
+    schema: 'ai-peer-review.cli-result/v1',
+    command: 'consolidate',
+    review_id: plan.attempts.at(-1).review_id,
+    record_id: plan.record_id,
+    state: applied ? 'consolidated' : 'planned',
+    mode: applied ? 'apply' : 'dry-run',
+    next_action: null,
+    review: Object.freeze({
+      commit_mode:
+        plan.attempts.every(({ commit_mode: mode }) => mode === 'no-commit')
+          ? 'no-commit'
+          : 'normal',
+      commit: applied?.commit ?? null,
+      recovered: applied?.recovered ?? false,
+    }),
+    paths: Object.freeze({
+      history: plan.history.relative,
+      receipt: plan.receipt.relative,
+    }),
+    mappings: Object.freeze(
+      plan.mappings.map(({ review_id: reviewId, source, destination, collision }) =>
+        Object.freeze({
+          review_id: reviewId,
+          source: source.relative,
+          destination: destination.relative,
+          digest: source.digest,
+          collision,
+        })
+      )
+    ),
+    receipt: plan.receipt.relative,
+    receipt_digest: applied?.receipt_digest ?? null,
+  });
+}
+
+function writeConsolidationResult(stream, value) {
+  const lines = [
+    `Review record ${value.record_id}: ${value.mode}`,
+    `History: ${value.paths.history}`,
+    `Receipt: ${value.receipt}`,
+    ...value.mappings.map(
+      (mapping) =>
+        `${mapping.collision}: ${mapping.source} -> ${mapping.destination} (${mapping.digest})`
+    ),
+  ];
+  stream.write(`${lines.join('\n')}\n`);
+}
+
 function commandIdentity(io, state, role = null, { allowReplacement = false, config = {} } = {}) {
   const roles = role ? [role] : ['author', 'reviewer'];
   for (const candidateRole of roles) {
@@ -3890,6 +3941,28 @@ export async function run(argv, io) {
         successorReviewId: parsed.options.by,
         now: io.now ?? new Date(),
       });
+    } else if (parsed.command === 'consolidate') {
+      const plan = planReviewRecord({
+        workspaces: parsed.args.map((workspace) => path.resolve(io.cwd, workspace)),
+        destination: parsed.options.destination,
+        now: io.now ?? new Date(),
+      });
+      if (parsed.options.dryRun) {
+        response = consolidationResult(plan);
+      } else {
+        const modes = new Set(plan.attempts.map(({ commit_mode: mode }) => mode));
+        if (modes.size !== 1) {
+          fail(
+            'APR_REVIEW_RECORD_MISMATCH',
+            'Review attempts use different commit modes.',
+            'Consolidate only attempts that share one sealed commit mode.'
+          );
+        }
+        response = consolidationResult(
+          plan,
+          applyReviewRecord(plan, { mode: plan.attempts[0].commit_mode })
+        );
+      }
     } else {
       throw new AprError('APR_NOT_IMPLEMENTED', `${parsed.command} is not implemented yet`, {
         recovery: `Run peer-review help ${parsed.command} for the planned interface.`,
@@ -3897,6 +3970,7 @@ export async function run(argv, io) {
       });
     }
     if (parsed.options.json) writeJson(io.stdout, response);
+    else if (parsed.command === 'consolidate') writeConsolidationResult(io.stdout, response);
     else if (parsed.command === 'status' && parsed.options.next)
       io.stdout.write(`${response.next_action.command ?? ''}\n`);
     else writeResult(io.stdout, response);

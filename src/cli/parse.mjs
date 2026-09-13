@@ -65,6 +65,7 @@ export const COMMAND_FLAGS = Object.freeze({
   recover: frozenList(['--reclaim', '--replace-participant', '--grant']),
   abandon: frozenList(['--reason']),
   supersede: frozenList(['--reason', '--by']),
+  consolidate: frozenList(['--destination', '--dry-run', '--apply', '--json']),
   help: frozenList(['--all', '--json']),
   explain: frozenList(['--json']),
 });
@@ -93,6 +94,8 @@ export const COMMAND_USAGE = Object.freeze({
     'peer-review recover <workspace> [--reclaim | --replace-participant <role> --grant <signed-grant>]',
   abandon: 'peer-review abandon <workspace> --reason <text>',
   supersede: 'peer-review supersede <workspace> --reason <text> --by <successor-review-id>',
+  consolidate:
+    'peer-review consolidate <workspace>... --destination <record-relative-path> (--dry-run | --apply) [--json]',
   help: 'peer-review help [<command>] [--all] [--json] | peer-review help search <term>',
   explain: 'peer-review explain <error-code> [--json]',
 });
@@ -116,12 +119,14 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
   recover: grammar(1),
   abandon: grammar(1),
   supersede: grammar(1),
+  consolidate: grammar(2, Number.MAX_SAFE_INTEGER),
   help: grammar(0, 2),
   explain: grammar(1),
 });
 
 const BOOLEAN_FLAGS = new Set([
   '--dry-run',
+  '--apply',
   '--remove',
   '--confirm-scratch-exclude',
   '--json',
@@ -267,6 +272,17 @@ function validateConstraints(command, args, options) {
     }
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(options.by)) {
       usage('--by requires a safe successor review ID');
+    }
+  }
+  if (command === 'consolidate') {
+    if (typeof options.destination !== 'string' || !options.destination.trim()) {
+      usage('consolidate requires --destination');
+    }
+    if (Boolean(options.dryRun) === Boolean(options.apply)) {
+      usage('consolidate requires exactly one of --dry-run or --apply');
+    }
+    if (new Set(args).size !== args.length) {
+      usage('consolidate requires unique review workspaces');
     }
   }
   if (command === 'recover') {

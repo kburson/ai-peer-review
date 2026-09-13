@@ -1,4 +1,9 @@
 export { explainError } from './cli/help-data.mjs';
+export {
+  applyReviewRecord,
+  planReviewRecord,
+  renderReviewHistory,
+} from './collateral/review-record.mjs';
 export { statusReview } from './protocol/service.mjs';
 export {
   refreshResidentLease,

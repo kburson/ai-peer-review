@@ -16,6 +16,7 @@ const PURPOSE = Object.freeze({
   recover: 'Inspect and perform an explicitly authorized recovery.',
   abandon: 'Terminate an intervention review while retaining evidence paths.',
   supersede: 'Terminate a replaced nonterminal attempt while retaining evidence paths.',
+  consolidate: 'Consolidate terminal attempts into one verified review-of-record bundle.',
   help: 'Query the complete offline command contract.',
   explain: 'Explain one stable APR error and its recovery.',
 });
@@ -36,6 +37,7 @@ const ROLES = Object.freeze({
   recover: ['author', 'reviewer'],
   abandon: ['author', 'reviewer'],
   supersede: ['author', 'reviewer'],
+  consolidate: ['author', 'reviewer', 'human'],
   help: ['author', 'reviewer', 'human'],
   explain: ['author', 'reviewer', 'human'],
 });
@@ -61,6 +63,7 @@ const STATES = Object.freeze({
     'author-finalization',
     'intervention-required',
   ],
+  consolidate: ['terminal attempts'],
   help: ['any'],
   explain: ['any'],
 });
@@ -86,6 +89,9 @@ const PRECONDITIONS = Object.freeze({
   supersede: [
     'A nonterminal attempt, one registered participant, a reason, and a distinct successor review ID.',
   ],
+  consolidate: [
+    'At least two terminal workspaces for one record and artifact, plus one contained destination.',
+  ],
   help: ['A readable installed package.'],
   explain: ['A known stable APR error code.'],
 });
@@ -106,6 +112,10 @@ const EFFECTS = Object.freeze({
   recover: ['Performs only the selected event-authorized reclaim or replacement.'],
   abandon: ['Appends terminal abandonment while preserving listed evidence paths.'],
   supersede: ['Appends terminal supersession while preserving listed evidence paths.'],
+  consolidate: [
+    'Dry-run reports source, destination, collision, and digest without mutation.',
+    'Apply verifies every destination digest before source removal and writes a relocation receipt.',
+  ],
   help: ['Read-only offline rendering.'],
   explain: ['Read-only offline error rendering.'],
 });
@@ -300,6 +310,23 @@ const ERRORS = Object.freeze({
     'APR_EVENT_INVALID',
     'APR_USAGE',
   ],
+  consolidate: [
+    'APR_REVIEW_RECORD_INVALID',
+    'APR_REVIEW_RECORD_MISMATCH',
+    'APR_REVIEW_RECORD_AUTHORITY',
+    'APR_REVIEW_RECORD_NONTERMINAL',
+    'APR_REVIEW_RECORD_SOURCE',
+    'APR_REVIEW_RECORD_COLLISION',
+    'APR_REVIEW_RECORD_DIGEST',
+    'APR_REVIEW_RECORD_APPLY',
+    'APR_PATH_OUTSIDE_REPOSITORY',
+    'APR_GIT_HEAD_CHANGED',
+    'APR_GIT_OWNED_PATH_OVERLAP',
+    'APR_GIT_INDEX_CHANGED',
+    'APR_GIT_TRANSACTION_FAILED',
+    'APR_GIT_COMMIT_INVALID',
+    'APR_USAGE',
+  ],
   help: ['APR_USAGE'],
   explain: ['APR_USAGE'],
 });
@@ -385,6 +412,38 @@ const NEXT_COMMAND = Object.freeze({
   },
 });
 const ERROR_CATALOG = Object.freeze({
+  APR_REVIEW_RECORD_INVALID: {
+    message: 'A review-record operation plan is incomplete or unsafe.',
+    recovery: 'Recompute the operation from at least two exact terminal attempt workspaces.',
+  },
+  APR_REVIEW_RECORD_MISMATCH: {
+    message: 'The selected attempts do not share one sealed record and artifact identity.',
+    recovery: 'Select only attempts whose startup authority names the same record and artifact.',
+  },
+  APR_REVIEW_RECORD_AUTHORITY: {
+    message: 'Review-record authority is invalid or contains contradictory acceptance.',
+    recovery: 'Restore the intact startup and terminal authority before consolidation.',
+  },
+  APR_REVIEW_RECORD_NONTERMINAL: {
+    message: 'A selected review attempt has no explicit terminal disposition.',
+    recovery: 'Accept, supersede, or abandon the attempt before consolidation.',
+  },
+  APR_REVIEW_RECORD_SOURCE: {
+    message: 'Review collateral is missing, changed, linked, or not a regular file.',
+    recovery: 'Restore the exact regular source bytes and recompute the relocation plan.',
+  },
+  APR_REVIEW_RECORD_COLLISION: {
+    message: 'A review-record destination is occupied by nonidentical content.',
+    recovery: 'Preserve both records, resolve the collision, and recompute the plan.',
+  },
+  APR_REVIEW_RECORD_DIGEST: {
+    message: 'Published review-record bytes differ from the planned SHA-256 digest.',
+    recovery: 'Preserve every source and inspect the destination before retrying.',
+  },
+  APR_REVIEW_RECORD_APPLY: {
+    message: 'The verified review-record relocation could not complete.',
+    recovery: 'Use the plan or relocation receipt to reconcile paths before an exact retry.',
+  },
   APR_ARTIFACT_DIRTY: {
     message: 'The tracked artifact differs from HEAD.',
     recovery: 'Commit or restore the artifact, then rerun peer-review start.',
@@ -717,7 +776,9 @@ function topic(command) {
     preconditions: PRECONDITIONS[command],
     effects: EFFECTS[command],
     commit:
-      command === 'submit' || command === 'finalize'
+      command === 'consolidate'
+        ? 'Exact relocation paths only in normal mode.'
+        : command === 'submit' || command === 'finalize'
         ? 'Author-only when normal mode requires it.'
         : 'never',
     push: 'never',
@@ -730,7 +791,9 @@ function topic(command) {
         : 'No background polling or undocumented wake mechanism.',
     tokens: 'No background polling or model-token spending.',
     no_commit:
-      command === 'start' || command === 'submit' || command === 'finalize'
+      command === 'consolidate'
+        ? 'Dry-run never mutates; apply uses exact-path Git commit in normal mode.'
+        : command === 'start' || command === 'submit' || command === 'finalize'
         ? 'Uses explicit non-durable snapshot evidence and never implies a Git commit.'
         : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [

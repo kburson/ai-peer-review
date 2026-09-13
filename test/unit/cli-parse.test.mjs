@@ -20,6 +20,7 @@ const EXPECTED_COMMANDS = [
   'recover',
   'abandon',
   'supersede',
+  'consolidate',
   'help',
   'explain',
 ];
@@ -200,6 +201,38 @@ test('enforces command-specific enums and recovery option relationships', () => 
       'review-next',
     ]).options,
     { reason: 'replacement started', by: 'review-next' }
+  );
+});
+
+test('consolidate requires unique attempts, one destination, and exactly one mode', () => {
+  assert.deepEqual(
+    parseCommand([
+      'consolidate',
+      '.scratch/peer-review/review-01',
+      '.scratch/peer-review/review-02',
+      '--destination',
+      'docs/peer-reviews/spec/record-01',
+      '--dry-run',
+    ]),
+    {
+      command: 'consolidate',
+      args: ['.scratch/peer-review/review-01', '.scratch/peer-review/review-02'],
+      options: {
+        destination: 'docs/peer-reviews/spec/record-01',
+        dryRun: true,
+      },
+    }
+  );
+  usage(['consolidate', 'one', '--destination', 'docs/record', '--dry-run'], /positional/i);
+  usage(['consolidate', 'one', 'two', '--dry-run'], /requires --destination/i);
+  usage(['consolidate', 'one', 'two', '--destination', 'docs/record'], /exactly one/i);
+  usage(
+    ['consolidate', 'one', 'two', '--destination', 'docs/record', '--dry-run', '--apply'],
+    /exactly one/i
+  );
+  usage(
+    ['consolidate', 'same', 'same', '--destination', 'docs/record', '--dry-run'],
+    /unique review workspaces/i
   );
 });
 

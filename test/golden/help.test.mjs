@@ -83,6 +83,10 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));
   assert.ok(helpRequest('join', 'json').errors.includes('APR_TRANSPORT_UNAVAILABLE'));
+  const consolidate = helpRequest('consolidate', 'json');
+  assert.match(consolidate.usage, /--destination.*--dry-run.*--apply/);
+  assert.match(consolidate.effects.join(' '), /source.*digest.*receipt/i);
+  assert.equal(consolidate.commit, 'Exact relocation paths only in normal mode.');
   assert.equal(explainError('APR_STALE_REVIEW').code, 'APR_STALE_REVIEW');
   assert.equal(explainError('APR_TEMPLATE_INVALID').code, 'APR_TEMPLATE_INVALID');
   assert.ok(helpRequest('review', 'json', { search: true }).matches.includes('submit'));
