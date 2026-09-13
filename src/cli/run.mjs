@@ -37,12 +37,15 @@ import { createGitRepository } from '../git/repository.mjs';
 import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
 import {
   buildManifest,
+  buildPhaseManifest,
   finalMessage,
   finalTrailers,
   pathsToSeals,
   sealHumanDecision,
   sealManifest,
+  sealPhaseManifest,
 } from '../manifest/render.mjs';
+import { isFinalPhase, isPhased, parsePhaseKinds } from '../protocol/phases.mjs';
 import {
   assertDistinctParticipants,
   claimRole,
@@ -157,6 +160,7 @@ function result(command, state, paths = {}, review = {}) {
     record_id: state.protocol.startup?.context?.record_id ?? state.protocol.review_id,
     state: state.protocol.state,
     next_action: state.protocol.next_action,
+    ...(state.protocol.phases ? { phases: state.protocol.phases } : {}),
     review: Object.freeze({
       commit_mode: state.protocol.commit_mode,
       authority_assurance: assurance,
@@ -646,6 +650,12 @@ export async function startReview(input, deps = {}) {
       'Run peer-review help start.'
     );
   }
+  const phaseKinds =
+    input.phases === undefined
+      ? null
+      : Array.isArray(input.phases)
+        ? parsePhaseKinds(input.phases.join(','), input.artifactKind)
+        : parsePhaseKinds(input.phases, input.artifactKind);
   if (input.identity?.role !== 'author') {
     fail(
       'APR_IDENTITY_REQUIRED',
@@ -689,6 +699,7 @@ export async function startReview(input, deps = {}) {
       author_fingerprint: input.identity.session_fingerprint,
       authority: requestedAuthority,
       transport_mode: transport.mode,
+      ...(phaseKinds ? { phases: phaseKinds } : {}),
     });
   const recordId = input.recordId ?? reviewId;
   const date = now.slice(0, 10);
@@ -797,6 +808,7 @@ export async function startReview(input, deps = {}) {
       sealed.reviewer_invitation_digest === sha256(reviewerInvitationBytes) &&
       sealed.transport_mode === transport.mode &&
       sealed.author_transport_capability === transport.capability &&
+      sameValue(state.protocol.phases?.kinds ?? null, phaseKinds) &&
       authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
     const repaired = await repairReview(paths.scratch.absolute, expected(state), {
@@ -901,6 +913,7 @@ export async function startReview(input, deps = {}) {
       },
       author: input.identity,
       startup: startupAuthority,
+      ...(phaseKinds ? { phases: { kinds: phaseKinds } } : {}),
     },
     now
   );
@@ -3074,6 +3087,53 @@ export async function finalizeReview(input, deps = {}) {
   const root = state.protocol.startup.context.repository_root;
   const git = deps.repository ?? createGitRepository();
   const transactionRepository = deps.transactionRepository ?? createGitTransactionRepository(root);
+  const existingPhaseAcceptance = [...events]
+    .reverse()
+    .find((event) =>
+      ['phase-acceptance-committed', 'phase-acceptance-sealed-no-commit'].includes(event.type)
+    );
+  if (
+    existingPhaseAcceptance &&
+    state.protocol.state === 'awaiting-phase-artifact' &&
+    existingPhaseAcceptance.payload.cursor === state.protocol.phases?.cursor
+  ) {
+    if (
+      input.identity?.role !== 'author' ||
+      input.identity.session_fingerprint !== state.participants.author?.session_fingerprint
+    ) {
+      fail(
+        'APR_IDENTITY_CONFLICT',
+        'Phase finalization retry requires the registered author session.',
+        'Resume from the registered author session and retry.'
+      );
+    }
+    const phasePath = paths.phaseManifest(
+      existingPhaseAcceptance.payload.cursor,
+      existingPhaseAcceptance.payload.kind
+    );
+    const bytes = readFileSync(phasePath.absolute);
+    if (sha256(bytes) !== existingPhaseAcceptance.payload.manifest.digest) {
+      fail(
+        'APR_GIT_SEAL_MISMATCH',
+        'Phase manifest differs from event authority.',
+        'Restore the exact phase manifest and retry.'
+      );
+    }
+    return result(
+      'finalize',
+      state,
+      { workspace: absolute, phase_manifest: phasePath.absolute },
+      {
+        phase: {
+          cursor: existingPhaseAcceptance.payload.cursor,
+          kind: existingPhaseAcceptance.payload.kind,
+        },
+        commit: existingPhaseAcceptance.payload.commit ?? null,
+        manifest_digest: existingPhaseAcceptance.payload.manifest.digest,
+        acceptance_basis: 'reviewer-consensus',
+      }
+    );
+  }
   const existingTerminal = [...events]
     .reverse()
     .find((event) =>
@@ -3165,6 +3225,94 @@ export async function finalizeReview(input, deps = {}) {
       allowedHead: state.protocol.commit_mode === 'normal' ? transactionRepository.head() : null,
     });
     const acceptance = acceptanceSeal(root, accepted, transactionRepository);
+    if (isPhased(state.protocol) && !isFinalPhase(state.protocol)) {
+      const phase = state.protocol.phases;
+      const expectedHead = assertFinalizationArtifact({
+        state,
+        events,
+        git,
+        transactionRepository,
+        workspace: absolute,
+        allowedHead:
+          state.protocol.commit_mode === 'normal' ? transactionRepository.head() : null,
+      });
+      const phasePath = paths.phaseManifest(phase.cursor, phase.current_kind);
+      const model = buildPhaseManifest({
+        state,
+        events,
+        final_commit: state.protocol.commit_mode === 'normal' ? expectedHead : null,
+      });
+      const manifest = sealPhaseManifest(model, { path: phasePath.relative });
+      ensureExactFile(phasePath.absolute, manifest.bytes);
+      let committed = null;
+      let transaction = null;
+      let trailers = null;
+      if (state.protocol.commit_mode === 'normal') {
+        trailers = finalTrailers({ state, acceptance, manifest });
+        transaction = pathsToSeals([acceptance, manifest], { expected_head: expectedHead });
+        committed = commitExactPaths(
+          transactionRepository,
+          transaction,
+          finalMessage(state),
+          trailers
+        );
+        checkpoint(deps, 'finalization-commit-created');
+      }
+      const phaseState = await mutateReview(absolute, expected(state), (current) => {
+        assertCurrentParticipant(current, 'author', input.identity, input.now);
+        const locked =
+          transaction === null
+            ? null
+            : commitExactPaths(
+                transactionRepository,
+                transaction,
+                finalMessage(current),
+                trailers
+              );
+        if (committed && locked.commit !== committed.commit) {
+          fail(
+            'APR_GIT_RECOVERY_INVALID',
+            'Phase finalization commit changed under review authority.',
+            'Preserve the repository and inspect the exact transaction journal.'
+          );
+        }
+        const snapshot = latestNoCommitSnapshot(events) ?? {
+          path: current.protocol.artifact.path,
+          digest: current.protocol.artifact.digest,
+        };
+        return eventFor(
+          current,
+          state.protocol.commit_mode === 'normal'
+            ? 'phase-acceptance-committed'
+            : 'phase-acceptance-sealed-no-commit',
+          input.identity.session_fingerprint,
+          {
+            cursor: phase.cursor,
+            kind: phase.current_kind,
+            artifact: {
+              path: current.protocol.artifact.path,
+              blob: current.protocol.artifact.blob,
+              digest: current.protocol.artifact.digest,
+            },
+            manifest: { path: manifest.path, digest: manifest.digest },
+            ...(locked ? { commit: locked.commit } : { snapshot }),
+          },
+          input.now ?? new Date()
+        );
+      });
+      checkpoint(deps, 'terminal-event-appended');
+      return result(
+        'finalize',
+        phaseState,
+        { workspace: absolute, phase_manifest: phasePath.absolute },
+        {
+          phase: { cursor: phase.cursor, kind: phase.current_kind },
+          commit: committed?.commit ?? null,
+          manifest_digest: manifest.digest,
+          acceptance_basis: 'reviewer-consensus',
+        }
+      );
+    }
     const targetStatus =
       state.protocol.commit_mode === 'normal' ? 'accepted' : 'accepted-uncommitted';
     const model = buildManifest({

@@ -13,6 +13,7 @@ import {
 } from '../helpers/review-fixture.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
 import {
+  buildPhaseManifest,
   buildManifest,
   finalMessage,
   finalTrailers,
@@ -20,6 +21,7 @@ import {
   renderManifest,
   sealHumanDecision,
   sealManifest,
+  sealPhaseManifest,
 } from '../../src/manifest/render.mjs';
 
 function review(events, overrides = {}) {
@@ -61,6 +63,21 @@ test('manifest rendering is deterministic, ordered, and privacy bounded', () => 
   assert.equal(model.artifact_history[0].commit, events[0].payload.artifact.head);
   assert.doesNotMatch(first.toString(), /session_id|transcript|token|ipc|private_key/i);
   assert.match(first.toString(), /reviewer-consensus/);
+});
+
+test('phase manifest binds one current phase without claiming terminal authority', () => {
+  const events = acceptancePendingEvents();
+  events[0].payload.phases = { kinds: ['spec', 'plan'] };
+  const state = reduceEvents(events);
+  const model = buildPhaseManifest({ state, events, final_commit: events[0].payload.artifact.head });
+  assert.equal(model.schema, 'ai-peer-review.phase-manifest/v1');
+  assert.equal(model.phase_index, 0);
+  assert.equal(model.phase_kind, 'spec');
+  assert.equal(model.phase_status, 'accepted');
+  assert.equal(Object.hasOwn(model, 'status'), false);
+  const sealed = sealPhaseManifest(model, { path: 'reviews/phase-01-spec-review-manifest.md' });
+  assert.equal(sealed.path, 'reviews/phase-01-spec-review-manifest.md');
+  assert.match(sealed.bytes.toString(), /ai-peer-review\.phase-manifest\/v1/);
 });
 
 test('manifest preserves bounded identity, claim, recovery, and supplement history', () => {
