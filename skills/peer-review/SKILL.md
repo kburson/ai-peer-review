@@ -47,6 +47,12 @@ scratch transition. The Author Git boundary permits only package-generated,
 exact-path protocol commits; inspect status before every submit or finalize.
 Keep author and reviewer sessions distinct.
 
+For an ordered specification and plan review, start with `--phases spec,plan`.
+After non-final acceptance and author-owned finalization, follow the exact
+event-derived `peer-review advance <workspace> <artifact>` action. The command
+derives the next kind and cursor, resumes the same reviewer, and resets only the
+phase turn budget. Omitting `--phases` keeps the legacy single-artifact contract.
+
 The Reviewer Git boundary excludes only
 `refs/codex/turn-diffs/checkpoints/**`, which is provider-private author-session
 bookkeeping. Every other ref remains sealed, as do the artifact, checked-out

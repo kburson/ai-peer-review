@@ -5,6 +5,7 @@ const PURPOSE = Object.freeze({
   setup: 'Install or remove reversible peer-review agent integration.',
   doctor: 'Inspect local peer-review readiness without mutation.',
   start: 'Start a new event-authoritative review after complete preflight.',
+  advance: 'Bind the exact next phased artifact and resume the registered reviewer.',
   'request-grant': 'Create a canonical Human Authority challenge.',
   join: 'Join from an invitation as a distinct reviewer session.',
   status: 'Read event-derived review state and one exact next action.',
@@ -27,6 +28,7 @@ const ROLES = Object.freeze({
   setup: ['human'],
   doctor: ['author', 'reviewer', 'human'],
   start: ['author'],
+  advance: ['author'],
   'request-grant': ['author', 'reviewer'],
   join: ['reviewer'],
   status: ['author', 'reviewer', 'human'],
@@ -47,6 +49,7 @@ const STATES = Object.freeze({
   setup: ['outside-review'],
   doctor: ['any'],
   start: ['outside-review'],
+  advance: ['awaiting-phase-artifact'],
   'request-grant': ['outside-review', 'intervention-required'],
   join: ['awaiting-reviewer'],
   status: ['any'],
@@ -77,6 +80,7 @@ const PRECONDITIONS = Object.freeze({
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
     'Optional --bootstrap-grant must authorize the exact protected pin-verifier action.',
   ],
+  advance: ['A registered author claim and the exact event-derived next artifact.'],
   'request-grant': ['Exact event authority and complete parameters for one protected action.'],
   join: ['The exact sealed invitation, original physical worktree, and a distinct reviewer.'],
   status: ['A readable event-authoritative review workspace.'],
@@ -108,6 +112,7 @@ const EFFECTS = Object.freeze({
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
   ],
+  advance: ['Appends one next-artifact event, reviewer draft, and durable delivery.'],
   'request-grant': ['Appends or reuses one challenge event; performs no Git operation.'],
   join: ['Appends reviewer identity and claim events and creates one reviewer draft.'],
   status: ['Read-only event reduction; performs no repair, polling, wake, or Git operation.'],
@@ -153,6 +158,14 @@ const ERRORS = Object.freeze({
     'APR_GRANT_INVALID',
     'APR_STALE_REVIEW',
     'APR_TEMPLATE_INVALID',
+  ],
+  advance: [
+    'APR_PHASE_CONFLICT',
+    'APR_INVALID_TRANSITION',
+    'APR_IDENTITY_CONFLICT',
+    'APR_ARTIFACT_DIRTY',
+    'APR_ARTIFACT_UNTRACKED',
+    'APR_DELIVERY_CONFLICT',
   ],
   'request-grant': [
     'APR_AUTHORITY_UNAVAILABLE',
@@ -410,6 +423,12 @@ const NEXT_COMMAND = Object.freeze({
   'author-submit': ({ workspace }) => ['peer-review', 'submit', workspace],
   'finalize-acceptance': ({ workspace }) => ['peer-review', 'finalize', workspace],
   'commit-acceptance': ({ workspace }) => ['peer-review', 'finalize', workspace],
+  'advance-phase-artifact': ({ workspace }) => [
+    'peer-review',
+    'advance',
+    workspace,
+    '<next-artifact>',
+  ],
   'human-intervention': ({ workspace }, state) => {
     if (state.protocol.intervention?.reason === 'stale-claim') {
       return ['peer-review', 'recover', workspace, '--reclaim'];
@@ -435,6 +454,10 @@ const NEXT_COMMAND = Object.freeze({
   },
 });
 const ERROR_CATALOG = Object.freeze({
+  APR_PHASE_CONFLICT: {
+    message: 'A phased artifact or exact retry differs from committed event authority.',
+    recovery: 'Preserve the workspace and retry with the exact event-derived phase artifact.',
+  },
   APR_WAKE_AUTHORITY_INVALID: {
     message: 'Durable wake selection cannot validate current event authority.',
     recovery: 'Preserve the workspace, restore exact event authority, and reconcile again.',
@@ -829,7 +852,7 @@ function topic(command) {
     commit:
       command === 'consolidate'
         ? 'Exact relocation paths only in normal mode.'
-        : command === 'submit' || command === 'finalize'
+        : command === 'submit' || command === 'finalize' || command === 'advance'
           ? 'Author-only when normal mode requires it.'
           : 'never',
     push: 'never',
@@ -837,7 +860,7 @@ function topic(command) {
       ? 'Blocks without a valid exact grant.'
       : 'Fails closed on unmet preconditions.',
     wake:
-      command === 'submit'
+      command === 'submit' || command === 'advance'
         ? 'Automatic mode writes one durable handoff for resident wait or official native push.'
         : command === 'coordinator'
           ? 'Durable event authority wakes only the exact configured participant for one actionable revision.'
@@ -849,7 +872,10 @@ function topic(command) {
     no_commit:
       command === 'consolidate'
         ? 'Dry-run never mutates; apply uses exact-path Git commit in normal mode.'
-        : command === 'start' || command === 'submit' || command === 'finalize'
+        : command === 'start' ||
+            command === 'submit' ||
+            command === 'finalize' ||
+            command === 'advance'
           ? 'Uses explicit non-durable snapshot evidence and never implies a Git commit.'
           : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [

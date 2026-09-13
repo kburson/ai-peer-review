@@ -78,6 +78,12 @@ test('builds review-scoped destinations with short filenames', (t) => {
   assert.equal(paths.authorResponse(2).relative.endsWith('/author-response-2.md'), true);
   assert.equal(path.basename(paths.humanDecision.absolute), 'human-decision.md');
   assert.equal(path.basename(paths.manifest.absolute), 'review-manifest.md');
+  assert.equal(
+    path.basename(paths.phaseManifest(0, 'spec').absolute),
+    'phase-01-spec-review-manifest.md'
+  );
+  assert.throws(() => paths.phaseManifest(-1, 'spec'), { code: 'APR_PATH_TEMPLATE_INVALID' });
+  assert.throws(() => paths.phaseManifest(0, 'report'), { code: 'APR_PATH_TEMPLATE_INVALID' });
 });
 
 test('builds one record-scoped destination with attempt-qualified collateral', (t) => {

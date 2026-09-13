@@ -1,6 +1,7 @@
 // Test-only access to mutation surfaces that are intentionally excluded from
 // the package's bounded public adapter API.
 export {
+  advanceReview,
   abandonReview,
   continueReview,
   finalizeReview,

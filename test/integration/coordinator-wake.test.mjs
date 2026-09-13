@@ -86,7 +86,7 @@ function writeReceipt(root) {
   const delivery = authority().events[0].payload.delivery;
   writeFileSync(
     path.join(root, 'deliveries', `${delivery.delivery_id}.json`),
-    `${canonicalProjection(delivery)}\n`
+    canonicalProjection(delivery)
   );
 }
 

@@ -14,6 +14,10 @@ export const LIFECYCLE_EVENT_TYPES = Object.freeze([
   'finalization-started',
   'acceptance-committed',
   'acceptance-sealed-no-commit',
+  'phase-acceptance-committed',
+  'phase-acceptance-sealed-no-commit',
+  'phase-artifact-committed',
+  'phase-artifact-sealed-no-commit',
   'intervention-entered',
   'continued-to-reviewer',
   'continued-to-author',
@@ -46,6 +50,10 @@ const TRANSITIONS = new Map([
   ['acceptance-pending|finalization-started', 'author-finalization'],
   ['author-finalization|acceptance-committed', 'accepted'],
   ['author-finalization|acceptance-sealed-no-commit', 'accepted-uncommitted'],
+  ['author-finalization|phase-acceptance-committed', 'awaiting-phase-artifact'],
+  ['author-finalization|phase-acceptance-sealed-no-commit', 'awaiting-phase-artifact'],
+  ['awaiting-phase-artifact|phase-artifact-committed', 'reviewer-turn'],
+  ['awaiting-phase-artifact|phase-artifact-sealed-no-commit', 'reviewer-turn'],
   ['reviewer-turn|intervention-entered', 'intervention-required'],
   ['author-revision|intervention-entered', 'intervention-required'],
   ['intervention-required|continued-to-reviewer', 'reviewer-turn'],
@@ -160,6 +168,7 @@ function nextAction(state) {
       'author-revision': 'author-submit',
       'acceptance-pending': 'finalize-acceptance',
       'author-finalization': 'commit-acceptance',
+      'awaiting-phase-artifact': 'advance-phase-artifact',
       'intervention-required': 'human-intervention',
     }[state] ?? null
   );
@@ -173,6 +182,7 @@ function currentActor(state) {
       'author-revision': 'author',
       'acceptance-pending': 'author',
       'author-finalization': 'author',
+      'awaiting-phase-artifact': 'author',
       'intervention-required': 'human',
     }[state] ?? null
   );
@@ -330,12 +340,16 @@ function applyLifecycle(protocol, participants, event) {
     'author-revision-sealed-no-commit',
     'author-closing-round-sealed-no-commit',
     'acceptance-sealed-no-commit',
+    'phase-acceptance-sealed-no-commit',
+    'phase-artifact-sealed-no-commit',
     'override-sealed-no-commit',
   ]);
   const committed = new Set([
     'author-revision-committed',
     'author-closing-round-committed',
     'acceptance-committed',
+    'phase-acceptance-committed',
+    'phase-artifact-committed',
     'override-committed',
   ]);
   if (
@@ -343,6 +357,48 @@ function applyLifecycle(protocol, participants, event) {
     (committed.has(event.type) && protocol.commit_mode !== 'normal')
   ) {
     throw transitionError(protocol.state, event, 'event differs from startup commit mode');
+  }
+  const phaseAcceptance = [
+    'phase-acceptance-committed',
+    'phase-acceptance-sealed-no-commit',
+  ].includes(event.type);
+  const phaseArtifact = ['phase-artifact-committed', 'phase-artifact-sealed-no-commit'].includes(
+    event.type
+  );
+  if (phaseAcceptance) {
+    const phases = protocol.phases;
+    if (
+      !phases ||
+      phases.cursor >= phases.kinds.length - 1 ||
+      event.payload.cursor !== phases.cursor ||
+      event.payload.kind !== phases.current_kind ||
+      !exactlyEqual(event.payload.artifact, {
+        path: protocol.artifact.path,
+        blob: protocol.artifact.blob,
+        digest: protocol.artifact.digest,
+      })
+    ) {
+      throw transitionError(protocol.state, event, 'phase acceptance authority mismatch');
+    }
+  }
+  if (phaseArtifact) {
+    const phases = protocol.phases;
+    const nextCursor = (phases?.cursor ?? -1) + 1;
+    if (
+      !phases ||
+      event.payload.cursor !== nextCursor ||
+      event.payload.kind !== phases.kinds[nextCursor] ||
+      phases.completed.length !== nextCursor
+    ) {
+      throw transitionError(protocol.state, event, 'phase artifact authority mismatch');
+    }
+  }
+  if (
+    ['acceptance-committed', 'acceptance-sealed-no-commit'].includes(event.type) &&
+    protocol.phases &&
+    protocol.phases.cursor < protocol.phases.kinds.length - 1
+  ) {
+    throw transitionError(protocol.state, event, 'non-final phase cannot terminate the review');
   }
   const target = TRANSITIONS.get(`${String(protocol.state)}|${event.type}`);
   if (!target) {
@@ -514,6 +570,8 @@ function applyProjection(state, event) {
           'author-closing-round-committed',
           'author-revision-sealed-no-commit',
           'author-closing-round-sealed-no-commit',
+          'phase-artifact-committed',
+          'phase-artifact-sealed-no-commit',
         ].includes(event.type)
       ? 'author'
       : null;
@@ -544,6 +602,15 @@ function applyProjection(state, event) {
     protocol.transports.author = event.payload.startup.author_transport_capability;
     protocol.artifact = copy(event.payload.artifact);
     participants.author = copy(event.payload.author);
+    if (event.payload.phases) {
+      protocol.phases = {
+        kinds: copy(event.payload.phases.kinds),
+        cursor: 0,
+        current_kind: event.payload.phases.kinds[0],
+        phase_turns_used: 0,
+        completed: [],
+      };
+    }
   } else if (event.type === 'reviewer-joined') {
     participants.reviewer = copy(event.payload.reviewer);
     protocol.transports.reviewer = event.payload.transport_capability;
@@ -551,12 +618,29 @@ function applyProjection(state, event) {
   }
   if (event.type === 'reviewer-revisions-requested' || event.type === 'reviewer-accepted') {
     protocol.turns_used += 1;
+    if (protocol.phases) protocol.phases.phase_turns_used += 1;
+  }
+  if (
+    event.type === 'phase-acceptance-committed' ||
+    event.type === 'phase-acceptance-sealed-no-commit'
+  ) {
+    protocol.phases.completed.push(copy(event.payload));
+  }
+  if (
+    event.type === 'phase-artifact-committed' ||
+    event.type === 'phase-artifact-sealed-no-commit'
+  ) {
+    protocol.phases.cursor = event.payload.cursor;
+    protocol.phases.current_kind = event.payload.kind;
+    protocol.phases.phase_turns_used = 0;
   }
   if (
     event.type === 'author-revision-committed' ||
     event.type === 'author-revision-sealed-no-commit' ||
     event.type === 'author-closing-round-committed' ||
-    event.type === 'author-closing-round-sealed-no-commit'
+    event.type === 'author-closing-round-sealed-no-commit' ||
+    event.type === 'phase-artifact-committed' ||
+    event.type === 'phase-artifact-sealed-no-commit'
   ) {
     protocol.reviewer_boundary = copy(event.payload.repository_boundary);
   }

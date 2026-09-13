@@ -29,6 +29,8 @@ Read the relevant durable reviewer or author response document; do not rely on a
 
 ## Durable coordinator
 
+Phased sessions remain event-authoritative. After a non-final acceptance, the registered author finalizes and advances the exact next artifact; resume only from the generated reviewer response and never infer or skip a phase from chat.
+
 When the host reports that the durable coordinator is active, yield after each handoff. The coordinator sleeps outside participant context and wakes only the exact configured session for an actionable protocol revision; do not poll or repeat wait calls. If durable wake is unavailable, use only the bounded manual fallback `peer-review status <workspace> --next`.
 
 Role: reviewer. Join from a distinct session in the same physical worktree.

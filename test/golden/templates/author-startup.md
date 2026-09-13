@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:eed65f2ddc6e51779489a89334d9a27d8d15e1e306c708f41f0f4d2bc69eef02" -->
+<!-- ai-peer-review-template version="1" digest="sha256:19ffedd45cc89730c41b5fc6fc80931986ec73850cc5212040204307170085e4" -->
 
 # Author startup
 
@@ -27,6 +27,8 @@ Read the relevant durable reviewer or author response document; do not rely on a
 “Terse chat” does not mean terse review evidence. Durable reviewer and author response documents remain complete, self-contained, and authoritative.
 
 ## Durable coordinator
+
+Phased sessions remain event-authoritative. After a non-final acceptance, finalize the current artifact and follow the single `peer-review advance <workspace> <artifact>` action emitted by `status --next`; never infer or skip a phase from chat.
 
 When the host reports that the durable coordinator is active, yield after each handoff. The coordinator sleeps outside participant context and wakes only the exact configured session for an actionable protocol revision; do not poll or repeat wait calls. If durable wake is unavailable, use only the bounded manual fallback `peer-review status <workspace> --next`.
 

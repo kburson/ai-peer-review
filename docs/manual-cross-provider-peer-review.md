@@ -694,6 +694,14 @@ support human-opened interactive sessions and same-provider pairs.
 
 ## Reproducing the manual pattern
 
+The packaged protocol also supports a phased `spec,plan` session without adding
+participant polling. `start --phases spec,plan` freezes the order in event
+authority. A non-final `finalize` writes phase evidence, and the registered
+author then runs the exact `advance <workspace> <artifact>` action returned by
+`status --next`. That handoff resumes the same reviewer and resets the bounded
+turn budget for the new phase; final-phase acceptance keeps the existing
+terminal record behavior.
+
 For a one-off review without `ai-peer-review`, use this checklist:
 
 1. Start from a clean isolated worktree.

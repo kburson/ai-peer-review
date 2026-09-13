@@ -128,6 +128,16 @@ function positiveTurn(turn) {
   return turn;
 }
 
+function phaseFile(cursor, kind) {
+  if (!Number.isSafeInteger(cursor) || cursor < 0 || !['spec', 'plan'].includes(kind)) {
+    throw new AprError('APR_PATH_TEMPLATE_INVALID', 'Review phase must be canonical.', {
+      recovery: 'Use an event-derived non-negative phase cursor and spec or plan kind.',
+      details: { cursor, kind },
+    });
+  }
+  return `phase-${String(cursor + 1).padStart(2, '0')}-${kind}-review-manifest.md`;
+}
+
 export function resolveReviewPaths({
   root,
   reviewsRoot = 'docs/peer-reviews',
@@ -231,5 +241,6 @@ export function resolveReviewPaths({
     authorResponse: (turn) => output(`author-response-${positiveTurn(turn)}.md`),
     humanDecision: output('human-decision.md'),
     manifest: output('review-manifest.md'),
+    phaseManifest: (cursor, phaseKind) => output(phaseFile(cursor, phaseKind)),
   });
 }

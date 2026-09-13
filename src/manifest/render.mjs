@@ -336,6 +336,119 @@ export function buildManifest(review) {
   return deepFreeze(assertManifestTruth(model, { closed: true }));
 }
 
+export function buildPhaseManifest(review) {
+  const { state, protocol, events } = reviewParts(review);
+  const phase = protocol.phases;
+  if (!phase || phase.cursor < 0 || phase.cursor >= phase.kinds.length - 1) {
+    fail('Phase manifest requires one accepted non-final phased artifact.');
+  }
+  const boundaryIndex =
+    phase.cursor === 0
+      ? 0
+      : events.findLastIndex(
+          (event) =>
+            ['phase-artifact-committed', 'phase-artifact-sealed-no-commit'].includes(event.type) &&
+            event.payload.cursor === phase.cursor
+        );
+  if (boundaryIndex < 0) fail('Phase manifest cannot locate current artifact authority.');
+  const phaseEvents = events.slice(boundaryIndex);
+  const entry = events[boundaryIndex];
+  const assurance = protocol.authority?.verifier?.signer_strength ?? 'unavailable';
+  const residualRisk = [];
+  if (protocol.commit_mode === 'no-commit') residualRisk.push('uncommitted-test-evidence');
+  if (assurance === 'unavailable') residualRisk.push('human-authority-unavailable');
+  if (['cryptographic-local', 'unverified-test'].includes(assurance)) {
+    residualRisk.push('detection-grade-authority');
+  }
+  const entryArtifact = entry.payload.artifact;
+  const phaseStartCommit =
+    phase.cursor === 0
+      ? entryArtifact.head
+      : (entry.payload.commit ?? entry.payload.repository_boundary?.head ?? null);
+  const model = {
+    schema: 'ai-peer-review.phase-manifest/v1',
+    review_id: protocol.review_id,
+    record_id: protocol.startup?.context?.record_id ?? protocol.review_id,
+    phase_index: phase.cursor,
+    phase_kind: phase.current_kind,
+    phase_status: 'accepted',
+    commit_mode: protocol.commit_mode,
+    authority_assurance: assurance,
+    residual_risk: residualRisk,
+    phase_start_commit: phaseStartCommit,
+    final_commit: review.final_commit ?? null,
+    artifact_path: protocol.artifact.path,
+    artifact_history: [
+      {
+        turn: protocol.turns_used - protocol.phases.phase_turns_used,
+        path: entryArtifact.path,
+        commit: phaseStartCommit,
+        blob: entryArtifact.blob,
+        digest: entryArtifact.digest,
+        snapshot: entry.payload.snapshot ? { ...entry.payload.snapshot } : null,
+      },
+      ...artifactHistory(phaseEvents)
+        .slice(phase.cursor === 0 ? 1 : 0)
+        .filter((item) => item.path === protocol.artifact.path),
+    ],
+    participants: {
+      author: safeParticipant(state.participants.author),
+      reviewer: safeParticipant(state.participants.reviewer),
+    },
+    turns: turnsFrom(phaseEvents),
+    identity_changes: identityChanges(phaseEvents),
+    claims: phaseEvents
+      .filter((event) => event.type === 'turn-claimed')
+      .map((event) => safeClaim(event.payload.claim)),
+    recoveries: recoveryHistory(phaseEvents),
+    supplements: supplementHistory(protocol, phaseEvents),
+    authority: {
+      policy: protocol.authority?.authority_policy ?? 'unavailable',
+      verifier: safeVerifier(protocol.authority?.verifier),
+    },
+  };
+  exactKeys(
+    model,
+    [
+      'schema',
+      'review_id',
+      'record_id',
+      'phase_index',
+      'phase_kind',
+      'phase_status',
+      'commit_mode',
+      'authority_assurance',
+      'residual_risk',
+      'phase_start_commit',
+      'final_commit',
+      'artifact_path',
+      'artifact_history',
+      'participants',
+      'turns',
+      'identity_changes',
+      'claims',
+      'recoveries',
+      'supplements',
+      'authority',
+    ],
+    'Phase manifest model'
+  );
+  return deepFreeze(model);
+}
+
+export function sealPhaseManifest(model, { path: relative } = {}) {
+  if (
+    model?.schema !== 'ai-peer-review.phase-manifest/v1' ||
+    model.phase_status !== 'accepted' ||
+    typeof relative !== 'string' ||
+    relative.length === 0
+  ) {
+    fail('Phase manifest seal is invalid.');
+  }
+  const bytes = Buffer.from(`# Phase Review Manifest\n\n\`\`\`json\n${canonical(model)}\`\`\`\n`);
+  return deepFreeze({ path: relative, bytes, digest: sha256(bytes), mode: '100644', model });
+}
+
 export function renderManifest(model) {
   assertManifestTruth(model);
   const modeBanner =

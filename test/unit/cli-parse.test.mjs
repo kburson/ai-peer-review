@@ -9,6 +9,7 @@ const EXPECTED_COMMANDS = [
   'setup',
   'doctor',
   'start',
+  'advance',
   'request-grant',
   'join',
   'status',
@@ -56,6 +57,8 @@ test('start options have stable names, repeatability, and defaults', () => {
     '--issue=1531',
     '--record-id',
     'record-1531',
+    '--phases',
+    'spec,plan',
     '--max-turns',
     '4',
     '--claim-ttl',
@@ -71,6 +74,7 @@ test('start options have stable names, repeatability, and defaults', () => {
       artifactKind: 'spec',
       issue: 1531,
       recordId: 'record-1531',
+      phases: 'spec,plan',
       maxTurns: 4,
       claimTtlMs: 12 * 60 * 60 * 1000,
       noCommit: true,
@@ -85,6 +89,17 @@ test('start options have stable names, repeatability, and defaults', () => {
     'codex',
     'claude',
   ]);
+});
+
+test('advance accepts exactly one workspace and one artifact with no flags', () => {
+  assert.deepEqual(parseCommand(['advance', '/review', 'docs/plan.md']), {
+    command: 'advance',
+    args: ['/review', 'docs/plan.md'],
+    options: {},
+  });
+  usage(['advance', '/review'], /positional/i);
+  usage(['advance', '/review', 'docs/plan.md', 'extra'], /positional/i);
+  usage(['advance', '/review', 'docs/plan.md', '--artifact-kind', 'plan'], /unknown flag/i);
 });
 
 test('rejects unknown syntax, boolean values, duplicates, and invalid positions', () => {

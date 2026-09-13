@@ -244,6 +244,74 @@ const payloads = {
       manifest_digest: `sha256:${'d'.repeat(64)}`,
     },
   }),
+  'phase-acceptance-committed': () => ({
+    cursor: 0,
+    kind: 'spec',
+    artifact: {
+      path: 'docs/artifact.md',
+      blob: '2'.repeat(40),
+      digest: `sha256:${'3'.repeat(64)}`,
+    },
+    manifest: {
+      path: 'reviews/phase-01-spec-review-manifest.md',
+      digest: `sha256:${'b'.repeat(64)}`,
+    },
+    commit: 'a'.repeat(40),
+  }),
+  'phase-acceptance-sealed-no-commit': () => ({
+    cursor: 0,
+    kind: 'spec',
+    artifact: {
+      path: 'docs/artifact.md',
+      blob: '2'.repeat(40),
+      digest: `sha256:${'3'.repeat(64)}`,
+    },
+    manifest: {
+      path: 'reviews/phase-01-spec-review-manifest.md',
+      digest: `sha256:${'b'.repeat(64)}`,
+    },
+    snapshot: {
+      path: 'artifacts/phase-01-spec.md',
+      digest: `sha256:${'3'.repeat(64)}`,
+    },
+  }),
+  'phase-artifact-committed': () => ({
+    cursor: 1,
+    kind: 'plan',
+    artifact: {
+      path: 'docs/plan.md',
+      blob: 'c'.repeat(40),
+      digest: `sha256:${'d'.repeat(64)}`,
+    },
+    commit: 'e'.repeat(40),
+    repository_boundary: {
+      head: 'e'.repeat(40),
+      branch: 'trunk',
+      index_digest: `sha256:${'9'.repeat(64)}`,
+      refs_digest: `sha256:${'b'.repeat(64)}`,
+      worktree_digest: `sha256:${'a'.repeat(64)}`,
+    },
+  }),
+  'phase-artifact-sealed-no-commit': () => ({
+    cursor: 1,
+    kind: 'plan',
+    artifact: {
+      path: 'docs/plan.md',
+      blob: 'c'.repeat(40),
+      digest: `sha256:${'d'.repeat(64)}`,
+    },
+    snapshot: {
+      path: 'artifacts/phase-02-plan.md',
+      digest: `sha256:${'d'.repeat(64)}`,
+    },
+    repository_boundary: {
+      head: '1'.repeat(40),
+      branch: 'trunk',
+      index_digest: `sha256:${'9'.repeat(64)}`,
+      refs_digest: `sha256:${'b'.repeat(64)}`,
+      worktree_digest: `sha256:${'a'.repeat(64)}`,
+    },
+  }),
   'intervention-entered': () => ({
     intervention_id: 'intervention-stale',
     reason: 'stale-claim',

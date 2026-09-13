@@ -17,6 +17,7 @@ const definitions = {
       'author',
       'startup',
     ],
+    optionalFields: ['phases'],
   },
   'reviewer-joined': {
     advancesRevision: true,
@@ -64,6 +65,22 @@ const definitions = {
   'finalization-started': { advancesRevision: true, fields: [] },
   'acceptance-committed': { advancesRevision: true, fields: ['terminal'] },
   'acceptance-sealed-no-commit': { advancesRevision: true, fields: ['terminal'] },
+  'phase-acceptance-committed': {
+    advancesRevision: true,
+    fields: ['cursor', 'kind', 'artifact', 'manifest', 'commit'],
+  },
+  'phase-acceptance-sealed-no-commit': {
+    advancesRevision: true,
+    fields: ['cursor', 'kind', 'artifact', 'manifest', 'snapshot'],
+  },
+  'phase-artifact-committed': {
+    advancesRevision: true,
+    fields: ['cursor', 'kind', 'artifact', 'commit', 'repository_boundary'],
+  },
+  'phase-artifact-sealed-no-commit': {
+    advancesRevision: true,
+    fields: ['cursor', 'kind', 'artifact', 'snapshot', 'repository_boundary'],
+  },
   'intervention-entered': {
     advancesRevision: true,
     fields: ['intervention_id', 'reason', 'interrupted_state'],
@@ -129,7 +146,13 @@ export const EVENT_DEFINITIONS = Object.freeze(
   Object.fromEntries(
     Object.entries(definitions).map(([type, definition]) => [
       type,
-      Object.freeze({ ...definition, fields: Object.freeze([...definition.fields]) }),
+      Object.freeze({
+        ...definition,
+        fields: Object.freeze([...definition.fields]),
+        ...(definition.optionalFields
+          ? { optionalFields: Object.freeze([...definition.optionalFields]) }
+          : {}),
+      }),
     ])
   )
 );
@@ -565,6 +588,18 @@ function validateTerminal(value, label, { committed }) {
   assertDigest(value.manifest_digest, `${label} manifest_digest`);
 }
 
+function validatePhases(value, label) {
+  exactKeys(value, ['kinds'], label);
+  if (
+    !Array.isArray(value.kinds) ||
+    value.kinds.length === 0 ||
+    value.kinds.some((kind) => !['spec', 'plan'].includes(kind)) ||
+    new Set(value.kinds).size !== value.kinds.length
+  ) {
+    throw invalid(`${label} kinds`);
+  }
+}
+
 function validateChallenge(value, label) {
   exactKeys(
     value,
@@ -614,6 +649,12 @@ function validatePayload(type, payload, valueReviewId) {
       validateParticipant(payload.author, 'review-created author');
       if (payload.author.role !== 'author') throw invalid('review-created author role');
       validateStartup(payload.startup);
+      if (payload.phases !== undefined) {
+        validatePhases(payload.phases, 'review-created phases');
+        if (payload.phases.kinds[0] !== payload.startup.context.artifact_kind) {
+          throw invalid('review-created phase initial kind');
+        }
+      }
       if ((payload.commit_mode === 'no-commit') !== (payload.startup.no_commit_baseline !== null)) {
         throw invalid('review-created no-commit baseline');
       }
@@ -729,6 +770,36 @@ function validatePayload(type, payload, valueReviewId) {
         validateGrantParameters('accept-over-objections', payload.parameters, type);
         validateAttestation(payload.attestation, `${type} attestation`);
       }
+      break;
+    case 'phase-acceptance-committed':
+    case 'phase-acceptance-sealed-no-commit':
+      assertNonNegativeInteger(payload.cursor, `${type} cursor`);
+      assertEnum(payload.kind, ['spec', 'plan'], `${type} kind`);
+      validateArtifact(payload.artifact, `${type} artifact`);
+      validateResponse(payload.manifest, `${type} manifest`);
+      if (type === 'phase-acceptance-committed') {
+        assertGitObject(payload.commit, `${type} commit`);
+      } else {
+        validateResponse(payload.snapshot, `${type} snapshot`);
+        if (payload.snapshot.digest !== payload.artifact.digest) {
+          throw invalid(`${type} snapshot authority`);
+        }
+      }
+      break;
+    case 'phase-artifact-committed':
+    case 'phase-artifact-sealed-no-commit':
+      assertNonNegativeInteger(payload.cursor, `${type} cursor`);
+      assertEnum(payload.kind, ['spec', 'plan'], `${type} kind`);
+      validateArtifact(payload.artifact, `${type} artifact`);
+      if (type === 'phase-artifact-committed') {
+        assertGitObject(payload.commit, `${type} commit`);
+      } else {
+        validateResponse(payload.snapshot, `${type} snapshot`);
+        if (payload.snapshot.digest !== payload.artifact.digest) {
+          throw invalid(`${type} snapshot authority`);
+        }
+      }
+      validateRepositoryBoundary(payload.repository_boundary, `${type} repository_boundary`);
       break;
     case 'intervention-entered':
       assertIdentifier(payload.intervention_id, `${type} intervention_id`);
@@ -860,7 +931,22 @@ export function validateEvent(value) {
   }
   if (value.actor !== 'system' && !FINGERPRINT_RE.test(value.actor)) throw invalid('actor');
   assertTimestamp(value.at, 'at');
-  exactKeys(value.payload, EVENT_DEFINITIONS[value.type].fields, `${value.type} payload`);
+  const definition = EVENT_DEFINITIONS[value.type];
+  if (definition.optionalFields) {
+    const allowed = new Set([...definition.fields, ...definition.optionalFields]);
+    const actual = Object.keys(value.payload);
+    if (
+      definition.fields.some((field) => !Object.hasOwn(value.payload, field)) ||
+      actual.some((field) => !allowed.has(field))
+    ) {
+      throw invalid(`${value.type} payload fields`, {
+        actual: actual.sort(),
+        expected: [...definition.fields, ...definition.optionalFields].sort(),
+      });
+    }
+  } else {
+    exactKeys(value.payload, definition.fields, `${value.type} payload`);
+  }
   assertJsonValue(value.payload);
   validatePayload(value.type, value.payload, value.review_id);
   return true;

@@ -12,6 +12,7 @@ export const COMMAND_FLAGS = Object.freeze({
   doctor: frozenList(['--mode', '--json']),
   start: frozenList([
     '--artifact-kind',
+    '--phases',
     '--reviews-root',
     '--review-path-template',
     '--record-id',
@@ -23,6 +24,7 @@ export const COMMAND_FLAGS = Object.freeze({
     '--no-commit',
     '--test-human-authority',
   ]),
+  advance: frozenList([]),
   'request-grant': frozenList([
     '--action',
     '--verifier-fingerprint',
@@ -77,7 +79,8 @@ export const COMMAND_USAGE = Object.freeze({
   setup: 'peer-review setup [--agent <name>] [--scope <user|project>] [--dry-run] [--remove]',
   doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
   start:
-    'peer-review start <artifact> --artifact-kind <spec|plan> [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
+    'peer-review start <artifact> --artifact-kind <spec|plan> [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
+  advance: 'peer-review advance <workspace> <artifact>',
   'request-grant':
     'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
   join: 'peer-review join <reviewer-invitation.md>',
@@ -110,6 +113,7 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
   setup: grammar(0),
   doctor: grammar(0),
   start: grammar(1),
+  advance: grammar(2),
   'request-grant': grammar(1),
   join: grammar(1),
   status: grammar(1),

@@ -427,6 +427,7 @@ function statusResult(state, paths, review = {}) {
     record_id: state.protocol.startup?.context?.record_id ?? state.protocol.review_id,
     state: state.protocol.state,
     next_action: state.protocol.next_action,
+    ...(state.protocol.phases ? { phases: state.protocol.phases } : {}),
     review: Object.freeze({
       commit_mode: state.protocol.commit_mode,
       authority_assurance: assurance,

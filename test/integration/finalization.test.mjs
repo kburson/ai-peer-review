@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -78,7 +78,7 @@ function replaceSection(file, heading, content) {
   writeFileSync(file, text.replace(pattern, `$1${content}`));
 }
 
-async function acceptedReview(root, reviewId, { noCommit = false } = {}) {
+async function acceptedReview(root, reviewId, { noCommit = false, phases } = {}) {
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
   const started = await api.startReview({
@@ -88,6 +88,7 @@ async function acceptedReview(root, reviewId, { noCommit = false } = {}) {
     identity: author,
     reviewId,
     noCommit,
+    phases,
     now: NOW,
   });
   const joined = await api.joinReview({
@@ -110,6 +111,28 @@ async function acceptedReview(root, reviewId, { noCommit = false } = {}) {
   });
   return { author, reviewer, started, accepted };
 }
+
+test('non-final phased acceptance produces durable evidence without terminating', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const review = await acceptedReview(fx.root, 'finalize-phase', { phases: 'spec,plan' });
+  const finalized = await api.finalizeReview({
+    cwd: fx.root,
+    workspace: review.started.paths.workspace,
+    identity: review.author,
+    now: '2026-09-09T12:02:00.000Z',
+  });
+  assert.equal(finalized.state, 'awaiting-phase-artifact');
+  assert.equal(finalized.next_action, 'advance-phase-artifact');
+  assert.equal(finalized.review.phase.cursor, 0);
+  assert.equal(finalized.review.phase.kind, 'spec');
+  assert.equal(finalized.paths.phase_manifest.endsWith('phase-01-spec-review-manifest.md'), true);
+  assert.equal(readFileSync(finalized.paths.phase_manifest, 'utf8').includes('phase_status'), true);
+  assert.equal(
+    existsSync(path.join(path.dirname(finalized.paths.phase_manifest), 'review-manifest.md')),
+    false
+  );
+});
 
 function overrideParameters(workspace) {
   const { state, events } = inspectReviewAuthority(workspace);
