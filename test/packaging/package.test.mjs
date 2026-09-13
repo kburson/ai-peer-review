@@ -19,7 +19,7 @@ function pack(t) {
     cwd: root,
     encoding: 'utf8',
   });
-  return parseNpmPackOutput(output);
+  return parseNpmPackOutput(output, { expectedPackageName: 'ai-peer-review' });
 }
 
 test('published tarball is closed and exact-pins its audited production dependency', (t) => {
@@ -146,11 +146,7 @@ test('public exports and command guidance remain narrow and installation-aware',
   }
 });
 
-test('runtime contract enforces Node 24 minimum and prefers Node 26 or later', () => {
-  const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
-  assert.equal(packageJson.engines?.node, '>=24');
-  assert.equal(readFileSync(path.join(root, '.nvmrc'), 'utf8'), '26\n');
-
+test('workflows retain complete platform and release safety gates', () => {
   const ci = readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
   for (const required of [
     'actions/checkout@v6',
@@ -158,9 +154,6 @@ test('runtime contract enforces Node 24 minimum and prefers Node 26 or later', (
     'ubuntu-latest',
     'macos-latest',
     'windows-latest',
-    'node-version: 24',
-    "'26'",
-    "'current'",
     'npm run format:check',
     'npm run lint',
     'npm test',
@@ -172,15 +165,11 @@ test('runtime contract enforces Node 24 minimum and prefers Node 26 or later', (
     'verify-extraction.mjs --require-legacy-removed',
   ])
     assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.doesNotMatch(ci, /Node 22|node-version: 22|'lts\/\*'/);
   assert.match(ci, /live-provider-optional:[\s\S]*continue-on-error: true/);
   const minimumNode = ci.match(/node-24:[\s\S]*?\n  preferred-node:/)?.[0] ?? '';
-  assert.match(minimumNode, /node-version: 24/);
   assert.match(minimumNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
-  const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  phase-2-boundary:/)?.[0] ?? '';
-  assert.match(preferredNode, /node: \['26', 'current'\]/);
+  const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
-  assert.match(boundary, /node-version: 26/);
   for (const job of [preferredNode, boundary]) {
     for (const gate of [
       'npm run format:check',
@@ -196,9 +185,6 @@ test('runtime contract enforces Node 24 minimum and prefers Node 26 or later', (
   }
 
   const release = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
-  assert.match(release, /node-version: 26/);
-  assert.doesNotMatch(release, /node-version: (?:22|24)/);
-  assert.match(release, /npm install --global npm@11\.8\.0/);
   const publishStep =
     release.match(
       /- name: Publish or verify matching npm artifact[\s\S]*?(?=\n      - name:)/

@@ -28,11 +28,53 @@ export function runNpm(tool, args, options = {}) {
   return execFileSync(tool, args, options);
 }
 
-export function parseNpmPackOutput(output) {
-  const parsed = JSON.parse(output);
-  const entries = Array.isArray(parsed) ? parsed : Object.values(parsed);
-  if (entries.length !== 1) {
-    throw new Error(`Expected one packed package, received ${entries.length}`);
+export function parseNpmPackOutput(output, { expectedPackageName, requireFilename = false } = {}) {
+  if (typeof expectedPackageName !== 'string' || expectedPackageName.trim() === '') {
+    throw new TypeError('expectedPackageName must be a non-empty string');
   }
-  return entries[0];
+
+  let parsed;
+  try {
+    parsed = JSON.parse(output);
+  } catch (cause) {
+    throw new Error('Invalid npm pack JSON', { cause });
+  }
+
+  let report;
+  if (Array.isArray(parsed)) {
+    if (parsed.length !== 1) {
+      throw new Error(`Expected exactly one npm pack report, received ${parsed.length}`);
+    }
+    [report] = parsed;
+  } else if (parsed !== null && typeof parsed === 'object') {
+    const packageNames = Object.keys(parsed);
+    if (packageNames.length !== 1) {
+      throw new Error(`Expected exactly one npm pack report, received ${packageNames.length}`);
+    }
+    const [packageName] = packageNames;
+    if (packageName !== expectedPackageName) {
+      throw new Error(
+        `Expected npm pack report for ${expectedPackageName}, received ${packageName}`
+      );
+    }
+    report = parsed[packageName];
+  } else {
+    throw new TypeError('Expected npm pack JSON to be an array or package-keyed object');
+  }
+
+  if (report === null || typeof report !== 'object' || Array.isArray(report)) {
+    throw new TypeError('npm pack report must be an object');
+  }
+  if (report.name !== expectedPackageName) {
+    throw new Error(
+      `Expected packed package name ${expectedPackageName}, received ${String(report.name)}`
+    );
+  }
+  if (!Array.isArray(report.files)) {
+    throw new TypeError('npm pack report files must be an array');
+  }
+  if (requireFilename && (typeof report.filename !== 'string' || report.filename.trim() === '')) {
+    throw new TypeError('npm pack report filename must be a non-empty string');
+  }
+  return report;
 }

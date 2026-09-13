@@ -21,7 +21,8 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
     runNpm('npm', ['pack', '--json', '--pack-destination', packDir], {
       cwd: root,
       encoding: 'utf8',
-    })
+    }),
+    { expectedPackageName: 'ai-peer-review', requireFilename: true }
   );
   const tarball = path.join(packDir, packed.filename);
   const zeroInstallHelp = runNpm(

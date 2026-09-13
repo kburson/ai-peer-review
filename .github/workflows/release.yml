@@ -25,10 +25,10 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-node@v6
         with:
-          node-version: 26
+          node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: npm install --global npm@11.8.0
+      - run: npm install --global npm@12.0.2
       - run: npm ci
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm test

@@ -42,6 +42,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'docs/design',
     'docs/plans',
     'docs/peer-reviews',
+    'docs/releases',
     'docs/whitepapers',
     'provenance',
     'schemas',
