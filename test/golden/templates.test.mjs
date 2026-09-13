@@ -89,6 +89,16 @@ test('startup templates use absolute paths and document installed and zero-insta
   assert.match(invitation, /peer-review resume \/repo\/\.scratch/);
 });
 
+test('startup templates suppress participant polling under durable coordination', () => {
+  for (const name of ['author-startup', 'reviewer-invitation']) {
+    const variables = Object.fromEntries(TEMPLATE_VARIABLES[name].map((key) => [key, values[key]]));
+    const output = hydrateTemplate(name, variables).toString();
+    assert.match(output, /durable coordinator/i);
+    assert.match(output, /do not poll or repeat wait calls/i);
+    assert.match(output, /peer-review status <workspace> --next/i);
+  }
+});
+
 test('both generated startup artifacts carry one identical durable-document communication policy', () => {
   const outputs = ['author-startup', 'reviewer-invitation'].map((name) => {
     const variables = Object.fromEntries(TEMPLATE_VARIABLES[name].map((key) => [key, values[key]]));

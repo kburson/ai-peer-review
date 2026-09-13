@@ -219,6 +219,59 @@ test('official native-push delivers through its injected host API', async () => 
   });
 });
 
+test('official native-push delivers one exact wake capsule and reconciles its operation', async () => {
+  const dispatches = [];
+  const reconciliations = [];
+  const transport = createNativePushTransport({
+    adapter: 'codex-app',
+    lease: lease('codex'),
+    now: NOW,
+    dispatch: async (input) => {
+      dispatches.push(input);
+      return { acknowledged: true };
+    },
+    reconcile: async (input) => {
+      reconciliations.push(input);
+      return { status: 'not-submitted', reason: 'no-host-operation' };
+    },
+  });
+  const operation = {
+    operation_id: `sha256:${'1'.repeat(64)}`,
+    capsule_text: '{"schema":"ai-peer-review.wake-capsule/v1"}\n',
+    capsule_digest: `sha256:${'2'.repeat(64)}`,
+    expected_revision: 4,
+    target_role: 'reviewer',
+    target_session_fingerprint: `sha256:${'3'.repeat(64)}`,
+  };
+
+  assert.equal((await transport.deliver(operation)).status, 'delivered');
+  assert.deepEqual(dispatches, [
+    {
+      opaque_handle: 'codex:session-01',
+      operation_id: operation.operation_id,
+      capsule_text: operation.capsule_text,
+      capsule_digest: operation.capsule_digest,
+      expected_revision: 4,
+      target_role: 'reviewer',
+      target_session_fingerprint: operation.target_session_fingerprint,
+    },
+  ]);
+  assert.deepEqual(await transport.reconcile(operation), {
+    status: 'not-submitted',
+    reason: 'no-host-operation',
+  });
+  assert.deepEqual(reconciliations, [
+    {
+      opaque_handle: 'codex:session-01',
+      operation_id: operation.operation_id,
+      capsule_digest: operation.capsule_digest,
+      expected_revision: 4,
+      target_role: 'reviewer',
+      target_session_fingerprint: operation.target_session_fingerprint,
+    },
+  ]);
+});
+
 test('native-push failure preserves delivery-pending and manual recovery', async () => {
   const transport = createNativePushTransport({
     adapter: 'codex-app',

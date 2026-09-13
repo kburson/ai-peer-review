@@ -653,6 +653,24 @@ Use `ai-peer-review` when:
 
 ## What this suggests for the tool roadmap
 
+The current package now has a narrower durable-wake coordinator for already
+resident participants. It does not launch a headless provider. Instead, it
+observes event authority outside both model contexts, reserves one immutable
+wake operation per revision and recipient, and invokes only a validated
+`live-wait` or official `native-push` adapter. Filesystem hints and periodic
+reconciliation share that path, so missed notifications and process replacement
+do not require a human to relay a prompt.
+
+When this coordinator is active, neither participant should reproduce the
+bounded process polling used in the historical case study above. The host runs
+`peer-review coordinator run <workspace>` or schedules `coordinator reconcile`
+outside participant context. `peer-review status <workspace> --next` remains a
+single bounded manual fallback after a visible capability refusal; it is not a
+polling loop.
+
+The remaining roadmap boundary is provider launch and long-running headless
+turn observability:
+
 The case study suggests a useful integration direction without changing the
 protocol's provider-neutral core: make external headless sessions easier to
 operate as adapters.

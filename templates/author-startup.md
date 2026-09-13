@@ -26,6 +26,10 @@ Read the relevant durable reviewer or author response document; do not rely on a
 
 “Terse chat” does not mean terse review evidence. Durable reviewer and author response documents remain complete, self-contained, and authoritative.
 
+## Durable coordinator
+
+When the host reports that the durable coordinator is active, yield after each handoff. The coordinator sleeps outside participant context and wakes only the exact configured session for an actionable protocol revision; do not poll or repeat wait calls. If durable wake is unavailable, use only the bounded manual fallback `peer-review status <workspace> --next`.
+
 Installed help: `peer-review status --help`
 
 Zero-install help: `npx --yes ai-peer-review@0.2.2 status --help`

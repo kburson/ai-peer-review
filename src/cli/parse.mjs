@@ -66,6 +66,7 @@ export const COMMAND_FLAGS = Object.freeze({
   abandon: frozenList(['--reason']),
   supersede: frozenList(['--reason', '--by']),
   consolidate: frozenList(['--destination', '--dry-run', '--apply', '--json']),
+  coordinator: frozenList(['--json']),
   help: frozenList(['--all', '--json']),
   explain: frozenList(['--json']),
 });
@@ -96,6 +97,7 @@ export const COMMAND_USAGE = Object.freeze({
   supersede: 'peer-review supersede <workspace> --reason <text> --by <successor-review-id>',
   consolidate:
     'peer-review consolidate <workspace>... --destination <record-relative-path> (--dry-run | --apply) [--json]',
+  coordinator: 'peer-review coordinator <run|reconcile|status|stop> <workspace> [--json]',
   help: 'peer-review help [<command>] [--all] [--json] | peer-review help search <term>',
   explain: 'peer-review explain <error-code> [--json]',
 });
@@ -120,6 +122,7 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
   abandon: grammar(1),
   supersede: grammar(1),
   consolidate: grammar(2, Number.MAX_SAFE_INTEGER),
+  coordinator: grammar(2),
   help: grammar(0, 2),
   explain: grammar(1),
 });
@@ -283,6 +286,14 @@ function validateConstraints(command, args, options) {
     }
     if (new Set(args).size !== args.length) {
       usage('consolidate requires unique review workspaces');
+    }
+  }
+  if (command === 'coordinator') {
+    if (!['run', 'reconcile', 'status', 'stop'].includes(args[0])) {
+      usage('coordinator verb must be one of: run, reconcile, status, stop');
+    }
+    if (args[0] === 'run' && options.json) {
+      usage('--json is unavailable for coordinator run because run remains foreground');
     }
   }
   if (command === 'recover') {

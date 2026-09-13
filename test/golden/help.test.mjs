@@ -89,6 +89,14 @@ test('the closed CLI result schema covers attempt supersession and record consol
   );
 });
 
+test('coordinator help declares durable wake and bounded manual fallback semantics', () => {
+  const coordinator = helpRequest('coordinator', 'json');
+  assert.match(coordinator.wake, /durable.*exact.*participant/i);
+  assert.match(coordinator.tokens, /zero.*idle/i);
+  assert.match(coordinator.next_action, /status.*--next.*manual/i);
+  assert.equal(coordinator.json_schema, 'ai-peer-review.coordinator-result/v1');
+});
+
 test('help --all, search, JSON, and stable error explanations have deterministic fixtures', () => {
   const rendered = helpRequest(null, 'text', { all: true });
   assert.equal(
