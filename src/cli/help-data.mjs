@@ -15,6 +15,7 @@ const PURPOSE = Object.freeze({
   finalize: 'Commit ordinary consensus or human-authorized good-enough acceptance.',
   recover: 'Inspect and perform an explicitly authorized recovery.',
   abandon: 'Terminate an intervention review while retaining evidence paths.',
+  supersede: 'Terminate a replaced nonterminal attempt while retaining evidence paths.',
   help: 'Query the complete offline command contract.',
   explain: 'Explain one stable APR error and its recovery.',
 });
@@ -34,6 +35,7 @@ const ROLES = Object.freeze({
   finalize: ['author'],
   recover: ['author', 'reviewer'],
   abandon: ['author', 'reviewer'],
+  supersede: ['author', 'reviewer'],
   help: ['author', 'reviewer', 'human'],
   explain: ['author', 'reviewer', 'human'],
 });
@@ -51,6 +53,14 @@ const STATES = Object.freeze({
   finalize: ['acceptance-pending', 'author-finalization', 'intervention-required'],
   recover: ['reviewer-turn', 'author-revision', 'intervention-required'],
   abandon: ['intervention-required'],
+  supersede: [
+    'awaiting-reviewer',
+    'reviewer-turn',
+    'author-revision',
+    'acceptance-pending',
+    'author-finalization',
+    'intervention-required',
+  ],
   help: ['any'],
   explain: ['any'],
 });
@@ -73,6 +83,9 @@ const PRECONDITIONS = Object.freeze({
   ],
   recover: ['A stale or missing participant condition authorized by event state.'],
   abandon: ['An active intervention and a non-empty retained-evidence reason.'],
+  supersede: [
+    'A nonterminal attempt, one registered participant, a reason, and a distinct successor review ID.',
+  ],
   help: ['A readable installed package.'],
   explain: ['A known stable APR error code.'],
 });
@@ -92,6 +105,7 @@ const EFFECTS = Object.freeze({
   finalize: ['Produces terminal manifest evidence and author-only Git work in normal mode.'],
   recover: ['Performs only the selected event-authorized reclaim or replacement.'],
   abandon: ['Appends terminal abandonment while preserving listed evidence paths.'],
+  supersede: ['Appends terminal supersession while preserving listed evidence paths.'],
   help: ['Read-only offline rendering.'],
   explain: ['Read-only offline error rendering.'],
 });
@@ -267,6 +281,16 @@ const ERRORS = Object.freeze({
     'APR_EVENT_INVALID',
   ],
   abandon: [
+    'APR_INVALID_TRANSITION',
+    'APR_IDEMPOTENCY_CONFLICT',
+    'APR_OUTPUT_COLLISION',
+    'APR_STALE_REVIEW',
+    'APR_REVIEW_LOCKED',
+    'APR_REVIEW_LOCK_FAILED',
+    'APR_EVENT_INVALID',
+    'APR_USAGE',
+  ],
+  supersede: [
     'APR_INVALID_TRANSITION',
     'APR_IDEMPOTENCY_CONFLICT',
     'APR_OUTPUT_COLLISION',

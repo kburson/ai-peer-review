@@ -64,6 +64,7 @@ export const COMMAND_FLAGS = Object.freeze({
   finalize: frozenList(['--good-enough', '--grant', '--rationale']),
   recover: frozenList(['--reclaim', '--replace-participant', '--grant']),
   abandon: frozenList(['--reason']),
+  supersede: frozenList(['--reason', '--by']),
   help: frozenList(['--all', '--json']),
   explain: frozenList(['--json']),
 });
@@ -91,6 +92,7 @@ export const COMMAND_USAGE = Object.freeze({
   recover:
     'peer-review recover <workspace> [--reclaim | --replace-participant <role> --grant <signed-grant>]',
   abandon: 'peer-review abandon <workspace> --reason <text>',
+  supersede: 'peer-review supersede <workspace> --reason <text> --by <successor-review-id>',
   help: 'peer-review help [<command>] [--all] [--json] | peer-review help search <term>',
   explain: 'peer-review explain <error-code> [--json]',
 });
@@ -113,6 +115,7 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
   finalize: grammar(1),
   recover: grammar(1),
   abandon: grammar(1),
+  supersede: grammar(1),
   help: grammar(0, 2),
   explain: grammar(1),
 });
@@ -254,6 +257,17 @@ function validateConstraints(command, args, options) {
   }
   if (command === 'abandon' && (typeof options.reason !== 'string' || !options.reason.trim())) {
     usage('abandon requires a non-empty --reason');
+  }
+  if (command === 'supersede') {
+    if (typeof options.reason !== 'string' || !options.reason.trim()) {
+      usage('supersede requires a non-empty --reason');
+    }
+    if (typeof options.by !== 'string' || !options.by.trim()) {
+      usage('supersede requires --by with a successor review ID');
+    }
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(options.by)) {
+      usage('--by requires a safe successor review ID');
+    }
   }
   if (command === 'recover') {
     validateEnum(options, 'replaceParticipant', '--replace-participant', ['author', 'reviewer']);

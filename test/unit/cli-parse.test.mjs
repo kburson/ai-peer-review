@@ -19,6 +19,7 @@ const EXPECTED_COMMANDS = [
   'finalize',
   'recover',
   'abandon',
+  'supersede',
   'help',
   'explain',
 ];
@@ -186,6 +187,19 @@ test('enforces command-specific enums and recovery option relationships', () => 
     parseCommand(['recover', 'workspace', '--replace-participant', 'reviewer', '--grant', 'signed'])
       .options,
     { replaceParticipant: 'reviewer', grant: 'signed' }
+  );
+  usage(['supersede', 'workspace', '--reason', 'replaced'], /requires --by/i);
+  usage(['supersede', 'workspace', '--by', 'review-next'], /requires.*--reason/i);
+  assert.deepEqual(
+    parseCommand([
+      'supersede',
+      'workspace',
+      '--reason',
+      'replacement started',
+      '--by',
+      'review-next',
+    ]).options,
+    { reason: 'replacement started', by: 'review-next' }
   );
 });
 

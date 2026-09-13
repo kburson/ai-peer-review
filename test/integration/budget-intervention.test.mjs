@@ -5,7 +5,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
-import { budgetIntervention, fixture, signedGrant } from '../helpers/intervention-fixture.mjs';
+import {
+  budgetIntervention,
+  fixture,
+  identity,
+  NOW,
+  signedGrant,
+} from '../helpers/intervention-fixture.mjs';
 
 test('signed continuation adds turns and exact retry is idempotent', async (t) => {
   const fx = fixture();
@@ -67,6 +73,62 @@ test('abandonment is terminal, releases only the reservation, and cannot resume'
   assert.equal(abandoned.review.actor, review.reviewer.session_fingerprint);
   assert.throws(() => readFileSync(reservation), /ENOENT/);
   assert.match(api.resumeReview(review.started.paths.workspace).instructions, /terminal/);
+});
+
+test('a registered participant can supersede a nonterminal attempt with exact retry semantics', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const author = identity('author', 'supersede-author');
+  const reviewer = identity('reviewer', 'supersede-reviewer');
+  const started = await api.startReview({
+    cwd: fx.root,
+    artifact: 'docs/artifact.md',
+    artifactKind: 'spec',
+    identity: author,
+    reviewId: 'review-superseded',
+    recordId: 'record-chain',
+    now: NOW,
+  });
+  await api.joinReview({
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: NOW,
+  });
+
+  const reservation = `${started.paths.workspace}/collateral-reservation.json`;
+  const superseded = await api.supersedeReview({
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    reason: 'Replacement attempt started.',
+    successorReviewId: 'review-successor',
+    now: '2026-09-09T02:03:00.000Z',
+  });
+  assert.equal(superseded.state, 'superseded');
+  assert.equal(superseded.review.successor_review_id, 'review-successor');
+  assert.throws(() => readFileSync(reservation), /ENOENT/);
+  assert.match(api.resumeReview(started.paths.workspace).instructions, /terminal/);
+
+  const before = readFileSync(started.paths.events);
+  const retried = await api.supersedeReview({
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    reason: 'Replacement attempt started.',
+    successorReviewId: 'review-successor',
+    now: '2026-09-09T02:04:00.000Z',
+  });
+  assert.equal(retried.state, 'superseded');
+  assert.deepEqual(readFileSync(started.paths.events), before);
+  await assert.rejects(
+    api.supersedeReview({
+      workspace: started.paths.workspace,
+      identity: reviewer,
+      reason: 'Different reason.',
+      successorReviewId: 'review-successor',
+      now: '2026-09-09T02:05:00.000Z',
+    }),
+    (error) => error.code === 'APR_IDEMPOTENCY_CONFLICT'
+  );
 });
 
 test('continuation freezes an exact repository focus and rejects a conflicting retry', async (t) => {

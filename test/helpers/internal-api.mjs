@@ -11,6 +11,7 @@ export {
   run,
   startReview,
   statusReview,
+  supersedeReview,
   submitAuthorTurn,
   submitReviewTurn,
 } from '../../src/cli/run.mjs';

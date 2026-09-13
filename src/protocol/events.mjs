@@ -112,6 +112,10 @@ const definitions = {
     fields: ['intervention_id', 'terminal', 'parameters', 'attestation'],
   },
   abandoned: { advancesRevision: true, fields: ['intervention_id', 'reason', 'retained_paths'] },
+  superseded: {
+    advancesRevision: true,
+    fields: ['reason', 'successor_review_id', 'retained_paths'],
+  },
   'turn-claimed': { advancesRevision: false, fields: ['claim'] },
   'identity-changed': { advancesRevision: false, fields: ['role', 'identity'] },
   'challenge-requested': { advancesRevision: false, fields: ['challenge'] },
@@ -769,6 +773,11 @@ function validatePayload(type, payload, valueReviewId) {
     case 'abandoned':
       assertIdentifier(payload.intervention_id, `${type} intervention_id`);
       assertString(payload.reason, `${type} reason`);
+      assertPathArray(payload.retained_paths, `${type} retained_paths`);
+      break;
+    case 'superseded':
+      assertString(payload.reason, `${type} reason`);
+      assertIdentifier(payload.successor_review_id, `${type} successor_review_id`);
       assertPathArray(payload.retained_paths, `${type} retained_paths`);
       break;
     case 'turn-claimed':

@@ -301,6 +301,11 @@ const payloads = {
     reason: 'operator ended review',
     retained_paths: [],
   }),
+  superseded: () => ({
+    reason: 'replacement attempt started',
+    successor_review_id: 'review-02',
+    retained_paths: [],
+  }),
   'turn-claimed': () => ({
     claim: claim('reviewer'),
   }),
