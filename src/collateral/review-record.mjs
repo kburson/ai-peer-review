@@ -563,6 +563,7 @@ export function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () =>
     mode === 'normal' ? createGitTransactionRepository(plan.repository_root) : null;
   const outsideIndex = transaction?.snapshotIndexOutside(uniqueOwnedPaths) ?? null;
   transaction?.assertNoOwnedOverlap(uniqueOwnedPaths);
+  const trackedOwnedPaths = transaction?.trackedPaths(uniqueOwnedPaths) ?? [];
   const expectedHead = transaction?.head() ?? null;
   const allSourcesMissing = plan.mappings.every(({ source }) => !existsSync(source.absolute));
   if (existsSync(plan.receipt.absolute) && allSourcesMissing) {
@@ -644,14 +645,39 @@ export function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () =>
         'Preserve the verified relocation receipt and reconcile the exact repository head.'
       );
     }
-    transaction.addPaths(uniqueOwnedPaths);
+    const addablePaths = [
+      ...new Set([
+        ...trackedOwnedPaths,
+        ...plan.mappings.map(({ destination: target }) => target.relative),
+        plan.history.relative,
+        plan.receipt.relative,
+      ]),
+    ];
+    transaction.addPaths(addablePaths);
     transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
+    const commitPaths = [
+      ...new Set([
+        ...trackedOwnedPaths,
+        ...plan.mappings
+          .filter(({ collision }) => collision === 'none')
+          .map(({ destination: target }) => target.relative),
+        plan.history.relative,
+        plan.receipt.relative,
+      ]),
+    ].sort();
+    if (commitPaths.length === 0) {
+      fail(
+        'APR_GIT_TRANSACTION_INVALID',
+        'Review-record relocation produced no exact Git delta.',
+        'Inspect the receipt and repository before retrying the relocation.'
+      );
+    }
     commit = transaction.commitOnly(
-      uniqueOwnedPaths,
+      commitPaths,
       `Consolidate review record ${plan.record_id}`,
       { 'Peer-Review-Record-ID': plan.record_id }
     );
-    transaction.assertCommitPaths(commit, uniqueOwnedPaths);
+    transaction.assertCommitPaths(commit, commitPaths);
     transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
   }
 
