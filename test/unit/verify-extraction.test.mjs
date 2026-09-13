@@ -68,6 +68,10 @@ function validManifest(overrides = {}) {
     },
     standalone_path_rules: {
       prefixes: [
+        '.agents/skills/task',
+        '.ai-task-manager',
+        '.claude/skills/task',
+        '.grok/skills/task',
         '.github/workflows',
         '.codex',
         'bin',
@@ -83,15 +87,21 @@ function validManifest(overrides = {}) {
       ],
       exact: [
         '.ai-peer-review.json',
+        '.claude/commands/task.md',
+        '.claude/settings.json',
         '.github/CODEOWNERS',
+        '.github/ISSUE_TEMPLATE/bug.yml',
+        '.github/ISSUE_TEMPLATE/task.yml',
         '.gitattributes',
         '.gitignore',
         '.gitleaks.toml',
+        '.grok/hooks/aitm.json',
         '.markdownlint-cli2.jsonc',
         '.npmrc',
         '.nvmrc',
         '.prettierignore',
         '.prettierrc.json',
+        'AGENTS.md',
         'CONTRIBUTING.md',
         'LICENSE',
         'NOTICE',
@@ -106,6 +116,7 @@ function validManifest(overrides = {}) {
         'scripts/run-secret-scan.mjs',
         'scripts/verify-extraction.mjs',
         'scripts/verify-release.mjs',
+        'vendors/kburson-ai-task-manager-1.0.0.tgz',
       ],
     },
     legacy_retained_path_rules: {
@@ -321,6 +332,45 @@ test('accepts project configuration and tracked peer-review records', async () =
     }),
   });
 });
+
+test('accepts bounded project-local AITM governance paths', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: [
+        '.agents/skills/task/SKILL.md',
+        '.ai-task-manager/task-tracker.json',
+        '.claude/commands/task.md',
+        '.claude/settings.json',
+        '.claude/skills/task/SKILL.md',
+        '.github/ISSUE_TEMPLATE/task.yml',
+        '.grok/hooks/aitm.json',
+        '.grok/skills/task/SKILL.md',
+        'AGENTS.md',
+        'LICENSE',
+        'vendors/kburson-ai-task-manager-1.0.0.tgz',
+      ].join('\n'),
+    }),
+  });
+});
+
+for (const foreignPath of [
+  '.github/ISSUE_TEMPLATE/unrelated-product.yml',
+  '.grok/hooks/unrelated-extension.json',
+  '.grok/hooks/nested/anything.bin',
+]) {
+  test(`rejects non-AITM governance path ${foreignPath}`, async () => {
+    await assert.rejects(
+      verifyExtraction({
+        root: '/repo',
+        manifest: validManifest(),
+        runGit: fakeGit({ current: `${foreignPath}\nLICENSE` }),
+      }),
+      /foreign standalone paths/
+    );
+  });
+}
 
 test('accepts the preferred Node runtime configuration as one exact standalone path', async () => {
   await verifyExtraction({

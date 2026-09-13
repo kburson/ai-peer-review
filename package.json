@@ -49,6 +49,7 @@
     "zod": "4.6.2"
   },
   "devDependencies": {
+    "ai-task-manager": "file:vendors/kburson-ai-task-manager-1.0.0.tgz",
     "cspell": "8.19.4",
     "eslint": "9.39.4",
     "markdownlint-cli2": "0.23.2",

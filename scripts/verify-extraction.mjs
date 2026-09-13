@@ -32,6 +32,10 @@ const EXPECTED_RETAINED_PATH_RULES = Object.freeze({
 });
 const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
   prefixes: [
+    '.agents/skills/task',
+    '.ai-task-manager',
+    '.claude/skills/task',
+    '.grok/skills/task',
     '.github/workflows',
     '.codex',
     'bin',
@@ -47,15 +51,21 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
   ],
   exact: [
     '.ai-peer-review.json',
+    '.claude/commands/task.md',
+    '.claude/settings.json',
     '.github/CODEOWNERS',
+    '.github/ISSUE_TEMPLATE/bug.yml',
+    '.github/ISSUE_TEMPLATE/task.yml',
     '.gitattributes',
     '.gitignore',
     '.gitleaks.toml',
+    '.grok/hooks/aitm.json',
     '.markdownlint-cli2.jsonc',
     '.npmrc',
     '.nvmrc',
     '.prettierignore',
     '.prettierrc.json',
+    'AGENTS.md',
     'CONTRIBUTING.md',
     'LICENSE',
     'NOTICE',
@@ -70,6 +80,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'scripts/run-secret-scan.mjs',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'vendors/kburson-ai-task-manager-1.0.0.tgz',
   ],
 });
 const EXPECTED_LEGACY_PATH_RULES = Object.freeze({

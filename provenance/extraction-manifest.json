@@ -27,6 +27,10 @@
   },
   "standalone_path_rules": {
     "prefixes": [
+      ".agents/skills/task",
+      ".ai-task-manager",
+      ".claude/skills/task",
+      ".grok/skills/task",
       ".github/workflows",
       ".codex",
       "bin",
@@ -42,15 +46,21 @@
     ],
     "exact": [
       ".ai-peer-review.json",
+      ".claude/commands/task.md",
+      ".claude/settings.json",
       ".github/CODEOWNERS",
+      ".github/ISSUE_TEMPLATE/bug.yml",
+      ".github/ISSUE_TEMPLATE/task.yml",
       ".gitattributes",
       ".gitignore",
       ".gitleaks.toml",
+      ".grok/hooks/aitm.json",
       ".markdownlint-cli2.jsonc",
       ".npmrc",
       ".nvmrc",
       ".prettierignore",
       ".prettierrc.json",
+      "AGENTS.md",
       "CONTRIBUTING.md",
       "LICENSE",
       "NOTICE",
@@ -64,7 +74,8 @@
       "package.json",
       "scripts/run-secret-scan.mjs",
       "scripts/verify-extraction.mjs",
-      "scripts/verify-release.mjs"
+      "scripts/verify-release.mjs",
+      "vendors/kburson-ai-task-manager-1.0.0.tgz"
     ]
   },
   "legacy_retained_path_rules": {
