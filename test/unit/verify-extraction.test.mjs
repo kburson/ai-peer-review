@@ -76,6 +76,7 @@ function validManifest(overrides = {}) {
         '.codex',
         'bin',
         'docs/design',
+        'docs/plans',
         'docs/peer-reviews',
         'docs/whitepapers',
         'provenance',
@@ -312,6 +313,16 @@ test('accepts the bounded standalone white-paper documentation path', async () =
         'LICENSE',
         'docs/whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md',
       ].join('\n'),
+    }),
+  });
+});
+
+test('accepts bounded governed implementation plans', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: ['LICENSE', 'docs/plans/2026-09-13-18-claude-identity-fallback.md'].join('\n'),
     }),
   });
 });

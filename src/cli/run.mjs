@@ -3319,13 +3319,13 @@ function writeResult(stream, value) {
   stream.write(`${lines.join('\n')}\n`);
 }
 
-function commandIdentity(io, state, role = null, { allowReplacement = false } = {}) {
+function commandIdentity(io, state, role = null, { allowReplacement = false, config = {} } = {}) {
   const roles = role ? [role] : ['author', 'reviewer'];
   for (const candidateRole of roles) {
     const identity = resolveIdentity({
       role: candidateRole,
       env: io.env,
-      ...(io.identityContext ?? {}),
+      ...configuredIdentityContext(io, config),
     });
     if (
       allowReplacement ||
@@ -3344,6 +3344,7 @@ function commandIdentity(io, state, role = null, { allowReplacement = false } = 
 
 function detectedDoctorContext(io, loaded, requestedMode) {
   let identity = null;
+  let identityRecovery = null;
   try {
     identity = resolveIdentity({
       role: 'author',
@@ -3352,6 +3353,11 @@ function detectedDoctorContext(io, loaded, requestedMode) {
     });
   } catch (cause) {
     if (!(cause instanceof AprError)) throw cause;
+    identityRecovery = {
+      code: cause.code,
+      recovery: cause.recovery,
+      details: cause.details,
+    };
   }
   let git = { repository: false, worktreeSafe: false, scratchIgnored: false };
   try {
@@ -3405,6 +3411,7 @@ function detectedDoctorContext(io, loaded, requestedMode) {
     packageResolved: true,
     skillAvailable,
     identity,
+    identityRecovery,
     git,
     authority: loaded.config.authority,
     transport:
@@ -3419,18 +3426,30 @@ function detectedDoctorContext(io, loaded, requestedMode) {
 
 function configuredIdentityContext(io, config) {
   const base = io.identityContext ?? {};
-  if (base.adapter || base.declared) return base;
+  if (base.declared) return base;
   const env = io.env ?? {};
   const adapter =
-    env.CODEX_THREAD_ID || env.CODEX_SESSION_ID
+    base.adapter ??
+    (env.CODEX_THREAD_ID || env.CODEX_SESSION_ID
       ? 'codex'
       : env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID
         ? 'claude'
         : env.GROK_SESSION_ID
           ? 'grok'
-          : null;
+          : null);
   if (!adapter) return base;
   const identity = config.hosts?.[adapter]?.identity ?? {};
+  if (adapter === 'claude') {
+    return {
+      ...base,
+      adapter,
+      declaredModel: {
+        ...(identity.model_id ? { modelId: identity.model_id } : {}),
+        ...(identity.model_display ? { modelDisplay: identity.model_display } : {}),
+        ...(base.declaredModel ?? {}),
+      },
+    };
+  }
   return {
     ...base,
     adapter,
@@ -3569,10 +3588,14 @@ export async function run(argv, io) {
       const workspace = path.isAbsolute(parsed.args[0])
         ? parsed.args[0]
         : path.resolve(io.cwd, parsed.args[0]);
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
       const requesterFingerprint =
         io.requesterFingerprint ??
-        resolveIdentity({ role: 'author', env: io.env, ...(io.identityContext ?? {}) })
-          .session_fingerprint;
+        resolveIdentity({
+          role: 'author',
+          env: io.env,
+          ...configuredIdentityContext(io, loaded.config),
+        }).session_fingerprint;
       const challenge = await requestGrant(
         workspace,
         parsed.options.action,
@@ -3703,11 +3726,12 @@ export async function run(argv, io) {
     } else if (parsed.command === 'finalize') {
       const workspace = path.resolve(io.cwd, parsed.args[0]);
       const state = inspectReview(workspace);
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
       response = await finalizeReview(
         {
           cwd: io.cwd,
           workspace,
-          identity: commandIdentity(io, state, 'author'),
+          identity: commandIdentity(io, state, 'author', { config: loaded.config }),
           goodEnough: parsed.options.goodEnough,
           grant: parsed.options.grant,
           rationale: parsed.options.rationale,
@@ -3742,6 +3766,7 @@ export async function run(argv, io) {
     } else if (parsed.command === 'recover') {
       const workspace = path.resolve(io.cwd, parsed.args[0]);
       const state = inspectReview(workspace);
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
       const role =
         parsed.options.replaceParticipant ??
         (state.protocol.intervention?.interrupted_state?.startsWith('author')
@@ -3760,6 +3785,7 @@ export async function run(argv, io) {
             parsed.options.reclaim || parsed.options.replaceParticipant
               ? commandIdentity(io, state, role, {
                   allowReplacement: Boolean(parsed.options.replaceParticipant),
+                  config: loaded.config,
                 })
               : null,
           now: io.now ?? new Date(),
@@ -3769,9 +3795,10 @@ export async function run(argv, io) {
     } else if (parsed.command === 'abandon') {
       const workspace = path.resolve(io.cwd, parsed.args[0]);
       const state = inspectReview(workspace);
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
       response = await abandonReview({
         workspace,
-        identity: commandIdentity(io, state),
+        identity: commandIdentity(io, state, null, { config: loaded.config }),
         reason: parsed.options.reason,
         now: io.now ?? new Date(),
       });

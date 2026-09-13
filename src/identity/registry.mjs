@@ -222,14 +222,15 @@ function selectedAdapter(context) {
 
 export function resolveIdentity(context = {}) {
   const { adapter, runtime } = selectedAdapter(context);
+  const adapterContext = { ...context, runtime: runtime ?? context.runtime };
   const candidate =
-    adapter.resolveRuntime?.({ ...context, runtime: runtime ?? context.runtime }) ??
-    genericAdapter.resolveDeclared(context);
+    adapter.resolveRuntime?.(adapterContext) ?? genericAdapter.resolveDeclared(context);
   if (!candidate) {
     fail(
       'APR_IDENTITY_REQUIRED',
       'Complete runtime or declared identity is required.',
-      'Provide official runtime session/model metadata or an explicit declared fallback.',
+      adapter.identityRecovery?.(adapterContext) ??
+        'Provide official runtime session/model metadata or an explicit declared fallback.',
       { adapter: adapter.name }
     );
   }

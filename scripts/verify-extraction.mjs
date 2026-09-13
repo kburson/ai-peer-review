@@ -40,6 +40,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     '.codex',
     'bin',
     'docs/design',
+    'docs/plans',
     'docs/peer-reviews',
     'docs/whitepapers',
     'provenance',

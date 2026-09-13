@@ -63,6 +63,99 @@ test('resolves runtime identity for every provider and prefers it over declared 
   }
 });
 
+test('composes a genuine Claude runtime session with declared model metadata', () => {
+  const identity = resolveIdentity({
+    adapter: 'claude',
+    role: 'reviewer',
+    joinedAt,
+    runtime: { sessionId: 'claude-runtime-session' },
+    declaredModel: { modelId: 'claude-opus-5', modelDisplay: 'Claude Opus 5' },
+  });
+
+  assert.equal(identity.host, 'claude-code');
+  assert.equal(identity.provider, 'anthropic');
+  assert.equal(identity.model_id, 'claude-opus-5');
+  assert.equal(identity.model_display, 'Claude Opus 5');
+  assert.equal(identity.identity_source, 'declared');
+  assert.equal(
+    identity.session_fingerprint,
+    fingerprintSession('anthropic', 'claude-runtime-session')
+  );
+  assert.equal(JSON.stringify(identity).includes('claude-runtime-session'), false);
+});
+
+test('Claude mixed identity fails closed without a runtime session or declared model', () => {
+  assert.throws(
+    () =>
+      resolveIdentity({
+        adapter: 'claude',
+        role: 'reviewer',
+        joinedAt,
+        runtime: {},
+        declaredModel: { modelId: 'claude-opus-5', modelDisplay: 'Claude Opus 5' },
+      }),
+    (error) =>
+      error.code === 'APR_IDENTITY_REQUIRED' && error.recovery.includes('CLAUDE_CODE_SESSION_ID')
+  );
+
+  assert.throws(
+    () =>
+      resolveIdentity({
+        adapter: 'claude',
+        role: 'reviewer',
+        joinedAt,
+        runtime: { sessionId: 'claude-runtime-session' },
+      }),
+    (error) =>
+      error.code === 'APR_IDENTITY_REQUIRED' &&
+      error.recovery.includes('hosts.claude.identity.model_id') &&
+      error.recovery.includes('hosts.claude.identity.model_display')
+  );
+});
+
+test('complete Claude runtime metadata wins over configured model metadata', () => {
+  const identity = resolveIdentity({
+    adapter: 'claude',
+    role: 'reviewer',
+    joinedAt,
+    runtime: {
+      sessionId: 'claude-runtime-session',
+      modelId: 'runtime-model',
+      modelDisplay: 'Runtime Model',
+    },
+    declaredModel: { modelId: 'configured-model', modelDisplay: 'Configured Model' },
+  });
+
+  assert.equal(identity.model_id, 'runtime-model');
+  assert.equal(identity.model_display, 'Runtime Model');
+  assert.equal(identity.identity_source, 'runtime');
+});
+
+test('Claude declared-model refresh retains session identity and records truthful source', () => {
+  const prior = resolveIdentity({
+    adapter: 'claude',
+    role: 'reviewer',
+    joinedAt,
+    runtime: { sessionId: 'stable-claude-session' },
+    declaredModel: { modelId: 'claude-old', modelDisplay: 'Claude Old' },
+  });
+  const current = resolveIdentity({
+    adapter: 'claude',
+    role: 'reviewer',
+    joinedAt: '2026-09-08T13:00:00.000Z',
+    runtime: { sessionId: 'stable-claude-session' },
+    declaredModel: { modelId: 'claude-new', modelDisplay: 'Claude New' },
+  });
+  const review = { protocol: { review_id: 'review-claude', sequence: 4, revision: 2 } };
+
+  assert.equal(current.session_fingerprint, prior.session_fingerprint);
+  assert.equal(current.identity_source, 'declared');
+  const changed = identityChangeEvent(review, prior, current, new Date(joinedAt));
+  assert.equal(changed.type, 'identity-changed');
+  assert.equal(changed.payload.identity.model_id, 'claude-new');
+  assert.equal(changed.payload.identity.identity_source, 'declared');
+});
+
 test('labels declared fallback and generic capabilities conservatively', () => {
   const identity = resolveIdentity({
     adapter: 'codex',
