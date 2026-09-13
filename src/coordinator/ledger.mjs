@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { resolveContainedPath } from '../collateral/paths.mjs';
@@ -313,6 +313,10 @@ export function readWakeOperation(workspace, operationId) {
     );
   }
   return projection(workspace, operation, file);
+}
+
+export function wakeOperationExists(workspace, operationId) {
+  return existsSync(operationPath(workspace, operationId));
 }
 
 export function appendWakeOutcome(workspace, operationId, outcome, now = new Date()) {
