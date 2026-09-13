@@ -33,8 +33,10 @@ const EXPECTED_RETAINED_PATH_RULES = Object.freeze({
 const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
   prefixes: [
     '.github/workflows',
+    '.codex',
     'bin',
     'docs/design',
+    'docs/peer-reviews',
     'docs/whitepapers',
     'provenance',
     'schemas',
@@ -44,6 +46,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'test',
   ],
   exact: [
+    '.ai-peer-review.json',
     '.github/CODEOWNERS',
     '.gitattributes',
     '.gitignore',

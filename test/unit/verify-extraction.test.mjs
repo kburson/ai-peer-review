@@ -69,8 +69,10 @@ function validManifest(overrides = {}) {
     standalone_path_rules: {
       prefixes: [
         '.github/workflows',
+        '.codex',
         'bin',
         'docs/design',
+        'docs/peer-reviews',
         'docs/whitepapers',
         'provenance',
         'schemas',
@@ -80,6 +82,7 @@ function validManifest(overrides = {}) {
         'test',
       ],
       exact: [
+        '.ai-peer-review.json',
         '.github/CODEOWNERS',
         '.gitattributes',
         '.gitignore',
@@ -296,6 +299,23 @@ test('accepts the bounded standalone white-paper documentation path', async () =
       current: [
         'LICENSE',
         'docs/whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md',
+      ].join('\n'),
+    }),
+  });
+});
+
+test('accepts project configuration and tracked peer-review records', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: [
+        '.ai-peer-review.json',
+        '.codex/config.json',
+        '.codex/skills/peer-review/SKILL.md',
+        'LICENSE',
+        'docs/peer-reviews/spec/example/00-review-history.md',
+        'docs/peer-reviews/spec/example/reviewer-response-1.md',
       ].join('\n'),
     }),
   });
