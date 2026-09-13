@@ -89,6 +89,7 @@ function validManifest(overrides = {}) {
         '.gitleaks.toml',
         '.markdownlint-cli2.jsonc',
         '.npmrc',
+        '.nvmrc',
         '.prettierignore',
         '.prettierrc.json',
         'CONTRIBUTING.md',
@@ -318,6 +319,14 @@ test('accepts project configuration and tracked peer-review records', async () =
         'docs/peer-reviews/spec/example/reviewer-response-1.md',
       ].join('\n'),
     }),
+  });
+});
+
+test('accepts the preferred Node runtime configuration as one exact standalone path', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: '.nvmrc\nLICENSE' }),
   });
 });
 
