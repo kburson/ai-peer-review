@@ -123,6 +123,11 @@ test('public exports and command guidance remain narrow and installation-aware',
   assert.equal(
     publicApi,
     "export { explainError } from './cli/help-data.mjs';\n" +
+      'export {\n' +
+      '  applyReviewRecord,\n' +
+      '  planReviewRecord,\n' +
+      '  renderReviewHistory,\n' +
+      "} from './collateral/review-record.mjs';\n" +
       "export { statusReview } from './protocol/service.mjs';\n" +
       'export {\n' +
       '  refreshResidentLease,\n' +

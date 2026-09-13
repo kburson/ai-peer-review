@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
 
-const PLACEHOLDERS = Object.freeze(['issue', 'kind', 'name', 'date', 'review-id']);
+const PLACEHOLDERS = Object.freeze(['issue', 'kind', 'name', 'date', 'review-id', 'record-id']);
 
 function pathError(label, candidate) {
   return new AprError('APR_PATH_OUTSIDE_REPOSITORY', `${label} path escapes the repository.`, {
@@ -131,12 +131,13 @@ function positiveTurn(turn) {
 export function resolveReviewPaths({
   root,
   reviewsRoot = 'docs/peer-reviews',
-  reviewPathTemplate = '<kind>/<date>-<name>-<review-id>',
+  reviewPathTemplate = '<kind>/<date>-<name>-<record-id>',
   issue = null,
   kind,
   name,
   date,
   reviewId,
+  recordId = reviewId,
 } = {}) {
   if (typeof reviewPathTemplate !== 'string' || !reviewPathTemplate.trim()) {
     throw new AprError('APR_PATH_TEMPLATE_INVALID', 'Review path template is empty.', {
@@ -172,6 +173,7 @@ export function resolveReviewPaths({
     name: safeSegment(name, 'name', { slug: true }),
     date: safeSegment(date, 'date'),
     'review-id': safeSegment(reviewId, 'review-id'),
+    'record-id': safeSegment(recordId, 'record-id'),
   };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(values.date)) {
     throw new AprError('APR_PATH_TEMPLATE_INVALID', 'Review date must use YYYY-MM-DD.', {
@@ -207,7 +209,12 @@ export function resolveReviewPaths({
     'scratch'
   );
   const reviewScoped = found.includes('review-id');
-  const prefix = reviewScoped ? '' : `${values.date}-${values.name}-${values['review-id']}-`;
+  const recordScoped = found.includes('record-id') && !reviewScoped;
+  const prefix = reviewScoped
+    ? ''
+    : recordScoped
+      ? `${values['review-id']}-`
+      : `${values.date}-${values.name}-${values['review-id']}-`;
   const output = (file) =>
     resolveContainedPath(rootPath, path.join(destination.relative, `${prefix}${file}`), 'response');
 
@@ -217,6 +224,9 @@ export function resolveReviewPaths({
     destination,
     scratch,
     reviewScoped,
+    recordScoped,
+    authorStartup: output('author-startup.md'),
+    reviewerInvitation: output('reviewer-invitation.md'),
     reviewerResponse: (turn) => output(`reviewer-response-${positiveTurn(turn)}.md`),
     authorResponse: (turn) => output(`author-response-${positiveTurn(turn)}.md`),
     humanDecision: output('human-decision.md'),

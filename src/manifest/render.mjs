@@ -213,6 +213,7 @@ function assertManifestTruth(model, { closed = false } = {}) {
       [
         'schema',
         'review_id',
+        'record_id',
         'status',
         'acceptance_basis',
         'commit_mode',
@@ -302,6 +303,7 @@ export function buildManifest(review) {
   const model = {
     schema: 'ai-peer-review.manifest/v1',
     review_id: protocol.review_id,
+    record_id: protocol.startup?.context?.record_id ?? protocol.review_id,
     status,
     acceptance_basis: acceptanceBasis,
     commit_mode: protocol.commit_mode,

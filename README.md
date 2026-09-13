@@ -193,19 +193,62 @@ Review collateral is written straight into your tracked tree, not copied out of
 a scratch folder at the end:
 
 ```text
-docs/peer-reviews/spec/2026-09-10-spec-review-554e80ec.../
-├── reviewer-invitation.md    # what you hand the second agent
-├── author-startup.md         # the author's brief
-├── reviewer-response-1.md    # findings and decision
-├── author-response-1.md      # what changed, and why
-├── reviewer-response-2.md
+docs/peer-reviews/spec/2026-09-10-spec-record-554e80ec.../
+├── review-7a1...-reviewer-invitation.md
+├── review-7a1...-author-startup.md
+├── review-7a1...-reviewer-response-1.md
+├── review-7a1...-author-response-1.md
+├── review-8b2...-reviewer-response-1.md   # replacement attempt
 ├── ...
-└── review-manifest.md        # written at acceptance
+└── review-8b2...-review-manifest.md       # terminal attempt authority
 ```
 
 Coordination state — the event ledger, claims, snapshots — stays in the ignored
 `.scratch/peer-review/` directory. Only the human-readable record gets
 committed.
+
+`review_id` names one immutable protocol attempt and its scratch workspace.
+`record_id` names the human review-of-record and its tracked collateral folder.
+The first attempt defaults both IDs to the same value. A replacement gets a new
+`review_id` and explicitly reuses the original `record_id`, so protocol authority
+never overlaps while the human evidence stays together.
+
+## Recovering one review across attempts
+
+If an attempt cannot finish, preserve it and start the replacement under the
+same record identity:
+
+```bash
+peer-review start docs/spec.md --artifact-kind spec --record-id record-554e80ec
+peer-review supersede .scratch/peer-review/review-old \
+  --reason "Replacement attempt started" --by review-new
+```
+
+`supersede` is a terminal, non-accepting disposition. It retains the failed
+attempt's event authority and collateral; accepting prose in a draft with
+`submitted_at: null` remains `not-submitted`, and an untouched generated draft
+remains `incomplete`.
+
+Repositories with older `<review-id>` directories can build one record bundle
+without rewriting sealed bytes. Inspect every mapping, collision, and expected
+SHA-256 digest first, then apply the exact same operation:
+
+```bash
+peer-review consolidate \
+  .scratch/peer-review/review-old \
+  .scratch/peer-review/review-new \
+  --destination docs/peer-reviews/spec/record-554e80ec --dry-run
+
+peer-review consolidate \
+  .scratch/peer-review/review-old \
+  .scratch/peer-review/review-new \
+  --destination docs/peer-reviews/spec/record-554e80ec --apply
+```
+
+Apply publishes and verifies every destination before removing any source,
+writes `review-history.md` plus `relocation-receipt.json`, and commits only the
+tracked relocation delta in normal mode. Historical paths inside sealed
+responses and manifests stay unchanged; the receipt is the additive path map.
 
 ## When they cannot agree
 
@@ -260,26 +303,27 @@ The things that stop this quietly going wrong:
 ### Reviewer Git ref policy
 
 The reviewer boundary retains every Git ref except the exact package-defined
-namespace `refs/codex/turn-diffs/checkpoints/**`. Codex creates those private
-checkpoint refs as author-session bookkeeping; they cannot change the reviewed
-artifact, checked-out `HEAD`, branch, index, or worktree. Creating or advancing
-one therefore does not invalidate an otherwise unchanged reviewer turn.
+namespaces `refs/codex/turn-diffs/checkpoints/**` and
+`refs/codex/turn-diffs/captures/**`. Codex creates those private refs as
+author-session bookkeeping; they cannot change the reviewed artifact,
+checked-out `HEAD`, branch, index, or worktree. Creating or advancing one
+therefore does not invalidate an otherwise unchanged reviewer turn.
 
 Every other ref remains part of the sealed digest, including branches, remote
 tracking refs, tags, replacement refs, notes, stash refs, worktree refs, and
-lookalikes such as `refs/codex/turn-diffs/checkpoints-evil/**`. The exclusion is
-a frozen package constant. Repository configuration, environment variables,
-command flags, and ref contents cannot widen it.
+lookalikes such as `refs/codex/turn-diffs/checkpoints-evil/**` and
+`refs/codex/turn-diffs/captures-evil/**`. The exclusions are frozen package
+constants. Repository configuration, environment variables, command flags,
+and ref contents cannot widen them.
 
 Reviews joined with 0.2.1 may have sealed the former all-ref aggregate digest.
-That digest does not retain enough evidence to prove that only a Codex
-checkpoint changed, so it cannot be migrated safely. For a ref-only failure,
-preserve the existing review workspace and its not-yet-submitted response, upgrade,
-and restart the review under the fixed package. Use a distinct review output
-path if the prior collateral path is occupied. The old response remains draft
-evidence, not accepted review authority: recreate or copy its text only into the new
-protocol-authorized reviewer response, then submit normally from the distinct
-reviewer session.
+That digest does not retain enough evidence to prove that only a Codex private
+ref changed, so it cannot be migrated safely. For a ref-only failure, preserve
+the existing review workspace and its not-yet-submitted response, upgrade, and
+start a replacement attempt under the same `record_id`. The old response
+remains draft evidence, not accepted review authority: recreate or copy its text
+only into the new protocol-authorized reviewer response, then submit normally
+from the distinct reviewer session.
 
 Commands fail closed. When one refuses, it returns a stable `APR_` code, and
 `peer-review explain <code>` says what to do about it — which is usually the
@@ -310,23 +354,25 @@ npx --yes ai-peer-review@0.2.2 start docs/spec.md --artifact-kind spec
 npx --yes ai-peer-review@0.2.2 status .scratch/peer-review/<review-id> --next
 ```
 
-| Command         | Role            | What it does                                   |
-| --------------- | --------------- | ---------------------------------------------- |
-| `setup`         | you             | install or remove the agent integration        |
-| `doctor`        | anyone          | read-only readiness check                      |
-| `start`         | author          | begin a review of a tracked artifact           |
-| `join`          | reviewer        | join from an invitation                        |
-| `status`        | anyone          | current state and the single next action       |
-| `resume`        | anyone          | rebuild the current actor's instructions       |
-| `submit`        | author/reviewer | seal and hand off the current response         |
-| `finalize`      | author          | commit acceptance and the review manifest      |
-| `continue`      | author/reviewer | extend the turn budget under a signed grant    |
-| `supplement`    | author/reviewer | register human-authorized extra context        |
-| `recover`       | author/reviewer | reclaim a stale turn or replace a participant  |
-| `abandon`       | author/reviewer | end a stuck review, keeping the evidence       |
-| `request-grant` | author/reviewer | raise a human authority challenge              |
-| `help`          | anyone          | the complete offline command contract          |
-| `explain`       | anyone          | what one `APR_` error means and how to recover |
+| Command         | Role            | What it does                                    |
+| --------------- | --------------- | ----------------------------------------------- |
+| `setup`         | you             | install or remove the agent integration         |
+| `doctor`        | anyone          | read-only readiness check                       |
+| `start`         | author          | begin a review of a tracked artifact            |
+| `join`          | reviewer        | join from an invitation                         |
+| `status`        | anyone          | current state and the single next action        |
+| `resume`        | anyone          | rebuild the current actor's instructions        |
+| `submit`        | author/reviewer | seal and hand off the current response          |
+| `finalize`      | author          | commit acceptance and the review manifest       |
+| `continue`      | author/reviewer | extend the turn budget under a signed grant     |
+| `supplement`    | author/reviewer | register human-authorized extra context         |
+| `recover`       | author/reviewer | reclaim a stale turn or replace a participant   |
+| `abandon`       | author/reviewer | end a stuck review, keeping the evidence        |
+| `supersede`     | author/reviewer | terminate a replaced attempt without acceptance |
+| `consolidate`   | anyone          | verify and relocate one multi-attempt record    |
+| `request-grant` | author/reviewer | raise a human authority challenge               |
+| `help`          | anyone          | the complete offline command contract           |
+| `explain`       | anyone          | what one `APR_` error means and how to recover  |
 
 `doctor`, `status`, `help`, and `explain` all take `--json`, and
 `peer-review help --all` prints the full contract offline — roles, valid states,
@@ -345,17 +391,22 @@ exposing the adapter validation needed by official host integrations:
 
 ```js
 import {
+  applyReviewRecord,
   createNativePushTransport,
   explainError,
   negotiateAutomaticRequired,
+  planReviewRecord,
+  renderReviewHistory,
   residentHealth,
   statusReview,
   validateResidentLease,
 } from 'ai-peer-review';
 ```
 
-All workflow mutation is routed through the CLI, so every host — human or agent
-— goes through the same validation and recovery contract.
+Protocol mutation is routed through the CLI. The record helpers expose the same
+frozen plan, deterministic index, and verified relocation transaction used by
+`consolidate`, so official integrations do not need to recreate those safety
+checks.
 
 ## Verification
 

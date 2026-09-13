@@ -20,6 +20,7 @@ import {
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
+import { applyReviewRecord, planReviewRecord } from '../collateral/review-record.mjs';
 import { loadConfig } from '../config/load.mjs';
 import { setup } from '../config/setup.mjs';
 import {
@@ -151,6 +152,7 @@ function result(command, state, paths = {}, review = {}) {
     schema: 'ai-peer-review.cli-result/v1',
     command,
     review_id: state.protocol.review_id,
+    record_id: state.protocol.startup?.context?.record_id ?? state.protocol.review_id,
     state: state.protocol.state,
     next_action: state.protocol.next_action,
     review: Object.freeze({
@@ -169,8 +171,8 @@ function contextFile(workspace) {
 
 function trackedStartupPaths(paths) {
   return {
-    author_startup: path.join(paths.destination.absolute, 'author-startup.md'),
-    reviewer_invitation: path.join(paths.destination.absolute, 'reviewer-invitation.md'),
+    author_startup: paths.authorStartup.absolute,
+    reviewer_invitation: paths.reviewerInvitation.absolute,
   };
 }
 
@@ -677,7 +679,7 @@ export async function startReview(input, deps = {}) {
       artifact_head: artifact.head,
       artifact_kind: input.artifactKind,
       reviews_root: reviewsRoot ?? 'docs/peer-reviews',
-      review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
+      review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<record-id>',
       issue: input.issue ?? null,
       maximum,
       claim_ttl_ms: claimTtlMs,
@@ -686,6 +688,7 @@ export async function startReview(input, deps = {}) {
       authority: requestedAuthority,
       transport_mode: transport.mode,
     });
+  const recordId = input.recordId ?? reviewId;
   const date = now.slice(0, 10);
   const name = path.basename(artifact.path, path.extname(artifact.path));
   let paths = resolveReviewPaths({
@@ -697,6 +700,7 @@ export async function startReview(input, deps = {}) {
     name,
     date,
     reviewId,
+    recordId,
   });
   if (!repository.checkIgnored(root, paths.scratch.relative)) {
     fail(
@@ -709,12 +713,13 @@ export async function startReview(input, deps = {}) {
   const requestedContext = {
     schema: 'ai-peer-review.context/v1',
     review_id: reviewId,
+    record_id: recordId,
     repository_root: root,
     artifact_kind: input.artifactKind,
     artifact_name: name,
     review_date: date,
     reviews_root: paths.reviewsRoot.relative,
-    review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<review-id>',
+    review_path_template: reviewPathTemplate ?? '<kind>/<date>-<name>-<record-id>',
     issue: input.issue ?? null,
   };
   const eventsFile = path.join(paths.scratch.absolute, 'events.jsonl');
@@ -780,6 +785,7 @@ export async function startReview(input, deps = {}) {
       context.repository_root === root &&
       context.artifact_kind === input.artifactKind &&
       context.artifact_name === name &&
+      (context.record_id ?? context.review_id) === recordId &&
       context.reviews_root === requestedContext.reviews_root &&
       context.review_path_template === requestedContext.review_path_template &&
       context.issue === requestedContext.issue &&
@@ -965,6 +971,7 @@ function pathsForContext(context) {
     name: context.artifact_name,
     date: context.review_date,
     reviewId: context.review_id,
+    recordId: context.record_id ?? context.review_id,
   });
 }
 
@@ -1567,6 +1574,77 @@ export async function abandonReview(input) {
     {
       actor: input.identity.session_fingerprint,
       reason,
+      retained_paths: retainedPaths,
+    }
+  );
+}
+
+export async function supersedeReview(input) {
+  const absolute = path.resolve(input.workspace);
+  const authority = inspectReviewAuthority(absolute);
+  const state = authority.state;
+  const reason = String(input.reason ?? '').trim();
+  const successorReviewId = String(input.successorReviewId ?? '').trim();
+  const prior = [...authority.events].reverse().find((event) => event.type === 'superseded');
+  if (prior) {
+    if (
+      prior.actor !== input.identity?.session_fingerprint ||
+      prior.payload.reason !== reason ||
+      prior.payload.successor_review_id !== successorReviewId
+    ) {
+      stableConflict('Supersession retry differs from the terminal event.');
+    }
+    releaseReservation(absolute, state.protocol.review_id);
+    return result(
+      'supersede',
+      state,
+      { workspace: absolute },
+      {
+        actor: prior.actor,
+        reason,
+        successor_review_id: successorReviewId,
+        retained_paths: prior.payload.retained_paths,
+      }
+    );
+  }
+  if (
+    !reason ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(successorReviewId) ||
+    successorReviewId === state.protocol.review_id ||
+    !['author', 'reviewer'].some(
+      (role) =>
+        state.participants[role]?.session_fingerprint === input.identity?.session_fingerprint
+    )
+  ) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Supersession requires one registered participant and a distinct successor attempt.',
+      'Resume from a registered participant and name the replacement review ID.'
+    );
+  }
+  const retainedPaths = retainedWorkspacePaths(absolute);
+  const superseded = await mutateReview(absolute, expected(state), (current) =>
+    eventFor(
+      current,
+      'superseded',
+      input.identity.session_fingerprint,
+      {
+        reason,
+        successor_review_id: successorReviewId,
+        retained_paths: retainedPaths,
+      },
+      input.now ?? new Date()
+    )
+  );
+  releaseReservation(absolute, superseded.protocol.review_id);
+  return result(
+    'supersede',
+    superseded,
+    { workspace: absolute },
+    {
+      actor: input.identity.session_fingerprint,
+      reason,
+      successor_review_id: successorReviewId,
       retained_paths: retainedPaths,
     }
   );
@@ -3319,6 +3397,55 @@ function writeResult(stream, value) {
   stream.write(`${lines.join('\n')}\n`);
 }
 
+function consolidationResult(plan, applied = null) {
+  return Object.freeze({
+    schema: 'ai-peer-review.cli-result/v1',
+    command: 'consolidate',
+    review_id: plan.attempts.at(-1).review_id,
+    record_id: plan.record_id,
+    state: applied ? 'consolidated' : 'planned',
+    mode: applied ? 'apply' : 'dry-run',
+    next_action: null,
+    review: Object.freeze({
+      commit_mode: plan.attempts.every(({ commit_mode: mode }) => mode === 'no-commit')
+        ? 'no-commit'
+        : 'normal',
+      commit: applied?.commit ?? null,
+      recovered: applied?.recovered ?? false,
+    }),
+    paths: Object.freeze({
+      history: plan.history.relative,
+      receipt: plan.receipt.relative,
+    }),
+    mappings: Object.freeze(
+      plan.mappings.map(({ review_id: reviewId, source, destination, collision }) =>
+        Object.freeze({
+          review_id: reviewId,
+          source: source.relative,
+          destination: destination.relative,
+          digest: source.digest,
+          collision,
+        })
+      )
+    ),
+    receipt: plan.receipt.relative,
+    receipt_digest: applied?.receipt_digest ?? null,
+  });
+}
+
+function writeConsolidationResult(stream, value) {
+  const lines = [
+    `Review record ${value.record_id}: ${value.mode}`,
+    `History: ${value.paths.history}`,
+    `Receipt: ${value.receipt}`,
+    ...value.mappings.map(
+      (mapping) =>
+        `${mapping.collision}: ${mapping.source} -> ${mapping.destination} (${mapping.digest})`
+    ),
+  ];
+  stream.write(`${lines.join('\n')}\n`);
+}
+
 function commandIdentity(io, state, role = null, { allowReplacement = false, config = {} } = {}) {
   const roles = role ? [role] : ['author', 'reviewer'];
   for (const candidateRole of roles) {
@@ -3802,6 +3929,39 @@ export async function run(argv, io) {
         reason: parsed.options.reason,
         now: io.now ?? new Date(),
       });
+    } else if (parsed.command === 'supersede') {
+      const workspace = path.resolve(io.cwd, parsed.args[0]);
+      const state = inspectReview(workspace);
+      const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+      response = await supersedeReview({
+        workspace,
+        identity: commandIdentity(io, state, null, { config: loaded.config }),
+        reason: parsed.options.reason,
+        successorReviewId: parsed.options.by,
+        now: io.now ?? new Date(),
+      });
+    } else if (parsed.command === 'consolidate') {
+      const plan = planReviewRecord({
+        workspaces: parsed.args.map((workspace) => path.resolve(io.cwd, workspace)),
+        destination: parsed.options.destination,
+        now: io.now ?? new Date(),
+      });
+      if (parsed.options.dryRun) {
+        response = consolidationResult(plan);
+      } else {
+        const modes = new Set(plan.attempts.map(({ commit_mode: mode }) => mode));
+        if (modes.size !== 1) {
+          fail(
+            'APR_REVIEW_RECORD_MISMATCH',
+            'Review attempts use different commit modes.',
+            'Consolidate only attempts that share one sealed commit mode.'
+          );
+        }
+        response = consolidationResult(
+          plan,
+          applyReviewRecord(plan, { mode: plan.attempts[0].commit_mode })
+        );
+      }
     } else {
       throw new AprError('APR_NOT_IMPLEMENTED', `${parsed.command} is not implemented yet`, {
         recovery: `Run peer-review help ${parsed.command} for the planned interface.`,
@@ -3809,6 +3969,7 @@ export async function run(argv, io) {
       });
     }
     if (parsed.options.json) writeJson(io.stdout, response);
+    else if (parsed.command === 'consolidate') writeConsolidationResult(io.stdout, response);
     else if (parsed.command === 'status' && parsed.options.next)
       io.stdout.write(`${response.next_action.command ?? ''}\n`);
     else writeResult(io.stdout, response);

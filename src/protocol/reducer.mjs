@@ -22,6 +22,7 @@ export const LIFECYCLE_EVENT_TYPES = Object.freeze([
   'override-committed',
   'override-sealed-no-commit',
   'abandoned',
+  'superseded',
 ]);
 
 const TERMINAL_STATES = new Set([
@@ -30,6 +31,7 @@ const TERMINAL_STATES = new Set([
   'accepted-over-objections',
   'accepted-over-objections-uncommitted',
   'abandoned',
+  'superseded',
 ]);
 
 const TRANSITIONS = new Map([
@@ -311,6 +313,19 @@ function ensureStatePreservingAllowed(protocol, event) {
 function applyLifecycle(protocol, participants, event) {
   if (!LIFECYCLE_EVENT_TYPES.includes(event.type)) return protocol.state;
   if (TERMINAL_STATES.has(protocol.state)) throw transitionError(protocol.state, event);
+  if (event.type === 'superseded') {
+    if (protocol.state === null || !registeredFingerprint(participants, event.actor)) {
+      throw transitionError(
+        protocol.state,
+        event,
+        'supersession requires one registered participant'
+      );
+    }
+    if (event.payload.successor_review_id === protocol.review_id) {
+      throw transitionError(protocol.state, event, 'successor must be a distinct review attempt');
+    }
+    return 'superseded';
+  }
   const uncommitted = new Set([
     'author-revision-sealed-no-commit',
     'author-closing-round-sealed-no-commit',

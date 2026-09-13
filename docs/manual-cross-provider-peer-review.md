@@ -398,6 +398,33 @@ It was not a complete machine-governed protocol record. There was no append-only
 event ledger, response seal, participant fingerprint manifest, formal turn
 claim, maximum-turn policy, or human-authority challenge.
 
+### Recovery attempts belong to one review record
+
+An interrupted provider process, a failed submission boundary, and a fresh
+inspection are separate protocol attempts even when a human experiences them as
+one review. The package therefore uses two identities:
+
+- `review_id` is the immutable event, claim, participant, and scratch-workspace
+  boundary for one attempt.
+- `record_id` is stable routing and lineage metadata for the complete
+  human-facing review record. It is never acceptance authority.
+
+A replacement attempt starts with a new `review_id` and the prior `record_id`.
+The predecessor is explicitly `superseded`, which terminates it without
+fabricating acceptance. A completed-looking response with `submitted_at: null`
+is indexed as `not-submitted`; an untouched generated template is `incomplete`.
+Only sealed submission events and terminal protocol authority establish a
+decision.
+
+For legacy per-attempt directories, `consolidate` first produces a non-mutating
+map of every old path, new path, collision, and SHA-256 digest. Apply then
+publishes all destination bytes, verifies them, writes an ordered
+`review-history.md` and additive `relocation-receipt.json`, and only afterward
+removes sources. Sealed response and manifest bytes—including their historical
+internal paths—remain unchanged. The receipt resolves old paths to the current
+review-of-record folder, and the normal-mode commit is restricted to that exact
+relocation delta.
+
 ## Time and cost observed in this case
 
 Claude Code's JSON envelopes reported approximately:

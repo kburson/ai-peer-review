@@ -80,6 +80,51 @@ test('builds review-scoped destinations with short filenames', (t) => {
   assert.equal(path.basename(paths.manifest.absolute), 'review-manifest.md');
 });
 
+test('builds one record-scoped destination with attempt-qualified collateral', (t) => {
+  const { root } = containedFixture(t);
+  const first = resolveReviewPaths({
+    root,
+    reviewsRoot: 'docs/peer-reviews',
+    reviewPathTemplate: '<kind>/<date>-<name>-<record-id>',
+    issue: 1534,
+    kind: 'spec',
+    name: 'Repository Boundary',
+    date: '2026-09-08',
+    reviewId: 'review-01',
+    recordId: 'record-stable',
+  });
+  const second = resolveReviewPaths({
+    root,
+    reviewsRoot: 'docs/peer-reviews',
+    reviewPathTemplate: '<kind>/<date>-<name>-<record-id>',
+    issue: 1534,
+    kind: 'spec',
+    name: 'Repository Boundary',
+    date: '2026-09-08',
+    reviewId: 'review-02',
+    recordId: 'record-stable',
+  });
+
+  assert.equal(first.destination.relative, second.destination.relative);
+  assert.equal(first.recordScoped, true);
+  assert.equal(first.reviewScoped, false);
+  assert.equal(first.scratch.relative, '.scratch/peer-review/review-01');
+  assert.equal(second.scratch.relative, '.scratch/peer-review/review-02');
+  assert.equal(path.basename(first.authorStartup.absolute), 'review-01-author-startup.md');
+  assert.equal(
+    path.basename(first.reviewerInvitation.absolute),
+    'review-01-reviewer-invitation.md'
+  );
+  assert.equal(
+    path.basename(first.reviewerResponse(1).absolute),
+    'review-01-reviewer-response-1.md'
+  );
+  assert.equal(
+    path.basename(second.reviewerResponse(1).absolute),
+    'review-02-reviewer-response-1.md'
+  );
+});
+
 test('qualifies filenames when the configured destination is shared', (t) => {
   const { root } = containedFixture(t);
   const paths = resolveReviewPaths({
@@ -125,6 +170,15 @@ test('rejects unknown placeholders, missing positive issue IDs, and unsafe ident
   );
   assert.throws(
     () => resolveReviewPaths({ ...base, reviewPathTemplate: '<kind>', reviewId: '../escape' }),
+    (error) => error.code === 'APR_PATH_TEMPLATE_INVALID'
+  );
+  assert.throws(
+    () =>
+      resolveReviewPaths({
+        ...base,
+        reviewPathTemplate: '<kind>/<record-id>',
+        recordId: '../escape',
+      }),
     (error) => error.code === 'APR_PATH_TEMPLATE_INVALID'
   );
 });

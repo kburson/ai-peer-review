@@ -6,6 +6,7 @@
   "required": [
     "schema",
     "review_id",
+    "record_id",
     "status",
     "acceptance_basis",
     "commit_mode",
@@ -27,6 +28,7 @@
   "properties": {
     "schema": { "const": "ai-peer-review.manifest/v1" },
     "review_id": { "$ref": "#/$defs/id" },
+    "record_id": { "$ref": "#/$defs/id" },
     "status": {
       "enum": [
         "accepted",

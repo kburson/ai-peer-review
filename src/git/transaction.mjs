@@ -170,7 +170,62 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
   }
 
   function addPaths(ownedPaths) {
-    run(['add', '--', ...ownedPaths]);
+    run(['add', '-A', '--', ...ownedPaths]);
+  }
+
+  function trackedPaths(ownedPaths) {
+    const owned = new Set(ownedPaths);
+    const tracked = run(['ls-files', '-z', '--', ...ownedPaths], { buffer: true })
+      .toString('utf8')
+      .split('\0')
+      .filter(Boolean)
+      .sort();
+    if (tracked.some((relative) => !owned.has(relative))) {
+      fail(
+        'APR_GIT_INDEX_CHANGED',
+        'Git reported a tracked path outside the relocation transaction.',
+        'Preserve the repository and inspect the owned path set before retrying.'
+      );
+    }
+    return Object.freeze(tracked);
+  }
+
+  function stagedOwnedPaths(ownedPaths) {
+    const owned = new Set(ownedPaths);
+    const staged = run(['diff', '--cached', '--name-only', '-z', 'HEAD', '--', ...ownedPaths], {
+      buffer: true,
+    })
+      .toString('utf8')
+      .split('\0')
+      .filter(Boolean)
+      .sort();
+    if (staged.some((relative) => !owned.has(relative))) {
+      fail(
+        'APR_GIT_INDEX_CHANGED',
+        'Git staged a path outside the relocation transaction.',
+        'Preserve the repository and restore the unrelated index entries before retrying.'
+      );
+    }
+    return Object.freeze(staged);
+  }
+
+  function changedOwnedPaths(ownedPaths) {
+    const owned = new Set(ownedPaths);
+    const changed = run(['diff', '--name-only', '-z', 'HEAD', '--', ...ownedPaths], {
+      buffer: true,
+    })
+      .toString('utf8')
+      .split('\0')
+      .filter(Boolean)
+      .sort();
+    if (changed.some((relative) => !owned.has(relative))) {
+      fail(
+        'APR_GIT_INDEX_CHANGED',
+        'Git reported a changed path outside the relocation transaction.',
+        'Preserve the repository and inspect the owned path set before retrying.'
+      );
+    }
+    return Object.freeze(changed);
   }
 
   function assertIndexAndWorktreeBytes(sealedPaths) {
@@ -348,6 +403,9 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
     snapshotIndexOutside,
     assertNoOwnedOverlap,
     addPaths,
+    trackedPaths,
+    stagedOwnedPaths,
+    changedOwnedPaths,
     assertIndexAndWorktreeBytes,
     assertOutsideIndex,
     commitOnly,

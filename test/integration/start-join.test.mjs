@@ -147,6 +147,43 @@ test('start performs preflight checks before mutation and writes default event-f
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
 });
 
+test('replacement attempts share one explicit record destination without sharing protocol authority', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const base = {
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'record-author'),
+    recordId: 'record-stable',
+    now: NOW,
+  };
+  const first = await startReview({ ...base, reviewId: 'review-first' });
+  const second = await startReview({ ...base, reviewId: 'review-second' });
+
+  const firstContext = JSON.parse(
+    readFileSync(path.join(first.paths.workspace, 'review-context.json'), 'utf8')
+  );
+  const secondContext = JSON.parse(
+    readFileSync(path.join(second.paths.workspace, 'review-context.json'), 'utf8')
+  );
+  assert.equal(first.review_id, 'review-first');
+  assert.equal(second.review_id, 'review-second');
+  assert.equal(first.record_id, 'record-stable');
+  assert.equal(second.record_id, 'record-stable');
+  assert.equal(firstContext.record_id, 'record-stable');
+  assert.equal(secondContext.record_id, 'record-stable');
+  assert.notEqual(first.paths.workspace, second.paths.workspace);
+  assert.equal(path.dirname(first.paths.author_startup), path.dirname(second.paths.author_startup));
+  assert.equal(path.basename(first.paths.author_startup), 'review-first-author-startup.md');
+  assert.equal(path.basename(second.paths.author_startup), 'review-second-author-startup.md');
+
+  await assert.rejects(
+    startReview({ ...base, reviewId: 'review-first', recordId: 'record-conflict' }),
+    (error) => error.code === 'APR_OUTPUT_COLLISION'
+  );
+});
+
 test('exact start recovery validates every collision before repairing derived files', async (t) => {
   const fx = repositoryFixture();
   t.after(fx.cleanup);
@@ -275,7 +312,7 @@ test('start verifies and consumes an exact prevention-grade pin-verifier grant',
     artifact_path: 'docs/example.md',
     artifact_kind: 'spec',
     reviews_root: 'docs/peer-reviews',
-    path_template: '<kind>/<date>-<name>-<review-id>',
+    path_template: '<kind>/<date>-<name>-<record-id>',
     issue_id: null,
     maximum_turns: 10,
     commit_mode: 'normal',
@@ -340,7 +377,7 @@ test('start refuses unsafe scratch and tracked collisions without creating autho
   t.after(occupied.cleanup);
   const output = path.join(
     occupied.root,
-    'docs/peer-reviews/spec/2026-09-08-example-review-occupied/author-startup.md'
+    'docs/peer-reviews/spec/2026-09-08-example-review-occupied/review-occupied-author-startup.md'
   );
   mkdirSync(path.dirname(output), { recursive: true });
   writeFileSync(output, 'foreign bytes');

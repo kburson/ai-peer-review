@@ -19,6 +19,8 @@ const EXPECTED_COMMANDS = [
   'finalize',
   'recover',
   'abandon',
+  'supersede',
+  'consolidate',
   'help',
   'explain',
 ];
@@ -51,6 +53,8 @@ test('start options have stable names, repeatability, and defaults', () => {
     '--artifact-kind',
     'spec',
     '--issue=1531',
+    '--record-id',
+    'record-1531',
     '--max-turns',
     '4',
     '--claim-ttl',
@@ -65,6 +69,7 @@ test('start options have stable names, repeatability, and defaults', () => {
     options: {
       artifactKind: 'spec',
       issue: 1531,
+      recordId: 'record-1531',
       maxTurns: 4,
       claimTtlMs: 12 * 60 * 60 * 1000,
       noCommit: true,
@@ -183,6 +188,51 @@ test('enforces command-specific enums and recovery option relationships', () => 
     parseCommand(['recover', 'workspace', '--replace-participant', 'reviewer', '--grant', 'signed'])
       .options,
     { replaceParticipant: 'reviewer', grant: 'signed' }
+  );
+  usage(['supersede', 'workspace', '--reason', 'replaced'], /requires --by/i);
+  usage(['supersede', 'workspace', '--by', 'review-next'], /requires.*--reason/i);
+  assert.deepEqual(
+    parseCommand([
+      'supersede',
+      'workspace',
+      '--reason',
+      'replacement started',
+      '--by',
+      'review-next',
+    ]).options,
+    { reason: 'replacement started', by: 'review-next' }
+  );
+});
+
+test('consolidate requires unique attempts, one destination, and exactly one mode', () => {
+  assert.deepEqual(
+    parseCommand([
+      'consolidate',
+      '.scratch/peer-review/review-01',
+      '.scratch/peer-review/review-02',
+      '--destination',
+      'docs/peer-reviews/spec/record-01',
+      '--dry-run',
+    ]),
+    {
+      command: 'consolidate',
+      args: ['.scratch/peer-review/review-01', '.scratch/peer-review/review-02'],
+      options: {
+        destination: 'docs/peer-reviews/spec/record-01',
+        dryRun: true,
+      },
+    }
+  );
+  usage(['consolidate', 'one', '--destination', 'docs/record', '--dry-run'], /positional/i);
+  usage(['consolidate', 'one', 'two', '--dry-run'], /requires --destination/i);
+  usage(['consolidate', 'one', 'two', '--destination', 'docs/record'], /exactly one/i);
+  usage(
+    ['consolidate', 'one', 'two', '--destination', 'docs/record', '--dry-run', '--apply'],
+    /exactly one/i
+  );
+  usage(
+    ['consolidate', 'same', 'same', '--destination', 'docs/record', '--dry-run'],
+    /unique review workspaces/i
   );
 });
 

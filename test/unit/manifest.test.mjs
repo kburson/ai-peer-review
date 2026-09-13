@@ -32,6 +32,8 @@ test('manifest schema is closed and covers both terminal authority paths', () =>
   );
   assert.equal(schema.$id, 'ai-peer-review.manifest/v1');
   assert.equal(schema.additionalProperties, false);
+  assert.equal(schema.required.includes('record_id'), true);
+  assert.deepEqual(schema.properties.record_id, { $ref: '#/$defs/id' });
   assert.deepEqual(schema.properties.acceptance_basis.enum, [
     'reviewer-consensus',
     'human-override',
@@ -42,6 +44,7 @@ test('manifest schema is closed and covers both terminal authority paths', () =>
 
 test('manifest rendering is deterministic, ordered, and privacy bounded', () => {
   const events = acceptancePendingEvents();
+  events[0].payload.startup.context.record_id = 'record-stable';
   const model = buildManifest(
     review(events, {
       status: 'accepted',
@@ -53,6 +56,7 @@ test('manifest rendering is deterministic, ordered, and privacy bounded', () => 
   const second = renderManifest(structuredClone(model));
   assert.deepEqual(second, first);
   assert.equal(Object.isFrozen(model), true);
+  assert.equal(model.record_id, 'record-stable');
   assert.equal(model.turns[0].decision, 'accepted');
   assert.equal(model.artifact_history[0].commit, events[0].payload.artifact.head);
   assert.doesNotMatch(first.toString(), /session_id|transcript|token|ipc|private_key/i);

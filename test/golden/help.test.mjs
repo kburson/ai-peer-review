@@ -60,6 +60,35 @@ test('all offline help topics derive complete contracts from the frozen command 
   }
 });
 
+test('the closed CLI result schema covers attempt supersession and record consolidation', () => {
+  const schema = JSON.parse(
+    readFileSync(new URL('../../schemas/cli-result-v1.json', import.meta.url), 'utf8')
+  );
+  assert.ok(schema.required.includes('record_id'));
+  assert.ok(schema.properties.command.enum.includes('supersede'));
+  assert.ok(schema.properties.command.enum.includes('consolidate'));
+  assert.ok(schema.$defs.state.enum.includes('superseded'));
+  assert.ok(schema.$defs.state.enum.includes('planned'));
+  assert.ok(schema.$defs.state.enum.includes('consolidated'));
+  assert.equal(schema.properties.mode.enum.join(','), 'dry-run,apply');
+  assert.equal(schema.properties.mappings.items.additionalProperties, false);
+  assert.deepEqual(schema.properties.mappings.items.required, [
+    'review_id',
+    'source',
+    'destination',
+    'digest',
+    'collision',
+  ]);
+  assert.ok(
+    schema.allOf.some(
+      (branch) =>
+        branch.if?.properties?.command?.const === 'consolidate' &&
+        branch.then?.required?.includes('mappings') &&
+        branch.then.required.includes('receipt')
+    )
+  );
+});
+
 test('help --all, search, JSON, and stable error explanations have deterministic fixtures', () => {
   const rendered = helpRequest(null, 'text', { all: true });
   assert.equal(
@@ -83,6 +112,10 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));
   assert.ok(helpRequest('join', 'json').errors.includes('APR_TRANSPORT_UNAVAILABLE'));
+  const consolidate = helpRequest('consolidate', 'json');
+  assert.match(consolidate.usage, /--destination.*--dry-run.*--apply/);
+  assert.match(consolidate.effects.join(' '), /source.*digest.*receipt/i);
+  assert.equal(consolidate.commit, 'Exact relocation paths only in normal mode.');
   assert.equal(explainError('APR_STALE_REVIEW').code, 'APR_STALE_REVIEW');
   assert.equal(explainError('APR_TEMPLATE_INVALID').code, 'APR_TEMPLATE_INVALID');
   assert.ok(helpRequest('review', 'json', { search: true }).matches.includes('submit'));

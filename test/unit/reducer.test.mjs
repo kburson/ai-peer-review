@@ -95,6 +95,12 @@ const cases = [
     'accepted-over-objections-uncommitted',
   ],
   [interventionEvents('turn-budget-exhausted'), 'abandoned', 'abandoned'],
+  [sequence(['review-created']), 'superseded', 'superseded'],
+  [reviewerTurnEvents(), 'superseded', 'superseded'],
+  [authorRevisionEvents(), 'superseded', 'superseded'],
+  [acceptancePendingEvents(), 'superseded', 'superseded'],
+  [authorFinalizationEvents(), 'superseded', 'superseded'],
+  [interventionEvents('turn-budget-exhausted'), 'superseded', 'superseded'],
 ];
 
 const PROTECTED_ACTION = Object.freeze({
@@ -272,7 +278,7 @@ test('allows the complete lifecycle matrix and derives exact states', () => {
     const next = event(type, {
       sequence: prefix.length + 1,
       revision: priorRevision + (REVISION_NEUTRAL_TYPES.has(type) ? 0 : 1),
-      payload: interventionId ? { intervention_id: interventionId } : {},
+      payload: interventionId && type !== 'superseded' ? { intervention_id: interventionId } : {},
     });
     assert.equal(
       reduceEvents(withConsumedChallenge(prefix, next)).protocol.state,

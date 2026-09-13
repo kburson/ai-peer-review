@@ -30,6 +30,7 @@ test('event schema closes every event payload and nested object contract', () =>
 });
 
 test('accepts every closed event type with its canonical payload', () => {
+  assert.equal(EVENT_TYPES.includes('superseded'), true);
   for (const type of EVENT_TYPES) assert.equal(validateEvent(event(type)), true, type);
 });
 

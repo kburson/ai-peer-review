@@ -131,6 +131,12 @@
     },
     {
       "properties": {
+        "type": { "const": "superseded" },
+        "payload": { "$ref": "#/$defs/supersession" }
+      }
+    },
+    {
+      "properties": {
         "type": { "const": "turn-claimed" },
         "payload": { "$ref": "#/$defs/claimPayload" }
       }
@@ -860,6 +866,20 @@
       "properties": {
         "intervention_id": { "$ref": "#/$defs/id" },
         "reason": { "type": "string", "minLength": 1 },
+        "retained_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/path" }
+        }
+      }
+    },
+    "supersession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "successor_review_id", "retained_paths"],
+      "properties": {
+        "reason": { "type": "string", "minLength": 1 },
+        "successor_review_id": { "$ref": "#/$defs/id" },
         "retained_paths": {
           "type": "array",
           "uniqueItems": true,
