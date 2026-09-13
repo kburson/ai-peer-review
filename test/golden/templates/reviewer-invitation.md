@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:762a582a5c7ab89ca9755f3129d3bb11db6e67e33b035cc43da714a3bbff4d9a" -->
+<!-- ai-peer-review-template version="1" digest="sha256:f92fd1314079eb09210b6d3a5422eec8bb407bde5189bc43fd0c95c59ddcc303" -->
 <!-- ai-peer-review-invitation data="cGF5bG9hZA" -->
 
 # Reviewer invitation
@@ -11,6 +11,21 @@ Mode: `normal`
 - Workspace: `/repo/.scratch/peer-review/review-01`
 - Response: `/repo/docs/peer-reviews/spec/example/reviewer-response-1.md`
 - Invitation: `/repo/docs/peer-reviews/spec/example/reviewer-invitation.md`
+
+## Communication policy (v1)
+
+Keep all peer-review chat messages terse. Put complete review analysis, findings, dispositions, revised prose, rationale, decisions, and verification evidence in the generated durable review documents.
+
+Chat may contain only:
+
+- a short operational status;
+- a pointer to the relevant durable document;
+- the exact next action; or
+- a concise blocker requiring human action.
+
+Read the relevant durable reviewer or author response document; do not rely on a chat summary. Do not paste findings, dispositions, revised prose, verification output, or other durable document content into chat unless the human explicitly requests it.
+
+“Terse chat” does not mean terse review evidence. Durable reviewer and author response documents remain complete, self-contained, and authoritative.
 
 Role: reviewer. Join from a distinct session in the same physical worktree.
 

@@ -35,6 +35,27 @@ const values = Object.freeze({
   manifest_body: 'Manifest evidence.',
 });
 
+const COMMUNICATION_POLICY = `## Communication policy (v1)
+
+Keep all peer-review chat messages terse. Put complete review analysis, findings, dispositions, revised prose, rationale, decisions, and verification evidence in the generated durable review documents.
+
+Chat may contain only:
+
+- a short operational status;
+- a pointer to the relevant durable document;
+- the exact next action; or
+- a concise blocker requiring human action.
+
+Read the relevant durable reviewer or author response document; do not rely on a chat summary. Do not paste findings, dispositions, revised prose, verification output, or other durable document content into chat unless the human explicitly requests it.
+
+“Terse chat” does not mean terse review evidence. Durable reviewer and author response documents remain complete, self-contained, and authoritative.`;
+
+function communicationPolicy(output) {
+  return output.match(
+    /## Communication policy \(v1\)\n\n[\s\S]*?(?=\n\n## |\n\nInstalled |\n\nRole:|\n\nRecovery:|$)/
+  )?.[0];
+}
+
 test('every package template hydrates to its exact golden without unresolved placeholders', () => {
   for (const name of TEMPLATE_NAMES) {
     const variables = Object.fromEntries(TEMPLATE_VARIABLES[name].map((key) => [key, values[key]]));
@@ -66,6 +87,19 @@ test('startup templates use absolute paths and document installed and zero-insta
   assert.match(invitation, new RegExp(`peer-review join ${values.invitation_absolute}`));
   assert.match(invitation, /Do not edit the reviewed artifact, create commits, or push/);
   assert.match(invitation, /peer-review resume \/repo\/\.scratch/);
+});
+
+test('both generated startup artifacts carry one identical durable-document communication policy', () => {
+  const outputs = ['author-startup', 'reviewer-invitation'].map((name) => {
+    const variables = Object.fromEntries(TEMPLATE_VARIABLES[name].map((key) => [key, values[key]]));
+    return hydrateTemplate(name, variables).toString();
+  });
+
+  for (const output of outputs) {
+    assert.equal(communicationPolicy(output), COMMUNICATION_POLICY);
+    assert.equal(output.match(/## Communication policy \(v1\)/g)?.length, 1);
+  }
+  assert.equal(communicationPolicy(outputs[0]), communicationPolicy(outputs[1]));
 });
 
 test('hydration rejects unknown templates, incomplete variables, extras, and template injection', () => {

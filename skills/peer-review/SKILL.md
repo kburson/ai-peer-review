@@ -15,6 +15,30 @@ exact absolute paths. Relay only the reviewer invitation in the default
 consensus workflow. Do not copy scratch state or raw provider handles into
 tracked files.
 
+## Communication policy (v1)
+
+Apply this policy at startup and throughout all later turns, resumes, handoffs,
+and finalization, in every transport and commit mode.
+
+Keep all peer-review chat messages terse. Put complete review analysis,
+findings, dispositions, revised prose, rationale, decisions, and verification
+evidence in the generated durable review documents.
+
+Chat may contain only:
+
+- a short operational status;
+- a pointer to the relevant durable document;
+- the exact next action; or
+- a concise blocker requiring human action.
+
+Read the relevant durable reviewer or author response document; do not rely on
+a chat summary. Do not paste findings, dispositions, revised prose,
+verification output, or other durable document content into chat unless the
+human explicitly requests it.
+
+“Terse chat” does not mean terse review evidence. Durable reviewer and author
+response documents remain complete, self-contained, and authoritative.
+
 ## Roles and boundaries
 
 The Reviewer Git boundary forbids Git commands, artifact edits, commits,

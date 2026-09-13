@@ -32,6 +32,14 @@ So this package gives them lanes:
 - Every step is appended to an event ledger, so the state of the review is
   something you can check rather than something an agent remembers.
 
+Chat is the operational notification channel: a short status, a pointer to the
+relevant review document, the exact next action, or a concise blocker. Generated
+reviewer and author response documents are the authoritative communication
+channel for complete findings, dispositions, revisions, rationale, decisions,
+and verification evidence. Participants read those durable documents instead
+of relying on chat summaries, and do not paste their contents back into chat
+unless the human asks.
+
 ## The short version
 
 Once your project is set up, the whole thing is three things you say out loud.
