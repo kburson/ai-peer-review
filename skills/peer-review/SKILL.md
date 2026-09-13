@@ -78,3 +78,12 @@ review ID, participant role, and last observed sequence; do not poll or spend
 model turns while idle. An expired lease or changed process instance requires
 the recorded participant-loss intervention. If any automatic delivery remains
 pending, use the exact printed manual recovery command.
+
+When the host declares durable coordination active, run `peer-review coordinator run <workspace>`
+in the host-owned foreground process (or invoke
+`coordinator reconcile` from its out-of-context timer). The coordinator
+validates event authority and the current resident adapter before waking the
+exact participant. Under an active coordinator, do not poll or repeat wait
+calls. If coordinator startup reports a capability refusal, use only the
+bounded manual fallback `peer-review status <workspace> --next`; never claim
+unattended progress from a manual or resume-only host.

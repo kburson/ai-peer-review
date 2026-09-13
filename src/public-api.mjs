@@ -5,6 +5,14 @@ export {
   renderReviewHistory,
 } from './collateral/review-record.mjs';
 export { statusReview } from './protocol/service.mjs';
+export { decideWake, canonicalWakeCapsule, wakeOperationKey } from './coordinator/decision.mjs';
+export { inspectCoordinatorLease, requestCoordinatorStop } from './coordinator/lease.mjs';
+export {
+  appendWakeOutcome,
+  readWakeOperation,
+  reserveWakeOperation,
+} from './coordinator/ledger.mjs';
+export { coordinatorStatus, reconcileWake, runCoordinator } from './coordinator/service.mjs';
 export {
   refreshResidentLease,
   residentHealth,

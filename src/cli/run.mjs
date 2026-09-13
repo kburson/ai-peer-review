@@ -21,6 +21,8 @@ import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { applyReviewRecord, planReviewRecord } from '../collateral/review-record.mjs';
+import { requestCoordinatorStop } from '../coordinator/lease.mjs';
+import { coordinatorStatus, reconcileWake, runCoordinator } from '../coordinator/service.mjs';
 import { loadConfig } from '../config/load.mjs';
 import { setup } from '../config/setup.mjs';
 import {
@@ -3397,6 +3399,84 @@ function writeResult(stream, value) {
   stream.write(`${lines.join('\n')}\n`);
 }
 
+function coordinatorProjection(command, workspace, value) {
+  if (command === 'status') return value;
+  if (command === 'stop') {
+    return Object.freeze({
+      schema: 'ai-peer-review.coordinator-result/v1',
+      command,
+      review_id: path.basename(workspace),
+      status: 'stop-requested',
+      instance_id: value.instance_id,
+    });
+  }
+  const operation = command === 'run' ? value.last : value;
+  return Object.freeze({
+    schema: 'ai-peer-review.coordinator-result/v1',
+    command,
+    review_id: operation?.review_id ?? path.basename(workspace),
+    status: command === 'run' ? value.status : (operation?.status ?? 'idle'),
+    latest: operation?.operation_id
+      ? Object.freeze({
+          operation_id: operation.operation_id,
+          protocol_revision: operation.protocol_revision,
+          target_role: operation.target_role,
+          status: operation.status,
+          outcome_count: operation.outcomes?.length ?? 0,
+        })
+      : null,
+  });
+}
+
+function writeCoordinatorResult(stream, value) {
+  const detail = value.latest
+    ? ` revision ${value.latest.protocol_revision} ${value.latest.target_role} ${value.latest.status}`
+    : '';
+  stream.write(
+    `Coordinator ${value.review_id}: ${value.status ?? (value.running ? 'running' : 'stopped')}${detail}\n`
+  );
+}
+
+async function coordinatorCommand(verb, workspace, io) {
+  if (verb === 'status') return coordinatorStatus(workspace);
+  if (verb === 'stop') {
+    return coordinatorProjection(
+      verb,
+      workspace,
+      requestCoordinatorStop(workspace, io.now ?? new Date())
+    );
+  }
+  if (!io.coordinatorObservation || !io.coordinatorAdapter) {
+    fail(
+      'APR_WAKE_CAPABILITY_UNAVAILABLE',
+      'The host did not inject an exact durable-wake participant and adapter.',
+      `Use peer-review status ${workspace} --next as the bounded manual fallback.`
+    );
+  }
+  const input = {
+    workspace,
+    observation: io.coordinatorObservation,
+    adapter: io.coordinatorAdapter,
+    now: io.now ?? new Date(),
+    platform: io.platform ?? process.platform,
+    inspect: io.coordinatorInspect,
+  };
+  if (verb === 'reconcile') {
+    return coordinatorProjection(verb, workspace, await reconcileWake(input));
+  }
+  return coordinatorProjection(
+    verb,
+    workspace,
+    await runCoordinator({
+      ...input,
+      owner: io.coordinatorOwner ?? { kind: 'cli', pid: process.pid },
+      leaseOptions: io.coordinatorLeaseOptions,
+      subscribe: io.coordinatorSubscribe,
+      waitForStop: io.coordinatorWaitForStop,
+    })
+  );
+}
+
 function consolidationResult(plan, applied = null) {
   return Object.freeze({
     schema: 'ai-peer-review.cli-result/v1',
@@ -3734,6 +3814,16 @@ export async function run(argv, io) {
         challenge,
         canonical_challenge: canonicalChallengeBytes(challenge).toString('base64'),
       });
+      return 0;
+    }
+    if (parsed.command === 'coordinator') {
+      const [verb, workspaceArg] = parsed.args;
+      const workspace = path.isAbsolute(workspaceArg)
+        ? workspaceArg
+        : path.resolve(io.cwd, workspaceArg);
+      const response = await coordinatorCommand(verb, workspace, io);
+      if (parsed.options.json) writeJson(io.stdout, response);
+      else writeCoordinatorResult(io.stdout, response);
       return 0;
     }
     let response;

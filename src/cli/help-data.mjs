@@ -17,6 +17,7 @@ const PURPOSE = Object.freeze({
   abandon: 'Terminate an intervention review while retaining evidence paths.',
   supersede: 'Terminate a replaced nonterminal attempt while retaining evidence paths.',
   consolidate: 'Consolidate terminal attempts into one verified review-of-record bundle.',
+  coordinator: 'Run, reconcile, inspect, or stop durable participant wake coordination.',
   help: 'Query the complete offline command contract.',
   explain: 'Explain one stable APR error and its recovery.',
 });
@@ -38,6 +39,7 @@ const ROLES = Object.freeze({
   abandon: ['author', 'reviewer'],
   supersede: ['author', 'reviewer'],
   consolidate: ['author', 'reviewer', 'human'],
+  coordinator: ['host'],
   help: ['author', 'reviewer', 'human'],
   explain: ['author', 'reviewer', 'human'],
 });
@@ -64,6 +66,7 @@ const STATES = Object.freeze({
     'intervention-required',
   ],
   consolidate: ['terminal attempts'],
+  coordinator: ['any event-authoritative review state'],
   help: ['any'],
   explain: ['any'],
 });
@@ -92,6 +95,10 @@ const PRECONDITIONS = Object.freeze({
   consolidate: [
     'At least two terminal workspaces for one record and artifact, plus one contained destination.',
   ],
+  coordinator: [
+    'A readable event-authoritative workspace and an exact configured automatic participant.',
+    'Run and reconcile require a host-injected live-wait or official native-push wake adapter.',
+  ],
   help: ['A readable installed package.'],
   explain: ['A known stable APR error code.'],
 });
@@ -115,6 +122,10 @@ const EFFECTS = Object.freeze({
   consolidate: [
     'Dry-run reports source, destination, collision, and digest without mutation.',
     'Apply verifies every destination digest before source removal and writes a relocation receipt.',
+  ],
+  coordinator: [
+    'Run observes durable hints in the foreground; reconcile performs one event-authority scan.',
+    'Status is bounded and read-only; stop writes only an exact-instance stop request.',
   ],
   help: ['Read-only offline rendering.'],
   explain: ['Read-only offline error rendering.'],
@@ -327,6 +338,18 @@ const ERRORS = Object.freeze({
     'APR_GIT_COMMIT_INVALID',
     'APR_USAGE',
   ],
+  coordinator: [
+    'APR_WAKE_AUTHORITY_INVALID',
+    'APR_WAKE_CAPABILITY_UNAVAILABLE',
+    'APR_WAKE_CAPSULE_INVALID',
+    'APR_WAKE_LEDGER_INVALID',
+    'APR_WAKE_CONFLICT',
+    'APR_COORDINATOR_OWNED',
+    'APR_COORDINATOR_STALE',
+    'APR_TRANSPORT_UNAVAILABLE',
+    'APR_DELIVERY_CONFLICT',
+    'APR_USAGE',
+  ],
   help: ['APR_USAGE'],
   explain: ['APR_USAGE'],
 });
@@ -412,6 +435,34 @@ const NEXT_COMMAND = Object.freeze({
   },
 });
 const ERROR_CATALOG = Object.freeze({
+  APR_WAKE_AUTHORITY_INVALID: {
+    message: 'Durable wake selection cannot validate current event authority.',
+    recovery: 'Preserve the workspace, restore exact event authority, and reconcile again.',
+  },
+  APR_WAKE_CAPABILITY_UNAVAILABLE: {
+    message: 'The exact current participant has no validated durable-wake capability.',
+    recovery: 'Restore its resident automatic adapter or use the documented manual status command.',
+  },
+  APR_WAKE_CAPSULE_INVALID: {
+    message: 'A pointer wake capsule is malformed, oversized, or contains unsafe fields.',
+    recovery: 'Regenerate the capsule from current event authority and the exact participant.',
+  },
+  APR_WAKE_LEDGER_INVALID: {
+    message: 'The immutable durable-wake ledger is missing, unsafe, or non-canonical.',
+    recovery: 'Preserve the workspace and restore exact contained regular ledger records.',
+  },
+  APR_WAKE_CONFLICT: {
+    message: 'One durable wake operation key is bound to conflicting immutable bytes.',
+    recovery: 'Preserve the existing operation and reconcile it without creating another wake.',
+  },
+  APR_COORDINATOR_OWNED: {
+    message: 'Another exact coordinator instance owns this review workspace.',
+    recovery: 'Inspect coordinator status and stop only the matching recorded instance.',
+  },
+  APR_COORDINATOR_STALE: {
+    message: 'Coordinator lock, lease, or stop evidence is missing or inconsistent.',
+    recovery: 'Preserve the evidence and use explicit exact-instance coordinator recovery.',
+  },
   APR_REVIEW_RECORD_INVALID: {
     message: 'A review-record operation plan is incomplete or unsafe.',
     recovery: 'Recompute the operation from at least two exact terminal attempt workspaces.',
@@ -788,8 +839,13 @@ function topic(command) {
     wake:
       command === 'submit'
         ? 'Automatic mode writes one durable handoff for resident wait or official native push.'
-        : 'No background polling or undocumented wake mechanism.',
-    tokens: 'No background polling or model-token spending.',
+        : command === 'coordinator'
+          ? 'Durable event authority wakes only the exact configured participant for one actionable revision.'
+          : 'No background polling or undocumented wake mechanism.',
+    tokens:
+      command === 'coordinator'
+        ? 'Zero provider calls, model turns, tool results, or transcript messages while idle.'
+        : 'No background polling or model-token spending.',
     no_commit:
       command === 'consolidate'
         ? 'Dry-run never mutates; apply uses exact-path Git commit in normal mode.'
@@ -802,11 +858,16 @@ function topic(command) {
     ],
     result: 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
-      command === 'status' || command === 'resume'
-        ? 'Exactly one event-derived action and command.'
-        : 'Read peer-review status for the next event-derived action.',
+      command === 'coordinator'
+        ? 'Use peer-review status <workspace> --next only as the bounded manual fallback.'
+        : command === 'status' || command === 'resume'
+          ? 'Exactly one event-derived action and command.'
+          : 'Read peer-review status for the next event-derived action.',
     errors: ERRORS[command],
-    json_schema: 'ai-peer-review.cli-result/v1',
+    json_schema:
+      command === 'coordinator'
+        ? 'ai-peer-review.coordinator-result/v1'
+        : 'ai-peer-review.cli-result/v1',
   });
 }
 

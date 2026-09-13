@@ -319,6 +319,38 @@ export function wakeOperationExists(workspace, operationId) {
   return existsSync(operationPath(workspace, operationId));
 }
 
+export function latestWakeOperation(workspace) {
+  const directory = path.join(wakeRoot(workspace), 'operations');
+  let entries;
+  try {
+    const metadata = lstatSync(directory);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+      throw new Error('not a physical directory');
+    }
+    entries = readdirSync(directory).sort();
+  } catch (cause) {
+    if (cause?.code === 'ENOENT') return null;
+    fail(
+      'APR_WAKE_LEDGER_INVALID',
+      'Wake operation directory is unsafe.',
+      'Preserve the review workspace and restore its physical wake ledger.'
+    );
+  }
+  let latest = null;
+  for (const entry of entries) {
+    if (!/^[0-9a-f]{64}\.json$/.test(entry)) {
+      fail(
+        'APR_WAKE_LEDGER_INVALID',
+        'Wake operation directory contains an invalid entry.',
+        'Preserve the review workspace and restore exact digest-named operation records.'
+      );
+    }
+    const operation = readWakeOperation(workspace, `sha256:${entry.slice(0, -5)}`);
+    if (!latest || operation.reserved_at > latest.reserved_at) latest = operation;
+  }
+  return latest;
+}
+
 export function appendWakeOutcome(workspace, operationId, outcome, now = new Date()) {
   exactKeys(outcome, ['status', 'reason'], 'Wake outcome input');
   if (!OUTCOMES.has(outcome.status) || typeof outcome.reason !== 'string' || !outcome.reason) {

@@ -5,8 +5,13 @@ import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
 import { canonicalProjection, inspectReviewAuthority } from '../protocol/service.mjs';
 import { decideWake, wakeOperationKey } from './decision.mjs';
-import { acquireCoordinatorLease } from './lease.mjs';
-import { appendWakeOutcome, reserveWakeOperation, wakeOperationExists } from './ledger.mjs';
+import { acquireCoordinatorLease, inspectCoordinatorLeaseOptional } from './lease.mjs';
+import {
+  appendWakeOutcome,
+  latestWakeOperation,
+  reserveWakeOperation,
+  wakeOperationExists,
+} from './ledger.mjs';
 
 const TERMINAL_OPERATION = new Set(['acknowledged', 'outcome-unknown', 'refused', 'superseded']);
 
@@ -157,10 +162,41 @@ export async function reconcileWake({
   return deliverReserved(workspace, operation, adapter, now);
 }
 
+export function coordinatorStatus(workspace) {
+  const inspected = inspectCoordinatorLeaseOptional(workspace);
+  const operation = latestWakeOperation(workspace);
+  return Object.freeze({
+    schema: 'ai-peer-review.coordinator-result/v1',
+    command: 'status',
+    review_id: operation?.review_id ?? path.basename(workspace),
+    running: inspected !== null,
+    lease: inspected
+      ? Object.freeze({
+          instance_id: inspected.lease.instance_id,
+          owner: inspected.lease.owner.kind,
+          heartbeat_sequence: inspected.lease.heartbeat_sequence,
+          observed_at: inspected.lease.observed_at,
+          state: inspected.lease.state,
+        })
+      : null,
+    latest: operation
+      ? Object.freeze({
+          operation_id: operation.operation_id,
+          protocol_revision: operation.protocol_revision,
+          target_role: operation.target_role,
+          status: operation.status,
+          outcome_count: operation.outcomes.length,
+        })
+      : null,
+  });
+}
+
 function defaultSubscribe(workspace, { onChange, onError }) {
   const deliveries = path.join(workspace, 'deliveries');
+  const coordinator = path.join(workspace, 'coordinator');
   mkdirSync(deliveries, { recursive: true });
-  const watchers = [path.join(workspace, 'events.jsonl'), deliveries].map((target) => {
+  mkdirSync(coordinator, { recursive: true });
+  const watchers = [path.join(workspace, 'events.jsonl'), deliveries, coordinator].map((target) => {
     const watcher = watchFilesystem(target, onChange);
     watcher.on('error', onError);
     return watcher;
@@ -168,14 +204,21 @@ function defaultSubscribe(workspace, { onChange, onError }) {
   return Object.freeze({ close: () => watchers.forEach((watcher) => watcher.close()) });
 }
 
-function signalWait({ stop }) {
+function signalWait({ stop, untilStopped }) {
   return new Promise((resolve) => {
-    const finish = () => {
+    const cleanup = () => {
       process.off('SIGINT', finish);
       process.off('SIGTERM', finish);
+    };
+    const finish = () => {
+      cleanup();
       stop();
       resolve();
     };
+    untilStopped.then(() => {
+      cleanup();
+      resolve();
+    });
     process.once('SIGINT', finish);
     process.once('SIGTERM', finish);
   });
@@ -193,9 +236,18 @@ export async function runCoordinator(input = {}) {
   let fatal = null;
   let last = null;
   let queue = Promise.resolve();
+  let resolveStopped;
+  const untilStopped = new Promise((resolve) => {
+    resolveStopped = resolve;
+  });
   const reconcile = () => {
     queue = queue.then(async () => {
       if (stopped || fatal) return last;
+      if (lease.stopRequested()) {
+        stopped = true;
+        resolveStopped();
+        return last;
+      }
       last = await reconcileWake(input);
       lease.heartbeat(new Date(input.now ?? Date.now()));
       return last;
@@ -203,11 +255,13 @@ export async function runCoordinator(input = {}) {
     queue.catch((error) => {
       fatal = error;
       stopped = true;
+      resolveStopped();
     });
     return queue;
   };
   const stop = () => {
     stopped = true;
+    resolveStopped();
   };
   try {
     await reconcile();
@@ -215,11 +269,18 @@ export async function runCoordinator(input = {}) {
       onChange: () => void reconcile(),
       onError: (error) => {
         fatal = error;
-        stopped = true;
+        stop();
       },
     });
     await reconcile();
-    await (input.waitForStop ?? signalWait)({ reconcile, stop, lease: lease.lease });
+    if (!stopped) {
+      await (input.waitForStop ?? signalWait)({
+        reconcile,
+        stop,
+        lease: lease.lease,
+        untilStopped,
+      });
+    }
     await queue;
     if (fatal) throw fatal;
     return Object.freeze({ status: 'stopped', last });

@@ -170,7 +170,8 @@ export function decideWake({
   const target = targetFor(state.protocol);
   const participant = state.participants[target.role];
   const transport = validateObservation(observation, participant, now);
-  const verifiedDelivery = target.kind === 'wake' ? validateDelivery(delivery, state.protocol, target.role) : null;
+  const verifiedDelivery =
+    target.kind === 'wake' ? validateDelivery(delivery, state.protocol, target.role) : null;
   const capsule = capsuleFor(state, target, workspace, platform);
   return Object.freeze({
     kind: target.kind,

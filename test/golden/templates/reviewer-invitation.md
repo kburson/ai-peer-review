@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:f92fd1314079eb09210b6d3a5422eec8bb407bde5189bc43fd0c95c59ddcc303" -->
+<!-- ai-peer-review-template version="1" digest="sha256:1ba6e3db0b792dd7ff7cbd4cd913548b999e42635eadb9373dba0bf58f075b82" -->
 <!-- ai-peer-review-invitation data="cGF5bG9hZA" -->
 
 # Reviewer invitation
@@ -26,6 +26,10 @@ Chat may contain only:
 Read the relevant durable reviewer or author response document; do not rely on a chat summary. Do not paste findings, dispositions, revised prose, verification output, or other durable document content into chat unless the human explicitly requests it.
 
 “Terse chat” does not mean terse review evidence. Durable reviewer and author response documents remain complete, self-contained, and authoritative.
+
+## Durable coordinator
+
+When the host reports that the durable coordinator is active, yield after each handoff. The coordinator sleeps outside participant context and wakes only the exact configured session for an actionable protocol revision; do not poll or repeat wait calls. If durable wake is unavailable, use only the bounded manual fallback `peer-review status <workspace> --next`.
 
 Role: reviewer. Join from a distinct session in the same physical worktree.
 

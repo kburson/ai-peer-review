@@ -21,6 +21,7 @@ const EXPECTED_COMMANDS = [
   'abandon',
   'supersede',
   'consolidate',
+  'coordinator',
   'help',
   'explain',
 ];
@@ -234,6 +235,21 @@ test('consolidate requires unique attempts, one destination, and exactly one mod
     ['consolidate', 'same', 'same', '--destination', 'docs/record', '--dry-run'],
     /unique review workspaces/i
   );
+});
+
+test('coordinator accepts only the closed foreground command grammar', () => {
+  assert.deepEqual(parseCommand(['coordinator', 'reconcile', 'workspace', '--json']), {
+    command: 'coordinator',
+    args: ['reconcile', 'workspace'],
+    options: { json: true },
+  });
+  for (const verb of ['run', 'reconcile', 'status', 'stop']) {
+    assert.equal(parseCommand(['coordinator', verb, 'workspace']).args[0], verb);
+  }
+  usage(['coordinator', 'detach', 'workspace'], /run.*reconcile.*status.*stop/i);
+  usage(['coordinator', 'run', 'workspace', '--json'], /--json.*run/i);
+  usage(['coordinator', 'status', 'workspace', 'extra'], /positional/i);
+  usage(['coordinator', 'status', 'workspace', '--next'], /unknown flag/i);
 });
 
 test('request-grant maps only action-owned fields to canonical snake case', () => {

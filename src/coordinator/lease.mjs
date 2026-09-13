@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 
@@ -9,6 +9,7 @@ import { atomicCreate, atomicWrite } from '../protocol/store.mjs';
 
 const LEASE_SCHEMA = 'ai-peer-review.coordinator-lease/v1';
 const LOCK_SCHEMA = 'ai-peer-review.coordinator-lock/v1';
+const STOP_SCHEMA = 'ai-peer-review.coordinator-stop/v1';
 
 function fail(code, message, recovery, details = {}) {
   throw new AprError(code, message, { recovery, details });
@@ -48,6 +49,7 @@ function pathsFor(workspace) {
     directory,
     lock: path.join(directory, 'coordinator.lock'),
     lease: path.join(directory, 'coordinator-lease.json'),
+    stop: path.join(directory, 'stop-request.json'),
   });
 }
 
@@ -99,6 +101,56 @@ export function inspectCoordinatorLease(workspace) {
   return Object.freeze({ ...validatePair(lock, lease), paths });
 }
 
+export function inspectCoordinatorLeaseOptional(workspace) {
+  const paths = pathsFor(workspace);
+  if (!existsSync(paths.lock) && !existsSync(paths.lease)) return null;
+  return inspectCoordinatorLease(workspace);
+}
+
+function validateStopRequest(value) {
+  if (
+    value?.schema !== STOP_SCHEMA ||
+    typeof value.instance_id !== 'string' ||
+    !/^sha256:[0-9a-f]{64}$/.test(value.token) ||
+    !Number.isFinite(Date.parse(value.requested_at)) ||
+    Object.keys(value).sort().join(',') !== 'instance_id,requested_at,schema,token'
+  ) {
+    fail(
+      'APR_COORDINATOR_STALE',
+      'Coordinator stop request is invalid.',
+      'Preserve coordinator evidence and request stop for the exact current instance.'
+    );
+  }
+  return Object.freeze(value);
+}
+
+export function requestCoordinatorStop(workspace, now = new Date()) {
+  const inspected = inspectCoordinatorLease(workspace);
+  const request = {
+    schema: STOP_SCHEMA,
+    instance_id: inspected.lease.instance_id,
+    token: inspected.lock.token,
+    requested_at: instant(now),
+  };
+  try {
+    atomicCreate(inspected.paths.stop, bytes(request));
+    return Object.freeze(request);
+  } catch (cause) {
+    if (cause?.code !== 'APR_OUTPUT_COLLISION') throw cause;
+    const existing = validateStopRequest(
+      readRegular(inspected.paths.stop, 'Coordinator stop request')
+    );
+    if (existing.instance_id !== request.instance_id || existing.token !== request.token) {
+      fail(
+        'APR_COORDINATOR_STALE',
+        'Coordinator stop request belongs to a different instance.',
+        'Preserve the request and do not stop the current coordinator.'
+      );
+    }
+    return existing;
+  }
+}
+
 export function acquireCoordinatorLease(
   workspace,
   owner = { kind: 'cli', pid: process.pid },
@@ -117,7 +169,7 @@ export function acquireCoordinatorLease(
   }
   const paths = pathsFor(workspace);
   mkdirSync(paths.directory, { recursive: true });
-  const token = `${instanceId}:${nonce}`;
+  const token = `sha256:${createHash('sha256').update(`${instanceId}:${nonce}`).digest('hex')}`;
   const lock = { schema: LOCK_SCHEMA, instance_id: instanceId, token };
   const observedAt = instant(now);
   const lease = {
@@ -182,6 +234,18 @@ export function acquireCoordinatorLease(
       atomicWrite(paths.lease, bytes(current));
       return Object.freeze(current);
     },
+    stopRequested() {
+      if (!existsSync(paths.stop)) return false;
+      const request = validateStopRequest(readRegular(paths.stop, 'Coordinator stop request'));
+      if (request.instance_id !== instanceId || request.token !== token) {
+        fail(
+          'APR_COORDINATOR_STALE',
+          'Coordinator stop request does not match current ownership.',
+          'Preserve the foreign request and do not stop this coordinator.'
+        );
+      }
+      return true;
+    },
     release() {
       if (released) return false;
       released = true;
@@ -204,6 +268,10 @@ export function acquireCoordinatorLease(
         existsSync(paths.lease)
       ) {
         unlinkSync(paths.lease);
+      }
+      if (existsSync(paths.stop)) {
+        const request = validateStopRequest(readRegular(paths.stop, 'Coordinator stop request'));
+        if (request.instance_id === instanceId && request.token === token) unlinkSync(paths.stop);
       }
       if (existsSync(paths.lock)) unlinkSync(paths.lock);
       return true;

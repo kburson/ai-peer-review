@@ -4,9 +4,16 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { run } from '../../src/cli/run.mjs';
 import { decideWake } from '../../src/coordinator/decision.mjs';
+import { acquireCoordinatorLease } from '../../src/coordinator/lease.mjs';
+import { requestCoordinatorStop } from '../../src/coordinator/lease.mjs';
 import { reserveWakeOperation } from '../../src/coordinator/ledger.mjs';
-import { reconcileWake, runCoordinator } from '../../src/coordinator/service.mjs';
+import {
+  coordinatorStatus,
+  reconcileWake,
+  runCoordinator,
+} from '../../src/coordinator/service.mjs';
 
 const NOW = Date.parse('2026-09-13T12:00:00.000Z');
 const REVIEWER = `sha256:${'b'.repeat(64)}`;
@@ -113,6 +120,23 @@ function input(root, wakeAdapter, now = NOW) {
   };
 }
 
+function cliIo(wakeAdapter) {
+  const stdout = [];
+  const stderr = [];
+  return {
+    cwd: process.cwd(),
+    env: {},
+    now: new Date(NOW),
+    stdout: { write: (value) => stdout.push(String(value)) },
+    stderr: { write: (value) => stderr.push(String(value)) },
+    stdoutBytes: stdout,
+    stderrBytes: stderr,
+    coordinatorObservation: observation(),
+    coordinatorAdapter: wakeAdapter,
+    coordinatorInspect: () => authority(),
+  };
+}
+
 test('handoff and receipt authority exist before exactly one participant-visible wake', async (t) => {
   const root = workspace(t);
   writeReceipt(root);
@@ -138,6 +162,63 @@ test('an unchanged twenty-minute window makes zero additional provider or model 
   assert.equal(result.status, 'acknowledged');
   assert.equal(wakeAdapter.calls.length, calls);
   assert.equal(wakeAdapter.reconciliations.length, 0);
+});
+
+test('bounded coordinator status reports the latest durable outcome without session authority', async (t) => {
+  const root = workspace(t);
+  writeReceipt(root);
+  await reconcileWake(input(root, adapter()));
+
+  const status = coordinatorStatus(root);
+  assert.deepEqual(status, {
+    schema: 'ai-peer-review.coordinator-result/v1',
+    command: 'status',
+    review_id: 'review-coordinator-01',
+    running: false,
+    lease: null,
+    latest: {
+      operation_id: status.latest.operation_id,
+      protocol_revision: 4,
+      target_role: 'reviewer',
+      status: 'acknowledged',
+      outcome_count: 1,
+    },
+  });
+  assert.doesNotMatch(JSON.stringify(status), /opaque_handle|session_fingerprint|capsule_text/);
+});
+
+test('closed coordinator CLI reconciles, reports bounded status, and requests exact stop', async (t) => {
+  const root = workspace(t);
+  writeReceipt(root);
+  const io = cliIo(adapter());
+
+  assert.equal(await run(['coordinator', 'reconcile', root, '--json'], io), 0);
+  const reconciled = JSON.parse(io.stdoutBytes.at(-1));
+  assert.equal(reconciled.command, 'reconcile');
+  assert.equal(reconciled.status, 'acknowledged');
+  assert.doesNotMatch(JSON.stringify(reconciled), /opaque_handle|session_fingerprint|capsule_text/);
+
+  assert.equal(await run(['coordinator', 'status', root, '--json'], io), 0);
+  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).latest.status, 'acknowledged');
+
+  const controller = acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, new Date(NOW), {
+    instanceId: 'cli-stop-instance',
+    nonce: 'cli-stop-nonce',
+  });
+  assert.equal(await run(['coordinator', 'stop', root, '--json'], io), 0);
+  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).status, 'stop-requested');
+  assert.equal(controller.stopRequested(), true);
+  controller.release();
+});
+
+test('coordinator reconcile fails visibly when the host did not inject a wake capability', async (t) => {
+  const root = workspace(t);
+  const io = cliIo(adapter());
+  delete io.coordinatorObservation;
+  delete io.coordinatorAdapter;
+
+  assert.equal(await run(['coordinator', 'reconcile', root, '--json'], io), 1);
+  assert.equal(JSON.parse(io.stderrBytes.at(-1)).code, 'APR_WAKE_CAPABILITY_UNAVAILABLE');
 });
 
 test('restart reconciles a crash after reservation before provider delivery', async (t) => {
@@ -193,6 +274,28 @@ test('read-before-subscribe, post-subscribe reread, and duplicate hints share on
   assert.equal(result.status, 'stopped');
   assert.equal(wakeAdapter.calls.length, 1);
   assert.equal(closed, true);
+});
+
+test('foreground coordinator honors only its exact durable stop request', async (t) => {
+  const root = workspace(t);
+  writeReceipt(root);
+  const wakeAdapter = adapter();
+  const result = await runCoordinator({
+    ...input(root, wakeAdapter),
+    owner: { kind: 'cli', pid: 42 },
+    leaseOptions: { instanceId: 'coordinator-stop-01', nonce: 'nonce-stop-01' },
+    subscribe(_workspace, handlers) {
+      requestCoordinatorStop(root, new Date(NOW + 1000));
+      handlers.onChange();
+      return { close() {} };
+    },
+    async waitForStop() {
+      throw new Error('exact stop request should prevent foreground waiting');
+    },
+  });
+
+  assert.equal(result.status, 'stopped');
+  assert.equal(wakeAdapter.calls.length, 1);
 });
 
 test('integrity and unsupported-capability failures invoke no adapter', async (t) => {

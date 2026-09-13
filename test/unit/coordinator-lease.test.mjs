@@ -3,7 +3,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import path from 'node:path';
 import test from 'node:test';
 
-import { acquireCoordinatorLease, inspectCoordinatorLease } from '../../src/coordinator/lease.mjs';
+import {
+  acquireCoordinatorLease,
+  inspectCoordinatorLease,
+  requestCoordinatorStop,
+} from '../../src/coordinator/lease.mjs';
 
 const NOW = new Date('2026-09-13T12:00:00.000Z');
 
@@ -22,11 +26,28 @@ test('acquires, heartbeats, inspects, and releases only its exact instance', (t)
     nonce: 'nonce-01',
   });
   assert.equal(inspectCoordinatorLease(root).lease.instance_id, 'instance-01');
+  assert.doesNotMatch(readFileSync(controller.paths.lease, 'utf8'), /nonce-01/);
   const refreshed = controller.heartbeat(new Date(NOW.valueOf() + 1000));
   assert.equal(refreshed.heartbeat_sequence, 2);
   controller.release();
   assert.equal(existsSync(controller.paths.lock), false);
   assert.equal(existsSync(controller.paths.lease), false);
+});
+
+test('requests stop for only the exact owned instance and makes retry idempotent', (t) => {
+  const root = workspace(t);
+  const controller = acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
+    instanceId: 'instance-01',
+    nonce: 'nonce-01',
+  });
+
+  const requested = requestCoordinatorStop(root, NOW);
+  assert.equal(requested.instance_id, 'instance-01');
+  assert.equal(controller.stopRequested(), true);
+  assert.deepEqual(requestCoordinatorStop(root, new Date(NOW.valueOf() + 1000)), requested);
+
+  controller.release();
+  assert.equal(existsSync(controller.paths.stop), false);
 });
 
 test('refuses contention and never deletes a foreign replacement', (t) => {

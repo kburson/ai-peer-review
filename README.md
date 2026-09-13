@@ -59,9 +59,9 @@ Then, back in the first session, whenever the reviewer hands work back:
 
 The two agents pass the document back and forth until the reviewer accepts it.
 Manual and resume-only modes keep you as the courier. With two healthy resident
-adapters, `automatic-required` lets each session block on `wait_for_handoff` and
-resume without polling or idle model turns. You remain the tie-breaker when they
-cannot agree.
+adapters, `automatic-required` can use a host-owned durable coordinator to wake
+the exact dormant participant once per actionable revision, with no polling or
+idle model turns. You remain the tie-breaker when they cannot agree.
 
 ## Setting it up
 
@@ -296,6 +296,9 @@ The things that stop this quietly going wrong:
 - `--no-commit` is explicitly non-durable and never implies Git evidence.
 - Automatic handoff blocks inside the local MCP tool, not in model turns; there
   is no background prompt polling while it waits.
+- Durable coordination runs outside participant context, persists one immutable
+  wake operation per revision and recipient, and never treats delivery as review
+  authority.
 - Resident liveness comes from a process instance or official opaque handle plus
   a refreshed lease. A bare PID is never treated as authority.
 - Manual recovery remains available after every transport failure.
@@ -371,10 +374,12 @@ npx --yes ai-peer-review@0.2.2 status .scratch/peer-review/<review-id> --next
 | `supersede`     | author/reviewer | terminate a replaced attempt without acceptance |
 | `consolidate`   | anyone          | verify and relocate one multi-attempt record    |
 | `request-grant` | author/reviewer | raise a human authority challenge               |
+| `coordinator`   | host            | run, reconcile, inspect, or stop durable wakes  |
 | `help`          | anyone          | the complete offline command contract           |
 | `explain`       | anyone          | what one `APR_` error means and how to recover  |
 
-`doctor`, `status`, `help`, and `explain` all take `--json`, and
+`doctor`, `status`, `help`, `explain`, and bounded coordinator operations take
+`--json`, and
 `peer-review help --all` prints the full contract offline — roles, valid states,
 flags, effects, and error codes for every command. Agents should query it rather
 than guess; so can you.
@@ -384,6 +389,30 @@ rather than reconstructing them, and let `status --next` tell you the next
 command instead of assuming. Argument quoting in generated commands is
 POSIX-safe on macOS and Linux and PowerShell-safe on Windows.
 
+### Durable wake coordination
+
+An official host integration supplies the exact validated resident observation
+and wake adapter, then keeps the coordinator in the foreground:
+
+```bash
+peer-review coordinator run .scratch/peer-review/<review-id>
+```
+
+Filesystem hints and an out-of-context timer both use the same one-shot path:
+
+```bash
+peer-review coordinator reconcile .scratch/peer-review/<review-id> --json
+peer-review coordinator status .scratch/peer-review/<review-id> --json
+peer-review coordinator stop .scratch/peer-review/<review-id> --json
+```
+
+`stop` records a request for only the matching owned instance. Wake operations
+contain a pointer capsule, revision, target role, and session fingerprint—not a
+raw provider handle or review prose. A host without a current `live-wait` or
+official `native-push` capability is refused visibly. Its bounded manual
+fallback is `peer-review status <workspace> --next`; participant-side repeated
+polling is never an automatic mode.
+
 ## Public API
 
 The supported programmatic surface keeps protocol mutation in the CLI while
@@ -392,18 +421,24 @@ exposing the adapter validation needed by official host integrations:
 ```js
 import {
   applyReviewRecord,
+  coordinatorStatus,
   createNativePushTransport,
+  decideWake,
   explainError,
+  reconcileWake,
   negotiateAutomaticRequired,
   planReviewRecord,
   renderReviewHistory,
   residentHealth,
+  runCoordinator,
   statusReview,
   validateResidentLease,
 } from 'ai-peer-review';
 ```
 
-Protocol mutation is routed through the CLI. The record helpers expose the same
+Protocol mutation is routed through the CLI. Coordinator exports are narrow
+host-integration seams: authority selection, ledger operations, owned leases,
+one-shot reconciliation, and the foreground loop. The record helpers expose the same
 frozen plan, deterministic index, and verified relocation transaction used by
 `consolidate`, so official integrations do not need to recreate those safety
 checks.

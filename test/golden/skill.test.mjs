@@ -18,6 +18,8 @@ test('installable skill states the complete provider-neutral operating contract'
     'manual recovery',
     'automatic-required',
     'wait_for_handoff',
+    'peer-review coordinator run',
+    'status <workspace> --next',
     'resident lease',
     'refs/codex/turn-diffs/checkpoints/',
     'every other ref',
@@ -37,4 +39,5 @@ test('installable skill states the complete provider-neutral operating contract'
     assert.ok(normalized.toLowerCase().includes(phrase.toLowerCase()), phrase);
   }
   assert.doesNotMatch(text, /\baitm\b|\/task\b/i);
+  assert.match(normalized, /coordinator.*do not (?:poll|repeat).*wait/i);
 });

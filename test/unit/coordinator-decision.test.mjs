@@ -125,7 +125,10 @@ test('fails closed on role, receipt, identity, liveness, and capability mismatch
     },
     { ...base, observation: observation({ capability: 'manual', adapter: undefined }) },
   ]) {
-    assert.throws(() => decideWake(input), (error) => /^APR_/.test(error.code));
+    assert.throws(
+      () => decideWake(input),
+      (error) => /^APR_/.test(error.code)
+    );
   }
 });
 
