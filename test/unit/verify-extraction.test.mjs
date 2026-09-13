@@ -78,6 +78,7 @@ function validManifest(overrides = {}) {
         'docs/design',
         'docs/plans',
         'docs/peer-reviews',
+        'docs/releases',
         'docs/whitepapers',
         'provenance',
         'schemas',
@@ -325,6 +326,25 @@ test('accepts bounded governed implementation plans', async () => {
       current: ['LICENSE', 'docs/plans/2026-09-13-18-claude-identity-fallback.md'].join('\n'),
     }),
   });
+});
+
+test('accepts bounded standalone release notes', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: ['LICENSE', 'docs/releases/0.3.0.md'].join('\n') }),
+  });
+});
+
+test('does not widen release notes to unrelated documentation', async () => {
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ current: ['LICENSE', 'docs/release-drafts/draft.md'].join('\n') }),
+    }),
+    /foreign standalone paths/
+  );
 });
 
 test('accepts project configuration and tracked peer-review records', async () => {
