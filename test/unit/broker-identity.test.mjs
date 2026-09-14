@@ -5,7 +5,14 @@ import test from 'node:test';
 import { canonicalProjectIdentity, rootDigest } from '../../src/broker/identity.mjs';
 import { brokerPaths } from '../../src/broker/paths.mjs';
 
-function platform({ kind = 'linux', locations = {}, canonical = {}, userId = '501', limit } = {}) {
+function platform({
+  kind = 'linux',
+  locations = {},
+  canonical = {},
+  userId = '501',
+  limit = 512,
+  includeLimit = true,
+} = {}) {
   return Object.freeze({
     kind,
     userId: () => userId,
@@ -13,7 +20,7 @@ function platform({ kind = 'linux', locations = {}, canonical = {}, userId = '50
     repository: Object.freeze({
       physicalLocation: (cwd) => locations[cwd] ?? null,
     }),
-    ...(limit === undefined ? {} : { maxEndpointLength: limit }),
+    ...(includeLimit ? { maxEndpointLength: limit } : {}),
   });
 }
 
@@ -183,6 +190,74 @@ test('brokerPaths uses the logical Windows socket label and a digest-bearing nam
     lock: `C:\\Users\\Alex\\AppData\\Local\\ai-peer-review\\brokers\\${digest}\\broker.lock`,
     metadata: `C:\\Users\\Alex\\AppData\\Local\\ai-peer-review\\brokers\\${digest}\\broker.json`,
   });
+});
+
+test('brokerPaths measures POSIX socket endpoints as UTF-8 bytes before returning', () => {
+  const digest = 'b'.repeat(64);
+  const cache = `/${'é'.repeat(5)}`;
+  const endpoint = `${cache}/ai-peer-review/brokers/${digest}/broker.sock`;
+
+  assert.equal(endpoint.length, 106);
+  assert.equal(Buffer.byteLength(endpoint, 'utf8'), 111);
+  assert.throws(
+    () =>
+      brokerPaths({
+        identity: identityFor(digest),
+        platform: platform({ kind: 'linux', limit: 107 }),
+        env: { XDG_CACHE_HOME: cache },
+        home: '/home/alex',
+      }),
+    (error) => error.code === 'APR_BROKER_ENDPOINT_TOO_LONG'
+  );
+});
+
+test('brokerPaths measures Windows named-pipe endpoints in string units', () => {
+  const digest = 'b'.repeat(64);
+  const base = brokerPaths({
+    identity: identityFor(digest),
+    platform: platform({ kind: 'win32' }),
+    env: { LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local' },
+    home: 'C:\\Users\\Alex',
+  });
+
+  assert.doesNotThrow(() =>
+    brokerPaths({
+      identity: identityFor(digest),
+      platform: platform({ kind: 'win32', limit: base.endpoint.length }),
+      env: { LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local' },
+      home: 'C:\\Users\\Alex',
+    })
+  );
+  assert.throws(
+    () =>
+      brokerPaths({
+        identity: identityFor(digest),
+        platform: platform({ kind: 'win32', limit: base.endpoint.length - 1 }),
+        env: { LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local' },
+        home: 'C:\\Users\\Alex',
+      }),
+    (error) => error.code === 'APR_BROKER_ENDPOINT_TOO_LONG'
+  );
+});
+
+test('brokerPaths fails closed when endpoint limits are missing or invalid', () => {
+  for (const options of [
+    { includeLimit: false },
+    { limit: 0 },
+    { limit: '107' },
+    { limit: 107.5 },
+  ]) {
+    assert.throws(
+      () =>
+        brokerPaths({
+          identity: identityFor('d'.repeat(64)),
+          platform: platform({ kind: 'linux', ...options }),
+          env: { XDG_CACHE_HOME: '/cache' },
+          home: '/home/alex',
+        }),
+      (error) => error.code === 'APR_BROKER_ENDPOINT_LIMIT_INVALID'
+    );
+  }
 });
 
 test('brokerPaths falls back to the Linux home cache only when XDG_CACHE_HOME is absent', () => {

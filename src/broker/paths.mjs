@@ -45,13 +45,21 @@ function cacheRoot({ platform, env, home }) {
 
 function verifyEndpointLength(endpoint, platform) {
   const limit = platform?.maxEndpointLength;
-  if (limit === undefined) return;
-  if (!Number.isInteger(limit) || limit <= 0 || endpoint.length > limit) {
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw failure(
+      'APR_BROKER_ENDPOINT_LIMIT_INVALID',
+      'Broker platform did not provide a positive endpoint length limit.',
+      'Use a supported platform security implementation with an observed endpoint limit.',
+      { limit: limit ?? null }
+    );
+  }
+  const length = platform.kind === 'win32' ? endpoint.length : Buffer.byteLength(endpoint, 'utf8');
+  if (length > limit) {
     throw failure(
       'APR_BROKER_ENDPOINT_TOO_LONG',
       'The project-local broker endpoint exceeds the supported platform limit.',
       'Use a shorter supported user cache path; broker endpoints are never truncated or redirected.',
-      { endpoint, limit: limit ?? null }
+      { endpoint, length, limit }
     );
   }
 }
