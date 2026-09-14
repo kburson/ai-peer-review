@@ -65,7 +65,7 @@ The command reads the sealed invitation payload, resolves the existing startup a
 - requested model and effort; and
 - whether this is a fresh launch or an exact resume using package-owned scratch state.
 
-The generated Claude invocation uses `--permission-mode dontAsk`, a literal argv array, and an allow list containing read-only tools plus one exact Edit rule for the pending response. It does not add a generic Write rule: Claude's Edit rule governs all built-in file-editing operations. It does not enable Bash as a way to write the response.
+The generated Claude invocation uses `--permission-mode dontAsk`, a literal argv array, and an allow list containing read-only tools, exact Bash rules for only the package-generated `join` and `submit` commands, plus one exact Edit rule for the pending response. It does not add a generic Write rule: Claude's Edit rule governs all built-in file-editing operations. It does not enable Bash as a way to write the response, use Git, or run any other command.
 
 ### Exact path encoding
 

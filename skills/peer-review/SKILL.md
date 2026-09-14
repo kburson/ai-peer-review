@@ -78,10 +78,11 @@ command; never improvise shell composition or an undocumented wake mechanism.
 ## Claude reviewer launch
 
 For Claude, use `peer-review launch-reviewer` with the exact sealed invitation,
-model, and effort. The package constructs `--permission-mode dontAsk` and the
-one exact response permission. An absolute Claude Edit rule requires a double
+model, and effort. The package constructs `--permission-mode dontAsk`, exact
+permissions for only its generated `join` and `submit` commands, and the one
+exact response permission. An absolute Claude Edit rule requires a double
 leading slash; a single leading slash is project-relative. Do not construct
-Edit or Write rules by hand.
+Edit or Write rules by hand. Do not construct Bash rules by hand either.
 
 Surface a `permission-blocked` result immediately with its exact response and
 printed next action. Run that `--resume` command unchanged so the same recorded

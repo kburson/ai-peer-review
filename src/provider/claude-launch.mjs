@@ -9,6 +9,7 @@ import { inspectReviewAuthority as defaultInspectAuthority } from '../protocol/s
 import { atomicWrite } from '../protocol/store.mjs';
 
 const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
+const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
 const EFFORTS = new Set(['low', 'medium', 'high']);
 
 function fail(message, recovery, details = {}) {
@@ -104,11 +105,22 @@ export function matchesClaudeEditRule(rule, candidate, { projectRoot } = {}) {
   return path.normalize(candidate) === selected;
 }
 
-function launchPrompt(invitation) {
+function encodeClaudeBashRule(argv) {
+  const command = renderCommand(argv);
+  if (UNSUPPORTED_BASH_PATTERN.test(command)) {
+    fail(
+      'Claude package command permission is not exactly representable.',
+      'Use canonical review paths without permission-pattern metacharacters.'
+    );
+  }
+  return `Bash(${command})`;
+}
+
+function launchPrompt(invitation, joinCommand, submitCommand) {
   return [
     `Open the sealed reviewer invitation at ${invitation}.`,
-    'Join with its exact command, complete the independent review, edit only its pending response,',
-    'and submit with the exact peer-review command. Do not edit the artifact or use Git.',
+    `Run exactly: ${joinCommand}. Complete the independent review and edit only its pending response.`,
+    `Then run exactly: ${submitCommand}. Do not edit the artifact or use Git.`,
   ].join(' ');
 }
 
@@ -160,6 +172,10 @@ export function buildClaudeReviewerLaunch({
     );
   }
   const rule = encodeClaudeEditRule(response.absolute);
+  const joinCommand = renderCommand(['peer-review', 'join', resolvedInvitation.absolute]);
+  const submitCommand = renderCommand(['peer-review', 'submit', workspace.absolute]);
+  const joinRule = encodeClaudeBashRule(['peer-review', 'join', resolvedInvitation.absolute]);
+  const submitRule = encodeClaudeBashRule(['peer-review', 'submit', workspace.absolute]);
   const badRule = `Edit(${response.absolute})`;
   const neighbor = path.join(path.dirname(response.absolute), 'reviewer-response-2.md');
   const readiness = Object.freeze({
@@ -182,10 +198,10 @@ export function buildClaudeReviewerLaunch({
       'Preserve the review and repair the exact response rule before launching Claude.'
     );
   }
-  const allow = Object.freeze(['Read', 'Glob', 'Grep', rule]);
+  const allow = Object.freeze(['Read', 'Glob', 'Grep', joinRule, submitRule, rule]);
   const args = Object.freeze([
     '-p',
-    launchPrompt(resolvedInvitation.absolute),
+    launchPrompt(resolvedInvitation.absolute, joinCommand, submitCommand),
     '--output-format',
     'json',
     '--permission-mode',

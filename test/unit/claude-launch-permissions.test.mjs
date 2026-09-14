@@ -96,8 +96,14 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
     'Read',
     'Glob',
     'Grep',
+    `Bash(peer-review join ${fx.invitation.includes(' ') ? `'${fx.invitation}'` : fx.invitation})`,
+    `Bash(peer-review submit ${fx.routing.workspace.includes(' ') ? `'${fx.routing.workspace}'` : fx.routing.workspace})`,
     `Edit(/${fx.routing.response})`,
   ]);
+  assert.equal(
+    contract.permissions.allow.some((rule) => /^Bash\([^)]*\*[^)]*\)$/.test(rule)),
+    false
+  );
   assert.deepEqual(contract.readiness, {
     exact_response: true,
     bad_single_slash_rejected: true,

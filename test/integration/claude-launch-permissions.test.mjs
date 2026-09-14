@@ -151,6 +151,16 @@ test('reproduces single-slash denial then submits from the same corrected Claude
     model: 'claude-opus-5',
     effort: 'high',
   });
+  assert.equal(
+    contract.permissions.allow.includes(
+      `Bash(peer-review join ${started.paths.reviewer_invitation})`
+    ),
+    true
+  );
+  assert.equal(
+    contract.permissions.allow.includes(`Bash(peer-review submit ${started.paths.workspace})`),
+    true
+  );
   const reviewer = identity('reviewer', 'same-claude-session');
   const provider = conformantClaude({
     root: fx.root,

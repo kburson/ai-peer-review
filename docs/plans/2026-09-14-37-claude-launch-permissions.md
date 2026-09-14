@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Support only Claude Code for this story; do not implement the SPR/XPR broker or a provider-neutral supervisor.
-- Use `--permission-mode dontAsk`; never use `bypassPermissions`, a directory/repository wildcard, or Bash to write the response.
+- Use `--permission-mode dontAsk`; allow only exact package-generated `join` and `submit` Bash commands, and never use `bypassPermissions`, a directory/repository wildcard, or Bash to write the response.
 - Derive the response, artifact, workspace, review ID, and revision from the sealed invitation and event authority; never accept caller-selected replacements.
 - Encode a POSIX absolute Edit pattern with a double leading slash and fail closed on unproven permission-pattern metacharacters.
 - Pass executable arguments as an array with shell execution disabled.
@@ -110,6 +110,8 @@ assert.deepEqual(contract.permissions.allow, [
   'Read',
   'Glob',
   'Grep',
+  exactJoinRule,
+  exactSubmitRule,
   encodeClaudeEditRule(response),
 ]);
 assert.equal(Object.isFrozen(contract), true);
@@ -137,7 +139,9 @@ Build this closed shape:
   model,
   effort,
   mode: resumeHandle ? 'resume' : 'launch',
-  permissions: { allow: ['Read', 'Glob', 'Grep', exactEditRule] },
+  permissions: {
+    allow: ['Read', 'Glob', 'Grep', exactJoinRule, exactSubmitRule, exactEditRule],
+  },
   command: { file: 'claude', args, shell: false },
   readiness: {
     exact_response: true,
