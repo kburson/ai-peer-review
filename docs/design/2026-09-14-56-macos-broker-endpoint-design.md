@@ -1,6 +1,6 @@
 # Issue #56: macOS Broker Endpoint Correction
 
-<!-- cspell:words aipr bindat chdir EADDRINUSE ECONNREFUSED EEXIST nonsymlink sockaddr injective unpadded noninteger nonpositive -->
+<!-- cspell:words aipr bindat chdir EADDRINUSE ECONNREFUSED EEXIST fchmodat fstatat NFC NFD nonsymlink sockaddr TMPDIR injective unpadded noninteger nonpositive -->
 
 **Status:** Proposed correction for peer review
 
@@ -131,7 +131,7 @@ On POSIX, `endpointLayoutVersion` is `1` and `maxEndpointRootBytes` is
 `platform.maxEndpointLength` minus the 61-byte `/aipr/v1/<token>` suffix. A
 POSIX limit below 63 bytes cannot contain the suffix plus the shortest permitted
 two-byte root such as `/a`; it fails with `APR_BROKER_ENDPOINT_LIMIT_INVALID`
-before any path is derived. Windows returns `null` for both because its retained
+before identity or root-input validation and before any path is derived. Windows returns `null` for both because its retained
 named-pipe label has no versioned filesystem layout. The path layer is the sole
 source for both values.
 
@@ -267,6 +267,9 @@ world-writable ancestor is refused. Lock and metadata authority remain at
 loses the same project lock. Linux recovery likewise may select a shorter
 endpoint root. No test or runtime path may substitute an unrelated short socket
 solely to bypass this check.
+macOS `$TMPDIR` and `/tmp` are not viable shortcuts: the customary `$TMPDIR`
+pathname exceeds the 42-byte root budget and traverses the `/var` symlink, while
+`/tmp` has a world-writable ancestor. Both fail the same length or anchor checks.
 
 If the validated home itself is too long to contain a conforming endpoint root,
 the error states that condition rather than recommending an impossible under-home
@@ -293,9 +296,12 @@ from the shared socket pathname.
 Task 4 must treat both locations as protected resources. `cacheRoot` is the
 authority trust anchor and `endpointRoot` is the POSIX routing trust anchor. Each
 must be an absolute, user-owned, non-symlink directory that is not writable by
-group or other before a package-private child is created. A platform cache may
-be shared by applications and need not be `0700`, but it must satisfy that
-non-writable boundary. Selecting absolute `XDG_CACHE_HOME` or
+group or other before a package-private child is created. On platforms with
+extended ACLs, the anchor and every package-owned directory must also have no
+extended or inherited ACL entry that grants another identity traversal, write,
+add-file, delete-child, or ownership-changing authority. A platform cache may be
+shared by applications and need not be `0700`, but it must satisfy those
+non-writable mode and ACL boundaries. Selecting absolute `XDG_CACHE_HOME` or
 `AI_PEER_REVIEW_ENDPOINT_ROOT` is configuration, not proof of safety.
 
 `openPrivateRoot({ path, source, role, home }) -> { handle, identity }` is the
@@ -312,7 +318,9 @@ never creates their arbitrary ancestors. The sole creation exception is the
 Linux `home-default`: after validating and retaining the absolute home as a
 user-owned, non-symlink directory not writable by group or other, Task 4 may
 create its direct `.cache` child as `0700` relative to that retained home handle.
-It then applies the identical root owner, mode, type, and no-symlink
+It then requires that newly created child to remain exactly `0700`; a pre-existing
+`~/.cache` may be more permissive for its owner but must have no group/other
+write bit or unsafe ACL. Both forms receive the same owner, type, and no-symlink
 post-conditions before use. An absent root outside that exception, or any unsafe
 authority root, fails closed with `APR_BROKER_CACHE_ROOT_UNAVAILABLE`; an absent
 or unsafe independently configured endpoint root fails closed with
@@ -345,12 +353,14 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   are validated before continuing. If concurrent brokers for different
   projects lose `mkdir` with `EEXIST` at either level, that race is successful
   only after the observed level passes those complete post-conditions. It
-  binds the socket under process umask `0077`, performs the post-bind identity
-  observation defined below, uses the retained parent handle with no-follow
-  semantics to set the same filesystem entry to exactly `0600`, and performs the
-  secure-ready observation before publishing `ready`. Any platform that cannot
-  enforce the sequence fails closed. It retains the directory and endpoint
-  identity handles through the owned lifetime.
+  delegates the synchronous socket creation and absolute-path bind to the native
+  layer under process umask `0177`, restores the prior process-global umask in a
+  `finally` path before returning the bound descriptor to Node, and performs the
+  post-bind observation defined below before publishing `ready`. The brief
+  process-global umask window can only make unrelated concurrent creations more
+  restrictive; the post-condition, not the umask, is the security authority. Any
+  platform that cannot enforce the sequence fails closed. It retains the
+  directory and endpoint identity handles through the owned lifetime.
 - On Windows,
   `listenPrivate(paths.endpointDirectories, paths.endpoint, { lock })` treats
   the live lock handle as ownership authority, consumes the path layer's frozen
@@ -367,12 +377,14 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   endpoint whose token derives from that same digest. After acquiring that lock
   and reconciling project/provider authority, the holder probes a present socket;
   only a transport-level refusal that proves no listener accepted the connection
-  (`ECONNREFUSED`, `ENOENT`, or the platform-equivalent no-listener result), plus
+  (`ECONNREFUSED` or a platform-equivalent present-entry/no-listener result), plus
   retained lock ownership, permits removal of that exact stale socket before
   bind. Once any peer accepts the transport, it is live for reclamation purposes:
   malformed protocol, tuple, version, instance, nonce, peer-credential, or
   handshake failures are fail-closed integrity results and never removal
-  authority. Without the lock, stale-looking socket state is never removed.
+  authority. `ENOENT` ends reconciliation with no removal because no entry exists;
+  the owner may continue to bind while retaining the lock. Without the lock,
+  stale-looking socket state is never removed.
 - After acquiring that lock and reconciling project/provider authority, a new
   owner also reads any existing metadata from the same full-digest authority
   directory. If it records a different endpoint root, the owner validates that
@@ -384,29 +396,41 @@ Below that anchor, Task 4 creates and validates every package-owned level:
 - If a metadata-recorded superseded endpoint root is absent, unreachable, or
   fails root/parent validation, the owner does not recreate, repair, or traverse
   it and does not abort a start at its valid current root. It records the exact
-  unreconciled prior root and observed condition in current-instance `starting`
-  and `ready` metadata for diagnostics, then proceeds. This is safe because
+  unreconciled prior root and observed condition after any inherited
+  predecessors in current-instance `starting` and `ready` metadata for
+  diagnostics, then proceeds. This is safe because
   clients route only from explicit local configuration and compare against the
   new current metadata before endpoint traversal; no client is redirected to the
   unreconciled root.
 - If prior metadata carries an unrecognized non-null
   `endpoint_layout_version`, the owner does not derive a token for that layout,
   traverse its endpoint root, or probe its endpoint. It preserves the prior
-  endpoint root and layout version as an unreconciled predecessor in its own
+  endpoint root and layout version after any inherited predecessors in its own
   current-instance `starting` and `ready` metadata, then may proceed at its valid
-  current root. A later migration implementation therefore retains the evidence
-  needed to discover and drain the unknown layout.
+  current root.
+- Owner reconciliation carries every inherited predecessor forward in oldest-to-
+  newest order, removes an entry only after its exact root/layout socket is
+  positively reconciled, and deduplicates by the byte-exact root plus layout
+  version. It then appends the immediately prior record only when that record
+  remains unreconciled. The list is capped at 16 entries. If adding a seventeenth
+  unreconciled entry would exceed the cap, startup fails with
+  `APR_BROKER_START_FAILED` before prior metadata is overwritten; recovery is to
+  inspect and reconcile the oldest recorded predecessor, then retry. No
+  unreconciled evidence is silently dropped. A later migration implementation
+  therefore retains every accepted predecessor needed to discover and drain an
+  unknown layout within the explicit fail-closed bound.
 
 `broker.json` remains discovery-only. When Task 4 writes metadata schema v1, it
 records the full root tuple and digest plus `cache_root`, `cache_root_source`,
 `endpoint_root`, `endpoint_root_source`, and the path layer's
 `endpoint_layout_version`. It also records the owning lock `instance_id`, nonce
-binding, publication state `starting` or `ready`, and two closed optional groups:
+binding, publication state `starting` or `ready`, and two closed diagnostic
+groups:
 
-- `unreconciled_predecessor` is `null` when no predecessor needs preservation,
-  or an object containing exact `endpoint_root`, prior
-  `endpoint_layout_version`, and `observed_condition`. The object persists
-  unchanged from current-instance `starting` into `ready` metadata.
+- `unreconciled_predecessors` is an ordered array of zero to 16 closed objects,
+  each containing exact `endpoint_root`, prior `endpoint_layout_version`, and
+  `observed_condition`. The ordered array persists unchanged from
+  current-instance `starting` into `ready` metadata.
 - `startup_collision` is `null` for ordinary `starting` and every `ready`
   record, or an object on an already-bound failure containing `code`, exact
   `endpoint`, local `cache_root`, local `lock_path`, and `endpoint_root`.
@@ -475,24 +499,25 @@ identity handles and post-condition checks for every `endpointDirectories`
 entry. The implementation must not use `chdir` or a relative bind to shorten the
 kernel-visible pathname.
 
-Immediately after `bind()` succeeds and before `chmod`, the **post-bind identity
-observation** opens the socket entry relative to the retained `aipr/v1` handle
-with no-follow semantics. It verifies that the owner is the calling user, the
-type is a socket, and no group/other permission bit is set (`mode & 0o077 ===
-0`), then records device and inode/file identity as the provisional endpoint
-baseline. It does not require exact `0600` before the permission-setting step.
-No expected device or inode is derived from the listening socket descriptor:
-POSIX does not define those descriptor fields as the filesystem entry's
-identity.
+Immediately after the native `bind()` succeeds, the **post-bind observation**
+uses directory-relative `fstatat(endpointParentFd, token,
+AT_SYMLINK_NOFOLLOW)` through issue #43's native layer; it does not `open()` the
+socket entry, which is not portable. It verifies that the owner is the calling
+user, the type is a socket, the mode is exactly `0600`, and the entry has no
+unsafe extended ACL, then records device and inode/file identity as the
+owned-lifetime cleanup baseline. No expected device or inode is derived from the
+listening socket descriptor: POSIX does not define those descriptor fields as
+the filesystem entry's identity. Failure of any post-condition closes the
+listener and unlinks neither the entry reached through the retained `aipr/v1`
+handle nor the entry at the absolute `paths.endpoint` pathname.
 
-After the retained-parent `chmod` and before publishing `ready`, the
-**secure-ready observation** reopens the entry with the same no-follow semantics,
-verifies the same owner and socket type, compares device and inode/file identity
-with the post-bind baseline, and requires exact `0600`. That confirmed identity
-becomes the owned-lifetime cleanup baseline. Failure of any post-condition in
-either observation closes the listener and unlinks neither the entry reached
-through the retained `aipr/v1` handle nor the entry at the absolute
-`paths.endpoint` pathname.
+The exact creation mode removes the need for a pathname `chmod`. In particular,
+the design does not depend on Linux
+`fchmodat(..., AT_SYMLINK_NOFOLLOW)`, which is unavailable on supported Linux
+runtimes, or on an unsafe following `chmod` fallback. The retained-handle
+directory creation, `fstatat`, ACL inspection, synchronous socket creation/bind,
+and descriptor handoff all require issue #43's native layer because Node core
+does not expose the required `*at` family or the complete bind primitive.
 
 A `bind()` result of `EADDRINUSE` or a platform-equivalent already-bound error is
 `APR_BROKER_ENDPOINT_COLLISION`. It never authorizes an unlink or a post-failure
@@ -514,9 +539,12 @@ unrelated socket identities.
 
 Before connecting, a POSIX client derives and preflights its endpoint from its
 own environment, then opens and validates only the authority cache root. It
-observes the stable project lock and readable metadata before opening the
-derived endpoint root or touching any `endpointDirectories` entry. It first
-establishes metadata currency from the live lock instance and nonce binding.
+observes the stable project lock before opening the derived endpoint root or
+touching any `endpointDirectories` entry. If no live lock exists, it immediately
+returns `APR_BROKER_START_FAILED` with the owner-election action before endpoint-
+root traversal; only `acquireBrokerOwnership` may then read stale metadata for
+reconciliation. With a live lock, the client reads metadata and first establishes
+its currency from the lock instance and nonce binding.
 Stale metadata takes precedence and produces the broker-integrity error;
 an unrecognized non-null layout version produces `APR_BROKER_INCOMPATIBLE`
 regardless of `starting` or `ready`; and current-instance, supported-layout
@@ -524,6 +552,8 @@ regardless of `starting` or `ready`; and current-instance, supported-layout
 supported-layout `ready` metadata reaches root comparison.
 The client then compares its derived endpoint root with the recorded root,
 regardless of whether its derived socket path is absent or contains stale state.
+A byte-identical root passes even when `endpoint_root_source` differs; the source
+enum is diagnostic and excluded from routing equality.
 A difference produces
 `APR_BROKER_ENDPOINT_ROOT_MISMATCH` and one action: set
 `AI_PEER_REVIEW_ENDPOINT_ROOT` to the recorded, independently revalidated root
@@ -533,17 +563,13 @@ the client touches neither endpoint root until configuration converges.
 Only after that comparison passes does the client open and validate its derived
 endpoint-root anchor and reach existing `endpointDirectories` entries relative
 to retained parents. A client never creates `aipr`, `aipr/v1`, or any authority
-directory. If an endpoint-directory level is safely absent and no live lock is
-available, `connectBroker` reports the existing `APR_BROKER_START_FAILED` owner
-election outcome; its one action is to enter `acquireBrokerOwnership`, whose
-listener alone may create the chain. If the lock is live and roots match but an
-endpoint directory is absent, the same error instructs retrying the named owner
-reconciliation. Present endpoint directories with an absent socket under a live
-lock and matching current-instance `ready` metadata use that same named-owner
-reconciliation outcome rather than exposing raw `ENOENT`. The client leaves the
-filesystem unchanged in every case. If the derived endpoint is overlong, it
-fails before all resource access with the platform-specific
-`APR_BROKER_ENDPOINT_TOO_LONG` recovery.
+directory. With a live lock and matching roots, an absent endpoint directory
+produces the named-owner `APR_BROKER_START_FAILED` reconciliation action. Present
+endpoint directories with an absent socket under a live lock and matching
+current-instance `ready` metadata use that same outcome rather than exposing raw
+`ENOENT`. The client leaves the filesystem unchanged in every case. If the
+derived endpoint is overlong, it fails before all resource access with the
+platform-specific `APR_BROKER_ENDPOINT_TOO_LONG` recovery.
 
 Absent, unreadable, or stale metadata under a live lock fails with the existing
 broker-integrity error and never probes another endpoint; stale metadata without
@@ -742,8 +768,9 @@ Unit tests must prove:
 - package/protocol/Node version inputs do not affect routing;
 - overlong paths and invalid limits still fail before resource creation;
 - POSIX `platform.maxEndpointLength: 62` fails with
-  `APR_BROKER_ENDPOINT_LIMIT_INVALID` before derivation, while limit `63` with
-  root `/a` yields `maxEndpointRootBytes: 2` and an exact-limit endpoint;
+  `APR_BROKER_ENDPOINT_LIMIT_INVALID` before digest/root validation even when a
+  root input is also invalid, while limit `63` with root `/a` yields
+  `maxEndpointRootBytes: 2` and an exact-limit endpoint;
 - `APR_BROKER_ENDPOINT_TOO_LONG` has the platform-selected exact recovery above
   and no longer claims endpoints are never redirected or recommends moving the
   authority cache; its details carry the derived `maxEndpointRootBytes`;
@@ -762,7 +789,7 @@ Unit tests must prove:
   `AI_PEER_REVIEW_ENDPOINT_ROOT` values with trailing separators, `.`
   components, or `..` components are rejected rather than collapsed, with the
   exact variable named; a case-only difference between canonical client and
-  metadata roots fails with
+  metadata roots, and an NFC-versus-NFD difference, fail with
   `APR_BROKER_ENDPOINT_ROOT_MISMATCH` rather than connecting;
 - Windows output is asserted key-for-key, including an empty deeply frozen
   `endpointDirectories` array, `endpointRoot: null`,
@@ -778,6 +805,10 @@ Issue #43's registry and ownership tests must additionally prove:
   retained safe home, while an absent configured root is refused;
 - every authority-root and endpoint-root source is refused when group- or
   other-writable;
+- on ACL-capable platforms, every root anchor and package-owned directory is
+  refused when an extended or inherited ACL grants another identity traversal,
+  write, add-file, delete-child, or ownership-changing authority, even when mode
+  bits are owner-only;
 - an owner-only configured endpoint root below a group/other-writable or
   symlinked ancestor is refused with `APR_BROKER_ENDPOINT_ROOT_UNAVAILABLE`, exact
   endpoint role, and source variable; the authority-cache counterpart is also
@@ -810,13 +841,13 @@ Issue #43's registry and ownership tests must additionally prove:
   per-project release never removes it, and a leftover socket is unlinked only
   while the matching full-digest lock is held and the connection fails at the
   transport layer; a peer that accepts transport but fails protocol, tuple,
-  instance, nonce, credential, or cache-root authentication is never unlinked;
-- the post-bind identity observation runs before `chmod`, validates owner and
-  socket type plus `(mode & 0o077) === 0`, and records provisional device and
-  inode/file identity without comparing it to the listener descriptor;
-- the secure-ready observation runs after retained-parent `chmod`, compares the
-  same identity, validates owner and socket type plus exact `0600`, and promotes
-  the confirmed identity to the cleanup baseline before `ready` publication;
+  instance, nonce, credential, or cache-root authentication is never unlinked,
+  and `ENOENT` performs no unlink;
+- the native bind saves and restores the process-global umask in every outcome,
+  uses `0177` only around the synchronous bind, and returns an endpoint that the
+  post-bind `fstatat(..., AT_SYMLINK_NOFOLLOW)` observation validates as the
+  calling user's socket with exact `0600`, no unsafe ACL, and a recorded cleanup
+  baseline without opening the entry or comparing it to the listener descriptor;
 - the pre-cleanup observation revalidates owner/type/mode and compares device
   and inode/file identity with that baseline, and an injected mismatch closes
   the listener without unlinking either observed entry;
@@ -826,8 +857,9 @@ Issue #43's registry and ownership tests must additionally prove:
 - Windows never applies `dirname` to its logical pipe label;
 - metadata schema v1 records both roots, both source enums, and POSIX
   `endpoint_layout_version: 1` (Windows `null`) without duplicating the endpoint
-  token; it accepts and round-trips `unreconciled_predecessor` and
-  `startup_collision` as either `null` or their exact closed object shapes,
+  token; it accepts and round-trips zero-to-16
+  `unreconciled_predecessors` and `startup_collision` as either `null` or its
+  exact closed object shape,
   rejects missing/null POSIX layout versions, and rejects non-null Windows layout
   versions;
 - after lock acquisition, stale prior metadata cannot trigger root mismatch;
@@ -841,6 +873,10 @@ Issue #43's registry and ownership tests must additionally prove:
   reconciliation to derive no token and traverse no prior root, while preserving
   both the predecessor root and layout version as unreconciled evidence in the
   new `starting` and `ready` metadata;
+- an A → B → C endpoint-root sequence carries unresolved A before unresolved
+  B without loss or duplication; reconciled entries are removed only after exact
+  reconciliation, and attempting to append a seventeenth unresolved predecessor
+  fails before overwriting prior metadata;
 - a client whose derived endpoint contains a stale socket under a superseded
   root still fails with `APR_BROKER_ENDPOINT_ROOT_MISMATCH`, not a handshake or
   integrity error;
@@ -856,12 +892,12 @@ Issue #43's registry and ownership tests must additionally prove:
   `APR_BROKER_ENDPOINT_ROOT_MISMATCH`, and matching configuration connects;
 - with absent client-side `aipr` and `aipr/v1`, a live-lock root mismatch fails
   before traversal and leaves the filesystem unchanged; without a live lock,
-  the client reports owner election/start failure and likewise creates nothing;
+  the client short-circuits to owner election/start failure before endpoint-root
+  traversal and likewise creates nothing;
 - present endpoint directories with an absent socket under a live lock and
   matching current-instance `ready` metadata produce the named-owner
   `APR_BROKER_START_FAILED` reconciliation recovery and never expose raw
-  `ENOENT` or mutate the filesystem;
-  and
+  `ENOENT` or mutate the filesystem; and
 - every `APR_BROKER_PATH_INVALID` input reports its exact input label, with
   `AI_PEER_REVIEW_ENDPOINT_ROOT`, `XDG_CACHE_HOME`, `LOCALAPPDATA`, `home`, and
   `identity.digest` distinguishable.
