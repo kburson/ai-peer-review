@@ -125,25 +125,27 @@ is the absolute POSIX parent beneath which `aipr/v1` is derived; it equals
 endpoint limit minus the 61-byte `/aipr/v1/<token>` suffix; Windows returns
 `null`. The path layer is the sole source for both values.
 
-Every returned root is a canonical absolute platform path. POSIX roots contain
-no trailing separator and no `.` or `..` component. A configured value carrying
-one of those noncanonical forms fails with `APR_BROKER_PATH_INVALID` naming its
-input; the path layer never resolves symlinks. Root equality is byte-exact UTF-8
-comparison of that canonical form. It remains case-sensitive even on a
-case-insensitive volume; a case-only difference fails closed with the mismatch
-recovery rather than being silently normalized.
+Every returned root is a canonical absolute platform path with no trailing
+separator and no `.` or `..` component. A configured value carrying one of
+those noncanonical forms fails with `APR_BROKER_PATH_INVALID` naming its input;
+the path layer never resolves symlinks. POSIX `/` is intentionally rejected as
+an unrepresentable owner-only root rather than treated as a trailing-separator
+exception. Root equality is byte-exact UTF-8 comparison of that canonical form.
+It remains case-sensitive even on a case-insensitive volume; a case-only
+difference fails closed with the mismatch recovery rather than being silently
+normalized.
 
 Input mapping is normative:
 
-| Platform    | Input                                             | Valid mapping                                                  | Invalid defined value                                                                              | Creation policy                                             |
-| ----------- | ------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| macOS       | `~/Library/Caches`                                | `cacheRootSource: platform-default`                            | Missing, empty, or relative `home` fails `APR_BROKER_PATH_INVALID`; this ratifies shipped behavior | Must already exist and pass anchor checks                   |
-| Linux       | absolute, nonempty `XDG_CACHE_HOME`               | `cacheRootSource: xdg-configured`                              | Empty or relative fails `APR_BROKER_PATH_INVALID`; this ratifies shipped behavior                  | Must already exist and pass anchor checks                   |
-| Linux       | absent `XDG_CACHE_HOME`, then `~/.cache`          | `cacheRootSource: home-default`                                | Missing, empty, or relative `home` fails `APR_BROKER_PATH_INVALID`; this ratifies shipped behavior | May create `.cache` relative to a retained safe home handle |
-| Windows     | absolute, nonempty `%LOCALAPPDATA%`               | `cacheRootSource: platform-default`                            | Missing, empty, or nonabsolute fails `APR_BROKER_PATH_INVALID`                                     | Must already exist and pass anchor checks                   |
-| macOS/Linux | absolute, nonempty `AI_PEER_REVIEW_ENDPOINT_ROOT` | `endpointRootSource: configured`                               | Empty or relative fails `APR_BROKER_PATH_INVALID`                                                  | Must already exist and pass anchor checks                   |
-| macOS/Linux | absent `AI_PEER_REVIEW_ENDPOINT_ROOT`             | `endpointRootSource: cache-root`; `endpointRoot === cacheRoot` | N/A                                                                                                | Reuses the validated cache-root handle                      |
-| Windows     | `AI_PEER_REVIEW_ENDPOINT_ROOT`                    | Ignored; `endpointRootSource: named-pipe`                      | All values ignored                                                                                 | No endpoint directory                                       |
+| Platform    | Input                                             | Valid mapping                                                  | Invalid defined value                                                                                                                                          | Creation policy                                             |
+| ----------- | ------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| macOS       | `~/Library/Caches`                                | `cacheRootSource: platform-default`                            | Missing, empty, relative, trailing-separator, `.`-component, or `..`-component `home` fails `APR_BROKER_PATH_INVALID`; canonicality extends shipped behavior   | Must already exist and pass anchor checks                   |
+| Linux       | absolute, nonempty `XDG_CACHE_HOME`               | `cacheRootSource: xdg-configured`                              | Empty, relative, trailing-separator, `.`-component, or `..`-component value fails `APR_BROKER_PATH_INVALID`; canonicality extends shipped behavior             | Must already exist and pass anchor checks                   |
+| Linux       | absent `XDG_CACHE_HOME`, then `~/.cache`          | `cacheRootSource: home-default`                                | Missing, empty, relative, trailing-separator, `.`-component, or `..`-component `home` fails `APR_BROKER_PATH_INVALID`; canonicality extends shipped behavior   | May create `.cache` relative to a retained safe home handle |
+| Windows     | absolute, nonempty `%LOCALAPPDATA%`               | `cacheRootSource: platform-default`                            | Missing, empty, nonabsolute, trailing-separator, `.`-component, or `..`-component value fails `APR_BROKER_PATH_INVALID`; canonicality extends shipped behavior | Must already exist and pass anchor checks                   |
+| macOS/Linux | absolute, nonempty `AI_PEER_REVIEW_ENDPOINT_ROOT` | `endpointRootSource: configured`                               | Empty, relative, trailing-separator, `.`-component, or `..`-component value fails `APR_BROKER_PATH_INVALID`                                                    | Must already exist and pass anchor checks                   |
+| macOS/Linux | absent `AI_PEER_REVIEW_ENDPOINT_ROOT`             | `endpointRootSource: cache-root`; `endpointRoot === cacheRoot` | N/A                                                                                                                                                            | Reuses the validated cache-root handle                      |
+| Windows     | `AI_PEER_REVIEW_ENDPOINT_ROOT`                    | Ignored; `endpointRootSource: named-pipe`                      | All values ignored                                                                                                                                             | No endpoint directory                                       |
 
 When a configured input fails, the error context names the specific variable;
 `APR_BROKER_CACHE_ROOT_UNAVAILABLE` recovery therefore never has to infer
@@ -349,14 +351,27 @@ Below that anchor, Task 4 creates and validates every package-owned level:
 `broker.json` remains discovery-only. When Task 4 writes metadata schema v1, it
 records the full root tuple and digest plus `cache_root`, `cache_root_source`,
 `endpoint_root`, `endpoint_root_source`, and the path layer's
-`endpoint_layout_version`. It
-does not duplicate the derived endpoint token; diagnostics derive that token
-through the same canonical path function. The recorded endpoint root is
-diagnostic and never overrides a client's environment-derived path. Every owner
-and client process for a configured endpoint must set the same variable. Adding the token later would
+`endpoint_layout_version`. It also records the owning lock `instance_id`, nonce
+binding, and publication state `starting` or `ready`. It does not duplicate the
+derived endpoint token; diagnostics derive that token through the same canonical
+path function. The recorded endpoint root is diagnostic and never overrides a
+client's environment-derived path. Every owner and client process for a
+configured endpoint must set the same variable. Adding the token later would
 require an explicit metadata-schema change. Neither metadata nor the
 layout-version field could ever replace live authentication. The metadata schema
 version and the independent pathname-layout version do not move in lockstep.
+
+Immediately after acquiring and verifying the lock, the owner reads prior
+metadata for reconciliation and then atomically publishes current-instance
+`starting` metadata before the new endpoint can become connectable. After bind
+and all endpoint post-conditions pass, it atomically publishes `ready` metadata
+for the same lock instance before accepting clients. A client treats metadata as
+current only when its instance ID and nonce binding match the observed live lock.
+A mismatched instance/nonce is stale and produces the existing broker-integrity
+error before root comparison. Matching `starting` metadata produces
+`APR_BROKER_START_FAILED` with the one action to retry the named owner startup.
+Only matching `ready` metadata can produce an endpoint-root mismatch or permit a
+connection attempt.
 
 A pre-existing foreign-owned, non-directory, permissive, or symlinked
 `ai-peer-review`, `brokers`, or full-digest authority-directory level fails with
@@ -405,10 +420,15 @@ that `bindat` exists or comparing unrelated socket identities.
 Before connecting, a POSIX client derives and preflights its endpoint from its
 own environment, then opens and validates only the authority cache root. It
 observes the stable project lock and readable metadata before opening the
-derived endpoint root or touching any `endpointDirectories` entry. Whenever the
-lock is live and metadata is readable, the client compares its derived endpoint
-root with the recorded root, regardless of whether its derived socket path is
-absent or contains stale state. A difference produces
+derived endpoint root or touching any `endpointDirectories` entry. It first
+establishes metadata currency from the live lock instance and nonce binding.
+Stale metadata takes precedence and produces the broker-integrity error;
+current-instance `starting` metadata produces `APR_BROKER_START_FAILED`; and an
+unrecognized layout version produces `APR_BROKER_INCOMPATIBLE`. Only
+current-instance, supported-layout `ready` metadata reaches root comparison.
+The client then compares its derived endpoint root with the recorded root,
+regardless of whether its derived socket path is absent or contains stale state.
+A difference produces
 `APR_BROKER_ENDPOINT_ROOT_MISMATCH` and one action: set
 `AI_PEER_REVIEW_ENDPOINT_ROOT` to the recorded, independently revalidated root
 and retry. Comparing metadata for diagnosis does not make it routing authority;
@@ -445,6 +465,12 @@ design. Broker compatibility at a live corrected endpoint continues to require
 exact package, protocol, and Node-major matches as defined by the accepted epic
 design.
 
+A v1 client that observes current-instance, `ready` metadata with an unrecognized
+`endpoint_layout_version` fails with existing `APR_BROKER_INCOMPATIBLE` before
+root comparison or owner-election advice. Its one action is to upgrade to an
+ai-peer-review version that supports the recorded layout. It never probes an
+unknown-layout endpoint or attempts owner acquisition against the live lock.
+
 The full-digest lock directory intentionally remains unversioned and rooted only
 at the resolved platform `cacheRoot`. Within one resolved cache root, it is the
 mutual-exclusion point across every endpoint-root selection and layout version:
@@ -466,6 +492,12 @@ its own `v1` child and never removes or mutates the other application's entries.
 The byte budget does not permit a longer package name at the exact supported
 macOS boundary.
 
+Because the default shared endpoint parent lives in a platform cache, OS or
+third-party cache eviction is a realistic trigger for
+`APR_BROKER_ENDPOINT_PARENT_LOST`. The deliberate consequence is the specified
+whole-user broker fence; the package never responds to eviction by silently
+recreating the shared parent.
+
 The epic design's guarantee that an incompatible broker remains discoverable at
 the same endpoint applies to package upgrades within pathname layout `v1`.
 Shipping `v2` requires the explicit cross-endpoint discovery and drain design
@@ -481,17 +513,21 @@ described here; no future layout may assume the `v1` sentence is unconditional.
    pipe.
 4. Endpoint length preflight runs before any resource is opened.
 5. Task 4 validates the cache-root anchor and both protected directory chains,
-   acquires the full-digest lock, binds the compact endpoint, and authenticates
-   the full tuple over live IPC.
+   acquires the full-digest lock, reconciles prior metadata, and atomically
+   publishes current-instance `starting` metadata.
+6. It binds and validates the compact endpoint, atomically publishes
+   current-instance `ready` metadata, then accepts and authenticates the full
+   tuple over live IPC.
 
 ## Failure behavior
 
-- Invalid or noncanonical digest; missing, empty, or relative `home`; empty or
-  relative `XDG_CACHE_HOME`; missing, empty, or nonabsolute `%LOCALAPPDATA%`;
-  empty, relative, trailing-separator, dot-component, or dot-dot-component
-  `AI_PEER_REVIEW_ENDPOINT_ROOT`: `APR_BROKER_PATH_INVALID`. Error context names
-  the exact offending input, distinguishing both environment variables from
-  `home` and `identity.digest`.
+- Invalid or noncanonical digest, or a missing/empty/relative/noncanonical root
+  input: `APR_BROKER_PATH_INVALID`. Trailing separators plus `.` and `..`
+  components are noncanonical for `home`, `XDG_CACHE_HOME`, `LOCALAPPDATA`, and
+  `AI_PEER_REVIEW_ENDPOINT_ROOT`; relative input is invalid for all four, and
+  the required inputs may not be missing or empty. Error context names the exact
+  offending input, distinguishing all three environment variables from `home`
+  and `identity.digest`.
 - Missing, noninteger, or nonpositive platform limit:
   `APR_BROKER_ENDPOINT_LIMIT_INVALID`.
 - UTF-8 pathname or named-pipe label over the observed limit:
@@ -503,12 +539,17 @@ described here; no future layout may assume the `v1` sentence is unconditional.
   if no safe conforming root exists, the error names the unsupported account
   condition and the administrator-provisioning action above.
 - Whenever the stable project lock is live and readable metadata names a
-  different validated endpoint root, before any endpoint-root traversal or
-  connection attempt: `APR_BROKER_ENDPOINT_ROOT_MISMATCH`; set the same
+  matching-instance, supported-layout, `ready` record names a different
+  validated endpoint root, before any endpoint-root traversal or connection
+  attempt: `APR_BROKER_ENDPOINT_ROOT_MISMATCH`; set the same
   endpoint-root variable for every participant and retry, never auto-redirect.
   The rule is presence-independent: it applies when the client's derived socket
   is absent, stale, or apparently live. Metadata is diagnostic evidence only,
   never routing authority.
+- Current-instance `ready` metadata names an unrecognized endpoint layout:
+  existing `APR_BROKER_INCOMPATIBLE`; upgrade to a package version supporting
+  that layout. This takes precedence over root mismatch and
+  `APR_BROKER_START_FAILED` owner-election advice.
 - A safe endpoint directory is absent with no root mismatch:
   `APR_BROKER_START_FAILED`; enter owner acquisition when no live lock exists,
   or retry the named owner reconciliation when it does. A client never creates
@@ -573,14 +614,19 @@ Unit tests must prove:
 - POSIX `endpointDirectories` is exactly
   `[<endpoint-root>/aipr, <endpoint-root>/aipr/v1]` in that order, is deeply frozen,
   and each entry is a UTF-8 byte prefix of `endpoint`;
+- POSIX returns `endpointLayoutVersion: 1` and
+  `maxEndpointRootBytes: 42` for an injected Darwin limit or `46` for an
+  injected Linux limit;
 - every input-table row, invalid-value outcome, source enum, and creation policy
   is asserted per platform; `cacheRoot` remains exact,
   `authorityDirectories` is the exact deeply frozen root-to-digest chain, and
   `directory`, `lock`, and `metadata` remain byte-for-byte at the stable full
   64-hex authority paths under every endpoint-root selection;
-- configured roots with a trailing separator or dot component are rejected as
-  noncanonical with the exact variable named; a case-only difference between
-  canonical client and metadata roots fails with
+- `home`, `XDG_CACHE_HOME`, `LOCALAPPDATA`, and
+  `AI_PEER_REVIEW_ENDPOINT_ROOT` values with trailing separators, `.`
+  components, or `..` components are rejected rather than collapsed, with the
+  exact variable named; a case-only difference between canonical client and
+  metadata roots fails with
   `APR_BROKER_ENDPOINT_ROOT_MISMATCH` rather than connecting;
 - Windows output is asserted key-for-key, including an empty deeply frozen
   `endpointDirectories` array, `endpointRoot: null`,
@@ -623,7 +669,14 @@ Issue #43's registry and ownership tests must additionally prove:
   handles are required;
 - Windows never applies `dirname` to its logical pipe label;
 - metadata schema v1 records both roots, both source enums, and
-  `endpoint_layout_version: 1` without duplicating the endpoint token.
+  `endpoint_layout_version: 1` without duplicating the endpoint token;
+- after lock acquisition, stale prior metadata cannot trigger root mismatch;
+  current-instance `starting` metadata is visible before bind and produces only
+  startup-in-progress recovery, and `ready` metadata is published before
+  clients are accepted;
+- current-instance `ready` metadata with an unknown layout version produces
+  `APR_BROKER_INCOMPATIBLE` and upgrade guidance before root comparison,
+  endpoint traversal, or owner-election advice;
 - a client whose derived endpoint contains a stale socket under a superseded
   root still fails with `APR_BROKER_ENDPOINT_ROOT_MISMATCH`, not a handshake or
   integrity error;
