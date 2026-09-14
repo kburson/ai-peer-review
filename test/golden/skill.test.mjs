@@ -40,4 +40,15 @@ test('installable skill states the complete provider-neutral operating contract'
   }
   assert.doesNotMatch(text, /\baitm\b|\/task\b/i);
   assert.match(normalized, /coordinator.*do not (?:poll|repeat).*wait/i);
+  for (const phrase of [
+    'peer-review launch-reviewer',
+    'permission-mode dontAsk',
+    'double leading slash',
+    'do not construct Edit or Write rules by hand',
+    'same recorded Claude session',
+    'provider exit is not submission',
+    'permission-blocked',
+  ]) {
+    assert.ok(normalized.toLowerCase().includes(phrase.toLowerCase()), phrase);
+  }
 });

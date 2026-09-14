@@ -75,6 +75,20 @@ when doctor validates the provider's official resume command and scratch-only
 handle. If delivery fails, leave it pending and use the printed manual recovery
 command; never improvise shell composition or an undocumented wake mechanism.
 
+## Claude reviewer launch
+
+For Claude, use `peer-review launch-reviewer` with the exact sealed invitation,
+model, and effort. The package constructs `--permission-mode dontAsk` and the
+one exact response permission. An absolute Claude Edit rule requires a double
+leading slash; a single leading slash is project-relative. Do not construct
+Edit or Write rules by hand.
+
+Surface a `permission-blocked` result immediately with its exact response and
+printed next action. Run that `--resume` command unchanged so the same recorded
+Claude session, model, effort, and prior analysis continue. A provider exit is
+not submission: only a new reviewer decision in protocol authority proves that
+the review was submitted.
+
 Use `automatic-required` only after `peer-review doctor --mode
 automatic-required` reports every Phase 2 row healthy. Both participants must
 advertise `live-wait` or an official `native-push` adapter, present a current

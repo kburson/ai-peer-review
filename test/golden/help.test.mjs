@@ -113,6 +113,9 @@ test('Claude launch help and result schema freeze bounded recovery', () => {
   const topic = helpRequest('launch-reviewer', 'json');
   assert.match(topic.preconditions.join(' '), /sealed.*invitation.*exact.*response/i);
   assert.match(topic.effects.join(' '), /same.*session.*resume/i);
+  assert.match(topic.effects.join(' '), /exact.*response.*permission/i);
+  assert.match(topic.preconditions.join(' '), /private.*session.*state/i);
+  assert.match(topic.next_action, /launch-reviewer.*--resume/i);
   assert.equal(topic.json_schema, 'ai-peer-review.claude-launch-result/v1');
   assert.match(
     explainError('APR_CLAUDE_PERMISSION_INVALID').recovery,

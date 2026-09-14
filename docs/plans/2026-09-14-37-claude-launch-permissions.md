@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 24+ ESM, built-in `node:test`, `node:child_process`, existing `AprError`, contained-path helpers, canonical JSON/event authority, Prettier, ESLint, markdownlint, cspell.
 
-**Spec:** `docs/superpowers/specs/2026-09-14-37-claude-launch-permissions-design.md`
+**Spec:** `docs/design/2026-09-14-37-claude-launch-permissions-design.md`
 
 ## Global Constraints
 

@@ -55,7 +55,9 @@ test('published tarball is closed and exact-pins its audited production dependen
     'bin/peer-review-mcp.mjs',
     'bin/peer-review.mjs',
     'schemas/config-v1.json',
+    'schemas/claude-launch-result-v1.json',
     'skills/peer-review/SKILL.md',
+    'src/provider/claude-launch.mjs',
     'provenance/extraction-manifest.json',
     'provenance/relicensing-declaration.json',
     'provenance/release-manifest.json',
@@ -146,7 +148,15 @@ test('public exports and command guidance remain narrow and installation-aware',
       '  validateResidentLease,\n' +
       "} from './transport/resident.mjs';\n" +
       "export { createNativePushTransport } from './transport/native-push.mjs';\n" +
-      "export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';\n"
+      "export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';\n" +
+      'export {\n' +
+      '  buildClaudeReviewerLaunch,\n' +
+      '  buildClaudeReviewerResume,\n' +
+      '  classifyClaudeReviewerOutcome,\n' +
+      '  encodeClaudeEditRule,\n' +
+      '  matchesClaudeEditRule,\n' +
+      '  runClaudeReviewerLaunch,\n' +
+      "} from './provider/claude-launch.mjs';\n"
   );
   const sources = [
     'README.md',
@@ -181,6 +191,15 @@ test('workflows retain complete platform and release safety gates', () => {
   ])
     assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(ci, /live-provider-optional:[\s\S]*continue-on-error: true/);
+  const live = ci.match(/live-provider-optional:[\s\S]*$/)?.[0] ?? '';
+  assert.match(live, /github\.event_name == 'workflow_dispatch'/);
+  assert.match(live, /inputs\.live_claude == true/);
+  assert.match(live, /ANTHROPIC_API_KEY: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}/);
+  assert.match(live, /env\.ANTHROPIC_API_KEY != ''/);
+  assert.match(live, /test\/live\/claude-live-conformance\.mjs/);
+  assert.match(live, /runner\.temp/);
+  assert.match(live, /upload-artifact/);
+  assert.doesNotMatch(live, /needs:/);
   const minimumNode = ci.match(/node-24:[\s\S]*?\n  preferred-node:/)?.[0] ?? '';
   assert.match(minimumNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
   const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';

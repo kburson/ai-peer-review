@@ -923,11 +923,13 @@ function topic(command) {
     ],
     result: 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
-      command === 'coordinator'
-        ? 'Use peer-review status <workspace> --next only as the bounded manual fallback.'
-        : command === 'status' || command === 'resume'
-          ? 'Exactly one event-derived action and command.'
-          : 'Read peer-review status for the next event-derived action.',
+      command === 'launch-reviewer'
+        ? 'On permission-blocked, run the exact printed peer-review launch-reviewer invitation --host claude --resume command.'
+        : command === 'coordinator'
+          ? 'Use peer-review status <workspace> --next only as the bounded manual fallback.'
+          : command === 'status' || command === 'resume'
+            ? 'Exactly one event-derived action and command.'
+            : 'Read peer-review status for the next event-derived action.',
     errors: ERRORS[command],
     json_schema:
       command === 'launch-reviewer'

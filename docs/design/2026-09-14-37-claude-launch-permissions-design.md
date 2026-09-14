@@ -2,7 +2,7 @@
 
 Issue: #37
 
-Status: approved for detailed planning
+Status: approved for implementation
 
 ## Context
 
