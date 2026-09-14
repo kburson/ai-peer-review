@@ -150,8 +150,9 @@ recovery rather than being silently normalized. This POSIX comparison rule does
 not alter the accepted Windows canonical-volume/path-spelling contract.
 On a case-insensitive POSIX volume, two differently cased inputs can therefore
 name the same physical directory but still fail the byte-exact handshake
-comparison. That deliberate false positive is resolved by converging the input
-spelling; it is never silently normalized.
+comparison. The same deliberate false positive applies to NFC-versus-NFD Unicode
+spellings that the filesystem maps to one physical directory. Both are resolved
+by converging the input spelling; neither is silently normalized.
 
 Input mapping is normative:
 
@@ -320,11 +321,13 @@ source variable, and one recovery action.
 
 Below that anchor, Task 4 creates and validates every package-owned level:
 
-- `openPrivateDirectory(paths.cacheRoot, paths.authorityDirectories)` creates
+- `openPrivateDirectory(cacheRootHandle, paths.authorityDirectories)` receives
+  the retained handle returned by `openPrivateRoot`; a cache-root pathname is
+  insufficient. It creates
   each absent authority-directory level as owner-only (`0700`) and validates and
   retains the full chain through the full-digest metadata and lock directory. It
-  returns retained cache-root and leaf-directory handles for subsequent
-  ownership operations.
+  returns the retained leaf-directory handle for subsequent ownership
+  operations.
   After the first level is opened relative to the retained cache-root handle,
   every child is created and opened relative to its retained parent handle with
   no-follow semantics. A pre-existing level is accepted only after owner, mode,
@@ -398,14 +401,27 @@ Below that anchor, Task 4 creates and validates every package-owned level:
 records the full root tuple and digest plus `cache_root`, `cache_root_source`,
 `endpoint_root`, `endpoint_root_source`, and the path layer's
 `endpoint_layout_version`. It also records the owning lock `instance_id`, nonce
-binding, and publication state `starting` or `ready`. It does not duplicate the
-derived endpoint token; diagnostics derive that token through the same canonical
-path function. The recorded endpoint root is diagnostic and never overrides a
-client's environment-derived path. Every owner and client process for a
-configured endpoint must set the same variable. Adding the token later would
-require an explicit metadata-schema change. Neither metadata nor the
-layout-version field could ever replace live authentication. The metadata schema
-version and the independent pathname-layout version do not move in lockstep.
+binding, publication state `starting` or `ready`, and two closed optional groups:
+
+- `unreconciled_predecessor` is `null` when no predecessor needs preservation,
+  or an object containing exact `endpoint_root`, prior
+  `endpoint_layout_version`, and `observed_condition`. The object persists
+  unchanged from current-instance `starting` into `ready` metadata.
+- `startup_collision` is `null` for ordinary `starting` and every `ready`
+  record, or an object on an already-bound failure containing `code`, exact
+  `endpoint`, local `cache_root`, local `lock_path`, and `endpoint_root`.
+
+On POSIX, `endpoint_layout_version` is required and non-null; a missing or null
+value is schema-invalid and produces the existing broker-integrity error before
+the unknown-non-null compatibility precedence. Windows requires `null`. Metadata
+does not duplicate the derived endpoint token; diagnostics derive that token
+through the same canonical path function. The recorded endpoint root is
+diagnostic and never overrides a client's environment-derived path. Every owner
+and client process for a configured endpoint must set the same variable. Adding
+the token or another field later would require an explicit metadata-schema
+change. Neither metadata nor the layout-version field could ever replace live
+authentication. The metadata schema version and the independent pathname-layout
+version do not move in lockstep.
 
 When a probe reaches an accepting peer, the authenticated handshake compares the
 responder's reported authority `cacheRoot` with the requester's canonical
@@ -481,9 +497,9 @@ through the retained `aipr/v1` handle nor the entry at the absolute
 A `bind()` result of `EADDRINUSE` or a platform-equivalent already-bound error is
 `APR_BROKER_ENDPOINT_COLLISION`. It never authorizes an unlink or a post-failure
 reclamation probe. The losing owner atomically annotates its already-published
-`starting` metadata with the collision code, exact endpoint, local cache root,
-local lock path, and endpoint root; it then releases its own lock and fails
-closed, leaving the winner's endpoint untouched. Recovery is to converge
+`starting` metadata by replacing `startup_collision: null` with the schema's
+collision object; it then releases its own lock and fails closed, leaving the
+winner's endpoint untouched. Recovery is to converge
 `XDG_CACHE_HOME` or `home` and `AI_PEER_REVIEW_ENDPOINT_ROOT` across every
 participant, confirm the extant broker has completed or exited, and retry. The
 loser's metadata becomes stale when its lock is released and remains diagnostic
@@ -604,12 +620,13 @@ described here; no future layout may assume the `v1` sentence is unconditional.
    Windows it returns no endpoint directories and derives the existing named
    pipe.
 4. Endpoint length preflight runs before any resource is opened.
-5. Task 4 validates the cache-root anchor and both protected directory chains,
+5. Task 4 validates the cache-root anchor and authority-directory chain,
    acquires the full-digest lock, reconciles prior metadata, and atomically
    publishes current-instance `starting` metadata.
-6. It binds and validates the compact endpoint, atomically publishes
-   current-instance `ready` metadata, then accepts and authenticates the full
-   tuple over live IPC.
+6. With that live lock, it validates the endpoint-root anchor, creates and
+   validates the endpoint-directory chain, binds and validates the compact
+   endpoint, atomically publishes current-instance `ready` metadata, then
+   accepts and authenticates the full tuple over live IPC.
 
 ## Failure behavior
 
@@ -774,6 +791,10 @@ Issue #43's registry and ownership tests must additionally prove:
   directory, unlinks a socket, or redirects; authority shared-level loss has the
   same all-broker fence, digest-leaf loss fences only that project, and neither
   permits cleanup through compromised lock evidence;
+- mid-lifetime safe absence of either endpoint parent produces
+  `APR_BROKER_ENDPOINT_PARENT_LOST` with the absence-specific recovery, fences
+  every observing user broker while each retains its own lock and metadata
+  evidence, and never recreates the directory, unlinks a socket, or redirects;
 - two brokers for one digest under different endpoint roots still contend for
   one stable full-digest lock, and the loser cannot bind or deliver;
 - two owners for one digest under different cache roots but one configured
@@ -799,12 +820,16 @@ Issue #43's registry and ownership tests must additionally prove:
 - the pre-cleanup observation revalidates owner/type/mode and compares device
   and inode/file identity with that baseline, and an injected mismatch closes
   the listener without unlinking either observed entry;
-- `listenPrivate` rejects endpoint-root and lock pathnames where retained live
-  handles are required;
+- `openPrivateDirectory` rejects a cache-root pathname where the retained
+  cache-root handle is required, and `listenPrivate` rejects endpoint-root and
+  lock pathnames where retained live handles are required;
 - Windows never applies `dirname` to its logical pipe label;
 - metadata schema v1 records both roots, both source enums, and POSIX
   `endpoint_layout_version: 1` (Windows `null`) without duplicating the endpoint
-  token;
+  token; it accepts and round-trips `unreconciled_predecessor` and
+  `startup_collision` as either `null` or their exact closed object shapes,
+  rejects missing/null POSIX layout versions, and rejects non-null Windows layout
+  versions;
 - after lock acquisition, stale prior metadata cannot trigger root mismatch;
   current-instance `starting` metadata is visible before bind and produces only
   startup-in-progress recovery, and `ready` metadata is published before
