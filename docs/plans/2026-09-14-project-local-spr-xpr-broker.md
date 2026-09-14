@@ -31,7 +31,7 @@
 - Event authority, exact participant identity, response seals, reviewer non-mutation, author-only finalization/advance, and exact-path commits remain intact.
 - No global npm installation, daemon, scheduler, launch agent, shared port fallback, automatic reviewer substitution, or duplicate wake implementation.
 
-<!-- cspell:words LOCALAPPDATA nonblocking getpeereid PEERCRED DACL multiproject -->
+<!-- cspell:words LOCALAPPDATA nonblocking getpeereid PEERCRED DACL multiproject nodedir goldens -->
 
 ## Baseline, scope, and implementation choices
 
@@ -42,6 +42,8 @@ The repository declares version `0.2.2`, includes #9 durable wakeups and #10 ord
 Use the established `docs/plans/` location. Keep `.ai-peer-review.json` as the configuration surface; do not implement the separate project-local knowledge/storage design. Use `spr` and `xpr` as help topics only for the initial release, resolving the design's optional alias question without a second startup grammar.
 
 The native security helper below is an implementation choice for review: Node's portable JavaScript APIs do not supply all peer-credential, SID/ACL, and OS-lock guarantees required here. Keep it in this npm package, load it only for broker paths, and retain legacy manual operation when unavailable. Do not claim a supported broker platform from mocked conformance tests alone.
+
+**Native distribution decision:** Ship source and an explicit opt-in `build:broker-security` npm script, not prebuilt binaries or an install/postinstall hook. Include exactly pinned `node-gyp@12.4.0` as a production dependency so installed npm packages have the builder even with development dependencies omitted. The operator provisions Python 3, the platform C++ toolchain, and a complete local Node development tree matching the running Node version/architecture (headers/configuration and Windows import libraries). The build script requires an absolute `--nodedir`; it must not fetch missing headers or run at review startup. These toolchain and local-header requirements follow the [node-gyp build interface](https://github.com/nodejs/node-gyp#installation). This is an explicit prerequisite for broker use after npm installation, not a source-checkout-only release. Before it is satisfied, new broker-dependent reviews fail with `APR_BROKER_START_FAILED` and the exact build command; legacy manual operations remain usable. Tasks 4 and 12 must demonstrate successful installed-package build and startup with network access disabled after dependencies and development files have been provisioned.
 
 ## File and interface map
 
@@ -61,15 +63,36 @@ The native security helper below is an implementation choice for review: Node's 
 
 New test modules named in tasks are deliverables, not existing helpers. Snippets use `node:test` and `node:assert/strict`; import those and the explicitly named target functions in each new test. Existing integration fixtures are in `test/helpers/review-fixture.mjs` and `test/helpers/repository-fixture.mjs`. Preserve existing test utilities rather than inventing a parallel protocol fixture implementation.
 
-Each task follows red/green verification and ends with an exact-path commit. Code examples define critical algorithms and assertions; the detailed matrices following them are required coverage. All new internal interfaces use camelCase arguments; sealed records use snake_case keys as shown below.
+Each task follows red/green verification and ends with an exact-path commit. Run `npm test` before every task commit, plus the task's focused suites and packaging checks whenever package contents/dependencies/exports change. Do not leave a known broken default suite for a later task. Parser enforcement begins in Task 1; direct `startReview` enforcement and production routing begin in Task 8. Until then, descriptor support and injected adapters are internal preparatory work and no intermediate commit is a public release. Code examples define critical algorithms and assertions; the detailed matrices following them are required coverage. All new internal interfaces use camelCase arguments; sealed records use snake_case keys as shown below.
+
+### Golden help update procedure
+
+There is no existing regeneration command. In Tasks 1, 6, 10, 11, and 12, when help output changes, recompute these exact fixture bytes from the current source. Each of those tasks owns both named fixture paths; an unchanged digest produces no diff. Run the golden tests after reviewing the rendered text/JSON, not just the hashes.
+
+```bash
+node --input-type=module <<'JS'
+import { createHash } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+import { helpRequest } from './src/cli/help-data.mjs';
+const sources = [
+  ['all', helpRequest(null, 'text', { all: true })],
+  ['submit', JSON.stringify(helpRequest('submit', 'json'))],
+];
+for (const [name, bytes] of sources) {
+  writeFileSync(`test/golden/help/${name}.sha256.txt`,
+    createHash('sha256').update(bytes, 'utf8').digest('hex') + '\n');
+}
+JS
+node --test test/golden/help.test.mjs
+```
 
 ### Task 1: Resolve reviewer selection and runtime eligibility without mutation
 
-**Files:** Create `src/startup/selection.mjs`, `src/startup/runtime.mjs`, `src/providers/registry.mjs`, `test/unit/startup-selection.test.mjs`; modify `src/cli/parse.mjs`, `src/config/load.mjs`, `schemas/config-v1.json`, `test/unit/cli-parse.test.mjs`.
+**Files:** Create `src/startup/selection.mjs`, `src/startup/runtime.mjs`, `src/providers/registry.mjs`, `test/unit/startup-selection.test.mjs`; modify `src/cli/parse.mjs`, `src/config/load.mjs`, `schemas/config-v1.json`, `test/unit/cli-parse.test.mjs`; also modify `src/cli/help-data.mjs`, `test/golden/help.test.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `test/integration/start-join.test.mjs`, `test/integration/claims.test.mjs`, `test/integration/claude-identity.test.mjs`, `test/smoke/cli.test.mjs`.
 
 **Interfaces:** `resolveSelection({ author, selector, model, effort = 'medium' }, adapters)` asynchronously returns `{ selector, provider, host, model_id, model_display, effort, classification }`. `selectRuntime({ selection, author, requestedTransport, policy, capabilities })` returns `{ ownership: 'native'|'broker', transport_mode, adapter_version }`. Adapters implement `resolveModel({ model, effort }) -> { model_id, model_display, effort }` and capability observation; Task 9 supplies production adapters.
 
-- [ ] Add parser tests requiring the two new singleton flags and preserving all ten existing flag groups from the spec. Assert absent selection, unsupported selector, empty model/effort, invalid phase lists, and duplicate flags fail before invoking any startup dependency.
+- [ ] Add parser tests requiring the two new singleton flags and preserving all seven disposition rows covering the twelve existing flags from the spec. Assert absent selection, unsupported selector, empty model/effort, invalid phase lists, and duplicate flags fail before invoking any startup dependency.
 
 ```js
 assert.throws(() => parseCommand(['start', 'docs/a.md', '--artifact-kind', 'plan']), {
@@ -103,13 +126,14 @@ const classification = author.provider === selected.provider ? 'SPR' : 'XPR';
 
 - [ ] Add `review.startup_transport_preference`, an optional ordered, unique array of existing transport names, to closed config validation/schema. Explicit `--transport-mode` constrains selection; otherwise existing `review.transport_mode` takes priority, then this preference list. Missing policy/capability intersection fails with `APR_TRANSPORT_UNAVAILABLE`. Never infer automatic capability from an installed executable or setup config.
 - [ ] Test every selector against all three families; reject `other`, unknown authors, Google selectors, model/effort substitution, and unresolved identity. For same-family surfaces, require proven exact-session native control; otherwise select a conformant broker path or refuse while retaining `SPR`. Restricted declared identity is manual-only and cannot acquire runtime/automatic claims.
-- [ ] Rerun the focused command; expect all assertions to pass. Commit the exact files above with `feat(startup): resolve explicit reviewer intent`.
+- [ ] Update the successful CLI argv fixtures in `start-join`, `claims`, `claude-identity`, and the installed CLI smoke test with explicit selector/model/effort. Preserve negative tests that intentionally omit selection. Direct `startReview` fixtures are migrated in Task 8, when that function starts enforcing selection. Add `APR_REVIEWER_SELECTION_UNSUPPORTED` for unsupported model or effort to the offline error catalog now; reserve `APR_TRANSPORT_UNAVAILABLE` for transport/capability failure.
+- [ ] Update start usage/defaults and the help fixtures with the procedure above in this commit. Rerun `node --test test/unit/cli-parse.test.mjs test/unit/startup-selection.test.mjs test/golden/help.test.mjs test/integration/start-join.test.mjs test/integration/claims.test.mjs test/integration/claude-identity.test.mjs test/smoke/cli.test.mjs` and `npm test`; expect all assertions to pass. Commit the exact files above with `feat(startup): resolve explicit reviewer intent`.
 
 ### Task 2: Seal startup intent and validate reviewer registration
 
-**Files:** Create `schemas/runtime-v1.json`, `test/unit/runtime-descriptor.test.mjs`; modify `src/protocol/events.mjs`, `src/protocol/reducer.mjs`, `src/cli/run.mjs`, `src/manifest/render.mjs`, `schemas/event-v1.json`, `schemas/protocol-v1.json`, `test/unit/events.test.mjs`, `test/integration/start-join.test.mjs`.
+**Files:** Create `schemas/runtime-v1.json`, `test/unit/runtime-descriptor.test.mjs`; modify `src/protocol/events.mjs`, `src/protocol/reducer.mjs`, `src/cli/run.mjs`, `src/manifest/render.mjs`, `schemas/event-v1.json`, `schemas/protocol-v1.json`, `test/unit/events.test.mjs`, `test/integration/start-join.test.mjs`; also modify `src/startup/runtime.mjs`, `schemas/manifest-v1.json`, `test/unit/reducer.test.mjs`, `test/unit/manifest.test.mjs`.
 
-**Interfaces:** Export `validateRuntimeDescriptor(value)` and `assertRequestedReviewer(runtime, identity, observation)` from `src/startup/runtime.mjs`. Add optional `review-created.payload.startup.runtime`; absence means legacy, not permission to create new reviews without reviewer selection.
+**Interfaces:** Export `validateRuntimeDescriptor(value)` and `assertRequestedReviewer(runtime, identity, observation)` from `src/startup/runtime.mjs`. Add optional `review-created.payload.startup.runtime`; after Task 8 enforces new-start selection, absence is accepted only when reading existing legacy authority. This preparatory task does not yet enforce required selection in direct service callers.
 
 - [ ] Add tests using the following closed runtime record. Runtime descriptors identify requested participants, not raw resume handles.
 
@@ -136,7 +160,7 @@ assert.throws(() => validateRuntimeDescriptor({ ...runtime, unexpected: true }),
 ```
 
 - [ ] Run `node --test test/unit/runtime-descriptor.test.mjs test/unit/events.test.mjs test/integration/start-join.test.mjs`; expect missing optional event support and registration checks.
-- [ ] Include the descriptor in deterministic request identity, event payload, sealed startup context, and startup/invitation digest inputs. Extend exact-key validators and JSON schemas together. At join, compare provider, host/product surface, exact model, effort observation, and adapter version before `reviewer-joined` or any turn claim. Continue requiring a distinct session fingerprint. Reject mismatch with existing identity errors; never edit the requested identity to fit the arriving reviewer.
+- [ ] Include the descriptor in deterministic request identity, event payload, and sealed startup authority. In `src/protocol/events.mjs:338`, add `runtime` conditionally to the outer `validateStartup` exact-key list only when present. Keep the nested context exact-key check at `:367` unchanged: runtime is a sibling of context, not a context property. Preserve legacy bytes when absent; Task 8 makes it mandatory for all new starts and Task 11 adds displayed runtime fields to new invitations. Extend the event, protocol, and manifest JSON schemas together. At join, compare provider, host/product surface, exact model, effort observation, and adapter version before `reviewer-joined` or any turn claim. Continue requiring a distinct session fingerprint. Reject mismatch with existing identity errors; never edit the requested identity to fit the arriving reviewer.
 - [ ] Keep model effort in the runtime descriptor and adapter observation, not an unversioned extension to `participants-v1`. For manual declared registrations, explicitly label assurance and require the restricted declaration to match requested values; it supplies no conformance proof.
 - [ ] Add legacy event fixtures and assert reduction/manifest output is unchanged when runtime is absent. New descriptors appear in new manifests only. Old `status`, `resume`, `submit`, `advance`, and `finalize` must not call selection or broker acquisition.
 - [ ] Rerun focused tests plus `node --test test/unit/reducer.test.mjs test/unit/manifest.test.mjs`; commit exact changed files with `feat(protocol): seal requested reviewer and runtime`.
@@ -145,7 +169,7 @@ assert.throws(() => validateRuntimeDescriptor({ ...runtime, unexpected: true }),
 
 **Files:** Create `src/broker/identity.mjs`, `src/broker/paths.mjs`, `test/unit/broker-identity.test.mjs`; modify `src/git/repository.mjs`, `test/unit/repository.test.mjs` only to expose/reuse physical root and common-directory canonicalization.
 
-**Interfaces:** `canonicalProjectIdentity({ cwd, platform }) -> { tuple, digest, physicalRoot, commonDirectory, userId }`; `rootDigest(tuple) -> string`; `brokerPaths({ identity, platform, env, home }) -> { directory, endpoint, lock, metadata }`. The injected platform supplies canonical paths and the OS user ID through Task 4.
+**Interfaces:** `canonicalProjectIdentity({ cwd, platform }) -> { tuple, digest, physicalRoot, commonDirectory, userId }`; `rootDigest(tuple) -> string`; `brokerPaths({ identity, platform, env, home }) -> { directory, endpoint, lock, metadata }`. The injected platform supplies canonical paths and the OS user ID through Task 4. Task 3 tests use explicit platform doubles; production OS identity resolution is not available until Task 4 lands.
 
 - [ ] Add deterministic digest tests and fixture tests for symlink aliases, distinct linked worktrees sharing Git storage, non-Git identity with null common directory, Unicode paths, and Windows volume/path canonicalization.
 
@@ -170,7 +194,7 @@ assert.notEqual(rootDigest(tuple), rootDigest([tuple[0], '/physical/linked', tup
 
 ### Task 4: OS ownership and authenticated local IPC
 
-**Files:** Create `src/broker/platform.mjs`, `src/broker/ownership.mjs`, `src/broker/ipc.mjs`, `schemas/broker-v1.json`, `native/broker-security/binding.gyp`, `native/broker-security/addon.cc`, `native/broker-security/posix.cc`, `native/broker-security/windows.cc`, `scripts/build-broker-security.mjs`, `test/unit/broker-ownership.test.mjs`, `test/integration/broker-ipc.test.mjs`; modify `package.json`, `package-lock.json` for helper build tooling and package file inclusion.
+**Files:** Create `src/broker/platform.mjs`, `src/broker/ownership.mjs`, `src/broker/ipc.mjs`, `schemas/broker-v1.json`, `native/broker-security/binding.gyp`, `native/broker-security/addon.cc`, `native/broker-security/posix.cc`, `native/broker-security/windows.cc`, `scripts/build-broker-security.mjs`, `test/unit/broker-ownership.test.mjs`, `test/integration/broker-ipc.test.mjs`; modify `package.json`, `package-lock.json` for helper build tooling and package file inclusion; also modify `test/packaging/package.test.mjs`, `src/doctor.mjs`, `src/cli/run.mjs`, `test/integration/setup-doctor.test.mjs`, `README.md`, `docs/releases/0.3.0.md`; create `test/unit/broker-build.test.mjs`.
 
 **Interfaces:** `platformSecurity()` exposes `canonicalPath`, `userId`, `openPrivateDirectory`, `acquireExclusive`, `listenPrivate`, and `peerUser`. Locks return `{ instanceId, nonce, verify(), release() }`; release verifies ownership. `acquireBrokerOwnership({ identity, paths, versions }, platform)` and `connectBroker({ identity, paths, versions }, platform)` return authenticated owner/client handles or stable errors. Versions are `{ package_version, broker_protocol_version, node_major }`.
 
@@ -188,8 +212,26 @@ assert.equal(foreignOwner.release(), false);
 - [ ] Implement the Node-API helper with POSIX `flock`/nonblocking exclusive file locks and peer credentials (`getpeereid` on macOS, `SO_PEERCRED` on Linux), directory-relative no-follow file operations, mode 0700 directories and 0600 resources. Windows uses canonical filesystem handles, SID checks, `LockFileEx`, a named pipe restricted by an owner-only DACL, and client-token SID verification. Retain handles through the entire owned lifetime; never treat `open('wx')` alone as the OS lock.
 - [ ] Implement bounded, length-prefixed JSON request/reply framing (64 KiB maximum) over local IPC. The handshake contains the full root tuple, versions, instance ID, and nonce proof and compares the kernel-reported user. Reject unknown fields, truncated frames, wrong project, and all version mismatches before accepting any command. Metadata is discovery only. Commands are allowlisted `status`, `register`, `suspend`, `stop`, and `reconcile`; no arbitrary execution payload.
 - [ ] Detect replacement/unlink of a held lock or endpoint using retained handles and path identity checks. Loss fences delivery immediately. Reacquisition after missing cache evidence requires registry/provider reconciliation; missing cache never means absence of prior ownership. If proof is unavailable, return `APR_BROKER_STALE` and preserve evidence.
-- [ ] Build and run real subprocess contention and peer-credential tests on macOS/Linux/Windows. Helper build failure makes broker doctor unhealthy while legacy manual commands still load. Add a pinned compatible `node-gyp` development dependency selected and locked during implementation; use installed local tooling only, no startup download/build.
-- [ ] Rerun the focused suites on each supported platform and commit the task's exact files with `feat(broker): enforce OS ownership and IPC authentication`.
+- [ ] Implement the explicit installed-package build entrypoint, including the following package fields. List `native/broker-security/binding.gyp`, `native/broker-security/addon.cc`, `native/broker-security/posix.cc`, `native/broker-security/windows.cc`, and `scripts/build-broker-security.mjs` individually in both `package.json` files and the exact package allowlist in `test/packaging/package.test.mjs`, and update its exact production dependency/object/tree assertions to include `node-gyp: 12.4.0`. Keep generated compiler output out of the published tarball. Do not widen the allowlist to all scripts or publish test fixtures.
+
+```json
+{
+  "scripts": { "build:broker-security": "node scripts/build-broker-security.mjs" },
+  "dependencies": { "node-gyp": "12.4.0" }
+}
+```
+
+Merge these entries into the existing objects without replacing other scripts/dependencies. The script parses only `--nodedir <absolute-path>` and optional `--python <absolute-path>`, verifies the local development files for the running Node and architecture, then resolves `node-gyp/bin/node-gyp.js` from this package and spawns `process.execPath` with `rebuild`, `--directory=<package-root>/native/broker-security`, and the validated local paths using `shell: false`. Missing/invalid local headers, Windows import libraries, Python, compiler, or builder is a clear build failure with no download. Load only `native/broker-security/build/Release/broker_security.node` after verifying the recorded Node/platform/architecture build identity. No `install`, `postinstall`, or review-start build trigger is added.
+
+- [ ] Document and test the consumer command from its project root:
+
+```bash
+npm --prefix ./node_modules/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree
+```
+
+The local tree path is an operator input, not an auto-download destination. Source checkouts use `npm run build:broker-security -- --nodedir /absolute/local/node-development-tree`. Read-only installs require rebuilding in a writable installation first. README/release notes state the prerequisite and doctor prints the installation-specific command. Missing helper keeps broker doctor unhealthy, reports `APR_BROKER_START_FAILED` at new broker-dependent startup, and never blocks legacy manual operations.
+
+- [ ] Add offline build tests for missing arguments/development files, unavailable compiler, package resolution with devDependencies omitted, expected output path, and no lifecycle hook. Build and run real subprocess contention and peer-credential tests on macOS/Linux/Windows. Run `node --test test/unit/broker-build.test.mjs test/unit/broker-ownership.test.mjs test/integration/broker-ipc.test.mjs test/integration/setup-doctor.test.mjs`, `npm run test:packaging`, and `npm test`; commit the task's exact files with `feat(broker): enforce OS ownership and IPC authentication`.
 
 ### Task 5: Passive provider-resource locks across projects and versions
 
@@ -210,7 +252,8 @@ assert.equal(
         '501',
         'anthropic',
         'desktop-surface-1',
-      ])
+      ]),
+      'utf8'
     )
     .digest('hex')
 );
@@ -224,7 +267,7 @@ assert.equal(
 
 ### Task 6: Preserve runtime files and register project work durably
 
-**Files:** Create `src/broker/runtime-image.mjs`, `src/broker/registry.mjs`, `test/unit/broker-registry.test.mjs`, `test/integration/broker-upgrade.test.mjs`.
+**Files:** Create `src/broker/runtime-image.mjs`, `src/broker/registry.mjs`, `test/unit/broker-registry.test.mjs`, `test/integration/broker-upgrade.test.mjs`; also modify `src/cli/help-data.mjs`, `test/golden/help.test.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`.
 
 **Interfaces:** `pinRuntimeImage({ packageRoot, nodeExecutable, destination }) -> { root, entrypoint, nodeExecutable, digest, files }`; `verifyRuntimeImage(image) -> boolean`; `registerReview({ project, requestDigest, workspace, runtime }, store) -> registration`; `reconcileRegistrations({ project, store, inspectAuthority }) -> registrations`.
 
@@ -234,10 +277,11 @@ assert.equal(
 const first = registerReview(request, store);
 assert.deepEqual(registerReview(request, store), first);
 assert.throws(() => registerReview({ ...request, requestDigest: 'different' }, store), {
-  code: 'APR_OUTPUT_COLLISION',
+  code: 'APR_BROKER_REGISTRATION_CONFLICT',
 });
 ```
 
+- [ ] Add `APR_BROKER_REGISTRATION_CONFLICT` to offline explain with recovery that inspects the existing exact request/registration; do not reuse `APR_OUTPUT_COLLISION`, which retains review-output reservation semantics. Refresh help fixtures using the procedure above and run `node --test test/golden/help.test.mjs`.
 - [ ] Run `node --test test/unit/broker-registry.test.mjs test/integration/broker-upgrade.test.mjs`; expect absent implementation.
 - [ ] Before launch, create an immutable package-owned runtime image from the currently installed local files, including the transitive module closure, native helper, and Node executable or a verified immutable installed runtime. Keep images outside the mutable installation under the project-digest cache directory; record file hashes and licenses. Copy to a temporary sibling, verify hashes, then rename atomically. Do not fetch or install packages. An executable that cannot be preserved fails broker preflight rather than silently using another Node.
 - [ ] Store recovery registrations in `.scratch/peer-review/broker/registrations/` as atomically written runtime records referencing review ID, exact workspace, request digest, and runtime image. Treat events and output reservation as authority. Scan contained existing workspaces to reconcile registrations after interruption; ignore unsafe/foreign paths. Scratch/cache loss must lead to explicit recovery when outstanding operations cannot be proven absent.
@@ -267,10 +311,12 @@ assert.equal(exited, true);
 
 ### Task 8: Transactional startup and fenced manual recovery
 
-**Files:** Modify `src/cli/run.mjs`, `src/startup/runtime.mjs`, `src/broker/client.mjs`, `src/broker/registry.mjs`, `src/protocol/service.mjs`, `test/integration/start-join.test.mjs`, `test/integration/status-resume.test.mjs`, `test/integration/recovery.test.mjs`; create `test/integration/broker-startup.test.mjs`.
+**Files:** Modify `src/cli/run.mjs`, `src/startup/runtime.mjs`, `src/broker/client.mjs`, `src/broker/registry.mjs`, `src/protocol/service.mjs`, `test/integration/start-join.test.mjs`, `test/integration/status-resume.test.mjs`, `test/integration/recovery.test.mjs`; create `test/integration/broker-startup.test.mjs`; also modify `schemas/cli-result-v1.json`, `test/helpers/intervention-fixture.mjs`, `test/helpers/internal-api.mjs`, `test/integration/claims.test.mjs`, `test/integration/finalization.test.mjs`, `test/integration/reviewer-boundary.test.mjs`, `test/integration/setup-doctor.test.mjs`, `test/integration/review-record.test.mjs`, `test/integration/phased-review.test.mjs`, `test/integration/automatic-required.test.mjs`, `test/integration/no-commit.test.mjs`, `test/integration/submit.test.mjs`, `test/integration/budget-intervention.test.mjs`, `test/integration/communication-policy.test.mjs`, `test/integration/claude-identity.test.mjs`, `test/smoke/cli.test.mjs`.
 
-**Interfaces:** `prepareStartup(input, deps) -> { artifact, selection, runtime, requestDigest, paths }`; `activateStartup(prepared, deps) -> normalCliResult` in `src/startup/runtime.mjs`. Existing `startReview` remains the protocol creation service and accepts the validated descriptor; public CLI uses prepare/activate. Direct new-start callers must also supply required selection.
+**Interfaces:** `prepareStartup(input, deps) -> { artifact, selection, runtime, requestDigest, paths }`; `activateStartup(prepared, deps) -> normalCliResult` in `src/startup/runtime.mjs`. Existing `startReview` in `src/cli/run.mjs:626` remains the protocol creation entrypoint and accepts the validated descriptor; public CLI uses prepare/activate. Direct new-start callers must also supply required selection.
 
+- [ ] Migrate all fifteen existing direct `startReview` callers in this task: `test/helpers/intervention-fixture.mjs` plus `test/integration/{start-join,phased-review,finalization,no-commit,automatic-required,status-resume,submit,claims,recovery,communication-policy,budget-intervention,setup-doctor,reviewer-boundary,review-record}.test.mjs`. Keep the `test/helpers/internal-api.mjs` re-export pointed at `src/cli/run.mjs`; production must not acquire default selection. Supply explicit selections matching each fixture's reviewer and injected model/capability observations. Legacy compatibility cases load sealed historical event fixtures instead of starting a new review with old arguments. Also update the CLI fixture dependencies in `claude-identity` and smoke tests so they do not invoke live providers or depend on an installed broker.
+- [ ] Keep the `src/protocol/service.mjs` change scoped to exposing durable recovery/fence evidence in `statusReview`, derived from the existing authority and registration seam. It does not own `startReview`. Extend the closed CLI result schema and its tests for the new optional runtime/recovery fields without changing existing-review output.
 - [ ] Add fault-injection tests at preflight, broker connect, reservation, authority creation, registration, and reviewer launch. Assert invalid arguments produce no files/process/provider calls and XPR cannot create authority without compatible broker registration preparation, even with manual transport.
 
 ```js
@@ -287,7 +333,7 @@ Define `startWithUnavailableBroker`, `createdEvents`, and `providerCalls` in thi
 - [ ] Implement order: parse/resolve identity, model/effort/capabilities, validate artifact/paths/authority/transport, acquire broker when required, reserve the exact request, create review authority, register workspace, then dispatch the reviewer. Broker preparation is reversible runtime setup; no provider work precedes durable request/authority registration. Preserve the existing output reservation and exact Git/no-commit boundaries.
 - [ ] Journal request preparation and launch outcome under the review scratch workspace. A crash before authority permits reconciliation of the exact reserved request; a crash after authority returns the same review/next action. Known pre-dispatch failures may release only owned empty reservations. An ambiguous launch never auto-retries or deletes its journal. Distinct new requests still use existing output collision rules.
 - [ ] Preserve all legacy manual operations without a live broker. For registered new reviews, offline protocol submission remains available but automatic delivery must first be fenced: request authenticated suspension, wait for in-flight operation settlement, then record the fence; if broker is dead, verify OS ownership and reconcile provider outcome. Unknown outcome returns its existing error and exact reconciliation command, never a duplicate wake. A later worker revalidates event revision and the fence before delivery.
-- [ ] Test preserved `--phases`, reviews-root/template, record ID, issue, turn/claim limits, bootstrap grant, no-commit/test authority, and explicit transports end to end. `automatic-required` still requires every resident/capability/health row. Rerun suites and commit exact task paths with `feat(startup): route new reviews through sealed runtime`.
+- [ ] Test preserved `--phases`, reviews-root/template, record ID, issue, turn/claim limits, bootstrap grant, no-commit/test authority, and explicit transports end to end. `automatic-required` still requires every resident/capability/health row. Run `npm run test:integration`, `npm run test:smoke`, and `npm test` in addition to the focused suites so every migrated caller executes; commit exact task paths with `feat(startup): route new reviews through sealed runtime`.
 
 ### Task 9: Provider adapters, exact model launch, and native SPR
 
@@ -301,7 +347,7 @@ Define `startWithUnavailableBroker`, `createdEvents`, and `providerCalls` in thi
 const resolved = await adapter.resolveModel({ model: 'opus', effort: 'high' });
 assert.equal(resolved.model_id, 'fixture-opus-exact');
 await assert.rejects(adapter.resolveModel({ model: 'missing', effort: 'high' }), {
-  code: 'APR_TRANSPORT_UNAVAILABLE',
+  code: 'APR_REVIEWER_SELECTION_UNSUPPORTED',
 });
 assert.notEqual(observation.session_fingerprint, author.session_fingerprint);
 ```
@@ -314,7 +360,7 @@ assert.notEqual(observation.session_fingerprint, author.session_fingerprint);
 
 ### Task 10: Phase integration and retirement of public coordinator surface
 
-**Files:** Modify `src/public-api.mjs`, `src/cli/parse.mjs`, `src/cli/run.mjs`, `src/cli/help-data.mjs`, `src/broker/worker.mjs`, `test/integration/phased-review.test.mjs`, `test/unit/coordinator-decision.test.mjs`, `test/integration/coordinator-wake.test.mjs`, `test/packaging/package.test.mjs`, `test/mcp/server.test.mjs`.
+**Files:** Modify `src/public-api.mjs`, `src/cli/parse.mjs`, `src/cli/run.mjs`, `src/cli/help-data.mjs`, `src/broker/worker.mjs`, `test/integration/phased-review.test.mjs`, `test/unit/coordinator-decision.test.mjs`, `test/integration/coordinator-wake.test.mjs`, `test/packaging/package.test.mjs`, `test/mcp/server.test.mjs`; also modify `test/unit/cli-parse.test.mjs`, `test/golden/help.test.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `schemas/cli-result-v1.json`.
 
 **Interfaces:** New public broker CLI: `peer-review broker status`, `peer-review broker reconcile <workspace>`, `peer-review broker suspend <workspace>`, `peer-review broker stop`, with optional `--json`. All derive project identity from cwd; no endpoint override. Public root exports may expose `brokerStatus` and `reconcileBrokerReview` from `src/broker/client.mjs`; no coordinator/wake internals.
 
@@ -329,12 +375,12 @@ assert.equal(afterPlanAdvance.participants.reviewer.session_fingerprint, reviewe
 
 - [ ] Run `node --test test/integration/phased-review.test.mjs test/integration/coordinator-wake.test.mjs test/packaging/package.test.mjs`; establish failures for the new broker boundary/public export expectations.
 - [ ] Route #10 wake consumption through `createReviewWorker`; preserve the existing `decideWake` phase cases and delivery receipts. Update tests to import internal functions directly when testing internals. Remove all coordinator exports from `src/public-api.mjs` and coordinator command grammar/help/run dispatch in this same task. Keep source modules internally where reused; removal from the public API does not require deleting durable ledger code or historical schema readers.
-- [ ] Implement broker operations with authenticated instance/nonce verification. `suspend` fences one review, `stop` refuses runnable or unreconciled operations, and `reconcile` never replays an ambiguous provider action. Offline status explains recovery evidence even when broker is absent. Add exact error recoveries for all five design startup errors; `APR_BROKER_STALE` cannot suggest deleting a lock.
-- [ ] Rerun focused phase/wake/packaging/MCP suites and commit exact files with `refactor(broker): internalize coordinator and preserve phase routing`.
+- [ ] Implement broker operations with authenticated instance/nonce verification. `suspend` fences one review, `stop` refuses runnable or unreconciled operations, and `reconcile` never replays an ambiguous provider action. Offline status explains recovery evidence even when broker is absent. Add exact error recoveries for all five design startup errors and verify the two distinct codes introduced in Tasks 1 and 6 (`APR_REVIEWER_SELECTION_UNSUPPORTED` and `APR_BROKER_REGISTRATION_CONFLICT`), for seven explained startup/registration errors total; `APR_BROKER_STALE` cannot suggest deleting a lock.
+- [ ] Replace coordinator grammar assertions with broker grammar/refusal assertions in `test/unit/cli-parse.test.mjs`; replace the coordinator help contract in `test/golden/help.test.mjs`, update the closed result schema, and refresh both help digests using the procedure above. Run `node --test test/unit/cli-parse.test.mjs test/golden/help.test.mjs test/integration/phased-review.test.mjs test/integration/coordinator-wake.test.mjs test/packaging/package.test.mjs test/mcp/server.test.mjs` and `npm test`; commit exact files with `refactor(broker): internalize coordinator and preserve phase routing`.
 
 ### Task 11: Offline help, generated handoffs, and migration documentation
 
-**Files:** Modify `README.md`, `docs/manual-cross-provider-peer-review.md`, `docs/design/2026-09-11-provider-neutral-runtime-orchestration-design.md`, `docs/design/2026-09-13-9-durable-co-review-wakeups-design.md`, `docs/releases/0.3.0.md`, `skills/peer-review/SKILL.md`, `src/templates/index.mjs`, `templates/author-startup.md`, `templates/reviewer-invitation.md`, `src/cli/help-data.mjs`, `test/golden/help.test.mjs`, `test/golden/skill.test.mjs`, `test/golden/templates.test.mjs`, affected files in `test/golden/help/` and `test/golden/templates/`.
+**Files:** Modify `README.md`, `docs/manual-cross-provider-peer-review.md`, `docs/design/2026-09-11-provider-neutral-runtime-orchestration-design.md`, `docs/design/2026-09-13-9-durable-co-review-wakeups-design.md`, `docs/releases/0.3.0.md`, `skills/peer-review/SKILL.md`, `src/templates/index.mjs`, `templates/author-startup.md`, `templates/reviewer-invitation.md`, `src/cli/help-data.mjs`, `test/golden/help.test.mjs`, `test/golden/skill.test.mjs`, `test/golden/templates.test.mjs`, affected files in `test/golden/help/` and `test/golden/templates/`; also modify `src/cli/parse.mjs`, `src/cli/run.mjs`, `schemas/cli-result-v1.json`, `test/unit/cli-parse.test.mjs`, `test/helpers/command-roundtrip.mjs`, `test/smoke/cli.test.mjs`, `test/integration/communication-policy.test.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`; create `src/cli/help-topics.mjs`, `test/helpers/template-values.mjs`, `scripts/update-template-goldens.mjs`.
 
 **Interfaces:** Complete offline start help and `spr`/`xpr` help topics; versioned result envelope includes resolved runtime and reviewer effort for new starts. Existing result consumers retain their documented fields. Generated commands use absolute artifact/invitation/workspace paths, shell-safe rendering, and explicit resolved effort.
 
@@ -349,16 +395,46 @@ assert.doesNotMatch(text, /--runtime/);
 ```
 
 - [ ] Run `node --test test/golden/help.test.mjs test/golden/skill.test.mjs test/golden/templates.test.mjs`; expect stale contract failures.
+- [ ] Implement a separate frozen conceptual-topic registry in `src/cli/help-topics.mjs`: `CONCEPT_HELP_TOPICS = ['spr', 'xpr']` and records with `{ schema: 'ai-peer-review.help-concept/v1', topic, summary, examples, related_commands }`. Import the names into `parse.mjs` for named `help` validation only; never add them to `COMMANDS`, `COMMAND_FLAGS`, or dispatch. Extend `helpRequest` to render concepts, include concept matches in search, and expose a separate `concepts` array in help-index/help-all JSON; leave their existing `commands`/command `topics` arrays unchanged. Text help lists concepts separately after commands. The existing complete command-topic contract test remains over `COMMANDS`; add separate concept schema, named help, search, and rejection tests.
+
+```js
+assert.equal(COMMANDS.includes('spr'), false);
+assert.equal(COMMANDS.includes('xpr'), false);
+assert.equal(helpRequest('spr', 'json').schema, 'ai-peer-review.help-concept/v1');
+assert.equal(parseCommand(['help', 'xpr']).args[0], 'xpr');
+assert.throws(() => parseCommand(['xpr', 'docs/a.md']), { code: 'APR_USAGE' });
+```
+
+Task 11 extends the parser after Task 10's broker grammar change; both own the parser and help tests explicitly. New runtime result fields are already introduced in Task 8; this task validates their rendering and changes closed schema fields only if that display contract requires it.
+
 - [ ] Rewrite active examples around the complete new startup command and broker status/recovery. Explain normal/no-commit assurance, human sponsorship versus participant identity, same-provider capability limits, manual recovery fences, and no automatic fallback. Remove public coordinator commands from active help, README, skill, and generated handoffs.
 - [ ] Add supersession notices to older designs without rewriting historical review evidence. Preserve sealed invitations/responses/manifests byte-for-byte. Historical #9 plans may retain old commands as historical records, clearly linked from the supersession notice; they are not the new operator guide.
-- [ ] Regenerate only changed golden fixtures using the repository's existing generation pattern; inspect their diffs and exercise command round-trips including spaces and Windows paths. Update the draft 0.3.0 release note with startup breaking changes and migration for existing reviews.
+- [ ] Regenerate help digests with the exact procedure above. For template goldens, extract the existing frozen `values` object from `test/golden/templates.test.mjs` into `test/helpers/template-values.mjs` as `TEMPLATE_FIXTURE_VALUES`, preserving its literal values before adding required runtime display fields. Import it from the golden test and a new development-only `scripts/update-template-goldens.mjs`; do not add this script to published package files. Implement its complete write loop:
+
+```js
+import { writeFileSync } from 'node:fs';
+import { TEMPLATE_NAMES, TEMPLATE_VARIABLES, hydrateTemplate } from '../src/templates/index.mjs';
+import { TEMPLATE_FIXTURE_VALUES } from '../test/helpers/template-values.mjs';
+for (const name of TEMPLATE_NAMES) {
+  const variables = Object.fromEntries(
+    TEMPLATE_VARIABLES[name].map((key) => [key, TEMPLATE_FIXTURE_VALUES[key]])
+  );
+  writeFileSync(
+    new URL(`../test/golden/templates/${name}.md`, import.meta.url),
+    hydrateTemplate(name, variables)
+  );
+}
+```
+
+Run `node scripts/update-template-goldens.mjs`; inspect every changed fixture and leave unrelated bytes unchanged. Exercise command round-trips including spaces and Windows paths. Update the draft 0.3.0 release note with startup breaking changes, the explicit installed-package native build prerequisite chosen in Task 4, and migration for existing reviews.
+
 - [ ] Rerun golden tests and `node --test test/smoke/cli.test.mjs test/integration/communication-policy.test.mjs`; commit exact changed paths with `docs: publish intent-first broker workflow`.
 
 ### Task 12: Release compatibility, packaging, and full verification
 
-**Files:** Modify `package.json`, `package-lock.json`, `docs/releases/0.3.0.md`, `test/packaging/package.test.mjs`, `test/smoke/cli.test.mjs`, and the existing CI workflow that runs the Node/platform matrix. Add `test/integration/broker-release.test.mjs` for installed-package scenarios.
+**Files:** Modify `package.json`, `package-lock.json`, `docs/releases/0.3.0.md`, `test/packaging/package.test.mjs`, `test/smoke/cli.test.mjs`, and `.github/workflows/ci.yml` (`node-24`, `preferred-node`, `npm-pack-compatibility`, and `phase-2-boundary` jobs). Add `test/integration/broker-release.test.mjs` for installed-package scenarios; also modify `src/cli/help-data.mjs`, `src/cli/run.mjs`, `test/golden/help.test.mjs`, `test/golden/templates.test.mjs`, `test/helpers/template-values.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `test/golden/templates/author-startup.md`, `test/golden/templates/reviewer-invitation.md`.
 
-**Interfaces:** One installable package containing the broker entrypoint, OS helper source/build assets or verified platform binaries, schemas, and internal workers. The package root exposes only intended public APIs. No global install or external broker package is required.
+**Interfaces:** One installable package containing the broker entrypoint, OS helper source and the explicit opt-in builder selected in Task 4, schemas, and internal workers. The package root exposes only intended public APIs. No global install or external broker package is required.
 
 - [ ] Before choosing the release number/removal policy, read registry metadata and inspect published tarballs without running their scripts. Record package version, integrity, file list, and public parse/export contents in the release evidence. The design's 2026-09-14 observation is not a permanent publication fact.
 
@@ -372,7 +448,8 @@ Create `.scratch/release-audit` first; inspect any later published version as we
 
 - [ ] Write installed-tarball tests that start two independent projects, exercise legacy review recovery with no helper/broker, reject mismatched live runtime, verify Node-major handshake mismatch, and inspect packaged exports/help for absent coordinator entries. Assert runtime images preserve transitive imports and native assets after source installation replacement.
 - [ ] Run `node --test test/integration/broker-release.test.mjs test/packaging/package.test.mjs`; expect failures until package files/build assets/version notes are correct.
-- [ ] Implement packaging and CI matrix changes. Require real macOS/Linux/Windows IPC/security tests and Node 24 plus supported newer Node lanes. Native helper availability is a reported platform capability; do not skip a required platform and call the broker supported. Validate fresh install without unexpected network downloads or lifecycle execution beyond the documented helper build.
+- [ ] Implement packaging and CI matrix changes. `node-24` retains its Ubuntu/macOS/Windows matrix and gains explicit provisioning/build/security checks on every OS. Expand `preferred-node` to `node: ['26', 'current']` crossed with `os: [ubuntu-latest, macos-latest, windows-latest]`, use `runs-on: ${{ matrix.os }}`, and update its job name. `npm-pack-compatibility` keeps its npm 11/12 Ubuntu focus and verifies the published build script/dependency/source inventory. `phase-2-boundary` retains its historical extraction verifier and also builds the helper before integration tests that require it. Provision the platform compiler, Python, and matching full Node development files in explicit CI setup steps; only those provisioning steps may download them. Run the package build and broker installed-package tests with network access disabled after provisioning. Test a fresh npm install with devDependencies omitted and lifecycle scripts disabled: legacy commands work before the opt-in build, the reported exact build command works, and new XPR succeeds afterward. Do not skip a required platform and call the broker supported.
+- [ ] When the selected release version changes, update hardcoded package versions in `src/cli/run.mjs` and `src/cli/help-data.mjs`, the shared template fixture values, and version assertions in golden/smoke tests in the same commit. Regenerate help and template goldens with the named procedures; this task owns the resulting files explicitly.
 - [ ] Run the complete relevant matrix after all prior tasks are green.
 
 ```bash
