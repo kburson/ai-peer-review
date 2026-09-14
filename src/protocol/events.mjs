@@ -337,6 +337,7 @@ function validateRepositoryBoundary(value, label) {
 }
 
 function validateStartup(value) {
+  if (!isPlainObject(value)) throw invalid('review-created startup object');
   const startupFields = [
     'context',
     'context_digest',
@@ -390,6 +391,9 @@ function validateStartup(value) {
       validateRuntimeDescriptor(value.runtime);
     } catch {
       throw invalid('startup runtime');
+    }
+    if (value.runtime.transport_mode !== value.transport_mode) {
+      throw invalid('startup runtime transport_mode');
     }
   }
   assertEnum(

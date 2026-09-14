@@ -687,6 +687,13 @@ export async function startReview(input, deps = {}) {
   const transport = configuredTransport({ ...input, transportMode: requestedTransportMode, now });
   const runtime =
     input.runtime === undefined ? undefined : validateRuntimeDescriptor(input.runtime);
+  if (runtime && runtime.transport_mode !== transport.mode) {
+    fail(
+      'APR_USAGE',
+      'Runtime descriptor transport mode conflicts with requested startup transport.',
+      'Use one exact transport mode for the sealed runtime descriptor and startup request.'
+    );
+  }
   const requestedAuthority = configuredAuthority(root, input.authority, loaded);
   const startupAssurance = input.testHumanAuthority
     ? 'unverified-test'
@@ -1080,6 +1087,17 @@ export async function joinReview(input, deps = {}) {
   }
   const requestedMode = state.protocol.startup.transport_mode;
   let reviewerCapability = input.transportCapability ?? 'manual';
+  if (
+    state.protocol.startup.runtime !== undefined &&
+    input.identity.identity_source === 'declared' &&
+    reviewerCapability !== 'manual'
+  ) {
+    fail(
+      'APR_TRANSPORT_UNAVAILABLE',
+      'A declared reviewer registration cannot claim an unverified non-manual transport.',
+      'Join with manual transport or use a runtime-assured reviewer session.'
+    );
+  }
   if (requestedMode === 'automatic-required') {
     const negotiated = await negotiateAutomaticRequired({
       author: input.authorTransportObservation,

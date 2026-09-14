@@ -87,6 +87,30 @@ test('accepts optional sibling startup runtime but keeps legacy startup valid', 
       }),
     (error) => error.code === 'APR_EVENT_INVALID'
   );
+  assert.throws(
+    () =>
+      validateEvent({
+        ...created,
+        payload: {
+          ...created.payload,
+          startup: {
+            ...created.payload.startup,
+            transport_mode: 'resume-only',
+            author_transport_capability: 'resume-only',
+            runtime,
+          },
+        },
+      }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+});
+
+test('rejects malformed startup objects with the stable event error', () => {
+  const created = event('review-created');
+  assert.throws(
+    () => validateEvent({ ...created, payload: { ...created.payload, startup: null } }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
 });
 
 test('rejects prototype-key event types with the stable event error', () => {
