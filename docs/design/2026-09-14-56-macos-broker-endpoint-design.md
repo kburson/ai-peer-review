@@ -1,6 +1,6 @@
 # Issue #56: macOS Broker Endpoint Correction
 
-<!-- cspell:words aipr bindat chdir EEXIST nonsymlink sockaddr injective unpadded noninteger nonpositive -->
+<!-- cspell:words aipr bindat chdir ECONNREFUSED EEXIST nonsymlink sockaddr injective unpadded noninteger nonpositive -->
 
 **Status:** Proposed correction for peer review
 
@@ -15,13 +15,18 @@ supersedes the matching Task 3 **Interfaces**, Task 3 layout, and Task 4
 implementation plan will be the executable replacement authority for those plan
 lines once it exists and passes its own peer review. The accepted epic documents
 remain sealed and are not edited; this issue-numbered correction has precedence
-only for the clauses named here. The new stable errors extend rather than
-replace the accepted list: `APR_BROKER_CACHE_ROOT_UNAVAILABLE`,
+only for the clauses named here. In particular, the accepted identity-tuple
+canonicalization at lines 242–244, including physical-path symlink resolution
+and Windows filesystem spelling, is not superseded. The new stable errors
+extend rather than replace the accepted list:
+`APR_BROKER_CACHE_ROOT_UNAVAILABLE`,
+`APR_BROKER_ENDPOINT_ROOT_UNAVAILABLE`,
 `APR_BROKER_AUTHORITY_PARENT_UNSAFE`,
 `APR_BROKER_AUTHORITY_PARENT_LOST`,
 `APR_BROKER_ENDPOINT_PARENT_UNSAFE`,
-`APR_BROKER_ENDPOINT_PARENT_LOST`, and
-`APR_BROKER_ENDPOINT_ROOT_MISMATCH`.
+`APR_BROKER_ENDPOINT_PARENT_LOST`,
+`APR_BROKER_ENDPOINT_ROOT_MISMATCH`, and
+`APR_BROKER_AUTHORITY_CACHE_MISMATCH`.
 The canonical root tuple, full SHA-256 digest, metadata and lock authority,
 handshake, ownership, compatibility, and recovery requirements remain in force.
 
@@ -121,20 +126,25 @@ authority. It never changes in response to the endpoint-root input. `endpointRoo
 is the absolute POSIX parent beneath which `aipr/v1` is derived; it equals
 `cacheRoot` unless an explicit endpoint root is configured. Windows returns
 `endpointRoot: null` because its named-pipe endpoint has no filesystem root.
-On POSIX, `endpointLayoutVersion` is `1` and `maxEndpointRootBytes` is the
-injected endpoint limit minus the 61-byte `/aipr/v1/<token>` suffix. Windows
+On POSIX, `endpointLayoutVersion` is `1` and `maxEndpointRootBytes` is
+`platform.maxEndpointLength` minus the 61-byte `/aipr/v1/<token>` suffix.
+Windows
 returns `null` for both because its retained named-pipe label has no versioned
 filesystem layout. The path layer is the sole source for both values.
 
 Every returned root is a canonical absolute platform path with no trailing
 separator and no `.` or `..` component. A configured value carrying one of
 those noncanonical forms fails with `APR_BROKER_PATH_INVALID` naming its input;
-the path layer never resolves symlinks. POSIX `/` is intentionally rejected as
-an unrepresentable owner-only root rather than treated as a trailing-separator
-exception. Root equality is byte-exact UTF-8 comparison of that canonical form.
-It remains case-sensitive even on a case-insensitive volume; a case-only
-difference fails closed with the mismatch recovery rather than being silently
-normalized.
+the path layer never resolves symlinks in the `home`, `XDG_CACHE_HOME`,
+`LOCALAPPDATA`, or `AI_PEER_REVIEW_ENDPOINT_ROOT` root inputs. Identity-tuple
+canonicalization remains governed by the accepted design and still resolves
+physical project-root symlinks. POSIX `/` is intentionally rejected as an
+unrepresentable owner-only root rather than treated as a trailing-separator
+exception. POSIX cache-root and endpoint-root equality is byte-exact UTF-8
+comparison of that canonical input form. It remains case-sensitive even on a
+case-insensitive volume; a case-only difference fails closed with the mismatch
+recovery rather than being silently normalized. This POSIX comparison rule does
+not alter the accepted Windows canonical-volume/path-spelling contract.
 
 Input mapping is normative:
 
@@ -149,11 +159,13 @@ Input mapping is normative:
 | Windows     | `AI_PEER_REVIEW_ENDPOINT_ROOT`                    | Ignored; `endpointRootSource: named-pipe`                      | All values ignored                                                                                                                                             | No endpoint directory                                       |
 
 When a configured input fails, the error context names the specific variable;
-`APR_BROKER_CACHE_ROOT_UNAVAILABLE` recovery therefore never has to infer
-whether `XDG_CACHE_HOME` or `AI_PEER_REVIEW_ENDPOINT_ROOT` selected the observed
-path. The explicit endpoint-root setting is the supported recovery for a macOS
-home whose default endpoint would be too long. It changes neither project
-identity nor the single full-digest lock location.
+root-anchor recovery therefore never has to infer which input selected the
+observed path. Authority-cache anchor failures use
+`APR_BROKER_CACHE_ROOT_UNAVAILABLE`; independently configured endpoint-anchor
+failures use `APR_BROKER_ENDPOINT_ROOT_UNAVAILABLE`. The explicit endpoint-root
+setting is the supported recovery for a macOS home whose default endpoint would
+be too long. It changes neither project identity nor the full-digest lock
+location selected by that process.
 
 The closed `cacheRootSource` value set is `platform-default`,
 `xdg-configured`, and `home-default`. The closed `endpointRootSource` value set
@@ -265,8 +277,10 @@ each injected value; they do not imply that Darwin and Linux share a limit.
 
 The compact token is routing information, not trust evidence. Authentication
 continues to require the live handshake's full canonical root tuple, package
-version, broker protocol version, Node major, instance ID, nonce proof, and
-kernel-reported peer user.
+version, broker protocol version, Node major, the authority `cacheRoot`, instance
+ID, nonce proof, and kernel-reported peer user. A responder reports its canonical
+authority cache root as part of the authenticated handshake; it is never inferred
+from the shared socket pathname.
 
 Task 4 must treat both locations as protected resources. `cacheRoot` is the
 authority trust anchor and `endpointRoot` is the POSIX routing trust anchor. Each
@@ -292,9 +306,10 @@ user-owned, non-symlink directory not writable by group or other, Task 4 may
 create its direct `.cache` child as `0700` relative to that retained home handle.
 It then applies the identical root owner, mode, type, and no-symlink
 post-conditions before use. An absent root outside that exception, or any unsafe
-authority or endpoint root, fails closed with
-`APR_BROKER_CACHE_ROOT_UNAVAILABLE`, identifies its authority/endpoint role and
-source variable, and gives one recovery action.
+authority root, fails closed with `APR_BROKER_CACHE_ROOT_UNAVAILABLE`; an absent
+or unsafe independently configured endpoint root fails closed with
+`APR_BROKER_ENDPOINT_ROOT_UNAVAILABLE`. Each identifies its role, exact path,
+source variable, and one recovery action.
 
 Below that anchor, Task 4 creates and validates every package-owned level:
 
@@ -340,17 +355,21 @@ Below that anchor, Task 4 creates and validates every package-owned level:
 - Only the verified holder of the full-digest `broker.lock` may unlink the
   endpoint whose token derives from that same digest. After acquiring that lock
   and reconciling project/provider authority, the holder probes a present socket;
-  a failed authenticated connection plus retained lock ownership permits removal
-  of that exact stale socket before bind. Without the lock, stale-looking socket
-  state is never removed.
+  only a transport-level refusal that proves no listener accepted the connection
+  (`ECONNREFUSED`, `ENOENT`, or the platform-equivalent no-listener result), plus
+  retained lock ownership, permits removal of that exact stale socket before
+  bind. Once any peer accepts the transport, it is live for reclamation purposes:
+  malformed protocol, tuple, version, instance, nonce, peer-credential, or
+  handshake failures are fail-closed integrity results and never removal
+  authority. Without the lock, stale-looking socket state is never removed.
 - After acquiring that lock and reconciling project/provider authority, a new
   owner also reads any existing metadata from the same full-digest authority
   directory. If it records a different endpoint root, the owner validates that
   root and its full endpoint-directory chain, derives only its own digest token,
-  and probes that exact prior socket. A failed authenticated connection permits
-  unlinking that exact socket while the lock remains held. The owner never uses
-  recursive, wildcard, age-based, or cross-digest cleanup and never removes the
-  shared directories.
+  and probes that exact prior socket. Only a transport-level no-listener result
+  permits unlinking that exact socket while the lock remains held; any accepting
+  peer is preserved. The owner never uses recursive, wildcard, age-based, or
+  cross-digest cleanup and never removes the shared directories.
 - If a metadata-recorded superseded endpoint root is absent, unreachable, or
   fails root/parent validation, the owner does not recreate, repair, or traverse
   it and does not abort a start at its valid current root. It records the exact
@@ -372,6 +391,16 @@ configured endpoint must set the same variable. Adding the token later would
 require an explicit metadata-schema change. Neither metadata nor the
 layout-version field could ever replace live authentication. The metadata schema
 version and the independent pathname-layout version do not move in lockstep.
+
+When a probe reaches an accepting peer, the authenticated handshake compares the
+responder's reported authority `cacheRoot` with the requester's canonical
+authority cache root before instance/nonce disagreement can be interpreted. A
+different cache root produces `APR_BROKER_AUTHORITY_CACHE_MISMATCH`, preserves
+the live socket, and names both cache roots, both full-digest lock paths, and the
+shared endpoint root. Its sole action is to converge `XDG_CACHE_HOME` or `home`
+for every participant and retry. A peer that accepts transport but cannot
+authenticate sufficiently to report a trusted cache root produces the existing
+broker-integrity error and is likewise never unlinked.
 
 Immediately after acquiring and verifying the lock, the owner reads prior
 metadata for reconciliation and then atomically publishes current-instance
@@ -426,8 +455,9 @@ pathname.
 Before ownership-sensitive cleanup, a second retained-parent observation checks
 owner, type, and mode again and compares device and inode/file identity with the
 recorded baseline. Any mismatch fails closed and unlinks neither observed entry.
-This record-then-compare contract detects later replacement without pretending
-that `bindat` exists or comparing unrelated socket identities.
+This record-then-compare contract detects replacement that changes the observed
+filesystem identity without pretending that `bindat` exists or comparing
+unrelated socket identities.
 
 Before connecting, a POSIX client derives and preflights its endpoint from its
 own environment, then opens and validates only the authority cache root. It
@@ -478,11 +508,12 @@ design. Broker compatibility at a live corrected endpoint continues to require
 exact package, protocol, and Node-major matches as defined by the accepted epic
 design.
 
-A v1 client that observes current-instance, `ready` metadata with an unrecognized
-`endpoint_layout_version` fails with existing `APR_BROKER_INCOMPATIBLE` before
-root comparison or owner-election advice. Its one action is to upgrade to an
-ai-peer-review version that supports the recorded layout. It never probes an
-unknown-layout endpoint or attempts owner acquisition against the live lock.
+A v1 client that observes current-instance, `starting` or `ready` metadata with
+an unrecognized `endpoint_layout_version` fails with existing
+`APR_BROKER_INCOMPATIBLE` before root comparison or owner-election advice. Its
+one action is to upgrade to an ai-peer-review version that supports the recorded
+layout. It never probes an unknown-layout endpoint or attempts owner acquisition
+against the live lock.
 
 The full-digest lock directory intentionally remains unversioned and rooted only
 at the resolved platform `cacheRoot`. Within one resolved cache root, it is the
@@ -491,11 +522,16 @@ a second broker for the same canonical digest contends for that lock before
 probing, draining, migrating, or binding any endpoint. The accepted platform
 contract already requires all processes for a project to resolve the same
 `XDG_CACHE_HOME`, `%LOCALAPPDATA%`, and home; divergent authority-cache
-configuration remains a pre-existing deployment error outside #56. The new
-endpoint-root setting cannot create that split because it never relocates the
-lock. A future design must not move or version the lock directory and thereby
-allow two endpoint roots or layout versions within one resolved cache root to
-own one project concurrently.
+configuration remains a deployment error, but separating `endpointRoot` from
+`cacheRoot` can now make two such lock domains converge on one socket pathname.
+The lock therefore guarantees exclusivity only within its resolved cache root;
+it does not authorize unlinking an accepting peer at a shared endpoint. Live
+handshake comparison of `cacheRoot` diagnoses this cross-domain collision as
+`APR_BROKER_AUTHORITY_CACHE_MISMATCH`, and the transport-failure-only cleanup
+rule prevents either domain from unlinking the other's live socket. A future
+design must not move or version the lock directory and thereby allow two
+endpoint roots or layout versions within one resolved cache root to own one
+project concurrently.
 
 The short `aipr` cache name carries a residual local name-collision risk. An
 unsafe foreign-owned, permissive, non-directory, or symlinked path is refused
@@ -551,8 +587,9 @@ described here; no future layout may assume the `v1` sentence is unconditional.
   Darwin includes the 42-byte endpoint-root maximum, Linux the 46-byte maximum;
   if no safe conforming root exists, the error names the unsupported account
   condition and the administrator-provisioning action above. Error details
-  carry the path layer's derived `maxEndpointRootBytes`, never a duplicated
-  literal.
+  carry the path layer's derived `maxEndpointRootBytes` on POSIX, never a
+  duplicated literal; Windows returns that field as `null` and reports the
+  unsupported-runtime condition.
 - Whenever the stable project lock is live and readable matching-instance,
   supported-layout, `ready` metadata names a different validated endpoint root,
   before any endpoint-root traversal or connection
@@ -573,6 +610,10 @@ described here; no future layout may assume the `v1` sentence is unconditional.
   `<user-cache>` trust anchor: `APR_BROKER_CACHE_ROOT_UNAVAILABLE`; no package
   directory or endpoint is created, except that an absent Linux `home-default`
   `.cache` is created and verified under the retained home handle as specified.
+- Missing, foreign-owned, non-directory, symlinked, or otherwise unusable
+  independently configured endpoint trust anchor:
+  `APR_BROKER_ENDPOINT_ROOT_UNAVAILABLE`; no endpoint directory or socket is
+  created, and recovery identifies the exact configured variable and path.
 - Unsafe, foreign-owned, permissive, non-directory, or symlinked Unix authority
   parent: `APR_BROKER_AUTHORITY_PARENT_UNSAFE` with exact-path inspection and
   manual repair guidance; never automatic removal.
@@ -586,12 +627,19 @@ described here; no future layout may assume the `v1` sentence is unconditional.
 - Mid-lifetime replacement or loss of either shared endpoint directory:
   `APR_BROKER_ENDPOINT_PARENT_LOST`. The error states that one shared-path event
   may have fenced every project broker for the user. Each broker retains its own
-  lock and metadata evidence and refuses delivery. Recovery inspects and restores
-  both shared directories to their owner-only nonsymlink state, then reconciles
-  every affected project's lock, metadata, endpoint, review registry, and
-  provider state before restarting brokers individually. The package never
-  recreates the directory, unlinks sockets, takes ownership, or redirects an
-  endpoint automatically after mid-lifetime loss.
+  lock and metadata evidence and refuses delivery. The error distinguishes a
+  safely absent parent, consistent with cache eviction, from an unsafe
+  replacement. Absence recovery restores the exact owner-only directory chain
+  and reconciles affected projects; unsafe replacement requires full inspection
+  before restoring both shared directories and reconciling every affected
+  project's lock, metadata, endpoint, review registry, and provider state. The
+  package never recreates the directory, unlinks sockets, takes ownership, or
+  redirects an endpoint automatically after mid-lifetime loss.
+- An accepting peer for the same project and endpoint root reports a different
+  canonical authority cache root: `APR_BROKER_AUTHORITY_CACHE_MISMATCH`; preserve
+  the socket, name both cache roots, both full-digest lock paths, and the shared
+  endpoint root, then converge `XDG_CACHE_HOME` or `home` across every
+  participant. No handshake failure from an accepting peer authorizes unlink.
 - Unsupported platform: `APR_BROKER_ENDPOINT_UNSUPPORTED`.
 - Ownership, symlink, peer, tuple, instance, nonce, or version mismatch: the
   existing Task 4 integrity and authentication errors; never endpoint fallback.
@@ -631,7 +679,7 @@ Unit tests must prove:
   and each entry is a UTF-8 byte prefix of `endpoint`;
 - POSIX returns `endpointLayoutVersion: 1` and
   `maxEndpointRootBytes: 42` for an injected Darwin limit or `46` for an
-  injected Linux limit;
+  injected Linux `platform.maxEndpointLength` limit;
 - every input-table row, invalid-value outcome, source enum, and creation policy
   is asserted per platform; `cacheRoot` remains exact,
   `authorityDirectories` is the exact deeply frozen root-to-digest chain, and
@@ -651,16 +699,16 @@ Unit tests must prove:
 
 Issue #43's registry and ownership tests must additionally prove:
 
-- the six explicitly enumerated new stable errors each exist in the offline
+- the eight explicitly enumerated new stable errors each exist in the offline
   registry with one exact recovery action;
 - an absent Linux `home-default` cache root is created `0700` relative to the
   retained safe home, while an absent configured root is refused;
 - every authority-root and endpoint-root source is refused when group- or
   other-writable;
 - an owner-only configured endpoint root below a group/other-writable or
-  symlinked ancestor is refused with `APR_BROKER_CACHE_ROOT_UNAVAILABLE`, exact
+  symlinked ancestor is refused with `APR_BROKER_ENDPOINT_ROOT_UNAVAILABLE`, exact
   endpoint role, and source variable; the authority-cache counterpart is also
-  refused;
+  refused with `APR_BROKER_CACHE_ROOT_UNAVAILABLE`;
 - foreign-owned, non-directory, permissive, and symlinked conditions are each
   exercised at both endpoint-directory levels and all three authority levels,
   producing the matching `*_PARENT_UNSAFE` error with exact path/condition and
@@ -672,9 +720,16 @@ Issue #43's registry and ownership tests must additionally prove:
   permits cleanup through compromised lock evidence;
 - two brokers for one digest under different endpoint roots still contend for
   one stable full-digest lock, and the loser cannot bind or deliver;
+- two owners for one digest under different cache roots but one configured
+  endpoint root can each hold its own lock, but the second probe authenticates
+  the first peer's different `cacheRoot`, reports
+  `APR_BROKER_AUTHORITY_CACHE_MISMATCH` with both roots and lock paths, and never
+  unlinks the accepting peer's socket;
 - two project brokers can race to create each shared parent safely, a
   per-project release never removes it, and a leftover socket is unlinked only
-  while the matching full-digest lock is held;
+  while the matching full-digest lock is held and the connection fails at the
+  transport layer; a peer that accepts transport but fails protocol, tuple,
+  instance, nonce, credential, or cache-root authentication is never unlinked;
 - the immediate post-bind observation validates owner/type/mode and records its
   exact `0600` mode plus owner/type, and records its device and inode/file
   identity without comparing them to the listener descriptor;
