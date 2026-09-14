@@ -25,6 +25,8 @@ export { createNativePushTransport } from './transport/native-push.mjs';
 export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';
 export {
   buildClaudeReviewerLaunch,
+  classifyClaudeReviewerOutcome,
   encodeClaudeEditRule,
   matchesClaudeEditRule,
+  runClaudeReviewerLaunch,
 } from './provider/claude-launch.mjs';

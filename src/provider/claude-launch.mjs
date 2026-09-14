@@ -1,8 +1,12 @@
-import { lstatSync, realpathSync } from 'node:fs';
+import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
+import { renderCommand } from '../cli/help-data.mjs';
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
+import { fingerprintSession as defaultFingerprintSession } from '../identity/registry.mjs';
+import { inspectReviewAuthority as defaultInspectAuthority } from '../protocol/service.mjs';
+import { atomicWrite } from '../protocol/store.mjs';
 
 const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
 const EFFORTS = new Set(['low', 'medium', 'high']);
@@ -141,10 +145,7 @@ export function buildClaudeReviewerLaunch({
   const response = contained(physicalRoot, routing.response, 'response');
   regularFile(resolvedInvitation.absolute, 'reviewer invitation');
   regularFile(artifact.absolute, 'reviewed artifact');
-  if (
-    path.basename(resolvedInvitation.absolute) !== 'reviewer-invitation.md' ||
-    path.dirname(resolvedInvitation.absolute) !== path.dirname(response.absolute)
-  ) {
+  if (path.dirname(resolvedInvitation.absolute) !== path.dirname(response.absolute)) {
     throw new AprError(
       'APR_INVITATION_INVALID',
       'Claude launch invitation does not own the pending response destination.',
@@ -211,4 +212,265 @@ export function buildClaudeReviewerLaunch({
     command: Object.freeze({ file: 'claude', args, shell: false }),
     readiness,
   });
+}
+
+function authorityProjection(value, label, { reviewerRequired = true } = {}) {
+  const protocol = value?.state?.protocol;
+  const reviewer = value?.state?.participants?.reviewer;
+  if (
+    !protocol ||
+    typeof protocol.review_id !== 'string' ||
+    !Number.isSafeInteger(protocol.sequence) ||
+    !Number.isSafeInteger(protocol.revision) ||
+    !Array.isArray(value.events) ||
+    (reviewerRequired && typeof reviewer?.session_fingerprint !== 'string')
+  ) {
+    throw new AprError(
+      'APR_CLAUDE_RESULT_INVALID',
+      `Claude ${label} review authority is incomplete.`,
+      { recovery: 'Preserve the review workspace and re-read its event authority.' }
+    );
+  }
+  return { protocol, reviewer };
+}
+
+function deniedExactResponse(providerResult, response) {
+  return (providerResult?.permission_denials ?? []).some(
+    (denial) =>
+      denial &&
+      ['Edit', 'Write'].includes(denial.tool) &&
+      path.normalize(denial.path ?? '') === response
+  );
+}
+
+export function classifyClaudeReviewerOutcome({ before, after, providerResult, contract } = {}) {
+  const prior = authorityProjection(before, 'pre-launch', { reviewerRequired: false });
+  const current = authorityProjection(after, 'post-launch');
+  if (
+    contract?.review_id !== prior.protocol.review_id ||
+    current.protocol.review_id !== prior.protocol.review_id ||
+    typeof contract?.response !== 'string' ||
+    typeof contract?.invitation !== 'string'
+  ) {
+    throw new AprError(
+      'APR_CLAUDE_RESULT_INVALID',
+      'Claude launch result does not match the review authority.',
+      { recovery: 'Use the exact launch contract for this review and re-read current status.' }
+    );
+  }
+  const decisions = after.events.filter(
+    (event) =>
+      event.sequence > prior.protocol.sequence &&
+      ['reviewer-accepted', 'reviewer-revisions-requested'].includes(event.type)
+  );
+  if (decisions.length > 1) {
+    throw new AprError(
+      'APR_CLAUDE_RESULT_INVALID',
+      'Claude launch produced ambiguous reviewer submission evidence.',
+      { recovery: 'Preserve the review workspace and reconcile its event authority.' }
+    );
+  }
+  const decision = decisions[0];
+  if (decision && decision.actor !== current.reviewer.session_fingerprint) {
+    throw new AprError(
+      'APR_IDENTITY_CONFLICT',
+      'Claude launch submission belongs to a different reviewer identity.',
+      { recovery: 'Restore the exact registered reviewer session; do not replace its identity.' }
+    );
+  }
+  const status = decision
+    ? 'submitted'
+    : deniedExactResponse(providerResult, contract.response)
+      ? 'permission-blocked'
+      : Number.isInteger(providerResult?.exit_code) && providerResult.exit_code !== 0
+        ? 'failed'
+        : 'outcome-unknown';
+  const recovery =
+    status === 'permission-blocked'
+      ? Object.freeze({
+          command: renderCommand([
+            'peer-review',
+            'launch-reviewer',
+            contract.invitation,
+            '--host',
+            'claude',
+            '--resume',
+          ]),
+          reason: 'response-permission-denied',
+        })
+      : null;
+  return Object.freeze({
+    schema: 'ai-peer-review.claude-launch-result/v1',
+    review_id: current.protocol.review_id,
+    status,
+    protocol_revision: current.protocol.revision,
+    response: contract.response,
+    session_fingerprint: current.reviewer.session_fingerprint,
+    recovery,
+  });
+}
+
+function launchStatePath(contract) {
+  return contained(
+    contract.repository_root,
+    path.join(contract.workspace, 'provider', 'claude', 'launch-state.json'),
+    'Claude launch state'
+  ).absolute;
+}
+
+function sessionError(message, recovery) {
+  return new AprError('APR_CLAUDE_SESSION_INVALID', message, { recovery });
+}
+
+function readLaunchState(contract) {
+  const file = launchStatePath(contract);
+  let value;
+  try {
+    const metadata = lstatSync(file);
+    if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error('unsafe state file');
+    value = JSON.parse(readFileSync(file, 'utf8'));
+  } catch (cause) {
+    const error = sessionError(
+      'Claude resume state cannot be read safely.',
+      'Preserve the review and restore its package-owned Claude launch state.'
+    );
+    error.cause = cause;
+    throw error;
+  }
+  const expected = {
+    review_id: contract.review_id,
+    invitation: contract.invitation,
+    response: contract.response,
+    model: contract.model,
+    effort: contract.effort,
+  };
+  if (
+    value?.schema !== 'ai-peer-review.claude-launch-state/v1' ||
+    !/^[A-Za-z0-9._:-]+$/.test(value.session_handle ?? '') ||
+    !/^sha256:[0-9a-f]{64}$/.test(value.session_fingerprint ?? '') ||
+    Object.entries(expected).some(([key, selected]) => value[key] !== selected)
+  ) {
+    throw sessionError(
+      'Claude resume state conflicts with the current launch contract.',
+      'Use the exact recorded invitation, model, effort, and reviewer session.'
+    );
+  }
+  return Object.freeze({ ...value });
+}
+
+function parseProviderResult(execution) {
+  const stdout = String(execution?.stdout ?? '');
+  if (Buffer.byteLength(stdout, 'utf8') > 1024 * 1024) {
+    throw new AprError(
+      'APR_CLAUDE_RESULT_INVALID',
+      'Claude launch result exceeds the bounded JSON limit.',
+      { recovery: 'Preserve provider diagnostics privately and retry with bounded JSON output.' }
+    );
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch (cause) {
+    const error = new AprError(
+      'APR_CLAUDE_RESULT_INVALID',
+      'Claude launch did not return valid structured JSON.',
+      { recovery: 'Use Claude structured JSON output and preserve the review before retrying.' }
+    );
+    error.cause = cause;
+    throw error;
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new AprError(
+      'APR_CLAUDE_RESULT_INVALID',
+      'Claude launch returned an invalid result envelope.',
+      { recovery: 'Use the supported Claude structured JSON result envelope.' }
+    );
+  }
+  return {
+    exit_code: Number.isInteger(execution.exit_code) ? execution.exit_code : 0,
+    permission_denials: Array.isArray(parsed.permission_denials) ? parsed.permission_denials : [],
+    session_id: parsed.session_id,
+    result: parsed.result,
+    error: parsed.error,
+  };
+}
+
+export async function runClaudeReviewerLaunch({
+  contract,
+  resume = false,
+  execFile,
+  inspectAuthority = defaultInspectAuthority,
+  fingerprintSession = defaultFingerprintSession,
+} = {}) {
+  if (
+    contract?.schema !== 'ai-peer-review.claude-launch/v1' ||
+    typeof execFile !== 'function' ||
+    typeof inspectAuthority !== 'function'
+  ) {
+    throw new AprError('APR_CLAUDE_RESULT_INVALID', 'Claude launch runner input is incomplete.', {
+      recovery: 'Use a validated package-generated Claude launch contract.',
+    });
+  }
+  const before = inspectAuthority(contract.workspace);
+  const priorState = resume ? readLaunchState(contract) : null;
+  const args = resume
+    ? Object.freeze(['--resume', priorState.session_handle, ...contract.command.args])
+    : contract.command.args;
+  let execution;
+  try {
+    execution = await execFile(contract.command.file, args, {
+      cwd: contract.repository_root,
+      shell: false,
+      encoding: 'utf8',
+    });
+  } catch (cause) {
+    execution = {
+      stdout: cause?.stdout ?? '',
+      stderr: cause?.stderr ?? '',
+      exit_code: Number.isInteger(cause?.code) ? cause.code : 1,
+    };
+  }
+  const providerResult = parseProviderResult(execution);
+  const sessionHandle = providerResult.session_id ?? priorState?.session_handle;
+  if (typeof sessionHandle !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(sessionHandle)) {
+    throw sessionError(
+      'Claude launch result does not contain a valid resumable session.',
+      'Preserve the review and retry with Claude structured session output.'
+    );
+  }
+  if (priorState && sessionHandle !== priorState.session_handle) {
+    throw sessionError(
+      'Claude resume returned a different provider session.',
+      'Restore the exact recorded Claude session; do not replace reviewer identity.'
+    );
+  }
+  const sessionFingerprint = fingerprintSession('anthropic', sessionHandle);
+  const after = inspectAuthority(contract.workspace);
+  const reviewerFingerprint = after?.state?.participants?.reviewer?.session_fingerprint;
+  if (reviewerFingerprint && reviewerFingerprint !== sessionFingerprint) {
+    throw new AprError(
+      'APR_IDENTITY_CONFLICT',
+      'Claude launch session does not match the registered reviewer.',
+      { recovery: 'Resume the exact registered Claude reviewer session.' }
+    );
+  }
+  atomicWrite(
+    launchStatePath(contract),
+    `${JSON.stringify(
+      {
+        schema: 'ai-peer-review.claude-launch-state/v1',
+        review_id: contract.review_id,
+        invitation: contract.invitation,
+        response: contract.response,
+        model: contract.model,
+        effort: contract.effort,
+        session_handle: sessionHandle,
+        session_fingerprint: sessionFingerprint,
+        protocol_revision: after.state.protocol.revision,
+      },
+      null,
+      2
+    )}\n`
+  );
+  return classifyClaudeReviewerOutcome({ before, after, providerResult, contract });
 }

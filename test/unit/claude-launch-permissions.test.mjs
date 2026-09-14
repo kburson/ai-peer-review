@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
 import {
   buildClaudeReviewerLaunch,
+  classifyClaudeReviewerOutcome,
   encodeClaudeEditRule,
   matchesClaudeEditRule,
+  runClaudeReviewerLaunch,
 } from '../../src/provider/claude-launch.mjs';
 
 function fixture(prefix = 'claude launch ') {
@@ -154,4 +156,196 @@ test('fails closed for path escape, routing drift, symlinks, and incomplete laun
       }),
     { code: 'APR_CLAUDE_PERMISSION_INVALID' }
   );
+});
+
+function authority({ sequence = 3, revision = 2, state = 'reviewer-turn', events = [] } = {}) {
+  return {
+    state: {
+      protocol: { review_id: 'review-1', sequence, revision, state },
+      participants: {
+        reviewer: { session_fingerprint: `sha256:${'a'.repeat(64)}` },
+      },
+    },
+    events,
+  };
+}
+
+function classificationContract() {
+  return Object.freeze({
+    review_id: 'review-1',
+    invitation: '/work/project/reviewer-invitation.md',
+    response: '/work/project/reviewer-response-1.md',
+  });
+}
+
+test('classifies only a new expected reviewer decision as submitted', () => {
+  const before = authority();
+  const accepted = {
+    sequence: 4,
+    revision: 3,
+    type: 'reviewer-accepted',
+    actor: `sha256:${'a'.repeat(64)}`,
+  };
+  const after = authority({
+    sequence: 4,
+    revision: 3,
+    state: 'acceptance-pending',
+    events: [accepted],
+  });
+  const result = classifyClaudeReviewerOutcome({
+    before,
+    after,
+    providerResult: { exit_code: 1, permission_denials: [] },
+    contract: classificationContract(),
+  });
+  assert.equal(result.status, 'submitted');
+  assert.equal(result.protocol_revision, 3);
+  assert.equal(result.session_fingerprint, `sha256:${'a'.repeat(64)}`);
+  assert.equal(result.recovery, null);
+});
+
+test('surfaces exact same-session recovery for a denied response write', () => {
+  const unchanged = authority();
+  const result = classifyClaudeReviewerOutcome({
+    before: unchanged,
+    after: unchanged,
+    providerResult: {
+      exit_code: 1,
+      permission_denials: [{ tool: 'Edit', path: '/work/project/reviewer-response-1.md' }],
+    },
+    contract: classificationContract(),
+  });
+  assert.equal(result.status, 'permission-blocked');
+  assert.equal(result.recovery.reason, 'response-permission-denied');
+  assert.equal(
+    result.recovery.command,
+    'peer-review launch-reviewer /work/project/reviewer-invitation.md --host claude --resume'
+  );
+  assert.doesNotMatch(JSON.stringify(result), /raw-session|session-123/);
+});
+
+test('keeps definite provider failure separate from ambiguous completion', () => {
+  const unchanged = authority();
+  assert.equal(
+    classifyClaudeReviewerOutcome({
+      before: unchanged,
+      after: unchanged,
+      providerResult: { exit_code: 2, permission_denials: [], error: 'provider unavailable' },
+      contract: classificationContract(),
+    }).status,
+    'failed'
+  );
+  assert.equal(
+    classifyClaudeReviewerOutcome({
+      before: unchanged,
+      after: unchanged,
+      providerResult: {
+        exit_code: 0,
+        permission_denials: [],
+        result: 'analysis complete',
+      },
+      contract: classificationContract(),
+    }).status,
+    'outcome-unknown'
+  );
+});
+
+test('rejects a submission transition attributed to a different reviewer identity', () => {
+  const before = authority();
+  const after = authority({
+    sequence: 4,
+    revision: 3,
+    state: 'acceptance-pending',
+    events: [
+      {
+        sequence: 4,
+        revision: 3,
+        type: 'reviewer-accepted',
+        actor: `sha256:${'b'.repeat(64)}`,
+      },
+    ],
+  });
+  assert.throws(
+    () =>
+      classifyClaudeReviewerOutcome({
+        before,
+        after,
+        providerResult: { exit_code: 0, permission_denials: [] },
+        contract: classificationContract(),
+      }),
+    { code: 'APR_IDENTITY_CONFLICT' }
+  );
+});
+
+test('keeps the Claude session handle private and injects it only into exact resume execution', async (t) => {
+  const fx = fixture('claude private resume ');
+  t.after(fx.cleanup);
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5',
+    effort: 'high',
+  });
+  const reviewerFingerprint = `sha256:${'a'.repeat(64)}`;
+  const before = authority({ sequence: 1, revision: 0, events: [] });
+  delete before.state.participants.reviewer;
+  const joined = authority({ sequence: 3, revision: 1, events: [] });
+  joined.state.participants.reviewer = { session_fingerprint: reviewerFingerprint };
+  const accepted = authority({
+    sequence: 4,
+    revision: 2,
+    state: 'acceptance-pending',
+    events: [
+      {
+        sequence: 4,
+        revision: 2,
+        type: 'reviewer-accepted',
+        actor: reviewerFingerprint,
+      },
+    ],
+  });
+  accepted.state.participants.reviewer = { session_fingerprint: reviewerFingerprint };
+  const rawHandle = 'raw-session-123';
+  const initialAuthorities = [before, joined];
+  const initial = await runClaudeReviewerLaunch({
+    contract,
+    inspectAuthority: () => initialAuthorities.shift(),
+    fingerprintSession: () => reviewerFingerprint,
+    execFile: async () => ({
+      stdout: JSON.stringify({
+        session_id: rawHandle,
+        permission_denials: [{ tool: 'Edit', path: contract.response }],
+      }),
+      stderr: '',
+    }),
+  });
+
+  assert.equal(initial.status, 'permission-blocked');
+  assert.doesNotMatch(JSON.stringify(initial), new RegExp(rawHandle));
+  const stateFile = path.join(contract.workspace, 'provider', 'claude', 'launch-state.json');
+  const privateState = JSON.parse(readFileSync(stateFile, 'utf8'));
+  assert.equal(privateState.session_handle, rawHandle);
+  assert.equal(privateState.model, 'claude-opus-5');
+  assert.equal(privateState.effort, 'high');
+
+  let resumedArgs;
+  const resumeAuthorities = [joined, accepted];
+  const resumed = await runClaudeReviewerLaunch({
+    contract,
+    resume: true,
+    inspectAuthority: () => resumeAuthorities.shift(),
+    fingerprintSession: () => reviewerFingerprint,
+    execFile: async (_file, args) => {
+      resumedArgs = args;
+      return {
+        stdout: JSON.stringify({ session_id: rawHandle, permission_denials: [] }),
+        stderr: '',
+      };
+    },
+  });
+
+  assert.equal(resumed.status, 'submitted');
+  assert.deepEqual(resumedArgs.slice(0, 2), ['--resume', rawHandle]);
+  assert.doesNotMatch(JSON.stringify(resumed), new RegExp(rawHandle));
 });

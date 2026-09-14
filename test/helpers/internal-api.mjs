@@ -21,3 +21,8 @@ export { commitExactPaths, createGitTransactionRepository } from '../../src/git/
 export { sealNoCommitHandoff } from '../../src/protocol/service.mjs';
 export { hydrateTemplate } from '../../src/templates/index.mjs';
 export { createResumeTransport } from '../../src/transport/resume.mjs';
+export {
+  buildClaudeReviewerLaunch,
+  classifyClaudeReviewerOutcome,
+  runClaudeReviewerLaunch,
+} from '../../src/provider/claude-launch.mjs';
