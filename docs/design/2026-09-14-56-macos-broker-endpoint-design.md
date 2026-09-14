@@ -1,6 +1,6 @@
 # Issue #56: macOS Broker Endpoint Correction
 
-<!-- cspell:words sockaddr injective unpadded noninteger nonpositive -->
+<!-- cspell:words aipr EEXIST sockaddr injective unpadded noninteger nonpositive -->
 
 **Status:** Proposed correction for peer review
 
@@ -36,7 +36,8 @@ The rejection is correct. The pathname contract is not.
 - Keep the full-digest directory as lock and metadata authority.
 - Retain fail-closed byte-length validation for unusually long cache roots.
 - Leave the Windows named-pipe contract unchanged.
-- Give Task 4 one unambiguous security contract for the separated socket parent.
+- Give Task 4 an explicit path and unambiguous security contract for the
+  separated socket parent.
 
 ## Non-goals
 
@@ -51,7 +52,7 @@ The rejection is correct. The pathname contract is not.
 
 Encode the same 32 digest bytes with the lowercase alphabet `a-z2-7`, producing
 exactly 52 characters, and place the Unix socket at
-`<user-cache>/apr/v1/<token>`.
+`<user-cache>/aipr/v1/<token>`.
 
 This is the selected approach. It is lossless, deterministic, portable across
 case-folding filesystems, recognizable as ai-peer-review state, and short enough
@@ -73,11 +74,13 @@ risk without improving identity integrity.
 
 ## Corrected path contract
 
-`brokerPaths({ identity, platform, env, home })` keeps its existing return shape:
+`brokerPaths({ identity, platform, env, home })` extends its return shape with
+the explicit protected endpoint parent:
 
 ```js
 {
   directory,
+  endpointDirectory,
   endpoint,
   lock,
   metadata,
@@ -95,12 +98,17 @@ The lock and metadata directory remains:
 On macOS and Linux, the endpoint becomes:
 
 ```text
-<user-cache>/apr/v1/<52-character-lowercase-base32-root-digest>
+<user-cache>/aipr/v1/<52-character-lowercase-base32-root-digest>
 ```
 
-There is no suffix. `apr` is the stable package namespace and `v1` versions the
+There is no suffix. `aipr` is the stable package namespace and `v1` versions the
 pathname encoding/layout, not the broker protocol or project identity. Package,
 broker-protocol, and Node versions remain excluded from routing.
+
+`endpointDirectory` is exactly `<user-cache>/aipr/v1`. The path layer owns that
+derivation; the security layer must not reconstruct it with `dirname(endpoint)`.
+The directory is per-user and shared by every project-local broker for that
+user. Only its token leaf is per-project.
 
 On Windows, the endpoint remains:
 
@@ -129,10 +137,10 @@ continues to use JavaScript string units for the injected named-pipe limit.
 For the real macOS home in which the defect was reproduced:
 
 ```text
-/Users/kpburson/Library/Caches/apr/v1/<52-character-token>
+/Users/kpburson/Library/Caches/aipr/v1/<52-character-token>
 ```
 
-is 90 UTF-8 bytes. A 28-byte absolute home path still fits exactly at 103 bytes.
+is 91 UTF-8 bytes. A 27-byte absolute home path still fits exactly at 103 bytes.
 Longer platform inputs are possible and are not redirected: preflight throws
 `APR_BROKER_ENDPOINT_TOO_LONG` before any directory, lock, metadata, or endpoint
 resource is opened.
@@ -152,16 +160,38 @@ Task 4 must treat both cache locations as protected resources:
 
 - `openPrivateDirectory(paths.directory)` validates and retains the full-digest
   metadata and lock directory.
-- `listenPrivate(paths.endpoint)` creates or validates the compact endpoint
-  parent as owner-only (`0700` on POSIX), refuses symlinks and foreign ownership,
-  creates the socket as owner-only where the platform permits, and retains the
-  endpoint identity handle through the owned lifetime.
+- `listenPrivate(paths.endpointDirectory, paths.endpoint, { lock })` creates or
+  validates the compact endpoint parent as owner-only (`0700` on POSIX), refuses
+  symlinks and foreign ownership, creates the socket as owner-only where the
+  platform permits, and retains the endpoint identity handle through the owned
+  lifetime. If concurrent brokers for different projects race to create the
+  shared parent, losing creation with `EEXIST` is successful only after the
+  winner's directory passes the complete owner, mode, type, and no-symlink
+  post-condition checks.
 - Owner verification detects replacement or unlink of either the lock evidence
-  or endpoint. A missing compact endpoint never authorizes lock theft.
+  or endpoint. Replacement or unlink of the shared endpoint parent fences every
+  broker that observes it; each preserves its own lock/metadata evidence and
+  refuses further delivery. A per-project broker never removes the shared
+  `aipr` or `aipr/v1` directory, including when it appears empty.
+- Only the verified holder of the full-digest `broker.lock` may unlink the
+  endpoint whose token derives from that same digest. After acquiring that lock
+  and reconciling project/provider authority, the holder probes a present socket;
+  a failed authenticated connection plus retained lock ownership permits removal
+  of that exact stale socket before bind. Without the lock, stale-looking socket
+  state is never removed.
 
 `broker.json` remains discovery-only. When Task 4 writes it, it records the full
-root tuple and digest; it may additionally record the derived endpoint token for
-diagnostics, but that token cannot replace live authentication.
+root tuple and digest. Version 1 does not duplicate the derived endpoint token;
+diagnostics derive it through the same canonical path function. Adding the token
+later would require an explicit metadata-schema change. It could never replace
+live authentication.
+
+A pre-existing foreign-owned, non-directory, permissive, or symlinked `aipr` or
+`aipr/v1` path fails with `APR_BROKER_ENDPOINT_PARENT_UNSAFE`. Recovery reports
+the exact offending path and observed condition, directs the user to inspect and
+remove or repair that path outside ai-peer-review only after establishing its
+ownership and purpose, and then retry. It never suggests an endpoint override,
+recursive deletion, ownership takeover, or automatic replacement.
 
 ## Compatibility and migration
 
@@ -176,12 +206,19 @@ design. Broker compatibility at a live corrected endpoint continues to require
 exact package, protocol, and Node-major matches as defined by the accepted epic
 design.
 
+The full-digest lock directory intentionally remains unversioned. It is the
+cross-layout-version mutual-exclusion point: a future `v2` endpoint must contend
+for the same project lock before probing, draining, migrating, or binding a
+different endpoint. A future design must not version the lock directory and
+thereby allow two layout versions to own one project concurrently.
+
 ## Data flow
 
 1. Canonical project identity computes the existing 64-hex root digest.
 2. `brokerPaths` derives the full-digest metadata/lock directory.
 3. On Unix, it losslessly base32-encodes the digest bytes and derives the compact
-   versioned endpoint; on Windows it derives the existing named pipe.
+   shared endpoint parent plus versioned endpoint; on Windows it derives the
+   existing named pipe.
 4. Endpoint length preflight runs before any resource is opened.
 5. Task 4 validates both private locations, acquires the full-digest lock, binds
    the compact endpoint, and authenticates the full tuple over live IPC.
@@ -193,6 +230,9 @@ design.
   `APR_BROKER_ENDPOINT_LIMIT_INVALID`.
 - UTF-8 pathname or named-pipe label over the observed limit:
   `APR_BROKER_ENDPOINT_TOO_LONG`.
+- Unsafe, foreign-owned, permissive, non-directory, or symlinked Unix endpoint
+  parent: `APR_BROKER_ENDPOINT_PARENT_UNSAFE` with exact-path inspection and
+  manual repair guidance; never automatic removal.
 - Unsupported platform: `APR_BROKER_ENDPOINT_UNSUPPORTED`.
 - Ownership, symlink, peer, tuple, instance, nonce, or version mismatch: the
   existing Task 4 integrity and authentication errors; never endpoint fallback.
@@ -206,11 +246,19 @@ Unit tests must prove:
 - every valid digest emits 52 lowercase case-fold-safe characters and round
   trips to the same 32 bytes in the test oracle;
 - realistic macOS cache roots fit 103 bytes;
+- a 27-byte macOS home produces exactly 103 bytes and the neighboring 28-byte
+  home is refused at 104 bytes;
 - Unicode cache roots are measured in UTF-8 bytes;
 - distinct root digests derive distinct Unix endpoints;
 - package/protocol/Node version inputs do not affect routing;
 - overlong paths and invalid limits still fail before resource creation; and
 - Windows directory and named-pipe results are unchanged.
+
+Issue #43's ownership tests must additionally prove that two project brokers can
+race to create the shared parent safely, a per-project release never removes it,
+and a leftover socket is unlinked only while the matching full-digest lock is
+held. Those are Task 4 ownership operations, so #56 defines and hands off the
+tests rather than creating a dependency cycle by implementing #43's lock layer.
 
 On macOS, an integration test must call production `brokerPaths` with the real
 home directory and a unique full digest, create only its derived private endpoint
@@ -218,6 +266,9 @@ parent, bind a real `node:net` Unix server at the returned endpoint, exchange on
 message with a real client, and remove only the exact unique socket plus empty
 test-created directories. It must fail—not substitute another path—if the
 production-derived endpoint cannot bind.
+
+The Windows `-broker.sock` named-pipe suffix is retained deliberately for
+compatibility even though Unix endpoints no longer use a suffix.
 
 ## Acceptance
 
