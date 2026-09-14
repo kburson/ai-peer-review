@@ -16,13 +16,16 @@ function fail(message, recovery, details = {}) {
   throw new AprError('APR_CLAUDE_PERMISSION_INVALID', message, { recovery, details });
 }
 
+function pathImplementation(value) {
+  if (typeof value !== 'string') return null;
+  if (path.posix.isAbsolute(value)) return path.posix;
+  if (/^[A-Za-z]:\\/.test(value) && path.win32.isAbsolute(value)) return path.win32;
+  return null;
+}
+
 function exactPath(value, label) {
-  if (
-    typeof value !== 'string' ||
-    !path.isAbsolute(value) ||
-    path.normalize(value) !== value ||
-    value.includes('\0')
-  ) {
+  const implementation = pathImplementation(value);
+  if (!implementation || implementation.normalize(value) !== value || value.includes('\0')) {
     fail(
       `Claude ${label} path is not canonical and absolute.`,
       `Use the exact canonical absolute ${label} path from the sealed reviewer invitation.`,
@@ -30,6 +33,17 @@ function exactPath(value, label) {
     );
   }
   return value;
+}
+
+function claudePath(value, label) {
+  const selected = exactPath(value, label);
+  if (path.posix.isAbsolute(selected)) return selected;
+  return `/${selected[0].toLowerCase()}${selected.slice(2).replaceAll('\\', '/')}`;
+}
+
+function portableCommandPath(value, label) {
+  const selected = exactPath(value, label);
+  return path.posix.isAbsolute(selected) ? selected : selected.replaceAll('\\', '/');
 }
 
 function safeIdentifier(value, label) {
@@ -78,7 +92,7 @@ function regularFile(file, label) {
 }
 
 export function encodeClaudeEditRule(absolutePath) {
-  const selected = exactPath(absolutePath, 'response');
+  const selected = claudePath(absolutePath, 'response');
   if (UNSUPPORTED_PATTERN.test(selected)) {
     fail(
       'Claude response permission path is not exactly representable.',
@@ -89,20 +103,23 @@ export function encodeClaudeEditRule(absolutePath) {
 }
 
 export function matchesClaudeEditRule(rule, candidate, { projectRoot } = {}) {
-  if (typeof rule !== 'string' || typeof candidate !== 'string' || !path.isAbsolute(candidate)) {
-    return false;
-  }
+  if (typeof rule !== 'string' || typeof candidate !== 'string') return false;
   const match = rule.match(/^Edit\((\/{1,2}[^\0]*)\)$/u);
   if (!match || UNSUPPORTED_PATTERN.test(match[1])) return false;
   const specifier = match[1];
-  let selected;
-  if (specifier.startsWith('//')) {
-    selected = path.normalize(specifier.slice(1));
-  } else {
-    if (typeof projectRoot !== 'string' || !path.isAbsolute(projectRoot)) return false;
-    selected = path.resolve(projectRoot, specifier.slice(1));
+  try {
+    const normalizedCandidate = claudePath(candidate, 'response');
+    let selected;
+    if (specifier.startsWith('//')) {
+      selected = path.posix.normalize(specifier.slice(1));
+    } else {
+      const normalizedProject = claudePath(projectRoot, 'repository');
+      selected = path.posix.resolve(normalizedProject, specifier.slice(1));
+    }
+    return normalizedCandidate === selected;
+  } catch {
+    return false;
   }
-  return path.normalize(candidate) === selected;
 }
 
 function encodeClaudeBashRule(argv) {
@@ -172,10 +189,12 @@ export function buildClaudeReviewerLaunch({
     );
   }
   const rule = encodeClaudeEditRule(response.absolute);
-  const joinCommand = renderCommand(['peer-review', 'join', resolvedInvitation.absolute]);
-  const submitCommand = renderCommand(['peer-review', 'submit', workspace.absolute]);
-  const joinRule = encodeClaudeBashRule(['peer-review', 'join', resolvedInvitation.absolute]);
-  const submitRule = encodeClaudeBashRule(['peer-review', 'submit', workspace.absolute]);
+  const invitationCommandPath = portableCommandPath(resolvedInvitation.absolute, 'invitation');
+  const workspaceCommandPath = portableCommandPath(workspace.absolute, 'workspace');
+  const joinCommand = renderCommand(['peer-review', 'join', invitationCommandPath]);
+  const submitCommand = renderCommand(['peer-review', 'submit', workspaceCommandPath]);
+  const joinRule = encodeClaudeBashRule(['peer-review', 'join', invitationCommandPath]);
+  const submitRule = encodeClaudeBashRule(['peer-review', 'submit', workspaceCommandPath]);
   const badRule = `Edit(${response.absolute})`;
   const neighbor = path.join(path.dirname(response.absolute), 'reviewer-response-2.md');
   const readiness = Object.freeze({

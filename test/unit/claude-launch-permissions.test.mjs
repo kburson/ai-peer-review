@@ -58,6 +58,24 @@ test('encodes a filesystem-root Edit rule instead of the reproduced project-rela
   );
 });
 
+test('normalizes a Windows drive path to Claude filesystem-root permission syntax', () => {
+  const response = String.raw`C:\work\project\reviewer-response-1.md`;
+  const projectRoot = String.raw`C:\work\project`;
+  assert.equal(encodeClaudeEditRule(response), 'Edit(//c/work/project/reviewer-response-1.md)');
+  assert.equal(
+    matchesClaudeEditRule('Edit(//c/work/project/reviewer-response-1.md)', response, {
+      projectRoot,
+    }),
+    true
+  );
+  assert.equal(
+    matchesClaudeEditRule('Edit(/c/work/project/reviewer-response-1.md)', response, {
+      projectRoot,
+    }),
+    false
+  );
+});
+
 test('keeps spaces literal and refuses unsafe or noncanonical permission paths', () => {
   assert.equal(
     encodeClaudeEditRule('/work/review files/response.md'),
@@ -87,6 +105,8 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
     model: 'claude-opus-5',
     effort: 'high',
   });
+  const invitationCommandPath = fx.invitation.replaceAll('\\', '/');
+  const workspaceCommandPath = fx.routing.workspace.replaceAll('\\', '/');
 
   assert.equal(contract.schema, 'ai-peer-review.claude-launch/v1');
   assert.equal(contract.command.file, 'claude');
@@ -96,10 +116,14 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
     'Read',
     'Glob',
     'Grep',
-    `Bash(peer-review join ${fx.invitation.includes(' ') ? `'${fx.invitation}'` : fx.invitation})`,
-    `Bash(peer-review submit ${fx.routing.workspace.includes(' ') ? `'${fx.routing.workspace}'` : fx.routing.workspace})`,
-    `Edit(/${fx.routing.response})`,
+    `Bash(peer-review join ${invitationCommandPath.includes(' ') ? `'${invitationCommandPath}'` : invitationCommandPath})`,
+    `Bash(peer-review submit ${workspaceCommandPath.includes(' ') ? `'${workspaceCommandPath}'` : workspaceCommandPath})`,
+    encodeClaudeEditRule(fx.routing.response),
   ]);
+  assert.equal(
+    contract.permissions.allow.some((rule) => rule.includes('\\')),
+    false
+  );
   assert.equal(
     contract.permissions.allow.some((rule) => /^Bash\([^)]*\*[^)]*\)$/.test(rule)),
     false
