@@ -84,7 +84,8 @@
     "authority": { "$ref": "#/$defs/authority" },
     "human_decision": {
       "anyOf": [{ "type": "null" }, { "$ref": "human-decision-v1.json" }]
-    }
+    },
+    "runtime": { "$ref": "runtime-v1.json" }
   },
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },

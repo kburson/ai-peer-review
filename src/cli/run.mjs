@@ -61,6 +61,7 @@ import {
   resolveIdentity,
 } from '../identity/registry.mjs';
 import { eventAdvancesRevision, validateEvent } from '../protocol/events.mjs';
+import { assertRequestedReviewer, validateRuntimeDescriptor } from '../startup/runtime.mjs';
 import {
   canonicalProjection,
   initializeReview,
@@ -684,6 +685,8 @@ export async function startReview(input, deps = {}) {
     );
   }
   const transport = configuredTransport({ ...input, transportMode: requestedTransportMode, now });
+  const runtime =
+    input.runtime === undefined ? undefined : validateRuntimeDescriptor(input.runtime);
   const requestedAuthority = configuredAuthority(root, input.authority, loaded);
   const startupAssurance = input.testHumanAuthority
     ? 'unverified-test'
@@ -704,6 +707,7 @@ export async function startReview(input, deps = {}) {
       author_fingerprint: input.identity.session_fingerprint,
       authority: requestedAuthority,
       transport_mode: transport.mode,
+      ...(runtime ? { runtime } : {}),
       ...(phaseKinds ? { phases: phaseKinds } : {}),
     });
   const recordId = input.recordId ?? reviewId;
@@ -813,6 +817,7 @@ export async function startReview(input, deps = {}) {
       sealed.reviewer_invitation_digest === sha256(reviewerInvitationBytes) &&
       sealed.transport_mode === transport.mode &&
       sealed.author_transport_capability === transport.capability &&
+      sameValue(sealed.runtime ?? null, runtime ?? null) &&
       sameValue(state.protocol.phases?.kinds ?? null, phaseKinds) &&
       authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
@@ -897,6 +902,7 @@ export async function startReview(input, deps = {}) {
     reviewer_invitation_digest: sha256(reviewerInvitationBytes),
     transport_mode: transport.mode,
     author_transport_capability: transport.capability,
+    ...(runtime ? { runtime } : {}),
     no_commit_baseline: noCommitBaseline,
     bootstrap,
   };
@@ -1065,6 +1071,13 @@ export async function joinReview(input, deps = {}) {
     );
   }
   assertDistinctParticipants(state.participants.author, input.identity);
+  if (state.protocol.startup.runtime !== undefined) {
+    assertRequestedReviewer(
+      state.protocol.startup.runtime,
+      input.identity,
+      input.runtimeObservation
+    );
+  }
   const requestedMode = state.protocol.startup.transport_mode;
   let reviewerCapability = input.transportCapability ?? 'manual';
   if (requestedMode === 'automatic-required') {

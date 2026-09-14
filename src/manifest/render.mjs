@@ -231,6 +231,7 @@ function assertManifestTruth(model, { closed = false } = {}) {
         'supplements',
         'authority',
         'human_decision',
+        ...(model.runtime === undefined ? [] : ['runtime']),
       ],
       'Manifest model'
     );
@@ -332,6 +333,7 @@ export function buildManifest(review) {
         : null,
     },
     human_decision: review.human_decision ? structuredClone(review.human_decision) : null,
+    ...(protocol.startup?.runtime ? { runtime: structuredClone(protocol.startup.runtime) } : {}),
   };
   return deepFreeze(assertManifestTruth(model, { closed: true }));
 }
