@@ -151,14 +151,14 @@ test('reproduces single-slash denial then submits from the same corrected Claude
     model: 'claude-opus-5',
     effort: 'high',
   });
+  const invitationCommandPath = started.paths.reviewer_invitation.replaceAll('\\', '/');
+  const workspaceCommandPath = started.paths.workspace.replaceAll('\\', '/');
   assert.equal(
-    contract.permissions.allow.includes(
-      `Bash(peer-review join ${started.paths.reviewer_invitation})`
-    ),
+    contract.permissions.allow.includes(`Bash(peer-review join ${invitationCommandPath})`),
     true
   );
   assert.equal(
-    contract.permissions.allow.includes(`Bash(peer-review submit ${started.paths.workspace})`),
+    contract.permissions.allow.includes(`Bash(peer-review submit ${workspaceCommandPath})`),
     true
   );
   const reviewer = identity('reviewer', 'same-claude-session');
