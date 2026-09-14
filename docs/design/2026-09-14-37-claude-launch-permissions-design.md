@@ -71,14 +71,26 @@ The generated Claude invocation uses `--permission-mode dontAsk`, a literal argv
 
 The adapter resolves the pending future response using the repository's existing contained-path machinery. The parent chain must resolve physically inside the exact worktree; neither the response nor a parent may escape through a symlink. The normalized absolute path must equal the event-authorized invitation value.
 
-For POSIX paths, the Claude pattern is constructed by prefixing the normalized absolute path with one additional slash:
+Native filesystem paths and Claude permission paths are separate namespaces. The adapter first validates and retains the canonical native path for filesystem containment, then translates that path to Claude's forward-slash provider form before constructing or comparing a permission rule. It must not feed a Windows-native path directly into POSIX normalization or compare a Claude-reported denial path directly with a native path.
+
+For POSIX paths, the provider form is unchanged and the Claude pattern is constructed by prefixing the normalized absolute path with one additional slash:
 
 ```text
 /work/repo/reviewer-response-1.md
 -> Edit(//work/repo/reviewer-response-1.md)
 ```
 
-Spaces remain literal because the rule is passed as one argv element without a shell. Permission-pattern metacharacters are not escaped speculatively. Because Claude documents Edit patterns as gitignore-style patterns, a path containing an unproven literal metacharacter is rejected as unrepresentable. The initial closed rejection set includes `*`, `?`, `[`, `]`, and a backslash. Support can expand only with provider-conformance evidence proving literal matching.
+For Windows drive paths, the canonical native path remains the filesystem authority while the provider form lowercases the drive letter, removes the colon, and replaces separators:
+
+```text
+C:\work\repo\reviewer-response-1.md
+-> /c/work/repo/reviewer-response-1.md
+-> Edit(//c/work/repo/reviewer-response-1.md)
+```
+
+The same translation is applied to Claude-reported Edit/Write denial paths before exact-response comparison. Portable package command arguments use forward slashes but retain the drive prefix (`C:/work/...`); permission grammar and command argv are intentionally not conflated.
+
+Spaces remain literal because each rule and command argument is passed as one argv element without a shell. Permission-pattern metacharacters are not escaped speculatively. Because Claude documents Edit patterns as gitignore-style patterns, a provider-form path containing an unproven literal metacharacter is rejected as unrepresentable. The closed rejection set includes `*`, `?`, `[`, `]`, and a backslash after native-to-provider translation. Support can expand only with provider-conformance evidence proving literal matching.
 
 The static preflight applies the same closed matcher used by the conformant fixture and must prove all of the following:
 
@@ -138,7 +150,7 @@ Help output documents the absolute `//` rule, the `dontAsk` behavior, exact-path
 
 ### Unit contract
 
-`test/unit/claude-launch-permissions.test.mjs` covers canonical absolute encoding, immutable argv, spaces, rejected metacharacters, symlink/containment failures, single-slash mismatch, artifact and neighbor negative controls, and sanitized results.
+`test/unit/claude-launch-permissions.test.mjs` covers canonical POSIX and Windows absolute encoding, provider/native namespace comparison, Claude-normalized Windows denial recognition, portable command argv, immutable argv, spaces, rejected metacharacters, symlink/containment failures, single-slash mismatch, artifact and neighbor negative controls, and sanitized results.
 
 ### Conformant integration
 
