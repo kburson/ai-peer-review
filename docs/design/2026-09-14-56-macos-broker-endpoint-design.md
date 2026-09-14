@@ -64,6 +64,8 @@ The rejection is correct. The pathname contract is not.
 - A caller-selected endpoint pathname. The supported endpoint-root input selects
   only the protected parent namespace; the digest-derived token remains fixed,
   and lock/metadata authority never moves with that input.
+- Automatic propagation or discovery of `AI_PEER_REVIEW_ENDPOINT_ROOT`; every
+  participant is configured explicitly, and divergence fails closed.
 
 ## Considered approaches
 
@@ -103,6 +105,8 @@ and both ordered protected directory chains:
   cacheRootSource,
   endpointRoot,
   endpointRootSource,
+  endpointLayoutVersion,
+  maxEndpointRootBytes,
   authorityDirectories,
   directory,
   endpointDirectories,
@@ -117,6 +121,17 @@ authority. It never changes in response to the endpoint-root input. `endpointRoo
 is the absolute POSIX parent beneath which `aipr/v1` is derived; it equals
 `cacheRoot` unless an explicit endpoint root is configured. Windows returns
 `endpointRoot: null` because its named-pipe endpoint has no filesystem root.
+`endpointLayoutVersion` is `1`. On POSIX, `maxEndpointRootBytes` is the injected
+endpoint limit minus the 61-byte `/aipr/v1/<token>` suffix; Windows returns
+`null`. The path layer is the sole source for both values.
+
+Every returned root is a canonical absolute platform path. POSIX roots contain
+no trailing separator and no `.` or `..` component. A configured value carrying
+one of those noncanonical forms fails with `APR_BROKER_PATH_INVALID` naming its
+input; the path layer never resolves symlinks. Root equality is byte-exact UTF-8
+comparison of that canonical form. It remains case-sensitive even on a
+case-insensitive volume; a case-only difference fails closed with the mismatch
+recovery rather than being silently normalized.
 
 Input mapping is normative:
 
@@ -333,7 +348,8 @@ Below that anchor, Task 4 creates and validates every package-owned level:
 
 `broker.json` remains discovery-only. When Task 4 writes metadata schema v1, it
 records the full root tuple and digest plus `cache_root`, `cache_root_source`,
-`endpoint_root`, `endpoint_root_source`, and `endpoint_layout_version: 1`. It
+`endpoint_root`, `endpoint_root_source`, and the path layer's
+`endpoint_layout_version`. It
 does not duplicate the derived endpoint token; diagnostics derive that token
 through the same canonical path function. The recorded endpoint root is
 diagnostic and never overrides a client's environment-derived path. Every owner
@@ -356,6 +372,9 @@ the exact offending path and observed condition, directs the user to inspect and
 remove or repair that path outside ai-peer-review only after establishing its
 ownership and purpose, and then retry. It never suggests an endpoint override,
 recursive deletion, ownership takeover, or automatic replacement.
+If the foreign-owned path belongs to another account's legitimate broker, the
+only recovery is provisioning a distinct safe per-user endpoint root; the other
+account's directory is never removed or modified.
 
 The owner binds a Unix socket with the absolute `paths.endpoint` pathname—the
 same UTF-8 bytes measured by preflight. Darwin and Linux provide no `bindat`
@@ -384,21 +403,29 @@ This record-then-compare contract detects later replacement without pretending
 that `bindat` exists or comparing unrelated socket identities.
 
 Before connecting, a POSIX client derives and preflights its endpoint from its
-own environment, opens and validates the authority cache root, opens and
-validates its derived endpoint-root anchor, and then reaches every
-`endpointDirectories` entry relative to retained parent handles. A client whose
-configured endpoint root differs from the live owner's is not automatically
-rerouted by metadata. If the derived endpoint is overlong, it fails before
-resource access with the platform-specific `APR_BROKER_ENDPOINT_TOO_LONG`
-recovery. Whenever the stable project lock is live and metadata is readable, the
-client compares its derived endpoint root with the recorded root before
-attempting any socket connection, regardless of whether its derived socket path
-is absent or contains stale state. A difference produces
+own environment, then opens and validates only the authority cache root. It
+observes the stable project lock and readable metadata before opening the
+derived endpoint root or touching any `endpointDirectories` entry. Whenever the
+lock is live and metadata is readable, the client compares its derived endpoint
+root with the recorded root, regardless of whether its derived socket path is
+absent or contains stale state. A difference produces
 `APR_BROKER_ENDPOINT_ROOT_MISMATCH` and one action: set
 `AI_PEER_REVIEW_ENDPOINT_ROOT` to the recorded, independently revalidated root
-and retry. Comparing the metadata for diagnosis does not make it routing
-authority; no connection is attempted at the recorded root until configuration
-is changed explicitly.
+and retry. Comparing metadata for diagnosis does not make it routing authority;
+the client touches neither endpoint root until configuration converges.
+
+Only after that comparison passes does the client open and validate its derived
+endpoint-root anchor and reach existing `endpointDirectories` entries relative
+to retained parents. A client never creates `aipr`, `aipr/v1`, or any authority
+directory. If an endpoint-directory level is safely absent and no live lock is
+available, `connectBroker` reports the existing `APR_BROKER_START_FAILED` owner
+election outcome; its one action is to enter `acquireBrokerOwnership`, whose
+listener alone may create the chain. If the lock is live and roots match but an
+endpoint directory is absent, the same error instructs retrying the named owner
+reconciliation. The client leaves the filesystem unchanged in both cases. If
+the derived endpoint is overlong, it fails before all resource access with the
+platform-specific `APR_BROKER_ENDPOINT_TOO_LONG` recovery.
+
 Absent, unreadable, or stale metadata under a live lock fails with the existing
 broker-integrity error and never probes another endpoint; stale metadata without
 a live lock is handled only through the accepted ownership-reconciliation path.
@@ -459,7 +486,12 @@ described here; no future layout may assume the `v1` sentence is unconditional.
 
 ## Failure behavior
 
-- Invalid or noncanonical digest: `APR_BROKER_PATH_INVALID`.
+- Invalid or noncanonical digest; missing, empty, or relative `home`; empty or
+  relative `XDG_CACHE_HOME`; missing, empty, or nonabsolute `%LOCALAPPDATA%`;
+  empty, relative, trailing-separator, dot-component, or dot-dot-component
+  `AI_PEER_REVIEW_ENDPOINT_ROOT`: `APR_BROKER_PATH_INVALID`. Error context names
+  the exact offending input, distinguishing both environment variables from
+  `home` and `identity.digest`.
 - Missing, noninteger, or nonpositive platform limit:
   `APR_BROKER_ENDPOINT_LIMIT_INVALID`.
 - UTF-8 pathname or named-pipe label over the observed limit:
@@ -470,10 +502,17 @@ described here; no future layout may assume the `v1` sentence is unconditional.
   Darwin includes the 42-byte endpoint-root maximum, Linux the 46-byte maximum;
   if no safe conforming root exists, the error names the unsupported account
   condition and the administrator-provisioning action above.
-- A valid derived endpoint is absent while the live project's metadata names a
-  different validated endpoint root: `APR_BROKER_ENDPOINT_ROOT_MISMATCH`; set
-  the same endpoint-root variable for every participant and retry, never
-  auto-redirect.
+- Whenever the stable project lock is live and readable metadata names a
+  different validated endpoint root, before any endpoint-root traversal or
+  connection attempt: `APR_BROKER_ENDPOINT_ROOT_MISMATCH`; set the same
+  endpoint-root variable for every participant and retry, never auto-redirect.
+  The rule is presence-independent: it applies when the client's derived socket
+  is absent, stale, or apparently live. Metadata is diagnostic evidence only,
+  never routing authority.
+- A safe endpoint directory is absent with no root mismatch:
+  `APR_BROKER_START_FAILED`; enter owner acquisition when no live lock exists,
+  or retry the named owner reconciliation when it does. A client never creates
+  the missing directory.
 - Missing, foreign-owned, non-directory, symlinked, or otherwise unusable
   `<user-cache>` trust anchor: `APR_BROKER_CACHE_ROOT_UNAVAILABLE`; no package
   directory or endpoint is created, except that an absent Linux `home-default`
@@ -539,6 +578,10 @@ Unit tests must prove:
   `authorityDirectories` is the exact deeply frozen root-to-digest chain, and
   `directory`, `lock`, and `metadata` remain byte-for-byte at the stable full
   64-hex authority paths under every endpoint-root selection;
+- configured roots with a trailing separator or dot component are rejected as
+  noncanonical with the exact variable named; a case-only difference between
+  canonical client and metadata roots fails with
+  `APR_BROKER_ENDPOINT_ROOT_MISMATCH` rather than connecting;
 - Windows output is asserted key-for-key, including an empty deeply frozen
   `endpointDirectories` array, `endpointRoot: null`,
   `endpointRootSource: named-pipe`, the exact deeply frozen
@@ -552,6 +595,19 @@ Issue #43's registry and ownership tests must additionally prove:
   retained safe home, while an absent configured root is refused;
 - every authority-root and endpoint-root source is refused when group- or
   other-writable;
+- an owner-only configured endpoint root below a group/other-writable or
+  symlinked ancestor is refused with `APR_BROKER_CACHE_ROOT_UNAVAILABLE`, exact
+  endpoint role, and source variable; the authority-cache counterpart is also
+  refused;
+- foreign-owned, non-directory, permissive, and symlinked conditions are each
+  exercised at both endpoint-directory levels and all three authority levels,
+  producing the matching `*_PARENT_UNSAFE` error with exact path/condition and
+  no removal, replacement, or ownership change;
+- mid-lifetime endpoint-parent replacement fences every observing user broker,
+  retains each lock/metadata record, refuses delivery, and never recreates the
+  directory, unlinks a socket, or redirects; authority shared-level loss has the
+  same all-broker fence, digest-leaf loss fences only that project, and neither
+  permits cleanup through compromised lock evidence;
 - two brokers for one digest under different endpoint roots still contend for
   one stable full-digest lock, and the loser cannot bind or deliver;
 - two project brokers can race to create each shared parent safely, a
@@ -577,7 +633,14 @@ Issue #43's registry and ownership tests must additionally prove:
 - a client with a missing or different endpoint-root setting never follows
   metadata as routing authority: an overlong default fails with the exact
   overlength recovery, a valid absent default under a live lock fails with
-  `APR_BROKER_ENDPOINT_ROOT_MISMATCH`, and matching configuration connects.
+  `APR_BROKER_ENDPOINT_ROOT_MISMATCH`, and matching configuration connects;
+- with absent client-side `aipr` and `aipr/v1`, a live-lock root mismatch fails
+  before traversal and leaves the filesystem unchanged; without a live lock,
+  the client reports owner election/start failure and likewise creates nothing;
+  and
+- every `APR_BROKER_PATH_INVALID` input reports its exact input label, with
+  `AI_PEER_REVIEW_ENDPOINT_ROOT`, `XDG_CACHE_HOME`, `LOCALAPPDATA`, `home`, and
+  `identity.digest` distinguishable.
 
 Those are Task 4 registry and ownership operations, so #56 defines and hands off
 the tests rather than creating a dependency cycle by implementing #43's native
