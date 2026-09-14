@@ -16,7 +16,12 @@ implementation plan will be the executable replacement authority for those plan
 lines once it exists and passes its own peer review. The accepted epic documents
 remain sealed and are not edited; this issue-numbered correction has precedence
 only for the clauses named here. The new stable errors extend rather than
-replace the accepted list.
+replace the accepted list: `APR_BROKER_CACHE_ROOT_UNAVAILABLE`,
+`APR_BROKER_AUTHORITY_PARENT_UNSAFE`,
+`APR_BROKER_AUTHORITY_PARENT_LOST`,
+`APR_BROKER_ENDPOINT_PARENT_UNSAFE`,
+`APR_BROKER_ENDPOINT_PARENT_LOST`, and
+`APR_BROKER_ENDPOINT_ROOT_MISMATCH`.
 The canonical root tuple, full SHA-256 digest, metadata and lock authority,
 handshake, ownership, compatibility, and recovery requirements remain in force.
 
@@ -47,6 +52,8 @@ The rejection is correct. The pathname contract is not.
 - Leave the Windows named-pipe contract unchanged.
 - Give Task 4 every protected parent path and an unambiguous security contract
   for the separated socket parent.
+- Accept one shared endpoint-parent blast radius per user to obtain the macOS
+  byte budget, with explicit whole-user fencing if that parent is lost.
 
 ## Non-goals
 
@@ -203,10 +210,12 @@ For the real macOS home in which the defect was reproduced:
 /Users/kpburson/Library/Caches/aipr/v1/<52-character-token>
 ```
 
-is 91 UTF-8 bytes. A 27-byte absolute home path still fits exactly at 103 bytes.
-For the default macOS root this means a conventional `/Users/<short-name>` home
-fits only when `<short-name>` is at most 20 UTF-8 bytes. A longer default path is
-not silently redirected: preflight throws
+is 91 UTF-8 bytes. The endpoint is always the endpoint root plus the 61-byte
+`/aipr/v1/<token>` suffix. A configured endpoint root may therefore be at most
+42 UTF-8 bytes on Darwin and 46 UTF-8 bytes on Linux. Under the macOS default,
+the 42-byte root budget yields a 27-byte absolute home and therefore a
+20-byte conventional `/Users/<short-name>` short-name limit. A longer default
+path is not silently redirected: preflight throws
 `APR_BROKER_ENDPOINT_TOO_LONG` before any directory, lock, metadata, or endpoint
 resource is opened.
 
@@ -220,6 +229,14 @@ world-writable ancestor is refused. Lock and metadata authority remain at
 loses the same project lock. Linux recovery likewise may select a shorter
 endpoint root. No test or runtime path may substitute an unrelated short socket
 solely to bypass this check.
+
+If the validated home itself is too long to contain a conforming endpoint root,
+the error states that condition rather than recommending an impossible under-home
+path. Its exact action is to have an administrator provision one user-owned root
+of at most 42 UTF-8 bytes beneath an ancestor chain that passes
+`openPrivateRoot`, set `AI_PEER_REVIEW_ENDPOINT_ROOT` to it for every
+participant, and retry. If the environment cannot provide such a root,
+project-local brokering is unsupported on that account and remains fail-closed.
 
 Darwin's injected maximum is 103 usable bytes because its active SDK declares
 `sun_path[104]`. Linux declares `sun_path[108]`, so its injected maximum is 107
@@ -305,6 +322,14 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   a failed authenticated connection plus retained lock ownership permits removal
   of that exact stale socket before bind. Without the lock, stale-looking socket
   state is never removed.
+- After acquiring that lock and reconciling project/provider authority, a new
+  owner also reads any existing metadata from the same full-digest authority
+  directory. If it records a different endpoint root, the owner validates that
+  root and its full endpoint-directory chain, derives only its own digest token,
+  and probes that exact prior socket. A failed authenticated connection permits
+  unlinking that exact socket while the lock remains held. The owner never uses
+  recursive, wildcard, age-based, or cross-digest cleanup and never removes the
+  shared directories.
 
 `broker.json` remains discovery-only. When Task 4 writes metadata schema v1, it
 records the full root tuple and digest plus `cache_root`, `cache_root_source`,
@@ -365,10 +390,15 @@ validates its derived endpoint-root anchor, and then reaches every
 configured endpoint root differs from the live owner's is not automatically
 rerouted by metadata. If the derived endpoint is overlong, it fails before
 resource access with the platform-specific `APR_BROKER_ENDPOINT_TOO_LONG`
-recovery. If the derived endpoint is valid but absent while the stable project
-lock is live, metadata with a different endpoint root produces
+recovery. Whenever the stable project lock is live and metadata is readable, the
+client compares its derived endpoint root with the recorded root before
+attempting any socket connection, regardless of whether its derived socket path
+is absent or contains stale state. A difference produces
 `APR_BROKER_ENDPOINT_ROOT_MISMATCH` and one action: set
-`AI_PEER_REVIEW_ENDPOINT_ROOT` to the recorded, revalidated root and retry.
+`AI_PEER_REVIEW_ENDPOINT_ROOT` to the recorded, independently revalidated root
+and retry. Comparing the metadata for diagnosis does not make it routing
+authority; no connection is attempted at the recorded root until configuration
+is changed explicitly.
 Absent, unreadable, or stale metadata under a live lock fails with the existing
 broker-integrity error and never probes another endpoint; stale metadata without
 a live lock is handled only through the accepted ownership-reconciliation path.
@@ -401,11 +431,13 @@ lock. A future design must not move or version the lock directory and thereby
 allow two endpoint roots or layout versions within one resolved cache root to
 own one project concurrently.
 
-The short `aipr` cache name carries a residual local name-collision risk. If an
-unrelated application has already created an incompatible path there, the
-broker refuses it and requires manual inspection; it does not adopt, rename,
-repair, or relocate the path automatically. The byte budget does not permit a
-longer package name at the exact supported macOS boundary.
+The short `aipr` cache name carries a residual local name-collision risk. An
+unsafe foreign-owned, permissive, non-directory, or symlinked path is refused
+and requires manual inspection. A plain owner-only directory created by another
+same-user application passes the shared trust checks; the broker may create only
+its own `v1` child and never removes or mutates the other application's entries.
+The byte budget does not permit a longer package name at the exact supported
+macOS boundary.
 
 The epic design's guarantee that an incompatible broker remains discoverable at
 the same endpoint applies to package upgrades within pathname layout `v1`.
@@ -435,6 +467,9 @@ described here; no future layout may assume the `v1` sentence is unconditional.
   macOS/Linux configure a shorter validated `AI_PEER_REVIEW_ENDPOINT_ROOT` for
   every participant; Windows reports an invalid platform limit or unsupported
   runtime because its fixed 108-unit label fits the supported 256-unit limit.
+  Darwin includes the 42-byte endpoint-root maximum, Linux the 46-byte maximum;
+  if no safe conforming root exists, the error names the unsupported account
+  condition and the administrator-provisioning action above.
 - A valid derived endpoint is absent while the live project's metadata names a
   different validated endpoint root: `APR_BROKER_ENDPOINT_ROOT_MISMATCH`; set
   the same endpoint-root variable for every participant and retry, never
@@ -480,6 +515,9 @@ Unit tests must prove:
 - realistic macOS cache roots fit 103 bytes;
 - a 27-byte macOS home produces exactly 103 bytes and the neighboring 28-byte
   home is refused at 104 bytes;
+- a configured 42-byte Darwin endpoint root produces exactly 103 bytes and a
+  43-byte root is refused at 104; Linux likewise accepts 46 bytes at 107 and
+  refuses 47 bytes at 108;
 - the default `/Users/<short-name>` macOS route accepts a 20-byte short name and
   refuses a 21-byte short name, while the same long-home case succeeds with a
   sufficiently short, safe `AI_PEER_REVIEW_ENDPOINT_ROOT`;
@@ -489,7 +527,7 @@ Unit tests must prove:
 - Unicode cache roots are measured in UTF-8 bytes;
 - distinct root digests derive distinct Unix endpoints;
 - package/protocol/Node version inputs do not affect routing;
-- overlong paths and invalid limits still fail before resource creation; and
+- overlong paths and invalid limits still fail before resource creation;
 - `APR_BROKER_ENDPOINT_TOO_LONG` has the platform-selected exact recovery above
   and no longer claims endpoints are never redirected or recommends moving the
   authority cache;
@@ -508,10 +546,8 @@ Unit tests must prove:
 
 Issue #43's registry and ownership tests must additionally prove:
 
-- each of the five new stable errors exists in the offline registry with one
-  exact recovery action;
-- `APR_BROKER_ENDPOINT_ROOT_MISMATCH` exists in the offline registry with its
-  exact same-setting recovery action;
+- the six explicitly enumerated new stable errors each exist in the offline
+  registry with one exact recovery action;
 - an absent Linux `home-default` cache root is created `0700` relative to the
   retained safe home, while an absent configured root is refused;
 - every authority-root and endpoint-root source is refused when group- or
@@ -528,10 +564,16 @@ Issue #43's registry and ownership tests must additionally prove:
   and inode/file identity with that baseline, and an injected mismatch closes
   the listener without unlinking either observed entry;
 - `listenPrivate` rejects endpoint-root and lock pathnames where retained live
-  handles are required; and
-- Windows never applies `dirname` to its logical pipe label; and
+  handles are required;
+- Windows never applies `dirname` to its logical pipe label;
 - metadata schema v1 records both roots, both source enums, and
   `endpoint_layout_version: 1` without duplicating the endpoint token.
+- a client whose derived endpoint contains a stale socket under a superseded
+  root still fails with `APR_BROKER_ENDPOINT_ROOT_MISMATCH`, not a handshake or
+  integrity error;
+- a restarting owner holding the project lock reconciles and removes exactly a
+  dead socket recorded under the superseded endpoint root while leaving both
+  shared directories in place; and
 - a client with a missing or different endpoint-root setting never follows
   metadata as routing authority: an overlong default fails with the exact
   overlength recovery, a valid absent default under a live lock fails with
@@ -555,12 +597,12 @@ directories, validate each candidate, and re-derive its endpoint token through
 the canonical path function. Unknown or unsafe candidates are reported but
 never adopted or removed.
 
-A clean broker release and authenticated stale-owner recovery remove the exact
-owned socket. A socket whose project is permanently deleted or moved may remain
-orphaned because no future broker can safely acquire and reconcile its former
-project authority. This small per-user accumulation is accepted for v1;
-operator-initiated orphan cleanup is outside #56 and never inferred from age or
-an unknown token alone.
+A clean broker release, authenticated stale-owner recovery, and an authorized
+live-project endpoint-root change remove the exact owned or superseded socket. A
+socket whose project is permanently deleted or moved may remain orphaned because
+no future broker can safely acquire and reconcile its former project authority.
+This small per-user accumulation is accepted for v1; operator-initiated orphan
+cleanup is outside #56 and never inferred from age or an unknown token alone.
 
 ## Acceptance
 
