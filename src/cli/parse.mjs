@@ -20,6 +20,9 @@ export const COMMAND_FLAGS = Object.freeze({
     '--max-turns',
     '--claim-ttl',
     '--transport-mode',
+    '--reviewer-provider',
+    '--reviewer-model',
+    '--reviewer-effort',
     '--bootstrap-grant',
     '--no-commit',
     '--test-human-authority',
@@ -80,7 +83,7 @@ export const COMMAND_USAGE = Object.freeze({
   setup: 'peer-review setup [--agent <name>] [--scope <user|project>] [--dry-run] [--remove]',
   doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
   start:
-    'peer-review start <artifact> --artifact-kind <spec|plan> [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
+    'peer-review start <artifact> --artifact-kind <spec|plan> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
   advance: 'peer-review advance <workspace> <artifact>',
   'request-grant':
     'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
@@ -245,6 +248,22 @@ function validateConstraints(command, args, options) {
       'resume-only',
       'automatic-required',
     ]);
+    validateEnum(options, 'reviewerProvider', '--reviewer-provider', ['codex', 'claude', 'grok']);
+    if (!options.reviewerProvider || !options.reviewerModel) {
+      usage('start requires --reviewer-provider and --reviewer-model');
+    }
+    if (options.reviewerEffort === undefined) options.reviewerEffort = 'medium';
+    if (!options.reviewerEffort.trim()) usage('--reviewer-effort requires a non-empty value');
+    if (options.phases !== undefined) {
+      const phases = options.phases.split(',');
+      if (
+        phases.some((phase) => !['spec', 'plan'].includes(phase)) ||
+        new Set(phases).size !== phases.length ||
+        phases[0] !== options.artifactKind
+      ) {
+        usage('--phases must be a canonical unique list beginning with --artifact-kind');
+      }
+    }
     if (options.claimTtlMs === undefined) options.claimTtlMs = 8 * 60 * 60 * 1000;
   }
   if (command === 'submit') {

@@ -65,8 +65,20 @@ test('CLI claim TTL parses whole hours and converts exactly once', () => {
     ['8', 8 * 60 * 60 * 1000],
   ]) {
     assert.equal(
-      parseCommand(['start', 'docs/artifact.md', '--artifact-kind', 'spec', '--claim-ttl', hours])
-        .options.claimTtlMs,
+      parseCommand([
+        'start',
+        'docs/artifact.md',
+        '--artifact-kind',
+        'spec',
+        '--reviewer-provider',
+        'codex',
+        '--reviewer-model',
+        'gpt-test',
+        '--reviewer-effort',
+        'medium',
+        '--claim-ttl',
+        hours,
+      ]).options.claimTtlMs,
       milliseconds
     );
   }
@@ -78,6 +90,10 @@ test('CLI claim TTL parses whole hours and converts exactly once', () => {
           'docs/artifact.md',
           '--artifact-kind',
           'spec',
+          '--reviewer-provider',
+          'codex',
+          '--reviewer-model',
+          'gpt-test',
           '--claim-ttl',
           value,
         ]),

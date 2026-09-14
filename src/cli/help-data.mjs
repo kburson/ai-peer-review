@@ -81,6 +81,7 @@ const PRECONDITIONS = Object.freeze({
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
+    'An explicit supported reviewer provider and model; reviewer effort defaults to medium.',
     'Optional --bootstrap-grant must authorize the exact protected pin-verifier action.',
   ],
   advance: ['A registered author claim and the exact event-derived next artifact.'],
@@ -162,6 +163,7 @@ const ERRORS = Object.freeze({
     'APR_PATH_TEMPLATE_INVALID',
     'APR_SCRATCH_NOT_IGNORED',
     'APR_IDENTITY_REQUIRED',
+    'APR_REVIEWER_SELECTION_UNSUPPORTED',
     'APR_TRANSPORT_UNAVAILABLE',
     'APR_AUTHORITY_REQUIRED',
     'APR_AUTHORITY_POLICY',
@@ -755,6 +757,10 @@ const ERROR_CATALOG = Object.freeze({
     recovery:
       'Use official runtime identity. For a Claude session without model metadata, set hosts.claude.identity.model_id and model_display in .ai-peer-review.json; configuration cannot supply the session.',
   },
+  APR_REVIEWER_SELECTION_UNSUPPORTED: {
+    message: 'The requested reviewer provider, model, or effort is unsupported.',
+    recovery: 'Select codex, claude, or grok with an adapter-supported exact model and effort.',
+  },
   APR_TRANSPORT_UNAVAILABLE: {
     message: 'The requested transport is not supported by the current participant.',
     recovery:
@@ -879,6 +885,7 @@ function topic(command) {
             'reviews root from configuration',
             'ten turns',
             'eight-hour claim TTL',
+            'medium reviewer effort',
             'normal commit mode',
           ]
         : ['stored review authority'],

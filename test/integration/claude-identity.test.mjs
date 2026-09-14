@@ -120,7 +120,18 @@ test('start, join, submit, and finalize share the configured Claude identity con
   t.after(fx.cleanup);
 
   const started = await runText(
-    ['start', 'docs/artifact.md', '--artifact-kind', 'spec'],
+    [
+      'start',
+      'docs/artifact.md',
+      '--artifact-kind',
+      'spec',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'gpt-test',
+      '--reviewer-effort',
+      'medium',
+    ],
     fx.root,
     'claude-author'
   );

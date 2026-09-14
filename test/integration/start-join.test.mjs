@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { joinReview, startReview, statusReview } from '../../src/cli/run.mjs';
+import { joinReview, run, startReview, statusReview } from '../../src/cli/run.mjs';
 import {
   canonicalChallengeBytes,
   digestGrantParameters,
@@ -31,6 +31,39 @@ function repositoryFixture(prefix = 'apr-start-') {
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
+
+test('CLI start accepts explicit reviewer intent without changing direct startReview enforcement', async (t) => {
+  const fx = repositoryFixture('apr-cli-start-');
+  t.after(fx.cleanup);
+  let stdout = '';
+  const code = await run(
+    [
+      'start',
+      'docs/example.md',
+      '--artifact-kind',
+      'spec',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'claude-opus-5',
+      '--reviewer-effort',
+      'medium',
+    ],
+    {
+      cwd: fx.root,
+      env: {
+        CODEX_THREAD_ID: 'start-cli-author',
+        CODEX_MODEL_ID: 'gpt-test',
+        CODEX_MODEL_DISPLAY: 'GPT Test',
+      },
+      now: new Date(NOW),
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: () => {} },
+    }
+  );
+  assert.equal(code, 0);
+  assert.match(stdout, /awaiting-reviewer/);
+});
 
 test('generated routing and commands remain safe for shell metacharacters in paths', async (t) => {
   const fx = repositoryFixture("apr start ' `tick` $()-");
