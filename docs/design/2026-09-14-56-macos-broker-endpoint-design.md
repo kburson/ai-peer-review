@@ -54,9 +54,9 @@ The rejection is correct. The pathname contract is not.
 - Digest truncation, reduced collision resistance, or routing by package version.
 - Dual-probing or migrating unreleased pre-0.3 broker endpoints.
 - Weakening owner, symlink, peer-credential, lock, nonce, or handshake checks.
-- A caller-selected endpoint pathname. The supported cache-root selection input
-  changes the root for all broker state and remains subject to the same
-  ownership and length checks; it is not an endpoint override.
+- A caller-selected endpoint pathname. The supported endpoint-root input selects
+  only the protected parent namespace; the digest-derived token remains fixed,
+  and lock/metadata authority never moves with that input.
 
 ## Considered approaches
 
@@ -87,13 +87,15 @@ risk without improving identity integrity.
 ## Corrected path contract
 
 `brokerPaths({ identity, platform, env, home })` extends its return shape with
-the cache-root trust anchor, its source classification, and both ordered
-protected directory chains:
+the authority-cache and endpoint trust anchors, their source classifications,
+and both ordered protected directory chains:
 
 ```js
 {
   cacheRoot,
   cacheRootSource,
+  endpointRoot,
+  endpointRootSource,
   authorityDirectories,
   directory,
   endpointDirectories,
@@ -103,15 +105,30 @@ protected directory chains:
 }
 ```
 
-`cacheRoot` is the absolute `<user-cache>` path. On macOS and Linux, an absolute
-`AI_PEER_REVIEW_CACHE_HOME` takes precedence when present. Otherwise macOS uses
-`~/Library/Caches`; Linux uses absolute `XDG_CACHE_HOME` when present and
-`~/.cache` otherwise. Windows retains `%LOCALAPPDATA%`. `cacheRootSource` is one
-of the fixed enum values `configured`, `platform-default`, or `home-default`, allowing
-the security layer to apply the creation policy without reinterpreting env or
-path text. The explicit ai-peer-review cache-root setting is the supported
-recovery for a macOS home whose default endpoint would be too long; both owner
-and client processes must use the same setting.
+`cacheRoot` is the stable absolute `<user-cache>` path for lock and metadata
+authority. It never changes in response to the endpoint-root input. `endpointRoot`
+is the absolute POSIX parent beneath which `aipr/v1` is derived; it equals
+`cacheRoot` unless an explicit endpoint root is configured. Windows returns
+`endpointRoot: null` because its named-pipe endpoint has no filesystem root.
+
+Input mapping is normative:
+
+| Platform    | Input                                             | Valid mapping                                                  | Invalid defined value                                                             | Creation policy                                             |
+| ----------- | ------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| macOS       | `~/Library/Caches`                                | `cacheRootSource: platform-default`                            | N/A                                                                               | Must already exist and pass anchor checks                   |
+| Linux       | absolute, nonempty `XDG_CACHE_HOME`               | `cacheRootSource: xdg-configured`                              | Empty or relative fails `APR_BROKER_PATH_INVALID`; this ratifies shipped behavior | Must already exist and pass anchor checks                   |
+| Linux       | absent `XDG_CACHE_HOME`, then `~/.cache`          | `cacheRootSource: home-default`                                | N/A                                                                               | May create `.cache` relative to a retained safe home handle |
+| Windows     | absolute, nonempty `%LOCALAPPDATA%`               | `cacheRootSource: platform-default`                            | Missing, empty, or nonabsolute fails `APR_BROKER_PATH_INVALID`                    | Must already exist and pass anchor checks                   |
+| macOS/Linux | absolute, nonempty `AI_PEER_REVIEW_ENDPOINT_ROOT` | `endpointRootSource: configured`                               | Empty or relative fails `APR_BROKER_PATH_INVALID`                                 | Must already exist and pass anchor checks                   |
+| macOS/Linux | absent `AI_PEER_REVIEW_ENDPOINT_ROOT`             | `endpointRootSource: cache-root`; `endpointRoot === cacheRoot` | N/A                                                                               | Reuses the validated cache-root handle                      |
+| Windows     | `AI_PEER_REVIEW_ENDPOINT_ROOT`                    | Ignored; `endpointRootSource: named-pipe`                      | All values ignored                                                                | No endpoint directory                                       |
+
+When a configured input fails, the error context names the specific variable;
+`APR_BROKER_CACHE_ROOT_UNAVAILABLE` recovery therefore never has to infer
+whether `XDG_CACHE_HOME` or `AI_PEER_REVIEW_ENDPOINT_ROOT` selected the observed
+path. The explicit endpoint-root setting is the supported recovery for a macOS
+home whose default endpoint would be too long. It changes neither project
+identity nor the single full-digest lock location.
 
 `authorityDirectories` is the deeply frozen ordered array
 `[<user-cache>/ai-peer-review, <user-cache>/ai-peer-review/brokers,
@@ -130,7 +147,7 @@ The lock and metadata directory remains:
 On macOS and Linux, the endpoint becomes:
 
 ```text
-<user-cache>/aipr/v1/<52-character-lowercase-base32-root-digest>
+<endpoint-root>/aipr/v1/<52-character-lowercase-base32-root-digest>
 ```
 
 There is no suffix. `aipr` is the stable package namespace and `v1` versions the
@@ -138,7 +155,7 @@ pathname encoding/layout, not the broker protocol or project identity. Package,
 broker-protocol, and Node versions remain excluded from routing.
 
 On macOS and Linux, `endpointDirectories` is the deeply frozen ordered array
-`[<user-cache>/aipr, <user-cache>/aipr/v1]`. The path layer owns both
+`[<endpoint-root>/aipr, <endpoint-root>/aipr/v1]`. The path layer owns both
 derivations; the security layer must not reconstruct them with
 `dirname(endpoint)`. Both directories are per-user and shared by every
 project-local broker for that user. Only the token leaf is per-project.
@@ -190,10 +207,11 @@ not silently redirected: preflight throws
 resource is opened.
 
 The macOS offline recovery gives one action: configure an existing shorter,
-private absolute directory through `AI_PEER_REVIEW_CACHE_HOME` and rerun both
-broker participants with that same setting. The chosen root must pass the anchor
-checks and the recomputed endpoint must fit 103 bytes. Linux recovery likewise
-may shorten an explicitly configured root. No test or runtime path may
+private absolute directory through `AI_PEER_REVIEW_ENDPOINT_ROOT` and rerun. The
+chosen root must pass the anchor checks and the recomputed endpoint must fit 103
+bytes. Lock and metadata authority remain at `~/Library/Caches`, so a second
+broker using the default endpoint root still loses the same project lock. Linux
+recovery likewise may select a shorter endpoint root. No test or runtime path may
 substitute an unrelated short socket solely to bypass this check.
 
 Darwin's injected maximum is 103 usable bytes because its active SDK declares
@@ -208,23 +226,24 @@ continues to require the live handshake's full canonical root tuple, package
 version, broker protocol version, Node major, instance ID, nonce proof, and
 kernel-reported peer user.
 
-Task 4 must treat both cache locations as protected resources. `<user-cache>`
-is the explicit trust anchor: it must be an absolute, user-owned, non-symlink
-directory that is not writable by group or other before any package-private
-child is created. A platform cache may be shared by applications and need not be
-`0700`, but it must satisfy that non-writable boundary. On Linux, selecting an
-absolute `XDG_CACHE_HOME` is configuration, not proof of safety; the same is true
-of `AI_PEER_REVIEW_CACHE_HOME` on either Unix platform.
+Task 4 must treat both locations as protected resources. `cacheRoot` is the
+authority trust anchor and `endpointRoot` is the POSIX routing trust anchor. Each
+must be an absolute, user-owned, non-symlink directory that is not writable by
+group or other before a package-private child is created. A platform cache may
+be shared by applications and need not be `0700`, but it must satisfy that
+non-writable boundary. Selecting absolute `XDG_CACHE_HOME` or
+`AI_PEER_REVIEW_ENDPOINT_ROOT` is configuration, not proof of safety.
 
 Configured roots and platform-default roots must already exist; the package
 never creates their arbitrary ancestors. The sole creation exception is the
 Linux `home-default`: after validating and retaining the absolute home as a
 user-owned, non-symlink directory not writable by group or other, Task 4 may
 create its direct `.cache` child as `0700` relative to that retained home handle.
-It then applies the identical cache-root owner, mode, type, and no-symlink
+It then applies the identical root owner, mode, type, and no-symlink
 post-conditions before use. An absent root outside that exception, or any unsafe
-root, fails closed with `APR_BROKER_CACHE_ROOT_UNAVAILABLE` and identifies the
-exact root and one recovery action.
+authority or endpoint root, fails closed with
+`APR_BROKER_CACHE_ROOT_UNAVAILABLE`, identifies its authority/endpoint role and
+source variable, and gives one recovery action.
 
 Below that anchor, Task 4 creates and validates every package-owned level:
 
@@ -239,10 +258,10 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   directory type, and no-symlink validation. A per-level `EEXIST` race is
   successful only after those same post-conditions pass.
 - On POSIX,
-  `listenPrivate(paths.endpointDirectories, paths.endpoint, { lock, cacheRoot })`
-  receives both ordered directories, the retained cache-root handle, and the
-  live lock handle returned by `acquireExclusive`; a cache-root or lock pathname
-  is not sufficient. Starting from that retained cache-root handle, it creates
+  `listenPrivate(paths.endpointDirectories, paths.endpoint, { lock, endpointRoot })`
+  receives both ordered directories, the retained endpoint-root handle, and the
+  live lock handle returned by `acquireExclusive`; an endpoint-root or lock pathname
+  is not sufficient. Starting from that retained endpoint-root handle, it creates
   and opens the first endpoint directory relative to the handle and every
   subsequent directory relative to the retained handle for its parent, always
   with no-follow semantics. Each absent level is created owner-only (`0700`),
@@ -252,9 +271,11 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   only after the observed level passes those complete post-conditions. It
   creates the socket as owner-only where the platform permits and retains the
   directory and endpoint identity handles through the owned lifetime.
-- On Windows, `listenPrivate([], paths.endpoint, { lock, cacheRoot })` treats the
-  live lock handle as ownership authority, creates no endpoint directory, and
-  applies the existing owner-only named-pipe DACL and client-token checks.
+- On Windows,
+  `listenPrivate(paths.endpointDirectories, paths.endpoint, { lock })` treats
+  the live lock handle as ownership authority, consumes the path layer's frozen
+  empty directory array, creates no endpoint directory, and applies the existing
+  owner-only named-pipe DACL and client-token checks.
 - Owner verification detects replacement or unlink of the cache-root anchor,
   any authority-directory level, either endpoint-directory level, the lock
   evidence, or endpoint. Replacement or unlink of a shared authority parent or
@@ -270,12 +291,15 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   state is never removed.
 
 `broker.json` remains discovery-only. When Task 4 writes metadata schema v1, it
-records the full root tuple and digest plus `endpoint_layout_version: 1`. It does
-not duplicate the derived endpoint token; diagnostics derive that token through
-the same canonical path function. Adding the token later would require an
-explicit metadata-schema change. Neither the layout-version field nor the token
-could ever replace live authentication. The metadata schema version and the
-independent pathname-layout version do not move in lockstep.
+records the full root tuple and digest plus `cache_root`, `cache_root_source`,
+`endpoint_root`, `endpoint_root_source`, and `endpoint_layout_version: 1`. It
+does not duplicate the derived endpoint token; diagnostics derive that token
+through the same canonical path function. A client may use the recorded endpoint
+root only as an untrusted routing hint: it revalidates the root, re-derives the
+token, and still completes the full live handshake. Adding the token later would
+require an explicit metadata-schema change. Neither metadata nor the
+layout-version field could ever replace live authentication. The metadata schema
+version and the independent pathname-layout version do not move in lockstep.
 
 A pre-existing foreign-owned, non-directory, permissive, or symlinked
 `ai-peer-review`, `brokers`, or full-digest authority-directory level fails with
@@ -302,19 +326,27 @@ entry. The implementation must not use `chdir` or a relative bind to shorten the
 kernel-visible pathname.
 
 Immediately after `bind()` succeeds, the security layer observes the socket
-entry relative to the retained `aipr/v1` handle with no-follow semantics and
-compares its device, inode/file identity, socket type, owner, and allowed mode
-against the listener it just created. A mismatch fails closed, closes the
-listener, and does not unlink either observed entry. The same retained-parent
-comparison is repeated before ownership-sensitive cleanup. This makes the
-unavoidable absolute-bind race detectable without pretending that `bindat`
-exists.
+entry relative to the retained `aipr/v1` handle with no-follow semantics. It
+verifies that the owner is the calling user, the type is a socket, and the mode
+is within the allowed set, then records the observed device and inode/file
+identity as the endpoint baseline. No expected device or inode is derived from
+the listening socket descriptor: POSIX does not define those descriptor fields
+as the filesystem entry's identity. Failure of an independently checkable
+post-condition closes the listener and unlinks neither observed entry.
 
-Before connecting, a POSIX client opens and validates the cache-root anchor,
-then reaches every `endpointDirectories` entry relative to retained parent
-handles with the same owner, mode, type, and no-symlink checks. Those checks
-reduce redirection risk but do not establish trust; peer credentials, full-tuple
-comparison, instance identity, and nonce proof remain mandatory.
+Before ownership-sensitive cleanup, a second retained-parent observation checks
+owner, type, and mode again and compares device and inode/file identity with the
+recorded baseline. Any mismatch fails closed and unlinks neither observed entry.
+This record-then-compare contract detects later replacement without pretending
+that `bindat` exists or comparing unrelated socket identities.
+
+Before connecting, a POSIX client opens and validates the authority cache root,
+reads any endpoint-root metadata only as a routing hint, independently opens and
+validates that endpoint-root anchor, and then reaches every
+`endpointDirectories` entry relative to retained parent handles with the same
+owner, mode, type, and no-symlink checks. Those checks reduce redirection risk
+but do not establish trust; peer credentials, full-tuple comparison, instance
+identity, and nonce proof remain mandatory.
 
 ## Compatibility and migration
 
@@ -329,11 +361,18 @@ design. Broker compatibility at a live corrected endpoint continues to require
 exact package, protocol, and Node-major matches as defined by the accepted epic
 design.
 
-The full-digest lock directory intentionally remains unversioned. It is the
-cross-layout-version mutual-exclusion point: a future `v2` endpoint must contend
-for the same project lock before probing, draining, migrating, or binding a
-different endpoint. A future design must not version the lock directory and
-thereby allow two layout versions to own one project concurrently.
+The full-digest lock directory intentionally remains unversioned and rooted only
+at the resolved platform `cacheRoot`. Within one resolved cache root, it is the
+mutual-exclusion point across every endpoint-root selection and layout version:
+a second broker for the same canonical digest contends for that lock before
+probing, draining, migrating, or binding any endpoint. The accepted platform
+contract already requires all processes for a project to resolve the same
+`XDG_CACHE_HOME`, `%LOCALAPPDATA%`, and home; divergent authority-cache
+configuration remains a pre-existing deployment error outside #56. The new
+endpoint-root setting cannot create that split because it never relocates the
+lock. A future design must not move or version the lock directory and thereby
+allow two endpoint roots or layout versions within one resolved cache root to
+own one project concurrently.
 
 The short `aipr` cache name carries a residual local name-collision risk. If an
 unrelated application has already created an incompatible path there, the
@@ -409,7 +448,7 @@ Unit tests must prove:
   home is refused at 104 bytes;
 - the default `/Users/<short-name>` macOS route accepts a 20-byte short name and
   refuses a 21-byte short name, while the same long-home case succeeds with a
-  sufficiently short, safe `AI_PEER_REVIEW_CACHE_HOME`;
+  sufficiently short, safe `AI_PEER_REVIEW_ENDPOINT_ROOT`;
 - absolute Linux `XDG_CACHE_HOME` values pin exact acceptance at the injected
   107-byte Linux limit and refusal at 108 bytes, exercising the same off-by-one
   behavior without reusing Darwin's number;
@@ -418,12 +457,13 @@ Unit tests must prove:
 - package/protocol/Node version inputs do not affect routing;
 - overlong paths and invalid limits still fail before resource creation; and
 - POSIX `endpointDirectories` is exactly
-  `[<user-cache>/aipr, <user-cache>/aipr/v1]` in that order, is deeply frozen,
+  `[<endpoint-root>/aipr, <endpoint-root>/aipr/v1]` in that order, is deeply frozen,
   and each entry is a UTF-8 byte prefix of `endpoint`;
-- explicit cache-root precedence and `cacheRootSource` are exact; `cacheRoot`
-  is exact, `authorityDirectories` is the exact deeply frozen root-to-digest
-  chain, and `directory`, `lock`, and `metadata` remain byte-for-byte at the
-  full 64-hex authority paths; and
+- every input-table row, invalid-value outcome, source enum, and creation policy
+  is asserted per platform; `cacheRoot` remains exact,
+  `authorityDirectories` is the exact deeply frozen root-to-digest chain, and
+  `directory`, `lock`, and `metadata` remain byte-for-byte at the stable full
+  64-hex authority paths under every endpoint-root selection;
 - Windows output is asserted key-for-key, including an empty deeply frozen
   `endpointDirectories` array, the exact deeply frozen `authorityDirectories`
   chain, and the unchanged directory and named pipe.
@@ -434,18 +474,24 @@ Issue #43's registry and ownership tests must additionally prove:
   exact recovery action;
 - an absent Linux `home-default` cache root is created `0700` relative to the
   retained safe home, while an absent configured root is refused;
-- every cache-root source is refused when group- or other-writable;
+- every authority-root and endpoint-root source is refused when group- or
+  other-writable;
+- two brokers for one digest under different endpoint roots still contend for
+  one stable full-digest lock, and the loser cannot bind or deliver;
 - two project brokers can race to create each shared parent safely, a
   per-project release never removes it, and a leftover socket is unlinked only
   while the matching full-digest lock is held;
-- the post-bind retained-parent comparison covers device, inode/file identity,
-  socket type, owner, and mode, and a mismatch closes the listener without
-  unlinking either observed entry;
+- the immediate post-bind observation validates owner/type/mode and records its
+  device and inode/file identity without comparing them to the listener
+  descriptor;
+- the pre-cleanup observation revalidates owner/type/mode and compares device
+  and inode/file identity with that baseline, and an injected mismatch closes
+  the listener without unlinking either observed entry;
 - `listenPrivate` rejects cache-root and lock pathnames where retained live
   handles are required; and
 - Windows never applies `dirname` to its logical pipe label; and
-- metadata schema v1 records `endpoint_layout_version: 1` without duplicating
-  the endpoint token.
+- metadata schema v1 records both roots, both source enums, and
+  `endpoint_layout_version: 1` without duplicating the endpoint token.
 
 Those are Task 4 registry and ownership operations, so #56 defines and hands off
 the tests rather than creating a dependency cycle by implementing #43's native
@@ -464,6 +510,13 @@ requiring a production base32 decoder: enumerate the full-digest authority
 directories, validate each candidate, and re-derive its endpoint token through
 the canonical path function. Unknown or unsafe candidates are reported but
 never adopted or removed.
+
+A clean broker release and authenticated stale-owner recovery remove the exact
+owned socket. A socket whose project is permanently deleted or moved may remain
+orphaned because no future broker can safely acquire and reconcile its former
+project authority. This small per-user accumulation is accepted for v1;
+operator-initiated orphan cleanup is outside #56 and never inferred from age or
+an unknown token alone.
 
 ## Acceptance
 
