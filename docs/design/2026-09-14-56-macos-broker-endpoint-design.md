@@ -121,9 +121,10 @@ authority. It never changes in response to the endpoint-root input. `endpointRoo
 is the absolute POSIX parent beneath which `aipr/v1` is derived; it equals
 `cacheRoot` unless an explicit endpoint root is configured. Windows returns
 `endpointRoot: null` because its named-pipe endpoint has no filesystem root.
-`endpointLayoutVersion` is `1`. On POSIX, `maxEndpointRootBytes` is the injected
-endpoint limit minus the 61-byte `/aipr/v1/<token>` suffix; Windows returns
-`null`. The path layer is the sole source for both values.
+On POSIX, `endpointLayoutVersion` is `1` and `maxEndpointRootBytes` is the
+injected endpoint limit minus the 61-byte `/aipr/v1/<token>` suffix. Windows
+returns `null` for both because its retained named-pipe label has no versioned
+filesystem layout. The path layer is the sole source for both values.
 
 Every returned root is a canonical absolute platform path with no trailing
 separator and no `.` or `..` component. A configured value carrying one of
@@ -319,7 +320,10 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   are validated before continuing. If concurrent brokers for different
   projects lose `mkdir` with `EEXIST` at either level, that race is successful
   only after the observed level passes those complete post-conditions. It
-  creates the socket as owner-only where the platform permits and retains the
+  binds the socket under a restrictive process umask, then uses the retained
+  parent handle with no-follow semantics to set its filesystem entry to exactly
+  `0600` before publishing `ready`. The immediate observation must verify exact
+  `0600`; any platform that cannot enforce it fails closed. It retains the
   directory and endpoint identity handles through the owned lifetime.
 - On Windows,
   `listenPrivate(paths.endpointDirectories, paths.endpoint, { lock })` treats
@@ -347,6 +351,14 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   unlinking that exact socket while the lock remains held. The owner never uses
   recursive, wildcard, age-based, or cross-digest cleanup and never removes the
   shared directories.
+- If a metadata-recorded superseded endpoint root is absent, unreachable, or
+  fails root/parent validation, the owner does not recreate, repair, or traverse
+  it and does not abort a start at its valid current root. It records the exact
+  unreconciled prior root and observed condition in current-instance `starting`
+  and `ready` metadata for diagnostics, then proceeds. This is safe because
+  clients route only from explicit local configuration and compare against the
+  new current metadata before endpoint traversal; no client is redirected to the
+  unreconciled root.
 
 `broker.json` remains discovery-only. When Task 4 writes metadata schema v1, it
 records the full root tuple and digest plus `cache_root`, `cache_root_source`,
@@ -423,9 +435,10 @@ observes the stable project lock and readable metadata before opening the
 derived endpoint root or touching any `endpointDirectories` entry. It first
 establishes metadata currency from the live lock instance and nonce binding.
 Stale metadata takes precedence and produces the broker-integrity error;
-current-instance `starting` metadata produces `APR_BROKER_START_FAILED`; and an
-unrecognized layout version produces `APR_BROKER_INCOMPATIBLE`. Only
-current-instance, supported-layout `ready` metadata reaches root comparison.
+an unrecognized non-null layout version produces `APR_BROKER_INCOMPATIBLE`
+regardless of `starting` or `ready`; and current-instance, supported-layout
+`starting` metadata produces `APR_BROKER_START_FAILED`. Only current-instance,
+supported-layout `ready` metadata reaches root comparison.
 The client then compares its derived endpoint root with the recorded root,
 regardless of whether its derived socket path is absent or contains stale state.
 A difference produces
@@ -537,16 +550,18 @@ described here; no future layout may assume the `v1` sentence is unconditional.
   runtime because its fixed 108-unit label fits the supported 256-unit limit.
   Darwin includes the 42-byte endpoint-root maximum, Linux the 46-byte maximum;
   if no safe conforming root exists, the error names the unsupported account
-  condition and the administrator-provisioning action above.
-- Whenever the stable project lock is live and readable metadata names a
-  matching-instance, supported-layout, `ready` record names a different
-  validated endpoint root, before any endpoint-root traversal or connection
+  condition and the administrator-provisioning action above. Error details
+  carry the path layer's derived `maxEndpointRootBytes`, never a duplicated
+  literal.
+- Whenever the stable project lock is live and readable matching-instance,
+  supported-layout, `ready` metadata names a different validated endpoint root,
+  before any endpoint-root traversal or connection
   attempt: `APR_BROKER_ENDPOINT_ROOT_MISMATCH`; set the same
   endpoint-root variable for every participant and retry, never auto-redirect.
   The rule is presence-independent: it applies when the client's derived socket
   is absent, stale, or apparently live. Metadata is diagnostic evidence only,
   never routing authority.
-- Current-instance `ready` metadata names an unrecognized endpoint layout:
+- Current-instance `starting` or `ready` metadata names an unrecognized endpoint layout:
   existing `APR_BROKER_INCOMPATIBLE`; upgrade to a package version supporting
   that layout. This takes precedence over root mismatch and
   `APR_BROKER_START_FAILED` owner-election advice.
@@ -610,7 +625,7 @@ Unit tests must prove:
 - overlong paths and invalid limits still fail before resource creation;
 - `APR_BROKER_ENDPOINT_TOO_LONG` has the platform-selected exact recovery above
   and no longer claims endpoints are never redirected or recommends moving the
-  authority cache;
+  authority cache; its details carry the derived `maxEndpointRootBytes`;
 - POSIX `endpointDirectories` is exactly
   `[<endpoint-root>/aipr, <endpoint-root>/aipr/v1]` in that order, is deeply frozen,
   and each entry is a UTF-8 byte prefix of `endpoint`;
@@ -630,7 +645,8 @@ Unit tests must prove:
   `APR_BROKER_ENDPOINT_ROOT_MISMATCH` rather than connecting;
 - Windows output is asserted key-for-key, including an empty deeply frozen
   `endpointDirectories` array, `endpointRoot: null`,
-  `endpointRootSource: named-pipe`, the exact deeply frozen
+  `endpointRootSource: named-pipe`, `endpointLayoutVersion: null`,
+  `maxEndpointRootBytes: null`, the exact deeply frozen
   `authorityDirectories` chain, and the unchanged directory and named pipe.
 
 Issue #43's registry and ownership tests must additionally prove:
@@ -660,21 +676,22 @@ Issue #43's registry and ownership tests must additionally prove:
   per-project release never removes it, and a leftover socket is unlinked only
   while the matching full-digest lock is held;
 - the immediate post-bind observation validates owner/type/mode and records its
-  device and inode/file identity without comparing them to the listener
-  descriptor;
+  exact `0600` mode plus owner/type, and records its device and inode/file
+  identity without comparing them to the listener descriptor;
 - the pre-cleanup observation revalidates owner/type/mode and compares device
   and inode/file identity with that baseline, and an injected mismatch closes
   the listener without unlinking either observed entry;
 - `listenPrivate` rejects endpoint-root and lock pathnames where retained live
   handles are required;
 - Windows never applies `dirname` to its logical pipe label;
-- metadata schema v1 records both roots, both source enums, and
-  `endpoint_layout_version: 1` without duplicating the endpoint token;
+- metadata schema v1 records both roots, both source enums, and POSIX
+  `endpoint_layout_version: 1` (Windows `null`) without duplicating the endpoint
+  token;
 - after lock acquisition, stale prior metadata cannot trigger root mismatch;
   current-instance `starting` metadata is visible before bind and produces only
   startup-in-progress recovery, and `ready` metadata is published before
   clients are accepted;
-- current-instance `ready` metadata with an unknown layout version produces
+- current-instance `starting` or `ready` metadata with an unknown non-null layout version produces
   `APR_BROKER_INCOMPATIBLE` and upgrade guidance before root comparison,
   endpoint traversal, or owner-election advice;
 - a client whose derived endpoint contains a stale socket under a superseded
@@ -682,7 +699,10 @@ Issue #43's registry and ownership tests must additionally prove:
   integrity error;
 - a restarting owner holding the project lock reconciles and removes exactly a
   dead socket recorded under the superseded endpoint root while leaving both
-  shared directories in place; and
+  shared directories in place;
+- a restarting owner encountering an absent or unsafe superseded endpoint root
+  records the unreconciled root and exact condition, touches nothing there, and
+  proceeds to `ready` at its valid current root; and
 - a client with a missing or different endpoint-root setting never follows
   metadata as routing authority: an overlong default fails with the exact
   overlength recovery, a valid absent default under a live lock fails with
@@ -700,12 +720,16 @@ the tests rather than creating a dependency cycle by implementing #43's native
 lock/listener layer.
 
 On macOS, an integration test must call production `brokerPaths` with the real
-home directory and a unique full digest, create only its derived private endpoint
-parent, bind a real `node:net` Unix server at the returned endpoint, exchange one
-message with a real client, and remove only the exact unique socket. Shared
-package directories remain even if the test created them, matching production
-ownership semantics. The test must fail—not substitute another path—if the
-production-derived endpoint cannot bind.
+home directory and a unique full digest. If the default endpoint fits, it creates
+only the derived private endpoint parent, binds a real `node:net` Unix server at
+that production endpoint, exchanges one message with a real client, and removes
+only the exact unique socket. If the real default is overlong, the test first
+asserts the exact `APR_BROKER_ENDPOINT_TOO_LONG` recovery and derived root
+budget, then performs the same production-derived bind/connect round trip under
+a separately provisioned, validated short `AI_PEER_REVIEW_ENDPOINT_ROOT`. This
+is the supported production path input, not an unrelated socket substitution.
+Shared package directories remain even if the test created them, matching
+production ownership semantics.
 
 When a shared endpoint parent is lost, attribution proceeds forward rather than
 requiring a production base32 decoder: enumerate the full-digest authority
