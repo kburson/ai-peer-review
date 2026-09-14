@@ -12,6 +12,7 @@ const EXPECTED_COMMANDS = [
   'advance',
   'request-grant',
   'join',
+  'launch-reviewer',
   'status',
   'resume',
   'submit',
@@ -100,6 +101,55 @@ test('advance accepts exactly one workspace and one artifact with no flags', () 
   usage(['advance', '/review'], /positional/i);
   usage(['advance', '/review', 'docs/plan.md', 'extra'], /positional/i);
   usage(['advance', '/review', 'docs/plan.md', '--artifact-kind', 'plan'], /unknown flag/i);
+});
+
+test('launch-reviewer has a closed fresh and resume grammar', () => {
+  assert.deepEqual(
+    parseCommand([
+      'launch-reviewer',
+      '/repo/reviewer-invitation.md',
+      '--host',
+      'claude',
+      '--model',
+      'claude-opus-5',
+      '--effort',
+      'high',
+      '--json',
+    ]),
+    {
+      command: 'launch-reviewer',
+      args: ['/repo/reviewer-invitation.md'],
+      options: { host: 'claude', model: 'claude-opus-5', effort: 'high', json: true },
+    }
+  );
+  assert.deepEqual(
+    parseCommand([
+      'launch-reviewer',
+      '/repo/reviewer-invitation.md',
+      '--host',
+      'claude',
+      '--resume',
+    ]).options,
+    { host: 'claude', resume: true }
+  );
+  usage(
+    ['launch-reviewer', 'invitation', '--host', 'codex', '--model', 'm', '--effort', 'high'],
+    /host.*claude/i
+  );
+  usage(['launch-reviewer', 'invitation', '--host', 'claude'], /requires.*model.*effort/i);
+  usage(
+    ['launch-reviewer', 'invitation', '--host', 'claude', '--resume', '--model', 'm'],
+    /resume.*model.*effort/i
+  );
+  usage(['launch-reviewer', 'invitation', 'extra', '--host', 'claude', '--resume'], /positional/i);
+  usage(
+    ['launch-reviewer', 'invitation', '--host', 'claude', '--resume', '--session-id', 'raw'],
+    /unknown flag/i
+  );
+  usage(
+    ['launch-reviewer', 'invitation', '--host', 'claude', '--host', 'claude', '--resume'],
+    /duplicate/i
+  );
 });
 
 test('rejects unknown syntax, boolean values, duplicates, and invalid positions', () => {

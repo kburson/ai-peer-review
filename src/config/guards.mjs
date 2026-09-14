@@ -22,8 +22,8 @@ export function deriveReviewerGuard(status, context) {
   let physicalWorktree;
   let physicalWorkspace;
   let physicalResponse;
+  const resolvePhysical = context?.resolvePhysical ?? realpathSync;
   try {
-    const resolvePhysical = context?.resolvePhysical ?? realpathSync;
     physicalRepository = resolvePhysical(context.repositoryRoot);
     physicalWorktree = resolvePhysical(context.worktreeRoot);
     physicalWorkspace = resolvePhysical(workspace);
@@ -71,7 +71,13 @@ export function deriveReviewerGuard(status, context) {
     },
     checkOperation(operation) {
       if (operation?.kind === 'read') return true;
-      if (operation?.kind === 'write' && operation.path === response) return true;
+      if (operation?.kind === 'write' && exactPath(operation.path)) {
+        try {
+          if (resolvePhysical(operation.path) === physicalResponse) return true;
+        } catch {
+          // The closed rejection below owns missing, linked, and otherwise unsafe paths.
+        }
+      }
       if (operation?.kind === 'command') return this.check(operation.argv);
       reject('Reviewer operation is outside the exact pending response boundary.', {
         kind: operation?.kind,

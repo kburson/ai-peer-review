@@ -58,6 +58,7 @@ export const COMMAND_FLAGS = Object.freeze({
     '--incoming-session-fingerprint',
   ]),
   join: frozenList([]),
+  'launch-reviewer': frozenList(['--host', '--model', '--effort', '--resume', '--json']),
   status: frozenList(['--json', '--next']),
   resume: frozenList([]),
   submit: frozenList(['--decision', '--no-artifact-change', '--reason']),
@@ -84,6 +85,8 @@ export const COMMAND_USAGE = Object.freeze({
   'request-grant':
     'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
   join: 'peer-review join <reviewer-invitation.md>',
+  'launch-reviewer':
+    'peer-review launch-reviewer <reviewer-invitation.md> --host claude [--model <id> --effort <low|medium|high> | --resume] [--json]',
   status: 'peer-review status <workspace> [--json] [--next]',
   resume: 'peer-review resume <workspace>',
   submit:
@@ -116,6 +119,7 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
   advance: grammar(2),
   'request-grant': grammar(1),
   join: grammar(1),
+  'launch-reviewer': grammar(1),
   status: grammar(1),
   resume: grammar(1),
   submit: grammar(1),
@@ -142,6 +146,7 @@ const BOOLEAN_FLAGS = new Set([
   '--no-artifact-change',
   '--good-enough',
   '--reclaim',
+  '--resume',
   '--all',
 ]);
 const REPEATABLE_FLAGS = new Set(['--agent', '--unresolved-finding-id']);
@@ -252,6 +257,18 @@ function validateConstraints(command, args, options) {
     }
     if (options.reason !== undefined && !options.noArtifactChange) {
       usage('--reason requires --no-artifact-change');
+    }
+  }
+  if (command === 'launch-reviewer') {
+    validateEnum(options, 'host', '--host', ['claude']);
+    validateEnum(options, 'effort', '--effort', ['low', 'medium', 'high']);
+    if (!options.host) usage('launch-reviewer requires --host claude');
+    if (options.resume) {
+      if (options.model !== undefined || options.effort !== undefined) {
+        usage('launch-reviewer --resume forbids --model and --effort');
+      }
+    } else if (!options.model || !options.effort) {
+      usage('fresh launch-reviewer requires --model and --effort');
     }
   }
   if (command === 'supplement') {

@@ -5,16 +5,26 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { deriveReviewerGuard } from '../../src/config/guards.mjs';
+import {
+  buildClaudeReviewerLaunch,
+  matchesClaudeEditRule,
+} from '../../src/provider/claude-launch.mjs';
 
 function fixture() {
   const repositoryRoot = mkdtempSync(path.join(os.tmpdir(), 'apr-guard-'));
   const workspace = path.join(repositoryRoot, '.scratch', 'peer-review', 'review-1');
   const response = path.join(repositoryRoot, 'docs', 'reviewer-1.md');
+  const artifact = path.join(repositoryRoot, 'docs', 'artifact.md');
+  const invitation = path.join(repositoryRoot, 'docs', 'reviewer-invitation.md');
   mkdirSync(workspace, { recursive: true });
   mkdirSync(path.dirname(response), { recursive: true });
   writeFileSync(response, '# Review\n');
+  writeFileSync(artifact, '# Artifact\n');
+  writeFileSync(invitation, '# Invitation\n');
   return {
     repositoryRoot,
+    artifact,
+    invitation,
     status: {
       review_id: 'review-1',
       state: 'reviewer-turn',
@@ -23,6 +33,44 @@ function fixture() {
     },
   };
 }
+
+test('reviewer guard and Claude rule select the same exact response', () => {
+  const { repositoryRoot, artifact, invitation, status } = fixture();
+  const guard = deriveReviewerGuard(status, {
+    repositoryRoot,
+    worktreeRoot: repositoryRoot,
+    sessionFingerprint: 'sha256:reviewer',
+  });
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot,
+    invitation,
+    routing: {
+      schema: 'ai-peer-review.invitation-routing/v1',
+      review_id: status.review_id,
+      artifact,
+      workspace: status.paths.workspace,
+      response: status.paths.response,
+    },
+    model: 'claude-opus-5',
+    effort: 'high',
+  });
+  const rule = contract.permissions.allow.at(-1);
+  assert.equal(guard.checkOperation({ kind: 'write', path: contract.response }), true);
+  assert.equal(
+    matchesClaudeEditRule(rule, contract.response, { projectRoot: repositoryRoot }),
+    true
+  );
+  for (const rejected of [
+    artifact,
+    path.join(path.dirname(contract.response), 'reviewer-2.md'),
+    path.join(path.dirname(repositoryRoot), 'outside.md'),
+  ]) {
+    assert.throws(() => guard.checkOperation({ kind: 'write', path: rejected }), {
+      code: 'APR_REVIEWER_GUARD',
+    });
+    assert.equal(matchesClaudeEditRule(rule, rejected, { projectRoot: repositoryRoot }), false);
+  }
+});
 
 test('reviewer guard permits only closed package commands for exact authority', () => {
   const { repositoryRoot, status } = fixture();

@@ -5,6 +5,12 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      live_claude:
+        description: Run the optional disposable Claude permission conformance probe
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -110,8 +116,35 @@ jobs:
 
   live-provider-optional:
     name: Optional live-provider probe
-    if: ${{ false }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.live_claude == true }}
     continue-on-error: true
     runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_LIVE_MODEL: ${{ vars.CLAUDE_LIVE_MODEL }}
+      CLAUDE_LIVE_EFFORT: high
     steps:
-      - run: echo 'Live provider verification is opt-in and never required.'
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Require the explicit live-provider secret
+        if: ${{ env.ANTHROPIC_API_KEY == '' }}
+        run: exit 1
+      - name: Install the optional Claude runtime
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        run: npm install --global @anthropic-ai/claude-code
+      - name: Run disposable live permission conformance
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        run: >-
+          node test/live/claude-live-conformance.mjs
+          --output "${{ runner.temp }}/claude-conformance/sanitized-result.json"
+      - name: Upload sanitized conformance evidence
+        if: ${{ always() && env.ANTHROPIC_API_KEY != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: claude-live-conformance-sanitized
+          path: ${{ runner.temp }}/claude-conformance/sanitized-result.json
+          if-no-files-found: error
