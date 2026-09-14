@@ -6,12 +6,17 @@
 
 **Issue:** [#56](https://github.com/kburson/ai-peer-review/issues/56)
 
-**Supersedes:** Only the Unix socket pathname layout in
-`docs/design/2026-09-14-project-local-spr-xpr-broker-design.md` and the matching
-Task 3 **Interfaces**, Task 3 layout, and Task 4 **Interfaces** instructions at
-lines 172, 192, and 199 of
+**Supersedes:** The Unix socket pathname layout at lines 260–265 and extends the
+security rule at line 279 plus the stable-error list at lines 335–336 of
+`docs/design/2026-09-14-project-local-spr-xpr-broker-design.md`. It also
+supersedes the matching Task 3 **Interfaces**, Task 3 layout, and Task 4
+**Interfaces** instructions at lines 172, 192, and 199 of
 `docs/plans/2026-09-14-project-local-spr-xpr-broker.md`. The issue #56
-implementation plan is the executable replacement authority for those lines.
+implementation plan will be the executable replacement authority for those plan
+lines once it exists and passes its own peer review. The accepted epic documents
+remain sealed and are not edited; this issue-numbered correction has precedence
+only for the clauses named here. The new stable errors extend rather than
+replace the accepted list.
 The canonical root tuple, full SHA-256 digest, metadata and lock authority,
 handshake, ownership, compatibility, and recovery requirements remain in force.
 
@@ -49,6 +54,9 @@ The rejection is correct. The pathname contract is not.
 - Digest truncation, reduced collision resistance, or routing by package version.
 - Dual-probing or migrating unreleased pre-0.3 broker endpoints.
 - Weakening owner, symlink, peer-credential, lock, nonce, or handshake checks.
+- A caller-selected endpoint pathname. The supported cache-root selection input
+  changes the root for all broker state and remains subject to the same
+  ownership and length checks; it is not an endpoint override.
 
 ## Considered approaches
 
@@ -79,11 +87,13 @@ risk without improving identity integrity.
 ## Corrected path contract
 
 `brokerPaths({ identity, platform, env, home })` extends its return shape with
-the cache-root trust anchor and both ordered protected directory chains:
+the cache-root trust anchor, its source classification, and both ordered
+protected directory chains:
 
 ```js
 {
   cacheRoot,
+  cacheRootSource,
   authorityDirectories,
   directory,
   endpointDirectories,
@@ -93,8 +103,17 @@ the cache-root trust anchor and both ordered protected directory chains:
 }
 ```
 
-`cacheRoot` is the absolute `<user-cache>` path selected by the accepted
-platform rules. `authorityDirectories` is the deeply frozen ordered array
+`cacheRoot` is the absolute `<user-cache>` path. On macOS and Linux, an absolute
+`AI_PEER_REVIEW_CACHE_HOME` takes precedence when present. Otherwise macOS uses
+`~/Library/Caches`; Linux uses absolute `XDG_CACHE_HOME` when present and
+`~/.cache` otherwise. Windows retains `%LOCALAPPDATA%`. `cacheRootSource` is one
+of the fixed enum values `configured`, `platform-default`, or `home-default`, allowing
+the security layer to apply the creation policy without reinterpreting env or
+path text. The explicit ai-peer-review cache-root setting is the supported
+recovery for a macOS home whose default endpoint would be too long; both owner
+and client processes must use the same setting.
+
+`authorityDirectories` is the deeply frozen ordered array
 `[<user-cache>/ai-peer-review, <user-cache>/ai-peer-review/brokers,
 <user-cache>/ai-peer-review/brokers/<digest>]`. The last entry equals
 `directory`; neither the authority nor security layers reconstruct this chain
@@ -144,7 +163,8 @@ as `abcdefghijklmnopqrstuvwxyz234567` and padding omitted:
 1. Decode exactly 64 lowercase hexadecimal characters to 32 bytes.
 2. Read the bytes as one ordered bit stream, most-significant bit first.
 3. Emit 5-bit groups using `abcdefghijklmnopqrstuvwxyz234567`.
-4. Encode the final one-bit remainder with zero padding in its low four bits.
+4. Place the final data bit in the most-significant bit of the last 5-bit group
+   and zero that group's remaining four bits.
 5. Emit no `=` padding and no uppercase characters.
 
 Every valid digest produces exactly 52 characters. Decoding that token recovers
@@ -163,13 +183,18 @@ For the real macOS home in which the defect was reproduced:
 ```
 
 is 91 UTF-8 bytes. A 27-byte absolute home path still fits exactly at 103 bytes.
-Longer platform inputs are possible and are not redirected: preflight throws
+For the default macOS root this means a conventional `/Users/<short-name>` home
+fits only when `<short-name>` is at most 20 UTF-8 bytes. A longer default path is
+not silently redirected: preflight throws
 `APR_BROKER_ENDPOINT_TOO_LONG` before any directory, lock, metadata, or endpoint
 resource is opened.
 
-The error recovery continues to direct the operator to a shorter supported user
-cache path. No test or runtime path may substitute an unrelated short socket
-solely to bypass this check.
+The macOS offline recovery gives one action: configure an existing shorter,
+private absolute directory through `AI_PEER_REVIEW_CACHE_HOME` and rerun both
+broker participants with that same setting. The chosen root must pass the anchor
+checks and the recomputed endpoint must fit 103 bytes. Linux recovery likewise
+may shorten an explicitly configured root. No test or runtime path may
+substitute an unrelated short socket solely to bypass this check.
 
 Darwin's injected maximum is 103 usable bytes because its active SDK declares
 `sun_path[104]`. Linux declares `sun_path[108]`, so its injected maximum is 107
@@ -184,15 +209,22 @@ version, broker protocol version, Node major, instance ID, nonce proof, and
 kernel-reported peer user.
 
 Task 4 must treat both cache locations as protected resources. `<user-cache>`
-is the explicit trust anchor: it is selected by the OS-specific cache rule and
-must already exist as an absolute, user-owned, non-symlink directory before any
-package-private child is created. It is not required to be `0700`, because it is
-a platform or user-selected cache shared by applications. On Linux, selecting
-an absolute `XDG_CACHE_HOME` is configuration, not proof of safety; Task 4 must
-apply the same owner, type, and no-symlink anchor checks to it. The package never
-creates arbitrary cache-root ancestors. An absent or unusable cache root fails
-closed with `APR_BROKER_CACHE_ROOT_UNAVAILABLE` and identifies the exact root;
-the operator or platform must create or correct it before retrying.
+is the explicit trust anchor: it must be an absolute, user-owned, non-symlink
+directory that is not writable by group or other before any package-private
+child is created. A platform cache may be shared by applications and need not be
+`0700`, but it must satisfy that non-writable boundary. On Linux, selecting an
+absolute `XDG_CACHE_HOME` is configuration, not proof of safety; the same is true
+of `AI_PEER_REVIEW_CACHE_HOME` on either Unix platform.
+
+Configured roots and platform-default roots must already exist; the package
+never creates their arbitrary ancestors. The sole creation exception is the
+Linux `home-default`: after validating and retaining the absolute home as a
+user-owned, non-symlink directory not writable by group or other, Task 4 may
+create its direct `.cache` child as `0700` relative to that retained home handle.
+It then applies the identical cache-root owner, mode, type, and no-symlink
+post-conditions before use. An absent root outside that exception, or any unsafe
+root, fails closed with `APR_BROKER_CACHE_ROOT_UNAVAILABLE` and identifies the
+exact root and one recovery action.
 
 Below that anchor, Task 4 creates and validates every package-owned level:
 
@@ -237,12 +269,13 @@ Below that anchor, Task 4 creates and validates every package-owned level:
   of that exact stale socket before bind. Without the lock, stale-looking socket
   state is never removed.
 
-`broker.json` remains discovery-only. When Task 4 writes it, it records the full
-root tuple and digest. Version 1 does not duplicate the derived endpoint token;
-diagnostics derive it through the same canonical path function. Adding the token
-later would require an explicit metadata-schema change. It could never replace
-live authentication. The metadata schema version and the independent `v1`
-pathname-layout version do not move in lockstep.
+`broker.json` remains discovery-only. When Task 4 writes metadata schema v1, it
+records the full root tuple and digest plus `endpoint_layout_version: 1`. It does
+not duplicate the derived endpoint token; diagnostics derive that token through
+the same canonical path function. Adding the token later would require an
+explicit metadata-schema change. Neither the layout-version field nor the token
+could ever replace live authentication. The metadata schema version and the
+independent pathname-layout version do not move in lockstep.
 
 A pre-existing foreign-owned, non-directory, permissive, or symlinked
 `ai-peer-review`, `brokers`, or full-digest authority-directory level fails with
@@ -335,7 +368,8 @@ described here; no future layout may assume the `v1` sentence is unconditional.
   `APR_BROKER_ENDPOINT_TOO_LONG`.
 - Missing, foreign-owned, non-directory, symlinked, or otherwise unusable
   `<user-cache>` trust anchor: `APR_BROKER_CACHE_ROOT_UNAVAILABLE`; no package
-  directory or endpoint is created.
+  directory or endpoint is created, except that an absent Linux `home-default`
+  `.cache` is created and verified under the retained home handle as specified.
 - Unsafe, foreign-owned, permissive, non-directory, or symlinked Unix authority
   parent: `APR_BROKER_AUTHORITY_PARENT_UNSAFE` with exact-path inspection and
   manual repair guidance; never automatic removal.
@@ -373,6 +407,9 @@ Unit tests must prove:
 - realistic macOS cache roots fit 103 bytes;
 - a 27-byte macOS home produces exactly 103 bytes and the neighboring 28-byte
   home is refused at 104 bytes;
+- the default `/Users/<short-name>` macOS route accepts a 20-byte short name and
+  refuses a 21-byte short name, while the same long-home case succeeds with a
+  sufficiently short, safe `AI_PEER_REVIEW_CACHE_HOME`;
 - absolute Linux `XDG_CACHE_HOME` values pin exact acceptance at the injected
   107-byte Linux limit and refusal at 108 bytes, exercising the same off-by-one
   behavior without reusing Darwin's number;
@@ -383,18 +420,36 @@ Unit tests must prove:
 - POSIX `endpointDirectories` is exactly
   `[<user-cache>/aipr, <user-cache>/aipr/v1]` in that order, is deeply frozen,
   and each entry is a UTF-8 byte prefix of `endpoint`;
-- `cacheRoot` is exact, `authorityDirectories` is the exact deeply frozen
-  root-to-digest chain, and `directory`, `lock`, and `metadata` remain
-  byte-for-byte at the full 64-hex authority paths; and
+- explicit cache-root precedence and `cacheRootSource` are exact; `cacheRoot`
+  is exact, `authorityDirectories` is the exact deeply frozen root-to-digest
+  chain, and `directory`, `lock`, and `metadata` remain byte-for-byte at the
+  full 64-hex authority paths; and
 - Windows output is asserted key-for-key, including an empty deeply frozen
   `endpointDirectories` array, the exact deeply frozen `authorityDirectories`
   chain, and the unchanged directory and named pipe.
 
-Issue #43's ownership tests must additionally prove that two project brokers can
-race to create the shared parent safely, a per-project release never removes it,
-and a leftover socket is unlinked only while the matching full-digest lock is
-held. Those are Task 4 ownership operations, so #56 defines and hands off the
-tests rather than creating a dependency cycle by implementing #43's lock layer.
+Issue #43's registry and ownership tests must additionally prove:
+
+- each of the five new stable errors exists in the offline registry with one
+  exact recovery action;
+- an absent Linux `home-default` cache root is created `0700` relative to the
+  retained safe home, while an absent configured root is refused;
+- every cache-root source is refused when group- or other-writable;
+- two project brokers can race to create each shared parent safely, a
+  per-project release never removes it, and a leftover socket is unlinked only
+  while the matching full-digest lock is held;
+- the post-bind retained-parent comparison covers device, inode/file identity,
+  socket type, owner, and mode, and a mismatch closes the listener without
+  unlinking either observed entry;
+- `listenPrivate` rejects cache-root and lock pathnames where retained live
+  handles are required; and
+- Windows never applies `dirname` to its logical pipe label; and
+- metadata schema v1 records `endpoint_layout_version: 1` without duplicating
+  the endpoint token.
+
+Those are Task 4 registry and ownership operations, so #56 defines and hands off
+the tests rather than creating a dependency cycle by implementing #43's native
+lock/listener layer.
 
 On macOS, an integration test must call production `brokerPaths` with the real
 home directory and a unique full digest, create only its derived private endpoint
@@ -403,6 +458,12 @@ message with a real client, and remove only the exact unique socket. Shared
 package directories remain even if the test created them, matching production
 ownership semantics. The test must fail—not substitute another path—if the
 production-derived endpoint cannot bind.
+
+When a shared endpoint parent is lost, attribution proceeds forward rather than
+requiring a production base32 decoder: enumerate the full-digest authority
+directories, validate each candidate, and re-derive its endpoint token through
+the canonical path function. Unknown or unsafe candidates are reported but
+never adopted or removed.
 
 ## Acceptance
 
