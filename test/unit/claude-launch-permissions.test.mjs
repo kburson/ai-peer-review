@@ -255,6 +255,23 @@ test('surfaces exact same-session recovery for a denied response write', () => {
   assert.doesNotMatch(JSON.stringify(result), /raw-session|session-123/);
 });
 
+test('recognizes a Claude-normalized Windows response denial', () => {
+  const unchanged = authority();
+  const result = classifyClaudeReviewerOutcome({
+    before: unchanged,
+    after: unchanged,
+    providerResult: {
+      exit_code: 1,
+      permission_denials: [{ tool: 'Edit', path: '/c/work/project/reviewer-response-1.md' }],
+    },
+    contract: {
+      ...classificationContract(),
+      response: String.raw`C:\work\project\reviewer-response-1.md`,
+    },
+  });
+  assert.equal(result.status, 'permission-blocked');
+});
+
 test('keeps definite provider failure separate from ambiguous completion', () => {
   const unchanged = authority();
   assert.equal(

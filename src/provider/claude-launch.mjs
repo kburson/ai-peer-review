@@ -270,12 +270,20 @@ function authorityProjection(value, label, { reviewerRequired = true } = {}) {
 }
 
 function deniedExactResponse(providerResult, response) {
-  return (providerResult?.permission_denials ?? []).some(
-    (denial) =>
-      denial &&
-      ['Edit', 'Write'].includes(denial.tool) &&
-      path.normalize(denial.path ?? '') === response
-  );
+  let expected;
+  try {
+    expected = claudePath(response, 'response');
+  } catch {
+    return false;
+  }
+  return (providerResult?.permission_denials ?? []).some((denial) => {
+    if (!denial || !['Edit', 'Write'].includes(denial.tool)) return false;
+    try {
+      return claudePath(denial.path, 'response') === expected;
+    } catch {
+      return false;
+    }
+  });
 }
 
 export function classifyClaudeReviewerOutcome({ before, after, providerResult, contract } = {}) {
