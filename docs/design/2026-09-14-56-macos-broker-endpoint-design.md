@@ -1,15 +1,18 @@
 # Issue #56: macOS Broker Endpoint Correction
 
-<!-- cspell:words aipr EEXIST sockaddr injective unpadded noninteger nonpositive -->
+<!-- cspell:words aipr bindat chdir EEXIST nonsymlink sockaddr injective unpadded noninteger nonpositive -->
 
 **Status:** Proposed correction for peer review
 
 **Issue:** [#56](https://github.com/kburson/ai-peer-review/issues/56)
 
 **Supersedes:** Only the Unix socket pathname layout in
-`docs/design/2026-09-14-project-local-spr-xpr-broker-design.md`. The canonical
-root tuple, full SHA-256 digest, metadata and lock authority, handshake,
-ownership, compatibility, and recovery requirements remain in force.
+`docs/design/2026-09-14-project-local-spr-xpr-broker-design.md` and the matching
+Task 3/Task 4 interface and layout instructions at lines 172, 192, and 199 of
+`docs/plans/2026-09-14-project-local-spr-xpr-broker.md`. The issue #56
+implementation plan is the executable replacement authority for those lines.
+The canonical root tuple, full SHA-256 digest, metadata and lock authority,
+handshake, ownership, compatibility, and recovery requirements remain in force.
 
 ## Problem
 
@@ -36,8 +39,8 @@ The rejection is correct. The pathname contract is not.
 - Keep the full-digest directory as lock and metadata authority.
 - Retain fail-closed byte-length validation for unusually long cache roots.
 - Leave the Windows named-pipe contract unchanged.
-- Give Task 4 an explicit path and unambiguous security contract for the
-  separated socket parent.
+- Give Task 4 every protected parent path and an unambiguous security contract
+  for the separated socket parent.
 
 ## Non-goals
 
@@ -48,7 +51,7 @@ The rejection is correct. The pathname contract is not.
 
 ## Considered approaches
 
-### 1. Lowercase unpadded RFC 4648 base32 in a compact cache namespace
+### 1. Lowercase, unpadded base32 in a compact cache namespace
 
 Encode the same 32 digest bytes with the lowercase alphabet `a-z2-7`, producing
 exactly 52 characters, and place the Unix socket at
@@ -75,12 +78,12 @@ risk without improving identity integrity.
 ## Corrected path contract
 
 `brokerPaths({ identity, platform, env, home })` extends its return shape with
-the explicit protected endpoint parent:
+the ordered protected endpoint directories:
 
 ```js
 {
   directory,
-  endpointDirectory,
+  endpointDirectories,
   endpoint,
   lock,
   metadata,
@@ -105,10 +108,11 @@ There is no suffix. `aipr` is the stable package namespace and `v1` versions the
 pathname encoding/layout, not the broker protocol or project identity. Package,
 broker-protocol, and Node versions remain excluded from routing.
 
-`endpointDirectory` is exactly `<user-cache>/aipr/v1`. The path layer owns that
-derivation; the security layer must not reconstruct it with `dirname(endpoint)`.
-The directory is per-user and shared by every project-local broker for that
-user. Only its token leaf is per-project.
+On macOS and Linux, `endpointDirectories` is the deeply frozen ordered array
+`[<user-cache>/aipr, <user-cache>/aipr/v1]`. The path layer owns both
+derivations; the security layer must not reconstruct them with
+`dirname(endpoint)`. Both directories are per-user and shared by every
+project-local broker for that user. Only the token leaf is per-project.
 
 On Windows, the endpoint remains:
 
@@ -116,8 +120,15 @@ On Windows, the endpoint remains:
 \\.\pipe\ai-peer-review-brokers-<64-lowercase-hex-root-digest>-broker.sock
 ```
 
-The socket token is the canonical unpadded RFC 4648 base32 encoding of the 32
-bytes represented by the validated lowercase hexadecimal digest:
+Windows returns a deeply frozen empty `endpointDirectories` array because a
+named pipe has no filesystem parent. Its security implementation receives that
+empty array and validates the pipe's owner-only DACL and client token; applying
+`dirname` to the logical pipe label is forbidden and tested. The historical
+`-broker.sock` suffix is retained deliberately for compatibility.
+
+The socket token is RFC 4648 base32 applied to the 32 bytes represented by the
+validated lowercase hexadecimal digest, with the alphabet rendered lowercase
+as `abcdefghijklmnopqrstuvwxyz234567` and padding omitted:
 
 1. Decode exactly 64 lowercase hexadecimal characters to 32 bytes.
 2. Read the bytes as one ordered bit stream, most-significant bit first.
@@ -160,14 +171,19 @@ Task 4 must treat both cache locations as protected resources:
 
 - `openPrivateDirectory(paths.directory)` validates and retains the full-digest
   metadata and lock directory.
-- `listenPrivate(paths.endpointDirectory, paths.endpoint, { lock })` creates or
-  validates the compact endpoint parent as owner-only (`0700` on POSIX), refuses
-  symlinks and foreign ownership, creates the socket as owner-only where the
-  platform permits, and retains the endpoint identity handle through the owned
-  lifetime. If concurrent brokers for different projects race to create the
-  shared parent, losing creation with `EEXIST` is successful only after the
-  winner's directory passes the complete owner, mode, type, and no-symlink
-  post-condition checks.
+- On POSIX, `listenPrivate(paths.endpointDirectories, paths.endpoint, { lock })`
+  receives both ordered directories plus the live lock handle returned by
+  `acquireExclusive`; a lock pathname is not sufficient. It creates each absent
+  directory directly as owner-only (`0700`) and validates every level's owner,
+  mode, type, and no-symlink post-conditions before continuing. If concurrent
+  brokers for different projects lose `mkdir` with `EEXIST` at either level,
+  that race is successful only after the observed level passes those complete
+  post-conditions. It creates the socket as owner-only where the platform
+  permits and retains the directory and endpoint identity handles through the
+  owned lifetime.
+- On Windows, `listenPrivate([], paths.endpoint, { lock })` treats the live lock
+  handle as ownership authority, creates no endpoint directory, and applies the
+  existing owner-only named-pipe DACL and client-token checks.
 - Owner verification detects replacement or unlink of either the lock evidence
   or endpoint. Replacement or unlink of the shared endpoint parent fences every
   broker that observes it; each preserves its own lock/metadata evidence and
@@ -193,6 +209,20 @@ remove or repair that path outside ai-peer-review only after establishing its
 ownership and purpose, and then retry. It never suggests an endpoint override,
 recursive deletion, ownership takeover, or automatic replacement.
 
+The owner binds a Unix socket with the absolute `paths.endpoint` pathname—the
+same UTF-8 bytes measured by preflight. Darwin and Linux provide no `bindat`
+operation. Therefore, the accepted plan's directory-relative no-follow rule
+continues to govern regular directory, lock, and metadata operations, while the
+socket bind's no-symlink and ownership assurance comes from the retained
+identity handles and post-condition checks for every `endpointDirectories`
+entry. The implementation must not use `chdir` or a relative bind to shorten the
+kernel-visible pathname.
+
+Before connecting, a POSIX client validates every `endpointDirectories` entry
+with the same owner, mode, type, and no-symlink checks. Those checks reduce
+redirection risk but do not establish trust; peer credentials, full-tuple
+comparison, instance identity, and nonce proof remain mandatory.
+
 ## Compatibility and migration
 
 No published `0.2.x` release contains the project-local broker. Issue #56 lands
@@ -212,13 +242,19 @@ for the same project lock before probing, draining, migrating, or binding a
 different endpoint. A future design must not version the lock directory and
 thereby allow two layout versions to own one project concurrently.
 
+The epic design's guarantee that an incompatible broker remains discoverable at
+the same endpoint applies to package upgrades within pathname layout `v1`.
+Shipping `v2` requires the explicit cross-endpoint discovery and drain design
+described here; no future layout may assume the `v1` sentence is unconditional.
+
 ## Data flow
 
 1. Canonical project identity computes the existing 64-hex root digest.
 2. `brokerPaths` derives the full-digest metadata/lock directory.
-3. On Unix, it losslessly base32-encodes the digest bytes and derives the compact
-   shared endpoint parent plus versioned endpoint; on Windows it derives the
-   existing named pipe.
+3. On Unix, it losslessly base32-encodes the digest bytes and derives both
+   compact shared directory levels plus the versioned absolute endpoint; on
+   Windows it returns no endpoint directories and derives the existing named
+   pipe.
 4. Endpoint length preflight runs before any resource is opened.
 5. Task 4 validates both private locations, acquires the full-digest lock, binds
    the compact endpoint, and authenticates the full tuple over live IPC.
@@ -233,6 +269,15 @@ thereby allow two layout versions to own one project concurrently.
 - Unsafe, foreign-owned, permissive, non-directory, or symlinked Unix endpoint
   parent: `APR_BROKER_ENDPOINT_PARENT_UNSAFE` with exact-path inspection and
   manual repair guidance; never automatic removal.
+- Mid-lifetime replacement or loss of either shared endpoint directory:
+  `APR_BROKER_ENDPOINT_PARENT_LOST`. The error states that one shared-path event
+  may have fenced every project broker for the user. Each broker retains its own
+  lock and metadata evidence and refuses delivery. Recovery inspects and restores
+  both shared directories to their owner-only nonsymlink state, then reconciles
+  every affected project's lock, metadata, endpoint, review registry, and
+  provider state before restarting brokers individually. The package never
+  recreates the directory, unlinks sockets, takes ownership, or redirects an
+  endpoint automatically after mid-lifetime loss.
 - Unsupported platform: `APR_BROKER_ENDPOINT_UNSUPPORTED`.
 - Ownership, symlink, peer, tuple, instance, nonce, or version mismatch: the
   existing Task 4 integrity and authentication errors; never endpoint fallback.
@@ -245,14 +290,22 @@ Unit tests must prove:
   digest;
 - every valid digest emits 52 lowercase case-fold-safe characters and round
   trips to the same 32 bytes in the test oracle;
+- an all-zero digest encodes to 52 `a` characters, an all-`ff` digest encodes to
+  51 `7` characters followed by `q`, and every valid token ends in only `a` or
+  `q` because its final symbol carries one data bit and four zero pad bits;
 - realistic macOS cache roots fit 103 bytes;
 - a 27-byte macOS home produces exactly 103 bytes and the neighboring 28-byte
   home is refused at 104 bytes;
+- absolute Linux `XDG_CACHE_HOME` values pin the same exact 103-byte acceptance
+  and 104-byte refusal boundary;
 - Unicode cache roots are measured in UTF-8 bytes;
 - distinct root digests derive distinct Unix endpoints;
 - package/protocol/Node version inputs do not affect routing;
 - overlong paths and invalid limits still fail before resource creation; and
-- Windows directory and named-pipe results are unchanged.
+- `directory`, `lock`, and `metadata` remain byte-for-byte at the full 64-hex
+  authority paths; and
+- Windows output is asserted key-for-key, including an empty deeply frozen
+  `endpointDirectories` array and the unchanged directory and named pipe.
 
 Issue #43's ownership tests must additionally prove that two project brokers can
 race to create the shared parent safely, a per-project release never removes it,
@@ -266,9 +319,6 @@ parent, bind a real `node:net` Unix server at the returned endpoint, exchange on
 message with a real client, and remove only the exact unique socket plus empty
 test-created directories. It must fail—not substitute another path—if the
 production-derived endpoint cannot bind.
-
-The Windows `-broker.sock` named-pipe suffix is retained deliberately for
-compatibility even though Unix endpoints no longer use a suffix.
 
 ## Acceptance
 
