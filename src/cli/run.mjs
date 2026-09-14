@@ -32,6 +32,11 @@ import {
   sealResponse,
 } from '../collateral/responses.mjs';
 import { AprError } from '../errors.mjs';
+import {
+  buildClaudeReviewerLaunch,
+  buildClaudeReviewerResume,
+  runClaudeReviewerLaunch,
+} from '../provider/claude-launch.mjs';
 import { doctor } from '../doctor.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
@@ -3765,6 +3770,15 @@ function writeResult(stream, value) {
   stream.write(`${lines.join('\n')}\n`);
 }
 
+function writeClaudeLaunchResult(stream, value) {
+  const lines = [
+    `Claude reviewer ${value.review_id}: ${value.status}`,
+    `Response: ${value.response}`,
+  ];
+  if (value.recovery?.command) lines.push(`Next: ${value.recovery.command}`);
+  stream.write(`${lines.join('\n')}\n`);
+}
+
 function coordinatorProjection(command, workspace, value) {
   if (command === 'status') return value;
   if (command === 'stop') {
@@ -4191,6 +4205,37 @@ export async function run(argv, io) {
       if (parsed.options.json) writeJson(io.stdout, response);
       else writeCoordinatorResult(io.stdout, response);
       return 0;
+    }
+    if (parsed.command === 'launch-reviewer') {
+      const invitation = path.resolve(io.cwd, parsed.args[0]);
+      const values = invitationValues(invitation);
+      const routing = {
+        schema: 'ai-peer-review.invitation-routing/v1',
+        review_id: values.reviewId,
+        artifact: values.artifact,
+        workspace: values.workspace,
+        response: values.response,
+      };
+      const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
+      const contract = parsed.options.resume
+        ? buildClaudeReviewerResume({ repositoryRoot, invitation, routing })
+        : buildClaudeReviewerLaunch({
+            repositoryRoot,
+            invitation,
+            routing,
+            model: parsed.options.model,
+            effort: parsed.options.effort,
+          });
+      const response = await runClaudeReviewerLaunch({
+        contract,
+        resume: parsed.options.resume,
+        execFile: io.execFile ?? execFile,
+        inspectAuthority: io.inspectAuthority,
+        fingerprintSession: io.fingerprintSession,
+      });
+      if (parsed.options.json) writeJson(io.stdout, response);
+      else writeClaudeLaunchResult(io.stdout, response);
+      return response.status === 'failed' ? 1 : 0;
     }
     let response;
     if (parsed.command === 'start') {

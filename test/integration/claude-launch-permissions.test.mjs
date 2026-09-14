@@ -12,6 +12,7 @@ import {
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
 import { joinReview, startReview, submitReviewTurn } from '../helpers/internal-api.mjs';
+import { run } from '../../src/cli/run.mjs';
 
 const NOW = '2026-09-14T12:00:00.000Z';
 
@@ -194,4 +195,65 @@ test('reproduces single-slash denial then submits from the same corrected Claude
     afterCorrected.events.filter((event) => event.type === 'reviewer-accepted').length,
     1
   );
+});
+
+test('launch-reviewer CLI emits the sanitized governed result', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/artifact.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'cli-author-session'),
+    reviewId: 'review-claude-cli',
+    now: NOW,
+  });
+  const routing = routingFromInvitation(started.paths.reviewer_invitation);
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    routing,
+    model: 'claude-opus-5',
+    effort: 'high',
+  });
+  const provider = conformantClaude({
+    root: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    reviewer: identity('reviewer', 'cli-reviewer-session'),
+  });
+  const stdout = [];
+  const stderr = [];
+  const exitCode = await run(
+    [
+      'launch-reviewer',
+      started.paths.reviewer_invitation,
+      '--host',
+      'claude',
+      '--model',
+      'claude-opus-5',
+      '--effort',
+      'high',
+      '--json',
+    ],
+    {
+      cwd: fx.root,
+      env: {},
+      stdout: { write: (value) => stdout.push(String(value)) },
+      stderr: { write: (value) => stderr.push(String(value)) },
+      execFile: async () => {
+        const result = await provider.turn(contract);
+        return {
+          stdout: JSON.stringify({ ...result, session_id: 'cli-reviewer-session' }),
+          stderr: '',
+        };
+      },
+    }
+  );
+  assert.equal(exitCode, 0);
+  assert.deepEqual(stderr, []);
+  const result = JSON.parse(stdout.join(''));
+  assert.equal(result.command, 'launch-reviewer');
+  assert.equal(result.status, 'submitted');
+  assert.equal(result.response, routing.response);
+  assert.doesNotMatch(JSON.stringify(result), /cli-reviewer-session/);
 });

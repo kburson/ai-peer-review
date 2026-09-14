@@ -301,6 +301,7 @@ export function classifyClaudeReviewerOutcome({ before, after, providerResult, c
       : null;
   return Object.freeze({
     schema: 'ai-peer-review.claude-launch-result/v1',
+    command: 'launch-reviewer',
     review_id: current.protocol.review_id,
     status,
     protocol_revision: current.protocol.revision,
@@ -356,6 +357,47 @@ function readLaunchState(contract) {
     );
   }
   return Object.freeze({ ...value });
+}
+
+export function buildClaudeReviewerResume({ repositoryRoot, invitation, routing } = {}) {
+  let physicalRoot;
+  try {
+    physicalRoot = realpathSync(exactPath(repositoryRoot, 'repository'));
+  } catch (cause) {
+    if (cause instanceof AprError) throw cause;
+    throw sessionError(
+      'Claude resume repository cannot be resolved physically.',
+      'Return to the exact physical review worktree and retry.'
+    );
+  }
+  const workspace = contained(physicalRoot, routing?.workspace, 'workspace');
+  const stateFile = contained(
+    physicalRoot,
+    path.join(workspace.absolute, 'provider', 'claude', 'launch-state.json'),
+    'Claude launch state'
+  ).absolute;
+  let state;
+  try {
+    const metadata = lstatSync(stateFile);
+    if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error('unsafe state file');
+    state = JSON.parse(readFileSync(stateFile, 'utf8'));
+  } catch (cause) {
+    const error = sessionError(
+      'Claude resume state cannot be read safely.',
+      'Preserve the review and restore its package-owned Claude launch state.'
+    );
+    error.cause = cause;
+    throw error;
+  }
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot: physicalRoot,
+    invitation,
+    routing,
+    model: state?.model,
+    effort: state?.effort,
+  });
+  readLaunchState(contract);
+  return contract;
 }
 
 function parseProviderResult(execution) {

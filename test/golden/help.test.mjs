@@ -97,6 +97,29 @@ test('coordinator help declares durable wake and bounded manual fallback semanti
   assert.equal(coordinator.json_schema, 'ai-peer-review.coordinator-result/v1');
 });
 
+test('Claude launch help and result schema freeze bounded recovery', () => {
+  const schema = JSON.parse(
+    readFileSync(new URL('../../schemas/claude-launch-result-v1.json', import.meta.url), 'utf8')
+  );
+  assert.equal(schema.$id, 'ai-peer-review.claude-launch-result/v1');
+  assert.equal(schema.additionalProperties, false);
+  assert.deepEqual(schema.properties.command, { const: 'launch-reviewer' });
+  assert.deepEqual(schema.properties.status.enum, [
+    'submitted',
+    'permission-blocked',
+    'failed',
+    'outcome-unknown',
+  ]);
+  const topic = helpRequest('launch-reviewer', 'json');
+  assert.match(topic.preconditions.join(' '), /sealed.*invitation.*exact.*response/i);
+  assert.match(topic.effects.join(' '), /same.*session.*resume/i);
+  assert.equal(topic.json_schema, 'ai-peer-review.claude-launch-result/v1');
+  assert.match(
+    explainError('APR_CLAUDE_PERMISSION_INVALID').recovery,
+    /\/\/.*filesystem.*\/.*project/i
+  );
+});
+
 test('help --all, search, JSON, and stable error explanations have deterministic fixtures', () => {
   const rendered = helpRequest(null, 'text', { all: true });
   assert.equal(

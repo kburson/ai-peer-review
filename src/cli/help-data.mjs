@@ -8,6 +8,7 @@ const PURPOSE = Object.freeze({
   advance: 'Bind the exact next phased artifact and resume the registered reviewer.',
   'request-grant': 'Create a canonical Human Authority challenge.',
   join: 'Join from an invitation as a distinct reviewer session.',
+  'launch-reviewer': 'Launch or resume Claude with one exact pending-response permission.',
   status: 'Read event-derived review state and one exact next action.',
   resume: 'Reconstruct the current actor instructions without polling or waking.',
   submit: 'Seal and submit the current participant response.',
@@ -31,6 +32,7 @@ const ROLES = Object.freeze({
   advance: ['author'],
   'request-grant': ['author', 'reviewer'],
   join: ['reviewer'],
+  'launch-reviewer': ['author', 'host'],
   status: ['author', 'reviewer', 'human'],
   resume: ['author', 'reviewer', 'human'],
   submit: ['author', 'reviewer'],
@@ -52,6 +54,7 @@ const STATES = Object.freeze({
   advance: ['awaiting-phase-artifact'],
   'request-grant': ['outside-review', 'intervention-required'],
   join: ['awaiting-reviewer'],
+  'launch-reviewer': ['awaiting-reviewer', 'reviewer-turn'],
   status: ['any'],
   resume: ['any'],
   submit: ['reviewer-turn', 'author-revision'],
@@ -83,6 +86,10 @@ const PRECONDITIONS = Object.freeze({
   advance: ['A registered author claim and the exact event-derived next artifact.'],
   'request-grant': ['Exact event authority and complete parameters for one protected action.'],
   join: ['The exact sealed invitation, original physical worktree, and a distinct reviewer.'],
+  'launch-reviewer': [
+    'The sealed reviewer invitation and its exact single event-authorized pending response.',
+    'Fresh launch requires model and effort; resume uses only package-owned private session state.',
+  ],
   status: ['A readable event-authoritative review workspace.'],
   resume: ['A readable event-authoritative review workspace.'],
   submit: ['The registered current actor, active claim, and exact pending response.'],
@@ -115,6 +122,10 @@ const EFFECTS = Object.freeze({
   advance: ['Appends one next-artifact event, reviewer draft, and durable delivery.'],
   'request-grant': ['Appends or reuses one challenge event; performs no Git operation.'],
   join: ['Appends reviewer identity and claim events and creates one reviewer draft.'],
+  'launch-reviewer': [
+    'Launches Claude under dontAsk with one exact response Edit permission.',
+    'A blocked write returns the exact same-session resume action without exposing the raw handle.',
+  ],
   status: ['Read-only event reduction; performs no repair, polling, wake, or Git operation.'],
   resume: ['Read-only instruction reconstruction; performs no polling, wake, or Git operation.'],
   submit: ['Seals one response and appends its lifecycle and delivery events.'],
@@ -180,6 +191,15 @@ const ERRORS = Object.freeze({
     'APR_STALE_REVIEW',
     'APR_TEMPLATE_INVALID',
     'APR_OUTPUT_COLLISION',
+  ],
+  'launch-reviewer': [
+    'APR_CLAUDE_PERMISSION_INVALID',
+    'APR_CLAUDE_SESSION_INVALID',
+    'APR_CLAUDE_LAUNCH_FAILED',
+    'APR_CLAUDE_RESULT_INVALID',
+    'APR_INVITATION_INVALID',
+    'APR_IDENTITY_CONFLICT',
+    'APR_USAGE',
   ],
   status: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
   resume: ['APR_EVENT_LOG_MISSING', 'APR_EVENT_LOG_CORRUPT', 'APR_INVITATION_INVALID'],
@@ -454,6 +474,25 @@ const NEXT_COMMAND = Object.freeze({
   },
 });
 const ERROR_CATALOG = Object.freeze({
+  APR_CLAUDE_PERMISSION_INVALID: {
+    message: 'The exact Claude response permission is invalid or cannot be represented safely.',
+    recovery:
+      'Use the package builder: // is filesystem-root absolute while / is project-relative; never widen the exact response path.',
+  },
+  APR_CLAUDE_SESSION_INVALID: {
+    message: 'Private Claude resume state is missing, unsafe, or conflicts with launch authority.',
+    recovery: 'Preserve the review and resume only its exact package-recorded Claude session.',
+  },
+  APR_CLAUDE_LAUNCH_FAILED: {
+    message: 'The Claude reviewer process failed without protocol submission authority.',
+    recovery:
+      'Preserve the review, inspect private provider diagnostics, and retry the exact launch.',
+  },
+  APR_CLAUDE_RESULT_INVALID: {
+    message: 'Claude returned malformed, ambiguous, or authority-conflicting launch evidence.',
+    recovery:
+      'Preserve the review and retry with bounded Claude JSON from the exact reviewer session.',
+  },
   APR_PHASE_CONFLICT: {
     message: 'A phased artifact or exact retry differs from committed event authority.',
     recovery: 'Preserve the workspace and retry with the exact event-derived phase artifact.',
@@ -891,9 +930,11 @@ function topic(command) {
           : 'Read peer-review status for the next event-derived action.',
     errors: ERRORS[command],
     json_schema:
-      command === 'coordinator'
-        ? 'ai-peer-review.coordinator-result/v1'
-        : 'ai-peer-review.cli-result/v1',
+      command === 'launch-reviewer'
+        ? 'ai-peer-review.claude-launch-result/v1'
+        : command === 'coordinator'
+          ? 'ai-peer-review.coordinator-result/v1'
+          : 'ai-peer-review.cli-result/v1',
   });
 }
 

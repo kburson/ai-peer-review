@@ -23,6 +23,7 @@ export { hydrateTemplate } from '../../src/templates/index.mjs';
 export { createResumeTransport } from '../../src/transport/resume.mjs';
 export {
   buildClaudeReviewerLaunch,
+  buildClaudeReviewerResume,
   classifyClaudeReviewerOutcome,
   runClaudeReviewerLaunch,
 } from '../../src/provider/claude-launch.mjs';

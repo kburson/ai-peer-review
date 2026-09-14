@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import {
   buildClaudeReviewerLaunch,
+  buildClaudeReviewerResume,
   classifyClaudeReviewerOutcome,
   encodeClaudeEditRule,
   matchesClaudeEditRule,
@@ -328,11 +329,18 @@ test('keeps the Claude session handle private and injects it only into exact res
   assert.equal(privateState.session_handle, rawHandle);
   assert.equal(privateState.model, 'claude-opus-5');
   assert.equal(privateState.effort, 'high');
+  const resumeContract = buildClaudeReviewerResume({
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+  });
+  assert.equal(resumeContract.model, contract.model);
+  assert.equal(resumeContract.effort, contract.effort);
 
   let resumedArgs;
   const resumeAuthorities = [joined, accepted];
   const resumed = await runClaudeReviewerLaunch({
-    contract,
+    contract: resumeContract,
     resume: true,
     inspectAuthority: () => resumeAuthorities.shift(),
     fingerprintSession: () => reviewerFingerprint,
