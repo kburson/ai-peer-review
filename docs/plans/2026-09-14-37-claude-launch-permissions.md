@@ -15,13 +15,17 @@
 - Support only Claude Code for this story; do not implement the SPR/XPR broker or a provider-neutral supervisor.
 - Use `--permission-mode dontAsk`; allow only exact package-generated `join` and `submit` Bash commands, and never use `bypassPermissions`, a directory/repository wildcard, or Bash to write the response.
 - Derive the response, artifact, workspace, review ID, and revision from the sealed invitation and event authority; never accept caller-selected replacements.
-- Encode a POSIX absolute Edit pattern with a double leading slash and fail closed on unproven permission-pattern metacharacters.
+- Validate canonical native POSIX or Windows absolute paths, translate them into Claude's forward-slash provider namespace, encode the resulting filesystem-root Edit pattern with a double leading slash, and fail closed on unproven permission-pattern metacharacters.
 - Pass executable arguments as an array with shell execution disabled.
 - Keep raw provider session handles and process diagnostics under ignored review scratch; public results contain only fingerprints or opaque recovery references.
 - Only a verified reviewer submission transition produces `submitted`; process success, completed analysis, doctor health, join success, or response bytes do not.
 - Resume the same recorded Claude session/model/effort; never let the author submit for the reviewer.
 - Keep the default test suite deterministic and offline; any live-Claude conformance is separately gated and non-required.
-- Commit messages follow the project issue convention and contain `Closes #37`.
+- Commit messages follow the project issue convention and contain the canonical `[#37]` attribution token. Pull requests do not use auto-closing keywords; the governed AITM close transition owns issue closure.
+
+### Post-implementation platform clarification
+
+The implementation and regression suite established that filesystem paths, Claude permission paths, and package-command arguments are three distinct representations. A canonical Windows path such as `C:\work\repo\reviewer-response-1.md` becomes `/c/work/repo/reviewer-response-1.md` for Claude matching and `Edit(//c/work/repo/reviewer-response-1.md)` for the allow rule, while command argv uses the portable `C:/work/repo/reviewer-response-1.md` form. Apply the same native-to-provider normalization to structured Edit/Write denial paths before exact-response comparison. Do not pass Windows-native paths through POSIX normalization or compare the two namespaces directly.
 
 ---
 
