@@ -23,3 +23,8 @@ export {
 } from './transport/resident.mjs';
 export { createNativePushTransport } from './transport/native-push.mjs';
 export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';
+export {
+  buildClaudeReviewerLaunch,
+  encodeClaudeEditRule,
+  matchesClaudeEditRule,
+} from './provider/claude-launch.mjs';
