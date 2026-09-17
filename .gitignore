@@ -1,5 +1,7 @@
 node_modules/
 coverage/
+.vscode/
+
 *.tgz
 !vendors/kburson-ai-task-manager-0.1.0.tgz
 .scratch/peer-review/
