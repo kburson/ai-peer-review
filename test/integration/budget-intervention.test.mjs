@@ -95,6 +95,54 @@ test('a registered participant can supersede a nonterminal attempt with exact re
     identity: reviewer,
     now: NOW,
   });
+  const successor = await api.startReview({
+    cwd: fx.root,
+    artifact: 'docs/artifact.md',
+    artifactKind: 'spec',
+    identity: author,
+    reviewId: 'review-successor',
+    recordId: 'record-chain',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+  const reciprocal = `sha256:${'a'.repeat(64)}`;
+  const lineage = {
+    schema: 'ai-peer-review.lineage-receipt/v1',
+    complete: true,
+    attempts: [
+      {
+        review_id: started.review_id,
+        record_id: 'record-chain',
+        root_review_id: started.review_id,
+        recovery_ordinal: 0,
+        predecessor_review_id: null,
+        successor_review_id: successor.review_id,
+        recovery_id: null,
+        recovery_claim_digest: null,
+        reciprocal_receipt_digest: reciprocal,
+        consumed_grant_digest: null,
+        event_log_digest: `sha256:${createHash('sha256').update(readFileSync(started.paths.events)).digest('hex')}`,
+      },
+      {
+        review_id: successor.review_id,
+        record_id: 'record-chain',
+        root_review_id: started.review_id,
+        recovery_ordinal: 1,
+        predecessor_review_id: started.review_id,
+        successor_review_id: null,
+        recovery_id: 'recovery-1',
+        recovery_claim_digest: `sha256:${'b'.repeat(64)}`,
+        reciprocal_receipt_digest: reciprocal,
+        consumed_grant_digest: null,
+        event_log_digest: `sha256:${createHash('sha256').update(readFileSync(successor.paths.events)).digest('hex')}`,
+      },
+    ],
+  };
+  for (const review of [started, successor]) {
+    writeFileSync(
+      path.join(review.paths.workspace, 'lineage-receipt.json'),
+      `${JSON.stringify(lineage, null, 2)}\n`
+    );
+  }
 
   const reservation = `${started.paths.workspace}/collateral-reservation.json`;
   const superseded = await api.supersedeReview({

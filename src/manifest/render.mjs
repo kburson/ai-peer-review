@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { AprError } from '../errors.mjs';
+import { inspectRecordLineage } from '../protocol/record-lineage.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
 
 const AUTHOR_HANDOFFS = new Set([
@@ -208,34 +209,39 @@ function supplementHistory(protocol, events) {
 
 function assertManifestTruth(model, { closed = false } = {}) {
   if (closed) {
-    exactKeys(
-      model,
-      [
-        'schema',
-        'review_id',
-        'record_id',
-        'status',
-        'acceptance_basis',
-        'commit_mode',
-        'authority_assurance',
-        'residual_risk',
-        'startup_commit',
-        'final_commit',
-        'artifact_path',
-        'artifact_history',
-        'participants',
-        'turns',
-        'identity_changes',
-        'claims',
-        'recoveries',
-        'supplements',
-        'authority',
-        'human_decision',
-      ],
-      'Manifest model'
-    );
+    const keys = [
+      'schema',
+      'review_id',
+      'record_id',
+      'status',
+      'acceptance_basis',
+      'commit_mode',
+      'authority_assurance',
+      'residual_risk',
+      'startup_commit',
+      'final_commit',
+      'artifact_path',
+      'artifact_history',
+      'participants',
+      'turns',
+      'identity_changes',
+      'claims',
+      'recoveries',
+      'supplements',
+      'authority',
+      'human_decision',
+    ];
+    if (Object.hasOwn(model, 'lineage_receipt')) keys.push('lineage_receipt');
+    exactKeys(model, keys, 'Manifest model');
   }
   if (model.schema !== 'ai-peer-review.manifest/v1') fail('Manifest model schema is invalid.');
+  if (
+    Object.hasOwn(model, 'lineage_receipt') &&
+    (model.lineage_receipt === null ||
+      inspectRecordLineage(model.lineage_receipt).status !== 'complete')
+  ) {
+    fail('Manifest lineage receipt is incomplete or invalid.');
+  }
   const key = `${model.commit_mode}|${model.acceptance_basis}`;
   const expectedStatus = {
     'normal|reviewer-consensus': 'accepted',
@@ -304,6 +310,7 @@ export function buildManifest(review) {
     schema: 'ai-peer-review.manifest/v1',
     review_id: protocol.review_id,
     record_id: protocol.startup?.context?.record_id ?? protocol.review_id,
+    ...(review.lineage_receipt ? { lineage_receipt: structuredClone(review.lineage_receipt) } : {}),
     status,
     acceptance_basis: acceptanceBasis,
     commit_mode: protocol.commit_mode,

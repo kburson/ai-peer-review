@@ -169,6 +169,48 @@ function attemptFixture(root, reviewId, recordId, disposition, { draft = null } 
   return { reviewId, recordId, paths, workspace: paths.scratch.absolute };
 }
 
+function writeLineageReceipt(attempts) {
+  const reciprocal = `sha256:${'d'.repeat(64)}`;
+  const models = attempts.map((attempt, index) => {
+    const events = readFileSync(path.join(attempt.workspace, 'events.jsonl'), 'utf8')
+      .trimEnd()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    return {
+      review_id: attempt.reviewId,
+      record_id: attempt.recordId,
+      root_review_id: attempts[0].reviewId,
+      recovery_ordinal: index,
+      predecessor_review_id: attempts[index - 1]?.reviewId ?? null,
+      successor_review_id: attempts[index + 1]?.reviewId ?? null,
+      recovery_id: index === 0 ? null : `recovery-${index}`,
+      recovery_claim_digest: index === 0 ? null : `sha256:${'e'.repeat(64)}`,
+      reciprocal_receipt_digest: reciprocal,
+      consumed_grant_digest: index <= 1 ? null : `sha256:${'f'.repeat(64)}`,
+      event_log_digest: digest(
+        Buffer.from(
+          `${events
+            .slice(0, -1)
+            .map((event) => JSON.stringify(JSON.parse(canonicalProjection(event))))
+            .join('\n')}\n`
+        )
+      ),
+    };
+  });
+  const receipt = {
+    schema: 'ai-peer-review.lineage-receipt/v1',
+    complete: true,
+    attempts: models,
+  };
+  for (const attempt of attempts) {
+    writeFileSync(
+      path.join(attempt.workspace, 'lineage-receipt.json'),
+      `${JSON.stringify(receipt, null, 2)}\n`
+    );
+  }
+  return receipt;
+}
+
 test('plans one immutable ordered record without promoting drafts to decisions', async (t) => {
   const { planReviewRecord, renderReviewHistory } = await recordModule();
   assert.equal(typeof planReviewRecord, 'function', 'planReviewRecord must be exported');
@@ -215,6 +257,28 @@ test('plans one immutable ordered record without promoting drafts to decisions',
   const history = renderReviewHistory(plan);
   assert.match(history, /review-01[\s\S]*not-submitted[\s\S]*review-02[\s\S]*incomplete/);
   assert.match(history, /review-03[\s\S]*accepted/);
+});
+
+test('preserves one validated lineage receipt through plan, history, and relocation receipt', async (t) => {
+  const { planReviewRecord, applyReviewRecord, renderReviewHistory } = await recordModule();
+  const { root } = fixture(t);
+  const first = attemptFixture(root, 'review-01', 'record-01', 'superseded');
+  const second = attemptFixture(root, 'review-02', 'record-01', 'accepted', {
+    draft: { submitted: true },
+  });
+  const lineage = writeLineageReceipt([first, second]);
+
+  const plan = planReviewRecord({
+    workspaces: [second.workspace, first.workspace],
+    destination: 'docs/peer-reviews/spec/record-01',
+    now: new Date('2026-09-08T13:00:00.000Z'),
+  });
+
+  assert.deepEqual(plan.lineage_receipt, lineage);
+  assert.match(renderReviewHistory(plan), /## Validated lineage[\s\S]*review-01[\s\S]*review-02/);
+  applyReviewRecord(plan, { mode: 'no-commit' });
+  const relocation = JSON.parse(readFileSync(plan.receipt.absolute, 'utf8'));
+  assert.deepEqual(relocation.lineage_receipt, lineage);
 });
 
 test('rejects attempts from different record identities', async (t) => {

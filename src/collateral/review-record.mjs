@@ -19,6 +19,7 @@ import path from 'node:path';
 import { AprError } from '../errors.mjs';
 import { createGitTransactionRepository } from '../git/transaction.mjs';
 import { canonicalProjection, inspectReviewAuthority } from '../protocol/service.mjs';
+import { inspectRecordLineage } from '../protocol/record-lineage.mjs';
 import { parseResponse } from './responses.mjs';
 import { resolveContainedPath, resolveReviewPaths } from './paths.mjs';
 
@@ -235,6 +236,24 @@ export function planReviewRecord({ workspaces, destination, now = new Date() } =
     );
   }
   const attempts = workspaces.map(resolvedAttempt);
+  const receiptPresence = workspaces.map((workspace) =>
+    existsSync(path.join(workspace, 'lineage-receipt.json'))
+  );
+  let lineageReceipt = null;
+  if (receiptPresence.some(Boolean)) {
+    const lineage = inspectRecordLineage(workspaces);
+    if (lineage.status !== 'complete') {
+      fail(
+        lineage.status === 'lineage-invalid' ? 'APR_LINEAGE_INVALID' : 'APR_LINEAGE_UNAVAILABLE',
+        'Review-record lineage is incomplete or contradictory.',
+        'Restore every reciprocal lineage receipt and immutable attempt workspace before consolidation.',
+        { status: lineage.status, reasons: lineage.reasons, missing: lineage.missing }
+      );
+    }
+    lineageReceipt = JSON.parse(
+      readFileSync(path.join(workspaces[0], 'lineage-receipt.json'), 'utf8')
+    );
+  }
   const first = attempts[0];
   const root = first.paths.root;
   const recordDestination = resolveContainedPath(root, destination, 'review record');
@@ -377,6 +396,7 @@ export function planReviewRecord({ workspaces, destination, now = new Date() } =
     repository_root: root,
     destination: recordDestination,
     planned_at: canonicalTime(now, 'Plan time'),
+    ...(lineageReceipt ? { lineage_receipt: lineageReceipt } : {}),
     attempts: plannedAttempts,
     entries,
     mappings,
@@ -405,6 +425,12 @@ export function renderReviewHistory(plan) {
   for (const attempt of plan.attempts) {
     lines.push(`- \`${attempt.review_id}\`: \`${attempt.state}\``);
   }
+  if (plan.lineage_receipt) {
+    lines.push('', '## Validated lineage', '');
+    for (const attempt of plan.lineage_receipt.attempts) {
+      lines.push(`- \`${attempt.review_id}\`: recovery ordinal \`${attempt.recovery_ordinal}\``);
+    }
+  }
   lines.push('', '## Ordered history', '');
   for (const entry of plan.entries) {
     const pathText = entry.path ? ` at \`${entry.path}\`` : '';
@@ -422,6 +448,7 @@ function relocationReceipt(plan, historyBytes) {
     repository_root: plan.repository_root,
     destination: plan.destination.relative,
     planned_at: plan.planned_at,
+    ...(plan.lineage_receipt ? { lineage_receipt: plan.lineage_receipt } : {}),
     attempts: plan.attempts,
     mappings: plan.mappings.map((mapping) => ({
       review_id: mapping.review_id,
@@ -438,6 +465,7 @@ function relocationReceipt(plan, historyBytes) {
     operation_digest: digest(Buffer.from(canonicalProjection(operation))),
     history: plan.history.relative,
     history_digest: digest(historyBytes),
+    ...(plan.lineage_receipt ? { lineage_receipt: plan.lineage_receipt } : {}),
     attempts: plan.attempts.map(({ review_id, state, commit_mode, started_at, ended_at }) => ({
       review_id,
       state,
