@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 24+ ESM, built-in `node:fs`, `node:crypto`, `node:test`, existing `AprError`, protocol service, path containment, canonical JSON, transport registry, CLI parser/help/golden infrastructure.
 
-**Spec:** `docs/design/2026-09-13-9-durable-co-review-wakeups-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-13-9-durable-co-review-wakeups-design.md`
 
 ## Global Constraints
 

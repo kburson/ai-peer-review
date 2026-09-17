@@ -75,9 +75,7 @@ function validManifest(overrides = {}) {
         '.github/workflows',
         '.codex',
         'bin',
-        'docs/design',
-        'docs/plans',
-        'docs/peer-reviews',
+        'docs/superpowers',
         'docs/releases',
         'docs/whitepapers',
         'provenance',
@@ -123,10 +121,26 @@ function validManifest(overrides = {}) {
     },
     legacy_retained_path_rules: {
       prefixes: ['scripts/review', 'scripts/providers'],
-      globs: [
-        'scripts/tests/**/*co-review*',
-        'docs/superpowers/specs/*co-review*',
-        'docs/superpowers/plans/*co-review*',
+      globs: ['scripts/tests/**/*co-review*'],
+      exact: [
+        'docs/superpowers/plans/2026-08-15-co-review-finalization-and-turn-budget-control.md',
+        'docs/superpowers/plans/2026-08-17-co-review-fixture-cost.md',
+        'docs/superpowers/plans/2026-08-18-guided-co-review-start-and-agent-handoffs.md',
+        'docs/superpowers/plans/2026-08-19-co-review-consistent-snapshot.md',
+        'docs/superpowers/plans/2026-08-19-co-review-reference-archive.md',
+        'docs/superpowers/plans/2026-08-21-1365-reviewer-co-review-command-guard.md',
+        'docs/superpowers/plans/2026-08-21-1369-cross-worktree-co-review-handoff.md',
+        'docs/superpowers/plans/2026-08-21-1372-stale-co-review-grant.md',
+        'docs/superpowers/plans/2026-08-21-1374-co-review-archive-collision-recovery.md',
+        'docs/superpowers/specs/2026-08-15-co-review-finalization-and-turn-budget-control-design.md',
+        'docs/superpowers/specs/2026-08-15-guided-co-review-start-and-agent-handoffs-design.md',
+        'docs/superpowers/specs/2026-08-17-co-review-fixture-cost-design.md',
+        'docs/superpowers/specs/2026-08-19-co-review-consistent-snapshot-design.md',
+        'docs/superpowers/specs/2026-08-19-co-review-reference-archive-design.md',
+        'docs/superpowers/specs/2026-08-21-1365-reviewer-co-review-command-guard-design.md',
+        'docs/superpowers/specs/2026-08-21-1369-cross-worktree-co-review-handoff-design.md',
+        'docs/superpowers/specs/2026-08-21-1372-stale-co-review-grant-design.md',
+        'docs/superpowers/specs/2026-08-21-1374-co-review-archive-collision-recovery-design.md',
       ],
     },
     retained_path_inventory: {
@@ -323,7 +337,10 @@ test('accepts bounded governed implementation plans', async () => {
     root: '/repo',
     manifest: validManifest(),
     runGit: fakeGit({
-      current: ['LICENSE', 'docs/plans/2026-09-13-18-claude-identity-fallback.md'].join('\n'),
+      current: [
+        'LICENSE',
+        'docs/superpowers/plans/2026-09-13-18-claude-identity-fallback.md',
+      ].join('\n'),
     }),
   });
 });
@@ -357,8 +374,8 @@ test('accepts project configuration and tracked peer-review records', async () =
         '.codex/config.json',
         '.codex/skills/peer-review/SKILL.md',
         'LICENSE',
-        'docs/peer-reviews/spec/example/00-review-history.md',
-        'docs/peer-reviews/spec/example/reviewer-response-1.md',
+        'docs/superpowers/peer-reviews/spec/example/00-review-history.md',
+        'docs/superpowers/peer-reviews/spec/example/reviewer-response-1.md',
       ].join('\n'),
     }),
   });
@@ -443,6 +460,41 @@ test('release gate rejects retained legacy paths', async () => {
     }),
     /legacy retained paths/
   );
+});
+
+test('release gate rejects an inherited AITM co-review document by exact path', async () => {
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({
+        current: ['LICENSE', 'docs/superpowers/plans/2026-08-17-co-review-fixture-cost.md'].join(
+          '\n'
+        ),
+      }),
+      requireLegacyRemoved: true,
+    }),
+    /legacy retained paths/
+  );
+});
+
+test('release gate accepts this repository own co-review-named specs and plans', async () => {
+  // The inherited documents are named exactly rather than matched by a
+  // `*co-review*` glob, so this repository's own specs and plans may carry
+  // `co-review` in their filenames without being taken for legacy leftovers.
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: [
+        'LICENSE',
+        'docs/superpowers/plans/2026-09-13-9-durable-co-review-wakeups.md',
+        'docs/superpowers/specs/2026-08-22-1377-phased-co-review-orchestration-design.md',
+        'docs/superpowers/specs/2026-09-13-9-durable-co-review-wakeups-design.md',
+      ].join('\n'),
+    }),
+    requireLegacyRemoved: true,
+  });
 });
 
 for (const [name, mutate, pattern] of [

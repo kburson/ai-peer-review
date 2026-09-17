@@ -39,9 +39,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     '.github/workflows',
     '.codex',
     'bin',
-    'docs/design',
-    'docs/plans',
-    'docs/peer-reviews',
+    'docs/superpowers',
     'docs/releases',
     'docs/whitepapers',
     'provenance',
@@ -85,12 +83,35 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'vendors/kburson-ai-task-manager-0.1.0.tgz',
   ],
 });
+// Legacy detection is applied to the CURRENT tree, unlike EXPECTED_RETAINED_PATH_RULES
+// which classifies the frozen filtered history. The two `docs/superpowers/{specs,plans}`
+// globs cannot be used here any more: this repository now writes its own specs and
+// plans to those directories (the layout the superpowers skill mandates), and three of
+// them are named `*co-review*`, so the globs would report live artifacts as legacy
+// leftovers. Name the inherited AITM documents exactly instead. `scripts/tests` keeps
+// its glob because nothing of ours is written there.
 const EXPECTED_LEGACY_PATH_RULES = Object.freeze({
   prefixes: ['scripts/review', 'scripts/providers'],
-  globs: [
-    'scripts/tests/**/*co-review*',
-    'docs/superpowers/specs/*co-review*',
-    'docs/superpowers/plans/*co-review*',
+  globs: ['scripts/tests/**/*co-review*'],
+  exact: [
+    'docs/superpowers/plans/2026-08-15-co-review-finalization-and-turn-budget-control.md',
+    'docs/superpowers/plans/2026-08-17-co-review-fixture-cost.md',
+    'docs/superpowers/plans/2026-08-18-guided-co-review-start-and-agent-handoffs.md',
+    'docs/superpowers/plans/2026-08-19-co-review-consistent-snapshot.md',
+    'docs/superpowers/plans/2026-08-19-co-review-reference-archive.md',
+    'docs/superpowers/plans/2026-08-21-1365-reviewer-co-review-command-guard.md',
+    'docs/superpowers/plans/2026-08-21-1369-cross-worktree-co-review-handoff.md',
+    'docs/superpowers/plans/2026-08-21-1372-stale-co-review-grant.md',
+    'docs/superpowers/plans/2026-08-21-1374-co-review-archive-collision-recovery.md',
+    'docs/superpowers/specs/2026-08-15-co-review-finalization-and-turn-budget-control-design.md',
+    'docs/superpowers/specs/2026-08-15-guided-co-review-start-and-agent-handoffs-design.md',
+    'docs/superpowers/specs/2026-08-17-co-review-fixture-cost-design.md',
+    'docs/superpowers/specs/2026-08-19-co-review-consistent-snapshot-design.md',
+    'docs/superpowers/specs/2026-08-19-co-review-reference-archive-design.md',
+    'docs/superpowers/specs/2026-08-21-1365-reviewer-co-review-command-guard-design.md',
+    'docs/superpowers/specs/2026-08-21-1369-cross-worktree-co-review-handoff-design.md',
+    'docs/superpowers/specs/2026-08-21-1372-stale-co-review-grant-design.md',
+    'docs/superpowers/specs/2026-08-21-1374-co-review-archive-collision-recovery-design.md',
   ],
 });
 const EXPECTED_DESIGN_SOURCE = Object.freeze({
@@ -135,8 +156,9 @@ export function matchesRetainedRule(pathname, rules) {
 
 function matchesLegacyRule(pathname, rules) {
   return (
+    (rules.exact ?? []).includes(pathname) ||
     rules.prefixes.some((prefix) => isPrefix(pathname, prefix)) ||
-    rules.globs.some((glob) => matchesClosedGlob(pathname, glob))
+    (rules.globs ?? []).some((glob) => matchesClosedGlob(pathname, glob))
   );
 }
 
@@ -505,9 +527,7 @@ async function main() {
   }
   const designDigest = createHash('sha256')
     .update(
-      await readFile(
-        path.join(root, 'docs/design/2026-09-07-ai-peer-review-extraction-design.md')
-      )
+      await readFile(path.join(root, EXPECTED_DESIGN_SOURCE.path))
     )
     .digest('hex');
   if (designDigest !== manifest.design_source.digest) {
