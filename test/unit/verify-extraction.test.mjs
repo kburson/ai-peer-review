@@ -462,6 +462,41 @@ test('release gate rejects retained legacy paths', async () => {
   );
 });
 
+test('release gate rejects an inherited AITM co-review document by exact path', async () => {
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({
+        current: ['LICENSE', 'docs/superpowers/plans/2026-08-17-co-review-fixture-cost.md'].join(
+          '\n'
+        ),
+      }),
+      requireLegacyRemoved: true,
+    }),
+    /legacy retained paths/
+  );
+});
+
+test('release gate accepts this repository own co-review-named specs and plans', async () => {
+  // The inherited documents are named exactly rather than matched by a
+  // `*co-review*` glob, so this repository's own specs and plans may carry
+  // `co-review` in their filenames without being taken for legacy leftovers.
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: [
+        'LICENSE',
+        'docs/superpowers/plans/2026-09-13-9-durable-co-review-wakeups.md',
+        'docs/superpowers/specs/2026-08-22-1377-phased-co-review-orchestration-design.md',
+        'docs/superpowers/specs/2026-09-13-9-durable-co-review-wakeups-design.md',
+      ].join('\n'),
+    }),
+    requireLegacyRemoved: true,
+  });
+});
+
 for (const [name, mutate, pattern] of [
   [
     'changed source repository',
