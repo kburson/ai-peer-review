@@ -59,6 +59,7 @@
     "intervention": { "type": ["object", "null"] },
     "terminal_evidence": { "type": ["object", "null"] },
     "next_action": { "type": ["string", "null"] },
+    "phases": { "$ref": "protocol-v1.json#/properties/phases" },
     "compatibility": {
       "anyOf": [{ "type": "null" }, { "$ref": "event-v2.json#/$defs/compatibility" }]
     }

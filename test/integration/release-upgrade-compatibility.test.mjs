@@ -31,7 +31,7 @@ test('a v2 reader upgrades a v1 record with one compatibility-and-v2-event batch
       actor: v1State.protocol.current_actor,
     },
     (state) => [
-      api.compatibilityDeclared(state, COMPATIBILITY),
+      api.compatibilityDeclared(state, COMPATIBILITY, { at: '2026-09-08T12:00:03.000Z' }),
       v2Event('identity-changed', {
         sequence: state.sequence + 2,
         revision: state.revision,
@@ -49,4 +49,12 @@ test('a v2 reader upgrades a v1 record with one compatibility-and-v2-event batch
   );
   assert.equal(events.at(-1).schema, 'ai-peer-review.event/v2');
   assert.equal(upgraded.protocol.sequence, v1State.protocol.sequence + 2);
+  assert.equal(upgraded.protocol.schema, 'ai-peer-review.protocol/v2');
+  assert.deepEqual(upgraded.protocol.compatibility, COMPATIBILITY);
+  assert.equal(upgraded.participants.schema, 'ai-peer-review.participants/v2');
+  assert.equal(upgraded.participants.author.evidence.model.source, 'legacy-unclassified');
+  assert.equal(upgraded.participants.author.evidence.model.assurance, 'declared');
+  const persisted = inspectReview(fixture.workspace);
+  assert.deepEqual(persisted.protocol, upgraded.protocol);
+  assert.deepEqual(persisted.participants, upgraded.participants);
 });

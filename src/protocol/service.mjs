@@ -562,6 +562,12 @@ export async function initializeReview(workspace, event) {
   });
 }
 
+function assertExistingWriterCompatibility(events) {
+  const compatibility = events.find((event) => event.type === 'compatibility-declared')?.payload
+    .compatibility;
+  if (compatibility) assertReaderWriterCompatibility(compatibility);
+}
+
 export async function mutateReview(workspace, expected, createEvent) {
   const preflight = readAuthority(workspace).state;
   assertExpected(preflight, expected);
@@ -576,6 +582,7 @@ export async function mutateReview(workspace, expected, createEvent) {
   return withReviewLock(workspace, async () => {
     const { events, state: current, file, bytes } = readAuthority(workspace);
     assertExpected(current, expected);
+    assertExistingWriterCompatibility(events);
     const nextEvent = await createEvent(current);
     validateEvent(nextEvent);
     const next = reduceEvents([...events, nextEvent]);
@@ -601,6 +608,7 @@ export async function mutateReviewBatch(workspace, expected, createEvents) {
   return withReviewLock(workspace, async () => {
     const { events, state: current, file, bytes } = readAuthority(workspace);
     assertExpected(current, expected);
+    assertExistingWriterCompatibility(events);
     const batch = await createEvents(current.protocol);
     if (!Array.isArray(batch) || batch.length === 0) {
       throw authorityError(

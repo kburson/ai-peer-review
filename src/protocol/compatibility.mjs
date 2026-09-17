@@ -115,7 +115,7 @@ export function compatibilityDeclared(state, compatibility, { at } = {}) {
     revision: state.revision,
     type: 'compatibility-declared',
     actor: 'system',
-    at: at ?? new Date(Date.UTC(2026, 8, 8, 12, 0, sequence)).toISOString(),
+    at: at ?? new Date().toISOString(),
     payload: { compatibility },
   };
 }

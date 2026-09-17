@@ -1,5 +1,6 @@
 import { AprError } from '../errors.mjs';
 import { digestChallenge, digestGrantParameters } from '../authority/canonicalize.mjs';
+import { identityEvidence } from '../identity/evidence.mjs';
 import { assertReaderCompatibility, EVENT_V2_SCHEMA } from './compatibility.mjs';
 import { eventAdvancesRevision, validateVersionedEvent } from './events.mjs';
 
@@ -837,6 +838,22 @@ export function reduceEvents(events) {
       'A compatibility declaration must be immediately followed by the first substantive v2 event.',
       { recovery: 'Restore the atomic compatibility declaration and v2 event batch.' }
     );
+  }
+  if (sawV2) {
+    state.protocol.schema = 'ai-peer-review.protocol/v2';
+    state.protocol.compatibility = copy(compatibility);
+    state.participants.schema = 'ai-peer-review.participants/v2';
+    for (const role of ['author', 'reviewer']) {
+      const participant = state.participants[role];
+      if (participant && !participant.evidence) {
+        participant.evidence = identityEvidence({
+          sessionFingerprint: participant.session_fingerprint,
+          sessionSource: 'legacy-unclassified',
+          modelId: participant.model_id,
+          modelSource: 'legacy-unclassified',
+        });
+      }
+    }
   }
   return deepFreeze(state);
 }

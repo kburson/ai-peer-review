@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
   assertReaderWriterCompatibility,
-  compatibilityDeclared,
+  compatibilityDeclared as createCompatibilityDeclaration,
   mutateReviewBatch,
 } from '../helpers/internal-api.mjs';
 import {
+  compatibilityDeclared,
   createReviewWorkspace,
   event,
   FINGERPRINTS,
@@ -14,7 +16,7 @@ import {
   reviewerTurnEvents,
   v2Event,
 } from '../helpers/review-fixture.mjs';
-import { inspectReview } from '../../src/protocol/service.mjs';
+import { inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
 
 const COMPATIBILITY = Object.freeze({
@@ -31,6 +33,18 @@ function expected(state) {
     actor: state.protocol.current_actor,
   };
 }
+
+test('compatibility declarations default to the current time and accept an explicit timestamp', () => {
+  const state = { sequence: 1, revision: 1, review_id: 'review-01' };
+  const before = Date.now();
+  const declaration = createCompatibilityDeclaration(state, COMPATIBILITY);
+  const after = Date.now();
+  assert.ok(Date.parse(declaration.at) >= before && Date.parse(declaration.at) <= after);
+  assert.equal(
+    createCompatibilityDeclaration(state, COMPATIBILITY, { at: '2026-09-08T12:00:02.000Z' }).at,
+    '2026-09-08T12:00:02.000Z'
+  );
+});
 
 test('mixed logs accept a v2 line only when its adjacent declaration seals it', () => {
   const v1 = event('review-created');
@@ -66,6 +80,72 @@ test('a sealed v2 minimum refuses a writer below its required version', () => {
       }),
     (error) => error.code === 'APR_WRITER_UPGRADE_REQUIRED'
   );
+});
+
+for (const mutation of ['single', 'batch']) {
+  test(`sealed writer minimum rejects a ${mutation} v1 append before invoking its factory`, async (t) => {
+    const prefix = reviewerTurnEvents();
+    const declaration = compatibilityDeclared(
+      { sequence: 2, revision: 2, review_id: prefix[0].review_id },
+      { ...COMPATIBILITY, minimum_writer_version: '999.0.0' }
+    );
+    const fixture = await createReviewWorkspace({
+      events: [
+        ...prefix,
+        declaration,
+        v2Event('identity-changed', {
+          sequence: 4,
+          revision: 2,
+          actor: FINGERPRINTS.reviewer,
+          payload: { identity: participant('reviewer') },
+        }),
+      ],
+    });
+    t.after(fixture.cleanup);
+    const before = inspectReview(fixture.workspace);
+    const snapshot = () =>
+      [fixture.events, fixture.protocol, fixture.participants].map((file) =>
+        readFileSync(file, 'utf8')
+      );
+    const bytes = snapshot();
+    let factoryCalled = false;
+    const mutate = mutation === 'single' ? mutateReview : mutateReviewBatch;
+    await assert.rejects(
+      mutate(fixture.workspace, expected(before), () => {
+        factoryCalled = true;
+        const next = event('identity-changed', {
+          sequence: 5,
+          revision: 2,
+          actor: FINGERPRINTS.reviewer,
+          payload: { identity: participant('reviewer') },
+        });
+        return mutation === 'single' ? next : [next];
+      }),
+      (error) => error.code === 'APR_WRITER_UPGRADE_REQUIRED'
+    );
+    assert.equal(factoryCalled, false);
+    assert.deepEqual(snapshot(), bytes);
+  });
+}
+
+test('a batch introducing an unsupported writer minimum publishes no authority', async (t) => {
+  const fixture = await createReviewWorkspace({ events: reviewerTurnEvents() });
+  t.after(fixture.cleanup);
+  const before = inspectReview(fixture.workspace);
+  const bytes = fixture.readEvents();
+  await assert.rejects(
+    mutateReviewBatch(fixture.workspace, expected(before), (state) => [
+      compatibilityDeclared(state, { ...COMPATIBILITY, minimum_writer_version: '999.0.0' }),
+      v2Event('identity-changed', {
+        sequence: state.sequence + 2,
+        revision: state.revision,
+        actor: FINGERPRINTS.reviewer,
+        payload: { identity: participant('reviewer') },
+      }),
+    ]),
+    (error) => error.code === 'APR_WRITER_UPGRADE_REQUIRED'
+  );
+  assert.equal(fixture.readEvents(), bytes);
 });
 
 test('batch mutation publishes declaration and first v2 event as one ordered authority update', async (t) => {

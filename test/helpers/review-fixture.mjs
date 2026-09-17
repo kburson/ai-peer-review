@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { createGitRepository } from '../../src/git/repository.mjs';
+import { identityEvidence } from '../../src/identity/evidence.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
 import { appendEvent, atomicWrite } from '../../src/protocol/store.mjs';
 import { compatibilityDeclared as createCompatibilityDeclaration } from '../../src/protocol/compatibility.mjs';
@@ -460,8 +461,10 @@ export function event(
   };
 }
 
-export function compatibilityDeclared(state, compatibility, options) {
-  return createCompatibilityDeclaration(state, compatibility, options);
+export function compatibilityDeclared(state, compatibility, { at } = {}) {
+  return createCompatibilityDeclaration(state, compatibility, {
+    at: at ?? new Date(Date.UTC(2026, 8, 8, 12, 0, state.sequence + 1)).toISOString(),
+  });
 }
 
 export function v2Event(type, options = {}) {
@@ -477,7 +480,29 @@ export function v2Event(type, options = {}) {
       rest
     );
   }
-  return { ...event(type, options), schema: 'ai-peer-review.event/v2' };
+  const result = { ...event(type, options), schema: 'ai-peer-review.event/v2' };
+  const participantKey = {
+    'review-created': 'author',
+    'reviewer-joined': 'reviewer',
+    'identity-changed': 'identity',
+    'participant-replaced': 'incoming_participant',
+  }[type];
+  const identity = result.payload[participantKey];
+  if (identity && !Object.hasOwn(identity, 'evidence')) {
+    result.payload = {
+      ...result.payload,
+      [participantKey]: {
+        ...identity,
+        evidence: identityEvidence({
+          sessionFingerprint: identity.session_fingerprint,
+          sessionSource: 'legacy-unclassified',
+          modelId: identity.model_id,
+          modelSource: 'legacy-unclassified',
+        }),
+      },
+    };
+  }
+  return result;
 }
 
 export function sequence(types, overrides = {}) {
