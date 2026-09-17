@@ -72,6 +72,8 @@
     "nonblocking",
     "overclaiming",
     "boottime",
+    "noncolliding",
+    "uncontended",
     "COMSPEC",
     "CTYPE",
     "Dispositioned",
