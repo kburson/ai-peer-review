@@ -13,7 +13,11 @@ import {
 } from '../../src/authority/canonicalize.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
-import { participantIdentity, v1Participant } from '../../src/identity/registry.mjs';
+import {
+  participantIdentity,
+  resolveIdentity,
+  v1Participant,
+} from '../../src/identity/registry.mjs';
 import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
@@ -148,6 +152,47 @@ test('start performs preflight checks before mutation and writes default event-f
     started.review_id
   );
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+});
+
+test('start retry accepts an existing v1 environment-derived author participant', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const historic = participantIdentity({
+    role: 'author',
+    host: 'codex',
+    provider: 'openai',
+    modelId: 'gpt-6-astra',
+    modelDisplay: 'gpt-6-astra',
+    sessionId: 'environment-author-session',
+    source: 'runtime',
+    joinedAt: NOW,
+  });
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: historic,
+    reviewId: 'review-environment-retry',
+    now: NOW,
+  });
+  const retried = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: resolveIdentity({
+      adapter: 'codex',
+      role: 'author',
+      joinedAt: NOW,
+      env: {
+        CODEX_THREAD_ID: 'environment-author-session',
+        CODEX_MODEL_ID: 'gpt-6-astra',
+      },
+    }),
+    reviewId: 'review-environment-retry',
+    now: '2026-09-08T13:00:00.000Z',
+  });
+
+  assert.equal(retried.paths.events, started.paths.events);
 });
 
 test('replacement attempts share one explicit record destination without sharing protocol authority', async (t) => {

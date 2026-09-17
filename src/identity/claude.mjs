@@ -17,7 +17,7 @@ function resolveRuntime({ runtime = {}, env = {}, declaredModel = {} } = {}) {
       sessionId,
       modelId,
       modelDisplay,
-      source: modelSource === 'official-runtime' ? 'runtime' : 'declared',
+      source: 'runtime',
       sessionSource,
       modelSource,
     };

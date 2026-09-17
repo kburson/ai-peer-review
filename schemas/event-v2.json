@@ -266,7 +266,24 @@
         "source": { "$ref": "#/$defs/source" },
         "assurance": { "enum": ["declared", "observed"] },
         "conflict": { "type": "boolean" }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "provider-result" } } },
+          "then": {
+            "properties": {
+              "assurance": { "const": "observed" },
+              "observed_id": { "type": "string", "minLength": 1 }
+            }
+          },
+          "else": {
+            "properties": {
+              "assurance": { "const": "declared" },
+              "observed_id": { "const": null }
+            }
+          }
+        }
+      ]
     },
     "source": {
       "enum": [

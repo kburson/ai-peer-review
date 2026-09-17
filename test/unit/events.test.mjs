@@ -39,6 +39,18 @@ test('v2 schema artifacts define the evidence-bearing participant contract', () 
     const schema = JSON.parse(readFileSync(new URL(`../../${file}`, import.meta.url)));
     assert.equal(schema.$defs.participant.required.includes('evidence'), true, file);
     assert.deepEqual(schema.$defs.evidence.required, ['session', 'model'], file);
+    const observationRule = schema.$defs.modelEvidence.allOf[0];
+    assert.equal(
+      observationRule.if.properties.source.const,
+      'provider-result',
+      `${file} provider source`
+    );
+    assert.equal(
+      observationRule.then.properties.observed_id.type,
+      'string',
+      `${file} observed model`
+    );
+    assert.equal(observationRule.else.properties.observed_id.const, null, `${file} declared model`);
   }
 });
 
@@ -75,6 +87,22 @@ test('v2 participant events require exact provenance evidence while v1 remains f
   mislabeled.payload.reviewer.evidence.session.assurance = 'declared';
   assert.throws(
     () => validateVersionedEvent(mislabeled),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  const incompleteObservation = structuredClone(v2);
+  incompleteObservation.payload.reviewer.evidence.model.observed_id = null;
+  incompleteObservation.payload.reviewer.evidence.model.conflict = false;
+  assert.throws(
+    () => validateVersionedEvent(incompleteObservation),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  const inventedObservation = structuredClone(v2);
+  inventedObservation.payload.reviewer.evidence.model.source = 'environment-declaration';
+  inventedObservation.payload.reviewer.evidence.model.assurance = 'declared';
+  inventedObservation.payload.reviewer.evidence.model.declared_id = null;
+  inventedObservation.payload.reviewer.evidence.model.conflict = false;
+  assert.throws(
+    () => validateVersionedEvent(inventedObservation),
     (error) => error.code === 'APR_EVENT_INVALID'
   );
   assert.throws(

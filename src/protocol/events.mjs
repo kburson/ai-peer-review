@@ -376,6 +376,12 @@ function validateParticipantV2(value, label) {
   ) {
     throw invalid(`${label} model assurance`);
   }
+  if (
+    (evidence.model.source === 'provider-result' && evidence.model.observed_id === null) ||
+    (evidence.model.source !== 'provider-result' && evidence.model.observed_id !== null)
+  ) {
+    throw invalid(`${label} model observation`);
+  }
   const claims = [
     evidence.model.requested_id,
     evidence.model.declared_id,

@@ -19,6 +19,7 @@ test('environment model declarations remain declared and provider observations p
 
   assert.equal(identity.evidence.session.assurance, 'declared');
   assert.equal(identity.evidence.model.assurance, 'declared');
+  assert.equal(identity.identity_source, 'runtime');
   assert.equal(identity.evidence.model.declared_id, 'gpt-6-astra');
   assert.equal(identity.evidence.model.observed_id, null);
 
@@ -33,6 +34,23 @@ test('environment model declarations remain declared and provider observations p
   assert.equal(observed.evidence.model.observed_id, 'gpt-5.6-sol');
   assert.equal(observed.evidence.model.conflict, true);
   assert.equal(JSON.stringify(observed).includes('codex-session-secret'), false);
+});
+
+test('environment-derived adapters preserve the historic v1 runtime mirror', () => {
+  for (const [adapter, env] of [
+    ['codex', { CODEX_THREAD_ID: 'codex-session-secret', CODEX_MODEL_ID: 'gpt-6-astra' }],
+    [
+      'claude',
+      { CLAUDE_CODE_SESSION_ID: 'claude-session-secret', CLAUDE_MODEL_ID: 'claude-opus-5' },
+    ],
+    ['grok', { GROK_SESSION_ID: 'grok-session-secret', GROK_MODEL_ID: 'grok-4' }],
+  ]) {
+    const identity = resolveIdentity({ adapter, role: 'author', joinedAt, env });
+    assert.equal(identity.identity_source, 'runtime', adapter);
+    assert.equal(identity.evidence.session.source, 'environment-declaration', adapter);
+    assert.equal(identity.evidence.model.source, 'environment-declaration', adapter);
+    assert.equal(identity.evidence.model.assurance, 'declared', adapter);
+  }
 });
 
 test('v1 participant projection excludes evidence and stays at the exact frozen shape', () => {
