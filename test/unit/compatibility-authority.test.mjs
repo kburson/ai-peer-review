@@ -116,3 +116,48 @@ test('an invalid second batch event leaves no standalone compatibility declarati
   );
   assert.equal(fixture.readEvents(), bytes);
 });
+
+test('unfinished and consecutive compatibility declarations are rejected without publishing bytes', async (t) => {
+  const prefix = reviewerTurnEvents();
+  const first = compatibilityDeclared(
+    {
+      sequence: prefix.length,
+      revision: prefix.at(-1).revision,
+      review_id: prefix.at(-1).review_id,
+    },
+    COMPATIBILITY
+  );
+  const second = compatibilityDeclared(
+    {
+      sequence: first.sequence,
+      revision: first.revision,
+      review_id: first.review_id,
+    },
+    COMPATIBILITY
+  );
+  for (const events of [
+    [...prefix, first],
+    [...prefix, first, second],
+  ]) {
+    assert.throws(
+      () => reduceEvents(events),
+      (error) => error.code === 'APR_READER_UPGRADE_REQUIRED'
+    );
+  }
+
+  const fixture = await createReviewWorkspace({ events: prefix });
+  t.after(fixture.cleanup);
+  const before = inspectReview(fixture.workspace);
+  const bytes = fixture.readEvents();
+  await assert.rejects(
+    mutateReviewBatch(fixture.workspace, expected(before), (state) => [
+      compatibilityDeclared(state, COMPATIBILITY),
+      compatibilityDeclared(
+        { sequence: state.sequence + 1, revision: state.revision, review_id: state.review_id },
+        COMPATIBILITY
+      ),
+    ]),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  assert.equal(fixture.readEvents(), bytes);
+});

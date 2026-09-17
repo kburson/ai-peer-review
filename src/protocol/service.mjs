@@ -611,9 +611,11 @@ export async function mutateReviewBatch(workspace, expected, createEvents) {
     }
     if (
       batch.some((event) => event.type === 'compatibility-declared') &&
-      (batch.length < 2 ||
+      (batch.filter((event) => event.type === 'compatibility-declared').length !== 1 ||
+        batch.length < 2 ||
         batch[0]?.type !== 'compatibility-declared' ||
-        batch[1]?.schema !== 'ai-peer-review.event/v2')
+        batch[1]?.schema !== 'ai-peer-review.event/v2' ||
+        batch[1]?.type === 'compatibility-declared')
     ) {
       throw authorityError(
         'APR_EVENT_INVALID',

@@ -777,12 +777,23 @@ export function reduceEvents(events) {
   if (!Array.isArray(events)) throw projectionError('events must be an array');
   const state = initialProjection();
   let compatibility = null;
+  let declarationPending = false;
   let sawV2 = false;
   events.forEach((event, index) => {
     validateVersionedEvent(event);
+    if (
+      declarationPending &&
+      (event.schema !== EVENT_V2_SCHEMA || event.type === 'compatibility-declared')
+    ) {
+      throw new AprError(
+        'APR_READER_UPGRADE_REQUIRED',
+        'A compatibility declaration must be immediately followed by the first substantive v2 event.',
+        { recovery: 'Restore the atomic compatibility declaration and v2 event batch.' }
+      );
+    }
     if (event.schema === EVENT_V2_SCHEMA) {
       if (event.type === 'compatibility-declared') {
-        if (index === 0 || sawV2) {
+        if (index === 0 || sawV2 || declarationPending) {
           throw new AprError(
             'APR_READER_UPGRADE_REQUIRED',
             'A compatibility declaration must precede the first v2 event in a legacy log.',
@@ -791,6 +802,7 @@ export function reduceEvents(events) {
         }
         compatibility = event.payload.compatibility;
         assertReaderCompatibility(compatibility);
+        declarationPending = true;
       } else {
         if (!sawV2) {
           const declaration = events[index - 1];
@@ -807,6 +819,7 @@ export function reduceEvents(events) {
           compatibility = declaration.payload.compatibility;
         }
         assertReaderCompatibility(compatibility);
+        declarationPending = false;
         sawV2 = true;
       }
     }
@@ -818,5 +831,12 @@ export function reduceEvents(events) {
     if (event.revision !== expectedRevision) throw projectionError('event revision');
     applyProjection(state, event);
   });
+  if (declarationPending) {
+    throw new AprError(
+      'APR_READER_UPGRADE_REQUIRED',
+      'A compatibility declaration must be immediately followed by the first substantive v2 event.',
+      { recovery: 'Restore the atomic compatibility declaration and v2 event batch.' }
+    );
+  }
   return deepFreeze(state);
 }
