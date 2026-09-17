@@ -365,9 +365,6 @@ function validateParticipantV2(value, label) {
     ['requested_id', 'declared_id', 'observed_id', 'source', 'assurance', 'conflict'],
     `${label} model evidence`
   );
-  assertNullableString(evidence.model.requested_id, `${label} requested model`);
-  assertNullableString(evidence.model.declared_id, `${label} declared model`);
-  assertNullableString(evidence.model.observed_id, `${label} observed model`);
   assertEnum(evidence.model.source, PARTICIPANT_EVIDENCE_SOURCES, `${label} model source`);
   assertEnum(evidence.model.assurance, ['declared', 'observed'], `${label} model assurance`);
   if (
@@ -377,11 +374,15 @@ function validateParticipantV2(value, label) {
     throw invalid(`${label} model assurance`);
   }
   if (
-    (evidence.model.source === 'provider-result' && evidence.model.observed_id === null) ||
+    (evidence.model.source === 'provider-result' &&
+      (typeof evidence.model.observed_id !== 'string' || !evidence.model.observed_id)) ||
     (evidence.model.source !== 'provider-result' && evidence.model.observed_id !== null)
   ) {
     throw invalid(`${label} model observation`);
   }
+  assertNullableString(evidence.model.requested_id, `${label} requested model`);
+  assertNullableString(evidence.model.declared_id, `${label} declared model`);
+  assertNullableString(evidence.model.observed_id, `${label} observed model`);
   const claims = [
     evidence.model.requested_id,
     evidence.model.declared_id,

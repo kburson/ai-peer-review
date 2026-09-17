@@ -96,6 +96,15 @@ test('v2 participant events require exact provenance evidence while v1 remains f
     () => validateVersionedEvent(incompleteObservation),
     (error) => error.code === 'APR_EVENT_INVALID'
   );
+  const emptyObservation = structuredClone(v2);
+  emptyObservation.payload.reviewer.evidence.model.observed_id = '';
+  emptyObservation.payload.reviewer.evidence.model.conflict = false;
+  assert.throws(
+    () => validateVersionedEvent(emptyObservation),
+    (error) =>
+      error.code === 'APR_EVENT_INVALID' &&
+      error.details.reason === 'reviewer-joined reviewer model observation'
+  );
   const inventedObservation = structuredClone(v2);
   inventedObservation.payload.reviewer.evidence.model.source = 'environment-declaration';
   inventedObservation.payload.reviewer.evidence.model.assurance = 'declared';
