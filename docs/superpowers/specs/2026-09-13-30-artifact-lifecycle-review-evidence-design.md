@@ -22,7 +22,7 @@ This specification atomically extracts Phase 1 from the accepted
 The source artifact digest is
 `sha256:0b65a538437dc2ef2bb86533e991c90b945dacb9fbc7cbe16ad277f8f709fd27`.
 Its review of record remains under
-`docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/`.
+`docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/`.
 
 The umbrella design remains the cross-phase authority. This child may clarify
 Phase 1 mechanics, but it may not weaken the umbrella guarantees. A conflict

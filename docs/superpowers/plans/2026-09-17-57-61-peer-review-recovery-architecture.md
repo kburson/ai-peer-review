@@ -8,9 +8,9 @@
 
 **Tech Stack:** Node.js 24 ESM, `node:test`, JSON Schema 2020-12, append-only JSONL, filesystem locks/fsync, Git fixtures, Prettier, ESLint, markdownlint, cspell.
 
-**Spec:** `docs/design/2026-09-17-57-61-peer-review-recovery-architecture-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-17-57-61-peer-review-recovery-architecture-design.md`
 
-**Review status:** Accepted by Claude (Opus 5) in `docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md`.
+**Review status:** Accepted by Claude (Opus 5) in `docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md`.
 
 ## Global Constraints
 
@@ -63,7 +63,7 @@ After plan acceptance, rewrite bodies through AITM's sanctioned mutator, preserv
 
 ## Activation, rollback, and abort
 
-- This `docs/superpowers` plan file remains off-trunk execution input. Hydrate the accepted task text into #57-#61, then create each implementation worktree from the approved code baseline rather than merging the plan file. The durable review records under `docs/peer-reviews/plan/` are tracked evidence and may remain on trunk; they are not parity-gated legacy paths.
+- This `docs/superpowers` plan file remains off-trunk execution input. Hydrate the accepted task text into #57-#61, then create each implementation worktree from the approved code baseline rather than merging the plan file. The durable review records under `docs/superpowers/peer-reviews/plan/` are tracked evidence and may remain on trunk; they are not parity-gated legacy paths.
 - Before every story gate, the implementation worktree must contain no files on disk under `docs/superpowers`, `scripts/review`, `scripts/providers`, or `scripts/tests`. `test/integration/ported-behavior-parity.test.mjs` recursively reads those working-tree directories and its `publishable HEAD contains no parity-gated legacy path` assertion fails for tracked, untracked, ignored, or stashed-and-restored files alike.
 - #57-#60 are revertible as runtime releases because their v2 writers and new recovery commands remain unreachable from the public CLI. A real public `start`/`join`/`submit` cycle continues to write only event-v1 bytes after each intermediate story.
 - #61 is the point of no return for any workspace that receives its first event-v2 line. Reverting the installed package below that record's sealed `minimum_reader_version` is not a recovery path; the older reader must refuse with `APR_READER_UPGRADE_REQUIRED`.

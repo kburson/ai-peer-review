@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 24+ ESM, built-in `node:fs`, `node:crypto`, `node:test`, JSON Schema, existing `AprError`, reducer/service/store, Git transaction journal, delivery receipts, coordinator, CLI parser/help/golden infrastructure.
 
-**Spec:** `docs/design/2026-09-13-10-phased-multi-artifact-review-sessions-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-13-10-phased-multi-artifact-review-sessions-design.md`
 
 ## Global Constraints
 

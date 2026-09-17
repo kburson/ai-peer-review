@@ -3,7 +3,7 @@
 ## Review of record
 
 This folder is the complete human-facing review of record for
-[`2026-09-12-project-local-review-lifecycle-and-learning-design.md`](../../../design/2026-09-12-project-local-review-lifecycle-and-learning-design.md).
+[`2026-09-12-project-local-review-lifecycle-and-learning-design.md`](../../../specs/2026-09-12-project-local-review-lifecycle-and-learning-design.md).
 It is one inspection-and-revision process that was forced through three
 separate protocol attempt IDs. The attempts are preserved in chronological
 order; they are not three competing canonical reviews.

@@ -1,5 +1,8 @@
 {
   "schema": "ai-peer-review.config/v1",
+  "review": {
+    "reviews_root": "docs/superpowers/peer-reviews"
+  },
   "hosts": {
     "codex": {
       "resume": {

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js >=24, ESM, `node:test`, existing JSON Schema and Git transaction infrastructure, local IPC, package-owned OS security bindings where Node does not expose the required primitives.
 
-**Spec:** `docs/design/2026-09-14-project-local-spr-xpr-broker-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-14-project-local-spr-xpr-broker-design.md`
 
 ## Global Constraints
 
