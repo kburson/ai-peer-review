@@ -442,14 +442,35 @@ package projections and cannot append recovery or execution authority.
 
 This is deliberately session-strict. `launch-reviewer` requires the live
 registered author session, not merely the same provider, host, OS user, or
-model. Author session rotation therefore refuses launch until
-`peer-review recover <workspace> --replace-participant author --grant
-<signed-grant>` registers the new author fingerprint. `--reclaim` cannot bridge
-rotation because it proves continuity of the same fingerprint. A multi-day
-review may consequently require a new human signature after each author-session
-rotation; that cost is accepted to keep provider dispatch and its spending
-evidence bound to a registered participant rather than an unauthenticated local
-process.
+model. Existing participant-loss recovery is not a rotation mechanism: in
+manual and resume-only transport it cannot enter the required intervention, and
+its state, current-actor, and outgoing-claim preconditions do not match ordinary
+reviewer-launch states.
+
+Author rotation therefore uses a distinct protected operation:
+
+```text
+peer-review rotate-author <workspace> --grant <signed-grant>
+```
+
+The new `rotate-author-session` Human Authority action binds `record_id`,
+`review_id`, outgoing registered author fingerprint, incoming runtime author
+fingerprint, current sequence and revision, and the current lifecycle state. It
+is available in every nonterminal non-invalid record state, in manual,
+resume-only, and automatic-required transport, without requiring an outgoing
+claim or participant-loss intervention. The invoking runtime supplies the
+incoming author identity; the grant names both fingerprints exactly. The
+protected mutation consumes its own challenge, rejects any other live
+challenge, replaces only the registered author participant, preserves current
+lifecycle state and claims, advances protocol revision, and records both
+fingerprints. It cannot replace the reviewer or spend recovery authority.
+
+A multi-day review may consequently require a new human signature after each
+author-session rotation; that cost is accepted to keep provider dispatch and
+its spending evidence bound to a registered participant rather than an
+unauthenticated local process. `recover --reclaim` and
+`recover --replace-participant` retain their existing claim-loss meanings and
+are not presented as rotation remedies.
 
 `execution-started` is appended after final preflight and immediately before
 process dispatch. Its payload contains only digests and non-secret identifiers.
@@ -604,29 +625,38 @@ retroactively treated as verified model provenance.
 
 New event types and payloads use `ai-peer-review.event/v2`; existing v1 bytes
 are never rewritten. Compatibility is event authority, not a mutable sidecar or
-a retrofit to an existing startup digest. A `compatibility-declared` event-v2
-line must immediately precede the first other event-v2 line in every log. It
-carries `minimum_reader_version`, `minimum_writer_version`, and the closed list
-of accepted event schemas. A v2 reader refuses any other v2 event without that
-preceding declaration and returns `APR_READER_UPGRADE_REQUIRED` or
-`APR_WRITER_UPGRADE_REQUIRED` when it cannot satisfy the declaration.
+a retrofit to an existing v1 startup digest.
 
-For a new v2 record, `compatibility-declared` is a permitted pre-genesis event:
-sequence 1, revision 0, followed by `review-created` at sequence 2, revision 1.
-For a legacy or mixed record it is appended, sequence-only, immediately before
-the first v2 mutation. The reducer recognizes this pre-genesis/upgrade category
-without treating it as review lifecycle state, and its declaration remains
-immutable in the append-only ledger.
+For a new v2 record, the event-v2 `review-created` payload contains an exact
+`compatibility` block with `minimum_reader_version`,
+`minimum_writer_version`, and the closed accepted-event-schema list.
+`review-created` remains the single genesis event at sequence 1, revision 1, and
+`initializeReview` retains one atomic `atomicCreate` of that one-line log. The
+event-v1 `review-created` validator and existing bytes remain unchanged.
 
-An already-published old binary cannot be made to understand the
-`compatibility-declared` event or any later exact-key event retroactively; it may
-still fail with `APR_EVENT_INVALID`. The declaration protects v2-capable readers
-and newly generated commands, not legacy binaries. Generated invitation,
-resume, recovery, and zero-install commands pin the exact creator package
-version, and participant preflight rejects an installed version below the
-declared minimum before mutation. Unknown event tolerance is not introduced
-because skipping authority-changing events would make read-only projections
-unsafe.
+For a legacy or mixed record, a `compatibility-declared` event-v2 line is
+appended sequence-only immediately before the first other event-v2 line. Its
+actor is `system` because it is a deterministic package projection, and its
+`review_id` must equal the already registered protocol review ID. A v2 reader
+refuses any later event-v2 line unless either the v2 genesis block or the
+immediately preceding upgrade declaration establishes compatible minimums and
+schemas.
+
+When launch creates the first v2 events in a legacy log, one locked
+compare-and-append batch writes `compatibility-declared` followed by
+`execution-started`, updates projections for the ordered pair, and releases the
+lock before dispatch. The batch is all-or-nothing at the event-log write
+boundary; the launcher never exposes a declaration-only intermediate log.
+
+An already-published old binary cannot be made to understand an event-v2
+`review-created`, `compatibility-declared`, or any later exact-key event
+retroactively; it may still fail with `APR_EVENT_INVALID`. Compatibility
+authority protects v2-capable readers and newly generated commands, not legacy
+binaries. Generated invitation, resume, recovery, and zero-install commands pin
+the exact creator package version, and participant preflight refuses an
+installed version below the declared minimum before mutation. Unknown event
+tolerance is not introduced because skipping authority-changing events would
+make read-only projections unsafe.
 
 ## State model
 
@@ -666,6 +696,7 @@ The transaction is deterministic at every interruption boundary:
 | After submission, before launcher return                  | Submission event wins and execution resolves as submitted.                                         |
 | After conclusive no-dispatch proof                        | Same execution may be reconstructed without charging recovery.                                     |
 | Process exits while holding the review lock               | Prove the owner instance dead, retain the stale lock, reclaim, and resume the identical operation. |
+| Process exits in `initializeReview` before log creation   | Retain the stale lock as the receipt; identical `start` then creates genesis.                      |
 
 The package never deletes or rewrites evidence during reconciliation. A
 collision, changed digest, or mismatched retry stops with retained paths.
@@ -689,26 +720,42 @@ atomically renames the lock into a retained `locks/stale/` receipt, fsyncs the
 directory, and retries the same compare-and-append operation. PID absence alone
 is insufficient because of PID reuse. Reclamation is automatic only for a
 provably dead matching host/boot/process identity. Unknown or foreign-host locks
-require an evidence-preserving human-only action:
+require an evidence-preserving, explicitly confirmed operator action:
 
 ```text
-peer-review reclaim-lock <workspace> --lock-digest <sha256> --reason <text>
+peer-review reclaim-lock <workspace> --lock-digest <sha256> --reason <text> \
+  --confirm-reclaim
 ```
 
-The command is unavailable to Full-Auto and noninteractive adapters. It displays
-the retained owner record, requires an interactive confirmation of the exact
-digest, normalizes the reason by the recovery-reason rules, atomically moves the
-lock into `locks/stale/`, acquires a new lock, and appends a sequence-only
-`lock-reclaimed` event naming the prior digest, operator identity when available,
-reason digest, and retained receipt. A crash between rename and append remains
-reconcilable from that receipt. It refuses a proven-live owner and never silently
-deletes a lock. Lock reclamation never dispatches a provider, changes recovery
-mode, or consumes another allowance.
+`--confirm-reclaim` follows the existing explicit-confirmation-flag pattern used
+by `setup --confirm-scratch-exclude`; the command introduces no TTY, stdin, or
+prompt dependency. It displays the owner record in dry inspection output,
+requires the supplied lock digest to match exactly, normalizes the reason by the
+recovery-reason rules, and atomically moves the lock into `locks/stale/` with a
+directory fsync. The retained receipt is the authoritative evidence of
+reclamation and records the prior bytes and digest, operator identity when
+available, normalized reason digest, host evidence, and timestamp.
+
+When a reducible nonterminal event log exists, the command may then acquire a
+new lock and append an optional sequence-only `lock-reclaimed` projection. If
+the log is absent because the process died inside `initializeReview`, or is
+terminally sealed, reclamation succeeds from the retained receipt alone. A
+crash after rename remains reconcilable from that receipt. Read-only status and
+inspection never acquire the review lock and remain available while the stale
+lock exists.
+
+The package has no Full-Auto runtime concept and does not claim to detect one.
+Project and agent skill policy must forbid autonomous invocation; this is a
+documentation control, while the package enforces the exact digest, explicit
+confirmation flag, proven-live refusal, retained receipt, and no-dispatch
+semantics. The command never silently deletes a lock, dispatches a provider,
+changes recovery mode, or consumes another allowance.
 
 Stable errors include:
 
 - `APR_RECOVERY_EXHAUSTED`;
 - `APR_RECOVERY_CONFLICT`;
+- `APR_AUTHOR_ROTATION_INVALID`;
 - `APR_RECORD_ID_INVALID`;
 - `APR_LAUNCH_TARGET_INVALID`;
 - `APR_LINEAGE_INVALID`;
@@ -799,8 +846,8 @@ and injected provider results. No live or paid provider is needed.
 ### Unit coverage
 
 - Event validation and reducer projections for recovery and execution events.
-- Pre-genesis and legacy-upgrade `compatibility-declared` ordering, minimum
-  versions, and refusal of v2 events lacking the declaration.
+- V2 genesis compatibility blocks, legacy-upgrade `compatibility-declared`
+  ordering, minimum versions, and refusal of v2 events lacking authority.
 - Per-event v1/v2 participant validation, mixed-log normalization, and required
   v2 compatibility mirrors.
 - Record state derivation and every valid and invalid lineage edge.
@@ -817,8 +864,10 @@ and injected provider results. No live or paid provider is needed.
 - Environment allowlist and same-provider plus cross-provider identity-variable
   removal.
 - Session assurance and model attribution combinations and conflicts.
+- `rotate-author-session` grant binding, state preservation, transport
+  independence, unrelated-challenge refusal, and reviewer/recovery isolation.
 - Live, stale, PID-reused, foreign-host, and liveness-unknown review locks.
-- Different-boot automatic reclamation and interactive unknown-owner
+- Different-boot automatic reclamation and explicit-confirmation unknown-owner
   reclamation with retained receipts.
 - Legacy participant and supersession rendering.
 - Minimum reader/writer compatibility gates and exact generated package pins.
@@ -837,8 +886,9 @@ and injected provider results. No live or paid provider is needed.
 - Changed artifact revision, response path, output path, PID, and attempt ID not
   resetting the allowance.
 - Two or more normal reviewer turns without recovery charges.
-- Author session rotation refusing `launch-reviewer`, followed by exact
-  author-participant replacement under a signed grant and successful launch.
+- Author session rotation refusing `launch-reviewer`, followed by
+  `rotate-author` consuming an exact signed grant without intervention or claim
+  preconditions, then successful launch.
 - Later-turn permission denial against the exact current response.
 - Permission-blocked dispatch consuming recovery and suppressing every generated
   retry surface at exhaustion.
@@ -899,8 +949,8 @@ the npm artifact.
 - The invitation-path launch form is deprecated and limited to validated first
   turns.
 - `launch-reviewer` becomes session-strict: an author-session rotation requires
-  signed `recover --replace-participant author` before another launch. Help and
-  migration notes state this multi-session cost explicitly.
+  signed `rotate-author` before another launch. Help and migration notes state
+  this multi-session cost explicitly; participant-loss recovery is not used.
 - `launch-reviewer` resolves its one positional physically. A directory
   containing the expected event log is a workspace. A regular file whose
   generated metadata identifies it as that workspace's
@@ -909,9 +959,10 @@ the npm artifact.
   golden output document both forms.
 - Bare provider and package executable invocation is removed from automated
   launch paths.
-- `reclaim-lock` is a human-only degraded recovery for unknown owner liveness;
-  it retains the prior lock, records the action, and is never emitted to
-  Full-Auto.
+- `reclaim-lock` is an explicit-confirmation degraded recovery for unknown owner
+  liveness. The package retains the prior lock and records the action; project
+  and skill policy, not a nonexistent package mode detector, forbids autonomous
+  invocation.
 - Generated participant commands pin the exact creator package version;
   preflight refuses installed packages below the sealed minimum before reading
   or mutating v2 authority. A deliberate compatible upgrade regenerates the
