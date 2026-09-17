@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { digestChallenge, digestGrantParameters } from '../../src/authority/canonicalize.mjs';
 import { LIFECYCLE_EVENT_TYPES, reduceEvents } from '../../src/protocol/reducer.mjs';
+import { compatibilityDeclared, participant, v2Event } from '../helpers/review-fixture.mjs';
 import {
   acceptancePendingEvents,
   authorRevisionEvents,
@@ -338,6 +339,37 @@ test('enforces contiguous sequence and independent revision advancement', () => 
     payload: { role: 'reviewer', identity: valid[1].payload.reviewer },
   });
   assert.equal(reduceEvents([...valid, refreshed]).protocol.revision, valid.at(-1).revision);
+});
+
+test('rejects a v2 event whose compatibility declaration is not immediately adjacent', () => {
+  const prefix = reviewerTurnEvents();
+  const compatibility = {
+    minimum_reader_version: '0.2.2',
+    minimum_writer_version: '0.2.2',
+    accepted_event_schemas: ['ai-peer-review.event/v1', 'ai-peer-review.event/v2'],
+  };
+  const declaration = compatibilityDeclared(
+    {
+      sequence: prefix.length,
+      revision: prefix.at(-1).revision,
+      review_id: prefix.at(-1).review_id,
+    },
+    compatibility
+  );
+  const interposed = event('delivery-written', {
+    sequence: prefix.length + 2,
+    revision: prefix.at(-1).revision,
+  });
+  const v2 = v2Event('identity-changed', {
+    sequence: prefix.length + 3,
+    revision: prefix.at(-1).revision,
+    actor: FINGERPRINTS.reviewer,
+    payload: { identity: participant('reviewer') },
+  });
+  assert.throws(
+    () => reduceEvents([...prefix, declaration, interposed, v2]),
+    (error) => error.code === 'APR_READER_UPGRADE_REQUIRED'
+  );
 });
 
 test('submission lifecycle events require an unexpired current-role claim', () => {

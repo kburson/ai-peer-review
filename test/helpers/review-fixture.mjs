@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createGitRepository } from '../../src/git/repository.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
 import { appendEvent, atomicWrite } from '../../src/protocol/store.mjs';
+import { compatibilityDeclared as createCompatibilityDeclaration } from '../../src/protocol/compatibility.mjs';
 
 export const FINGERPRINTS = Object.freeze({
   author: `sha256:${'a'.repeat(64)}`,
@@ -457,6 +458,26 @@ export function event(
     at: new Date(Date.UTC(2026, 8, 8, 12, 0, sequence)).toISOString(),
     payload: effectivePayload,
   };
+}
+
+export function compatibilityDeclared(state, compatibility, options) {
+  return createCompatibilityDeclaration(state, compatibility, options);
+}
+
+export function v2Event(type, options = {}) {
+  if (type === 'compatibility-declared') {
+    const { sequence = 1, revision = 0, reviewId = 'review-01', payload = {}, ...rest } = options;
+    return compatibilityDeclared(
+      { sequence: sequence - 1, revision, review_id: reviewId },
+      payload.compatibility ?? {
+        minimum_reader_version: '0.2.2',
+        minimum_writer_version: '0.2.2',
+        accepted_event_schemas: ['ai-peer-review.event/v1', 'ai-peer-review.event/v2'],
+      },
+      rest
+    );
+  }
+  return { ...event(type, options), schema: 'ai-peer-review.event/v2' };
 }
 
 export function sequence(types, overrides = {}) {

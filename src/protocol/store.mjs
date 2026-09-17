@@ -220,8 +220,25 @@ export async function appendEvent(file, event) {
         details: { file },
       });
     }
-    const record = Buffer.from(`${canonicalJson(event)}\n`, 'utf8');
-    atomicWrite(file, Buffer.concat([prior, record]));
-    return Object.freeze({ file, bytes: record.length });
+    return appendLockedEvents(file, prior, [event]);
   });
+}
+
+export function appendLockedEvents(file, priorBytes, events) {
+  if (!Array.isArray(events) || events.length === 0) {
+    throw new AprError('APR_STORE_VALUE_INVALID', 'A non-empty event batch is required.', {
+      recovery: 'Provide one or more validated events for the locked append.',
+      details: { file },
+    });
+  }
+  const prior = Buffer.isBuffer(priorBytes) ? priorBytes : Buffer.from(priorBytes, 'utf8');
+  if (prior.length > 0 && prior.at(-1) !== 0x0a) {
+    throw new AprError('APR_EVENT_LOG_CORRUPT', 'The event log ends with a torn record.', {
+      recovery: 'Restore events.jsonl from its last complete newline-terminated record.',
+      details: { file },
+    });
+  }
+  const records = Buffer.from(events.map((event) => `${canonicalJson(event)}\n`).join(''), 'utf8');
+  atomicWrite(file, Buffer.concat([prior, records]));
+  return Object.freeze({ file, bytes: records.length });
 }

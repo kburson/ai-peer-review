@@ -4,6 +4,7 @@ import {
   digestChallenge,
   digestGrantParameters,
 } from '../authority/canonicalize.mjs';
+import { EVENT_V1_SCHEMA, EVENT_V2_SCHEMA, validateCompatibility } from './compatibility.mjs';
 
 const definitions = {
   'review-created': {
@@ -913,6 +914,7 @@ function validatePayload(type, payload, valueReviewId) {
 }
 
 export function eventAdvancesRevision(type) {
+  if (type === 'compatibility-declared') return false;
   if (!Object.hasOwn(EVENT_DEFINITIONS, type)) throw invalid('unknown type', { type });
   const definition = EVENT_DEFINITIONS[type];
   return definition.advancesRevision;
@@ -920,7 +922,7 @@ export function eventAdvancesRevision(type) {
 
 export function validateEvent(value) {
   exactKeys(value, TOP_LEVEL_FIELDS, 'envelope');
-  if (value.schema !== 'ai-peer-review.event/v1') throw invalid('schema');
+  if (value.schema !== EVENT_V1_SCHEMA) throw invalid('schema');
   if (typeof value.review_id !== 'string' || !IDENTIFIER_RE.test(value.review_id)) {
     throw invalid('review_id');
   }
@@ -950,4 +952,38 @@ export function validateEvent(value) {
   assertJsonValue(value.payload);
   validatePayload(value.type, value.payload, value.review_id);
   return true;
+}
+
+function readerUpgrade(value) {
+  return new AprError(
+    'APR_READER_UPGRADE_REQUIRED',
+    'The review contains an event schema this reader does not understand.',
+    {
+      recovery: 'Install the package version required by the review compatibility authority.',
+      details: { schema: value?.schema, type: value?.type },
+    }
+  );
+}
+
+function validateV2Declaration(value) {
+  exactKeys(value, TOP_LEVEL_FIELDS, 'envelope');
+  if (value.schema !== EVENT_V2_SCHEMA) throw readerUpgrade(value);
+  if (typeof value.review_id !== 'string' || !IDENTIFIER_RE.test(value.review_id)) {
+    throw invalid('review_id');
+  }
+  if (!Number.isSafeInteger(value.sequence) || value.sequence <= 0) throw invalid('sequence');
+  if (!Number.isSafeInteger(value.revision) || value.revision < 0) throw invalid('revision');
+  if (value.actor !== 'system') throw invalid('actor');
+  assertTimestamp(value.at, 'at');
+  exactKeys(value.payload, ['compatibility'], 'compatibility-declared payload');
+  validateCompatibility(value.payload.compatibility);
+  return true;
+}
+
+export function validateVersionedEvent(value) {
+  if (value?.schema === EVENT_V1_SCHEMA) return validateEvent(value);
+  if (value?.schema !== EVENT_V2_SCHEMA) throw readerUpgrade(value);
+  if (value.type === 'compatibility-declared') return validateV2Declaration(value);
+  if (!Object.hasOwn(EVENT_DEFINITIONS, value.type)) throw readerUpgrade(value);
+  return validateEvent({ ...value, schema: EVENT_V1_SCHEMA });
 }

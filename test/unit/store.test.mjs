@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 
 import {
   appendEvent,
+  appendLockedEvents,
   atomicCreate,
   atomicWrite,
   withReviewLock,
@@ -123,4 +124,19 @@ test('appendEvent refuses a torn existing record without changing it', async (t)
     (error) => error.code === 'APR_EVENT_LOG_CORRUPT'
   );
   assert.equal(readFileSync(file, 'utf8'), '{"incomplete":true}');
+});
+
+test('appendLockedEvents makes one newline-terminated atomic batch', async (t) => {
+  const workspace = workspaceFixture(t);
+  const file = path.join(workspace, 'events.jsonl');
+  await withReviewLock(workspace, async () => {
+    appendLockedEvents(file, '', [
+      { sequence: 1, type: 'first' },
+      { sequence: 2, type: 'second' },
+    ]);
+  });
+  assert.equal(
+    readFileSync(file, 'utf8'),
+    '{"sequence":1,"type":"first"}\n{"sequence":2,"type":"second"}\n'
+  );
 });

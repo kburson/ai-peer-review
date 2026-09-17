@@ -2,8 +2,13 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { EVENT_TYPES, eventAdvancesRevision, validateEvent } from '../../src/protocol/events.mjs';
-import { event } from '../helpers/review-fixture.mjs';
+import {
+  EVENT_TYPES,
+  eventAdvancesRevision,
+  validateEvent,
+  validateVersionedEvent,
+} from '../../src/protocol/events.mjs';
+import { event, v2Event } from '../helpers/review-fixture.mjs';
 
 test('schema artifacts identify the three closed v1 projections', () => {
   for (const [file, id] of [
@@ -15,6 +20,28 @@ test('schema artifacts identify the three closed v1 projections', () => {
     assert.equal(schema.$id, id);
     assert.equal(schema.additionalProperties, false);
   }
+});
+
+test('event-v2 compatibility artifacts are closed and independently versioned', () => {
+  for (const [file, id] of [
+    ['schemas/event-v2.json', 'ai-peer-review.event/v2'],
+    ['schemas/protocol-v2.json', 'ai-peer-review.protocol/v2'],
+    ['schemas/participants-v2.json', 'ai-peer-review.participants/v2'],
+  ]) {
+    const schema = JSON.parse(readFileSync(new URL(`../../${file}`, import.meta.url)));
+    assert.equal(schema.$id, id);
+    assert.equal(schema.additionalProperties, false);
+  }
+});
+
+test('versioned validation selects the envelope schema and names a reader upgrade for unknown events', () => {
+  assert.equal(validateVersionedEvent(event('review-created')), true);
+  assert.equal(validateVersionedEvent(v2Event('compatibility-declared')), true);
+  assert.throws(
+    () =>
+      validateVersionedEvent({ ...event('review-created'), schema: 'ai-peer-review.event/v99' }),
+    (error) => error.code === 'APR_READER_UPGRADE_REQUIRED'
+  );
 });
 
 test('event schema closes every event payload and nested object contract', () => {

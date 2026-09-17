@@ -1,6 +1,7 @@
 import { AprError } from '../errors.mjs';
 import { digestChallenge, digestGrantParameters } from '../authority/canonicalize.mjs';
-import { eventAdvancesRevision, validateEvent } from './events.mjs';
+import { assertReaderCompatibility, EVENT_V2_SCHEMA } from './compatibility.mjs';
+import { eventAdvancesRevision, validateVersionedEvent } from './events.mjs';
 
 export const LIFECYCLE_EVENT_TYPES = Object.freeze([
   'review-created',
@@ -491,6 +492,11 @@ function applyLifecycle(protocol, participants, event) {
 function applyProjection(state, event) {
   const protocol = state.protocol;
   const participants = state.participants;
+  if (event.type === 'compatibility-declared') {
+    protocol.sequence = event.sequence;
+    protocol.revision = event.revision;
+    return;
+  }
   if (STATE_PRESERVING.has(event.type)) ensureStatePreservingAllowed(protocol, event);
 
   if (
@@ -770,8 +776,40 @@ function deepFreeze(value) {
 export function reduceEvents(events) {
   if (!Array.isArray(events)) throw projectionError('events must be an array');
   const state = initialProjection();
+  let compatibility = null;
+  let sawV2 = false;
   events.forEach((event, index) => {
-    validateEvent(event);
+    validateVersionedEvent(event);
+    if (event.schema === EVENT_V2_SCHEMA) {
+      if (event.type === 'compatibility-declared') {
+        if (index === 0 || sawV2) {
+          throw new AprError(
+            'APR_READER_UPGRADE_REQUIRED',
+            'A compatibility declaration must precede the first v2 event in a legacy log.',
+            { recovery: 'Restore the authoritative mixed-log declaration and retry.' }
+          );
+        }
+        compatibility = event.payload.compatibility;
+        assertReaderCompatibility(compatibility);
+      } else {
+        if (!sawV2) {
+          const declaration = events[index - 1];
+          if (
+            declaration?.schema !== EVENT_V2_SCHEMA ||
+            declaration.type !== 'compatibility-declared'
+          ) {
+            throw new AprError(
+              'APR_READER_UPGRADE_REQUIRED',
+              'The first v2 event must be immediately preceded by compatibility authority.',
+              { recovery: 'Restore the atomic compatibility declaration and v2 event batch.' }
+            );
+          }
+          compatibility = declaration.payload.compatibility;
+        }
+        assertReaderCompatibility(compatibility);
+        sawV2 = true;
+      }
+    }
     if (event.sequence !== index + 1) throw projectionError('event sequence');
     if (state.protocol.review_id !== null && event.review_id !== state.protocol.review_id) {
       throw projectionError('review ID');
