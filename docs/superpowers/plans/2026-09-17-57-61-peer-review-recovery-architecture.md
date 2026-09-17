@@ -10,6 +10,8 @@
 
 **Spec:** `docs/design/2026-09-17-57-61-peer-review-recovery-architecture-design.md`
 
+**Review status:** Accepted by Claude (Opus 5) in `docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md`.
+
 ## Global Constraints
 
 - One record has one built-in recovery; every higher ordinal requires its own exact single-use `additional-recovery` Human Authority grant.
