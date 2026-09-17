@@ -212,9 +212,13 @@ normalized reason, execution, successor, ordinal, or grant conflicts with the
 existing claim.
 
 `recovery-claimed` advances protocol revision and is refused while any live
-Human Authority challenge exists. The operator must consume, expire, or
-explicitly cancel that challenge before claiming recovery; recovery does not
-silently invalidate a signed or pending grant.
+Human Authority challenge exists **other than the challenge it consumes in the
+same protected mutation**. The reducer follows the existing consume-then-check
+ordering used by participant replacement: it first consumes the matching
+`additional-recovery` challenge, then refuses if any other live challenge
+remains. The operator must consume, expire, or explicitly cancel unrelated
+challenges before claiming recovery; recovery does not silently invalidate a
+signed or pending grant.
 
 #### Additional-recovery Human Authority grant
 
@@ -225,6 +229,15 @@ is `record_id`, `current_review_id`, `triggering_execution_id`, `mode`,
 the current protocol revision by the existing grant machinery. A grant permits
 one compare-and-appended claim only, cannot authorize multiple ordinals, and
 cannot be reused after any state or parameter change.
+
+Implementation extends all four existing closed seams: add the action and its
+seven fields to `GRANT_PARAMETER_FIELDS`; add exact event matching in
+`protectedParametersMatchEvent`; emit `challenge-requested` and
+`challenge-superseded` carrying this action as event-v2; and add request-grant
+flags for record ID, current review ID, triggering execution ID, mode, resulting
+ordinal, normalized reason digest, and successor review ID. The generated
+exhaustion action renders those exact flags and values. It does not overload
+`start --record-id`; each command retains its own closed grammar and help.
 
 When the built-in allowance is exhausted, `APR_RECOVERY_EXHAUSTED` identifies
 the exact `request-grant --action additional-recovery` parameters as the sole
@@ -316,9 +329,13 @@ reported as contradiction.
 
 Active attempt logs and in-progress reciprocal receipts remain machine-local in
 the required ignored `.scratch/peer-review/<review-id>` workspaces. Cross-machine
-recovery of a nonterminal record is out of scope. Routine cleanup must refuse to
-remove those workspaces while a recovery is pending or before terminal lineage
-has been published.
+recovery of a nonterminal record is out of scope. Package-owned cleanup,
+including consolidation source removal and any future cleanup command, must
+refuse to remove those workspaces while a recovery is pending or before terminal
+lineage has been published. External deletion by `git clean`, direct filesystem
+removal, CI checkout replacement, or an OS reaper is outside package control and
+produces `lineage-unavailable`; the package does not claim it can prevent that
+loss.
 
 At terminalization, the package validates the complete available chain and
 copies a minimal durable lineage receipt into the tracked terminal manifest.
@@ -331,6 +348,15 @@ attempt sources. A complete terminal receipt permits consolidation and
 post-consolidation inspection when scratch workspaces are absent; an incomplete
 receipt leaves the record `lineage-unavailable` and cannot establish acceptance
 or authorize mutation.
+
+If a nonterminal record loses required scratch evidence and no complete terminal
+receipt exists, its disposition is permanently `incomplete-unavailable`. It is
+not protocol-abandoned or accepted, and no surviving attempt may be mutated to
+fabricate either state. Inspection renders every retained tracked artifact and
+the exact missing attempt IDs and paths. The human may explicitly authorize a
+new review record, whose startup provenance names the unavailable predecessor
+record; that is a new review, not recovery, and is never generated as an
+automatic next action.
 
 The existing standalone `supersede` command remains available for non-recovery
 disposition. It may reference only an already existing, independently readable,
@@ -397,12 +423,33 @@ The event enum adds:
 - `execution-resolved`, which records normalized provider outcome without
   replacing submission authority or advancing protocol revision.
 
+`recovery-claimed` is the first member of a new
+`AUTHORITY_MUTATION_EVENT_TYPES` category. It advances revision because it
+irrevocably changes record-wide spending and successor authority, so grants
+formed against the earlier world must be re-signed. It does not change the
+attempt lifecycle state and therefore belongs in neither
+`LIFECYCLE_EVENT_TYPES` nor `STATE_PRESERVING`. Reducer ordering is: consume the
+event's own protected grant when required, reject any other live challenge,
+apply the authority mutation, advance revision, and retain the current lifecycle
+state.
+
 Both execution events advance event sequence only. This prevents routine
 dispatch accounting from invalidating a live Human Authority challenge that is
 bound to protocol revision. Their actor is the authenticated registered author
 that created the launch contract. Reconciliation also requires a current
 runtime identity matching that author. `system` is reserved for deterministic
 package projections and cannot append recovery or execution authority.
+
+This is deliberately session-strict. `launch-reviewer` requires the live
+registered author session, not merely the same provider, host, OS user, or
+model. Author session rotation therefore refuses launch until
+`peer-review recover <workspace> --replace-participant author --grant
+<signed-grant>` registers the new author fingerprint. `--reclaim` cannot bridge
+rotation because it proves continuity of the same fingerprint. A multi-day
+review may consequently require a new human signature after each author-session
+rotation; that cost is accepted to keep provider dispatch and its spending
+evidence bound to a registered participant rather than an unauthenticated local
+process.
 
 `execution-started` is appended after final preflight and immediately before
 process dispatch. Its payload contains only digests and non-secret identifiers.
@@ -411,7 +458,8 @@ A started execution without a conclusive resolution is `outcome-unknown`.
 An authoritative reviewer submission event remains stronger than launcher
 process status. If submission exists after a timeout or crash, reconciliation
 resolves the execution as submitted. If neither submission nor conclusive
-no-dispatch evidence exists, another dispatch requires the one recovery.
+no-dispatch evidence exists, another dispatch requires the built-in recovery or
+an exact additional-recovery grant.
 
 Normalized outcomes are:
 
@@ -458,6 +506,11 @@ provider grammar cannot express safely, launch fails before
 to a bare command, PATH lookup, shell alias, or broader permission glob. A
 future package-owned wrapper is permissible only as a separately specified,
 canonical, digest-bound executable boundary.
+
+The error's recovery text names the concrete operator action: install or select
+Node and the provider executable at canonical paths representable by the
+provider permission grammar, then rerun preflight. It must not suggest quoting,
+aliasing, PATH lookup, or weakening the rule.
 
 Provider permissions contain the exact absolute join, submit, and response
 rules from the current contract. Readiness proves the current response is
@@ -550,43 +603,54 @@ Legacy `identity_source: runtime` is mapped to `legacy-unclassified`, not
 retroactively treated as verified model provenance.
 
 New event types and payloads use `ai-peer-review.event/v2`; existing v1 bytes
-are never rewritten. A workspace-side compatibility header is created before
-the first v2 event and seals `minimum_reader_version`,
-`minimum_writer_version`, and the accepted event schemas into the startup
-digest. V2-capable commands check that header before parsing the log and return
-`APR_READER_UPGRADE_REQUIRED` or `APR_WRITER_UPGRADE_REQUIRED` with the exact
-minimum version.
+are never rewritten. Compatibility is event authority, not a mutable sidecar or
+a retrofit to an existing startup digest. A `compatibility-declared` event-v2
+line must immediately precede the first other event-v2 line in every log. It
+carries `minimum_reader_version`, `minimum_writer_version`, and the closed list
+of accepted event schemas. A v2 reader refuses any other v2 event without that
+preceding declaration and returns `APR_READER_UPGRADE_REQUIRED` or
+`APR_WRITER_UPGRADE_REQUIRED` when it cannot satisfy the declaration.
 
-An already-published old binary cannot be made to understand a future gate or
-unknown exact-key event retroactively. Therefore the package does not claim
-that an arbitrary v1 binary can inspect v2 events. Generated invitation,
+For a new v2 record, `compatibility-declared` is a permitted pre-genesis event:
+sequence 1, revision 0, followed by `review-created` at sequence 2, revision 1.
+For a legacy or mixed record it is appended, sequence-only, immediately before
+the first v2 mutation. The reducer recognizes this pre-genesis/upgrade category
+without treating it as review lifecycle state, and its declaration remains
+immutable in the append-only ledger.
+
+An already-published old binary cannot be made to understand the
+`compatibility-declared` event or any later exact-key event retroactively; it may
+still fail with `APR_EVENT_INVALID`. The declaration protects v2-capable readers
+and newly generated commands, not legacy binaries. Generated invitation,
 resume, recovery, and zero-install commands pin the exact creator package
-version (or a later explicitly compatible version selected by the package),
-and participant preflight rejects an installed version below the sealed
-minimum before mutation. Unknown event tolerance is not introduced because
-skipping authority-changing events would make read-only projections unsafe.
+version, and participant preflight rejects an installed version below the
+declared minimum before mutation. Unknown event tolerance is not introduced
+because skipping authority-changing events would make read-only projections
+unsafe.
 
 ## State model
 
 Attempt protocol state remains local to each immutable attempt. Record state is
 derived from the validated chain:
 
-| Record state          | Meaning                                                           |
-| --------------------- | ----------------------------------------------------------------- |
-| `active-initial`      | Root attempt is active and no recovery is claimed.                |
-| `recovery-pending`    | A recovery is claimed but its sealed operation is incomplete.     |
-| `active-recovery`     | The recovered execution or successor is active.                   |
-| `recovery-exhausted`  | No further dispatch is authorized without an exact signed grant.  |
-| `accepted`            | One attempt holds valid terminal acceptance authority.            |
-| `abandoned`           | The record was explicitly abandoned without acceptance.           |
-| `lineage-unavailable` | Required local evidence is absent but no contradiction is proven. |
-| `lineage-invalid`     | Available record evidence is contradictory.                       |
+| Record state             | Meaning                                                           |
+| ------------------------ | ----------------------------------------------------------------- |
+| `active-initial`         | Root attempt is active and no recovery is claimed.                |
+| `recovery-pending`       | A recovery is claimed but its sealed operation is incomplete.     |
+| `active-recovery`        | The recovered execution or successor is active.                   |
+| `recovery-exhausted`     | No further dispatch is authorized without an exact signed grant.  |
+| `accepted`               | One attempt holds valid terminal acceptance authority.            |
+| `abandoned`              | The record was explicitly abandoned without acceptance.           |
+| `lineage-unavailable`    | Required local evidence is absent but no contradiction is proven. |
+| `incomplete-unavailable` | Nonterminal authority was lost and cannot be restored.            |
+| `lineage-invalid`        | Available record evidence is contradictory.                       |
 
-An accepted record cannot recover. An abandoned, unavailable, or invalid record
-cannot launch. A complete tracked terminal lineage receipt may restore
-inspection and consolidation from `lineage-unavailable`, but it cannot restore
-provider execution. If multiple attempts appear to hold acceptance, record
-inspection reports invalid terminal authority and fails closed.
+An accepted record cannot recover. An abandoned, unavailable, permanently
+incomplete, or invalid record cannot launch. A complete tracked terminal lineage
+receipt may restore inspection and consolidation from `lineage-unavailable`, but
+it cannot restore provider execution. If multiple attempts appear to hold
+acceptance, record inspection reports invalid terminal authority and fails
+closed.
 
 ## Failure and crash recovery
 
@@ -615,21 +679,45 @@ platform-derived process-start identity. Acquisition distinguishes:
 - unavailable or ambiguous liveness evidence:
   `APR_REVIEW_LOCK_LIVENESS_UNKNOWN`, which fails closed.
 
+The same host with a different boot identity is provably absent and is
+automatically reclaimable: no process survives the recorded boot. On the same
+boot, PID absence or a mismatched process-start identity is also proof of death;
+PID equality without a start-identity match never proves liveness.
+
 When death is proven, reclamation compare-checks the complete lock digest,
 atomically renames the lock into a retained `locks/stale/` receipt, fsyncs the
 directory, and retries the same compare-and-append operation. PID absence alone
 is insufficient because of PID reuse. Reclamation is automatic only for a
-provably dead matching host/boot/process identity; unknown or foreign-host
-locks require explicit operator restoration of the original environment, not
-manual deletion or a force flag. Lock reclamation never dispatches a provider,
-changes recovery mode, or consumes another allowance.
+provably dead matching host/boot/process identity. Unknown or foreign-host locks
+require an evidence-preserving human-only action:
+
+```text
+peer-review reclaim-lock <workspace> --lock-digest <sha256> --reason <text>
+```
+
+The command is unavailable to Full-Auto and noninteractive adapters. It displays
+the retained owner record, requires an interactive confirmation of the exact
+digest, normalizes the reason by the recovery-reason rules, atomically moves the
+lock into `locks/stale/`, acquires a new lock, and appends a sequence-only
+`lock-reclaimed` event naming the prior digest, operator identity when available,
+reason digest, and retained receipt. A crash between rename and append remains
+reconcilable from that receipt. It refuses a proven-live owner and never silently
+deletes a lock. Lock reclamation never dispatches a provider, changes recovery
+mode, or consumes another allowance.
 
 Stable errors include:
 
 - `APR_RECOVERY_EXHAUSTED`;
 - `APR_RECOVERY_CONFLICT`;
+- `APR_RECORD_ID_INVALID`;
+- `APR_LAUNCH_TARGET_INVALID`;
 - `APR_LINEAGE_INVALID`;
 - `APR_LINEAGE_UNAVAILABLE`;
+- `APR_REVIEW_LOCKED`;
+- `APR_REVIEW_LOCK_STALE`;
+- `APR_REVIEW_LOCK_LIVENESS_UNKNOWN`;
+- `APR_READER_UPGRADE_REQUIRED`;
+- `APR_WRITER_UPGRADE_REQUIRED`;
 - `APR_EXECUTION_STALE`;
 - `APR_EXECUTABLE_INVALID`;
 - `APR_PERMISSION_UNREPRESENTABLE`;
@@ -640,10 +728,13 @@ Stable errors include:
 and execution IDs, last normalized outcome, retained evidence paths, and a
 human-intervention next action. It never prints a provider retry command.
 
-That suppression applies to every output surface, including the launch-result
-`recovery` field, `status --json`, `status --next`, `resume`, and `explain`.
-Before exhaustion, any generated launch command uses the workspace form, never
-the deprecated invitation form. At exhaustion, outputs contain only the exact
+That record-aware suppression applies to the launch-result `recovery` field,
+`status --json`, `status --next`, and `resume`. Offline `explain
+APR_RECOVERY_EXHAUSTED` has no workspace and therefore cannot project a record;
+its static catalogue text must never contain a provider retry command and
+instead directs the operator to inspect record status. Before exhaustion, any
+generated launch command uses the workspace form, never the deprecated
+invitation form. At exhaustion, record-aware outputs contain only the exact
 `request-grant --action additional-recovery` action when eligible, or the
 terminal `abandon` action when not.
 
@@ -708,13 +799,17 @@ and injected provider results. No live or paid provider is needed.
 ### Unit coverage
 
 - Event validation and reducer projections for recovery and execution events.
+- Pre-genesis and legacy-upgrade `compatibility-declared` ordering, minimum
+  versions, and refusal of v2 events lacking the declaration.
 - Per-event v1/v2 participant validation, mixed-log normalization, and required
   v2 compatibility mirrors.
 - Record state derivation and every valid and invalid lineage edge.
 - Distinct `lineage-unavailable` and `lineage-invalid` projections, terminal
   lineage receipts, and post-consolidation inspection.
 - Compare-and-append recovery races and idempotent retries.
-- Live-challenge refusal and exact single-use additional-recovery grants.
+- Consume-then-check live-challenge handling and exact single-use
+  additional-recovery grants across canonicalization, event matching, v2
+  challenges, and request-grant grammar.
 - Deterministic successor derivation and reciprocal receipt validation.
 - Current-turn response, command, and permission derivation.
 - Package and provider executable resolution and capability refusal.
@@ -723,6 +818,8 @@ and injected provider results. No live or paid provider is needed.
   removal.
 - Session assurance and model attribution combinations and conflicts.
 - Live, stale, PID-reused, foreign-host, and liveness-unknown review locks.
+- Different-boot automatic reclamation and interactive unknown-owner
+  reclamation with retained receipts.
 - Legacy participant and supersession rendering.
 - Minimum reader/writer compatibility gates and exact generated package pins.
 - Stable error and offline help output.
@@ -740,6 +837,8 @@ and injected provider results. No live or paid provider is needed.
 - Changed artifact revision, response path, output path, PID, and attempt ID not
   resetting the allowance.
 - Two or more normal reviewer turns without recovery charges.
+- Author session rotation refusing `launch-reviewer`, followed by exact
+  author-participant replacement under a signed grant and successful launch.
 - Later-turn permission denial against the exact current response.
 - Permission-blocked dispatch consuming recovery and suppressing every generated
   retry surface at exhaustion.
@@ -754,6 +853,8 @@ and injected provider results. No live or paid provider is needed.
 - Missing lineage producing unavailable state; cross-record,
   self-referential, branching, cyclic, and digest-conflicting successors
   producing invalid state.
+- External scratch deletion producing honest `incomplete-unavailable` rendering
+  without fabricated abandonment, acceptance, or automatic new-record startup.
 - Legacy `start --record-id` disposition, recovery-created successor collision,
   and exact idempotent successor recreation.
 - Same-day attempts sharing one record-scoped destination with distinct
@@ -790,12 +891,16 @@ the npm artifact.
 - New reviews use context v2 and the new execution contract.
 - V2 readers support event-v1, event-v2, and mixed logs using per-event
   validation. Active v1 reviews are not mutated automatically.
-- Arbitrary `start --record-id <other-id>` is rejected for v2 startup. A value
-  equal to the generated initial review ID is accepted as a redundant
-  compatibility spelling. Existing v1 multi-attempt records require explicit
+- `start --record-id` is deprecated for removal in the next major version. In
+  v2 startup it is a strict compatibility no-op accepted only when equal to the
+  generated initial review ID; any other value fails with
+  `APR_RECORD_ID_INVALID`. Existing v1 multi-attempt records require explicit
   adoption before v2 recovery.
 - The invitation-path launch form is deprecated and limited to validated first
   turns.
+- `launch-reviewer` becomes session-strict: an author-session rotation requires
+  signed `recover --replace-participant author` before another launch. Help and
+  migration notes state this multi-session cost explicitly.
 - `launch-reviewer` resolves its one positional physically. A directory
   containing the expected event log is a workspace. A regular file whose
   generated metadata identifies it as that workspace's
@@ -804,6 +909,9 @@ the npm artifact.
   golden output document both forms.
 - Bare provider and package executable invocation is removed from automated
   launch paths.
+- `reclaim-lock` is a human-only degraded recovery for unknown owner liveness;
+  it retains the prior lock, records the action, and is never emitted to
+  Full-Auto.
 - Generated participant commands pin the exact creator package version;
   preflight refuses installed packages below the sealed minimum before reading
   or mutating v2 authority. A deliberate compatible upgrade regenerates the
@@ -893,6 +1001,9 @@ weakening the approved invariants:
   accounting advances sequence only and does not advance protocol revision.
 - The provider adapter capability contract for canonical executable identity
   and version probing on each supported platform.
+- The per-platform boot and process-start identity primitives for lock liveness,
+  including exact shell-free argv where an OS utility is unavoidable and the
+  degraded unknown-liveness classification when no safe primitive exists.
 - The minimum safe provider environment allowlist for macOS, Linux, and Windows.
 - Whether legacy adoption ships in the first implementation increment or as a
   blocked compatibility increment before automated recovery is enabled for v1.
