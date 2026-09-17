@@ -1,9 +1,11 @@
 # Peer-Review Recovery and Execution Integrity Design
 
+<!-- cspell:words representability terminalization TOCTOU ungranted -->
+
 ## Document status
 
 - **Date:** 2026-09-17
-- **Status:** Draft for human review
+- **Status:** Approved for implementation planning
 - **Tracking issue:** #57
 - **Incident defects:** #57, #58, #59, #60, and #61
 - **Source incident:** #56
