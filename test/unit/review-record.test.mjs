@@ -627,3 +627,111 @@ test('consolidate apply recomputes authority and commits the exact relocation', 
     'unrelated.txt'
   );
 });
+
+test('tracked archive-root receipt proves every path relocated by issue 65', () => {
+  const repositoryRoot = realpathSync(process.cwd());
+  const relocationCommit = '9e6059c4e6b67ad8084e948ae1c5da52d189fcb3';
+  const sourceCommit = '1181d7f82309b96ae24089e890b2dc789e8eb5c4';
+  const receiptPath = path.join(
+    repositoryRoot,
+    'docs/superpowers/peer-reviews/relocation-receipt.json'
+  );
+  const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  const renameLines = execFileSync(
+    'git',
+    [
+      'diff-tree',
+      '-r',
+      '-M',
+      '--name-status',
+      sourceCommit,
+      relocationCommit,
+      '--',
+      'docs/peer-reviews',
+      'docs/superpowers/peer-reviews',
+    ],
+    { cwd: repositoryRoot, encoding: 'utf8', shell: false }
+  )
+    .trim()
+    .split('\n')
+    .map((line) => line.split('\t'))
+    .filter(([status]) => status.startsWith('R'));
+
+  assert.equal(receipt.schema, 'ai-peer-review.relocation-receipt/v1');
+  assert.equal(receipt.record_kind, 'repository-archive-relocation');
+  assert.equal(receipt.source_commit, sourceCommit);
+  assert.equal(receipt.relocation_commit, relocationCommit);
+  assert.equal(receipt.source_root, 'docs/peer-reviews');
+  assert.equal(receipt.destination_root, 'docs/superpowers/peer-reviews');
+  assert.equal(receipt.decision.receipt_scope, 'repository-level');
+  assert.equal(receipt.tooling_finding.retroactive_consolidate_supported, false);
+  assert.equal(renameLines.length, 56);
+  assert.equal(receipt.relocations.length, renameLines.length);
+
+  const blobIdsAt = (commit, root) =>
+    new Map(
+      execFileSync('git', ['ls-tree', '-r', '-z', commit, '--', root], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        shell: false,
+      })
+        .split('\0')
+        .filter(Boolean)
+        .map((record) => {
+          const [metadata, filePath] = record.split('\t');
+          const [, type, objectId] = metadata.split(' ');
+          assert.equal(type, 'blob', `Git object type for ${filePath}`);
+          return [filePath, objectId];
+        })
+    );
+  const sourceBlobIds = blobIdsAt(sourceCommit, 'docs/peer-reviews');
+  const destinationBlobIds = blobIdsAt(relocationCommit, 'docs/superpowers/peer-reviews');
+  const readBlob = (objectId, filePath) => {
+    assert.ok(objectId, `missing Git blob for ${filePath}`);
+    return execFileSync('git', ['cat-file', 'blob', objectId], {
+      cwd: repositoryRoot,
+      encoding: null,
+      shell: false,
+    });
+  };
+  const entries = new Map(receipt.relocations.map((entry) => [entry.source_path, entry]));
+  let byteIdenticalCount = 0;
+  let changedGeneratedCount = 0;
+  for (const [status, sourcePath, destinationPath] of renameLines) {
+    const entry = entries.get(sourcePath);
+    assert.ok(entry, `missing receipt entry for ${sourcePath}`);
+    assert.equal(entry.destination_path, destinationPath);
+
+    const sourceBytes = readBlob(sourceBlobIds.get(sourcePath), sourcePath);
+    const destinationBytes = readBlob(destinationBlobIds.get(destinationPath), destinationPath);
+    const sourceSha256 = digest(sourceBytes).slice('sha256:'.length);
+    const destinationSha256 = digest(destinationBytes).slice('sha256:'.length);
+    const byteIdentity = sourceBytes.equals(destinationBytes);
+
+    if (byteIdentity) {
+      byteIdenticalCount += 1;
+    } else if (path.basename(destinationPath) === '00-review-history.md') {
+      changedGeneratedCount += 1;
+    }
+
+    assert.equal(entry.bytes, sourceBytes.length, `source byte count for ${sourcePath}`);
+    assert.equal(entry.sha256, sourceSha256, `source digest for ${sourcePath}`);
+    assert.equal(
+      entry.destination_bytes,
+      destinationBytes.length,
+      `destination byte count for ${destinationPath}`
+    );
+    assert.equal(
+      entry.destination_sha256,
+      destinationSha256,
+      `destination digest for ${destinationPath}`
+    );
+    assert.equal(entry.byte_identity, byteIdentity, `byte identity for ${sourcePath}`);
+    assert.equal(status === 'R100', byteIdentity, `Git rename score for ${sourcePath}`);
+  }
+
+  assert.equal(entries.size, renameLines.length, 'receipt contains no extra source paths');
+  assert.equal(receipt.relocation_count, renameLines.length);
+  assert.equal(receipt.byte_identical_count, byteIdenticalCount);
+  assert.equal(receipt.changed_generated_count, changedGeneratedCount);
+});
