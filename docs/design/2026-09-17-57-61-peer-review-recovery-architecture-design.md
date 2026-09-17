@@ -1143,8 +1143,10 @@ unbounded defect chain.
 1. One logical record permits one built-in recovery operation regardless of
    recovery mode, process restart, artifact revision, output path, attempt ID,
    or concurrent claim; each additional operation requires a distinct exact
-   signed Human Authority grant, while normal event-authorized turns inside the
-   active attempt remain permitted.
+   signed Human Authority grant when that authority is available, while an
+   `authority_policy: unavailable` record cannot authorize any additional
+   operation. Normal event-authorized turns inside the active attempt remain
+   permitted.
 2. Ordinary successful turns and proven no-dispatch bookkeeping retries do not
    consume recovery.
 3. Unknown post-dispatch outcomes cannot be retried without consuming recovery.
@@ -1161,8 +1163,11 @@ unbounded defect chain.
    event, package compatibility is checked before mutation, and recovery
    adoption is explicit, conservative, additive, and fail-closed.
 9. Recovery exhaustion stops before provider invocation with stable structured
-   evidence and no generated retry command on any result surface; only an exact
-   grant request or terminal abandonment is suggested.
+   evidence and no generated retry command on any result surface. Eligible
+   output suggests exact intervention entry; an active authorization
+   intervention suggests exact grant-request, cancellation, or abandonment
+   actions; and authority-unavailable output suggests no grant or provider
+   resumption path.
 10. Planning, rather than this specification, determines the final governed
     issue decomposition.
 
