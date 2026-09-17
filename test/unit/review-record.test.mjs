@@ -669,6 +669,8 @@ test('tracked archive-root receipt proves every path relocated by issue 65', () 
   assert.equal(receipt.relocations.length, renameLines.length);
 
   const entries = new Map(receipt.relocations.map((entry) => [entry.source_path, entry]));
+  let byteIdenticalCount = 0;
+  let changedGeneratedCount = 0;
   for (const [status, sourcePath, destinationPath] of renameLines) {
     const entry = entries.get(sourcePath);
     assert.ok(entry, `missing receipt entry for ${sourcePath}`);
@@ -679,9 +681,24 @@ test('tracked archive-root receipt proves every path relocated by issue 65', () 
       encoding: null,
       shell: false,
     });
-    const destinationBytes = readFileSync(path.join(repositoryRoot, destinationPath));
+    const destinationBytes = execFileSync(
+      'git',
+      ['show', `${relocationCommit}:${destinationPath}`],
+      {
+        cwd: repositoryRoot,
+        encoding: null,
+        shell: false,
+      }
+    );
     const sourceSha256 = digest(sourceBytes).slice('sha256:'.length);
     const destinationSha256 = digest(destinationBytes).slice('sha256:'.length);
+    const byteIdentity = sourceBytes.equals(destinationBytes);
+
+    if (byteIdentity) {
+      byteIdenticalCount += 1;
+    } else if (path.basename(destinationPath) === '00-review-history.md') {
+      changedGeneratedCount += 1;
+    }
 
     assert.equal(entry.bytes, sourceBytes.length, `source byte count for ${sourcePath}`);
     assert.equal(entry.sha256, sourceSha256, `source digest for ${sourcePath}`);
@@ -695,8 +712,12 @@ test('tracked archive-root receipt proves every path relocated by issue 65', () 
       destinationSha256,
       `destination digest for ${destinationPath}`
     );
-    assert.equal(entry.byte_identity, status === 'R100', `byte identity for ${sourcePath}`);
+    assert.equal(entry.byte_identity, byteIdentity, `byte identity for ${sourcePath}`);
+    assert.equal(status === 'R100', byteIdentity, `Git rename score for ${sourcePath}`);
   }
 
   assert.equal(entries.size, renameLines.length, 'receipt contains no extra source paths');
+  assert.equal(receipt.relocation_count, renameLines.length);
+  assert.equal(receipt.byte_identical_count, byteIdenticalCount);
+  assert.equal(receipt.changed_generated_count, changedGeneratedCount);
 });
