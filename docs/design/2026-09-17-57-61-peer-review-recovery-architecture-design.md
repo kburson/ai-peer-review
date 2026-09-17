@@ -231,6 +231,7 @@ peer-review enter-intervention <workspace> \
   --action additional-recovery --mode <retry-current|replace-attempt> \
   --reason <text>
 peer-review enter-intervention <workspace> --action rotate-author-session
+peer-review cancel-intervention <workspace> --intervention-id <id>
 ```
 
 The first form is available only when the derived record state is
@@ -243,14 +244,28 @@ parameters digest. The event actor is `system`: entering an intervention grants
 no authority, dispatches no provider, and only pauses the record pending a
 human decision.
 
-The closed intervention reason enum and lifecycle transition table gain these
-two reasons and permit entry from active nonterminal states, including
+The closed intervention reason enum gains these two reasons, and the lifecycle
+transition table permits entry from active nonterminal states, including
 `awaiting-reviewer`, `reviewer-turn`, `author-revision`, `acceptance-pending`,
-`author-finalization`, and `awaiting-phase-artifact`. Entry is transport-neutral
-and does not require a role claim. `request-grant` then uses the existing active
-intervention ID; challenge validation, state-preserving guards, and consumption
-continue to require that exact intervention. A declined or expired request may
-be superseded or abandoned through existing intervention behavior.
+`author-finalization`, and `awaiting-phase-artifact`. The separately closed
+`interrupted_state` enum widens to exactly those six states so each permitted
+entry can be restored. Entry is transport-neutral and does not require a role
+claim. `request-grant` then uses the existing active intervention ID; challenge
+validation, state-preserving guards, and consumption continue to require that
+exact intervention.
+
+`cancel-intervention` is the no-authority inverse of entry. It is accepted only
+for an exact active intervention ID whose reason is `recovery-authorization` or
+`author-rotation`; it refuses every existing intervention reason and a stale or
+mismatched ID. The command append-locks an event-v2 `intervention-cancelled`
+with actor `system`, closes any still-live challenge bound to that exact
+intervention as part of the same mutation, clears the intervention, and
+restores its sealed `interrupted_state`. It neither grants authority nor
+requires a registered participant or Human Authority grant. An authorization
+request that is declined, expires, or is not pursued therefore leaves the
+operator a reversible path without terminating an otherwise healthy record;
+the existing participant-authenticated `abandon` command remains available but
+is not assumed to be reachable during author rotation.
 
 `additional-recovery` is a new protected action. Its canonical parameter set
 is `record_id`, `current_review_id`, `triggering_execution_id`, `mode`,
@@ -464,20 +479,35 @@ response, protocol revision, and permission contract rotate with each turn.
 The event enum adds:
 
 - `recovery-claimed`, which advances protocol revision;
+- `intervention-cancelled`, which restores an operator-initiated authorization
+  intervention and advances protocol revision;
 - `execution-started`, which records dispatch intent without changing review
   turn state or protocol revision; and
 - `execution-resolved`, which records normalized provider outcome without
   replacing submission authority or advancing protocol revision.
 
 `recovery-claimed` and `author-session-rotated` are members of the new
-`AUTHORITY_MUTATION_EVENT_TYPES` category. They advance revision because they
-irrevocably change spending/successor authority or the registered author, so
-grants formed against the earlier world must be re-signed. They belong in
-neither `LIFECYCLE_EVENT_TYPES` nor `STATE_PRESERVING`. Reducer ordering is:
-consume the event's own protected grant when required, reject any other live
-challenge, apply the authority mutation, advance revision, and either retain the
-current lifecycle state for the built-in recovery or restore the intervention's
-sealed interrupted state for a granted recovery or author rotation.
+`AUTHORITY_MUTATION_EVENT_TYPES` category, which is a subset of
+`LIFECYCLE_EVENT_TYPES`, not a disjoint event class. Its members additionally
+mutate record-scope authority and advance revision because they irrevocably
+change spending/successor authority or the registered author, so grants formed
+against the earlier world must be re-signed. Neither event belongs in
+`STATE_PRESERVING`.
+
+The lifecycle table adds
+`intervention-required|recovery-claimed -> restore`,
+`intervention-required|author-session-rotated -> restore`, and
+`intervention-required|intervention-cancelled -> restore`. The lifecycle
+reducer also has an explicit dynamic-preserve case for an intervention-free
+ordinal-1 `recovery-claimed`; that event returns its incoming active state
+rather than requiring one transition-table entry for every state. Reducer
+ordering is: consume the event's own protected grant when required, reject any
+other live challenge, apply the authority mutation, advance revision, and
+either preserve the current lifecycle state for the built-in recovery or
+restore the intervention's sealed interrupted state for a granted recovery or
+author rotation. Classification as lifecycle events subjects both authority
+mutations to the terminal-state guard and the intervention live-challenge
+guard.
 
 Both execution events advance event sequence only. This prevents routine
 dispatch accounting from invalidating a live Human Authority challenge that is
@@ -699,11 +729,15 @@ schemas.
 When launch creates the first v2 events in a legacy log, one locked
 compare-and-append batch writes `compatibility-declared` followed by
 `execution-started`, updates projections for the ordered pair, and releases the
-lock before dispatch. The batch is all-or-nothing at the event-log write
-boundary; the launcher never exposes a declaration-only intermediate log.
-This requires a new `mutateReviewBatch`/`appendLockedEvents` primitive; the
-existing one-event `mutateReview` and `appendLockedEvent` functions are not
-silently assumed to provide batching.
+lock before dispatch. Operator entry into `recovery-authorization` or
+`author-rotation` likewise uses the batch when its expanded event-v2
+`intervention-entered` payload is the legacy log's first v2 event: the ordered
+pair is `compatibility-declared` then `intervention-entered`. The batch is
+all-or-nothing at the event-log write boundary; neither path exposes a
+declaration-only intermediate log. This requires a new
+`mutateReviewBatch`/`appendLockedEvents` primitive; the existing one-event
+`mutateReview` and `appendLockedEvent` functions are not silently assumed to
+provide batching.
 
 An already-published old binary cannot be made to understand an event-v2
 `review-created`, `compatibility-declared`, or any later exact-key event
@@ -815,6 +849,7 @@ Stable errors include:
 - `APR_RECOVERY_CONFLICT`;
 - `APR_AUTHORITY_UNAVAILABLE`;
 - `APR_AUTHOR_ROTATION_INVALID`;
+- `APR_INTERVENTION_CANCEL_INVALID`;
 - `APR_RECORD_ID_INVALID`;
 - `APR_LAUNCH_TARGET_INVALID`;
 - `APR_LINEAGE_INVALID`;
@@ -842,9 +877,10 @@ instead directs the operator to inspect record status. Before exhaustion, any
 generated launch command uses the workspace form, never the deprecated
 invitation form. At exhaustion, record-aware outputs contain only the exact
 `enter-intervention --action additional-recovery` action when eligible. Within
-that intervention they contain the exact `request-grant` action or terminal
-`abandon` action. With unavailable Human Authority they report terminal
-exhaustion without a provider-resumption command.
+that intervention they contain the exact `request-grant` action, the exact
+`cancel-intervention` rollback action, or terminal `abandon` action. With
+unavailable Human Authority they report terminal exhaustion without a
+provider-resumption command.
 
 ## Legacy compatibility and adoption
 
@@ -908,7 +944,8 @@ and injected provider results. No live or paid provider is needed.
 
 - Event validation and reducer projections for recovery and execution events.
 - V2 genesis compatibility blocks, legacy-upgrade `compatibility-declared`
-  ordering, minimum versions, and refusal of v2 events lacking authority.
+  ordering for both execution start and authorization-intervention entry,
+  minimum versions, and refusal of v2 events lacking authority.
 - Per-event v1/v2 participant validation, mixed-log normalization, and required
   v2 compatibility mirrors.
 - Record state derivation and every valid and invalid lineage edge.
@@ -927,6 +964,12 @@ and injected provider results. No live or paid provider is needed.
 - Session assurance and model attribution combinations and conflicts.
 - Operator-initiated authorization intervention entry and restoration across
   each allowed lifecycle state and transport mode.
+- The widened `interrupted_state` enum, lifecycle classification of authority
+  mutations, both restore transitions, and dynamic preservation for an
+  intervention-free ordinal-1 recovery claim.
+- Exact-ID cancellation of both authorization-intervention reasons, including
+  atomic closure of a bound live challenge, restoration, and refusal for every
+  other intervention reason.
 - `rotate-author-session` grant binding, interrupted-state restoration,
   transport independence, unrelated-challenge refusal, and reviewer/recovery
   isolation.
@@ -949,6 +992,9 @@ and injected provider results. No live or paid provider is needed.
   recovery, grant replay refusal, and Full-Auto inability to mint the grant.
 - Authority-unavailable exhaustion and author rotation producing no grant or
   provider-resumption path.
+- Declined, expired, and unsigned author-rotation authorization followed by
+  `cancel-intervention`, proving the sealed state is restored without a grant,
+  participant session, abandonment, or provider dispatch.
 - Changed artifact revision, response path, output path, PID, and attempt ID not
   resetting the allowance.
 - Two or more normal reviewer turns without recovery charges.
@@ -1039,6 +1085,9 @@ the npm artifact.
   `rotate-author-session` actions, mapped to `recovery-authorization` and
   `author-rotation` reasons. It pauses and later restores the prior lifecycle
   state; it grants no authority by itself.
+- `cancel-intervention` reverses only those two operator-initiated reasons by
+  exact intervention ID, closes their bound challenge, and restores the sealed
+  lifecycle state without a grant or registered-participant requirement.
 - Records with unavailable Human Authority retain the built-in recovery but
   cannot use either new protected escape hatch.
 - A preflight failure is non-spending and non-recovery-consuming.
