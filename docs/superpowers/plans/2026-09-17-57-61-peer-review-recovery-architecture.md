@@ -17,6 +17,7 @@
 - Full-Auto, generic approval, and resume cannot mint or replace a grant.
 - `authority_policy: unavailable` cannot authorize additional recovery or author rotation.
 - New authority uses event-v2; event-v1 bytes remain unchanged. Mixed logs validate per envelope.
+- `manifest-v1.json` is a living additive schema for terminal collateral, not protocol authority; consumers validate with the same or a newer package than the manifest producer.
 - Until #61, every user-reachable `start`, `join`, `submit`, recovery, and finalization path emits event-v1 only. Event-v2 constructors and mutation services remain reachable only through `test/helpers/internal-api.mjs`.
 - A legacy log's first event-v2 line is atomically preceded by `compatibility-declared` in one locked batch.
 - Execution events advance sequence only. Recovery claims, author rotation, and intervention cancellation advance revision.
@@ -52,17 +53,25 @@ After plan acceptance, rewrite bodies through AITM's sanctioned mutator, preserv
 - `src/provider/execution-contract.mjs` — current-turn execution authority.
 - `src/provider/preflight.mjs` — executables, permission grammar, environment receipts.
 - `src/protocol/recovery.mjs` — interventions, grants, recovery, successors, adoption.
+- `src/package-version.mjs` — validated runtime read of the installed creator package version for exact zero-install pins.
 - `schemas/{event,protocol,participants}-v2.json` — closed v2 schemas; v1 stays byte-stable.
+- `schemas/manifest-v1.json` — living additive schema for terminal collateral; existing required fields and meanings remain stable.
 - `test/helpers/internal-api.mjs` — test-only access to dormant v2 and recovery services before atomic #61 CLI activation.
 - `src/cli/run.mjs` remains orchestration; new domain behavior belongs in focused modules.
 
 ## Activation, rollback, and abort
 
-- This `docs/superpowers` plan and its review commits remain off-trunk planning evidence. Hydrate the accepted task text into #57-#61, then create each implementation worktree from the approved code baseline rather than merging the planning branch. Before every story gate, `git ls-files docs/superpowers` must be empty so `ported-behavior-parity.test.mjs` continues to enforce a publishable tree with no Superpowers planning files.
+- This `docs/superpowers` plan file remains off-trunk execution input. Hydrate the accepted task text into #57-#61, then create each implementation worktree from the approved code baseline rather than merging the plan file. The durable review records under `docs/peer-reviews/plan/` are tracked evidence and may remain on trunk; they are not parity-gated legacy paths.
+- Before every story gate, the implementation worktree must contain no files on disk under `docs/superpowers`, `scripts/review`, `scripts/providers`, or `scripts/tests`. `test/integration/ported-behavior-parity.test.mjs` recursively reads those working-tree directories and its `publishable HEAD contains no parity-gated legacy path` assertion fails for tracked, untracked, ignored, or stashed-and-restored files alike.
 - #57-#60 are revertible as runtime releases because their v2 writers and new recovery commands remain unreachable from the public CLI. A real public `start`/`join`/`submit` cycle continues to write only event-v1 bytes after each intermediate story.
 - #61 is the point of no return for any workspace that receives its first event-v2 line. Reverting the installed package below that record's sealed `minimum_reader_version` is not a recovery path; the older reader must refuse with `APR_READER_UPGRADE_REQUIRED`.
 - If #61 must be rolled back after v2 use, stop mutation, preserve the workspace bytes, and reinstall the exact or a newer compatible package version declared by the record. Do not rewrite or downgrade the log. A release rollback may hide #61 only for workspaces proven never to contain event-v2.
 - Abort any intermediate story before merge if its full story gate fails. Do not activate part of #61: its grammar, routing, templates, and v2 writers merge and release as one atomic delivery.
+
+## Rollout notes
+
+- #61 intentionally removes accidental Claude Bedrock and Vertex launch support. The current launcher inherits the ambient environment; the governed launcher instead detects `CLAUDE_CODE_USE_BEDROCK` or `CLAUDE_CODE_USE_VERTEX` and stops before dispatch with `APR_ENVIRONMENT_INVALID`.
+- Restoring either enterprise mode requires a separately versioned Claude adapter policy that classifies its complete credential/configuration family, proves none can assert reviewer session or model identity, adds only those names to the closed child environment, and extends preflight and negative-leakage tests. It is not a generic environment passthrough.
 
 ---
 
@@ -117,6 +126,7 @@ assert.deepEqual(
 
 - Create: `src/identity/evidence.mjs`
 - Modify: `src/identity/{codex,claude,grok,generic,registry}.mjs`
+- Modify: `src/cli/run.mjs`
 - Modify: `src/protocol/events.mjs`
 - Modify: `schemas/{event,participants}-v2.json`
 - Create: `test/unit/model-provenance.test.mjs`
@@ -124,7 +134,7 @@ assert.deepEqual(
 - Test: `test/integration/claude-identity.test.mjs`
 - Test: `test/integration/{v2-dormancy,ported-behavior-parity}.test.mjs`
 
-**Interfaces:** Produces `identityEvidence(input)` and `mergeObservedIdentity(prior, observation)`; v2 participants require nested `session` and `model` evidence plus compatibility mirrors.
+**Interfaces:** Produces `identityEvidence(input)`, `mergeObservedIdentity(prior, observation)`, and `v1Participant(identity)`. The identity result carries evidence for runtime decisions and v2 projection; `v1Participant` returns only the frozen eight-field event-v1 shape. V2 participants require nested `session` and `model` evidence plus compatibility mirrors.
 
 - [ ] Write failing declaration/conflict tests.
 
@@ -142,12 +152,26 @@ const observed = mergeObservedIdentity(identity, {
   source: 'provider-result',
 });
 assert.equal(observed.evidence.model.conflict, true);
+const legacy = v1Participant(observed);
+assert.deepEqual(Object.keys(legacy).sort(), [
+  'host',
+  'identity_source',
+  'joined_at',
+  'model_display',
+  'model_id',
+  'provider',
+  'role',
+  'session_fingerprint',
+]);
+assert.equal(Object.hasOwn(legacy, 'evidence'), false);
 ```
 
 - [ ] Run `node --test test/unit/model-provenance.test.mjs test/unit/identity.test.mjs test/unit/events.test.mjs test/integration/claude-identity.test.mjs`; expect failure because environment model data is still labeled `runtime` and no nested evidence exists.
 - [ ] Implement official-runtime, provider-result, environment-declaration, configuration, launch-request, explicit-declaration, and legacy-unclassified sources. Only provider observation is `observed`.
-- [ ] Validate v1's exact eight fields unchanged; require mirrors plus evidence for event-v2 participants. Keep public participant mutations on v1; exercise v2 evidence only through the internal API until Task 9.
+- [ ] Apply `v1Participant(identity)` at all four event-v1 write seams: `review-created.author`, `reviewer-joined.reviewer`, `identity-changed.identity`, and `participant-replaced.incoming_participant`. Carry the evidence-bearing identity alongside for runtime checks and eventual v2 projection; never insert `evidence` into a v1 payload.
+- [ ] Leave the existing `validateParticipant` v1 branch byte-for-byte unchanged, including its eight-field `exactKeys`. Add a separate v2 validator requiring mirrors plus evidence. Keep public participant mutations on v1; exercise v2 evidence only through the internal API until Task 9. Extend `v2-dormancy.test.mjs` to assert the exact eight participant keys, not only each envelope's schema string.
 - [ ] Run `node --test test/unit/model-provenance.test.mjs test/unit/identity.test.mjs test/unit/events.test.mjs test/unit/manifest.test.mjs test/integration/claude-identity.test.mjs test/integration/finalization.test.mjs test/integration/v2-dormancy.test.mjs test/integration/ported-behavior-parity.test.mjs`; expect PASS.
+- [ ] Confirm the implementation worktree contains no files on disk under `docs/superpowers`, `scripts/review`, `scripts/providers`, or `scripts/tests`; otherwise the parity suite's `publishable HEAD contains no parity-gated legacy path` assertion will fail regardless of Git tracking state.
 - [ ] Run the #57 story gate:
 
 ```bash
@@ -187,10 +211,11 @@ Expected: every command exits 0, public protocol cycles remain event-v1, and the
 - [ ] Run `node --test test/unit/record-lineage.test.mjs test/integration/supersession-lineage.test.mjs`; expect failure because supersession checks syntax only and no durable lineage receipt exists.
 - [ ] Validate physical repository/worktree, record/root IDs, reciprocal edges, ordinal increments, claim/grant digests, and event-log digests.
 - [ ] Require readable reciprocal successor authority before standalone supersession; allow noncolliding review-ID-prefixed files in one record directory.
-- [ ] Add optional `lineage_receipt` to closed `manifest-v1.json`; do not add it to `required`. At terminalization, embed ordered IDs, ordinals, edges, grants, and log digests without absolute paths. Preserve through consolidation; permit inspection but never execution from the receipt.
+- [ ] Apply the living-v1 manifest policy: add optional `lineage_receipt` to closed `manifest-v1.json`, do not add it to `required`, and retain every existing field and meaning. A manifest producer and validator use the schema shipped by that package version; an older package may reject newer additive terminal collateral and must be upgraded rather than treating that rejection as protocol corruption. At terminalization, embed ordered IDs, ordinals, edges, grants, and log digests without absolute paths. Preserve through consolidation; permit inspection but never execution from the receipt.
 - [ ] Treat a pre-#58 terminal manifest without `lineage_receipt` as valid legacy data. Inspect it from retained workspaces when available; after scratch loss report `incomplete-unavailable` and refuse consolidation or execution rather than fabricating a receipt.
 - [ ] Regenerate the four manifest golden fixtures from the deterministic renderer and review the byte diff. Keep existing parity-owner test names stable; update `test/fixtures/legacy-behavior-parity.json` only if an intentional owner rename is separately justified in Task 10.
 - [ ] Run `node --test test/unit/record-lineage.test.mjs test/unit/manifest.test.mjs test/unit/review-record.test.mjs test/golden/manifests.test.mjs test/integration/supersession-lineage.test.mjs test/integration/review-record.test.mjs test/integration/finalization.test.mjs test/integration/ported-behavior-parity.test.mjs`; expect PASS.
+- [ ] Confirm the implementation worktree contains no files on disk under `docs/superpowers`, `scripts/review`, `scripts/providers`, or `scripts/tests`; otherwise the parity suite's `publishable HEAD contains no parity-gated legacy path` assertion will fail regardless of Git tracking state.
 - [ ] Run the #58 story gate:
 
 ```bash
@@ -270,6 +295,7 @@ assert.equal(second.commands.submit.file, process.execPath);
 - [ ] Implement workspace-derived contract and rotating private launch state. Invitation input may locate first turn only and supplies no routing authority.
 - [ ] Resolve absolute executables, enforce sealed package minimum, run shell-free non-model probes, and fail unrepresentable argv with `APR_PERMISSION_UNREPRESENTABLE` without fallback.
 - [ ] Update `test/live/claude-live-conformance.mjs` to build the same closed child environment, but do not run the paid live script. Run `node --test test/unit/execution-contract.test.mjs test/unit/provider-preflight.test.mjs test/unit/claude-launch-permissions.test.mjs test/integration/claude-reviewer-turn-rotation.test.mjs test/integration/claude-launch-bootstrap.test.mjs test/integration/claude-launch-permissions.test.mjs test/integration/reviewer-boundary.test.mjs test/integration/reviewer-guard.test.mjs test/integration/setup-doctor.test.mjs test/integration/ported-behavior-parity.test.mjs test/packaging/package.test.mjs`; expect PASS without dispatch.
+- [ ] Confirm the implementation worktree contains no files on disk under `docs/superpowers`, `scripts/review`, `scripts/providers`, or `scripts/tests`; otherwise the parity suite's `publishable HEAD contains no parity-gated legacy path` assertion will fail regardless of Git tracking state.
 - [ ] Run the #59 story gate:
 
 ```bash
@@ -321,7 +347,7 @@ Expected: every command exits 0, arbitrary inherited environment variables do no
 - Create: `test/integration/{recovery-intervention,author-rotation}.test.mjs`
 - Test: `test/integration/{recovery,v2-dormancy,ported-behavior-parity}.test.mjs`
 
-**Interfaces:** Produces `enterAuthorizationIntervention`, `cancelAuthorizationIntervention`, `rotateAuthor`, `protectedParametersMatchEvent`, and protected actions `additional-recovery` and `rotate-author-session`. Exports these mutation services through `test/helpers/internal-api.mjs` only until Task 9.
+**Interfaces:** Produces `enterAuthorizationIntervention`, `cancelAuthorizationIntervention`, `rotateAuthor`, and protected actions `additional-recovery` and `rotate-author-session`. Modifies the existing reducer-internal `protectedParametersMatchEvent` with explicit branches for both actions; it does not export that function. Exports only the three mutation services through `test/helpers/internal-api.mjs` until Task 9.
 
 - [ ] Write failing exact-parameter/replay tests for all seven additional-recovery fields and all rotate-author fields. Include an unmatched-action test proving `protectedParametersMatchEvent` rejects an unknown action while both new closed actions reach their explicit matching branches.
 - [ ] Cover six interrupted states, both new reasons, exact-ID cancellation, same-mutation challenge closure, refusal for old reasons, and unavailable authority.
@@ -350,6 +376,7 @@ Expected: every command exits 0, arbitrary inherited environment variables do no
 - [ ] Built-in claim dynamically preserves lifecycle; granted claim restores intervention state. After claim, only the sealed mode/target may finish.
 - [ ] Implement internal `adoptLegacyRecord({ workspaces, current })` with complete explicit set, additive receipt, conservative consumption, and immutable v1 bytes. Task 9 owns public `adopt-record`.
 - [ ] Run `node --test test/unit/review-recovery-budget.test.mjs test/unit/record-lineage.test.mjs test/unit/store.test.mjs test/integration/review-recovery-budget.test.mjs test/integration/legacy-record-adoption.test.mjs test/integration/supersession-lineage.test.mjs test/integration/review-lock-recovery.test.mjs test/integration/v2-dormancy.test.mjs test/integration/release-upgrade-compatibility.test.mjs`; expect PASS.
+- [ ] Confirm the implementation worktree contains no files on disk under `docs/superpowers`, `scripts/review`, `scripts/providers`, or `scripts/tests`; otherwise the parity suite's `publishable HEAD contains no parity-gated legacy path` assertion will fail regardless of Git tracking state.
 - [ ] Run the #60 story gate:
 
 ```bash
@@ -373,26 +400,31 @@ Expected: every command exits 0, public commands still emit only event-v1, and n
 - Modify: `src/cli/{parse,run,help-data}.mjs`
 - Modify: `src/provider/claude-launch.mjs`
 - Modify: `src/public-api.mjs`
+- Create: `src/package-version.mjs`
+- Modify: `src/templates/index.mjs`
 - Modify: `schemas/{event,protocol,participants}-v2.json`
 - Modify: `templates/{author-startup,reviewer-invitation}.md`
 - Modify: `test/helpers/internal-api.mjs`
 - Test: `test/unit/cli-parse.test.mjs`
+- Create: `test/unit/package-version.test.mjs`
 - Test: `test/unit/claude-launch-permissions.test.mjs`
 - Test: `test/golden/help.test.mjs`
 - Test: `test/golden/templates.test.mjs`
-- Modify: `test/golden/templates/{author-response,author-startup,human-decision,review-manifest,reviewer-invitation,reviewer-response}.md`
+- Modify: `test/golden/templates/{author-startup,reviewer-invitation}.md`
 - Test: `test/smoke/cli.test.mjs`
 - Test: `test/integration/{status-resume,v2-dormancy,release-upgrade-compatibility,claude-launch-permissions,reviewer-boundary,reviewer-guard,recovery}.test.mjs`
 - Modify, do not run: `test/live/claude-live-conformance.mjs`
 
-**Interfaces:** Activates workspace-first `launch-reviewer`, `--preflight-only`, `recover-record`, `enter-intervention`, `cancel-intervention`, `rotate-author`, `adopt-record`, and `reclaim-lock`.
+**Interfaces:** Activates workspace-first `launch-reviewer`, `--preflight-only`, `recover-record`, `enter-intervention`, `cancel-intervention`, `rotate-author`, `adopt-record`, and `reclaim-lock`. Produces `packageVersion()` and `creatorPackageSpecifier()` from the installed `package.json`.
 
 - [ ] Add all new public grammar atomically: workspace-first `launch-reviewer` plus `--preflight-only`, `recover-record`, `enter-intervention`, `cancel-intervention`, `rotate-author`, `adopt-record`, and `reclaim-lock`. Test workspace/invitation disambiguation and `APR_LAUNCH_TARGET_INVALID`; close every command grammar and conflict.
 - [ ] Test no retry command across launch result, status JSON/next, resume, and static explain at exhaustion. Render exact intervention/grant/cancel/abandon actions only when eligible.
 - [ ] Route the sole launcher: resolve → registered live author/rotation → lineage → compatibility → contract → preflight → execution start under lock → unlock → dispatch → reconcile. Switch public mutation builders from event-v1 to event-v2 and finalize the sealed accepted-schema list with every event type implemented by Tasks 1-8.
 - [ ] Update `test/integration/v2-dormancy.test.mjs` from its intermediate-release assertion to prove #61 public `start`/`join`/`submit` emits authorized event-v2, while `release-upgrade-compatibility.test.mjs` proves a record created by the prior v1-only release receives `compatibility-declared` immediately before its first v2 event.
-- [ ] Add every stable error from the spec; export only read-only inspection/builders. Pin generated participant commands in both source templates to the creator package version, regenerate all six template golden fixtures, and review their byte diffs.
-- [ ] Update the live conformance script for workspace-first launch and the closed environment, but do not run it. Run `node --test test/unit/cli-parse.test.mjs test/unit/claude-launch-permissions.test.mjs test/golden/help.test.mjs test/golden/templates.test.mjs test/smoke/cli.test.mjs test/integration/status-resume.test.mjs test/integration/v2-dormancy.test.mjs test/integration/release-upgrade-compatibility.test.mjs test/integration/claude-launch-permissions.test.mjs test/integration/reviewer-boundary.test.mjs test/integration/reviewer-guard.test.mjs test/integration/recovery.test.mjs test/packaging/package.test.mjs`; expect PASS.
+- [ ] Implement `packageVersion()` by reading the installed root `package.json` relative to `src/package-version.mjs`, requiring package name `ai-peer-review` and a valid exact version; `creatorPackageSpecifier()` returns `ai-peer-review@<version>`. Use that source in `run.mjs`, `help-data.mjs`, and every zero-install command renderer instead of the `0.2.2` literal or a build-time duplicate.
+- [ ] Add `zero_install_status_help_display` to the closed `author-startup` and `reviewer-invitation` catalogs in `src/templates/index.mjs`; keep `zero_install_join_display` and build both values from `creatorPackageSpecifier()`. Replace the author template's literal status-help command with `{{zero_install_status_help_display}}`. The reviewer invitation continues to surface only its versioned join command; workspace-first launch is an author-side CLI action, not a new invitation variable.
+- [ ] Add every stable error from the spec; export only read-only inspection/builders. Regenerate and review only `author-startup.md` and `reviewer-invitation.md` goldens. Run the all-template golden test and require the other four fixtures to remain byte-identical.
+- [ ] Update the live conformance script for workspace-first launch and the closed environment, but do not run it. Run `node --test test/unit/cli-parse.test.mjs test/unit/package-version.test.mjs test/unit/claude-launch-permissions.test.mjs test/golden/help.test.mjs test/golden/templates.test.mjs test/smoke/cli.test.mjs test/integration/status-resume.test.mjs test/integration/v2-dormancy.test.mjs test/integration/release-upgrade-compatibility.test.mjs test/integration/claude-launch-permissions.test.mjs test/integration/reviewer-boundary.test.mjs test/integration/reviewer-guard.test.mjs test/integration/recovery.test.mjs test/packaging/package.test.mjs`; expect PASS.
 - [ ] Commit: `git commit -m "feat: activate governed reviewer recovery [#61]"`.
 
 ### Task 10: Incident regression and package delivery (#61)
@@ -425,7 +457,8 @@ assert.equal((await dispatchGrantedOperation(incident)).status, 'submitted');
 - [ ] Fault-inject every claim/successor/supersession/lock boundary. Prove stale receipts, exact resumption, declined cancellation, unavailable exhaustion, and scratch loss as `incomplete-unavailable`.
 - [ ] Audit the legacy parity ledger after Tasks 1, 2, 3, 5, 6, and 7. New tests do not require ledger entries. Modify a ledger owner only when the named owning test was intentionally renamed or removed, and record the replacement test plus rationale in the fixture; never regenerate the ledger wholesale.
 - [ ] Run `node --test test/unit/compatibility-authority.test.mjs test/unit/model-provenance.test.mjs test/unit/record-lineage.test.mjs test/unit/process-identity.test.mjs test/unit/execution-contract.test.mjs test/unit/provider-preflight.test.mjs test/unit/execution-ledger.test.mjs test/unit/recovery-authority.test.mjs test/unit/review-recovery-budget.test.mjs test/integration/v2-dormancy.test.mjs test/integration/release-upgrade-compatibility.test.mjs test/integration/supersession-lineage.test.mjs test/integration/review-lock-recovery.test.mjs test/integration/claude-reviewer-turn-rotation.test.mjs test/integration/claude-launch-bootstrap.test.mjs test/integration/execution-reconciliation.test.mjs test/integration/recovery-intervention.test.mjs test/integration/author-rotation.test.mjs test/integration/review-recovery-budget.test.mjs test/integration/legacy-record-adoption.test.mjs test/integration/incident-56-recovery-chain.test.mjs test/integration/ported-behavior-parity.test.mjs`; expect PASS with no network or provider invocation.
-- [ ] Document built-in/granted recovery, rotation, cancellation, lock reclaim, adoption, version pins, preflight-only, and prohibition on autonomous `reclaim-lock`. Assert all modules/schemas/help ship.
+- [ ] Document built-in/granted recovery, rotation, cancellation, lock reclaim, adoption, version pins, preflight-only, the living additive `manifest-v1` consumer-version policy, and prohibition on autonomous `reclaim-lock`. Document that #61 refuses Bedrock and Vertex before dispatch and that restoration requires a separately versioned credential/configuration classification with closed-environment tests. Assert all modules/schemas/help ship.
+- [ ] Confirm the implementation worktree contains no files on disk under `docs/superpowers`, `scripts/review`, `scripts/providers`, or `scripts/tests`; otherwise the parity suite's `publishable HEAD contains no parity-gated legacy path` assertion will fail regardless of Git tracking state.
 - [ ] Run:
 
 ```bash
