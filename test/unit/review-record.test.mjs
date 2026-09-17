@@ -668,6 +668,32 @@ test('tracked archive-root receipt proves every path relocated by issue 65', () 
   assert.equal(renameLines.length, 56);
   assert.equal(receipt.relocations.length, renameLines.length);
 
+  const blobIdsAt = (commit, root) =>
+    new Map(
+      execFileSync('git', ['ls-tree', '-r', '-z', commit, '--', root], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        shell: false,
+      })
+        .split('\0')
+        .filter(Boolean)
+        .map((record) => {
+          const [metadata, filePath] = record.split('\t');
+          const [, type, objectId] = metadata.split(' ');
+          assert.equal(type, 'blob', `Git object type for ${filePath}`);
+          return [filePath, objectId];
+        })
+    );
+  const sourceBlobIds = blobIdsAt(sourceCommit, 'docs/peer-reviews');
+  const destinationBlobIds = blobIdsAt(relocationCommit, 'docs/superpowers/peer-reviews');
+  const readBlob = (objectId, filePath) => {
+    assert.ok(objectId, `missing Git blob for ${filePath}`);
+    return execFileSync('git', ['cat-file', 'blob', objectId], {
+      cwd: repositoryRoot,
+      encoding: null,
+      shell: false,
+    });
+  };
   const entries = new Map(receipt.relocations.map((entry) => [entry.source_path, entry]));
   let byteIdenticalCount = 0;
   let changedGeneratedCount = 0;
@@ -676,20 +702,8 @@ test('tracked archive-root receipt proves every path relocated by issue 65', () 
     assert.ok(entry, `missing receipt entry for ${sourcePath}`);
     assert.equal(entry.destination_path, destinationPath);
 
-    const sourceBytes = execFileSync('git', ['show', `${sourceCommit}:${sourcePath}`], {
-      cwd: repositoryRoot,
-      encoding: null,
-      shell: false,
-    });
-    const destinationBytes = execFileSync(
-      'git',
-      ['show', `${relocationCommit}:${destinationPath}`],
-      {
-        cwd: repositoryRoot,
-        encoding: null,
-        shell: false,
-      }
-    );
+    const sourceBytes = readBlob(sourceBlobIds.get(sourcePath), sourcePath);
+    const destinationBytes = readBlob(destinationBlobIds.get(destinationPath), destinationPath);
     const sourceSha256 = digest(sourceBytes).slice('sha256:'.length);
     const destinationSha256 = digest(destinationBytes).slice('sha256:'.length);
     const byteIdentity = sourceBytes.equals(destinationBytes);
