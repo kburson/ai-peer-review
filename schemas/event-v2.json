@@ -1,0 +1,384 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.event/v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "review_id", "sequence", "revision", "type", "actor", "at", "payload"],
+  "properties": {
+    "schema": { "const": "ai-peer-review.event/v2" },
+    "review_id": { "$ref": "event-v1.json#/$defs/id" },
+    "sequence": { "$ref": "event-v1.json#/$defs/positive" },
+    "revision": { "$ref": "event-v1.json#/$defs/nonNegative" },
+    "type": { "type": "string" },
+    "actor": { "anyOf": [{ "const": "system" }, { "$ref": "event-v1.json#/$defs/digest" }] },
+    "at": { "$ref": "event-v1.json#/$defs/time" },
+    "payload": { "type": "object" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": { "const": "compatibility-declared" },
+        "actor": { "const": "system" },
+        "payload": { "$ref": "#/$defs/compatibilityDeclared" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "review-created" },
+        "payload": { "$ref": "#/$defs/reviewCreated" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "reviewer-joined" },
+        "payload": { "$ref": "#/$defs/reviewerJoined" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "reviewer-revisions-requested" },
+        "payload": { "$ref": "event-v1.json#/$defs/reviewDecision" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "reviewer-accepted" },
+        "payload": { "$ref": "event-v1.json#/$defs/reviewDecision" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "author-revision-committed" },
+        "payload": { "$ref": "event-v1.json#/$defs/authorRevision" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "author-revision-sealed-no-commit" },
+        "payload": { "$ref": "event-v1.json#/$defs/authorRevisionUncommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "author-closing-round-committed" },
+        "payload": { "$ref": "event-v1.json#/$defs/authorClosing" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "author-closing-round-sealed-no-commit" },
+        "payload": { "$ref": "event-v1.json#/$defs/authorClosingUncommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "finalization-started" },
+        "payload": { "$ref": "event-v1.json#/$defs/empty" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "acceptance-committed" },
+        "payload": { "$ref": "event-v1.json#/$defs/terminalCommittedPayload" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "acceptance-sealed-no-commit" },
+        "payload": { "$ref": "event-v1.json#/$defs/terminalUncommittedPayload" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "phase-acceptance-committed" },
+        "payload": { "$ref": "event-v1.json#/$defs/phaseAcceptanceCommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "phase-acceptance-sealed-no-commit" },
+        "payload": { "$ref": "event-v1.json#/$defs/phaseAcceptanceUncommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "phase-artifact-committed" },
+        "payload": { "$ref": "event-v1.json#/$defs/phaseArtifactCommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "phase-artifact-sealed-no-commit" },
+        "payload": { "$ref": "event-v1.json#/$defs/phaseArtifactUncommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "intervention-entered" },
+        "payload": { "$ref": "event-v1.json#/$defs/intervention" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "continued-to-reviewer" },
+        "payload": { "$ref": "event-v1.json#/$defs/continuation" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "continued-to-author" },
+        "payload": { "$ref": "event-v1.json#/$defs/continuation" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "same-session-reclaim" },
+        "payload": { "$ref": "event-v1.json#/$defs/reclaim" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "participant-replaced" },
+        "payload": { "$ref": "#/$defs/replacement" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "override-committed" },
+        "payload": { "$ref": "event-v1.json#/$defs/overrideCommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "override-sealed-no-commit" },
+        "payload": { "$ref": "event-v1.json#/$defs/overrideUncommitted" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "abandoned" },
+        "payload": { "$ref": "event-v1.json#/$defs/abandonment" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "superseded" },
+        "payload": { "$ref": "event-v1.json#/$defs/supersession" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "turn-claimed" },
+        "payload": { "$ref": "event-v1.json#/$defs/claimPayload" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "identity-changed" },
+        "payload": { "$ref": "#/$defs/identityChange" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "challenge-requested" },
+        "payload": { "$ref": "event-v1.json#/$defs/challengePayload" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "challenge-superseded" },
+        "payload": { "$ref": "event-v1.json#/$defs/challengeIdPayload" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "supplement-registered" },
+        "payload": { "$ref": "event-v1.json#/$defs/supplementPayload" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "delivery-written" },
+        "payload": { "$ref": "event-v1.json#/$defs/deliveryPayload" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "delivery-acknowledged" },
+        "payload": { "$ref": "event-v1.json#/$defs/deliveryIdPayload" }
+      }
+    }
+  ],
+  "$defs": {
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "host",
+        "provider",
+        "model_id",
+        "model_display",
+        "session_fingerprint",
+        "identity_source",
+        "joined_at",
+        "evidence"
+      ],
+      "properties": {
+        "role": { "$ref": "event-v1.json#/$defs/role" },
+        "host": { "$ref": "event-v1.json#/$defs/host" },
+        "provider": { "enum": ["openai", "anthropic", "xai", "other"] },
+        "model_id": { "type": "string", "minLength": 1 },
+        "model_display": { "type": "string", "minLength": 1 },
+        "session_fingerprint": { "$ref": "event-v1.json#/$defs/digest" },
+        "identity_source": { "enum": ["runtime", "declared"] },
+        "joined_at": { "$ref": "event-v1.json#/$defs/time" },
+        "evidence": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session", "model"],
+      "properties": {
+        "session": { "$ref": "#/$defs/sessionEvidence" },
+        "model": { "$ref": "#/$defs/modelEvidence" }
+      }
+    },
+    "sessionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fingerprint", "source", "assurance"],
+      "properties": {
+        "fingerprint": { "$ref": "event-v1.json#/$defs/digest" },
+        "source": { "$ref": "#/$defs/source" },
+        "assurance": { "enum": ["declared", "observed"] }
+      }
+    },
+    "modelEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested_id", "declared_id", "observed_id", "source", "assurance", "conflict"],
+      "properties": {
+        "requested_id": { "type": ["string", "null"] },
+        "declared_id": { "type": ["string", "null"] },
+        "observed_id": { "type": ["string", "null"] },
+        "source": { "$ref": "#/$defs/source" },
+        "assurance": { "enum": ["declared", "observed"] },
+        "conflict": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "source": { "const": "provider-result" } } },
+          "then": {
+            "properties": {
+              "assurance": { "const": "observed" },
+              "observed_id": { "type": "string", "minLength": 1 }
+            }
+          },
+          "else": {
+            "properties": {
+              "assurance": { "const": "declared" },
+              "observed_id": { "const": null }
+            }
+          }
+        }
+      ]
+    },
+    "source": {
+      "enum": [
+        "official-runtime",
+        "provider-result",
+        "environment-declaration",
+        "configuration",
+        "launch-request",
+        "explicit-declaration",
+        "legacy-unclassified"
+      ]
+    },
+    "reviewCreated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit_mode",
+        "max_turns",
+        "claim_ttl_ms",
+        "authority",
+        "artifact",
+        "author",
+        "startup"
+      ],
+      "properties": {
+        "commit_mode": { "$ref": "event-v1.json#/$defs/commitMode" },
+        "max_turns": { "$ref": "event-v1.json#/$defs/positive" },
+        "claim_ttl_ms": { "$ref": "event-v1.json#/$defs/positive" },
+        "authority": { "$ref": "event-v1.json#/$defs/authority" },
+        "artifact": { "$ref": "event-v1.json#/$defs/initialArtifact" },
+        "author": { "$ref": "#/$defs/participant" },
+        "startup": { "$ref": "event-v1.json#/$defs/startup" },
+        "phases": { "$ref": "event-v1.json#/$defs/phases" }
+      }
+    },
+    "reviewerJoined": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "transport_capability", "repository_boundary"],
+      "properties": {
+        "reviewer": { "$ref": "#/$defs/participant" },
+        "transport_capability": { "enum": ["manual", "resume-only", "live-wait", "native-push"] },
+        "repository_boundary": { "$ref": "event-v1.json#/$defs/repositoryBoundary" }
+      }
+    },
+    "replacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intervention_id",
+        "role",
+        "outgoing_claim",
+        "incoming_participant",
+        "parameters",
+        "attestation"
+      ],
+      "properties": {
+        "intervention_id": { "$ref": "event-v1.json#/$defs/id" },
+        "role": { "$ref": "event-v1.json#/$defs/role" },
+        "outgoing_claim": { "$ref": "event-v1.json#/$defs/claim" },
+        "incoming_participant": { "$ref": "#/$defs/participant" },
+        "parameters": { "$ref": "event-v1.json#/$defs/replacementParameters" },
+        "attestation": { "$ref": "event-v1.json#/$defs/attestation" }
+      }
+    },
+    "identityChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "identity"],
+      "properties": {
+        "role": { "$ref": "event-v1.json#/$defs/role" },
+        "identity": { "$ref": "#/$defs/participant" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_reader_version", "minimum_writer_version", "accepted_event_schemas"],
+      "properties": {
+        "minimum_reader_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "minimum_writer_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "accepted_event_schemas": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "enum": ["ai-peer-review.event/v1", "ai-peer-review.event/v2"] }
+        }
+      }
+    },
+    "compatibilityDeclared": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compatibility"],
+      "properties": { "compatibility": { "$ref": "#/$defs/compatibility" } }
+    }
+  }
+}

@@ -17,9 +17,10 @@ import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 import { nextActionCommand } from '../cli/help-data.mjs';
 import { AprError } from '../errors.mjs';
-import { validateEvent } from './events.mjs';
+import { assertReaderWriterCompatibility } from './compatibility.mjs';
+import { validateEvent, validateVersionedEvent } from './events.mjs';
 import { reduceEvents } from './reducer.mjs';
-import { atomicCreate, atomicWrite, withReviewLock } from './store.mjs';
+import { appendLockedEvents, atomicCreate, atomicWrite, withReviewLock } from './store.mjs';
 
 function ordered(value) {
   if (Array.isArray(value)) return value.map(ordered);
@@ -101,11 +102,6 @@ export function sealNoCommitHandoff({ review, artifactBytes, responses, store })
     snapshot_digest: snapshot.digest,
     response_digests: Object.freeze([...responseDigests]),
   });
-}
-
-function appendLockedEvent(file, priorBytes, event) {
-  const record = Buffer.from(`${JSON.stringify(ordered(event))}\n`, 'utf8');
-  atomicWrite(file, Buffer.concat([Buffer.from(priorBytes, 'utf8'), record]));
 }
 
 function authorityError(code, message, recovery, details = {}, cause = null) {
@@ -566,6 +562,12 @@ export async function initializeReview(workspace, event) {
   });
 }
 
+function assertExistingWriterCompatibility(events) {
+  const compatibility = events.find((event) => event.type === 'compatibility-declared')?.payload
+    .compatibility;
+  if (compatibility) assertReaderWriterCompatibility(compatibility);
+}
+
 export async function mutateReview(workspace, expected, createEvent) {
   const preflight = readAuthority(workspace).state;
   assertExpected(preflight, expected);
@@ -580,11 +582,68 @@ export async function mutateReview(workspace, expected, createEvent) {
   return withReviewLock(workspace, async () => {
     const { events, state: current, file, bytes } = readAuthority(workspace);
     assertExpected(current, expected);
+    assertExistingWriterCompatibility(events);
     const nextEvent = await createEvent(current);
     validateEvent(nextEvent);
     const next = reduceEvents([...events, nextEvent]);
     ensureDeliveryReceipts(workspace, next, { write: false });
-    appendLockedEvent(file, bytes, nextEvent);
+    appendLockedEvents(file, bytes, [nextEvent]);
+    writeProjections(workspace, next);
+    ensureDeliveryReceipts(workspace, next);
+    return next;
+  });
+}
+
+export async function mutateReviewBatch(workspace, expected, createEvents) {
+  const preflight = readAuthority(workspace).state;
+  assertExpected(preflight, expected);
+  if (typeof createEvents !== 'function') {
+    throw authorityError(
+      'APR_EVENT_INVALID',
+      'Review batch mutation requires an event factory.',
+      'Provide a function that creates a non-empty batch from the locked current state.'
+    );
+  }
+
+  return withReviewLock(workspace, async () => {
+    const { events, state: current, file, bytes } = readAuthority(workspace);
+    assertExpected(current, expected);
+    assertExistingWriterCompatibility(events);
+    const batch = await createEvents(current.protocol);
+    if (!Array.isArray(batch) || batch.length === 0) {
+      throw authorityError(
+        'APR_EVENT_INVALID',
+        'Review batch mutation requires one or more events.',
+        'Create a non-empty batch from the locked current review authority.'
+      );
+    }
+    if (
+      batch.some((event) => event.type === 'compatibility-declared') &&
+      (batch.filter((event) => event.type === 'compatibility-declared').length !== 1 ||
+        batch.length < 2 ||
+        batch[0]?.type !== 'compatibility-declared' ||
+        batch[1]?.schema !== 'ai-peer-review.event/v2' ||
+        batch[1]?.type === 'compatibility-declared')
+    ) {
+      throw authorityError(
+        'APR_EVENT_INVALID',
+        'A compatibility declaration must be atomically paired with the first v2 event.',
+        'Append compatibility-declared immediately before the first v2 event in one batch.'
+      );
+    }
+    for (const event of batch) {
+      validateVersionedEvent(event);
+    }
+    const compatibility = [...events, ...batch]
+      .slice()
+      .reverse()
+      .find((event) => event.type === 'compatibility-declared')?.payload.compatibility;
+    if (batch.some((event) => event.schema === 'ai-peer-review.event/v2') && compatibility) {
+      assertReaderWriterCompatibility(compatibility);
+    }
+    const next = reduceEvents([...events, ...batch]);
+    ensureDeliveryReceipts(workspace, next, { write: false });
+    appendLockedEvents(file, bytes, batch);
     writeProjections(workspace, next);
     ensureDeliveryReceipts(workspace, next);
     return next;

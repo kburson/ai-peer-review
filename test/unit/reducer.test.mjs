@@ -1,8 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+
+import protocolV2Schema from '../../schemas/protocol-v2.json' with { type: 'json' };
+import participantsV2Schema from '../../schemas/participants-v2.json' with { type: 'json' };
 
 import { digestChallenge, digestGrantParameters } from '../../src/authority/canonicalize.mjs';
 import { LIFECYCLE_EVENT_TYPES, reduceEvents } from '../../src/protocol/reducer.mjs';
+import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { compatibilityDeclared, participant, v2Event } from '../helpers/review-fixture.mjs';
 import {
   acceptancePendingEvents,
   authorRevisionEvents,
@@ -339,6 +345,157 @@ test('enforces contiguous sequence and independent revision advancement', () => 
   });
   assert.equal(reduceEvents([...valid, refreshed]).protocol.revision, valid.at(-1).revision);
 });
+
+test('rejects a v2 event whose compatibility declaration is not immediately adjacent', () => {
+  const prefix = reviewerTurnEvents();
+  const compatibility = {
+    minimum_reader_version: '0.2.2',
+    minimum_writer_version: '0.2.2',
+    accepted_event_schemas: ['ai-peer-review.event/v1', 'ai-peer-review.event/v2'],
+  };
+  const declaration = compatibilityDeclared(
+    {
+      sequence: prefix.length,
+      revision: prefix.at(-1).revision,
+      review_id: prefix.at(-1).review_id,
+    },
+    compatibility
+  );
+  const interposed = event('delivery-written', {
+    sequence: prefix.length + 2,
+    revision: prefix.at(-1).revision,
+  });
+  const v2 = v2Event('identity-changed', {
+    sequence: prefix.length + 3,
+    revision: prefix.at(-1).revision,
+    actor: FINGERPRINTS.reviewer,
+    payload: { identity: participant('reviewer') },
+  });
+  assert.throws(
+    () => reduceEvents([...prefix, declaration, interposed, v2]),
+    (error) => error.code === 'APR_READER_UPGRADE_REQUIRED'
+  );
+});
+
+test('pure v1 projection bytes remain frozen across mixed-log support', () => {
+  const state = reduceEvents(reviewerTurnEvents());
+  const hashes = Object.fromEntries(
+    ['protocol', 'participants'].map((name) => [
+      name,
+      createHash('sha256').update(canonicalProjection(state[name])).digest('hex'),
+    ])
+  );
+  assert.deepEqual(hashes, {
+    protocol: '74ea378449cd798b4721460a2ef3834145b34bb431580e929912d63ff19167db',
+    participants: '8510c446511e8ce3dea3537f18606d3aa1edd7ab24ffedf84f20b41c2e7a7f23',
+  });
+});
+
+for (const phased of [false, true]) {
+  test(`mixed logs project coherent v2 contracts with ${phased ? 'phased' : 'single-phase'} authority`, () => {
+    const created = event('review-created', {
+      payload: phased ? { phases: { kinds: ['spec', 'plan'] } } : {},
+    });
+    const compatibility = {
+      minimum_reader_version: '0.2.2',
+      minimum_writer_version: '0.2.2',
+      accepted_event_schemas: ['ai-peer-review.event/v1', 'ai-peer-review.event/v2'],
+    };
+    const joined = v2Event('reviewer-joined', {
+      sequence: 3,
+      revision: 2,
+      actor: FINGERPRINTS.reviewer,
+    });
+    joined.payload.reviewer.evidence = {
+      session: {
+        fingerprint: FINGERPRINTS.reviewer,
+        source: 'provider-result',
+        assurance: 'observed',
+      },
+      model: {
+        requested_id: 'requested-model',
+        declared_id: null,
+        observed_id: 'gpt-test',
+        source: 'provider-result',
+        assurance: 'observed',
+        conflict: true,
+      },
+    };
+    const events = [
+      created,
+      compatibilityDeclared(
+        { sequence: 1, revision: 1, review_id: created.review_id },
+        compatibility
+      ),
+      joined,
+    ];
+    const bytes = JSON.stringify(events);
+    const state = reduceEvents(events);
+    assert.equal(state.protocol.schema, 'ai-peer-review.protocol/v2');
+    assert.equal(state.participants.schema, 'ai-peer-review.participants/v2');
+    assert.deepEqual(state.protocol.compatibility, compatibility);
+    for (const [projection, schema] of [
+      [state.protocol, protocolV2Schema],
+      [state.participants, participantsV2Schema],
+    ]) {
+      for (const key of schema.required) assert.ok(Object.hasOwn(projection, key), key);
+      for (const key of Object.keys(projection))
+        assert.ok(Object.hasOwn(schema.properties, key), key);
+    }
+    for (const identity of [state.participants.author, state.participants.reviewer]) {
+      assert.deepEqual(
+        Object.keys(identity).sort(),
+        [...participantsV2Schema.$defs.participant.required].sort()
+      );
+    }
+    assert.deepEqual(state.participants.author.evidence, {
+      session: {
+        fingerprint: FINGERPRINTS.author,
+        source: 'legacy-unclassified',
+        assurance: 'declared',
+      },
+      model: {
+        requested_id: null,
+        declared_id: 'gpt-test',
+        observed_id: null,
+        source: 'legacy-unclassified',
+        assurance: 'declared',
+        conflict: false,
+      },
+    });
+    assert.equal(state.participants.reviewer.evidence.model.observed_id, 'gpt-test');
+    assert.equal(state.participants.reviewer.evidence.model.requested_id, 'requested-model');
+    assert.equal(state.participants.reviewer.evidence.model.conflict, true);
+    assert.equal(state.participants.reviewer.evidence.model.assurance, 'observed');
+    assert.equal(Object.isFrozen(state.protocol.compatibility), true);
+    assert.equal(JSON.stringify(events), bytes);
+    if (phased) {
+      assert.deepEqual(state.protocol.phases, {
+        kinds: ['spec', 'plan'],
+        cursor: 0,
+        current_kind: 'spec',
+        phase_turns_used: 0,
+        completed: [],
+      });
+    }
+
+    const afterV1 = reduceEvents([
+      ...events,
+      event('identity-changed', {
+        sequence: 4,
+        revision: 2,
+        actor: FINGERPRINTS.reviewer,
+        payload: { identity: { ...participant('reviewer'), model_id: 'legacy-model' } },
+      }),
+    ]);
+    assert.equal(afterV1.protocol.schema, 'ai-peer-review.protocol/v2');
+    assert.deepEqual(afterV1.protocol.compatibility, compatibility);
+    assert.equal(afterV1.participants.reviewer.evidence.model.declared_id, 'legacy-model');
+    assert.equal(afterV1.participants.reviewer.evidence.model.assurance, 'declared');
+    assert.equal(afterV1.participants.reviewer.evidence.model.source, 'legacy-unclassified');
+    assert.equal(afterV1.participants.reviewer.evidence.model.observed_id, null);
+  });
+}
 
 test('submission lifecycle events require an unexpired current-role claim', () => {
   const prefix = claimedReviewerTurnEvents();

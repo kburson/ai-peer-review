@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { AprError } from '../errors.mjs';
 import { validateEvent } from '../protocol/events.mjs';
 import { mutateReview } from '../protocol/service.mjs';
+import { identityEvidence, mergeObservedIdentity, v1Participant } from './evidence.mjs';
 import { claudeAdapter } from './claude.mjs';
 import { codexAdapter } from './codex.mjs';
 import { genericAdapter } from './generic.mjs';
@@ -157,6 +158,8 @@ export function participantIdentity({
   modelDisplay,
   sessionId,
   source,
+  sessionSource = source === 'runtime' ? 'legacy-unclassified' : 'explicit-declaration',
+  modelSource = source === 'runtime' ? 'legacy-unclassified' : 'explicit-declaration',
   joinedAt = new Date(),
 }) {
   if (!ROLES.has(role) || !HOSTS.has(host) || !PROVIDERS.has(provider) || !SOURCES.has(source)) {
@@ -167,15 +170,22 @@ export function participantIdentity({
     );
   }
   const joined = instant(joinedAt, 'identity join time', 'APR_IDENTITY_INVALID').toISOString();
+  const session_fingerprint = fingerprintSession(provider, sessionId);
   return Object.freeze({
     role,
     host,
     provider,
     model_id: text(modelId, 'model_id'),
     model_display: text(modelDisplay, 'model_display'),
-    session_fingerprint: fingerprintSession(provider, sessionId),
+    session_fingerprint,
     identity_source: source,
     joined_at: joined,
+    evidence: identityEvidence({
+      sessionFingerprint: session_fingerprint,
+      sessionSource,
+      modelId,
+      modelSource,
+    }),
   });
 }
 
@@ -241,6 +251,8 @@ export function resolveIdentity(context = {}) {
   });
 }
 
+export { identityEvidence, mergeObservedIdentity, v1Participant };
+
 export function assertDistinctParticipants(author, reviewer) {
   if (
     !author?.session_fingerprint ||
@@ -274,7 +286,10 @@ export function identityChangeEvent(review, prior, current, now = new Date()) {
     'identity-changed',
     current.session_fingerprint,
     now,
-    { role: current.role, identity: { ...current, joined_at: prior.joined_at } },
+    {
+      role: current.role,
+      identity: v1Participant({ ...current, joined_at: prior.joined_at }),
+    },
     0
   );
 }
