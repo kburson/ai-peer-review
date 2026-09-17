@@ -35,6 +35,7 @@
     "modelcontextprotocol",
     "oneline",
     "prefilter",
+    "pretarball",
     "provenance",
     "reflogs",
     "rebaseline",

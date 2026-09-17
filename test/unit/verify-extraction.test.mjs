@@ -118,7 +118,7 @@ function validManifest(overrides = {}) {
         'scripts/run-secret-scan.mjs',
         'scripts/verify-extraction.mjs',
         'scripts/verify-release.mjs',
-        'vendors/kburson-ai-task-manager-1.0.0.tgz',
+        'vendors/kburson-ai-task-manager-0.1.0.tgz',
       ],
     },
     legacy_retained_path_rules: {
@@ -380,7 +380,7 @@ test('accepts bounded project-local AITM governance paths', async () => {
         '.grok/skills/task/SKILL.md',
         'AGENTS.md',
         'LICENSE',
-        'vendors/kburson-ai-task-manager-1.0.0.tgz',
+        'vendors/kburson-ai-task-manager-0.1.0.tgz',
       ].join('\n'),
     }),
   });
