@@ -82,7 +82,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'scripts/run-secret-scan.mjs',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
-    'vendors/kburson-ai-task-manager-1.0.0.tgz',
+    'vendors/kburson-ai-task-manager-0.1.0.tgz',
   ],
 });
 const EXPECTED_LEGACY_PATH_RULES = Object.freeze({
