@@ -1,0 +1,529 @@
+{
+  "schema": "ai-peer-review.relocation-receipt/v1",
+  "record_kind": "repository-archive-relocation",
+  "created_at": "2026-09-17T19:52:16.128Z",
+  "source_commit": "1181d7f82309b96ae24089e890b2dc789e8eb5c4",
+  "relocation_commit": "9e6059c4e6b67ad8084e948ae1c5da52d189fcb3",
+  "source_root": "docs/peer-reviews",
+  "destination_root": "docs/superpowers/peer-reviews",
+  "relocation_count": 56,
+  "byte_identical_count": 55,
+  "changed_generated_count": 1,
+  "decision": {
+    "receipt_scope": "repository-level",
+    "reason": "Issue #65 moved one archive root in one commit across six review-record directories; per-record receipts would misstate one transaction and overlap record-local consolidation receipts."
+  },
+  "tooling_finding": {
+    "command": "peer-review consolidate",
+    "retroactive_consolidate_supported": false,
+    "reason": "The command requires two or more extant review workspaces and a new destination; it accepts neither historical Git commits nor an already-completed path map.",
+    "disposition": "Recorded as a gap; issue #67 does not change CLI behavior."
+  },
+  "relocations": [
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-author-startup.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-author-startup.md",
+      "bytes": 2668,
+      "sha256": "c1398d93cb9ce25e16943fa139e58869a453b0caaf06674c2aa74d98b1d36b02",
+      "destination_bytes": 2668,
+      "destination_sha256": "c1398d93cb9ce25e16943fa139e58869a453b0caaf06674c2aa74d98b1d36b02",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-review-manifest.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-review-manifest.md",
+      "bytes": 3364,
+      "sha256": "0a1026bca0441572e5c4034cf994295849ea3a7678eff50dec4c8c6ba03e0d7f",
+      "destination_bytes": 3364,
+      "destination_sha256": "0a1026bca0441572e5c4034cf994295849ea3a7678eff50dec4c8c6ba03e0d7f",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-reviewer-invitation.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-reviewer-invitation.md",
+      "bytes": 4652,
+      "sha256": "15f80399a66f4aa030cb88e866b6efb45bbf00e98f383d78ac06b7d8c3eb5143",
+      "destination_bytes": 4652,
+      "destination_sha256": "15f80399a66f4aa030cb88e866b6efb45bbf00e98f383d78ac06b7d8c3eb5143",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-reviewer-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-reviewer-response-1.md",
+      "bytes": 15699,
+      "sha256": "1c0411a52680ca585a5a01fccba84cfff9bb34f2eebefeb4aa603425a841086c",
+      "destination_bytes": 15699,
+      "destination_sha256": "1c0411a52680ca585a5a01fccba84cfff9bb34f2eebefeb4aa603425a841086c",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/README.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/README.md",
+      "bytes": 2448,
+      "sha256": "a6bdd2aece368f0df98c7e50ea248742c291b37e465f10c767970bec99049d56",
+      "destination_bytes": 2448,
+      "destination_sha256": "a6bdd2aece368f0df98c7e50ea248742c291b37e465f10c767970bec99049d56",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-1.md",
+      "bytes": 7849,
+      "sha256": "bba8c3d1618016b8e69c57ec4dad441caad10873abf38b3eda66932743259ad7",
+      "destination_bytes": 7849,
+      "destination_sha256": "bba8c3d1618016b8e69c57ec4dad441caad10873abf38b3eda66932743259ad7",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-2.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-2.md",
+      "bytes": 4039,
+      "sha256": "ee608d8251021864884eb258874e328fc5551d249db978323571cc4ecaaf0f76",
+      "destination_bytes": 4039,
+      "destination_sha256": "ee608d8251021864884eb258874e328fc5551d249db978323571cc4ecaaf0f76",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-3.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-3.md",
+      "bytes": 4180,
+      "sha256": "d4d11b9d96aa4095aca8be5fdd6582affa50d377d6fcd87513a23662eba512fc",
+      "destination_bytes": 4180,
+      "destination_sha256": "d4d11b9d96aa4095aca8be5fdd6582affa50d377d6fcd87513a23662eba512fc",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-startup.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-startup.md",
+      "bytes": 2522,
+      "sha256": "d9730fa73897b9e0804917c43ded2bbc6423a4cdd0475bf9e3eaa12718042a5c",
+      "destination_bytes": 2522,
+      "destination_sha256": "d9730fa73897b9e0804917c43ded2bbc6423a4cdd0475bf9e3eaa12718042a5c",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-invitation.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-invitation.md",
+      "bytes": 4253,
+      "sha256": "26f938d6a3125dda6bdedc53bab471e809f2b0e2f23c2df4c902ae1e9f282e21",
+      "destination_bytes": 4253,
+      "destination_sha256": "26f938d6a3125dda6bdedc53bab471e809f2b0e2f23c2df4c902ae1e9f282e21",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-1.md",
+      "bytes": 21313,
+      "sha256": "28aef5b5a024c1245cd7e8b33767acf1892cc6850f2e93722e8efc689c00adf1",
+      "destination_bytes": 21313,
+      "destination_sha256": "28aef5b5a024c1245cd7e8b33767acf1892cc6850f2e93722e8efc689c00adf1",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-2.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-2.md",
+      "bytes": 15659,
+      "sha256": "06fdd9cb07c40f28a9277f74c225d6af64ce2d13354d4b4eee77b48eb187810f",
+      "destination_bytes": 15659,
+      "destination_sha256": "06fdd9cb07c40f28a9277f74c225d6af64ce2d13354d4b4eee77b48eb187810f",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-3.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-3.md",
+      "bytes": 14468,
+      "sha256": "66d8d8face5457bf13d64e8fa05d4e15cc50f4c48b37743790daa85419958d2c",
+      "destination_bytes": 14468,
+      "destination_sha256": "66d8d8face5457bf13d64e8fa05d4e15cc50f4c48b37743790daa85419958d2c",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-4.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-4.md",
+      "bytes": 11227,
+      "sha256": "7a77999f029a63c1afb0a2554f65824e438f7062888fba35793a4d8a6c1ca820",
+      "destination_bytes": 11227,
+      "destination_sha256": "7a77999f029a63c1afb0a2554f65824e438f7062888fba35793a4d8a6c1ca820",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-1.md",
+      "bytes": 6574,
+      "sha256": "056bc3d0630c86b08475dad9b7e26a29e3e2eb72af74311ebded91c6533f1f34",
+      "destination_bytes": 6574,
+      "destination_sha256": "056bc3d0630c86b08475dad9b7e26a29e3e2eb72af74311ebded91c6533f1f34",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-2.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-2.md",
+      "bytes": 4732,
+      "sha256": "f04b091b33adcea4420de869f8f2d2eb454fe06533781f37ac6736c229db848b",
+      "destination_bytes": 4732,
+      "destination_sha256": "f04b091b33adcea4420de869f8f2d2eb454fe06533781f37ac6736c229db848b",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-3.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-3.md",
+      "bytes": 2635,
+      "sha256": "7b3db5b71dca2477ff7388a01ee663afeb6d3b7cc6fd9ef8954eca20c7f4d2ef",
+      "destination_bytes": 2635,
+      "destination_sha256": "7b3db5b71dca2477ff7388a01ee663afeb6d3b7cc6fd9ef8954eca20c7f4d2ef",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-4.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-4.md",
+      "bytes": 1591,
+      "sha256": "baf68784f8a136edacbb3b0a2a533393b0ee16ae12496a2974642fedf50cc030",
+      "destination_bytes": 1591,
+      "destination_sha256": "baf68784f8a136edacbb3b0a2a533393b0ee16ae12496a2974642fedf50cc030",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-1.md",
+      "bytes": 20352,
+      "sha256": "ced0b2dcf544ed135afcb6abc215b8898260a2d357f74d7895f329cc1137cb27",
+      "destination_bytes": 20352,
+      "destination_sha256": "ced0b2dcf544ed135afcb6abc215b8898260a2d357f74d7895f329cc1137cb27",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-2.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-2.md",
+      "bytes": 15067,
+      "sha256": "1d85881df97a5429edce92ad21dd749a0f94bb423ce6eb4c458a8eccf61fe67d",
+      "destination_bytes": 15067,
+      "destination_sha256": "1d85881df97a5429edce92ad21dd749a0f94bb423ce6eb4c458a8eccf61fe67d",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-3.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-3.md",
+      "bytes": 8431,
+      "sha256": "701ed8ec61986c48520defa664195d4f45c3065df11ef4669a644ffb074282b9",
+      "destination_bytes": 8431,
+      "destination_sha256": "701ed8ec61986c48520defa664195d4f45c3065df11ef4669a644ffb074282b9",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md",
+      "destination_path": "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md",
+      "bytes": 6249,
+      "sha256": "04186fb14fc4dca349c5adaf88244d0b8fe5966ca8cc2be0416ef61258f44102",
+      "destination_bytes": 6249,
+      "destination_sha256": "04186fb14fc4dca349c5adaf88244d0b8fe5966ca8cc2be0416ef61258f44102",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/00-review-history.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/00-review-history.md",
+      "bytes": 7602,
+      "sha256": "49009e33792f4e690ffb557f3bd21580a8c946100f40fc589da0a26fb5d66f7a",
+      "destination_bytes": 7601,
+      "destination_sha256": "ce6ac51a5da51fb483f5d58231459a24d80cd59b789b19813e9219518fab36f4",
+      "byte_identity": false,
+      "note": "Generated review history was updated during #65; sealed review evidence remained byte-identical."
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/01-review-853b-author-startup.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/01-review-853b-author-startup.md",
+      "bytes": 1056,
+      "sha256": "cf843429517f33cd40dcba245f157506efda875f208fb5ea06d0f894ae009bc8",
+      "destination_bytes": 1056,
+      "destination_sha256": "cf843429517f33cd40dcba245f157506efda875f208fb5ea06d0f894ae009bc8",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/02-review-853b-reviewer-invitation.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/02-review-853b-reviewer-invitation.md",
+      "bytes": 2759,
+      "sha256": "dc7adbee57e132f3c25adaabc6edbbeae11149bdc035fe2f360de7ddadc7c547",
+      "destination_bytes": 2759,
+      "destination_sha256": "dc7adbee57e132f3c25adaabc6edbbeae11149bdc035fe2f360de7ddadc7c547",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/03-review-853b-reviewer-response-1-revisions-requested.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/03-review-853b-reviewer-response-1-revisions-requested.md",
+      "bytes": 7932,
+      "sha256": "ac78dfdae73ccbc4020a4c0b9885ef906272f5c7cde57b82c6926d3969219c96",
+      "destination_bytes": 7932,
+      "destination_sha256": "ac78dfdae73ccbc4020a4c0b9885ef906272f5c7cde57b82c6926d3969219c96",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/04-review-853b-author-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/04-review-853b-author-response-1.md",
+      "bytes": 3164,
+      "sha256": "735eacf2273b91790c95bf832ed726e814b2220e588d46a1420664826327b248",
+      "destination_bytes": 3164,
+      "destination_sha256": "735eacf2273b91790c95bf832ed726e814b2220e588d46a1420664826327b248",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/05-review-853b-reviewer-response-2-acceptance-not-submitted.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/05-review-853b-reviewer-response-2-acceptance-not-submitted.md",
+      "bytes": 2925,
+      "sha256": "469bc1d417fe49a1a8ee32869d6fbc1cf73ead51ebd4f7e64956542d4f308285",
+      "destination_bytes": 2925,
+      "destination_sha256": "469bc1d417fe49a1a8ee32869d6fbc1cf73ead51ebd4f7e64956542d4f308285",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/06-review-7e25-author-startup.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/06-review-7e25-author-startup.md",
+      "bytes": 1056,
+      "sha256": "150d12b4b5d4089ab976f817147bc3f95227625a72c2e6a125f491d6b09ddb5c",
+      "destination_bytes": 1056,
+      "destination_sha256": "150d12b4b5d4089ab976f817147bc3f95227625a72c2e6a125f491d6b09ddb5c",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/07-review-7e25-reviewer-invitation.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/07-review-7e25-reviewer-invitation.md",
+      "bytes": 2759,
+      "sha256": "5513265188b503dcce04703e593abe5e11a5788ed09cb1881f1848733f898f1c",
+      "destination_bytes": 2759,
+      "destination_sha256": "5513265188b503dcce04703e593abe5e11a5788ed09cb1881f1848733f898f1c",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/08-review-7e25-reviewer-response-1-revisions-requested.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/08-review-7e25-reviewer-response-1-revisions-requested.md",
+      "bytes": 6251,
+      "sha256": "bbcb7cdea39cc8d4edfb650c014c8bdeb05789899f05db412c1b2dbeefaa7961",
+      "destination_bytes": 6251,
+      "destination_sha256": "bbcb7cdea39cc8d4edfb650c014c8bdeb05789899f05db412c1b2dbeefaa7961",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/09-review-7e25-author-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/09-review-7e25-author-response-1.md",
+      "bytes": 2736,
+      "sha256": "75f1bd73088c7f30cf89bf145dd2f4afc090b98654f8d6ecfe87a11976ba2984",
+      "destination_bytes": 2736,
+      "destination_sha256": "75f1bd73088c7f30cf89bf145dd2f4afc090b98654f8d6ecfe87a11976ba2984",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/10-review-7e25-reviewer-response-2-not-completed.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/10-review-7e25-reviewer-response-2-not-completed.md",
+      "bytes": 1340,
+      "sha256": "b9b40f890ac7438c221ca9dc8de45d6e7b2b9bfcda73b587091ebaf6d452f4e5",
+      "destination_bytes": 1340,
+      "destination_sha256": "b9b40f890ac7438c221ca9dc8de45d6e7b2b9bfcda73b587091ebaf6d452f4e5",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/11-review-59eb-author-startup.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/11-review-59eb-author-startup.md",
+      "bytes": 1056,
+      "sha256": "e268e03879866ea999ac41623bc38ca4091c90f241e587a3f7a3d720e33a5170",
+      "destination_bytes": 1056,
+      "destination_sha256": "e268e03879866ea999ac41623bc38ca4091c90f241e587a3f7a3d720e33a5170",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/12-review-59eb-reviewer-invitation.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/12-review-59eb-reviewer-invitation.md",
+      "bytes": 2759,
+      "sha256": "5e935b54d39c3674f9da04197f0cb66e68205c82a18f02c335f586658017065c",
+      "destination_bytes": 2759,
+      "destination_sha256": "5e935b54d39c3674f9da04197f0cb66e68205c82a18f02c335f586658017065c",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/13-review-59eb-reviewer-response-1-accepted.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/13-review-59eb-reviewer-response-1-accepted.md",
+      "bytes": 3689,
+      "sha256": "000cd3aa86c365a99c33dcdba58e48b7ce03633d5fda159555a19ba03977678b",
+      "destination_bytes": 3689,
+      "destination_sha256": "000cd3aa86c365a99c33dcdba58e48b7ce03633d5fda159555a19ba03977678b",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/14-review-59eb-author-finalization-manifest.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/14-review-59eb-author-finalization-manifest.md",
+      "bytes": 3287,
+      "sha256": "b352869fde153eade5bbe382cb18adf257806faf88e7ece70da5fba69063e95a",
+      "destination_bytes": 3287,
+      "destination_sha256": "b352869fde153eade5bbe382cb18adf257806faf88e7ece70da5fba69063e95a",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/15-relocation-receipt.json",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/15-relocation-receipt.json",
+      "bytes": 6964,
+      "sha256": "faf42adbc6b2fef06454be71a3b8060342ae716339a7e09c403ae97f90896326",
+      "destination_bytes": 6964,
+      "destination_sha256": "faf42adbc6b2fef06454be71a3b8060342ae716339a7e09c403ae97f90896326",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-author-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-author-response-1.md",
+      "bytes": 10022,
+      "sha256": "bd9ba7c863a572709c68b004b0faf2ce479f3be6d16f76e130074b1251b6d77c",
+      "destination_bytes": 10022,
+      "destination_sha256": "bd9ba7c863a572709c68b004b0faf2ce479f3be6d16f76e130074b1251b6d77c",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-author-startup.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-author-startup.md",
+      "bytes": 2540,
+      "sha256": "42ad6e100847c6db045a300b6876d77c5d8ded194f7d21c810918b568df3aa04",
+      "destination_bytes": 2540,
+      "destination_sha256": "42ad6e100847c6db045a300b6876d77c5d8ded194f7d21c810918b568df3aa04",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-review-manifest.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-review-manifest.md",
+      "bytes": 4940,
+      "sha256": "b7858f9775d40d9aebdb848f679fcea3eefc4735f34320ba8b54fc05536380c5",
+      "destination_bytes": 4940,
+      "destination_sha256": "b7858f9775d40d9aebdb848f679fcea3eefc4735f34320ba8b54fc05536380c5",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-invitation.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-invitation.md",
+      "bytes": 4298,
+      "sha256": "2b8b099aa8dc19b100adcc834132ed42549dd37f8f27d111ffe5be36607bad2d",
+      "destination_bytes": 4298,
+      "destination_sha256": "2b8b099aa8dc19b100adcc834132ed42549dd37f8f27d111ffe5be36607bad2d",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-response-1.md",
+      "bytes": 20972,
+      "sha256": "ba0c1d25e291ec085eb10003a1fc2041356fdd41ca6ed179332c670ddf595ac7",
+      "destination_bytes": 20972,
+      "destination_sha256": "ba0c1d25e291ec085eb10003a1fc2041356fdd41ca6ed179332c670ddf595ac7",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-response-2.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-response-2.md",
+      "bytes": 14159,
+      "sha256": "92240722366ae90914175461081e783f15dcd7e1a242580edd3f022f27ae26c0",
+      "destination_bytes": 14159,
+      "destination_sha256": "92240722366ae90914175461081e783f15dcd7e1a242580edd3f022f27ae26c0",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-1.md",
+      "bytes": 9820,
+      "sha256": "a96c69e82a46d7efcca058f0a2f5b7c2ffc8f556e224a092e94a202c408a6c42",
+      "destination_bytes": 9820,
+      "destination_sha256": "a96c69e82a46d7efcca058f0a2f5b7c2ffc8f556e224a092e94a202c408a6c42",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-2.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-2.md",
+      "bytes": 4987,
+      "sha256": "0b23f64620325ef7e31cfead724c2922b20b42e7589ce72f4b193c35e779d0a1",
+      "destination_bytes": 4987,
+      "destination_sha256": "0b23f64620325ef7e31cfead724c2922b20b42e7589ce72f4b193c35e779d0a1",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-3.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-3.md",
+      "bytes": 3696,
+      "sha256": "1cc510a9274aa9d85e54d06430dd2fa331e3c2eeefdcd417ee291001dc882cfb",
+      "destination_bytes": 3696,
+      "destination_sha256": "1cc510a9274aa9d85e54d06430dd2fa331e3c2eeefdcd417ee291001dc882cfb",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-4.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-4.md",
+      "bytes": 3837,
+      "sha256": "b89796a3f0dfc3716b6fd254df9b7858fbe49ac2a26583a63951a63b80544762",
+      "destination_bytes": 3837,
+      "destination_sha256": "b89796a3f0dfc3716b6fd254df9b7858fbe49ac2a26583a63951a63b80544762",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-5.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-5.md",
+      "bytes": 3150,
+      "sha256": "7c5d8bd1f376b33822c6ea01822de1076c491f23d220866e89cb56b83873d1f7",
+      "destination_bytes": 3150,
+      "destination_sha256": "7c5d8bd1f376b33822c6ea01822de1076c491f23d220866e89cb56b83873d1f7",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-6.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-6.md",
+      "bytes": 1824,
+      "sha256": "b3654878622c7f601d9fa3bcaf0595f1ea1e530f12209a80674cc59ac7b93b05",
+      "destination_bytes": 1824,
+      "destination_sha256": "b3654878622c7f601d9fa3bcaf0595f1ea1e530f12209a80674cc59ac7b93b05",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-1.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-1.md",
+      "bytes": 32431,
+      "sha256": "f36b64a50f66305499ecc5a9125f626de5df5bf3f3fd4226a84dce5e945b109f",
+      "destination_bytes": 32431,
+      "destination_sha256": "f36b64a50f66305499ecc5a9125f626de5df5bf3f3fd4226a84dce5e945b109f",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-2.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-2.md",
+      "bytes": 26261,
+      "sha256": "eefbd69c33c8c47b7c14cb4930ca8f71d787c1ddd4b18c028c4e5822ca0c7fa7",
+      "destination_bytes": 26261,
+      "destination_sha256": "eefbd69c33c8c47b7c14cb4930ca8f71d787c1ddd4b18c028c4e5822ca0c7fa7",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-3.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-3.md",
+      "bytes": 17861,
+      "sha256": "46143256cef73943ccbee50c8f4c1ce61b234a8f22a31beb7217ceca1a15cce3",
+      "destination_bytes": 17861,
+      "destination_sha256": "46143256cef73943ccbee50c8f4c1ce61b234a8f22a31beb7217ceca1a15cce3",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md",
+      "bytes": 12017,
+      "sha256": "d25a7a7c4394787bc9d375af6c35d77e1f4024ef076951edc8149d09d350d7b6",
+      "destination_bytes": 12017,
+      "destination_sha256": "d25a7a7c4394787bc9d375af6c35d77e1f4024ef076951edc8149d09d350d7b6",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-5.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-5.md",
+      "bytes": 9771,
+      "sha256": "37841736ace31c317002856f66c9100ea9094eba351afa276fe289a36fd815bf",
+      "destination_bytes": 9771,
+      "destination_sha256": "37841736ace31c317002856f66c9100ea9094eba351afa276fe289a36fd815bf",
+      "byte_identity": true
+    },
+    {
+      "source_path": "docs/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-6.md",
+      "destination_path": "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-6.md",
+      "bytes": 8506,
+      "sha256": "a4e4118ed6f0343bab1c299fddc2053a7a7b080756e3a0a704d25dcbcfdeefa0",
+      "destination_bytes": 8506,
+      "destination_sha256": "a4e4118ed6f0343bab1c299fddc2053a7a7b080756e3a0a704d25dcbcfdeefa0",
+      "byte_identity": true
+    }
+  ]
+}
