@@ -59,6 +59,7 @@ import {
   identityChangeEvent,
   reclaimRole,
   resolveIdentity,
+  v1Participant,
 } from '../identity/registry.mjs';
 import { eventAdvancesRevision, validateEvent } from '../protocol/events.mjs';
 import {
@@ -799,7 +800,7 @@ export async function startReview(input, deps = {}) {
         blob: artifact.blob,
         digest: `sha256:${artifact.worktreeDigest}`,
       }) &&
-      sameParticipant(state.participants.author, input.identity) &&
+      sameParticipant(state.participants.author, v1Participant(input.identity)) &&
       context.repository_root === root &&
       context.artifact_kind === input.artifactKind &&
       context.artifact_name === name &&
@@ -916,7 +917,7 @@ export async function startReview(input, deps = {}) {
         blob: artifact.blob,
         digest: `sha256:${artifact.worktreeDigest}`,
       },
-      author: input.identity,
+      author: v1Participant(input.identity),
       startup: startupAuthority,
       ...(phaseKinds ? { phases: { kinds: phaseKinds } } : {}),
     },
@@ -1106,7 +1107,7 @@ export async function joinReview(input, deps = {}) {
     const registered = state.participants.reviewer;
     const claim = state.protocol.claims.reviewer;
     if (
-      sameParticipant(registered, input.identity) &&
+      sameParticipant(registered, v1Participant(input.identity)) &&
       state.protocol.transports.reviewer === reviewerCapability &&
       !claim
     ) {
@@ -1128,7 +1129,7 @@ export async function joinReview(input, deps = {}) {
       );
     }
     if (
-      sameParticipant(registered, input.identity) &&
+      sameParticipant(registered, v1Participant(input.identity)) &&
       state.protocol.transports.reviewer === reviewerCapability &&
       claim?.session_fingerprint === input.identity.session_fingerprint
     ) {
@@ -1170,7 +1171,7 @@ export async function joinReview(input, deps = {}) {
       'reviewer-joined',
       input.identity.session_fingerprint,
       {
-        reviewer: input.identity,
+        reviewer: v1Participant(input.identity),
         transport_capability: reviewerCapability,
         repository_boundary: repositoryBoundary,
       },
@@ -1798,7 +1799,7 @@ export async function recoverReview(input, deps = {}) {
           intervention_id: current.protocol.intervention.intervention_id,
           role: replacementRole,
           outgoing_claim: outgoing,
-          incoming_participant: input.identity,
+          incoming_participant: v1Participant(input.identity),
           parameters,
           attestation,
         },

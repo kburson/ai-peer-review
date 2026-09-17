@@ -1,0 +1,59 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  mergeObservedIdentity,
+  resolveIdentity,
+  v1Participant,
+} from '../../src/identity/registry.mjs';
+
+const joinedAt = '2026-09-17T12:00:00.000Z';
+
+test('environment model declarations remain declared and provider observations preserve conflicts', () => {
+  const identity = resolveIdentity({
+    adapter: 'codex',
+    role: 'author',
+    joinedAt,
+    env: { CODEX_THREAD_ID: 'codex-session-secret', CODEX_MODEL_ID: 'gpt-6-astra' },
+  });
+
+  assert.equal(identity.evidence.session.assurance, 'declared');
+  assert.equal(identity.evidence.model.assurance, 'declared');
+  assert.equal(identity.evidence.model.declared_id, 'gpt-6-astra');
+  assert.equal(identity.evidence.model.observed_id, null);
+
+  const observed = mergeObservedIdentity(identity, {
+    session_fingerprint: identity.session_fingerprint,
+    model_id: 'gpt-5.6-sol',
+    source: 'provider-result',
+  });
+
+  assert.equal(observed.evidence.session.assurance, 'observed');
+  assert.equal(observed.evidence.model.assurance, 'observed');
+  assert.equal(observed.evidence.model.observed_id, 'gpt-5.6-sol');
+  assert.equal(observed.evidence.model.conflict, true);
+  assert.equal(JSON.stringify(observed).includes('codex-session-secret'), false);
+});
+
+test('v1 participant projection excludes evidence and stays at the exact frozen shape', () => {
+  const identity = resolveIdentity({
+    adapter: 'codex',
+    role: 'author',
+    joinedAt,
+    env: { CODEX_THREAD_ID: 'codex-session-secret', CODEX_MODEL_ID: 'gpt-6-astra' },
+  });
+  const legacy = v1Participant(identity);
+
+  assert.deepEqual(Object.keys(legacy).sort(), [
+    'host',
+    'identity_source',
+    'joined_at',
+    'model_display',
+    'model_id',
+    'provider',
+    'role',
+    'session_fingerprint',
+  ]);
+  assert.equal(Object.hasOwn(legacy, 'evidence'), false);
+  assert.equal(JSON.stringify(legacy).includes('codex-session-secret'), false);
+});

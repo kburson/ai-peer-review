@@ -34,6 +34,14 @@ test('event-v2 compatibility artifacts are closed and independently versioned', 
   }
 });
 
+test('v2 schema artifacts define the evidence-bearing participant contract', () => {
+  for (const file of ['schemas/event-v2.json', 'schemas/participants-v2.json']) {
+    const schema = JSON.parse(readFileSync(new URL(`../../${file}`, import.meta.url)));
+    assert.equal(schema.$defs.participant.required.includes('evidence'), true, file);
+    assert.deepEqual(schema.$defs.evidence.required, ['session', 'model'], file);
+  }
+});
+
 test('versioned validation selects the envelope schema and names a reader upgrade for unknown events', () => {
   assert.equal(validateVersionedEvent(event('review-created')), true);
   assert.equal(validateVersionedEvent(v2Event('compatibility-declared')), true);
@@ -41,6 +49,37 @@ test('versioned validation selects the envelope schema and names a reader upgrad
     () =>
       validateVersionedEvent({ ...event('review-created'), schema: 'ai-peer-review.event/v99' }),
     (error) => error.code === 'APR_READER_UPGRADE_REQUIRED'
+  );
+});
+
+test('v2 participant events require exact provenance evidence while v1 remains frozen', () => {
+  const v2 = v2Event('reviewer-joined');
+  v2.payload.reviewer.evidence = {
+    session: {
+      fingerprint: v2.payload.reviewer.session_fingerprint,
+      source: 'provider-result',
+      assurance: 'observed',
+    },
+    model: {
+      requested_id: null,
+      declared_id: 'gpt-test',
+      observed_id: 'gpt-test',
+      source: 'provider-result',
+      assurance: 'observed',
+      conflict: false,
+    },
+  };
+
+  assert.equal(validateVersionedEvent(v2), true);
+  const mislabeled = structuredClone(v2);
+  mislabeled.payload.reviewer.evidence.session.assurance = 'declared';
+  assert.throws(
+    () => validateVersionedEvent(mislabeled),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  assert.throws(
+    () => validateEvent({ ...v2, schema: 'ai-peer-review.event/v1' }),
+    (error) => error.code === 'APR_EVENT_INVALID'
   );
 });
 

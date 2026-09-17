@@ -13,7 +13,7 @@ import {
 } from '../../src/authority/canonicalize.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
-import { participantIdentity } from '../../src/identity/registry.mjs';
+import { participantIdentity, v1Participant } from '../../src/identity/registry.mjs';
 import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
@@ -58,7 +58,7 @@ test('generated routing and commands remain safe for shell metacharacters in pat
 });
 
 function identity(role, session) {
-  return participantIdentity({
+  const participant = participantIdentity({
     role,
     host: 'codex',
     provider: 'openai',
@@ -68,6 +68,8 @@ function identity(role, session) {
     source: 'runtime',
     joinedAt: NOW,
   });
+  assert.ok(Object.hasOwn(participant, 'evidence'));
+  return participant;
 }
 
 test('start performs preflight checks before mutation and writes default event-first collateral', async (t) => {
@@ -122,6 +124,7 @@ test('start performs preflight checks before mutation and writes default event-f
     now: '2026-09-08T13:00:00.000Z',
   });
   assert.equal(retried.paths.events, started.paths.events);
+  assert.equal(retried.review_id, started.review_id);
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
 
   rmSync(started.paths.author_startup);
@@ -478,6 +481,7 @@ test('join binds the same physical worktree and a distinct reviewer before draft
     now: '2026-09-08T13:00:00.000Z',
   });
   assert.equal(retried.paths.response, joined.paths.response);
+  assert.equal(retried.state, 'reviewer-turn');
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 });
 
@@ -493,6 +497,7 @@ test('join resumes an identical registration interrupted before its claim event'
     now: NOW,
   });
   const reviewer = identity('reviewer', 'reviewer-session');
+  assert.ok(Object.hasOwn(reviewer, 'evidence'));
   const initial = inspectReview(started.paths.workspace);
   await mutateReview(
     started.paths.workspace,
@@ -511,7 +516,7 @@ test('join resumes an identical registration interrupted before its claim event'
       actor: reviewer.session_fingerprint,
       at: NOW,
       payload: {
-        reviewer,
+        reviewer: v1Participant(reviewer),
         transport_capability: 'manual',
         repository_boundary: createGitRepository().reviewerBoundary(
           fx.root,
@@ -535,6 +540,7 @@ test('join resumes an identical registration interrupted before its claim event'
   });
   assert.equal(joined.state, 'reviewer-turn');
   assert.equal(joined.review.claim.role, 'reviewer');
+  assert.equal(joined.paths.workspace, started.paths.workspace);
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 });
 

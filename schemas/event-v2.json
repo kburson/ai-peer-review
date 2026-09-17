@@ -25,13 +25,13 @@
     {
       "properties": {
         "type": { "const": "review-created" },
-        "payload": { "$ref": "event-v1.json#/$defs/reviewCreated" }
+        "payload": { "$ref": "#/$defs/reviewCreated" }
       }
     },
     {
       "properties": {
         "type": { "const": "reviewer-joined" },
-        "payload": { "$ref": "event-v1.json#/$defs/reviewerJoined" }
+        "payload": { "$ref": "#/$defs/reviewerJoined" }
       }
     },
     {
@@ -139,7 +139,7 @@
     {
       "properties": {
         "type": { "const": "participant-replaced" },
-        "payload": { "$ref": "event-v1.json#/$defs/replacement" }
+        "payload": { "$ref": "#/$defs/replacement" }
       }
     },
     {
@@ -175,7 +175,7 @@
     {
       "properties": {
         "type": { "const": "identity-changed" },
-        "payload": { "$ref": "event-v1.json#/$defs/identityChange" }
+        "payload": { "$ref": "#/$defs/identityChange" }
       }
     },
     {
@@ -210,6 +210,137 @@
     }
   ],
   "$defs": {
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "host",
+        "provider",
+        "model_id",
+        "model_display",
+        "session_fingerprint",
+        "identity_source",
+        "joined_at",
+        "evidence"
+      ],
+      "properties": {
+        "role": { "$ref": "event-v1.json#/$defs/role" },
+        "host": { "$ref": "event-v1.json#/$defs/host" },
+        "provider": { "enum": ["openai", "anthropic", "xai", "other"] },
+        "model_id": { "type": "string", "minLength": 1 },
+        "model_display": { "type": "string", "minLength": 1 },
+        "session_fingerprint": { "$ref": "event-v1.json#/$defs/digest" },
+        "identity_source": { "enum": ["runtime", "declared"] },
+        "joined_at": { "$ref": "event-v1.json#/$defs/time" },
+        "evidence": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session", "model"],
+      "properties": {
+        "session": { "$ref": "#/$defs/sessionEvidence" },
+        "model": { "$ref": "#/$defs/modelEvidence" }
+      }
+    },
+    "sessionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fingerprint", "source", "assurance"],
+      "properties": {
+        "fingerprint": { "$ref": "event-v1.json#/$defs/digest" },
+        "source": { "$ref": "#/$defs/source" },
+        "assurance": { "enum": ["declared", "observed"] }
+      }
+    },
+    "modelEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested_id", "declared_id", "observed_id", "source", "assurance", "conflict"],
+      "properties": {
+        "requested_id": { "type": ["string", "null"] },
+        "declared_id": { "type": ["string", "null"] },
+        "observed_id": { "type": ["string", "null"] },
+        "source": { "$ref": "#/$defs/source" },
+        "assurance": { "enum": ["declared", "observed"] },
+        "conflict": { "type": "boolean" }
+      }
+    },
+    "source": {
+      "enum": [
+        "official-runtime",
+        "provider-result",
+        "environment-declaration",
+        "configuration",
+        "launch-request",
+        "explicit-declaration",
+        "legacy-unclassified"
+      ]
+    },
+    "reviewCreated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit_mode",
+        "max_turns",
+        "claim_ttl_ms",
+        "authority",
+        "artifact",
+        "author",
+        "startup"
+      ],
+      "properties": {
+        "commit_mode": { "$ref": "event-v1.json#/$defs/commitMode" },
+        "max_turns": { "$ref": "event-v1.json#/$defs/positive" },
+        "claim_ttl_ms": { "$ref": "event-v1.json#/$defs/positive" },
+        "authority": { "$ref": "event-v1.json#/$defs/authority" },
+        "artifact": { "$ref": "event-v1.json#/$defs/initialArtifact" },
+        "author": { "$ref": "#/$defs/participant" },
+        "startup": { "$ref": "event-v1.json#/$defs/startup" },
+        "phases": { "$ref": "event-v1.json#/$defs/phases" }
+      }
+    },
+    "reviewerJoined": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer", "transport_capability", "repository_boundary"],
+      "properties": {
+        "reviewer": { "$ref": "#/$defs/participant" },
+        "transport_capability": { "enum": ["manual", "resume-only", "live-wait", "native-push"] },
+        "repository_boundary": { "$ref": "event-v1.json#/$defs/repositoryBoundary" }
+      }
+    },
+    "replacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intervention_id",
+        "role",
+        "outgoing_claim",
+        "incoming_participant",
+        "parameters",
+        "attestation"
+      ],
+      "properties": {
+        "intervention_id": { "$ref": "event-v1.json#/$defs/id" },
+        "role": { "$ref": "event-v1.json#/$defs/role" },
+        "outgoing_claim": { "$ref": "event-v1.json#/$defs/claim" },
+        "incoming_participant": { "$ref": "#/$defs/participant" },
+        "parameters": { "$ref": "event-v1.json#/$defs/replacementParameters" },
+        "attestation": { "$ref": "event-v1.json#/$defs/attestation" }
+      }
+    },
+    "identityChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "identity"],
+      "properties": {
+        "role": { "$ref": "event-v1.json#/$defs/role" },
+        "identity": { "$ref": "#/$defs/participant" }
+      }
+    },
     "compatibility": {
       "type": "object",
       "additionalProperties": false,

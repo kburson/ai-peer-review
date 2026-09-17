@@ -315,6 +315,81 @@ function validateParticipant(value, label) {
   assertTimestamp(value.joined_at, `${label} joined_at`);
 }
 
+const PARTICIPANT_EVIDENCE_SOURCES = Object.freeze([
+  'official-runtime',
+  'provider-result',
+  'environment-declaration',
+  'configuration',
+  'launch-request',
+  'explicit-declaration',
+  'legacy-unclassified',
+]);
+
+function assertNullableString(value, label) {
+  if (value !== null) assertString(value, label);
+}
+
+function validateParticipantV2(value, label) {
+  exactKeys(
+    value,
+    [
+      'role',
+      'host',
+      'provider',
+      'model_id',
+      'model_display',
+      'session_fingerprint',
+      'identity_source',
+      'joined_at',
+      'evidence',
+    ],
+    label
+  );
+  const { evidence, ...participant } = value;
+  validateParticipant(participant, label);
+  exactKeys(evidence, ['session', 'model'], `${label} evidence`);
+  exactKeys(evidence.session, ['fingerprint', 'source', 'assurance'], `${label} session evidence`);
+  assertFingerprint(evidence.session.fingerprint, `${label} session fingerprint`);
+  if (evidence.session.fingerprint !== value.session_fingerprint)
+    throw invalid(`${label} session fingerprint binding`);
+  assertEnum(evidence.session.source, PARTICIPANT_EVIDENCE_SOURCES, `${label} session source`);
+  assertEnum(evidence.session.assurance, ['declared', 'observed'], `${label} session assurance`);
+  if (
+    evidence.session.assurance !==
+    (evidence.session.source === 'provider-result' ? 'observed' : 'declared')
+  ) {
+    throw invalid(`${label} session assurance`);
+  }
+  exactKeys(
+    evidence.model,
+    ['requested_id', 'declared_id', 'observed_id', 'source', 'assurance', 'conflict'],
+    `${label} model evidence`
+  );
+  assertNullableString(evidence.model.requested_id, `${label} requested model`);
+  assertNullableString(evidence.model.declared_id, `${label} declared model`);
+  assertNullableString(evidence.model.observed_id, `${label} observed model`);
+  assertEnum(evidence.model.source, PARTICIPANT_EVIDENCE_SOURCES, `${label} model source`);
+  assertEnum(evidence.model.assurance, ['declared', 'observed'], `${label} model assurance`);
+  if (
+    evidence.model.assurance !==
+    (evidence.model.source === 'provider-result' ? 'observed' : 'declared')
+  ) {
+    throw invalid(`${label} model assurance`);
+  }
+  const claims = [
+    evidence.model.requested_id,
+    evidence.model.declared_id,
+    evidence.model.observed_id,
+  ].filter((claim) => claim !== null);
+  if (!claims.length || typeof evidence.model.conflict !== 'boolean')
+    throw invalid(`${label} model evidence`);
+  if (evidence.model.conflict !== new Set(claims).size > 1)
+    throw invalid(`${label} model conflict`);
+  const currentModel =
+    evidence.model.observed_id ?? evidence.model.declared_id ?? evidence.model.requested_id;
+  if (value.model_id !== currentModel) throw invalid(`${label} model mirror`);
+}
+
 function validateArtifact(value, label, { initial = false } = {}) {
   exactKeys(
     value,
@@ -985,5 +1060,21 @@ export function validateVersionedEvent(value) {
   if (value?.schema !== EVENT_V2_SCHEMA) throw readerUpgrade(value);
   if (value.type === 'compatibility-declared') return validateV2Declaration(value);
   if (!Object.hasOwn(EVENT_DEFINITIONS, value.type)) throw readerUpgrade(value);
-  return validateEvent({ ...value, schema: EVENT_V1_SCHEMA });
+  const participantField = {
+    'review-created': 'author',
+    'reviewer-joined': 'reviewer',
+    'identity-changed': 'identity',
+    'participant-replaced': 'incoming_participant',
+  }[value.type];
+  if (!participantField) return validateEvent({ ...value, schema: EVENT_V1_SCHEMA });
+  const participant = value.payload?.[participantField];
+  const v1Participant = { ...(participant ?? {}) };
+  delete v1Participant.evidence;
+  validateEvent({
+    ...value,
+    schema: EVENT_V1_SCHEMA,
+    payload: { ...value.payload, [participantField]: v1Participant },
+  });
+  validateParticipantV2(participant, `${value.type} ${participantField}`);
+  return true;
 }

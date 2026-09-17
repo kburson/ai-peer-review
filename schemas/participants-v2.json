@@ -7,7 +7,78 @@
   "properties": {
     "schema": { "const": "ai-peer-review.participants/v2" },
     "review_id": { "type": ["string", "null"] },
-    "author": { "type": ["object", "null"] },
-    "reviewer": { "type": ["object", "null"] }
+    "author": { "anyOf": [{ "$ref": "#/$defs/participant" }, { "type": "null" }] },
+    "reviewer": { "anyOf": [{ "$ref": "#/$defs/participant" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "host",
+        "provider",
+        "model_id",
+        "model_display",
+        "session_fingerprint",
+        "identity_source",
+        "joined_at",
+        "evidence"
+      ],
+      "properties": {
+        "role": { "enum": ["author", "reviewer"] },
+        "host": { "enum": ["codex", "claude-code", "grok", "other"] },
+        "provider": { "enum": ["openai", "anthropic", "xai", "other"] },
+        "model_id": { "type": "string", "minLength": 1 },
+        "model_display": { "type": "string", "minLength": 1 },
+        "session_fingerprint": { "$ref": "event-v1.json#/$defs/digest" },
+        "identity_source": { "enum": ["runtime", "declared"] },
+        "joined_at": { "$ref": "event-v1.json#/$defs/time" },
+        "evidence": { "$ref": "#/$defs/evidence" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session", "model"],
+      "properties": {
+        "session": { "$ref": "#/$defs/sessionEvidence" },
+        "model": { "$ref": "#/$defs/modelEvidence" }
+      }
+    },
+    "sessionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fingerprint", "source", "assurance"],
+      "properties": {
+        "fingerprint": { "$ref": "event-v1.json#/$defs/digest" },
+        "source": { "$ref": "#/$defs/source" },
+        "assurance": { "enum": ["declared", "observed"] }
+      }
+    },
+    "modelEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested_id", "declared_id", "observed_id", "source", "assurance", "conflict"],
+      "properties": {
+        "requested_id": { "type": ["string", "null"] },
+        "declared_id": { "type": ["string", "null"] },
+        "observed_id": { "type": ["string", "null"] },
+        "source": { "$ref": "#/$defs/source" },
+        "assurance": { "enum": ["declared", "observed"] },
+        "conflict": { "type": "boolean" }
+      }
+    },
+    "source": {
+      "enum": [
+        "official-runtime",
+        "provider-result",
+        "environment-declaration",
+        "configuration",
+        "launch-request",
+        "explicit-declaration",
+        "legacy-unclassified"
+      ]
+    }
   }
 }

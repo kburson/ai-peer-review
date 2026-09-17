@@ -43,4 +43,18 @@ test('the public start join submit cycle remains event-v1 while v2 stays interna
     events.map((event) => event.schema),
     Array(events.length).fill('ai-peer-review.event/v1')
   );
+  for (const event of events) {
+    const participant = event.payload.author ?? event.payload.reviewer;
+    if (!participant) continue;
+    assert.deepEqual(Object.keys(participant).sort(), [
+      'host',
+      'identity_source',
+      'joined_at',
+      'model_display',
+      'model_id',
+      'provider',
+      'role',
+      'session_fingerprint',
+    ]);
+  }
 });
