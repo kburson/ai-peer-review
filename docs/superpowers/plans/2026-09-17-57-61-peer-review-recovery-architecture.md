@@ -132,6 +132,7 @@ assert.deepEqual(
 - Create: `test/unit/model-provenance.test.mjs`
 - Test: `test/unit/{identity,events}.test.mjs`
 - Test: `test/integration/claude-identity.test.mjs`
+- Modify: `test/integration/start-join.test.mjs`
 - Test: `test/integration/{v2-dormancy,ported-behavior-parity}.test.mjs`
 
 **Interfaces:** Produces `identityEvidence(input)`, `mergeObservedIdentity(prior, observation)`, and `v1Participant(identity)`. The identity result carries evidence for runtime decisions and v2 projection; `v1Participant` returns only the frozen eight-field event-v1 shape. V2 participants require nested `session` and `model` evidence plus compatibility mirrors.
@@ -168,9 +169,10 @@ assert.equal(Object.hasOwn(legacy, 'evidence'), false);
 
 - [ ] Run `node --test test/unit/model-provenance.test.mjs test/unit/identity.test.mjs test/unit/events.test.mjs test/integration/claude-identity.test.mjs`; expect failure because environment model data is still labeled `runtime` and no nested evidence exists.
 - [ ] Implement official-runtime, provider-result, environment-declaration, configuration, launch-request, explicit-declaration, and legacy-unclassified sources. Only provider observation is `observed`.
-- [ ] Apply `v1Participant(identity)` at all four event-v1 write seams: `review-created.author`, `reviewer-joined.reviewer`, `identity-changed.identity`, and `participant-replaced.incoming_participant`. Carry the evidence-bearing identity alongside for runtime checks and eventual v2 projection; never insert `evidence` into a v1 payload.
+- [ ] Apply `v1Participant(identity)` at all four event-v1 write seams: `review-created.author`, `reviewer-joined.reviewer`, `identity-changed.identity`, and `participant-replaced.incoming_participant`. Also project the right operand at the three `sameParticipant` comparison seams: the `start` exact-retry predicate and both `join` idempotent-retry predicates in `src/cli/run.mjs`. Keep projection explicit at each seam rather than changing the general comparison helper. Carry the evidence-bearing identity alongside for runtime checks and eventual v2 projection; never insert `evidence` into a v1 payload.
+- [ ] Extend `test/integration/start-join.test.mjs` with evidence-bearing author and reviewer identities. Assert an exact `start` retry returns the existing workspace rather than `APR_OUTPUT_COLLISION`, and both no-claim and same-claim `join` retries return the existing reviewer turn.
 - [ ] Leave the existing `validateParticipant` v1 branch byte-for-byte unchanged, including its eight-field `exactKeys`. Add a separate v2 validator requiring mirrors plus evidence. Keep public participant mutations on v1; exercise v2 evidence only through the internal API until Task 9. Extend `v2-dormancy.test.mjs` to assert the exact eight participant keys, not only each envelope's schema string.
-- [ ] Run `node --test test/unit/model-provenance.test.mjs test/unit/identity.test.mjs test/unit/events.test.mjs test/unit/manifest.test.mjs test/integration/claude-identity.test.mjs test/integration/finalization.test.mjs test/integration/v2-dormancy.test.mjs test/integration/ported-behavior-parity.test.mjs`; expect PASS.
+- [ ] Run `node --test test/unit/model-provenance.test.mjs test/unit/identity.test.mjs test/unit/events.test.mjs test/unit/manifest.test.mjs test/integration/claude-identity.test.mjs test/integration/start-join.test.mjs test/integration/finalization.test.mjs test/integration/v2-dormancy.test.mjs test/integration/ported-behavior-parity.test.mjs`; expect PASS.
 - [ ] Confirm the implementation worktree contains no files on disk under `docs/superpowers`, `scripts/review`, `scripts/providers`, or `scripts/tests`; otherwise the parity suite's `publishable HEAD contains no parity-gated legacy path` assertion will fail regardless of Git tracking state.
 - [ ] Run the #57 story gate:
 
@@ -409,9 +411,10 @@ Expected: every command exits 0, public commands still emit only event-v1, and n
 - Create: `test/unit/package-version.test.mjs`
 - Test: `test/unit/claude-launch-permissions.test.mjs`
 - Test: `test/golden/help.test.mjs`
-- Test: `test/golden/templates.test.mjs`
+- Modify: `test/golden/templates.test.mjs`
 - Modify: `test/golden/templates/{author-startup,reviewer-invitation}.md`
 - Test: `test/smoke/cli.test.mjs`
+- Modify: `test/integration/start-join.test.mjs`
 - Test: `test/integration/{status-resume,v2-dormancy,release-upgrade-compatibility,claude-launch-permissions,reviewer-boundary,reviewer-guard,recovery}.test.mjs`
 - Modify, do not run: `test/live/claude-live-conformance.mjs`
 
@@ -423,8 +426,10 @@ Expected: every command exits 0, public commands still emit only event-v1, and n
 - [ ] Update `test/integration/v2-dormancy.test.mjs` from its intermediate-release assertion to prove #61 public `start`/`join`/`submit` emits authorized event-v2, while `release-upgrade-compatibility.test.mjs` proves a record created by the prior v1-only release receives `compatibility-declared` immediately before its first v2 event.
 - [ ] Implement `packageVersion()` by reading the installed root `package.json` relative to `src/package-version.mjs`, requiring package name `ai-peer-review` and a valid exact version; `creatorPackageSpecifier()` returns `ai-peer-review@<version>`. Use that source in `run.mjs`, `help-data.mjs`, and every zero-install command renderer instead of the `0.2.2` literal or a build-time duplicate.
 - [ ] Add `zero_install_status_help_display` to the closed `author-startup` and `reviewer-invitation` catalogs in `src/templates/index.mjs`; keep `zero_install_join_display` and build both values from `creatorPackageSpecifier()`. Replace the author template's literal status-help command with `{{zero_install_status_help_display}}`. The reviewer invitation continues to surface only its versioned join command; workspace-first launch is an author-side CLI action, not a new invitation variable.
+- [ ] Add `zero_install_status_help_display` to the fixed `values` map in `test/golden/templates.test.mjs`. Keep the golden fixture's explicit test version: the golden suite proves closed catalog hydration and bytes, not the runtime wiring of `creatorPackageSpecifier()`.
+- [ ] Extend `test/integration/start-join.test.mjs` to read the installed root `package.json`, execute the real startup generation path, and assert both generated files contain `ai-peer-review@${packageJson.version}`. This is the end-to-end regression guard against a stale literal in `run.mjs` or either source template.
 - [ ] Add every stable error from the spec; export only read-only inspection/builders. Regenerate and review only `author-startup.md` and `reviewer-invitation.md` goldens. Run the all-template golden test and require the other four fixtures to remain byte-identical.
-- [ ] Update the live conformance script for workspace-first launch and the closed environment, but do not run it. Run `node --test test/unit/cli-parse.test.mjs test/unit/package-version.test.mjs test/unit/claude-launch-permissions.test.mjs test/golden/help.test.mjs test/golden/templates.test.mjs test/smoke/cli.test.mjs test/integration/status-resume.test.mjs test/integration/v2-dormancy.test.mjs test/integration/release-upgrade-compatibility.test.mjs test/integration/claude-launch-permissions.test.mjs test/integration/reviewer-boundary.test.mjs test/integration/reviewer-guard.test.mjs test/integration/recovery.test.mjs test/packaging/package.test.mjs`; expect PASS.
+- [ ] Update the live conformance script for workspace-first launch and the closed environment, but do not run it. Run `node --test test/unit/cli-parse.test.mjs test/unit/package-version.test.mjs test/unit/claude-launch-permissions.test.mjs test/golden/help.test.mjs test/golden/templates.test.mjs test/smoke/cli.test.mjs test/integration/start-join.test.mjs test/integration/status-resume.test.mjs test/integration/v2-dormancy.test.mjs test/integration/release-upgrade-compatibility.test.mjs test/integration/claude-launch-permissions.test.mjs test/integration/reviewer-boundary.test.mjs test/integration/reviewer-guard.test.mjs test/integration/recovery.test.mjs test/packaging/package.test.mjs`; expect PASS.
 - [ ] Commit: `git commit -m "feat: activate governed reviewer recovery [#61]"`.
 
 ### Task 10: Incident regression and package delivery (#61)
