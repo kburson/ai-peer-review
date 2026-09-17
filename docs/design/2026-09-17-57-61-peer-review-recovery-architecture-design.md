@@ -222,6 +222,36 @@ signed or pending grant.
 
 #### Additional-recovery Human Authority grant
 
+Human Authority remains intervention-scoped. The design does not create an
+intervention-free grant class. Instead it adds operator-initiated authorization
+interventions:
+
+```text
+peer-review enter-intervention <workspace> \
+  --action additional-recovery --mode <retry-current|replace-attempt> \
+  --reason <text>
+peer-review enter-intervention <workspace> --action rotate-author-session
+```
+
+The first form is available only when the derived record state is
+`recovery-exhausted`; the second requires an incoming runtime author fingerprint
+different from the registered author and reviewer. The package derives and
+seals the complete action parameters and digest before mutation. A locked event
+batch appends `intervention-entered` with reason `recovery-authorization` or
+`author-rotation`, the interrupted lifecycle state, requested action, and
+parameters digest. The event actor is `system`: entering an intervention grants
+no authority, dispatches no provider, and only pauses the record pending a
+human decision.
+
+The closed intervention reason enum and lifecycle transition table gain these
+two reasons and permit entry from active nonterminal states, including
+`awaiting-reviewer`, `reviewer-turn`, `author-revision`, `acceptance-pending`,
+`author-finalization`, and `awaiting-phase-artifact`. Entry is transport-neutral
+and does not require a role claim. `request-grant` then uses the existing active
+intervention ID; challenge validation, state-preserving guards, and consumption
+continue to require that exact intervention. A declined or expired request may
+be superseded or abandoned through existing intervention behavior.
+
 `additional-recovery` is a new protected action. Its canonical parameter set
 is `record_id`, `current_review_id`, `triggering_execution_id`, `mode`,
 `resulting_recovery_ordinal`, `normalized_reason_digest`, and
@@ -239,12 +269,28 @@ ordinal, normalized reason digest, and successor review ID. The generated
 exhaustion action renders those exact flags and values. It does not overload
 `start --record-id`; each command retains its own closed grammar and help.
 
+For a granted ordinal greater than one, `recovery-claimed` is appended from
+`intervention-required`: it consumes its own challenge, rejects any other live
+challenge, applies the record authority mutation, clears the intervention, and
+restores the sealed interrupted lifecycle state. Ordinal `1` remains the
+intervention-free built-in claim and preserves its current lifecycle state.
+
 When the built-in allowance is exhausted, `APR_RECOVERY_EXHAUSTED` identifies
-the exact `request-grant --action additional-recovery` parameters as the sole
-provider-resumption path. If the human declines or no eligible operation can be
-formed, the next action is `peer-review abandon <workspace> --reason <text>`;
-starting a replacement record for the same failed review is not presented as a
-retry workaround.
+the exact `enter-intervention --action additional-recovery` command as the sole
+provider-resumption path. Status in that intervention emits the exact
+`request-grant --action additional-recovery` parameters. If the human declines
+or no eligible operation can be formed, the next action is
+`peer-review abandon <workspace> --reason <text>`; starting a replacement record
+for the same failed review is not presented as a retry workaround.
+
+If startup authority policy is `unavailable` or no verifier is pinned,
+`enter-intervention` for either protected action fails before mutation with
+`APR_AUTHORITY_UNAVAILABLE`. Such a record still has its built-in recovery, but
+cannot receive additional recovery or rotate its author. Exhaustion is terminal
+for provider dispatch. If author rotation is required, the record is rendered
+`incomplete-unavailable`; the human may explicitly start a new record whose
+startup provenance names the unavailable predecessor. The package never
+presents that new record as an automatic retry.
 
 #### Retry-current mode
 
@@ -423,15 +469,15 @@ The event enum adds:
 - `execution-resolved`, which records normalized provider outcome without
   replacing submission authority or advancing protocol revision.
 
-`recovery-claimed` is the first member of a new
-`AUTHORITY_MUTATION_EVENT_TYPES` category. It advances revision because it
-irrevocably changes record-wide spending and successor authority, so grants
-formed against the earlier world must be re-signed. It does not change the
-attempt lifecycle state and therefore belongs in neither
-`LIFECYCLE_EVENT_TYPES` nor `STATE_PRESERVING`. Reducer ordering is: consume the
-event's own protected grant when required, reject any other live challenge,
-apply the authority mutation, advance revision, and retain the current lifecycle
-state.
+`recovery-claimed` and `author-session-rotated` are members of the new
+`AUTHORITY_MUTATION_EVENT_TYPES` category. They advance revision because they
+irrevocably change spending/successor authority or the registered author, so
+grants formed against the earlier world must be re-signed. They belong in
+neither `LIFECYCLE_EVENT_TYPES` nor `STATE_PRESERVING`. Reducer ordering is:
+consume the event's own protected grant when required, reject any other live
+challenge, apply the authority mutation, advance revision, and either retain the
+current lifecycle state for the built-in recovery or restore the intervention's
+sealed interrupted state for a granted recovery or author rotation.
 
 Both execution events advance event sequence only. This prevents routine
 dispatch accounting from invalidating a live Human Authority challenge that is
@@ -456,14 +502,22 @@ peer-review rotate-author <workspace> --grant <signed-grant>
 The new `rotate-author-session` Human Authority action binds `record_id`,
 `review_id`, outgoing registered author fingerprint, incoming runtime author
 fingerprint, current sequence and revision, and the current lifecycle state. It
-is available in every nonterminal non-invalid record state, in manual,
-resume-only, and automatic-required transport, without requiring an outgoing
-claim or participant-loss intervention. The invoking runtime supplies the
-incoming author identity; the grant names both fingerprints exactly. The
-protected mutation consumes its own challenge, rejects any other live
-challenge, replaces only the registered author participant, preserves current
-lifecycle state and claims, advances protocol revision, and records both
-fingerprints. It cannot replace the reviewer or spend recovery authority.
+is available through the `author-rotation` operator-initiated intervention from
+every listed active state, in manual, resume-only, and automatic-required
+transport, without requiring an outgoing claim or participant-loss
+intervention. The invoking runtime supplies the incoming author identity; the
+intervention and grant name both fingerprints exactly.
+
+Implementation adds the action and fields to `GRANT_PARAMETER_FIELDS`, exact
+matching to `protectedParametersMatchEvent`, the action to the event-v2
+challenge enum, and its closed request-grant flags. The protected event type is
+`author-session-rotated`, a member of `AUTHORITY_MUTATION_EVENT_TYPES`. Its actor
+is the Human Authority attestation signer fingerprint because the incoming
+author is not registered yet. The mutation consumes its own challenge, rejects
+any other live challenge, replaces only the registered author participant,
+preserves claims, clears the intervention, restores the sealed interrupted
+lifecycle state, advances protocol revision, and records both fingerprints. It
+cannot replace the reviewer or spend recovery authority.
 
 A multi-day review may consequently require a new human signature after each
 author-session rotation; that cost is accepted to keep provider dispatch and
@@ -647,6 +701,9 @@ compare-and-append batch writes `compatibility-declared` followed by
 `execution-started`, updates projections for the ordered pair, and releases the
 lock before dispatch. The batch is all-or-nothing at the event-log write
 boundary; the launcher never exposes a declaration-only intermediate log.
+This requires a new `mutateReviewBatch`/`appendLockedEvents` primitive; the
+existing one-event `mutateReview` and `appendLockedEvent` functions are not
+silently assumed to provide batching.
 
 An already-published old binary cannot be made to understand an event-v2
 `review-created`, `compatibility-declared`, or any later exact-key event
@@ -696,7 +753,8 @@ The transaction is deterministic at every interruption boundary:
 | After submission, before launcher return                  | Submission event wins and execution resolves as submitted.                                         |
 | After conclusive no-dispatch proof                        | Same execution may be reconstructed without charging recovery.                                     |
 | Process exits while holding the review lock               | Prove the owner instance dead, retain the stale lock, reclaim, and resume the identical operation. |
-| Process exits in `initializeReview` before log creation   | Retain the stale lock as the receipt; identical `start` then creates genesis.                      |
+| Process exits in `initializeReview`; owner proven dead    | Automatically retain the stale lock receipt; identical `start` then creates genesis.               |
+| Process exits in `initializeReview`; liveness unknown     | Run confirmed `reclaim-lock`, retain its receipt, then rerun identical `start`.                    |
 
 The package never deletes or rewrites evidence during reconciliation. A
 collision, changed digest, or mismatched retry stops with retained paths.
@@ -755,6 +813,7 @@ Stable errors include:
 
 - `APR_RECOVERY_EXHAUSTED`;
 - `APR_RECOVERY_CONFLICT`;
+- `APR_AUTHORITY_UNAVAILABLE`;
 - `APR_AUTHOR_ROTATION_INVALID`;
 - `APR_RECORD_ID_INVALID`;
 - `APR_LAUNCH_TARGET_INVALID`;
@@ -782,8 +841,10 @@ its static catalogue text must never contain a provider retry command and
 instead directs the operator to inspect record status. Before exhaustion, any
 generated launch command uses the workspace form, never the deprecated
 invitation form. At exhaustion, record-aware outputs contain only the exact
-`request-grant --action additional-recovery` action when eligible, or the
-terminal `abandon` action when not.
+`enter-intervention --action additional-recovery` action when eligible. Within
+that intervention they contain the exact `request-grant` action or terminal
+`abandon` action. With unavailable Human Authority they report terminal
+exhaustion without a provider-resumption command.
 
 ## Legacy compatibility and adoption
 
@@ -864,8 +925,11 @@ and injected provider results. No live or paid provider is needed.
 - Environment allowlist and same-provider plus cross-provider identity-variable
   removal.
 - Session assurance and model attribution combinations and conflicts.
-- `rotate-author-session` grant binding, state preservation, transport
-  independence, unrelated-challenge refusal, and reviewer/recovery isolation.
+- Operator-initiated authorization intervention entry and restoration across
+  each allowed lifecycle state and transport mode.
+- `rotate-author-session` grant binding, interrupted-state restoration,
+  transport independence, unrelated-challenge refusal, and reviewer/recovery
+  isolation.
 - Live, stale, PID-reused, foreign-host, and liveness-unknown review locks.
 - Different-boot automatic reclamation and explicit-confirmation unknown-owner
   reclamation with retained receipts.
@@ -883,12 +947,15 @@ and injected provider results. No live or paid provider is needed.
   reverse, proving one shared allowance.
 - One built-in recovery, refusal at exhaustion, one exact signed additional
   recovery, grant replay refusal, and Full-Auto inability to mint the grant.
+- Authority-unavailable exhaustion and author rotation producing no grant or
+  provider-resumption path.
 - Changed artifact revision, response path, output path, PID, and attempt ID not
   resetting the allowance.
 - Two or more normal reviewer turns without recovery charges.
 - Author session rotation refusing `launch-reviewer`, followed by
-  `rotate-author` consuming an exact signed grant without intervention or claim
-  preconditions, then successful launch.
+  operator entry into `author-rotation`, an exact signed `rotate-author`
+  mutation without claim or participant-loss preconditions, restoration of the
+  interrupted state, then successful launch.
 - Later-turn permission denial against the exact current response.
 - Permission-blocked dispatch consuming recovery and suppressing every generated
   retry surface at exhaustion.
@@ -949,8 +1016,9 @@ the npm artifact.
 - The invitation-path launch form is deprecated and limited to validated first
   turns.
 - `launch-reviewer` becomes session-strict: an author-session rotation requires
-  signed `rotate-author` before another launch. Help and migration notes state
-  this multi-session cost explicitly; participant-loss recovery is not used.
+  operator entry into `author-rotation` and signed `rotate-author` before
+  another launch. Help and migration notes state this multi-session cost
+  explicitly; participant-loss recovery is not used.
 - `launch-reviewer` resolves its one positional physically. A directory
   containing the expected event log is a workspace. A regular file whose
   generated metadata identifies it as that workspace's
@@ -967,6 +1035,12 @@ the npm artifact.
   preflight refuses installed packages below the sealed minimum before reading
   or mutating v2 authority. A deliberate compatible upgrade regenerates the
   command from current authority rather than floating an existing invitation.
+- `enter-intervention` adds only the closed `additional-recovery` and
+  `rotate-author-session` actions, mapped to `recovery-authorization` and
+  `author-rotation` reasons. It pauses and later restores the prior lifecycle
+  state; it grants no authority by itself.
+- Records with unavailable Human Authority retain the built-in recovery but
+  cannot use either new protected escape hatch.
 - A preflight failure is non-spending and non-recovery-consuming.
 - A post-dispatch unknown outcome is spending-ambiguous and requires recovery.
 - A post-dispatch permission block is spending for recovery accounting even
