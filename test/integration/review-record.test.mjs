@@ -120,12 +120,53 @@ async function revisionAttempt(root, reviewId, minute, { changeArtifact }) {
   return { ...review, submitted };
 }
 
+function writeLineage(attempts) {
+  const reciprocal = `sha256:${'d'.repeat(64)}`;
+  const terminal = new Set(['superseded', 'acceptance-committed', 'acceptance-sealed-no-commit']);
+  const receipt = {
+    schema: 'ai-peer-review.lineage-receipt/v1',
+    complete: true,
+    attempts: attempts.map((attempt, index) => {
+      const file = attempt.started.paths.events;
+      const lines = readFileSync(file, 'utf8').trimEnd().split('\n');
+      const last = JSON.parse(lines.at(-1));
+      const authoritative = terminal.has(last.type) ? lines.slice(0, -1) : lines;
+      return {
+        review_id: attempt.started.review_id,
+        record_id: RECORD_ID,
+        root_review_id: attempts[0].started.review_id,
+        recovery_ordinal: index,
+        predecessor_review_id: attempts[index - 1]?.started.review_id ?? null,
+        successor_review_id: attempts[index + 1]?.started.review_id ?? null,
+        recovery_id: index === 0 ? null : `recovery-${index}`,
+        recovery_claim_digest: index === 0 ? null : `sha256:${'e'.repeat(64)}`,
+        reciprocal_receipt_digest: reciprocal,
+        consumed_grant_digest: index <= 1 ? null : `sha256:${'f'.repeat(64)}`,
+        event_log_digest: digest(Buffer.from(`${authoritative.join('\n')}\n`)),
+      };
+    }),
+  };
+  for (const attempt of attempts) {
+    writeFileSync(
+      path.join(attempt.started.paths.workspace, 'lineage-receipt.json'),
+      `${JSON.stringify(receipt, null, 2)}\n`
+    );
+  }
+  return receipt;
+}
+
 test('three recovery attempts consolidate into one truthful terminal review record', async (t) => {
   const { root } = fixture(t);
 
   const first = await revisionAttempt(root, 'review-incident-01', 0, { changeArtifact: true });
   completeReviewer(first.submitted.paths.response, 'accepted');
   const unsubmittedBytes = readFileSync(first.submitted.paths.response);
+  const second = await revisionAttempt(root, 'review-incident-02', 4, { changeArtifact: false });
+  const incompleteBytes = readFileSync(second.submitted.paths.response);
+  assert.match(incompleteBytes.toString('utf8'), /<!-- Write the review summary\. -->/);
+  const third = await startAndJoin(root, 'review-incident-03', 8);
+  writeLineage([first, second, third]);
+
   await api.supersedeReview({
     workspace: first.started.paths.workspace,
     identity: first.reviewer,
@@ -133,10 +174,6 @@ test('three recovery attempts consolidate into one truthful terminal review reco
     successorReviewId: 'review-incident-02',
     now: '2026-09-08T12:03:00.000Z',
   });
-
-  const second = await revisionAttempt(root, 'review-incident-02', 4, { changeArtifact: false });
-  const incompleteBytes = readFileSync(second.submitted.paths.response);
-  assert.match(incompleteBytes.toString('utf8'), /<!-- Write the review summary\. -->/);
   await api.supersedeReview({
     workspace: second.started.paths.workspace,
     identity: second.reviewer,
@@ -144,8 +181,6 @@ test('three recovery attempts consolidate into one truthful terminal review reco
     successorReviewId: 'review-incident-03',
     now: '2026-09-08T12:07:00.000Z',
   });
-
-  const third = await startAndJoin(root, 'review-incident-03', 8);
   completeReviewer(third.joined.paths.response, 'accepted');
   await api.submitReviewTurn({
     cwd: root,
@@ -154,6 +189,7 @@ test('three recovery attempts consolidate into one truthful terminal review reco
     decision: 'accepted',
     now: '2026-09-08T12:09:00.000Z',
   });
+  writeLineage([first, second, third]);
   const finalized = await api.finalizeReview({
     cwd: root,
     workspace: third.started.paths.workspace,

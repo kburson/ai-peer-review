@@ -16,6 +16,25 @@ function model({ override = false, noCommit = false } = {}) {
   return {
     schema: 'ai-peer-review.manifest/v1',
     review_id: 'golden-review',
+    lineage_receipt: {
+      schema: 'ai-peer-review.lineage-receipt/v1',
+      complete: true,
+      attempts: [
+        {
+          review_id: 'golden-review',
+          record_id: 'golden-review',
+          root_review_id: 'golden-review',
+          recovery_ordinal: 0,
+          predecessor_review_id: null,
+          successor_review_id: null,
+          recovery_id: null,
+          recovery_claim_digest: null,
+          reciprocal_receipt_digest: null,
+          consumed_grant_digest: null,
+          event_log_digest: `sha256:${'2'.repeat(64)}`,
+        },
+      ],
+    },
     status: override
       ? noCommit
         ? 'accepted-over-objections-uncommitted'

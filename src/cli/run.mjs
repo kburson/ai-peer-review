@@ -51,6 +51,7 @@ import {
   sealPhaseManifest,
 } from '../manifest/render.mjs';
 import { isFinalPhase, isPhased, parsePhaseKinds } from '../protocol/phases.mjs';
+import { inspectRecordLineage, validateSuccessor } from '../protocol/record-lineage.mjs';
 import {
   assertDistinctParticipants,
   claimRole,
@@ -74,7 +75,7 @@ import {
   sealNoCommitHandoff,
   statusReview as protocolStatusReview,
 } from '../protocol/service.mjs';
-import { atomicCreate } from '../protocol/store.mjs';
+import { atomicCreate, atomicWrite } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
 import { manualTransport } from '../transport/manual.mjs';
 import {
@@ -269,6 +270,144 @@ function exactRegularDigest(file, expectedDigest) {
 
 function sha256(bytes) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+const TERMINAL_EVENT_TYPES = new Set([
+  'acceptance-committed',
+  'acceptance-sealed-no-commit',
+  'override-committed',
+  'override-sealed-no-commit',
+]);
+
+function lineageEventLogDigest(events) {
+  const authoritative = TERMINAL_EVENT_TYPES.has(events.at(-1)?.type)
+    ? events.slice(0, -1)
+    : events;
+  return sha256(
+    Buffer.from(
+      authoritative
+        .map((event) => `${JSON.stringify(JSON.parse(canonicalProjection(event)))}\n`)
+        .join(''),
+      'utf8'
+    )
+  );
+}
+
+function terminalLineageReceipt(state, events, workspace) {
+  const receiptPath = path.join(workspace, 'lineage-receipt.json');
+  const existingReceipt = existsSync(receiptPath);
+  let receipt;
+  if (existingReceipt) {
+    try {
+      receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    } catch {
+      fail(
+        'APR_LINEAGE_INVALID',
+        'Terminal lineage receipt is not valid JSON.',
+        'Preserve the workspace and repair its exact lineage receipt before finalizing.'
+      );
+    }
+  } else {
+    const reviewId = state.protocol.review_id;
+    const recordId = state.protocol.startup.context.record_id ?? reviewId;
+    if (recordId !== reviewId) {
+      fail(
+        'APR_LINEAGE_UNAVAILABLE',
+        'Recovered review lineage is unavailable at finalization.',
+        'Restore the complete recovery receipt before finalizing this review.'
+      );
+    }
+    receipt = {
+      schema: 'ai-peer-review.lineage-receipt/v1',
+      complete: true,
+      attempts: [
+        {
+          review_id: reviewId,
+          record_id: recordId,
+          root_review_id: reviewId,
+          recovery_ordinal: 0,
+          predecessor_review_id: null,
+          successor_review_id: null,
+          recovery_id: null,
+          recovery_claim_digest: null,
+          reciprocal_receipt_digest: null,
+          consumed_grant_digest: null,
+          event_log_digest: lineageEventLogDigest(events),
+        },
+      ],
+    };
+  }
+  const priorReceipt = structuredClone(receipt);
+  const inspected = inspectRecordLineage(receipt);
+  if (inspected.status !== 'complete') {
+    fail(
+      'APR_LINEAGE_INVALID',
+      'Terminal lineage receipt is contradictory.',
+      'Preserve the workspace and repair its exact lineage receipt before finalizing.',
+      { reasons: inspected.reasons }
+    );
+  }
+  const current = inspected.attempts.find(
+    (attempt) => attempt.review_id === state.protocol.review_id
+  );
+  if (!current) {
+    fail(
+      'APR_LINEAGE_INVALID',
+      'Terminal lineage receipt omits the current review attempt.',
+      'Restore the complete lineage receipt before finalizing.'
+    );
+  }
+  if (current.event_log_digest !== lineageEventLogDigest(events)) {
+    receipt = structuredClone(receipt);
+    receipt.attempts.find(
+      (attempt) => attempt.review_id === state.protocol.review_id
+    ).event_log_digest = lineageEventLogDigest(events);
+  }
+  const refreshed = inspectRecordLineage(receipt);
+  if (refreshed.status !== 'complete') {
+    fail(
+      'APR_LINEAGE_INVALID',
+      'Refreshed terminal lineage receipt is contradictory.',
+      'Preserve the workspaces and repair their reciprocal lineage receipt.',
+      { reasons: refreshed.reasons }
+    );
+  }
+  const bytes = Buffer.from(canonicalProjection(receipt), 'utf8');
+  const repositoryRoot = state.protocol.startup.context.repository_root;
+  const attemptWorkspaces = receipt.attempts.map((attempt) =>
+    path.join(repositoryRoot, '.scratch', 'peer-review', attempt.review_id)
+  );
+  const receiptPaths = attemptWorkspaces.map((attemptWorkspace) =>
+    path.join(attemptWorkspace, 'lineage-receipt.json')
+  );
+  if (existingReceipt) {
+    for (const target of receiptPaths) {
+      try {
+        if (!sameValue(JSON.parse(readFileSync(target, 'utf8')), priorReceipt)) {
+          throw new Error('receipt mismatch');
+        }
+      } catch {
+        fail(
+          'APR_LINEAGE_INVALID',
+          'Reciprocal lineage receipts differ across attempt workspaces.',
+          'Restore every exact reciprocal receipt before finalizing.'
+        );
+      }
+    }
+    for (const target of receiptPaths) atomicWrite(target, bytes);
+  } else {
+    ensureExactFile(receiptPath, bytes);
+  }
+  const verified = inspectRecordLineage(attemptWorkspaces);
+  if (verified.status !== 'complete') {
+    fail(
+      'APR_LINEAGE_INVALID',
+      'Terminal lineage receipt does not bind the retained attempt workspaces.',
+      'Preserve the workspaces and repair their exact event history.',
+      { reasons: verified.reasons, missing: verified.missing }
+    );
+  }
+  return receipt;
 }
 
 function ensureExactFile(file, bytes) {
@@ -1643,6 +1782,53 @@ export async function supersedeReview(input) {
       'Resume from a registered participant and name the replacement review ID.'
     );
   }
+  const repositoryRoot = state.protocol.startup.context.repository_root;
+  const receiptPath = path.join(absolute, 'lineage-receipt.json');
+  let lineage = {
+    status: 'lineage-unavailable',
+    reasons: [],
+    missing: [receiptPath],
+    attempts: [],
+  };
+  if (existsSync(receiptPath)) {
+    try {
+      const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+      const receiptInspection = inspectRecordLineage(receipt);
+      lineage =
+        receiptInspection.status === 'complete'
+          ? inspectRecordLineage(
+              receiptInspection.attempts.map((attempt) =>
+                path.join(repositoryRoot, '.scratch', 'peer-review', attempt.review_id)
+              )
+            )
+          : receiptInspection;
+    } catch {
+      lineage = {
+        status: 'lineage-invalid',
+        reasons: ['receipt-json'],
+        missing: [],
+        attempts: [],
+      };
+    }
+  }
+  if (lineage.status !== 'complete') {
+    const unavailable = ['lineage-unavailable', 'incomplete-unavailable'].includes(lineage.status);
+    fail(
+      unavailable ? 'APR_LINEAGE_UNAVAILABLE' : 'APR_LINEAGE_INVALID',
+      unavailable
+        ? 'Successor lineage evidence is unavailable.'
+        : 'Successor lineage evidence is contradictory.',
+      unavailable
+        ? 'Restore both attempt workspaces and their reciprocal lineage receipt before supersession.'
+        : 'Preserve both attempts and repair their exact reciprocal lineage evidence.',
+      { status: lineage.status, reasons: lineage.reasons, missing: lineage.missing }
+    );
+  }
+  const predecessor = lineage.attempts.find(
+    (attempt) => attempt.review_id === state.protocol.review_id
+  );
+  const successor = lineage.attempts.find((attempt) => attempt.review_id === successorReviewId);
+  validateSuccessor({ predecessor, successor });
   const retainedPaths = retainedWorkspacePaths(absolute);
   const superseded = await mutateReview(absolute, expected(state), (current) =>
     eventFor(
@@ -3242,6 +3428,7 @@ function validateTerminalFinalization({
       transactionRepository
     );
   }
+  const lineageReceipt = terminalLineageReceipt(state, events, absolute);
   const model = buildManifest({
     state,
     events,
@@ -3249,6 +3436,7 @@ function validateTerminalFinalization({
     acceptance_basis: override ? 'human-override' : 'reviewer-consensus',
     final_commit: state.protocol.commit_mode === 'normal' ? expectedHead : null,
     human_decision: decision?.model ?? null,
+    lineage_receipt: lineageReceipt,
   });
   const manifest = sealManifest(model, { path: paths.manifest.relative });
   if (
@@ -3539,12 +3727,14 @@ export async function finalizeReview(input, deps = {}) {
     }
     const targetStatus =
       state.protocol.commit_mode === 'normal' ? 'accepted' : 'accepted-uncommitted';
+    const lineageReceipt = terminalLineageReceipt(state, events, absolute);
     const model = buildManifest({
       state,
       events,
       status: targetStatus,
       acceptance_basis: 'reviewer-consensus',
       final_commit: state.protocol.commit_mode === 'normal' ? expectedHead : null,
+      lineage_receipt: lineageReceipt,
     });
     const manifest = sealManifest(model, { path: paths.manifest.relative });
     ensureExactFile(paths.manifest.absolute, manifest.bytes);
@@ -3669,6 +3859,7 @@ export async function finalizeReview(input, deps = {}) {
     state.protocol.commit_mode === 'normal'
       ? 'accepted-over-objections'
       : 'accepted-over-objections-uncommitted';
+  const lineageReceipt = terminalLineageReceipt(state, events, absolute);
   const model = buildManifest({
     state,
     events,
@@ -3676,6 +3867,7 @@ export async function finalizeReview(input, deps = {}) {
     acceptance_basis: 'human-override',
     final_commit: state.protocol.commit_mode === 'normal' ? expectedHead : null,
     human_decision: decision.model,
+    lineage_receipt: lineageReceipt,
   });
   const manifest = sealManifest(model, { path: paths.manifest.relative });
   ensureExactFile(paths.humanDecision.absolute, decision.bytes);
