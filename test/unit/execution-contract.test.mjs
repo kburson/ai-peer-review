@@ -37,31 +37,34 @@ function authority(fx, { turns = 0, reviewer = null } = {}) {
   };
 }
 
+function commandPaths(root) {
+  return {
+    packageBin: path.join(root, 'opt', 'ai-peer-review', 'bin', 'peer-review.mjs'),
+    nodeExecutable: path.join(root, 'opt', 'node', 'bin', 'node'),
+  };
+}
+
 test('first-turn execution contract uses absolute Node/package argv and requires join', (t) => {
   const fx = fixture(t);
+  const commands = commandPaths(path.parse(fx.root).root);
   const contract = buildReviewerExecutionContract({
     workspace: fx.workspace,
     host: 'claude',
     model: 'claude-opus-5',
     effort: 'high',
     inspectAuthority: () => authority(fx),
-    packageBin: '/opt/ai-peer-review/bin/peer-review.mjs',
-    nodeExecutable: '/opt/node/bin/node',
+    ...commands,
   });
 
   assert.equal(contract.join_required, true);
   assert.equal(contract.response, path.join(fx.workspace, 'reviewer-response-1.md'));
   assert.deepEqual(contract.commands.join, {
-    file: '/opt/node/bin/node',
-    args: ['/opt/ai-peer-review/bin/peer-review.mjs', 'join', fx.invitation],
+    file: commands.nodeExecutable,
+    args: [commands.packageBin, 'join', fx.invitation],
     shell: false,
   });
-  assert.equal(contract.commands.submit.file, '/opt/node/bin/node');
-  assert.deepEqual(contract.commands.submit.args, [
-    '/opt/ai-peer-review/bin/peer-review.mjs',
-    'submit',
-    fx.workspace,
-  ]);
+  assert.equal(contract.commands.submit.file, commands.nodeExecutable);
+  assert.deepEqual(contract.commands.submit.args, [commands.packageBin, 'submit', fx.workspace]);
 });
 
 test('later-turn execution contract omits join and rotates to the current response', (t) => {
@@ -76,8 +79,7 @@ test('later-turn execution contract omits join and rotates to the current respon
         turns: 1,
         reviewer: { session_fingerprint: `sha256:${'b'.repeat(64)}` },
       }),
-    packageBin: '/opt/ai-peer-review/bin/peer-review.mjs',
-    nodeExecutable: '/opt/node/bin/node',
+    ...commandPaths(path.parse(fx.root).root),
   });
 
   assert.equal(contract.join_required, false);
@@ -98,8 +100,7 @@ test('invitation is collateral only and cannot override event-derived workspace 
     model: 'claude-opus-5',
     effort: 'low',
     inspectAuthority: () => authority(fx),
-    packageBin: '/opt/ai-peer-review/bin/peer-review.mjs',
-    nodeExecutable: '/opt/node/bin/node',
+    ...commandPaths(path.parse(fx.root).root),
   });
   assert.equal(contract.invitation, fx.invitation);
   assert.notEqual(contract.invitation, outside);

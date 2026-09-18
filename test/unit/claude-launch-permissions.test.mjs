@@ -78,6 +78,40 @@ test('normalizes a Windows drive path to Claude filesystem-root permission synta
   );
 });
 
+test('normalizes absolute Windows execution argv for exact Claude Bash permissions', () => {
+  const execution = {
+    schema: 'ai-peer-review.execution-contract/v1',
+    response: String.raw`C:\work\project\reviewer-response-1.md`,
+    commands: {
+      join: {
+        file: String.raw`C:\Program Files\nodejs\node.exe`,
+        args: [
+          String.raw`C:\work\project\bin\peer-review.mjs`,
+          'join',
+          String.raw`C:\work\project\reviewer-invitation.md`,
+        ],
+      },
+      submit: {
+        file: String.raw`C:\Program Files\nodejs\node.exe`,
+        args: [
+          String.raw`C:\work\project\bin\peer-review.mjs`,
+          'submit',
+          String.raw`C:\work\project\.scratch\peer-review\review-1`,
+        ],
+      },
+    },
+  };
+
+  assert.deepEqual(encodeClaudeExecutionPermissions(execution), [
+    'Read',
+    'Glob',
+    'Grep',
+    "Bash('C:/Program Files/nodejs/node.exe' C:/work/project/bin/peer-review.mjs join C:/work/project/reviewer-invitation.md)",
+    "Bash('C:/Program Files/nodejs/node.exe' C:/work/project/bin/peer-review.mjs submit C:/work/project/.scratch/peer-review/review-1)",
+    'Edit(//c/work/project/reviewer-response-1.md)',
+  ]);
+});
+
 test('keeps spaces literal and refuses unsafe or noncanonical permission paths', () => {
   assert.equal(
     encodeClaudeEditRule('/work/review files/response.md'),

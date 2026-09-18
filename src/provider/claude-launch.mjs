@@ -122,8 +122,15 @@ export function matchesClaudeEditRule(rule, candidate, { projectRoot } = {}) {
   }
 }
 
+function renderClaudeBashCommand(argv) {
+  const portableArgv = argv.map((value) =>
+    pathImplementation(value) ? portableCommandPath(value, 'command') : value
+  );
+  return renderCommand(portableArgv, { platform: 'linux' });
+}
+
 function encodeClaudeBashRule(argv) {
-  const command = renderCommand(argv);
+  const command = renderClaudeBashCommand(argv);
   if (UNSUPPORTED_BASH_PATTERN.test(command)) {
     fail(
       'Claude package command permission is not exactly representable.',
@@ -215,9 +222,9 @@ export function buildClaudeReviewerLaunchFromExecution({ contract, preflight } =
     );
   }
   const joinCommand = contract.commands.join
-    ? renderCommand([contract.commands.join.file, ...contract.commands.join.args])
+    ? renderClaudeBashCommand([contract.commands.join.file, ...contract.commands.join.args])
     : null;
-  const submitCommand = renderCommand([
+  const submitCommand = renderClaudeBashCommand([
     contract.commands.submit.file,
     ...contract.commands.submit.args,
   ]);
