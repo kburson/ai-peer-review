@@ -207,6 +207,13 @@
         "type": { "const": "delivery-acknowledged" },
         "payload": { "$ref": "event-v1.json#/$defs/deliveryIdPayload" }
       }
+    },
+    {
+      "properties": {
+        "type": { "const": "lock-reclaimed" },
+        "actor": { "const": "system" },
+        "payload": { "$ref": "#/$defs/lockReclaimed" }
+      }
     }
   ],
   "$defs": {
@@ -379,6 +386,16 @@
       "additionalProperties": false,
       "required": ["compatibility"],
       "properties": { "compatibility": { "$ref": "#/$defs/compatibility" } }
+    },
+    "lockReclaimed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lock_digest", "receipt_digest", "reason"],
+      "properties": {
+        "lock_digest": { "$ref": "event-v1.json#/$defs/digest" },
+        "receipt_digest": { "$ref": "event-v1.json#/$defs/digest" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 }
+      }
     }
   }
 }

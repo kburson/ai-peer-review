@@ -20,7 +20,13 @@ import { AprError } from '../errors.mjs';
 import { assertReaderWriterCompatibility } from './compatibility.mjs';
 import { validateEvent, validateVersionedEvent } from './events.mjs';
 import { reduceEvents } from './reducer.mjs';
-import { appendLockedEvents, atomicCreate, atomicWrite, withReviewLock } from './store.mjs';
+import {
+  appendLockedEvents,
+  atomicCreate,
+  atomicWrite,
+  reclaimReviewLock as retainReviewLock,
+  withReviewLock,
+} from './store.mjs';
 
 function ordered(value) {
   if (Array.isArray(value)) return value.map(ordered);
@@ -366,6 +372,52 @@ export function inspectReview(workspace) {
 export function inspectReviewAuthority(workspace) {
   const { events, state } = readAuthority(workspace);
   return Object.freeze({ events: Object.freeze([...events]), state });
+}
+
+const TERMINAL_REVIEW_STATES = new Set([
+  'accepted',
+  'accepted-uncommitted',
+  'accepted-over-objections',
+  'accepted-over-objections-uncommitted',
+  'abandoned',
+  'superseded',
+]);
+
+export async function reclaimReviewLock(input = {}) {
+  const receipt = await retainReviewLock(input);
+  const workspace = input.workspace;
+  const eventFile = path.join(workspace, 'events.jsonl');
+  if (!existsSync(eventFile)) return Object.freeze({ ...receipt, event_appended: false });
+
+  return withReviewLock(workspace, async () => {
+    const { events, state, file, bytes } = readAuthority(workspace);
+    if (
+      TERMINAL_REVIEW_STATES.has(state.protocol.state) ||
+      state.protocol.schema !== 'ai-peer-review.protocol/v2'
+    ) {
+      return Object.freeze({ ...receipt, event_appended: false });
+    }
+    const receiptBytes = readFileSync(receipt.receipt_path);
+    const reclaimed = {
+      schema: 'ai-peer-review.event/v2',
+      review_id: state.protocol.review_id,
+      sequence: state.protocol.sequence + 1,
+      revision: state.protocol.revision,
+      type: 'lock-reclaimed',
+      actor: 'system',
+      at: receipt.reclaimed_at,
+      payload: {
+        lock_digest: receipt.lock_digest,
+        receipt_digest: sha256(receiptBytes),
+        reason: receipt.reason,
+      },
+    };
+    validateVersionedEvent(reclaimed);
+    const next = reduceEvents([...events, reclaimed]);
+    appendLockedEvents(file, bytes, [reclaimed]);
+    writeProjections(workspace, next);
+    return Object.freeze({ ...receipt, event_appended: true, event: Object.freeze(reclaimed) });
+  });
 }
 
 function statusPaths(state) {

@@ -75,6 +75,7 @@ const STATE_PRESERVING = new Set([
   'supplement-registered',
   'delivery-written',
   'delivery-acknowledged',
+  'lock-reclaimed',
 ]);
 
 function copy(value) {
