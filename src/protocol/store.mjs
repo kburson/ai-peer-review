@@ -79,13 +79,13 @@ async function localOwnerIdentity() {
     const observed = await defaultObserveProcessIdentity();
     if (observed.status === 'live') return observed;
   }
-  const nowSeconds = Math.floor(Date.now() / 1000);
+  const nowSeconds = Date.now() / 1000;
   return Object.freeze({
     status: 'live',
     host: os.hostname(),
     pid: process.pid,
-    boot_id: `epoch:${nowSeconds - Math.floor(os.uptime())}`,
-    process_start: `epoch:${nowSeconds - Math.floor(process.uptime())}`,
+    boot_id: `epoch:${Math.floor(nowSeconds - os.uptime())}`,
+    process_start: `epoch:${Math.floor(nowSeconds - process.uptime())}`,
   });
 }
 
