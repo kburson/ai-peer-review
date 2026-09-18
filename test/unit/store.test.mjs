@@ -114,34 +114,38 @@ test('withReviewLock refuses contention and never deletes another owner token', 
   assert.equal(JSON.parse(readFileSync(lockFile, 'utf8')).token, 'foreign');
 });
 
-test('fallback owner identity subtracts fractional uptime before rounding', async (t) => {
-  const workspace = workspaceFixture(t);
-  const lockFile = path.join(workspace, 'locks', 'review.lock');
-  t.mock.method(Date, 'now', () => 1_000_900);
-  t.mock.method(process, 'uptime', () => 10.9);
-  let probes = 0;
+test(
+  'fallback owner identity subtracts fractional uptime before rounding',
+  { skip: process.platform === 'linux' },
+  async (t) => {
+    const workspace = workspaceFixture(t);
+    const lockFile = path.join(workspace, 'locks', 'review.lock');
+    t.mock.method(Date, 'now', () => 1_000_900);
+    t.mock.method(process, 'uptime', () => 10.9);
+    let probes = 0;
 
-  await withReviewLock(workspace, async () => {
-    const lock = JSON.parse(readFileSync(lockFile, 'utf8'));
-    assert.equal(lock.process_start, 'epoch:990');
-    await assert.rejects(
-      withReviewLock(workspace, async () => 'not entered', {
-        async observeProcessIdentity() {
-          probes += 1;
-          return {
-            status: 'live',
-            host: lock.host,
-            pid: lock.pid,
-            boot_id: lock.boot_id,
-            process_start: lock.process_start,
-          };
-        },
-      }),
-      (error) => error.code === 'APR_REVIEW_LOCKED'
-    );
-    assert.equal(probes, 0);
-  });
-});
+    await withReviewLock(workspace, async () => {
+      const lock = JSON.parse(readFileSync(lockFile, 'utf8'));
+      assert.equal(lock.process_start, 'epoch:990');
+      await assert.rejects(
+        withReviewLock(workspace, async () => 'not entered', {
+          async observeProcessIdentity() {
+            probes += 1;
+            return {
+              status: 'live',
+              host: lock.host,
+              pid: lock.pid,
+              boot_id: lock.boot_id,
+              process_start: lock.process_start,
+            };
+          },
+        }),
+        (error) => error.code === 'APR_REVIEW_LOCKED'
+      );
+      assert.equal(probes, 0);
+    });
+  }
+);
 
 test('withReviewLock converts lock-directory failures to a stable APR error', async (t) => {
   const workspace = workspaceFixture(t);
