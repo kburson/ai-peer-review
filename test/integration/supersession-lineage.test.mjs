@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
 import { inspectRecordLineage } from '../../src/protocol/record-lineage.mjs';
+import { appendEvent } from '../../src/protocol/store.mjs';
 import { fixture, identity, NOW } from '../helpers/intervention-fixture.mjs';
 
 function digest(bytes) {
@@ -53,6 +54,51 @@ function writeReciprocalReceipt(started, value) {
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
+
+test('legacy placeholder supersession is surfaced on exact retry without rewriting history', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const author = identity('author', 'lineage-author');
+  const predecessor = await api.startReview({
+    cwd: fx.root,
+    artifact: 'docs/artifact.md',
+    artifactKind: 'spec',
+    identity: author,
+    reviewId: 'review-root',
+    recordId: 'record-lineage',
+    now: NOW,
+  });
+  await appendEvent(predecessor.paths.events, {
+    schema: 'ai-peer-review.event/v1',
+    review_id: predecessor.review_id,
+    sequence: 2,
+    revision: 2,
+    type: 'superseded',
+    actor: author.session_fingerprint,
+    at: '2026-09-09T02:01:00.000Z',
+    payload: {
+      reason: 'Continue with the replacement attempt.',
+      successor_review_id: 'review-candidate',
+      retained_paths: [],
+    },
+  });
+  const before = readFileSync(predecessor.paths.events);
+
+  await assert.rejects(
+    api.supersedeReview({
+      workspace: predecessor.paths.workspace,
+      identity: author,
+      reason: 'Continue with the replacement attempt.',
+      successorReviewId: 'review-candidate',
+      now: '2026-09-09T02:02:00.000Z',
+    }),
+    (error) =>
+      error.code === 'APR_LINEAGE_UNAVAILABLE' &&
+      error.details.status === 'lineage-unavailable' &&
+      error.details.missing.some((entry) => entry.endsWith('/review-candidate'))
+  );
+  assert.deepEqual(readFileSync(predecessor.paths.events), before);
+});
 
 test('standalone supersession refuses absent lineage without mutating predecessor authority', async (t) => {
   const fx = fixture();
