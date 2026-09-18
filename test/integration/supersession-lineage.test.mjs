@@ -95,7 +95,7 @@ test('legacy placeholder supersession is surfaced on exact retry without rewriti
     (error) =>
       error.code === 'APR_LINEAGE_UNAVAILABLE' &&
       error.details.status === 'lineage-unavailable' &&
-      error.details.missing.some((entry) => entry.endsWith('/review-candidate'))
+      error.details.missing.some((entry) => path.basename(entry) === 'review-candidate')
   );
   assert.deepEqual(readFileSync(predecessor.paths.events), before);
 });
