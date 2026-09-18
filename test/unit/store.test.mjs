@@ -119,6 +119,7 @@ test('fallback owner identity subtracts fractional uptime before rounding', asyn
   const lockFile = path.join(workspace, 'locks', 'review.lock');
   t.mock.method(Date, 'now', () => 1_000_900);
   t.mock.method(process, 'uptime', () => 10.9);
+  let probes = 0;
 
   await withReviewLock(workspace, async () => {
     const lock = JSON.parse(readFileSync(lockFile, 'utf8'));
@@ -126,6 +127,7 @@ test('fallback owner identity subtracts fractional uptime before rounding', asyn
     await assert.rejects(
       withReviewLock(workspace, async () => 'not entered', {
         async observeProcessIdentity() {
+          probes += 1;
           return {
             status: 'live',
             host: lock.host,
@@ -137,6 +139,7 @@ test('fallback owner identity subtracts fractional uptime before rounding', asyn
       }),
       (error) => error.code === 'APR_REVIEW_LOCKED'
     );
+    assert.equal(probes, 0);
   });
 });
 

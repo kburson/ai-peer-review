@@ -17,6 +17,8 @@ import os from 'node:os';
 import { AprError } from '../errors.mjs';
 import { observeProcessIdentity as defaultObserveProcessIdentity } from './process-identity.mjs';
 
+const ACTIVE_LOCK_TOKENS = new Set();
+
 function canonicalValue(value, ancestors = new Set()) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
   if (typeof value === 'number' && Number.isFinite(value) && !Object.is(value, -0)) return value;
@@ -68,6 +70,18 @@ function syncDirectory(directory) {
 
 function digestBytes(bytes) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function activeInProcessLock(lockFile) {
+  try {
+    const bytes = readFileSync(lockFile);
+    const lock = JSON.parse(bytes.toString('utf8'));
+    return ACTIVE_LOCK_TOKENS.has(lock?.token)
+      ? Object.freeze({ digest: digestBytes(bytes), token: lock.token })
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function reviewLockError(code, message, recovery, details = {}) {
@@ -353,6 +367,7 @@ export async function withReviewLock(workspace, operation, options = {}) {
       closeSync(descriptor);
       descriptor = undefined;
       syncDirectory(lockDirectory);
+      ACTIVE_LOCK_TOKENS.add(token);
     } catch (cause) {
       if (descriptor !== undefined) {
         try {
@@ -379,6 +394,15 @@ export async function withReviewLock(workspace, operation, options = {}) {
         );
         error.cause = cause;
         throw error;
+      }
+      const activeOwner = activeInProcessLock(lockFile);
+      if (activeOwner) {
+        throw reviewLockError(
+          'APR_REVIEW_LOCKED',
+          'The review is locked by another live operation in this process.',
+          `Wait for the owner recorded in ${lockFile} to finish, then retry.`,
+          { lockFile, lockDigest: activeOwner.digest }
+        );
       }
       const inspection = await inspectReviewLock({
         workspace,
@@ -420,6 +444,7 @@ export async function withReviewLock(workspace, operation, options = {}) {
   try {
     return await operation(Object.freeze({ lockFile, token }));
   } finally {
+    ACTIVE_LOCK_TOKENS.delete(token);
     try {
       const owner = JSON.parse(readFileSync(lockFile, 'utf8'));
       if (owner?.token === token) unlinkSync(lockFile);
