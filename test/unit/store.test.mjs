@@ -17,6 +17,8 @@ import {
   appendLockedEvents,
   atomicCreate,
   atomicWrite,
+  inspectReviewLock,
+  reclaimReviewLock,
   withReviewLock,
 } from '../../src/protocol/store.mjs';
 
@@ -62,15 +64,35 @@ test('atomicCreate publishes once without replacing an occupied target', (t) => 
 
 test('withReviewLock records ownership, supports async work, and preserves return values', async (t) => {
   const workspace = workspaceFixture(t);
-  const value = await withReviewLock(workspace, async ({ lockFile, token }) => {
-    const lock = JSON.parse(readFileSync(lockFile, 'utf8'));
-    assert.equal(lock.schema, 'ai-peer-review.lock/v1');
-    assert.equal(lock.token, token);
-    assert.equal(lock.pid, process.pid);
-    assert.match(lock.acquiredAt, /^\d{4}-\d{2}-\d{2}T/);
-    return 'complete';
-  });
+  let probes = 0;
+  const value = await withReviewLock(
+    workspace,
+    async ({ lockFile, token }) => {
+      const lock = JSON.parse(readFileSync(lockFile, 'utf8'));
+      assert.equal(lock.schema, 'ai-peer-review.lock/v2');
+      assert.equal(lock.token, token);
+      assert.equal(lock.pid, process.pid);
+      assert.equal(lock.host, 'host-a');
+      assert.equal(lock.boot_id, 'boot-a');
+      assert.equal(lock.process_start, 'start-a');
+      assert.match(lock.acquired_at, /^\d{4}-\d{2}-\d{2}T/);
+      return 'complete';
+    },
+    {
+      ownerIdentity: {
+        status: 'live',
+        host: 'host-a',
+        pid: process.pid,
+        boot_id: 'boot-a',
+        process_start: 'start-a',
+      },
+      async observeProcessIdentity() {
+        probes += 1;
+      },
+    }
+  );
   assert.equal(value, 'complete');
+  assert.equal(probes, 0);
   assert.equal(existsSync(path.join(workspace, 'locks', 'review.lock')), false);
 });
 
@@ -92,6 +114,39 @@ test('withReviewLock refuses contention and never deletes another owner token', 
   assert.equal(JSON.parse(readFileSync(lockFile, 'utf8')).token, 'foreign');
 });
 
+test(
+  'fallback owner identity subtracts fractional uptime before rounding',
+  { skip: process.platform === 'linux' },
+  async (t) => {
+    const workspace = workspaceFixture(t);
+    const lockFile = path.join(workspace, 'locks', 'review.lock');
+    t.mock.method(Date, 'now', () => 1_000_900);
+    t.mock.method(process, 'uptime', () => 10.9);
+    let probes = 0;
+
+    await withReviewLock(workspace, async () => {
+      const lock = JSON.parse(readFileSync(lockFile, 'utf8'));
+      assert.equal(lock.process_start, 'epoch:990');
+      await assert.rejects(
+        withReviewLock(workspace, async () => 'not entered', {
+          async observeProcessIdentity() {
+            probes += 1;
+            return {
+              status: 'live',
+              host: lock.host,
+              pid: lock.pid,
+              boot_id: lock.boot_id,
+              process_start: lock.process_start,
+            };
+          },
+        }),
+        (error) => error.code === 'APR_REVIEW_LOCKED'
+      );
+      assert.equal(probes, 0);
+    });
+  }
+);
+
 test('withReviewLock converts lock-directory failures to a stable APR error', async (t) => {
   const workspace = workspaceFixture(t);
   writeFileSync(path.join(workspace, 'locks'), 'not a directory\n');
@@ -99,6 +154,162 @@ test('withReviewLock converts lock-directory failures to a stable APR error', as
     withReviewLock(workspace, async () => 'not entered'),
     (error) => error.code === 'APR_REVIEW_LOCK_FAILED'
   );
+});
+
+test('withReviewLock retains a proven-dead lock byte-for-byte and retries acquisition', async (t) => {
+  const workspace = workspaceFixture(t);
+  const lockDirectory = path.join(workspace, 'locks');
+  const lockFile = path.join(lockDirectory, 'review.lock');
+  mkdirSync(lockDirectory, { recursive: true });
+  const staleBytes = Buffer.from(
+    `${JSON.stringify({ schema: 'ai-peer-review.lock/v2', token: 'old', pid: 91, host: 'host-a', boot_id: 'boot-a', process_start: 'old-start', acquired_at: new Date(0).toISOString() })}\n`
+  );
+  writeFileSync(lockFile, staleBytes);
+  let probes = 0;
+
+  const result = await withReviewLock(workspace, async () => 'acquired', {
+    ownerIdentity: {
+      status: 'live',
+      host: 'host-a',
+      pid: process.pid,
+      boot_id: 'boot-a',
+      process_start: 'current-start',
+    },
+    async observeProcessIdentity() {
+      probes += 1;
+      return { status: 'dead', host: 'host-a', pid: 91 };
+    },
+  });
+
+  assert.equal(result, 'acquired');
+  assert.equal(probes, 1);
+  const retained = readdirSync(path.join(lockDirectory, 'stale')).filter(
+    (entry) => !entry.endsWith('.receipt.json')
+  );
+  assert.equal(retained.length, 1);
+  assert.deepEqual(readFileSync(path.join(lockDirectory, 'stale', retained[0])), staleBytes);
+  assert.equal(existsSync(lockFile), false);
+});
+
+test('inspectReviewLock distinguishes live, PID reuse, different boot, foreign host, and unknown liveness', async (t) => {
+  const workspace = workspaceFixture(t);
+  const lockDirectory = path.join(workspace, 'locks');
+  const lockFile = path.join(lockDirectory, 'review.lock');
+  mkdirSync(lockDirectory, { recursive: true });
+  const owner = {
+    schema: 'ai-peer-review.lock/v2',
+    token: 'owner',
+    pid: 91,
+    host: 'host-a',
+    boot_id: 'boot-a',
+    process_start: 'start-a',
+    acquired_at: new Date(0).toISOString(),
+  };
+  writeFileSync(lockFile, `${JSON.stringify(owner)}\n`);
+
+  const live = await inspectReviewLock({
+    workspace,
+    hostname: 'host-a',
+    observeProcessIdentity: async () => ({
+      status: 'live',
+      host: 'host-a',
+      pid: 91,
+      boot_id: 'boot-a',
+      process_start: 'start-a',
+    }),
+  });
+  assert.equal(live.status, 'live');
+
+  const reused = await inspectReviewLock({
+    workspace,
+    hostname: 'host-a',
+    observeProcessIdentity: async () => ({
+      status: 'live',
+      host: 'host-a',
+      pid: 91,
+      boot_id: 'boot-a',
+      process_start: 'start-b',
+    }),
+  });
+  assert.equal(reused.status, 'stale');
+  assert.equal(reused.reason, 'pid-reused');
+
+  const rebooted = await inspectReviewLock({
+    workspace,
+    hostname: 'host-a',
+    observeProcessIdentity: async () => ({
+      status: 'live',
+      host: 'host-a',
+      pid: 91,
+      boot_id: 'boot-b',
+      process_start: 'start-a',
+    }),
+  });
+  assert.equal(rebooted.status, 'stale');
+  assert.equal(rebooted.reason, 'different-boot');
+
+  const foreign = await inspectReviewLock({ workspace, hostname: 'host-b' });
+  assert.equal(foreign.status, 'unknown');
+  assert.equal(foreign.reason, 'foreign-host');
+
+  const unknown = await inspectReviewLock({
+    workspace,
+    hostname: 'host-a',
+    observeProcessIdentity: async () => ({
+      status: 'unknown',
+      host: 'host-a',
+      pid: 91,
+      reason: 'probe-unavailable',
+    }),
+  });
+  assert.equal(unknown.status, 'unknown');
+  assert.equal(unknown.reason, 'probe-unavailable');
+});
+
+test('reclaimReviewLock requires exact digest and confirmation and retains a receipt without dispatch', async (t) => {
+  const workspace = workspaceFixture(t);
+  const lockDirectory = path.join(workspace, 'locks');
+  const lockFile = path.join(lockDirectory, 'review.lock');
+  mkdirSync(lockDirectory, { recursive: true });
+  writeFileSync(
+    lockFile,
+    `${JSON.stringify({ schema: 'ai-peer-review.lock/v2', token: 'old', pid: 91, host: 'host-a', boot_id: 'boot-a', process_start: 'start-a', acquired_at: new Date(0).toISOString() })}\n`
+  );
+  const inspected = await inspectReviewLock({ workspace, hostname: 'host-b' });
+
+  await assert.rejects(
+    reclaimReviewLock({
+      workspace,
+      lockDigest: inspected.digest,
+      reason: 'operator verified the foreign host is gone',
+      confirmReclaim: false,
+    }),
+    (error) => error.code === 'APR_REVIEW_LOCK_RECLAIM_CONFIRMATION_REQUIRED'
+  );
+  await assert.rejects(
+    reclaimReviewLock({
+      workspace,
+      lockDigest: `sha256:${'0'.repeat(64)}`,
+      reason: 'operator verified the foreign host is gone',
+      confirmReclaim: true,
+    }),
+    (error) => error.code === 'APR_REVIEW_LOCK_CHANGED'
+  );
+
+  const reclaimed = await reclaimReviewLock({
+    workspace,
+    lockDigest: inspected.digest,
+    reason: 'operator verified the foreign host is gone',
+    confirmReclaim: true,
+    now: '2026-09-18T00:00:00.000Z',
+  });
+  assert.equal(reclaimed.lock_digest, inspected.digest);
+  assert.equal(existsSync(lockFile), false);
+  assert.equal(existsSync(reclaimed.retained_path), true);
+  const receipt = JSON.parse(readFileSync(reclaimed.receipt_path, 'utf8'));
+  assert.equal(receipt.schema, 'ai-peer-review.lock-reclaim-receipt/v1');
+  assert.equal(receipt.lock_digest, inspected.digest);
+  assert.equal(receipt.reason, 'operator verified the foreign host is gone');
 });
 
 test('appendEvent writes one canonical newline-terminated record under the review lock', async (t) => {

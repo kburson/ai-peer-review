@@ -9,10 +9,19 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { encodeClaudeEditRule } from '../../src/provider/claude-launch.mjs';
+import {
+  buildProviderChildEnvironment,
+  CLAUDE_ENVIRONMENT_ALLOWLIST,
+  PROVIDER_IDENTITY_ENVIRONMENT_KEYS,
+} from '../../src/provider/preflight.mjs';
 import { atomicWrite } from '../../src/protocol/store.mjs';
 
 const execute = promisify(execFile);
 const marker = 'permission-conformance-passed\n';
+const environment = buildProviderChildEnvironment(process.env, {
+  environment_allowlist: CLAUDE_ENVIRONMENT_ALLOWLIST,
+  identity_removal: PROVIDER_IDENTITY_ENVIRONMENT_KEYS,
+});
 
 function sha256(value) {
   return `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -25,7 +34,11 @@ function option(name) {
 
 async function claude(args, cwd) {
   try {
-    const result = await execute('claude', args, { cwd, encoding: 'utf8' });
+    const result = await execute('claude', args, {
+      cwd,
+      encoding: 'utf8',
+      env: environment.child,
+    });
     return JSON.parse(result.stdout);
   } catch (cause) {
     if (cause?.stdout) return JSON.parse(cause.stdout);

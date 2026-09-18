@@ -414,6 +414,11 @@ const payloads = {
     },
   }),
   'delivery-acknowledged': () => ({ delivery_id: 'delivery-1' }),
+  'lock-reclaimed': () => ({
+    lock_digest: `sha256:${'1'.repeat(64)}`,
+    receipt_digest: `sha256:${'2'.repeat(64)}`,
+    reason: 'operator confirmed stale owner',
+  }),
 };
 
 export const REVISION_NEUTRAL_TYPES = new Set([
@@ -424,6 +429,7 @@ export const REVISION_NEUTRAL_TYPES = new Set([
   'challenge-superseded',
   'delivery-written',
   'delivery-acknowledged',
+  'lock-reclaimed',
 ]);
 
 export function event(

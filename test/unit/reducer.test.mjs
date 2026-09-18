@@ -377,6 +377,31 @@ test('rejects a v2 event whose compatibility declaration is not immediately adja
   );
 });
 
+test('lock-reclaimed advances sequence only and preserves a nonterminal lifecycle', () => {
+  const created = event('review-created');
+  const compatibility = {
+    minimum_reader_version: '0.2.2',
+    minimum_writer_version: '0.2.2',
+    accepted_event_schemas: ['ai-peer-review.event/v1', 'ai-peer-review.event/v2'],
+  };
+  const reclaimed = v2Event('lock-reclaimed', {
+    actor: 'system',
+    sequence: 3,
+    revision: 1,
+  });
+  const state = reduceEvents([
+    created,
+    compatibilityDeclared(
+      { sequence: 1, revision: 1, review_id: created.review_id },
+      compatibility
+    ),
+    reclaimed,
+  ]);
+  assert.equal(state.protocol.state, 'awaiting-reviewer');
+  assert.equal(state.protocol.sequence, 3);
+  assert.equal(state.protocol.revision, 1);
+});
+
 test('pure v1 projection bytes remain frozen across mixed-log support', () => {
   const state = reduceEvents(reviewerTurnEvents());
   const hashes = Object.fromEntries(

@@ -83,10 +83,11 @@ test('published tarball is closed and exact-pins its audited production dependen
       encoding: 'utf8',
     })
   );
-  assert.deepEqual(Object.keys(dependencyTree.dependencies ?? {}).sort(), [
-    '@modelcontextprotocol/sdk',
-    'zod',
-  ]);
+  const installedProductionDependencies = Object.entries(dependencyTree.dependencies ?? {})
+    .filter(([, dependency]) => dependency.extraneous !== true)
+    .map(([name]) => name)
+    .sort();
+  assert.deepEqual(installedProductionDependencies, ['@modelcontextprotocol/sdk', 'zod']);
   assert.equal(dependencyTree.dependencies['@modelcontextprotocol/sdk'].version, '1.30.0');
   assert.equal(dependencyTree.dependencies.zod.version, '4.6.2');
 });
@@ -157,7 +158,10 @@ test('public exports and command guidance remain narrow and installation-aware',
       '  encodeClaudeEditRule,\n' +
       '  matchesClaudeEditRule,\n' +
       '  runClaudeReviewerLaunch,\n' +
-      "} from './provider/claude-launch.mjs';\n"
+      "} from './provider/claude-launch.mjs';\n" +
+      "export { buildClaudeProviderCapability } from './config/load.mjs';\n" +
+      "export { buildReviewerExecutionContract } from './provider/execution-contract.mjs';\n" +
+      "export { preflightReviewerExecution } from './provider/preflight.mjs';\n"
   );
   const sources = [
     'README.md',

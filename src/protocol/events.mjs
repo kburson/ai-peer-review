@@ -158,6 +158,12 @@ export const EVENT_DEFINITIONS = Object.freeze(
   )
 );
 export const EVENT_TYPES = Object.freeze(Object.keys(EVENT_DEFINITIONS));
+const V2_ONLY_DEFINITIONS = Object.freeze({
+  'lock-reclaimed': Object.freeze({
+    advancesRevision: false,
+    fields: Object.freeze(['lock_digest', 'receipt_digest', 'reason']),
+  }),
+});
 
 const TOP_LEVEL_FIELDS = Object.freeze([
   'schema',
@@ -997,6 +1003,9 @@ function validatePayload(type, payload, valueReviewId) {
 
 export function eventAdvancesRevision(type) {
   if (type === 'compatibility-declared') return false;
+  if (Object.hasOwn(V2_ONLY_DEFINITIONS, type)) {
+    return V2_ONLY_DEFINITIONS[type].advancesRevision;
+  }
   if (!Object.hasOwn(EVENT_DEFINITIONS, type)) throw invalid('unknown type', { type });
   const definition = EVENT_DEFINITIONS[type];
   return definition.advancesRevision;
@@ -1062,10 +1071,40 @@ function validateV2Declaration(value) {
   return true;
 }
 
+function validateV2OnlyEvent(value) {
+  exactKeys(value, TOP_LEVEL_FIELDS, 'envelope');
+  if (value.schema !== EVENT_V2_SCHEMA) throw readerUpgrade(value);
+  if (typeof value.review_id !== 'string' || !IDENTIFIER_RE.test(value.review_id)) {
+    throw invalid('review_id');
+  }
+  if (!Number.isSafeInteger(value.sequence) || value.sequence <= 0) throw invalid('sequence');
+  if (!Number.isSafeInteger(value.revision) || value.revision < 0) throw invalid('revision');
+  if (value.actor !== 'system') throw invalid('actor');
+  assertTimestamp(value.at, 'at');
+  const definition = V2_ONLY_DEFINITIONS[value.type];
+  if (!definition) throw readerUpgrade(value);
+  exactKeys(value.payload, definition.fields, `${value.type} payload`);
+  assertJsonValue(value.payload);
+  if (value.type === 'lock-reclaimed') {
+    assertDigest(value.payload.lock_digest, 'lock-reclaimed lock_digest');
+    assertDigest(value.payload.receipt_digest, 'lock-reclaimed receipt_digest');
+    if (
+      typeof value.payload.reason !== 'string' ||
+      value.payload.reason.trim() !== value.payload.reason ||
+      value.payload.reason.length < 1 ||
+      value.payload.reason.length > 1000
+    ) {
+      throw invalid('lock-reclaimed reason');
+    }
+  }
+  return true;
+}
+
 export function validateVersionedEvent(value) {
   if (value?.schema === EVENT_V1_SCHEMA) return validateEvent(value);
   if (value?.schema !== EVENT_V2_SCHEMA) throw readerUpgrade(value);
   if (value.type === 'compatibility-declared') return validateV2Declaration(value);
+  if (Object.hasOwn(V2_ONLY_DEFINITIONS, value.type)) return validateV2OnlyEvent(value);
   if (!Object.hasOwn(EVENT_DEFINITIONS, value.type)) throw readerUpgrade(value);
   const participantField = {
     'review-created': 'author',

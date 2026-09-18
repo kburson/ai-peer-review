@@ -32,3 +32,6 @@ export {
   matchesClaudeEditRule,
   runClaudeReviewerLaunch,
 } from './provider/claude-launch.mjs';
+export { buildClaudeProviderCapability } from './config/load.mjs';
+export { buildReviewerExecutionContract } from './provider/execution-contract.mjs';
+export { preflightReviewerExecution } from './provider/preflight.mjs';

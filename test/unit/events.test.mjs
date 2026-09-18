@@ -64,6 +64,24 @@ test('versioned validation selects the envelope schema and names a reader upgrad
   );
 });
 
+test('lock-reclaimed is a closed sequence-only v2 event and remains unavailable to v1 writers', () => {
+  const reclaimed = v2Event('lock-reclaimed', {
+    actor: 'system',
+    sequence: 3,
+    revision: 1,
+  });
+  assert.equal(validateVersionedEvent(reclaimed), true);
+  assert.equal(eventAdvancesRevision('lock-reclaimed'), false);
+  assert.throws(
+    () => validateEvent({ ...reclaimed, schema: 'ai-peer-review.event/v1' }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  assert.throws(
+    () => validateVersionedEvent({ ...reclaimed, actor: `sha256:${'a'.repeat(64)}` }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+});
+
 test('v2 participant events require exact provenance evidence while v1 remains frozen', () => {
   const v2 = v2Event('reviewer-joined');
   v2.payload.reviewer.evidence = {
