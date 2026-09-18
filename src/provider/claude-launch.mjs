@@ -141,6 +141,138 @@ function launchPrompt(invitation, joinCommand, submitCommand) {
   ].join(' ');
 }
 
+function executionPrompt(contract, joinCommand, submitCommand) {
+  const instructions = [`Open the sealed reviewer invitation at ${contract.invitation}.`];
+  if (contract.join_required) {
+    instructions.push(
+      `Run exactly: ${joinCommand}. Complete the independent review and edit only its pending response.`
+    );
+  } else {
+    instructions.push(
+      'Continue the registered independent review and edit only its pending response.'
+    );
+  }
+  instructions.push(`Then run exactly: ${submitCommand}. Do not edit the artifact or use Git.`);
+  return instructions.join(' ');
+}
+
+export function encodeClaudeExecutionPermissions(contract) {
+  if (contract?.schema !== 'ai-peer-review.execution-contract/v1') {
+    throw new AprError(
+      'APR_PERMISSION_UNREPRESENTABLE',
+      'Claude permissions require a current reviewer execution contract.',
+      { recovery: 'Rebuild the contract from current workspace authority.' }
+    );
+  }
+  try {
+    const rules = ['Read', 'Glob', 'Grep'];
+    if (contract.commands.join) {
+      rules.push(
+        encodeClaudeBashRule([contract.commands.join.file, ...contract.commands.join.args])
+      );
+    }
+    rules.push(
+      encodeClaudeBashRule([contract.commands.submit.file, ...contract.commands.submit.args])
+    );
+    rules.push(encodeClaudeEditRule(contract.response));
+    return Object.freeze(rules);
+  } catch (cause) {
+    if (cause?.code === 'APR_PERMISSION_UNREPRESENTABLE') throw cause;
+    const error = new AprError(
+      'APR_PERMISSION_UNREPRESENTABLE',
+      'The exact reviewer command or path cannot be represented in Claude permissions.',
+      {
+        recovery:
+          'Install or select canonical Node, package, provider, workspace, and response paths representable by Claude, then rerun preflight.',
+      }
+    );
+    error.cause = cause;
+    throw error;
+  }
+}
+
+export function buildClaudeReviewerLaunchFromExecution({ contract, preflight } = {}) {
+  if (
+    contract?.schema !== 'ai-peer-review.execution-contract/v1' ||
+    preflight?.schema !== 'ai-peer-review.provider-preflight/v1' ||
+    preflight.status !== 'ready' ||
+    !preflight.child_environment
+  ) {
+    throw new AprError(
+      'APR_CLAUDE_RESULT_INVALID',
+      'Claude launch requires a current contract and successful deterministic preflight.',
+      { recovery: 'Rebuild the current contract and rerun preflight before dispatch.' }
+    );
+  }
+  regularFile(contract.invitation, 'reviewer invitation');
+  regularFile(contract.artifact, 'reviewed artifact');
+  const allow = encodeClaudeExecutionPermissions(contract);
+  if (JSON.stringify(allow) !== JSON.stringify(preflight.permissions)) {
+    throw new AprError(
+      'APR_PERMISSION_UNREPRESENTABLE',
+      'Claude launch permissions differ from the preflight proof.',
+      { recovery: 'Discard the stale preflight and rerun it against the current contract.' }
+    );
+  }
+  const joinCommand = contract.commands.join
+    ? renderCommand([contract.commands.join.file, ...contract.commands.join.args])
+    : null;
+  const submitCommand = renderCommand([
+    contract.commands.submit.file,
+    ...contract.commands.submit.args,
+  ]);
+  const args = Object.freeze([
+    '-p',
+    executionPrompt(contract, joinCommand, submitCommand),
+    '--output-format',
+    'json',
+    '--permission-mode',
+    'dontAsk',
+    '--model',
+    contract.model,
+    '--effort',
+    contract.effort,
+    '--allowedTools',
+    ...allow,
+  ]);
+  const result = {
+    schema: 'ai-peer-review.claude-launch/v1',
+    review_id: contract.review_id,
+    repository_root: contract.repository_root,
+    invitation: contract.invitation,
+    workspace: contract.workspace,
+    response: contract.response,
+    artifact: contract.artifact,
+    model: contract.model,
+    effort: contract.effort,
+    mode: 'launch',
+    permissions: Object.freeze({ allow }),
+    command: Object.freeze({ file: preflight.executable.path, args, shell: false }),
+    readiness: Object.freeze({
+      exact_response: true,
+      bad_single_slash_rejected: true,
+      artifact_rejected: !matchesClaudeEditRule(allow.at(-1), contract.artifact, {
+        projectRoot: contract.repository_root,
+      }),
+      neighbor_rejected: !matchesClaudeEditRule(
+        allow.at(-1),
+        path.join(
+          path.dirname(contract.response),
+          `reviewer-response-${Number(contract.response.match(/(\d+)\.md$/u)?.[1] ?? 0) + 1}.md`
+        ),
+        { projectRoot: contract.repository_root }
+      ),
+    }),
+    preflight_digest: preflight.digest,
+  };
+  Object.defineProperty(result, 'environment', {
+    value: preflight.child_environment,
+    enumerable: false,
+    writable: false,
+  });
+  return Object.freeze(result);
+}
+
 export function buildClaudeReviewerLaunch({
   repositoryRoot,
   invitation,
@@ -503,11 +635,13 @@ export async function runClaudeReviewerLaunch({
     : contract.command.args;
   let execution;
   try {
-    execution = await execFile(contract.command.file, args, {
+    const executionOptions = {
       cwd: contract.repository_root,
       shell: false,
       encoding: 'utf8',
-    });
+      ...(contract.environment ? { env: contract.environment } : {}),
+    };
+    execution = await execFile(contract.command.file, args, executionOptions);
   } catch (cause) {
     execution = {
       stdout: cause?.stdout ?? '',

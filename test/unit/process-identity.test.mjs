@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+// cspell:ignore usec
+
 import { observeProcessIdentity } from '../../src/protocol/process-identity.mjs';
 
 test('Linux process identity reads boot id and proc start ticks without executing a subprocess', async () => {

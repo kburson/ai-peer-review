@@ -5,8 +5,10 @@ import test from 'node:test';
 
 import {
   buildClaudeReviewerLaunch,
+  buildClaudeReviewerLaunchFromExecution,
   buildClaudeReviewerResume,
   classifyClaudeReviewerOutcome,
+  encodeClaudeExecutionPermissions,
   encodeClaudeEditRule,
   matchesClaudeEditRule,
   runClaudeReviewerLaunch,
@@ -150,6 +152,56 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
     ),
     false
   );
+});
+
+test('builds the preflight-bound launch from absolute current-turn commands and a closed environment', (t) => {
+  const fx = fixture('claude preflight launch ');
+  t.after(fx.cleanup);
+  const packageBin = path.join(fx.repositoryRoot, 'bin', 'peer-review.mjs');
+  mkdirSync(path.dirname(packageBin), { recursive: true });
+  writeFileSync(packageBin, '# package\n');
+  const execution = {
+    schema: 'ai-peer-review.execution-contract/v1',
+    review_id: 'review-1',
+    repository_root: fx.repositoryRoot,
+    workspace: fx.routing.workspace,
+    invitation: fx.invitation,
+    response: fx.routing.response,
+    artifact: fx.routing.artifact,
+    host: 'claude',
+    model: 'claude-opus-5',
+    effort: 'high',
+    join_required: true,
+    commands: {
+      join: {
+        file: process.execPath,
+        args: [packageBin, 'join', fx.invitation],
+        shell: false,
+      },
+      submit: {
+        file: process.execPath,
+        args: [packageBin, 'submit', fx.routing.workspace],
+        shell: false,
+      },
+    },
+  };
+  const permissions = encodeClaudeExecutionPermissions(execution);
+  const preflight = {
+    schema: 'ai-peer-review.provider-preflight/v1',
+    status: 'ready',
+    executable: { path: '/opt/claude/bin/claude' },
+    permissions,
+    digest: `sha256:${'1'.repeat(64)}`,
+    child_environment: { HOME: '/home/reviewer', ANTHROPIC_API_KEY: 'secret' },
+  };
+  const contract = buildClaudeReviewerLaunchFromExecution({ contract: execution, preflight });
+
+  assert.equal(contract.command.file, '/opt/claude/bin/claude');
+  assert.equal(contract.permissions.allow.includes(`Edit(${fx.routing.response})`), false);
+  assert.equal(contract.permissions.allow.at(-1), encodeClaudeEditRule(fx.routing.response));
+  assert.deepEqual(contract.environment, preflight.child_environment);
+  assert.equal(JSON.stringify(contract).includes('secret'), false);
+  assert.equal(contract.preflight_digest, preflight.digest);
 });
 
 test('fails closed for path escape, routing drift, symlinks, and incomplete launch identity', (t) => {

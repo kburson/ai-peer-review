@@ -374,6 +374,18 @@ export function inspectReviewAuthority(workspace) {
   return Object.freeze({ events: Object.freeze([...events]), state });
 }
 
+export function inspectReviewerExecutionAuthority(workspace) {
+  const authority = inspectReviewAuthority(workspace);
+  if (authority.state.protocol.current_actor !== 'reviewer') {
+    throw authorityError(
+      'APR_INVALID_TRANSITION',
+      'Reviewer execution requires the current event-authorized reviewer turn.',
+      'Read current status and build execution only when the reviewer owns the turn.'
+    );
+  }
+  return authority;
+}
+
 const TERMINAL_REVIEW_STATES = new Set([
   'accepted',
   'accepted-uncommitted',
