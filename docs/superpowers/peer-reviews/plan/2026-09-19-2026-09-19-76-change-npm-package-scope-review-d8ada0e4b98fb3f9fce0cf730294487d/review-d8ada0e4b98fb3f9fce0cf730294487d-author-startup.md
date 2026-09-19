@@ -1,15 +1,15 @@
-<!-- ai-peer-review-template version="{{template_version}}" digest="{{template_digest}}" -->
+<!-- ai-peer-review-template version="1" digest="sha256:19ffedd45cc89730c41b5fc6fc80931986ec73850cc5212040204307170085e4" -->
 
 # Author startup
 
-Review: `{{review_id}}`
+Review: `review-d8ada0e4b98fb3f9fce0cf730294487d`
 
-{{mode_banner}}
+Mode: `normal`
 
-- Artifact: {{artifact_display}}
-- Workspace: {{workspace_display}}
-- Response: {{response_display}}
-- Reviewer invitation: {{invitation_display}}
+- Artifact: `/Users/kpburson/.codex/worktrees/9d45/ai-peer-review/docs/superpowers/plans/2026-09-19-76-change-npm-package-scope.md`
+- Workspace: `/Users/kpburson/.codex/worktrees/9d45/ai-peer-review/.scratch/peer-review/review-d8ada0e4b98fb3f9fce0cf730294487d`
+- Response: `/Users/kpburson/.codex/worktrees/9d45/ai-peer-review/docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-reviewer-response-1.md`
+- Reviewer invitation: `/Users/kpburson/.codex/worktrees/9d45/ai-peer-review/docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-reviewer-invitation.md`
 
 ## Communication policy (v1)
 
@@ -34,4 +34,4 @@ When the host reports that the durable coordinator is active, yield after each h
 
 Installed help: `peer-review status --help`
 
-Zero-install help: `npx --yes @kburson/ai-peer-review@0.2.2 status --help`
+Zero-install help: `npx --yes ai-peer-review@0.2.2 status --help`
