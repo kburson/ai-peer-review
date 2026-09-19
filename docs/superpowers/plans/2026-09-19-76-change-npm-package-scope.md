@@ -77,19 +77,30 @@ references `"$artifact"` rather than a literal filename or glob:
 
 ```js
 assert.match(release, /artifact="kburson-ai-peer-review-\$\{version\}\.tgz"/);
+const normalizedRelease = release.replace(/\\\r?\n\s*/g, ' ');
 for (const site of [
   /shasum -a 256 "\$artifact" > SHA256SUMS/,
   /npm publish "\$artifact"/,
-  /gh release download[^\n]*--pattern "\$artifact"/,
+  /gh release download.*?--pattern "\$artifact"/,
   /cmp "\$artifact" observed-release\/"\$artifact"/,
-  /gh release create[^\n]*"\$artifact"/,
+  /gh release create.*?"\$artifact"/,
 ])
-  assert.match(release, site);
+  assert.match(normalizedRelease, site);
 ```
+
+The normalization removes shell continuation newlines so harmless workflow wrapping does not weaken
+or spuriously fail the artifact-reuse proof.
 
 - [ ] **Step 3: Extend the clean-consumer packaging test**
 
-Install the produced tarball into the existing disposable consumer, dynamically import `@kburson/ai-peer-review`, and execute all three retained binary names from `node_modules/.bin`.
+Install the produced tarball into the existing disposable consumer and dynamically import
+`@kburson/ai-peer-review` to confirm the scoped specifier resolves. Assert that all three retained
+binary names — `ai-peer-review`, `peer-review`, and `peer-review-mcp` — are present in the consumer's
+`node_modules/.bin`. Execute only `ai-peer-review --help` and `peer-review --help`, and assert each
+prints `Commands:`. Do not execute `peer-review-mcp`: `bin/peer-review-mcp.mjs` parses no arguments
+and unconditionally starts an MCP stdio server, so invoking it from a synchronous packaging smoke
+test is either vacuous or blocking. End-to-end MCP execution remains covered in `test/mcp/` with a
+protocol-aware transport test.
 
 - [ ] **Step 4: Run focused tests and confirm the old implementation fails**
 
@@ -180,7 +191,9 @@ Assert active guidance does not contain the unscoped registry form.
 
 - [ ] **Step 2: Update runtime renderers and templates**
 
-Replace registry-resolution operands in `help-data.mjs`, `run.mjs`, and active templates with `@kburson/ai-peer-review@0.2.2`. Do not change the displayed local executable `peer-review`.
+Replace registry-resolution operands in `help-data.mjs`, `run.mjs`, and
+`templates/author-startup.md` with `@kburson/ai-peer-review@0.2.2`. Do not change the displayed local
+executable `peer-review`.
 
 - [ ] **Step 3: Update README and skill guidance**
 
