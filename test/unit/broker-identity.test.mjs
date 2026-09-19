@@ -459,6 +459,8 @@ test('brokerPaths rejects noncanonical root inputs and preserves exact POSIX spe
       'AI_PEER_REVIEW_ENDPOINT_ROOT',
     ],
     ['win32', { LOCALAPPDATA: 'relative' }, 'C:\\Users\\Alex', 'LOCALAPPDATA'],
+    ['win32', { LOCALAPPDATA: 'C:\\Cache\\' }, 'C:\\Users\\Alex', 'LOCALAPPDATA'],
+    ['win32', { LOCALAPPDATA: 'C:\\Cache/' }, 'C:\\Users\\Alex', 'LOCALAPPDATA'],
   ];
   for (const [kind, env, home, label] of cases) {
     assert.throws(

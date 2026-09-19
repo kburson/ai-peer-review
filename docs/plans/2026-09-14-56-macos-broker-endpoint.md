@@ -428,7 +428,8 @@ behavior, widen the implementation, or alter any sealed review record.
 The first implementation review found two contract gaps. POSIX validation treated
 a literal trailing backslash as a separator even though only `/` separates POSIX
 components, so Darwin and Linux now preserve that byte while Windows continues to
-reject both separator forms. The macOS integration test also passed the configured
+reject both separator forms, with direct `LOCALAPPDATA` regressions for each. The
+macOS integration test also passed the configured
 endpoint override into its initial default-path derivation. It now removes the
 override for the first production call and uses the configured root only to recover
 an actually overlong default. Both corrections narrow the implementation to the
