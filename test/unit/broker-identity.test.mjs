@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
+
+// cspell:words aipr overlength
 
 import { canonicalProjectIdentity, rootDigest } from '../../src/broker/identity.mjs';
 import { brokerPaths } from '../../src/broker/paths.mjs';
@@ -142,161 +145,412 @@ test('canonicalProjectIdentity preserves Unicode and filesystem-canonical Window
   ]);
 });
 
-test('brokerPaths selects macOS and Linux cache roots without version routing inputs', () => {
-  const digest = 'a'.repeat(64);
+function decodeBase32(token) {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+  let bits = 0;
+  let value = 0;
+  const bytes = [];
+  for (const character of token) {
+    value = (value << 5) | alphabet.indexOf(character);
+    bits += 5;
+    while (bits >= 8) {
+      bits -= 8;
+      bytes.push((value >>> bits) & 0xff);
+      value &= (1 << bits) - 1;
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+function rootOfLength(length, character = 'r') {
+  return `/${character.repeat(length - 1)}`;
+}
+
+test('brokerPaths returns the exact frozen Darwin and Linux contracts', () => {
+  const digest = '0'.repeat(64);
   const mac = brokerPaths({
     identity: identityFor(digest),
-    platform: platform({ kind: 'darwin' }),
+    platform: platform({ kind: 'darwin', limit: 103 }),
     env: {},
     home: '/Users/alex',
   });
   const linux = brokerPaths({
     identity: identityFor(digest),
-    platform: platform({ kind: 'linux' }),
+    platform: platform({ kind: 'linux', limit: 107 }),
     env: { XDG_CACHE_HOME: '/var/cache/alex' },
     home: '/home/alex',
     versions: { package_version: '0.2.2', broker_protocol_version: '1', node_major: 24 },
   });
   const upgraded = brokerPaths({
     identity: identityFor(digest),
-    platform: platform({ kind: 'linux' }),
+    platform: platform({ kind: 'linux', limit: 107 }),
     env: { XDG_CACHE_HOME: '/var/cache/alex' },
     home: '/home/alex',
     versions: { package_version: '0.3.0', broker_protocol_version: '2', node_major: 26 },
   });
 
   assert.deepEqual(mac, {
+    cacheRoot: '/Users/alex/Library/Caches',
+    cacheRootSource: 'platform-default',
+    endpointRoot: '/Users/alex/Library/Caches',
+    endpointRootSource: 'cache-root',
+    endpointLayoutVersion: 1,
+    maxEndpointRootBytes: 42,
+    authorityDirectories: [
+      '/Users/alex/Library/Caches/ai-peer-review',
+      '/Users/alex/Library/Caches/ai-peer-review/brokers',
+      `/Users/alex/Library/Caches/ai-peer-review/brokers/${digest}`,
+    ],
     directory: `/Users/alex/Library/Caches/ai-peer-review/brokers/${digest}`,
-    endpoint: `/Users/alex/Library/Caches/ai-peer-review/brokers/${digest}/broker.sock`,
+    endpointDirectories: ['/Users/alex/Library/Caches/aipr', '/Users/alex/Library/Caches/aipr/v1'],
+    endpoint: `/Users/alex/Library/Caches/aipr/v1/${'a'.repeat(52)}`,
     lock: `/Users/alex/Library/Caches/ai-peer-review/brokers/${digest}/broker.lock`,
     metadata: `/Users/alex/Library/Caches/ai-peer-review/brokers/${digest}/broker.json`,
   });
-  assert.equal(linux.directory, `/var/cache/alex/ai-peer-review/brokers/${digest}`);
+  assert.deepEqual(linux, {
+    cacheRoot: '/var/cache/alex',
+    cacheRootSource: 'xdg-configured',
+    endpointRoot: '/var/cache/alex',
+    endpointRootSource: 'cache-root',
+    endpointLayoutVersion: 1,
+    maxEndpointRootBytes: 46,
+    authorityDirectories: [
+      '/var/cache/alex/ai-peer-review',
+      '/var/cache/alex/ai-peer-review/brokers',
+      `/var/cache/alex/ai-peer-review/brokers/${digest}`,
+    ],
+    directory: `/var/cache/alex/ai-peer-review/brokers/${digest}`,
+    endpointDirectories: ['/var/cache/alex/aipr', '/var/cache/alex/aipr/v1'],
+    endpoint: `/var/cache/alex/aipr/v1/${'a'.repeat(52)}`,
+    lock: `/var/cache/alex/ai-peer-review/brokers/${digest}/broker.lock`,
+    metadata: `/var/cache/alex/ai-peer-review/brokers/${digest}/broker.json`,
+  });
+  assert.equal(
+    brokerPaths({
+      identity: identityFor(digest),
+      platform: platform({ kind: 'linux', limit: 107 }),
+      env: {},
+      home: '/home/alex',
+    }).cacheRootSource,
+    'home-default'
+  );
   assert.equal(linux.endpoint, upgraded.endpoint);
+  assert.equal(Object.isFrozen(mac), true);
+  assert.equal(Object.isFrozen(mac.authorityDirectories), true);
+  assert.equal(Object.isFrozen(mac.endpointDirectories), true);
 });
 
-test('brokerPaths uses the logical Windows socket label and a digest-bearing named pipe', () => {
+test('brokerPaths base32-encodes every digest bit without collisions', () => {
+  const options = {
+    platform: platform({ kind: 'linux', limit: 107 }),
+    env: { AI_PEER_REVIEW_ENDPOINT_ROOT: '/a' },
+    home: '/home/alex',
+  };
+  const vectors = [
+    '0'.repeat(64),
+    'f'.repeat(64),
+    `00${'ab'.repeat(31)}`,
+    createHash('sha256').update('issue-56').digest('hex'),
+  ];
+
+  const tokens = vectors.map((digest) => {
+    const token = path.posix.basename(
+      brokerPaths({ identity: identityFor(digest), ...options }).endpoint
+    );
+    assert.match(token, /^[a-z2-7]{52}$/);
+    assert.match(token.at(-1), /^[aq]$/);
+    assert.equal(decodeBase32(token).toString('hex'), digest);
+    return token;
+  });
+
+  assert.equal(tokens[0], 'a'.repeat(52));
+  assert.equal(tokens[1], `${'7'.repeat(51)}q`);
+  assert.equal(new Set(tokens).size, vectors.length);
+});
+
+test('brokerPaths retains the exact expanded Windows contract', () => {
   const digest = 'b'.repeat(64);
   const paths = brokerPaths({
     identity: identityFor(digest),
-    platform: platform({ kind: 'win32' }),
-    env: { LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local' },
+    platform: platform({ kind: 'win32', limit: 256 }),
+    env: {
+      LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local',
+      AI_PEER_REVIEW_ENDPOINT_ROOT: 'ignored-relative-value',
+    },
     home: 'C:\\Users\\Alex',
   });
 
   assert.deepEqual(paths, {
+    cacheRoot: 'C:\\Users\\Alex\\AppData\\Local',
+    cacheRootSource: 'platform-default',
+    endpointRoot: null,
+    endpointRootSource: 'named-pipe',
+    endpointLayoutVersion: null,
+    maxEndpointRootBytes: null,
+    authorityDirectories: [
+      'C:\\Users\\Alex\\AppData\\Local\\ai-peer-review',
+      'C:\\Users\\Alex\\AppData\\Local\\ai-peer-review\\brokers',
+      `C:\\Users\\Alex\\AppData\\Local\\ai-peer-review\\brokers\\${digest}`,
+    ],
     directory: `C:\\Users\\Alex\\AppData\\Local\\ai-peer-review\\brokers\\${digest}`,
+    endpointDirectories: [],
     endpoint: `\\\\.\\pipe\\ai-peer-review-brokers-${digest}-broker.sock`,
     lock: `C:\\Users\\Alex\\AppData\\Local\\ai-peer-review\\brokers\\${digest}\\broker.lock`,
     metadata: `C:\\Users\\Alex\\AppData\\Local\\ai-peer-review\\brokers\\${digest}\\broker.json`,
   });
+  assert.equal(Object.isFrozen(paths), true);
+  assert.equal(Object.isFrozen(paths.authorityDirectories), true);
+  assert.equal(Object.isFrozen(paths.endpointDirectories), true);
 });
 
-test('brokerPaths measures POSIX socket endpoints as UTF-8 bytes before returning', () => {
-  const digest = 'b'.repeat(64);
-  const cache = `/${'é'.repeat(5)}`;
-  const endpoint = `${cache}/ai-peer-review/brokers/${digest}/broker.sock`;
-
-  assert.equal(endpoint.length, 106);
-  assert.equal(Buffer.byteLength(endpoint, 'utf8'), 111);
-  assert.throws(
-    () =>
-      brokerPaths({
-        identity: identityFor(digest),
-        platform: platform({ kind: 'linux', limit: 107 }),
-        env: { XDG_CACHE_HOME: cache },
-        home: '/home/alex',
-      }),
-    (error) => error.code === 'APR_BROKER_ENDPOINT_TOO_LONG'
-  );
-});
-
-test('brokerPaths measures Windows named-pipe endpoints in string units', () => {
-  const digest = 'b'.repeat(64);
-  const base = brokerPaths({
-    identity: identityFor(digest),
-    platform: platform({ kind: 'win32' }),
-    env: { LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local' },
-    home: 'C:\\Users\\Alex',
-  });
-
-  assert.doesNotThrow(() =>
-    brokerPaths({
-      identity: identityFor(digest),
-      platform: platform({ kind: 'win32', limit: base.endpoint.length }),
-      env: { LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local' },
-      home: 'C:\\Users\\Alex',
-    })
-  );
-  assert.throws(
-    () =>
-      brokerPaths({
-        identity: identityFor(digest),
-        platform: platform({ kind: 'win32', limit: base.endpoint.length - 1 }),
-        env: { LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local' },
-        home: 'C:\\Users\\Alex',
-      }),
-    (error) => error.code === 'APR_BROKER_ENDPOINT_TOO_LONG'
-  );
-});
-
-test('brokerPaths fails closed when endpoint limits are missing or invalid', () => {
+test('brokerPaths rejects invalid limits before digest and root inputs', () => {
   for (const options of [
     { includeLimit: false },
     { limit: 0 },
     { limit: '107' },
     { limit: 107.5 },
+    { limit: 62 },
   ]) {
     assert.throws(
       () =>
         brokerPaths({
-          identity: identityFor('d'.repeat(64)),
+          identity: identityFor('not-a-digest'),
           platform: platform({ kind: 'linux', ...options }),
-          env: { XDG_CACHE_HOME: '/cache' },
+          env: { XDG_CACHE_HOME: 'relative' },
           home: '/home/alex',
         }),
       (error) => error.code === 'APR_BROKER_ENDPOINT_LIMIT_INVALID'
     );
   }
-});
 
-test('brokerPaths falls back to the Linux home cache only when XDG_CACHE_HOME is absent', () => {
-  const paths = brokerPaths({
-    identity: identityFor('c'.repeat(64)),
-    platform: platform({ kind: 'linux' }),
-    env: {},
+  const exact = brokerPaths({
+    identity: identityFor('d'.repeat(64)),
+    platform: platform({ kind: 'linux', limit: 63 }),
+    env: { AI_PEER_REVIEW_ENDPOINT_ROOT: '/a', XDG_CACHE_HOME: '/cache' },
     home: '/home/alex',
   });
+  assert.equal(Buffer.byteLength(exact.endpoint), 63);
+  assert.equal(exact.maxEndpointRootBytes, 2);
+});
 
-  assert.equal(paths.directory, `/home/alex/.cache/ai-peer-review/brokers/${'c'.repeat(64)}`);
+test('brokerPaths pins POSIX endpoint byte boundaries and recovery', () => {
+  const digest = 'c'.repeat(64);
+  for (const [kind, limit, acceptedRootLength] of [
+    ['darwin', 103, 42],
+    ['linux', 107, 46],
+  ]) {
+    const accepted = brokerPaths({
+      identity: identityFor(digest),
+      platform: platform({ kind, limit }),
+      env: {
+        XDG_CACHE_HOME: '/cache',
+        AI_PEER_REVIEW_ENDPOINT_ROOT: rootOfLength(acceptedRootLength),
+      },
+      home: '/home/alex',
+    });
+    assert.equal(Buffer.byteLength(accepted.endpoint), limit);
+    assert.equal(accepted.maxEndpointRootBytes, acceptedRootLength);
+    assert.equal(
+      accepted.endpointDirectories.every((entry) =>
+        Buffer.from(accepted.endpoint)
+          .subarray(0, Buffer.byteLength(entry))
+          .equals(Buffer.from(entry))
+      ),
+      true
+    );
+
+    assert.throws(
+      () =>
+        brokerPaths({
+          identity: identityFor(digest),
+          platform: platform({ kind, limit }),
+          env: {
+            XDG_CACHE_HOME: '/cache',
+            AI_PEER_REVIEW_ENDPOINT_ROOT: rootOfLength(acceptedRootLength + 1),
+          },
+          home: '/home/alex',
+        }),
+      (error) => {
+        assert.equal(error.code, 'APR_BROKER_ENDPOINT_TOO_LONG');
+        assert.equal(error.details.length, limit + 1);
+        assert.equal(error.details.limit, limit);
+        assert.equal(error.details.maxEndpointRootBytes, acceptedRootLength);
+        assert.match(error.recovery, /AI_PEER_REVIEW_ENDPOINT_ROOT/);
+        assert.match(error.recovery, new RegExp(`${acceptedRootLength} UTF-8 bytes`));
+        assert.doesNotMatch(error.recovery, /never truncated or redirected/i);
+        assert.doesNotMatch(error.recovery, /use a shorter supported user cache/i);
+        assert.match(error.recovery, /Do not move the authority cache/);
+        return true;
+      }
+    );
+  }
+
+  const unicodeRoot = `/${'é'.repeat(23)}`;
+  assert.equal(unicodeRoot.length, 24);
+  assert.equal(Buffer.byteLength(unicodeRoot), 47);
   assert.throws(
     () =>
       brokerPaths({
-        identity: identityFor('c'.repeat(64)),
-        platform: platform({ kind: 'linux' }),
-        env: { XDG_CACHE_HOME: 'relative-cache' },
+        identity: identityFor(digest),
+        platform: platform({ kind: 'linux', limit: 107 }),
+        env: { XDG_CACHE_HOME: '/cache', AI_PEER_REVIEW_ENDPOINT_ROOT: unicodeRoot },
         home: '/home/alex',
       }),
-    (error) => error.code === 'APR_BROKER_PATH_INVALID'
+    (error) => error.code === 'APR_BROKER_ENDPOINT_TOO_LONG' && error.details.length === 108
   );
 });
 
-test('brokerPaths isolates project B and refuses unsupported or overlong endpoints before opening one', () => {
-  const projectA = brokerPaths({
-    identity: identityFor('d'.repeat(64)),
-    platform: platform({ kind: 'linux' }),
-    env: { XDG_CACHE_HOME: '/cache' },
+test('brokerPaths accepts the Darwin boundary and recovers a long home through endpoint configuration', () => {
+  const digest = 'd'.repeat(64);
+  const acceptedHome = rootOfLength(27);
+  const rejectedHome = rootOfLength(28);
+  assert.equal(
+    Buffer.byteLength(
+      brokerPaths({
+        identity: identityFor(digest),
+        platform: platform({ kind: 'darwin', limit: 103 }),
+        env: {},
+        home: acceptedHome,
+      }).endpoint
+    ),
+    103
+  );
+
+  assert.throws(
+    () =>
+      brokerPaths({
+        identity: identityFor(digest),
+        platform: platform({ kind: 'darwin', limit: 103 }),
+        env: {},
+        home: rejectedHome,
+      }),
+    (error) => error.code === 'APR_BROKER_ENDPOINT_TOO_LONG'
+  );
+
+  const twenty = '/Users/'.length + 20;
+  assert.equal(twenty, 27);
+  const longHome = `/Users/${'x'.repeat(21)}`;
+  const recovered = brokerPaths({
+    identity: identityFor(digest),
+    platform: platform({ kind: 'darwin', limit: 103 }),
+    env: { AI_PEER_REVIEW_ENDPOINT_ROOT: '/short' },
+    home: longHome,
+  });
+  assert.equal(recovered.cacheRoot, `${longHome}/Library/Caches`);
+  assert.equal(recovered.endpointRoot, '/short');
+  assert.equal(recovered.directory.startsWith(recovered.cacheRoot), true);
+  assert.equal(recovered.endpoint.startsWith('/short/aipr/v1/'), true);
+});
+
+test('brokerPaths rejects noncanonical root inputs and preserves exact POSIX spelling', () => {
+  const digest = 'e'.repeat(64);
+  const cases = [
+    ['darwin', {}, '', 'home'],
+    ['darwin', {}, 'relative', 'home'],
+    ['darwin', {}, '/Users/alex/', 'home'],
+    ['darwin', {}, '/Users/./alex', 'home'],
+    ['darwin', {}, '/Users/other/../alex', 'home'],
+    ['darwin', {}, '/', 'home'],
+    ['linux', { XDG_CACHE_HOME: 'relative' }, '/home/alex', 'XDG_CACHE_HOME'],
+    [
+      'linux',
+      { AI_PEER_REVIEW_ENDPOINT_ROOT: '/socket/' },
+      '/home/alex',
+      'AI_PEER_REVIEW_ENDPOINT_ROOT',
+    ],
+    ['win32', { LOCALAPPDATA: 'relative' }, 'C:\\Users\\Alex', 'LOCALAPPDATA'],
+    ['win32', { LOCALAPPDATA: 'C:\\Cache\\' }, 'C:\\Users\\Alex', 'LOCALAPPDATA'],
+    ['win32', { LOCALAPPDATA: 'C:\\Cache/' }, 'C:\\Users\\Alex', 'LOCALAPPDATA'],
+  ];
+  for (const [kind, env, home, label] of cases) {
+    assert.throws(
+      () =>
+        brokerPaths({
+          identity: identityFor(digest),
+          platform: platform({ kind, limit: kind === 'win32' ? 256 : 107 }),
+          env,
+          home,
+        }),
+      (error) => error.code === 'APR_BROKER_PATH_INVALID' && error.details.label === label
+    );
+  }
+
+  for (const endpointRoot of ['/Cache', '/cache', '/Café', '/Café']) {
+    const result = brokerPaths({
+      identity: identityFor(digest),
+      platform: platform({ kind: 'linux', limit: 107 }),
+      env: { XDG_CACHE_HOME: '/authority', AI_PEER_REVIEW_ENDPOINT_ROOT: endpointRoot },
+      home: '/home/alex',
+    });
+    assert.equal(result.endpointRoot, endpointRoot);
+  }
+
+  const literalBackslashHome = brokerPaths({
+    identity: identityFor(digest),
+    platform: platform({ kind: 'darwin', limit: 103 }),
+    env: { AI_PEER_REVIEW_ENDPOINT_ROOT: '/socket' },
+    home: '/Users/alex\\',
+  });
+  assert.equal(literalBackslashHome.cacheRoot, '/Users/alex\\/Library/Caches');
+
+  const literalBackslashEndpoint = brokerPaths({
+    identity: identityFor(digest),
+    platform: platform({ kind: 'linux', limit: 107 }),
+    env: {
+      XDG_CACHE_HOME: '/authority',
+      AI_PEER_REVIEW_ENDPOINT_ROOT: '/socket\\',
+    },
     home: '/home/alex',
   });
-  const projectB = brokerPaths({
-    identity: identityFor('e'.repeat(64)),
-    platform: platform({ kind: 'linux' }),
-    env: { XDG_CACHE_HOME: '/cache' },
+  assert.equal(literalBackslashEndpoint.endpointRoot, '/socket\\');
+});
+
+test('configured endpoint roots change routing but never authority', () => {
+  const common = {
+    identity: identityFor('f'.repeat(64)),
+    platform: platform({ kind: 'linux', limit: 107 }),
     home: '/home/alex',
+  };
+  const baseline = brokerPaths({ ...common, env: { XDG_CACHE_HOME: '/authority' } });
+  const configured = brokerPaths({
+    ...common,
+    env: { XDG_CACHE_HOME: '/authority', AI_PEER_REVIEW_ENDPOINT_ROOT: '/socket' },
   });
 
-  assert.notEqual(projectA.endpoint, projectB.endpoint);
-  assert.match(projectB.endpoint, /e{64}\/broker\.sock$/);
+  for (const key of [
+    'cacheRoot',
+    'cacheRootSource',
+    'authorityDirectories',
+    'directory',
+    'lock',
+    'metadata',
+  ]) {
+    assert.deepEqual(configured[key], baseline[key]);
+  }
+  assert.equal(configured.endpointRoot, '/socket');
+  assert.equal(configured.endpointRootSource, 'configured');
+  assert.notEqual(configured.endpoint, baseline.endpoint);
+});
+
+test('Windows overlength reports an invalid platform observation', () => {
+  assert.throws(
+    () =>
+      brokerPaths({
+        identity: identityFor('f'.repeat(64)),
+        platform: platform({ kind: 'win32', limit: 107 }),
+        env: { LOCALAPPDATA: 'C:\\Users\\Alex\\AppData\\Local' },
+        home: 'C:\\Users\\Alex',
+      }),
+    (error) => {
+      assert.equal(error.code, 'APR_BROKER_ENDPOINT_TOO_LONG');
+      assert.equal(error.details.maxEndpointRootBytes, null);
+      assert.match(error.recovery, /limit is invalid|runtime is unsupported/i);
+      return true;
+    }
+  );
+});
+
+test('brokerPaths refuses unsupported platforms', () => {
   assert.throws(
     () =>
       brokerPaths({
@@ -306,15 +560,5 @@ test('brokerPaths isolates project B and refuses unsupported or overlong endpoin
         home: '/home/alex',
       }),
     (error) => error.code === 'APR_BROKER_ENDPOINT_UNSUPPORTED'
-  );
-  assert.throws(
-    () =>
-      brokerPaths({
-        identity: identityFor('f'.repeat(64)),
-        platform: platform({ kind: 'linux', limit: 20 }),
-        env: { XDG_CACHE_HOME: '/cache' },
-        home: '/home/alex',
-      }),
-    (error) => error.code === 'APR_BROKER_ENDPOINT_TOO_LONG'
   );
 });
