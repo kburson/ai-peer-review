@@ -1,0 +1,200 @@
+# Scoped npm Package Identity Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Publish and consume the package as `@kburson/ai-peer-review` while preserving its repository, executable, protocol, configuration, and historical-provenance identities.
+
+**Architecture:** Treat the npm registry identity as a narrow package-resolution concern. One scoped package constant is reflected through the manifest/lockfile, active generated commands, consumer documentation, and release workflow; npm's scope-stripped tarball filename is asserted separately. Historical release evidence and runtime/protocol identifiers remain unchanged and are protected by regression tests.
+
+**Tech Stack:** Node.js 24+, npm 11/12 pack reports, GitHub Actions YAML, Node's built-in test runner, existing golden and packaging fixtures.
+
+**Spec:** GitHub issue [#76](https://github.com/kburson/ai-peer-review/issues/76) and its mirrored Deep-Dive Analysis.
+
+## Global Constraints
+
+- Registry identity: `@kburson/ai-peer-review`.
+- Packed filename at version `0.2.2`: `kburson-ai-peer-review-0.2.2.tgz`.
+- Preserve `publishConfig.access: public`.
+- Preserve executable names `ai-peer-review`, `peer-review`, and `peer-review-mcp`.
+- Preserve repository identity `kburson/ai-peer-review`, protocol/schema strings, `APR_*` errors, `.ai-peer-review.json`, `.scratch/peer-review`, Git transaction paths, and template markers.
+- Preserve immutable historical evidence under `provenance/` and existing records under `docs/superpowers/peer-reviews/` byte-for-byte.
+- Do not publish, unpublish, deprecate, or rename any external resource.
+
+---
+
+### Task 1: Implement the scoped packaging and release contract test-first
+
+**Files:**
+- Modify: `test/packaging/package.test.mjs`
+- Modify: `test/smoke/cli.test.mjs`
+- Modify: `test/unit/npm-pack-report.test.mjs`
+- Modify: `test/fixtures/npm-pack-report/npm-11-single.json`
+- Modify: `test/fixtures/npm-pack-report/npm-12-single.json`
+- Modify: `test/fixtures/npm-pack-report/missing-filename.json`
+- Modify: `test/fixtures/npm-pack-report/missing-files.json`
+- Modify: `test/fixtures/npm-pack-report/multiple.json`
+- Modify: `package.json`
+- Modify: `package-lock.json`
+- Modify: `.github/workflows/release.yml`
+
+**Interfaces:**
+- Consumes: `parseNpmPackOutput(output, { expectedPackageName, requireFilename })` from `test/helpers/npm-command.mjs`.
+- Produces: scoped root package metadata plus regression expectations for pack name, `kburson-ai-peer-review-<version>.tgz`, clean consumer import, unchanged executable names, and scoped release workflow tokens.
+
+- [ ] **Step 1: Update pack-report fixtures and parser callers to the scoped identity**
+
+Use `@kburson/ai-peer-review` for report `name` and object keys while retaining filename fixtures such as `kburson-ai-peer-review-0.2.2.tgz`.
+
+- [ ] **Step 2: Add packaging assertions for manifest and artifact identity**
+
+Assert:
+
+```js
+assert.equal(packageJson.name, '@kburson/ai-peer-review');
+assert.equal(packageJson.publishConfig.access, 'public');
+assert.equal(result.name, '@kburson/ai-peer-review');
+assert.equal(result.filename, `kburson-ai-peer-review-${packageJson.version}.tgz`);
+```
+
+Also assert the release workflow contains `@kburson/ai-peer-review@`, uses the scope-stripped tarball filename for every artifact operation, and contains no active `package="ai-peer-review@` or `ai-peer-review-*.tgz` target.
+
+- [ ] **Step 3: Extend the clean-consumer packaging test**
+
+Install the produced tarball into the existing disposable consumer, dynamically import `@kburson/ai-peer-review`, and execute all three retained binary names from `node_modules/.bin`.
+
+- [ ] **Step 4: Run focused tests and confirm the old implementation fails**
+
+Run:
+
+```bash
+node --test test/unit/npm-pack-report.test.mjs test/packaging/package.test.mjs test/smoke/cli.test.mjs
+```
+
+Expected: failures identify the unscoped manifest/pack report, stale release workflow, or unresolvable scoped import.
+
+- [ ] **Step 5: Change only the root package identities**
+
+Set both root `name` fields to `@kburson/ai-peer-review`; do not alter dependency package names, version, binaries, repository URLs, or protocol-facing strings.
+
+- [ ] **Step 6: Normalize release variables**
+
+In the pack step, define the actual artifact from npm output or the deterministic scope-stripped filename and use it to create `SHA256SUMS`. In the publish step, query:
+
+```bash
+package="@kburson/ai-peer-review@$(node -p "require('./package.json').version")"
+```
+
+Use the same exact artifact for `npm publish`, `gh release download`, `cmp`, and `gh release create`.
+
+- [ ] **Step 7: Run focused packaging tests**
+
+Run:
+
+```bash
+node --test test/unit/npm-pack-report.test.mjs test/packaging/package.test.mjs test/smoke/cli.test.mjs
+```
+
+Expected: scoped package and release assertions pass.
+
+### Task 2: Migrate active consumer and generated guidance
+
+**Files:**
+- Modify: `README.md`
+- Modify: `skills/peer-review/SKILL.md`
+- Modify: `templates/author-startup.md`
+- Modify: `templates/reviewer-invitation.md` only if its active source text requires a literal package-name change
+- Modify: `src/cli/help-data.mjs`
+- Modify: `src/cli/run.mjs`
+- Modify: `test/golden/templates.test.mjs`
+- Modify: `test/golden/templates/author-startup.md`
+- Modify: `test/golden/templates/reviewer-invitation.md`
+- Modify: `test/golden/help/all.sha256.txt`
+- Modify: `test/golden/help/submit.sha256.txt` only if its rendered command content changes
+
+**Interfaces:**
+- Consumes: scoped registry identity and current package version `0.2.2`.
+- Produces: active install/import/npx/setup/help text that resolves `@kburson/ai-peer-review`, while local execution continues to use `peer-review`.
+
+- [ ] **Step 1: Write failing golden assertions**
+
+Require generated commands to match the scoped version-pinned form:
+
+```js
+/npx --yes @kburson\/ai-peer-review@0\.2\.2/
+```
+
+Assert active guidance does not contain the unscoped registry form.
+
+- [ ] **Step 2: Update runtime renderers and templates**
+
+Replace registry-resolution operands in `help-data.mjs`, `run.mjs`, and active templates with `@kburson/ai-peer-review@0.2.2`. Do not change the displayed local executable `peer-review`.
+
+- [ ] **Step 3: Update README and skill guidance**
+
+Use:
+
+```bash
+npm install --save-dev @kburson/ai-peer-review
+npx --yes @kburson/ai-peer-review@0.2.2 --help
+```
+
+Use `from '@kburson/ai-peer-review'` for JavaScript imports. Add a concise migration note telling existing consumers to uninstall `ai-peer-review`, install `@kburson/ai-peer-review`, and retain the same binary/config/runtime paths.
+
+- [ ] **Step 4: Refresh deterministic active fixtures**
+
+Regenerate or update only the golden template/help outputs derived from the active sources. Do not edit historical review records.
+
+- [ ] **Step 5: Run golden and focused package tests**
+
+Run:
+
+```bash
+node --test test/golden/help.test.mjs test/golden/templates.test.mjs test/packaging/package.test.mjs
+```
+
+Expected: generated active guidance is scoped and deterministic.
+
+### Task 3: Prove compatibility boundaries and finish governed verification
+
+**Files:**
+- Verify unchanged: `provenance/release-manifest.json`
+- Verify unchanged: `schemas/**`
+- Verify unchanged: existing `docs/superpowers/peer-reviews/**`
+- Modify only if a missing active assertion is found: tests listed in Tasks 1–3
+
+**Interfaces:**
+- Consumes: all implementation outputs from Tasks 1–2.
+- Produces: exact evidence for issue #76's five acceptance criteria and functional Definition of Done.
+
+- [ ] **Step 1: Audit active stale package-resolution references**
+
+Search active source, templates, tests, README, workflow, and skill files for unscoped `npm install`, `npx --yes`, import, registry query, publish, and tarball glob forms. Classify every remaining `ai-peer-review` occurrence as executable, repository/product name, config/runtime path, protocol/schema ID, or historical evidence.
+
+- [ ] **Step 2: Verify historical/protocol exclusions**
+
+Run `git diff -- provenance schemas docs/superpowers/peer-reviews` and require no changes.
+
+- [ ] **Step 3: Run the issue verification commands**
+
+Run in this order:
+
+```bash
+npm run format:check
+npm run lint
+npm test
+npm run test:slow
+npm run test:packaging
+git log --oneline -1
+```
+
+- [ ] **Step 4: Commit with issue attribution**
+
+Stage only the plan, package metadata, release workflow, active guidance/renderers, and corresponding tests/goldens. Commit with an issue-attributed subject such as:
+
+```bash
+git commit -m "[#76] Scope the npm package under @kburson"
+```
+
+- [ ] **Step 5: Record governed evidence**
+
+Create the commit trace, stamp each acceptance criterion and functional DoD item through `npx aitm`, and enter Test only after the tree is clean and exact-SHA verification is green.
