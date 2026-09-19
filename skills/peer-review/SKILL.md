@@ -10,6 +10,22 @@ Run `peer-review setup` with an explicit user or project scope, then run
 `peer-review help <command>` whenever syntax is uncertain; never guess flags or
 state transitions.
 
+## Package installation and migration
+
+Install the scoped registry package while continuing to invoke the local `peer-review` binary:
+
+```bash
+npm install --save-dev @kburson/ai-peer-review
+npx --yes @kburson/ai-peer-review@0.2.2 --help
+```
+
+Existing consumers migrate without changing binary, configuration, or runtime paths:
+
+```bash
+npm uninstall ai-peer-review
+npm install --save-dev @kburson/ai-peer-review
+```
+
 Use every generated artifact, workspace, invitation, and response location as
 exact absolute paths. Relay only the reviewer invitation in the default
 consensus workflow. Do not copy scratch state or raw provider handles into

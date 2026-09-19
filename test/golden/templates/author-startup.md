@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:19ffedd45cc89730c41b5fc6fc80931986ec73850cc5212040204307170085e4" -->
+<!-- ai-peer-review-template version="1" digest="sha256:080e2f0f432cd6b2da0afe97442967302141df613a1bc47980a3f57570fedb2b" -->
 
 # Author startup
 
@@ -34,4 +34,4 @@ When the host reports that the durable coordinator is active, yield after each h
 
 Installed help: `peer-review status --help`
 
-Zero-install help: `npx --yes ai-peer-review@0.2.2 status --help`
+Zero-install help: `npx --yes @kburson/ai-peer-review@0.2.2 status --help`

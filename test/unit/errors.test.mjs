@@ -9,7 +9,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     await readFile(new URL('../../package.json', import.meta.url), 'utf8')
   );
 
-  assert.equal(packageJson.name, 'ai-peer-review');
+  assert.equal(packageJson.name, '@kburson/ai-peer-review');
   assert.equal(packageJson.version, '0.2.2');
   assert.equal(packageJson.type, 'module');
   assert.equal(packageJson.engines.node, '>=24');

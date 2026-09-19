@@ -19,11 +19,16 @@ function pack(t) {
     cwd: root,
     encoding: 'utf8',
   });
-  return parseNpmPackOutput(output, { expectedPackageName: 'ai-peer-review' });
+  return parseNpmPackOutput(output, { expectedPackageName: '@kburson/ai-peer-review' });
 }
 
 test('published tarball is closed and exact-pins its audited production dependency', (t) => {
   const result = pack(t);
+  const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(packageJson.name, '@kburson/ai-peer-review');
+  assert.equal(packageJson.publishConfig.access, 'public');
+  assert.equal(result.name, '@kburson/ai-peer-review');
+  assert.equal(result.filename, `kburson-ai-peer-review-${packageJson.version}.tgz`);
   const files = result.files.map((entry) => entry.path).sort();
   const allowedPrefixes = [
     'bin/',
@@ -72,7 +77,6 @@ test('published tarball is closed and exact-pins its audited production dependen
   );
   assert.ok(!files.some((file) => /(token|transcript|\.env|ai-task-manager)/i.test(file)));
 
-  const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.deepEqual(packageJson.dependencies ?? {}, {
     '@modelcontextprotocol/sdk': '1.30.0',
     zod: '4.6.2',
@@ -169,11 +173,24 @@ test('public exports and command guidance remain narrow and installation-aware',
     'templates/author-startup.md',
     'templates/reviewer-invitation.md',
     'src/cli/help-data.mjs',
+    'src/cli/run.mjs',
   ].map((file) => [file, readFileSync(path.join(root, file), 'utf8')]);
   for (const [file, bytes] of sources) {
     assert.doesNotMatch(bytes, /npx ai-peer-review(?!@)/, file);
+    assert.doesNotMatch(bytes, /npx --yes ai-peer-review@/, file);
+    assert.doesNotMatch(bytes, /npm install --save-dev ai-peer-review(?:\s|$)/, file);
+    assert.doesNotMatch(bytes, /from ['"]ai-peer-review['"]/, file);
     if (/npx peer-review/.test(bytes)) assert.match(bytes, /confirmed local installation/, file);
   }
+  const readme = sources.find(([file]) => file === 'README.md')[1];
+  assert.match(readme, /npm install --save-dev @kburson\/ai-peer-review/);
+  assert.match(readme, /npx --yes @kburson\/ai-peer-review@0\.2\.2/);
+  assert.match(readme, /from '@kburson\/ai-peer-review'/);
+  assert.match(readme, /npm uninstall ai-peer-review/);
+  const skill = sources.find(([file]) => file === 'skills/peer-review/SKILL.md')[1];
+  assert.match(skill, /npm install --save-dev @kburson\/ai-peer-review/);
+  assert.match(skill, /npx --yes @kburson\/ai-peer-review@0\.2\.2/);
+  assert.match(skill, /npm uninstall ai-peer-review/);
 });
 
 test('workflows retain complete platform and release safety gates', () => {
@@ -224,6 +241,20 @@ test('workflows retain complete platform and release safety gates', () => {
   }
 
   const release = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
+  assert.doesNotMatch(release, /(?<![\w-])ai-peer-review-[^\s]*\.tgz/);
+  assert.doesNotMatch(release, /package="ai-peer-review@/);
+  assert.match(release, /@kburson\/ai-peer-review@/);
+  const artifactDefinition = /artifact="kburson-ai-peer-review-\$\{version\}\.tgz"/g;
+  assert.equal(release.match(artifactDefinition)?.length, 1);
+  const normalizedRelease = release.replace(/\\\r?\n\s*/g, ' ');
+  for (const site of [
+    /shasum -a 256 "\$artifact" > SHA256SUMS/,
+    /npm publish "\$artifact"/,
+    /gh release download.*?--pattern "\$artifact"/,
+    /cmp "\$artifact" observed-release\/"\$artifact"/,
+    /gh release create.*?"\$artifact"/,
+  ])
+    assert.match(normalizedRelease, site);
   const publishStep =
     release.match(
       /- name: Publish or verify matching npm artifact[\s\S]*?(?=\n      - name:)/
