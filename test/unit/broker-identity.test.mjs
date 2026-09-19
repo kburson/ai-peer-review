@@ -482,6 +482,25 @@ test('brokerPaths rejects noncanonical root inputs and preserves exact POSIX spe
     });
     assert.equal(result.endpointRoot, endpointRoot);
   }
+
+  const literalBackslashHome = brokerPaths({
+    identity: identityFor(digest),
+    platform: platform({ kind: 'darwin', limit: 103 }),
+    env: { AI_PEER_REVIEW_ENDPOINT_ROOT: '/socket' },
+    home: '/Users/alex\\',
+  });
+  assert.equal(literalBackslashHome.cacheRoot, '/Users/alex\\/Library/Caches');
+
+  const literalBackslashEndpoint = brokerPaths({
+    identity: identityFor(digest),
+    platform: platform({ kind: 'linux', limit: 107 }),
+    env: {
+      XDG_CACHE_HOME: '/authority',
+      AI_PEER_REVIEW_ENDPOINT_ROOT: '/socket\\',
+    },
+    home: '/home/alex',
+  });
+  assert.equal(literalBackslashEndpoint.endpointRoot, '/socket\\');
 });
 
 test('configured endpoint roots change routing but never authority', () => {

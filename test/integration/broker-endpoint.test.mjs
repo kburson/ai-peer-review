@@ -17,10 +17,13 @@ test(
       digest: createHash('sha256').update(randomBytes(32)).digest('hex'),
     };
     const platform = { kind: 'darwin', maxEndpointLength: 103 };
+    const defaultEnv = { ...process.env };
+    delete defaultEnv.AI_PEER_REVIEW_ENDPOINT_ROOT;
     let paths;
+    let recoveredFromOverlongDefault = false;
 
     try {
-      paths = brokerPaths({ identity, platform, env: process.env, home: homedir() });
+      paths = brokerPaths({ identity, platform, env: defaultEnv, home: homedir() });
     } catch (error) {
       if (error?.code !== 'APR_BROKER_ENDPOINT_TOO_LONG') throw error;
 
@@ -36,10 +39,23 @@ test(
         'an overlong macOS home requires a pre-provisioned AI_PEER_REVIEW_ENDPOINT_ROOT'
       );
 
-      paths = brokerPaths({ identity, platform, env: process.env, home: homedir() });
+      paths = brokerPaths({
+        identity,
+        platform,
+        env: {
+          ...defaultEnv,
+          AI_PEER_REVIEW_ENDPOINT_ROOT: process.env.AI_PEER_REVIEW_ENDPOINT_ROOT,
+        },
+        home: homedir(),
+      });
+      recoveredFromOverlongDefault = true;
     }
 
     assert.ok(Buffer.byteLength(paths.endpoint, 'utf8') <= 103);
+    assert.equal(
+      paths.endpointRootSource,
+      recoveredFromOverlongDefault ? 'configured' : 'cache-root'
+    );
     assert.equal(paths.endpointLayoutVersion, 1);
     assert.equal(paths.maxEndpointRootBytes, 42);
     for (const directory of paths.endpointDirectories) {

@@ -422,3 +422,14 @@ Match the repository's existing `markdownlint` boundary by excluding only
 from spell checking, and disable only Git's `blank-at-eof` diagnostic for the
 same generated files. This verification-tooling adjustment does not change broker
 behavior, widen the implementation, or alter any sealed review record.
+
+### 2026-09-19: Internal Agent Review corrections
+
+The first implementation review found two contract gaps. POSIX validation treated
+a literal trailing backslash as a separator even though only `/` separates POSIX
+components, so Darwin and Linux now preserve that byte while Windows continues to
+reject both separator forms. The macOS integration test also passed the configured
+endpoint override into its initial default-path derivation. It now removes the
+override for the first production call and uses the configured root only to recover
+an actually overlong default. Both corrections narrow the implementation to the
+already approved platform-specific and recovery contracts.

@@ -61,7 +61,7 @@ function canonicalAbsolute(value, platform, label) {
     !value ||
     !paths.isAbsolute(value) ||
     value.endsWith('/') ||
-    value.endsWith('\\') ||
+    (platform.kind === 'win32' && value.endsWith('\\')) ||
     components.includes('.') ||
     components.includes('..') ||
     paths.normalize(value) !== value ||
