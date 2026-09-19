@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -9,6 +10,7 @@ import {
 import { buildManifest } from '../../src/manifest/render.mjs';
 import { inspectReview } from '../../src/protocol/service.mjs';
 import * as api from '../helpers/internal-api.mjs';
+import { fixture as repositoryFixture } from '../helpers/intervention-fixture.mjs';
 import {
   createReviewWorkspace,
   FINGERPRINTS,
@@ -24,6 +26,17 @@ const COMPATIBILITY = Object.freeze({
 
 function manifestFor(fixture, state) {
   const events = fixture.readEvents().trim().split('\n').map(JSON.parse);
+  return buildManifest({
+    state,
+    events,
+    status: 'accepted',
+    acceptance_basis: 'reviewer-consensus',
+    final_commit: state.protocol.artifact.head,
+  });
+}
+
+function manifestForWorkspace(eventsFile, state) {
+  const events = readFileSync(eventsFile, 'utf8').trim().split('\n').map(JSON.parse);
   return buildManifest({
     state,
     events,
@@ -77,6 +90,32 @@ test('environment model declarations remain explicitly unverified in durable evi
   assert.equal(manifest.participants.author.evidence.model.source, 'environment-declaration');
   assert.equal(manifest.participants.author.evidence.model.assurance, 'declared');
   assert.equal(manifest.participants.author.evidence.model.observed_id, null);
+  assert.equal(JSON.stringify(manifest).includes('codex-session-secret'), false);
+});
+
+test('public start persists environment model provenance into the rendered manifest', async (t) => {
+  const fixture = repositoryFixture();
+  t.after(fixture.cleanup);
+  const author = resolveIdentity({
+    adapter: 'codex',
+    role: 'author',
+    joinedAt: '2026-09-09T02:00:00.000Z',
+    env: { CODEX_THREAD_ID: 'codex-session-secret', CODEX_MODEL_ID: 'gpt-6-astra' },
+  });
+
+  const started = await api.startReview({
+    cwd: fixture.root,
+    artifact: 'docs/artifact.md',
+    artifactKind: 'spec',
+    identity: author,
+    reviewId: 'model-provenance-public-start',
+    now: '2026-09-09T02:00:00.000Z',
+  });
+  const state = inspectReview(started.paths.workspace);
+  const manifest = manifestForWorkspace(started.paths.events, state);
+
+  assert.equal(manifest.participants.author.evidence.model.source, 'environment-declaration');
+  assert.equal(manifest.participants.author.evidence.model.declared_id, 'gpt-6-astra');
   assert.equal(JSON.stringify(manifest).includes('codex-session-secret'), false);
 });
 

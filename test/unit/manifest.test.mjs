@@ -45,9 +45,9 @@ test('manifest schema is closed and covers both terminal authority paths', () =>
     'human-override',
   ]);
   assert.equal(schema.$defs.participant.additionalProperties, false);
-  assert.equal(schema.$defs.participant.required.includes('evidence'), true);
+  assert.equal(schema.$defs.participant.required.includes('evidence'), false);
   assert.deepEqual(schema.$defs.participant.properties.evidence, {
-    $ref: 'participants-v2.json#/$defs/evidence',
+    $ref: 'ai-peer-review.participants/v2#/$defs/evidence',
   });
   assert.equal(schema.$defs.claim.properties.pid, undefined);
 });

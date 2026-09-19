@@ -51,6 +51,7 @@ import {
   sealPhaseManifest,
 } from '../manifest/render.mjs';
 import { isFinalPhase, isPhased, parsePhaseKinds } from '../protocol/phases.mjs';
+import { EVENT_V2_SCHEMA } from '../protocol/compatibility.mjs';
 import { inspectRecordLineage, validateSuccessor } from '../protocol/record-lineage.mjs';
 import {
   assertDistinctParticipants,
@@ -62,7 +63,11 @@ import {
   resolveIdentity,
   v1Participant,
 } from '../identity/registry.mjs';
-import { eventAdvancesRevision, validateEvent } from '../protocol/events.mjs';
+import {
+  eventAdvancesRevision,
+  validateEvent,
+  validateVersionedEvent,
+} from '../protocol/events.mjs';
 import {
   canonicalProjection,
   initializeReview,
@@ -107,13 +112,13 @@ function timestamp(value) {
   return parsed.toISOString();
 }
 
-function eventFor(review, type, actor, payload, now) {
+function eventFor(review, type, actor, payload, now, schema = 'ai-peer-review.event/v1') {
   const protocol = review?.protocol;
   const eventPayload = { ...payload };
   const reviewId = protocol?.review_id ?? eventPayload.review_id;
   delete eventPayload.review_id;
   const event = {
-    schema: 'ai-peer-review.event/v1',
+    schema,
     review_id: reviewId,
     sequence: (protocol?.sequence ?? 0) + 1,
     revision: (protocol?.revision ?? 0) + (eventAdvancesRevision(type) ? 1 : 0),
@@ -122,7 +127,8 @@ function eventFor(review, type, actor, payload, now) {
     at: timestamp(now),
     payload: eventPayload,
   };
-  validateEvent(event);
+  if (schema === EVENT_V2_SCHEMA) validateVersionedEvent(event);
+  else validateEvent(event);
   return Object.freeze(event);
 }
 
@@ -247,7 +253,9 @@ function preservesNoCommitBaseline(baseline, observed, artifactPath, ownedPaths)
 function sameParticipant(left, right) {
   const stable = (participant) =>
     participant
-      ? Object.fromEntries(Object.entries(participant).filter(([key]) => key !== 'joined_at'))
+      ? Object.fromEntries(
+          Object.entries(v1Participant(participant)).filter(([key]) => key !== 'joined_at')
+        )
       : participant;
   return sameValue(stable(left), stable(right));
 }
@@ -1062,7 +1070,20 @@ export async function startReview(input, deps = {}) {
     },
     now
   );
-  const state = await initializeReview(paths.scratch.absolute, initial);
+  let state = await initializeReview(paths.scratch.absolute, initial);
+  state = await mutateReview(paths.scratch.absolute, expected(state), (current) =>
+    eventFor(
+      current,
+      'identity-changed',
+      input.identity.session_fingerprint,
+      {
+        role: 'author',
+        identity: { ...input.identity, joined_at: current.participants.author.joined_at },
+      },
+      now,
+      EVENT_V2_SCHEMA
+    )
+  );
   reserveCollateral({ ...state, paths });
   atomicCreate(contextFile(paths.scratch.absolute), contextBytes);
   atomicCreate(startup.author_startup, authorStartupBytes);
@@ -1310,11 +1331,12 @@ export async function joinReview(input, deps = {}) {
       'reviewer-joined',
       input.identity.session_fingerprint,
       {
-        reviewer: v1Participant(input.identity),
+        reviewer: input.identity,
         transport_capability: reviewerCapability,
         repository_boundary: repositoryBoundary,
       },
-      input.now ?? new Date()
+      input.now ?? new Date(),
+      EVENT_V2_SCHEMA
     );
   });
   const claimed = await mutateReview(values.workspace, expected(joined), (current) =>
@@ -2000,11 +2022,12 @@ export async function recoverReview(input, deps = {}) {
           intervention_id: current.protocol.intervention.intervention_id,
           role: replacementRole,
           outgoing_claim: outgoing,
-          incoming_participant: v1Participant(input.identity),
+          incoming_participant: input.identity,
           parameters,
           attestation,
         },
-        input.now ?? new Date()
+        input.now ?? new Date(),
+        EVENT_V2_SCHEMA
       ),
   });
   await deps.checkpoint?.('participant-replaced');

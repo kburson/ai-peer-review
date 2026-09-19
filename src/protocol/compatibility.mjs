@@ -5,6 +5,14 @@ import { AprError } from '../errors.mjs';
 export const EVENT_V1_SCHEMA = 'ai-peer-review.event/v1';
 export const EVENT_V2_SCHEMA = 'ai-peer-review.event/v2';
 
+export function currentCompatibility() {
+  return Object.freeze({
+    minimum_reader_version: packageJson.version,
+    minimum_writer_version: packageJson.version,
+    accepted_event_schemas: Object.freeze([EVENT_V1_SCHEMA, EVENT_V2_SCHEMA]),
+  });
+}
+
 function compatibilityError(code, message, details = {}) {
   return new AprError(code, message, {
     recovery: 'Install a peer-review package version compatible with the sealed event authority.',
