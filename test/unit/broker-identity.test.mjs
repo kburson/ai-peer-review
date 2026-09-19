@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 
+// cspell:words aipr overlength
+
 import { canonicalProjectIdentity, rootDigest } from '../../src/broker/identity.mjs';
 import { brokerPaths } from '../../src/broker/paths.mjs';
 
@@ -376,7 +378,8 @@ test('brokerPaths pins POSIX endpoint byte boundaries and recovery', () => {
         assert.match(error.recovery, /AI_PEER_REVIEW_ENDPOINT_ROOT/);
         assert.match(error.recovery, new RegExp(`${acceptedRootLength} UTF-8 bytes`));
         assert.doesNotMatch(error.recovery, /never truncated or redirected/i);
-        assert.doesNotMatch(error.recovery, /move.*cache/i);
+        assert.doesNotMatch(error.recovery, /use a shorter supported user cache/i);
+        assert.match(error.recovery, /Do not move the authority cache/);
         return true;
       }
     );
@@ -520,7 +523,7 @@ test('Windows overlength reports an invalid platform observation', () => {
     (error) => {
       assert.equal(error.code, 'APR_BROKER_ENDPOINT_TOO_LONG');
       assert.equal(error.details.maxEndpointRootBytes, null);
-      assert.match(error.recovery, /invalid platform limit|unsupported runtime/i);
+      assert.match(error.recovery, /limit is invalid|runtime is unsupported/i);
       return true;
     }
   );
