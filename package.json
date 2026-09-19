@@ -1,5 +1,5 @@
 {
-  "name": "ai-peer-review",
+  "name": "@kburson/ai-peer-review",
   "version": "0.2.2",
   "description": "A deterministic, provider-neutral peer review protocol for AI agents",
   "type": "module",

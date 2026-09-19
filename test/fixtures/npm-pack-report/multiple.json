@@ -1,7 +1,7 @@
 [
   {
-    "name": "ai-peer-review",
-    "filename": "ai-peer-review-0.2.2.tgz",
+    "name": "@kburson/ai-peer-review",
+    "filename": "kburson-ai-peer-review-0.2.2.tgz",
     "files": [{ "path": "package.json" }]
   },
   {
