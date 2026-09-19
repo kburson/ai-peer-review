@@ -134,6 +134,14 @@ metadata is labeled `identity_source: declared`; complete runtime session and
 model metadata remains `runtime`. Doctor, start, join, submit, finalize, grant,
 recovery, and abandonment all use this same resolution contract.
 
+The compatibility `identity_source` field remains for legacy readers; it is not
+an independent model-verification claim. Current manifests expose separate
+session and model evidence. Environment, configuration, and launch-request
+values remain `assurance: declared`; only an authoritative provider result may
+be `assurance: observed`. Conflicting declared and observed model IDs are
+retained together with `conflict: true`, while legacy v1 records render as
+`legacy-unclassified` instead of being retroactively promoted.
+
 Codex and Claude Code setup install package-owned versioned settings for the
 `peer-review-mcp` server, an eight-hour tool timeout, and a lease heartbeat.
 Grok and generic hosts remain manual unless a future official adapter implements

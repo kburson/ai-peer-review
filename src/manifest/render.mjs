@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { AprError } from '../errors.mjs';
+import { identityEvidence } from '../identity/evidence.mjs';
 import { inspectRecordLineage } from '../protocol/record-lineage.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
 
@@ -69,7 +70,7 @@ function reviewParts(review) {
 
 function safeParticipant(participant) {
   if (!participant) return null;
-  return Object.fromEntries(
+  const safe = Object.fromEntries(
     [
       'role',
       'host',
@@ -81,6 +82,15 @@ function safeParticipant(participant) {
       'joined_at',
     ].map((key) => [key, participant[key]])
   );
+  safe.evidence = participant.evidence
+    ? structuredClone(participant.evidence)
+    : identityEvidence({
+        sessionFingerprint: participant.session_fingerprint,
+        sessionSource: 'legacy-unclassified',
+        modelId: participant.model_id,
+        modelSource: 'legacy-unclassified',
+      });
+  return safe;
 }
 
 function safeClaim(claim) {
