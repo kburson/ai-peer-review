@@ -408,3 +408,16 @@ assertions, existing `AprError` error vocabulary.
   head. Open a PR targeting `feature/epic/39`, wait for hosted CI, and obtain an
   external cross-provider review of the exact PR head before merge. Confirm the
   PR diff has zero path overlap with the preserved #43 WIP before delivery.
+
+## Plan Adjustments
+
+### 2026-09-19: Exclude generated review responses from spell checking
+
+The exact-SHA verification run found that `cspell` treated immutable author and
+reviewer response transcripts as curated prose. Those generated records contain
+provider-authored technical vocabulary and cannot be edited after sealing without
+invalidating review evidence. Match the repository's existing `markdownlint`
+boundary by excluding only `author-response-*` and `reviewer-response-*` files
+under `docs/peer-reviews/`. This is a verification-tooling adjustment; it does not
+change broker behavior, widen the implementation, or alter any sealed review
+record.
