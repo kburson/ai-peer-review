@@ -69,8 +69,9 @@ assertions, existing `AprError` error vocabulary.
 
 - [ ] **Step 1: Replace legacy POSIX layout assertions with the expanded shape**
 
-  For digest `'0'.repeat(64)`, assert the token is `'a'.repeat(52)` and the
-  Darwin result is exactly:
+  For digest `'0'.repeat(64)`, call
+  `platform({ kind: 'darwin', limit: 103 })`, assert the token is
+  `'a'.repeat(52)`, and assert the Darwin result is exactly:
 
   ```js
   {
@@ -79,7 +80,7 @@ assertions, existing `AprError` error vocabulary.
     endpointRoot: '/Users/alex/Library/Caches',
     endpointRootSource: 'cache-root',
     endpointLayoutVersion: 1,
-    maxEndpointRootBytes: 451,
+    maxEndpointRootBytes: 42,
     authorityDirectories: [
       '/Users/alex/Library/Caches/ai-peer-review',
       '/Users/alex/Library/Caches/ai-peer-review/brokers',
@@ -96,15 +97,39 @@ assertions, existing `AprError` error vocabulary.
   }
   ```
 
-  Assert `Object.isFrozen` for the result and both arrays. Add corresponding
-  Linux source cases for explicit `XDG_CACHE_HOME` (`xdg-configured`) and absent
-  `XDG_CACHE_HOME` (`home-default`).
+  Assert `Object.isFrozen` for the result and both arrays. Add an exact Linux
+  result using `platform({ kind: 'linux', limit: 107 })`, an explicit
+  `XDG_CACHE_HOME: '/var/cache/alex'`, and these Linux-specific values while
+  keeping the same authority/endpoint field set:
+
+  ```js
+  {
+    cacheRoot: '/var/cache/alex',
+    cacheRootSource: 'xdg-configured',
+    endpointRoot: '/var/cache/alex',
+    endpointRootSource: 'cache-root',
+    endpointLayoutVersion: 1,
+    maxEndpointRootBytes: 46,
+    endpointDirectories: ['/var/cache/alex/aipr', '/var/cache/alex/aipr/v1'],
+    endpoint: `/var/cache/alex/aipr/v1/${'a'.repeat(52)}`,
+  }
+  ```
+
+  Assert the remaining authority paths exactly as in the Darwin object. Add the
+  absent-`XDG_CACHE_HOME` `home-default` source case separately. Keep the existing
+  assertion that package, protocol, and Node version inputs do not affect routing.
 
 - [ ] **Step 2: Add exact base32 and collision-separation vectors**
 
-  Exercise routing only through `brokerPaths`. Assert:
+  Exercise routing only through `brokerPaths`. Define the fixture and assertions
+  explicitly:
 
   ```js
+  const posix = {
+    platform: platform({ kind: 'linux', limit: 107 }),
+    env: { AI_PEER_REVIEW_ENDPOINT_ROOT: '/a' },
+    home: '/home/alex',
+  };
   const zero = brokerPaths({ identity: identityFor('0'.repeat(64)), ...posix });
   const ones = brokerPaths({ identity: identityFor('f'.repeat(64)), ...posix });
   assert.equal(path.basename(zero.endpoint), 'a'.repeat(52));
@@ -122,14 +147,27 @@ assertions, existing `AprError` error vocabulary.
   - Darwin root byte lengths 42 and 43 yield endpoints of 103 and 104 bytes;
   - Linux root byte lengths 46 and 47 yield endpoints of 107 and 108 bytes;
   - 27-byte and 28-byte Darwin homes yield 103 and 104-byte endpoints;
-  - `/Users/<short-name>` accepts 20 short-name bytes and rejects 21;
+  - `/Users/<short-name>` accepts 20 short-name bytes and rejects 21; the same
+    21-byte-short-name call then succeeds with a short
+    `AI_PEER_REVIEW_ENDPOINT_ROOT` while `cacheRoot`, `directory`, `lock`, and
+    `metadata` remain unchanged;
   - a multibyte Unicode root is decided by `Buffer.byteLength`, not `.length`;
   - limit 62 throws `APR_BROKER_ENDPOINT_LIMIT_INVALID` before an invalid digest
     or invalid root can win, while limit 63 plus root `/a` succeeds with
     `maxEndpointRootBytes: 2`.
 
   For overlength cases assert `error.details` contains exact `endpoint`,
-  `length`, `limit`, and `maxEndpointRootBytes` values.
+  `length`, `limit`, and `maxEndpointRootBytes` values. Assert the POSIX recovery
+  names `AI_PEER_REVIEW_ENDPOINT_ROOT` and the derived 42-byte Darwin or 46-byte
+  Linux budget, never says endpoints are never redirected, and never recommends
+  moving the authority cache. Add a Windows overlength double and assert its
+  recovery reports an invalid platform limit or unsupported runtime while
+  `details.maxEndpointRootBytes` is `null`.
+
+  Update the existing Linux `limit: 20` assertion to expect
+  `APR_BROKER_ENDPOINT_LIMIT_INVALID`, not `APR_BROKER_ENDPOINT_TOO_LONG`.
+  Replace the legacy `/<64-hex>/broker.sock` endpoint match with the exact compact
+  `/aipr/v1/<52-character-token>` assertion so no old layout expectation remains.
 
 - [ ] **Step 4: Pin source selection and canonical input rejection**
 
@@ -149,7 +187,8 @@ assertions, existing `AprError` error vocabulary.
   `endpointLayoutVersion: null`, `maxEndpointRootBytes: null`, a deeply frozen
   empty `endpointDirectories`, unchanged full-digest authority paths, and the
   exact historical named pipe. Set `AI_PEER_REVIEW_ENDPOINT_ROOT` to invalid text
-  and prove Windows ignores it.
+  and prove Windows ignores it. For every POSIX result assert each frozen
+  `endpointDirectories` entry is a UTF-8 byte prefix of `endpoint`.
 
 - [ ] **Step 6: Run the focused test and observe the expected failures**
 
@@ -224,9 +263,13 @@ assertions, existing `AprError` error vocabulary.
   Measure POSIX with `Buffer.byteLength(endpoint, 'utf8')` and Windows with
   `endpoint.length`. On overflow throw `APR_BROKER_ENDPOINT_TOO_LONG` before any
   resource creation, include exact length data plus `maxEndpointRootBytes`, and
-  use the accepted platform-selected recovery: shorten/provision a conforming
-  endpoint root on POSIX without moving authority; retain the existing Windows
-  cache-root recovery.
+  use the accepted platform-selected recovery. POSIX names a shorter validated
+  `AI_PEER_REVIEW_ENDPOINT_ROOT`, the derived 42-byte Darwin or 46-byte Linux
+  budget, and the administrator-provisioning/unsupported-account outcome without
+  moving authority. Windows sets `maxEndpointRootBytes: null` and reports an
+  invalid injected platform limit or unsupported runtime because its fixed
+  108-unit pipe fits the supported 256-unit limit. Remove the legacy “never
+  redirected” and shorter-cache-root recovery entirely.
 
 - [ ] **Step 7: Run the focused unit suite**
 
@@ -265,7 +308,10 @@ assertions, existing `AprError` error vocabulary.
 - [ ] **Step 2: Handle the supported overlong-default branch**
 
   If the first production call throws `APR_BROKER_ENDPOINT_TOO_LONG`, assert its
-  limit and `maxEndpointRootBytes`. Require a pre-provisioned absolute
+  limit, `maxEndpointRootBytes`, and exact recovery naming
+  `AI_PEER_REVIEW_ENDPOINT_ROOT`, the derived Darwin root budget, and the
+  administrator-provisioning/unsupported-account outcome without recommending an
+  authority-cache move. Require a pre-provisioned absolute
   `AI_PEER_REVIEW_ENDPOINT_ROOT` from the test environment, call production
   `brokerPaths` again with that configured root, and assert it now fits. Never
   substitute an arbitrary socket path outside `brokerPaths`.
