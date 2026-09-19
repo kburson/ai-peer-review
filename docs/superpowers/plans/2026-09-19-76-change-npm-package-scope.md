@@ -71,8 +71,21 @@ assert.doesNotMatch(release, /package="ai-peer-review@/);
 assert.match(release, /@kburson\/ai-peer-review@/);
 ```
 
-Add positive assertions covering all five artifact sites in the workflow and requiring the exact
-`kburson-ai-peer-review-` prefix, rather than relying only on absence checks.
+Add positive assertions that the workflow defines the artifact exactly once as
+`artifact="kburson-ai-peer-review-${version}.tgz"`, and that each of the five artifact operations
+references `"$artifact"` rather than a literal filename or glob:
+
+```js
+assert.match(release, /artifact="kburson-ai-peer-review-\$\{version\}\.tgz"/);
+for (const site of [
+  /shasum -a 256 "\$artifact" > SHA256SUMS/,
+  /npm publish "\$artifact"/,
+  /gh release download[^\n]*--pattern "\$artifact"/,
+  /cmp "\$artifact" observed-release\/"\$artifact"/,
+  /gh release create[^\n]*"\$artifact"/,
+])
+  assert.match(release, site);
+```
 
 - [ ] **Step 3: Extend the clean-consumer packaging test**
 
@@ -141,7 +154,7 @@ Expected: scoped package and release assertions pass.
 - Modify: `README.md`
 - Modify: `skills/peer-review/SKILL.md`
 - Modify: `templates/author-startup.md`
-- Modify: `templates/reviewer-invitation.md` only if its active source text requires a literal package-name change
+- Verify unchanged: `templates/reviewer-invitation.md`
 - Modify: `src/cli/help-data.mjs`
 - Modify: `src/cli/run.mjs`
 - Modify: `test/golden/templates.test.mjs`
@@ -204,6 +217,7 @@ Expected: generated active guidance is scoped and deterministic.
 **Files:**
 
 - Verify unchanged: `provenance/release-manifest.json`
+- Verify unchanged: `scripts/verify-extraction.mjs`
 - Verify unchanged: `scripts/verify-release.mjs`
 - Verify unchanged: `test/unit/verify-release.test.mjs`
 - Verify unchanged: `schemas/**`
@@ -220,7 +234,7 @@ Expected: generated active guidance is scoped and deterministic.
 Search active source, templates, tests, README, workflow, and skill files for unscoped `npm install`,
 `npx --yes`, import, registry query, publish, and tarball glob forms. Classify every remaining
 `ai-peer-review` occurrence as executable, repository/product name, config/runtime path,
-protocol/schema ID, or historical evidence. The expected non-registry keep-list is:
+protocol/schema ID, or historical evidence. The expected non-registry keep-list includes at least:
 
 - MCP server/product identity in `src/mcp/server.mjs`.
 - Config ownership and paths in `src/config/load.mjs` and `src/config/setup.mjs`.
