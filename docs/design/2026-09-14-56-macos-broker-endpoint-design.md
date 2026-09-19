@@ -6,12 +6,16 @@
 
 **Issue:** [#56](https://github.com/kburson/ai-peer-review/issues/56)
 
-**Supersedes:** The Unix socket pathname layout at lines 260–265 and extends the
-security rule at lines 279–280 plus the stable-error list at lines 335–337 of
+**Supersedes:** The live-endpoint verification sentence at lines 253–254, the
+Unix socket pathname layout at lines 260–265, and the security rule at lines
+279–280, and extends the stable-error list at lines 335–337 of
 `docs/design/2026-09-14-project-local-spr-xpr-broker-design.md`. It also
-supersedes the matching Task 3 **Interfaces**, Task 3 layout, and Task 4
-**Interfaces** instructions at lines 172, 192, and 199 of
-`docs/plans/2026-09-14-project-local-spr-xpr-broker.md`. The issue #56
+supersedes the matching Task 3 **Interfaces**, Task 3 layout, Task 4
+**Interfaces**, and closed handshake instructions at lines 172, 192, 199, and
+213 of `docs/plans/2026-09-14-project-local-spr-xpr-broker.md`. Plan line 212
+remains authoritative except that a Unix socket bind uses the absolute-path
+exception specified here because Darwin and Linux expose no `bindat`; every
+other filesystem operation remains directory-relative and no-follow. The issue #56
 implementation plan will be the executable replacement authority for those plan
 lines once it exists and passes its own peer review. The accepted epic documents
 remain sealed and are not edited; this issue-numbered correction has precedence
@@ -30,7 +34,9 @@ extend rather than replace the accepted list:
 `APR_BROKER_ENDPOINT_COLLISION`, and
 `APR_BROKER_PREDECESSOR_LIMIT`.
 The canonical root tuple, full SHA-256 digest, metadata and lock authority,
-handshake, ownership, compatibility, and recovery requirements remain in force.
+ownership, compatibility, and recovery requirements remain in force. The
+handshake remains closed and fail-closed with the expanded field set specified
+here.
 
 ## Problem
 
@@ -292,7 +298,12 @@ continues to require the live handshake's full canonical root tuple, package
 version, broker protocol version, Node major, the authority `cacheRoot`, instance
 ID, nonce proof, and kernel-reported peer user. A responder reports its canonical
 authority cache root as part of the authenticated handshake; it is never inferred
-from the shared socket pathname.
+from the shared socket pathname or metadata. The bounded JSON handshake's closed
+field set is the full root tuple, package version, broker protocol version, Node
+major, authority `cacheRoot`, instance ID, and nonce proof; the implementation
+also compares the kernel-reported peer user. A missing `cacheRoot`, any unknown
+field, a truncated frame, a wrong project, or any version mismatch fails with the
+existing broker-integrity error before any command is accepted.
 
 Task 4 must treat both locations as protected resources. `cacheRoot` is the
 authority trust anchor and `endpointRoot` is the POSIX routing trust anchor. Each
@@ -313,6 +324,17 @@ other. The final anchor must additionally be owned by the calling user. For
 `endpointRootSource: cache-root`, Task 4 reuses the already retained cache-root
 handle; for `configured`, it independently opens, validates, and retains the
 endpoint root through this operation.
+
+The replacement for plan line 199 is closed: `platformSecurity()` exposes
+`canonicalPath`, `userId`, `openPrivateRoot`, `openPrivateDirectory`,
+`acquireExclusive`, `listenPrivate`, and `peerUser`. Locks still return
+`{ instanceId, nonce, verify(), release() }`, and release still verifies
+ownership. `acquireBrokerOwnership({ identity, paths, versions }, platform)` and
+`connectBroker({ identity, paths, versions }, platform)` still return authenticated
+owner/client handles or stable errors. Versions remain
+`{ package_version, broker_protocol_version, node_major }`. The expanded `paths`
+shape and retained-handle requirements in this correction are the only interface
+changes.
 
 Configured roots and platform-default roots must already exist; the package
 never creates their arbitrary ancestors. The sole creation exception is the
@@ -462,8 +484,9 @@ responder's reported authority `cacheRoot` with the requester's canonical
 authority cache root before instance/nonce disagreement can be interpreted. A
 different cache root produces `APR_BROKER_AUTHORITY_CACHE_MISMATCH`, preserves
 the live socket, and names both cache roots, both full-digest lock paths, and the
-shared endpoint root. Its sole action is to converge `XDG_CACHE_HOME` or `home`
-for every participant and retry. A peer that accepts transport but cannot
+shared endpoint root. Its sole action is to converge the cache-root input each
+platform reads—`home` on macOS, `XDG_CACHE_HOME` or `home` on Linux, and
+`%LOCALAPPDATA%` on Windows—for every participant and retry. A peer that accepts transport but cannot
 authenticate sufficiently to report a trusted cache root produces the existing
 broker-integrity error and is likewise never unlinked.
 
@@ -542,9 +565,11 @@ A `bind()` result of `EADDRINUSE` or a platform-equivalent already-bound error i
 reclamation probe. The losing owner atomically annotates its already-published
 `starting` metadata by replacing `startup_collision: null` with the schema's
 collision object; it then releases its own lock and fails closed, leaving the
-winner's endpoint untouched. Recovery is to converge
-`XDG_CACHE_HOME` or `home` and `AI_PEER_REVIEW_ENDPOINT_ROOT` across every
-participant, confirm the extant broker has completed or exited, and retry. The
+winner's endpoint untouched. Recovery is to converge the cache-root input each
+platform reads—`home` on macOS, `XDG_CACHE_HOME` or `home` on Linux, and
+`%LOCALAPPDATA%` on Windows—plus `AI_PEER_REVIEW_ENDPOINT_ROOT` on POSIX only,
+across every participant, confirm the extant broker has completed or exited,
+and retry. The
 loser's metadata becomes stale when its lock is released and remains diagnostic
 evidence for the next owner-side reconciliation.
 
@@ -750,12 +775,14 @@ described here; no future layout may assume the `v1` sentence is unconditional.
 - An accepting peer for the same project and endpoint root reports a different
   canonical authority cache root: `APR_BROKER_AUTHORITY_CACHE_MISMATCH`; preserve
   the socket, name both cache roots, both full-digest lock paths, and the shared
-  endpoint root, then converge `XDG_CACHE_HOME` or `home` across every
-  participant. No handshake failure from an accepting peer authorizes unlink.
+  endpoint root, then converge `home` on macOS, `XDG_CACHE_HOME` or `home` on
+  Linux, or `%LOCALAPPDATA%` on Windows across every participant. No handshake
+  failure from an accepting peer authorizes unlink.
 - `bind()` reports `EADDRINUSE` or a platform-equivalent already-bound result:
   `APR_BROKER_ENDPOINT_COLLISION`; preserve the endpoint, annotate the losing
-  owner's `starting` metadata, release only its own lock, converge cache-root and
-  endpoint-root configuration, confirm the extant broker has completed or
+  owner's `starting` metadata, release only its own lock, converge the same
+  platform-specific cache-root inputs and, on POSIX only,
+  `AI_PEER_REVIEW_ENDPOINT_ROOT`, confirm the extant broker has completed or
   exited, and retry. A post-failure probe never grants unlink authority.
 - Appending another genuinely unreconciled predecessor would exceed the 16-entry
   metadata bound: `APR_BROKER_PREDECESSOR_LIMIT`; preserve prior metadata and
@@ -828,6 +855,10 @@ Issue #43's registry and ownership tests must additionally prove:
 
 - the ten explicitly enumerated new stable errors each exist in the offline
   registry with one exact recovery action;
+- the Windows offline `explain` text for
+  `APR_BROKER_AUTHORITY_CACHE_MISMATCH` and `APR_BROKER_ENDPOINT_COLLISION`
+  names `%LOCALAPPDATA%` and never instructs the operator to set
+  `AI_PEER_REVIEW_ENDPOINT_ROOT`;
 - an absent Linux `home-default` cache root is created `0700` relative to the
   retained safe home, while an absent configured root is refused;
 - every authority-root and endpoint-root source is refused when group- or
@@ -862,6 +893,9 @@ Issue #43's registry and ownership tests must additionally prove:
   the first peer's different `cacheRoot`, reports
   `APR_BROKER_AUTHORITY_CACHE_MISMATCH` with both roots and lock paths, and never
   unlinks the accepting peer's socket;
+- a live handshake that omits `cacheRoot` or adds any field outside the closed
+  field set fails with the existing broker-integrity error, accepts no command,
+  unlinks nothing, and never produces `APR_BROKER_AUTHORITY_CACHE_MISMATCH`;
 - two such owners that both observe no socket before binding force the losing
   bind to return `APR_BROKER_ENDPOINT_COLLISION`; the loser annotates its
   `starting` metadata, releases only its own lock, performs no reclamation probe,
