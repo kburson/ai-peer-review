@@ -45,6 +45,10 @@ test('manifest schema is closed and covers both terminal authority paths', () =>
     'human-override',
   ]);
   assert.equal(schema.$defs.participant.additionalProperties, false);
+  assert.equal(schema.$defs.participant.required.includes('evidence'), true);
+  assert.deepEqual(schema.$defs.participant.properties.evidence, {
+    $ref: 'participants-v2.json#/$defs/evidence',
+  });
   assert.equal(schema.$defs.claim.properties.pid, undefined);
 });
 
@@ -156,6 +160,7 @@ test('manifest preserves bounded identity, claim, recovery, and supplement histo
     final_commit: state.protocol.artifact.head,
   });
   assert.equal(model.identity_changes[0].identity.identity_source, 'runtime');
+  assert.equal(model.identity_changes[0].identity.evidence.model.source, 'legacy-unclassified');
   assert.equal(model.claims.length, 1);
   assert.equal(Object.hasOwn(model.claims[0], 'pid'), false);
   assert.equal(model.recoveries[0].type, 'same-session-reclaim');
