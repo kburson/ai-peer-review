@@ -1739,49 +1739,12 @@ export async function abandonReview(input) {
   );
 }
 
-export async function supersedeReview(input) {
-  const absolute = path.resolve(input.workspace);
-  const authority = inspectReviewAuthority(absolute);
-  const state = authority.state;
-  const reason = String(input.reason ?? '').trim();
-  const successorReviewId = String(input.successorReviewId ?? '').trim();
-  const prior = [...authority.events].reverse().find((event) => event.type === 'superseded');
-  if (prior) {
-    if (
-      prior.actor !== input.identity?.session_fingerprint ||
-      prior.payload.reason !== reason ||
-      prior.payload.successor_review_id !== successorReviewId
-    ) {
-      stableConflict('Supersession retry differs from the terminal event.');
-    }
-    releaseReservation(absolute, state.protocol.review_id);
-    return result(
-      'supersede',
-      state,
-      { workspace: absolute },
-      {
-        actor: prior.actor,
-        reason,
-        successor_review_id: successorReviewId,
-        retained_paths: prior.payload.retained_paths,
-      }
-    );
-  }
-  if (
-    !reason ||
-    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(successorReviewId) ||
-    successorReviewId === state.protocol.review_id ||
-    !['author', 'reviewer'].some(
-      (role) =>
-        state.participants[role]?.session_fingerprint === input.identity?.session_fingerprint
-    )
-  ) {
-    fail(
-      'APR_INVALID_TRANSITION',
-      'Supersession requires one registered participant and a distinct successor attempt.',
-      'Resume from a registered participant and name the replacement review ID.'
-    );
-  }
+function requireSuccessorAuthority(
+  absolute,
+  state,
+  successorReviewId,
+  { allowLegacy = false } = {}
+) {
   const repositoryRoot = state.protocol.startup.context.repository_root;
   const receiptPath = path.join(absolute, 'lineage-receipt.json');
   let lineage = {
@@ -1810,6 +1773,11 @@ export async function supersedeReview(input) {
         attempts: [],
       };
     }
+  } else if (allowLegacy) {
+    lineage = inspectRecordLineage([
+      absolute,
+      path.join(repositoryRoot, '.scratch', 'peer-review', successorReviewId),
+    ]);
   }
   if (lineage.status !== 'complete') {
     const unavailable = ['lineage-unavailable', 'incomplete-unavailable'].includes(lineage.status);
@@ -1828,7 +1796,54 @@ export async function supersedeReview(input) {
     (attempt) => attempt.review_id === state.protocol.review_id
   );
   const successor = lineage.attempts.find((attempt) => attempt.review_id === successorReviewId);
-  validateSuccessor({ predecessor, successor });
+  return validateSuccessor({ predecessor, successor });
+}
+
+export async function supersedeReview(input) {
+  const absolute = path.resolve(input.workspace);
+  const authority = inspectReviewAuthority(absolute);
+  const state = authority.state;
+  const reason = String(input.reason ?? '').trim();
+  const successorReviewId = String(input.successorReviewId ?? '').trim();
+  const prior = [...authority.events].reverse().find((event) => event.type === 'superseded');
+  if (prior) {
+    if (
+      prior.actor !== input.identity?.session_fingerprint ||
+      prior.payload.reason !== reason ||
+      prior.payload.successor_review_id !== successorReviewId
+    ) {
+      stableConflict('Supersession retry differs from the terminal event.');
+    }
+    requireSuccessorAuthority(absolute, state, successorReviewId, { allowLegacy: true });
+    releaseReservation(absolute, state.protocol.review_id);
+    return result(
+      'supersede',
+      state,
+      { workspace: absolute },
+      {
+        actor: prior.actor,
+        reason,
+        successor_review_id: successorReviewId,
+        retained_paths: prior.payload.retained_paths,
+      }
+    );
+  }
+  if (
+    !reason ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(successorReviewId) ||
+    successorReviewId === state.protocol.review_id ||
+    !['author', 'reviewer'].some(
+      (role) =>
+        state.participants[role]?.session_fingerprint === input.identity?.session_fingerprint
+    )
+  ) {
+    fail(
+      'APR_INVALID_TRANSITION',
+      'Supersession requires one registered participant and a distinct successor attempt.',
+      'Resume from a registered participant and name the replacement review ID.'
+    );
+  }
+  requireSuccessorAuthority(absolute, state, successorReviewId);
   const retainedPaths = retainedWorkspacePaths(absolute);
   const superseded = await mutateReview(absolute, expected(state), (current) =>
     eventFor(
