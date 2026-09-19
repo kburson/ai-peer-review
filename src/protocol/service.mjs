@@ -17,7 +17,12 @@ import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 import { nextActionCommand } from '../cli/help-data.mjs';
 import { AprError } from '../errors.mjs';
-import { assertReaderWriterCompatibility } from './compatibility.mjs';
+import {
+  assertReaderWriterCompatibility,
+  compatibilityDeclared,
+  currentCompatibility,
+  EVENT_V2_SCHEMA,
+} from './compatibility.mjs';
 import { validateEvent, validateVersionedEvent } from './events.mjs';
 import { reduceEvents } from './reducer.mjs';
 import {
@@ -647,11 +652,21 @@ export async function mutateReview(workspace, expected, createEvent) {
     const { events, state: current, file, bytes } = readAuthority(workspace);
     assertExpected(current, expected);
     assertExistingWriterCompatibility(events);
-    const nextEvent = await createEvent(current);
-    validateEvent(nextEvent);
-    const next = reduceEvents([...events, nextEvent]);
+    let nextEvent = await createEvent(current);
+    validateVersionedEvent(nextEvent);
+    let batch = [nextEvent];
+    const hasV2 = events.some((event) => event.schema === EVENT_V2_SCHEMA);
+    if (nextEvent.schema === EVENT_V2_SCHEMA && !hasV2) {
+      const declaration = compatibilityDeclared(current.protocol, currentCompatibility(), {
+        at: nextEvent.at,
+      });
+      nextEvent = Object.freeze({ ...nextEvent, sequence: nextEvent.sequence + 1 });
+      validateVersionedEvent(nextEvent);
+      batch = [declaration, nextEvent];
+    }
+    const next = reduceEvents([...events, ...batch]);
     ensureDeliveryReceipts(workspace, next, { write: false });
-    appendLockedEvents(file, bytes, [nextEvent]);
+    appendLockedEvents(file, bytes, batch);
     writeProjections(workspace, next);
     ensureDeliveryReceipts(workspace, next);
     return next;

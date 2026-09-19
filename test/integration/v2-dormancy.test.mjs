@@ -5,7 +5,7 @@ import test from 'node:test';
 import * as api from '../helpers/internal-api.mjs';
 import { fixture, identity, NOW, replaceSection } from '../helpers/intervention-fixture.mjs';
 
-test('the public start join submit cycle remains event-v1 while v2 stays internal', async (t) => {
+test('public participant registration activates v2 evidence while mixed logs stay readable', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
   const author = identity('author', 'v2-dormancy-author');
@@ -38,23 +38,17 @@ test('the public start join submit cycle remains event-v1 while v2 stays interna
   });
 
   const events = readFileSync(started.paths.events, 'utf8').trim().split('\n').map(JSON.parse);
-  assert.ok(events.length >= 3);
+  assert.ok(events.length >= 7);
   assert.deepEqual(
-    events.map((event) => event.schema),
-    Array(events.length).fill('ai-peer-review.event/v1')
+    events.slice(0, 4).map((event) => [event.type, event.schema]),
+    [
+      ['review-created', 'ai-peer-review.event/v1'],
+      ['compatibility-declared', 'ai-peer-review.event/v2'],
+      ['identity-changed', 'ai-peer-review.event/v2'],
+      ['reviewer-joined', 'ai-peer-review.event/v2'],
+    ]
   );
-  for (const event of events) {
-    const participant = event.payload.author ?? event.payload.reviewer;
-    if (!participant) continue;
-    assert.deepEqual(Object.keys(participant).sort(), [
-      'host',
-      'identity_source',
-      'joined_at',
-      'model_display',
-      'model_id',
-      'provider',
-      'role',
-      'session_fingerprint',
-    ]);
-  }
+  assert.deepEqual(events[2].payload.identity.evidence, author.evidence);
+  assert.deepEqual(events[3].payload.reviewer.evidence, reviewer.evidence);
+  assert.ok(events.slice(4).every((event) => event.schema === 'ai-peer-review.event/v1'));
 });

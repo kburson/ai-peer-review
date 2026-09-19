@@ -153,8 +153,7 @@
         "model_display",
         "session_fingerprint",
         "identity_source",
-        "joined_at",
-        "evidence"
+        "joined_at"
       ],
       "properties": {
         "role": { "enum": ["author", "reviewer"] },
@@ -165,7 +164,7 @@
         "session_fingerprint": { "$ref": "#/$defs/digest" },
         "identity_source": { "type": "string", "minLength": 1 },
         "joined_at": { "$ref": "#/$defs/time" },
-        "evidence": { "$ref": "participants-v2.json#/$defs/evidence" }
+        "evidence": { "$ref": "ai-peer-review.participants/v2#/$defs/evidence" }
       }
     },
     "turn": {

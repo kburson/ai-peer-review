@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
 import { inspectRecordLineage } from '../../src/protocol/record-lineage.mjs';
+import { inspectReview } from '../../src/protocol/service.mjs';
 import { appendEvent } from '../../src/protocol/store.mjs';
 import { fixture, identity, NOW } from '../helpers/intervention-fixture.mjs';
 
@@ -68,11 +69,12 @@ test('legacy placeholder supersession is surfaced on exact retry without rewriti
     recordId: 'record-lineage',
     now: NOW,
   });
+  const current = inspectReview(predecessor.paths.workspace).protocol;
   await appendEvent(predecessor.paths.events, {
     schema: 'ai-peer-review.event/v1',
     review_id: predecessor.review_id,
-    sequence: 2,
-    revision: 2,
+    sequence: current.sequence + 1,
+    revision: current.revision + 1,
     type: 'superseded',
     actor: author.session_fingerprint,
     at: '2026-09-09T02:01:00.000Z',

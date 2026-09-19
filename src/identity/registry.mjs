@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { AprError } from '../errors.mjs';
-import { validateEvent } from '../protocol/events.mjs';
+import { EVENT_V2_SCHEMA } from '../protocol/compatibility.mjs';
+import { validateEvent, validateVersionedEvent } from '../protocol/events.mjs';
 import { mutateReview } from '../protocol/service.mjs';
 import { identityEvidence, mergeObservedIdentity, v1Participant } from './evidence.mjs';
 import { claudeAdapter } from './claude.mjs';
@@ -83,10 +84,18 @@ function claimTtl(review, fallbackClaim = null) {
   return value;
 }
 
-function eventEnvelope(review, type, actor, at, payload, revisionDelta) {
+function eventEnvelope(
+  review,
+  type,
+  actor,
+  at,
+  payload,
+  revisionDelta,
+  schema = 'ai-peer-review.event/v1'
+) {
   const protocol = protocolOf(review);
   const value = {
-    schema: 'ai-peer-review.event/v1',
+    schema,
     review_id: protocol.review_id,
     sequence: protocol.sequence + 1,
     revision: protocol.revision + revisionDelta,
@@ -95,7 +104,8 @@ function eventEnvelope(review, type, actor, at, payload, revisionDelta) {
     at: instant(at).toISOString(),
     payload,
   };
-  validateEvent(value);
+  if (schema === EVENT_V2_SCHEMA) validateVersionedEvent(value);
+  else validateEvent(value);
   return Object.freeze(value);
 }
 
@@ -288,9 +298,10 @@ export function identityChangeEvent(review, prior, current, now = new Date()) {
     now,
     {
       role: current.role,
-      identity: v1Participant({ ...current, joined_at: prior.joined_at }),
+      identity: { ...current, joined_at: prior.joined_at },
     },
-    0
+    0,
+    EVENT_V2_SCHEMA
   );
 }
 
