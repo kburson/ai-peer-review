@@ -411,13 +411,14 @@ assertions, existing `AprError` error vocabulary.
 
 ## Plan Adjustments
 
-### 2026-09-19: Exclude generated review responses from spell checking
+### 2026-09-19: Align quality checks with immutable review responses
 
 The exact-SHA verification run found that `cspell` treated immutable author and
-reviewer response transcripts as curated prose. Those generated records contain
-provider-authored technical vocabulary and cannot be edited after sealing without
-invalidating review evidence. Match the repository's existing `markdownlint`
-boundary by excluding only `author-response-*` and `reviewer-response-*` files
-under `docs/peer-reviews/`. This is a verification-tooling adjustment; it does not
-change broker behavior, widen the implementation, or alter any sealed review
-record.
+reviewer response transcripts as curated prose, while `git diff --check` treated
+the provider-generated terminal blank line in four sealed responses as an error.
+Those records cannot be edited after sealing without invalidating review evidence.
+Match the repository's existing `markdownlint` boundary by excluding only
+`author-response-*` and `reviewer-response-*` files under `docs/peer-reviews/`
+from spell checking, and disable only Git's `blank-at-eof` diagnostic for the
+same generated files. This verification-tooling adjustment does not change broker
+behavior, widen the implementation, or alter any sealed review record.
