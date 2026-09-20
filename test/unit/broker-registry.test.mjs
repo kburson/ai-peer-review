@@ -21,6 +21,13 @@ const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
 const PROJECT_DIGEST = 'c'.repeat(64);
 
+function spawnNpmSync(args, options) {
+  if (process.platform === 'win32') {
+    return spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/c', 'npm', ...args], options);
+  }
+  return spawnSync('npm', args, options);
+}
+
 function fixture(t) {
   const scratch = path.join(process.cwd(), '.scratch', 'test');
   mkdirSync(scratch, { recursive: true });
@@ -254,11 +261,10 @@ test('pinRuntimeImage resolves a hoisted installed dependency into an executable
   );
   writeFileSync(path.join(dependencySource, 'index.cjs'), "module.exports = 'hoisted-ok';\n");
   for (const source of [packageSource, dependencySource]) {
-    const packed = spawnSync(
-      process.platform === 'win32' ? 'npm.cmd' : 'npm',
-      ['pack', '--ignore-scripts', '--pack-destination', tarballs],
-      { cwd: source, encoding: 'utf8' }
-    );
+    const packed = spawnNpmSync(['pack', '--ignore-scripts', '--pack-destination', tarballs], {
+      cwd: source,
+      encoding: 'utf8',
+    });
     assert.equal(packed.status, 0, packed.stderr);
   }
   mkdirSync(consumer);
@@ -266,8 +272,7 @@ test('pinRuntimeImage resolves a hoisted installed dependency into an executable
     path.join(consumer, 'package.json'),
     `${JSON.stringify({ name: 'consumer', version: '1.0.0', private: true })}\n`
   );
-  const installed = spawnSync(
-    process.platform === 'win32' ? 'npm.cmd' : 'npm',
+  const installed = spawnNpmSync(
     [
       'install',
       '--ignore-scripts',
