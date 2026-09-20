@@ -96,17 +96,19 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.doesNotMatch(windowsBoundedWrite, /CreateThread\(/);
   assert.match(windowsBoundedWrite, /WaitForSingleObject\(thread, kIpcTimeoutMilliseconds\)/);
   assert.match(windowsBoundedWrite, /CancelSynchronousIo\(thread\)/);
-  assert.match(windowsWrite, /WritePipeBounded\(connection->handle, bytes\)/);
-  assert.doesNotMatch(windowsWrite, /PIPE_NOWAIT|SetNamedPipeHandleState|GetTickCount64/);
-  assert.match(windows, /bool FlushServerBounded\(HANDLE handle\)/);
-  assert.match(windows, /DuplicateHandle\(/);
-  assert.match(windows, /CreateThread\(/);
-  assert.match(windows, /CancelSynchronousIo\(/);
   assert.match(
     windows,
-    /connection->server_side && !FlushServerBounded\(connection->handle\)/,
-    'a server reply must be read before DisconnectNamedPipe can discard it'
+    /struct PipeWriteRequest \{ HANDLE handle; std::vector<unsigned char> bytes; bool flush; \};/
   );
+  assert.match(windows, /request->flush && !FlushFileBuffers\(request->handle\)/);
+  assert.match(
+    windowsWrite,
+    /WritePipeBounded\(connection->handle, bytes, connection->server_side\)/
+  );
+  assert.doesNotMatch(windowsWrite, /PIPE_NOWAIT|SetNamedPipeHandleState|GetTickCount64/);
+  assert.doesNotMatch(windows, /bool FlushServerBounded\(HANDLE handle\)/);
+  assert.match(windows, /DuplicateHandle\(/);
+  assert.match(windows, /CancelSynchronousIo\(/);
 });
 
 test('missing or mismatched native helper fails with the installation-specific offline build command', (t) => {

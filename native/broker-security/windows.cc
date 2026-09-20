@@ -13,7 +13,7 @@ struct Directory { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION 
 struct Lock { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Endpoint { HANDLE handle; std::wstring path; };
 struct Connection { HANDLE handle; bool server_side; };
-struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; };
+struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; bool flush; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const char* text) {
@@ -200,52 +200,23 @@ unsigned __stdcall WritePipeThread(void* value) {
     }
     offset += count;
   }
+  if (complete && request->flush && !FlushFileBuffers(request->handle)) complete = false;
   CloseHandle(request->handle);
   delete request;
   return complete ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
 }
 
-bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes) {
+bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes, bool flush) {
   HANDLE duplicate = INVALID_HANDLE_VALUE;
   if (!DuplicateHandle(
         GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
         0, FALSE, DUPLICATE_SAME_ACCESS)) return false;
-  auto* request = new PipeWriteRequest{duplicate, bytes};
+  auto* request = new PipeWriteRequest{duplicate, bytes, flush};
   HANDLE thread = reinterpret_cast<HANDLE>(
     _beginthreadex(nullptr, 0, WritePipeThread, request, 0, nullptr));
   if (thread == nullptr) {
     CloseHandle(duplicate);
     delete request;
-    return false;
-  }
-  DWORD wait = WaitForSingleObject(thread, kIpcTimeoutMilliseconds);
-  if (wait == WAIT_TIMEOUT) {
-    CancelSynchronousIo(thread);
-    wait = WaitForSingleObject(thread, 1000);
-  }
-  DWORD result = ERROR_WRITE_FAULT;
-  const bool complete = wait == WAIT_OBJECT_0 &&
-                        GetExitCodeThread(thread, &result) != 0 &&
-                        result == ERROR_SUCCESS;
-  CloseHandle(thread);
-  return complete;
-}
-
-DWORD WINAPI FlushServerThread(void* value) {
-  HANDLE handle = static_cast<HANDLE>(value);
-  const bool flushed = FlushFileBuffers(handle) != 0;
-  CloseHandle(handle);
-  return flushed ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
-}
-
-bool FlushServerBounded(HANDLE handle) {
-  HANDLE duplicate = INVALID_HANDLE_VALUE;
-  if (!DuplicateHandle(
-        GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
-        0, FALSE, DUPLICATE_SAME_ACCESS)) return false;
-  HANDLE thread = CreateThread(nullptr, 0, FlushServerThread, duplicate, 0, nullptr);
-  if (thread == nullptr) {
-    CloseHandle(duplicate);
     return false;
   }
   DWORD wait = WaitForSingleObject(thread, kIpcTimeoutMilliseconds);
@@ -581,11 +552,14 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
 bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
-  if (!WritePipeBounded(connection->handle, bytes)) {
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame cannot be written completely.");
-  }
-  if (connection->server_side && !FlushServerBounded(connection->handle)) {
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame delivery timed out.");
+  if (!WritePipeBounded(connection->handle, bytes, connection->server_side)) {
+    return Fail(
+      code,
+      message,
+      "APR_BROKER_PROTOCOL",
+      connection->server_side
+        ? "Broker frame delivery timed out."
+        : "Broker frame cannot be written completely.");
   }
   return true;
 }
