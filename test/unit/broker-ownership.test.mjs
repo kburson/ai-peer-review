@@ -278,7 +278,12 @@ test(
     const endpointPath =
       process.platform === 'win32'
         ? `\\\\.\\pipe\\ai-peer-review-native-${process.pid}-${Date.now()}`
-        : path.join(privatePath, 'broker.sock');
+        : path.join(endpointRoot, 'native.sock');
+    assert.ok(
+      process.platform === 'win32' ||
+        Buffer.byteLength(endpointPath, 'utf8') <= security.maxEndpointLength,
+      'native IPC endpoint must fit the observed Unix socket limit'
+    );
     const endpoint = security.listenPrivate(endpointPath);
     const nativeHandshake = {
       schema: 'ai-peer-review.broker-handshake/v1',
