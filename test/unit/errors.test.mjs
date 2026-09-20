@@ -17,6 +17,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   assert.equal(packageJson.bin['peer-review-mcp'], './bin/peer-review-mcp.mjs');
   assert.deepEqual(packageJson.dependencies, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    'node-gyp': '12.4.0',
     zod: '4.6.2',
   });
   assert.deepEqual(packageJson.devDependencies, {
@@ -27,6 +28,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     prettier: '3.8.3',
   });
   assert.deepEqual(packageJson.scripts, {
+    'build:broker-security': 'node scripts/build-broker-security.mjs',
     test: 'npm run test:unit && npm run test:golden',
     'test:unit': 'node --test "test/unit/**/*.test.mjs"',
     'test:golden': 'node --test "test/golden/**/*.test.mjs"',
@@ -49,6 +51,11 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     'provenance/',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'native/broker-security/binding.gyp',
+    'native/broker-security/addon.cc',
+    'native/broker-security/posix.cc',
+    'native/broker-security/windows.cc',
+    'scripts/build-broker-security.mjs',
     'LICENSE',
     'NOTICE',
     'README.md',

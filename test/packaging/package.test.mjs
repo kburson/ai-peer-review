@@ -41,6 +41,11 @@ test('published tarball is closed and exact-pins its audited production dependen
     'package.json',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'scripts/build-broker-security.mjs',
+    'native/broker-security/binding.gyp',
+    'native/broker-security/addon.cc',
+    'native/broker-security/posix.cc',
+    'native/broker-security/windows.cc',
   ]);
   assert.ok(
     files.every(
@@ -63,6 +68,12 @@ test('published tarball is closed and exact-pins its audited production dependen
     'provenance/release-manifest.json',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'scripts/build-broker-security.mjs',
+    'native/broker-security/binding.gyp',
+    'native/broker-security/addon.cc',
+    'native/broker-security/posix.cc',
+    'native/broker-security/windows.cc',
+    'schemas/broker-v1.json',
   ])
     assert.ok(files.includes(required), `missing ${required}`);
   assert.ok(
@@ -75,6 +86,7 @@ test('published tarball is closed and exact-pins its audited production dependen
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.deepEqual(packageJson.dependencies ?? {}, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    'node-gyp': '12.4.0',
     zod: '4.6.2',
   });
   const dependencyTree = JSON.parse(
@@ -85,9 +97,11 @@ test('published tarball is closed and exact-pins its audited production dependen
   );
   assert.deepEqual(Object.keys(dependencyTree.dependencies ?? {}).sort(), [
     '@modelcontextprotocol/sdk',
+    'node-gyp',
     'zod',
   ]);
   assert.equal(dependencyTree.dependencies['@modelcontextprotocol/sdk'].version, '1.30.0');
+  assert.equal(dependencyTree.dependencies['node-gyp'].version, '12.4.0');
   assert.equal(dependencyTree.dependencies.zod.version, '4.6.2');
 });
 

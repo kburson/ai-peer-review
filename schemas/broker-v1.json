@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.broker/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tuple", "versions", "instance_id", "nonce"],
+  "properties": {
+    "schema": { "const": "ai-peer-review.broker-handshake/v1" },
+    "tuple": { "$ref": "#/$defs/tuple" },
+    "versions": { "$ref": "#/$defs/versions" },
+    "instance_id": { "$ref": "#/$defs/digest" },
+    "nonce": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "tuple": {
+      "type": "array",
+      "prefixItems": [
+        { "const": "ai-peer-review.broker-root/v1" },
+        { "type": "string", "minLength": 1 },
+        { "type": ["string", "null"] },
+        { "type": "string", "minLength": 1 }
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_version", "broker_protocol_version", "node_major"],
+      "properties": {
+        "package_version": { "type": "string", "minLength": 1 },
+        "broker_protocol_version": { "type": "integer", "minimum": 1 },
+        "node_major": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "handshake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "tuple", "versions", "instance_id", "nonce"],
+      "properties": {
+        "schema": { "const": "ai-peer-review.broker-handshake/v1" },
+        "tuple": { "$ref": "#/$defs/tuple" },
+        "versions": { "$ref": "#/$defs/versions" },
+        "instance_id": { "$ref": "#/$defs/digest" },
+        "nonce": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "command", "workspace"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9-]{1,64}$" },
+        "command": { "enum": ["status", "register", "suspend", "stop", "reconcile"] },
+        "workspace": { "type": ["string", "null"] }
+      }
+    },
+    "reply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ok", "result", "error"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9-]{1,64}$" },
+        "ok": { "type": "boolean" },
+        "result": { "type": ["object", "null"] },
+        "error": { "type": ["object", "null"] }
+      }
+    }
+  }
+}

@@ -23,11 +23,17 @@
     "provenance/",
     "scripts/verify-extraction.mjs",
     "scripts/verify-release.mjs",
+    "native/broker-security/binding.gyp",
+    "native/broker-security/addon.cc",
+    "native/broker-security/posix.cc",
+    "native/broker-security/windows.cc",
+    "scripts/build-broker-security.mjs",
     "LICENSE",
     "NOTICE",
     "README.md"
   ],
   "scripts": {
+    "build:broker-security": "node scripts/build-broker-security.mjs",
     "test": "npm run test:unit && npm run test:golden",
     "test:unit": "node --test \"test/unit/**/*.test.mjs\"",
     "test:golden": "node --test \"test/golden/**/*.test.mjs\"",
@@ -46,6 +52,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
+    "node-gyp": "12.4.0",
     "zod": "4.6.2"
   },
   "devDependencies": {

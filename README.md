@@ -10,8 +10,9 @@ it reviewed.
 
 It works with Claude Code, Codex, Grok, or any agent that can run a shell
 command. It requires Node.js 24 or later, recommends Node.js 26 or later, and
-uses two exact-pinned runtime dependencies for its MCP transport and closed
-validation boundary.
+uses exact-pinned dependencies for its MCP transport and closed validation
+boundary. Its native broker-security helper has a separately audited,
+build-only `node-gyp` dependency.
 
 ## Why bother
 
@@ -105,6 +106,31 @@ identity, whether the scratch directory is ignored, and whether the transport
 you asked for is actually available. For `automatic-required`, it also checks
 MCP connectivity, a current resident lease, the configured long timeout, and an
 end-to-end transport probe. Anything it calls out, it also tells you how to fix.
+
+Broker-dependent startup additionally requires the package-owned native
+security helper. Building it is always explicit: provide a writable package
+installation and a local Node development tree that exactly matches the
+running Node version and architecture. The builder never downloads headers,
+never runs as an install lifecycle hook, and fails if the compiler, Python,
+headers, or Windows import library is unavailable.
+
+From a source checkout:
+
+```bash
+npm run build:broker-security -- --nodedir /absolute/local/node-development-tree
+```
+
+From a consumer project root:
+
+```bash
+npm --prefix ./node_modules/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree
+```
+
+For a read-only installation, build the same installed package in a writable
+location first. `doctor` reports the command for the installation it inspected.
+A missing or incompatible helper keeps the broker-security row unhealthy and
+broker-dependent startup fails with `APR_BROKER_START_FAILED`; legacy manual
+review operations remain available and never trigger a build.
 
 Claude Code must expose a genuine current session through
 `CLAUDE_CODE_SESSION_ID` (or `CLAUDE_SESSION_ID`). When the host does not expose

@@ -38,6 +38,7 @@ import {
   runClaudeReviewerLaunch,
 } from '../provider/claude-launch.mjs';
 import { doctor } from '../doctor.mjs';
+import { inspectPlatformSecurity } from '../broker/platform.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
 import {
@@ -4039,6 +4040,7 @@ function detectedDoctorContext(io, loaded, requestedMode) {
           ? { mode: 'automatic-required', healthy: automaticHealthy }
           : { mode: 'manual', healthy: requestedMode === 'manual' },
     phaseTwo,
+    brokerSecurity: io.brokerSecurity ?? inspectPlatformSecurity(),
   };
 }
 
@@ -4196,10 +4198,16 @@ export async function run(argv, io) {
         ...context,
       });
       if (parsed.options.json) writeJson(io.stdout, response);
-      else
-        io.stdout.write(
-          `${response.healthy ? 'healthy' : 'unhealthy'}\n${response.rows.map((entry) => `${entry.id}: ${entry.status}`).join('\n')}\n`
-        );
+      else {
+        const rows = response.rows.map((entry) => {
+          const recovery =
+            entry.id === 'broker-security' && entry.details?.build_command
+              ? `\n  recovery: ${entry.details.build_command}`
+              : '';
+          return `${entry.id}: ${entry.status}${recovery}`;
+        });
+        io.stdout.write(`${response.healthy ? 'healthy' : 'unhealthy'}\n${rows.join('\n')}\n`);
+      }
       return response.healthy ? 0 : 1;
     }
     if (parsed.command === 'request-grant') {
