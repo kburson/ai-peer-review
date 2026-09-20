@@ -12,6 +12,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { acquireBrokerOwnership } from '../../src/broker/ownership.mjs';
 import { createFrameDecoder, encodeFrame, validateHandshake } from '../../src/broker/ipc.mjs';
@@ -207,6 +208,11 @@ test(
     mkdirSync(scratch, { recursive: true });
     const directory = mkdtempSync(new URL('broker-native-', scratch).pathname);
     t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const endpointRoot =
+      process.platform === 'win32' ? null : mkdtempSync(path.join(tmpdir(), 'apr-native-'));
+    if (endpointRoot !== null) {
+      t.after(() => rmSync(endpointRoot, { recursive: true, force: true }));
+    }
     const nestedAuthority = [
       path.join(directory, 'authority'),
       path.join(directory, 'authority', 'brokers'),
@@ -215,7 +221,16 @@ test(
     const nestedEndpoints =
       process.platform === 'win32'
         ? []
-        : [path.join(directory, 'runtime'), path.join(directory, 'runtime', 'v1')];
+        : [path.join(endpointRoot, 'runtime'), path.join(endpointRoot, 'runtime', 'v1')];
+    const provisioningEndpoint =
+      process.platform === 'win32'
+        ? `\\\\.\\pipe\\ai-peer-review-provision-${process.pid}-${Date.now()}`
+        : path.join(nestedEndpoints.at(-1), 'broker.sock');
+    assert.ok(
+      process.platform === 'win32' ||
+        Buffer.byteLength(provisioningEndpoint, 'utf8') <= security.maxEndpointLength,
+      'native test endpoint must fit the observed Unix socket limit'
+    );
     const provisioned = acquireBrokerOwnership(
       {
         identity: {
@@ -227,10 +242,7 @@ test(
           directory: nestedAuthority.at(-1),
           lock: path.join(nestedAuthority.at(-1), 'broker.lock'),
           metadata: path.join(nestedAuthority.at(-1), 'broker.json'),
-          endpoint:
-            process.platform === 'win32'
-              ? `\\\\.\\pipe\\ai-peer-review-provision-${process.pid}-${Date.now()}`
-              : path.join(nestedEndpoints.at(-1), 'broker.sock'),
+          endpoint: provisioningEndpoint,
         },
         versions,
         reconcile: () => true,
