@@ -227,10 +227,10 @@ test('pinRuntimeImage rejects a symlinked destination parent', (t) => {
   );
 });
 
-test('pinRuntimeImage resolves a hoisted installed dependency into an executable image', (t) => {
+test('pinRuntimeImage resolves a hoisted install from a shell-metacharacter path', (t) => {
   const scratch = path.join(process.cwd(), '.scratch', 'test');
   mkdirSync(scratch, { recursive: true });
-  const root = mkdtempSync(path.join(scratch, 'broker-hoisted-install-'));
+  const root = mkdtempSync(path.join(scratch, 'broker-hoisted-&%-install-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const consumer = path.join(root, 'consumer');
   const sources = path.join(root, 'sources');
