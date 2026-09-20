@@ -338,10 +338,10 @@ test(
       import { createFrameDecoder, encodeFrame, validateHandshake } from ${JSON.stringify(new URL('../../src/broker/ipc.mjs', import.meta.url).href)};
       const platform = platformSecurity();
       const expected = JSON.parse(process.argv[2]);
-      process.stdout.write('READY\\n');
       const connection = platform.connectPrivate(process.argv[1]);
       assert.equal(platform.peerUser(connection), platform.userId());
       connection.write(encodeFrame(expected));
+      process.stdout.write('READING\\n');
       const decoder = createFrameDecoder();
       const frames = decoder.push(connection.readFrame());
       decoder.end();
@@ -367,7 +367,7 @@ test(
     ipcChild.stderr.on('data', (bytes) => {
       ipcStderr += bytes;
     });
-    await waitForChildOutput(ipcChild, ipcChild.stdout, 'READY\n', () => ipcStderr);
+    await waitForChildOutput(ipcChild, ipcChild.stdout, 'READING\n', () => ipcStderr);
     const accepted = endpoint.accept();
     const decoder = createFrameDecoder();
     const frames = decoder.push(accepted.readFrame());
@@ -378,14 +378,14 @@ test(
     accepted.close();
     const [ipcStatus] = await ipcExit;
     assert.equal(ipcStatus, 0, ipcStderr);
-    assert.equal(ipcStdout, 'READY\nAUTHENTICATED');
+    assert.equal(ipcStdout, 'READING\nAUTHENTICATED');
 
     const partialSource = `
       import { platformSecurity } from ${JSON.stringify(new URL('../../src/broker/platform.mjs', import.meta.url).href)};
       const platform = platformSecurity();
-      process.stdout.write('READY\\n');
       const connection = platform.connectPrivate(process.argv[1]);
       connection.write(Buffer.from([0, 0, 0, 16, 123]));
+      process.stdout.write('WRITTEN\\n');
       setTimeout(() => {}, 20000);
     `;
     const partialChild = spawn(
@@ -401,7 +401,7 @@ test(
     partialChild.stderr.on('data', (bytes) => {
       partialStderr += bytes;
     });
-    await waitForChildOutput(partialChild, partialChild.stdout, 'READY\n', () => partialStderr);
+    await waitForChildOutput(partialChild, partialChild.stdout, 'WRITTEN\n', () => partialStderr);
     const partial = endpoint.accept();
     const started = Date.now();
     assert.throws(() => partial.readFrame(), { code: 'APR_BROKER_PROTOCOL' });
