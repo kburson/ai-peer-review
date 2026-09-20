@@ -349,6 +349,12 @@ test(
       decoder.end();
       assert.equal(frames.length, 1);
       validateHandshake(frames[0], expected, platform.peerUser(connection));
+      connection.write(encodeFrame(expected));
+      const secondDecoder = createFrameDecoder();
+      const secondFrames = secondDecoder.push(connection.readFrame());
+      secondDecoder.end();
+      assert.equal(secondFrames.length, 1);
+      validateHandshake(secondFrames[0], expected, platform.peerUser(connection));
       connection.close();
       process.stdout.write('AUTHENTICATED');
     `;
@@ -376,6 +382,12 @@ test(
     decoder.end();
     assert.equal(frames.length, 1);
     validateHandshake(frames[0], nativeHandshake, security.peerUser(accepted));
+    accepted.write(encodeFrame(nativeHandshake));
+    const secondDecoder = createFrameDecoder();
+    const secondFrames = secondDecoder.push(accepted.readFrame());
+    secondDecoder.end();
+    assert.equal(secondFrames.length, 1);
+    validateHandshake(secondFrames[0], nativeHandshake, security.peerUser(accepted));
     accepted.write(encodeFrame(nativeHandshake));
     accepted.close();
     const [ipcStatus] = await ipcExit;

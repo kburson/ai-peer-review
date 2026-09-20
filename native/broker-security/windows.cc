@@ -203,7 +203,6 @@ unsigned __stdcall WritePipeThread(void* value) {
   if (complete && request->written != nullptr) SetEvent(request->written);
   if (request->written != nullptr) CloseHandle(request->written);
   if (complete && request->flush && !FlushFileBuffers(request->handle)) complete = false;
-  if (complete && request->flush) DisconnectNamedPipe(request->handle);
   CloseHandle(request->handle);
   delete request;
   return complete ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
@@ -639,7 +638,7 @@ bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
 
 void CloseConnection(void* value) {
   auto* connection = static_cast<Connection*>(value);
-  // A server reply worker retains and disconnects its duplicate after drain.
+  // A server reply worker retains its duplicate until bounded draining ends.
   CloseHandle(connection->handle);
   delete connection;
 }

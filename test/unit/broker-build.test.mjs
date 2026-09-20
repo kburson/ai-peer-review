@@ -77,6 +77,8 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   const windowsRelease = windows.match(/bool ReleaseExclusive[\s\S]*?\n}/)?.[0] ?? '';
   const posixWrite = posix.match(/bool SendAll[\s\S]*?\n}/)?.[0] ?? '';
   const windowsRead = windows.match(/bool ReadExact[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsPipeThread =
+    windows.match(/unsigned __stdcall WritePipeThread[\s\S]*?\n}/)?.[0] ?? '';
   const windowsBoundedWrite = windows.match(/bool WritePipeBounded[\s\S]*?\n}/)?.[0] ?? '';
   const windowsServerWrite = windows.match(/bool WriteServerReply[\s\S]*?\n}/)?.[0] ?? '';
   const windowsWrite = windows.match(/bool ConnectionWrite[\s\S]*?\n}/)?.[0] ?? '';
@@ -104,7 +106,7 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   );
   assert.match(windows, /SetEvent\(request->written\)/);
   assert.match(windows, /request->flush && !FlushFileBuffers\(request->handle\)/);
-  assert.match(windows, /DisconnectNamedPipe\(request->handle\)/);
+  assert.doesNotMatch(windowsPipeThread, /DisconnectNamedPipe/);
   assert.match(windowsServerWrite, /CreateEventW\(/);
   assert.match(windowsServerWrite, /WaitForMultipleObjects\(/);
   assert.match(windowsServerWrite, /SupervisePipeWrite/);
