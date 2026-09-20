@@ -78,7 +78,9 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   const posixWrite = posix.match(/bool SendAll[\s\S]*?\n}/)?.[0] ?? '';
   const windowsRead = windows.match(/bool ReadExact[\s\S]*?\n}/)?.[0] ?? '';
   const windowsBoundedWrite = windows.match(/bool WritePipeBounded[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsServerWrite = windows.match(/bool WriteServerReply[\s\S]*?\n}/)?.[0] ?? '';
   const windowsWrite = windows.match(/bool ConnectionWrite[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsClose = windows.match(/void CloseConnection[\s\S]*?\n}/)?.[0] ?? '';
 
   assert.doesNotMatch(posixRelease, /unlink/);
   assert.doesNotMatch(windowsRelease, /DeleteFileW|FileDisposition/);
@@ -98,14 +100,20 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.match(windowsBoundedWrite, /CancelSynchronousIo\(thread\)/);
   assert.match(
     windows,
-    /struct PipeWriteRequest \{ HANDLE handle; std::vector<unsigned char> bytes; bool flush; \};/
+    /struct PipeWriteRequest \{ HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; \};/
   );
+  assert.match(windows, /SetEvent\(request->written\)/);
   assert.match(windows, /request->flush && !FlushFileBuffers\(request->handle\)/);
+  assert.match(windows, /DisconnectNamedPipe\(request->handle\)/);
+  assert.match(windowsServerWrite, /CreateEventW\(/);
+  assert.match(windowsServerWrite, /WaitForMultipleObjects\(/);
+  assert.match(windowsServerWrite, /SupervisePipeWrite/);
   assert.match(
     windowsWrite,
-    /WritePipeBounded\(connection->handle, bytes, connection->server_side\)/
+    /connection->server_side[\s\S]*WriteServerReply\(connection->handle, bytes\)[\s\S]*WritePipeBounded\(connection->handle, bytes\)/
   );
   assert.doesNotMatch(windowsWrite, /PIPE_NOWAIT|SetNamedPipeHandleState|GetTickCount64/);
+  assert.doesNotMatch(windowsClose, /DisconnectNamedPipe/);
   assert.doesNotMatch(windows, /bool FlushServerBounded\(HANDLE handle\)/);
   assert.match(windows, /DuplicateHandle\(/);
   assert.match(windows, /CancelSynchronousIo\(/);

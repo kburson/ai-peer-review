@@ -13,7 +13,7 @@ struct Directory { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION 
 struct Lock { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Endpoint { HANDLE handle; std::wstring path; };
 struct Connection { HANDLE handle; bool server_side; };
-struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; bool flush; };
+struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const char* text) {
@@ -200,18 +200,21 @@ unsigned __stdcall WritePipeThread(void* value) {
     }
     offset += count;
   }
+  if (complete && request->written != nullptr) SetEvent(request->written);
+  if (request->written != nullptr) CloseHandle(request->written);
   if (complete && request->flush && !FlushFileBuffers(request->handle)) complete = false;
+  if (complete && request->flush) DisconnectNamedPipe(request->handle);
   CloseHandle(request->handle);
   delete request;
   return complete ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
 }
 
-bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes, bool flush) {
+bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes) {
   HANDLE duplicate = INVALID_HANDLE_VALUE;
   if (!DuplicateHandle(
         GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
         0, FALSE, DUPLICATE_SAME_ACCESS)) return false;
-  auto* request = new PipeWriteRequest{duplicate, bytes, flush};
+  auto* request = new PipeWriteRequest{duplicate, bytes, nullptr, false};
   HANDLE thread = reinterpret_cast<HANDLE>(
     _beginthreadex(nullptr, 0, WritePipeThread, request, 0, nullptr));
   if (thread == nullptr) {
@@ -230,6 +233,73 @@ bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes, bo
                         result == ERROR_SUCCESS;
   CloseHandle(thread);
   return complete;
+}
+
+unsigned __stdcall SupervisePipeWrite(void* value) {
+  HANDLE thread = static_cast<HANDLE>(value);
+  DWORD wait = WaitForSingleObject(thread, kIpcTimeoutMilliseconds);
+  if (wait == WAIT_TIMEOUT) {
+    CancelSynchronousIo(thread);
+    WaitForSingleObject(thread, 1000);
+  }
+  CloseHandle(thread);
+  return ERROR_SUCCESS;
+}
+
+bool WriteServerReply(HANDLE handle, const std::vector<unsigned char>& bytes) {
+  // A server flush waits for the client to consume the reply. Signal once the
+  // write is complete, then retain the duplicate until bounded draining ends.
+  HANDLE duplicate = INVALID_HANDLE_VALUE;
+  HANDLE written = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+  HANDLE worker_event = nullptr;
+  if (written == nullptr ||
+      !DuplicateHandle(
+        GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
+        0, FALSE, DUPLICATE_SAME_ACCESS) ||
+      !DuplicateHandle(
+        GetCurrentProcess(), written, GetCurrentProcess(), &worker_event,
+        0, FALSE, DUPLICATE_SAME_ACCESS)) {
+    if (written != nullptr) CloseHandle(written);
+    if (duplicate != INVALID_HANDLE_VALUE) CloseHandle(duplicate);
+    return false;
+  }
+  auto* request = new PipeWriteRequest{duplicate, bytes, worker_event, true};
+  HANDLE thread = reinterpret_cast<HANDLE>(
+    _beginthreadex(nullptr, 0, WritePipeThread, request, 0, nullptr));
+  if (thread == nullptr) {
+    CloseHandle(worker_event);
+    CloseHandle(duplicate);
+    CloseHandle(written);
+    delete request;
+    return false;
+  }
+  HANDLE supervised = nullptr;
+  if (!DuplicateHandle(
+        GetCurrentProcess(), thread, GetCurrentProcess(), &supervised,
+        0, FALSE, DUPLICATE_SAME_ACCESS)) {
+    CancelSynchronousIo(thread);
+    WaitForSingleObject(thread, 1000);
+    CloseHandle(thread);
+    CloseHandle(written);
+    return false;
+  }
+  HANDLE supervisor = reinterpret_cast<HANDLE>(
+    _beginthreadex(nullptr, 0, SupervisePipeWrite, supervised, 0, nullptr));
+  if (supervisor == nullptr) {
+    CloseHandle(supervised);
+    CancelSynchronousIo(thread);
+    WaitForSingleObject(thread, 1000);
+    CloseHandle(thread);
+    CloseHandle(written);
+    return false;
+  }
+  CloseHandle(supervisor);
+  HANDLE observed[] = {written, thread};
+  const DWORD wait = WaitForMultipleObjects(
+    2, observed, FALSE, kIpcTimeoutMilliseconds);
+  CloseHandle(thread);
+  CloseHandle(written);
+  return wait == WAIT_OBJECT_0;
 }
 
 HANDLE CreateOwnerPipe(const std::wstring& path, bool first,
@@ -552,7 +622,10 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
 bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
-  if (!WritePipeBounded(connection->handle, bytes, connection->server_side)) {
+  const bool complete = connection->server_side
+    ? WriteServerReply(connection->handle, bytes)
+    : WritePipeBounded(connection->handle, bytes);
+  if (!complete) {
     return Fail(
       code,
       message,
@@ -566,7 +639,7 @@ bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
 
 void CloseConnection(void* value) {
   auto* connection = static_cast<Connection*>(value);
-  if (connection->server_side) DisconnectNamedPipe(connection->handle);
+  // A server reply worker retains and disconnects its duplicate after drain.
   CloseHandle(connection->handle);
   delete connection;
 }
