@@ -16,17 +16,11 @@ import { Worker } from 'node:worker_threads';
 
 import { reconcileRegistrations, registerReview } from '../../src/broker/registry.mjs';
 import { pinRuntimeImage, verifyRuntimeImage } from '../../src/broker/runtime-image.mjs';
+import { runNpm } from '../helpers/npm-command.mjs';
 
 const DIGEST_A = 'a'.repeat(64);
 const DIGEST_B = 'b'.repeat(64);
 const PROJECT_DIGEST = 'c'.repeat(64);
-
-function spawnNpmSync(args, options) {
-  if (process.platform === 'win32') {
-    return spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/c', 'npm', ...args], options);
-  }
-  return spawnSync('npm', args, options);
-}
 
 function fixture(t) {
   const scratch = path.join(process.cwd(), '.scratch', 'test');
@@ -261,18 +255,18 @@ test('pinRuntimeImage resolves a hoisted install from a shell-metacharacter path
   );
   writeFileSync(path.join(dependencySource, 'index.cjs'), "module.exports = 'hoisted-ok';\n");
   for (const source of [packageSource, dependencySource]) {
-    const packed = spawnNpmSync(['pack', '--ignore-scripts', '--pack-destination', tarballs], {
+    runNpm('npm', ['pack', '--ignore-scripts', '--pack-destination', tarballs], {
       cwd: source,
       encoding: 'utf8',
     });
-    assert.equal(packed.status, 0, packed.stderr);
   }
   mkdirSync(consumer);
   writeFileSync(
     path.join(consumer, 'package.json'),
     `${JSON.stringify({ name: 'consumer', version: '1.0.0', private: true })}\n`
   );
-  const installed = spawnNpmSync(
+  runNpm(
+    'npm',
     [
       'install',
       '--ignore-scripts',
@@ -285,7 +279,6 @@ test('pinRuntimeImage resolves a hoisted install from a shell-metacharacter path
     ],
     { cwd: consumer, encoding: 'utf8' }
   );
-  assert.equal(installed.status, 0, installed.stderr);
   const packageRoot = path.join(consumer, 'node_modules', 'runtime-fixture');
   assert.equal(existsSync(path.join(packageRoot, 'node_modules', 'tiny-dependency')), false);
   assert.equal(existsSync(path.join(consumer, 'node_modules', 'tiny-dependency')), true);
