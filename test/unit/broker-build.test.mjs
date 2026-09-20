@@ -81,6 +81,8 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
     windows.match(/unsigned __stdcall WritePipeThread[\s\S]*?\n}/)?.[0] ?? '';
   const windowsBoundedWrite = windows.match(/bool WritePipeBounded[\s\S]*?\n}/)?.[0] ?? '';
   const windowsServerWrite = windows.match(/bool WriteServerReply[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsFence = windows.match(/void FenceConnection[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsConnectionRead = windows.match(/bool ConnectionRead[\s\S]*?\n}/)?.[0] ?? '';
   const windowsWrite = windows.match(/bool ConnectionWrite[\s\S]*?\n}/)?.[0] ?? '';
   const windowsClose = windows.match(/void CloseConnection[\s\S]*?\n}/)?.[0] ?? '';
 
@@ -117,12 +119,23 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.match(windowsServerWrite, /CreateEventW\(/);
   assert.match(windowsServerWrite, /WaitForMultipleObjects\(/);
   assert.match(windowsServerWrite, /SupervisePipeWrite/);
+  assert.match(windows, /struct Connection \{ HANDLE handle; bool server_side; bool fenced; \};/);
+  assert.match(windowsFence, /connection->fenced = true/);
+  assert.match(windowsFence, /DisconnectNamedPipe\(connection->handle\)/);
+  assert.match(windowsConnectionRead, /connection->fenced/);
+  assert.match(windowsConnectionRead, /FenceConnection\(connection\)/);
   assert.match(
     windowsWrite,
     /connection->server_side[\s\S]*WriteServerReply\(connection->handle, bytes\)[\s\S]*WritePipeBounded\(connection->handle, bytes\)/
   );
+  assert.match(windowsWrite, /connection->fenced/);
+  assert.match(windowsWrite, /FenceConnection\(connection\)/);
   assert.doesNotMatch(windowsWrite, /PIPE_NOWAIT|SetNamedPipeHandleState|GetTickCount64/);
   assert.doesNotMatch(windowsClose, /DisconnectNamedPipe/);
+  assert.match(
+    windows,
+    /const DWORD createError = handle == INVALID_HANDLE_VALUE \? GetLastError\(\) : ERROR_SUCCESS;[\s\S]*LocalFree\(descriptor\);/
+  );
   assert.doesNotMatch(windows, /bool FlushServerBounded\(HANDLE handle\)/);
   assert.match(windows, /DuplicateHandle\(/);
   assert.match(windows, /CancelSynchronousIo\(/);
@@ -142,6 +155,9 @@ test('missing or mismatched native helper fails with the installation-specific o
 
 test('platform wrapper retains native handles and never reaches the builder implicitly', () => {
   const calls = [];
+  let nextConnection = 5;
+  const failedReads = new Set();
+  const failedWrites = new Set();
   const binding = {
     canonicalPath(value) {
       calls.push(['canonicalPath', value]);
@@ -199,14 +215,16 @@ test('platform wrapper retains native handles and never reaches the builder impl
     },
     connectPrivate(value) {
       calls.push(['connectPrivate', value]);
-      return 5;
+      return nextConnection++;
     },
     connectionRead(handle, maximum) {
       calls.push(['connectionRead', handle, maximum]);
+      if (failedReads.has(handle)) throw new Error('native read failed');
       return Buffer.from('response');
     },
     connectionWrite(handle, bytes) {
       calls.push(['connectionWrite', handle, bytes.toString()]);
+      if (failedWrites.has(handle)) throw new Error('native write failed');
     },
     closeConnection(handle) {
       calls.push(['closeConnection', handle]);
@@ -237,6 +255,24 @@ test('platform wrapper retains native handles and never reaches the builder impl
   const client = platform.connectPrivate('/private/broker.sock');
   assert.equal(client.exchange(Buffer.from('request')).toString(), 'response');
   client.close();
+  const failedRead = platform.connectPrivate('/private/broker.sock');
+  failedReads.add(6);
+  assert.throws(() => failedRead.readFrame(), /native read failed/);
+  assert.throws(() => failedRead.readFrame(), { code: 'APR_BROKER_STALE' });
+  failedRead.close();
+  assert.equal(
+    calls.filter(([name, handle]) => name === 'closeConnection' && handle === 6).length,
+    1
+  );
+  const failedWrite = platform.connectPrivate('/private/broker.sock');
+  failedWrites.add(7);
+  assert.throws(() => failedWrite.write(Buffer.from('request')), /native write failed/);
+  assert.throws(() => failedWrite.write(Buffer.from('retry')), { code: 'APR_BROKER_STALE' });
+  failedWrite.close();
+  assert.equal(
+    calls.filter(([name, handle]) => name === 'closeConnection' && handle === 7).length,
+    1
+  );
   endpoint.close();
   directory.close();
   assert.deepEqual(
@@ -254,6 +290,12 @@ test('platform wrapper retains native handles and never reaches the builder impl
       'connectPrivate',
       'connectionWrite',
       'connectionRead',
+      'closeConnection',
+      'connectPrivate',
+      'connectionRead',
+      'closeConnection',
+      'connectPrivate',
+      'connectionWrite',
       'closeConnection',
       'closeEndpoint',
       'closeDirectory',

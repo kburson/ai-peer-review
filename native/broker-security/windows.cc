@@ -13,7 +13,7 @@ namespace {
 struct Directory { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Lock { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Endpoint { HANDLE handle; std::wstring path; };
-struct Connection { HANDLE handle; bool server_side; };
+struct Connection { HANDLE handle; bool server_side; bool fenced; };
 struct PipeReadRequest { HANDLE handle; std::vector<unsigned char> bytes; LONG references; };
 struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
@@ -327,6 +327,12 @@ bool WriteServerReply(HANDLE handle, const std::vector<unsigned char>& bytes) {
   return wait == WAIT_OBJECT_0;
 }
 
+void FenceConnection(Connection* connection) {
+  connection->fenced = true;
+  CancelIoEx(connection->handle, nullptr);
+  if (connection->server_side) DisconnectNamedPipe(connection->handle);
+}
+
 HANDLE CreateOwnerPipe(const std::wstring& path, bool first,
                        std::string* code, std::string* message) {
   SECURITY_ATTRIBUTES attributes {};
@@ -337,12 +343,13 @@ HANDLE CreateOwnerPipe(const std::wstring& path, bool first,
     path.c_str(), mode,
     PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
     16, 65540, 65540, kIpcTimeoutMilliseconds, &attributes);
+  const DWORD createError = handle == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
   LocalFree(descriptor);
   if (handle == INVALID_HANDLE_VALUE) {
     Fail(
       code,
       message,
-      GetLastError() == ERROR_ACCESS_DENIED ? "APR_BROKER_OWNED" : "APR_BROKER_START_FAILED",
+      createError == ERROR_ACCESS_DENIED ? "APR_BROKER_OWNED" : "APR_BROKER_START_FAILED",
       "Private named pipe cannot be created.");
   }
   return handle;
@@ -598,7 +605,7 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
     CloseHandle(accepted);
     return nullptr;
   }
-  return new Connection{accepted, true};
+  return new Connection{accepted, true, false};
 }
 
 void* ConnectPrivate(const std::string& input, std::string* code, std::string* message) {
@@ -619,14 +626,18 @@ void* ConnectPrivate(const std::string& input, std::string* code, std::string* m
     Fail(code, message, "APR_BROKER_START_FAILED", "Private named-pipe mode cannot be fixed.");
     return nullptr;
   }
-  return new Connection{handle, false};
+  return new Connection{handle, false, false};
 }
 
 bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* bytes,
                     std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
+  if (connection->fenced) {
+    return Fail(code, message, "APR_BROKER_STALE", "Broker connection is fenced.");
+  }
   unsigned char prefix[4];
   if (!ReadExact(connection->handle, prefix, sizeof(prefix))) {
+    FenceConnection(connection);
     return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame prefix is truncated.");
   }
   const size_t length = (static_cast<size_t>(prefix[0]) << 24) |
@@ -634,11 +645,13 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
                         (static_cast<size_t>(prefix[2]) << 8) |
                         static_cast<size_t>(prefix[3]);
   if (length == 0 || length + sizeof(prefix) > maximum) {
+    FenceConnection(connection);
     return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame exceeds the bounded native read.");
   }
   bytes->assign(prefix, prefix + sizeof(prefix));
   bytes->resize(sizeof(prefix) + length);
   if (!ReadExact(connection->handle, bytes->data() + sizeof(prefix), length)) {
+    FenceConnection(connection);
     return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame body is truncated.");
   }
   return true;
@@ -647,10 +660,14 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
 bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
+  if (connection->fenced) {
+    return Fail(code, message, "APR_BROKER_STALE", "Broker connection is fenced.");
+  }
   const bool complete = connection->server_side
     ? WriteServerReply(connection->handle, bytes)
     : WritePipeBounded(connection->handle, bytes);
   if (!complete) {
+    FenceConnection(connection);
     return Fail(
       code,
       message,

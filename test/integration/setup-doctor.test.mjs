@@ -447,7 +447,7 @@ test('doctor reports the explicit broker helper build command without blocking l
     brokerSecurity: {
       healthy: false,
       build_command:
-        'npm --prefix /project/node_modules/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree',
+        'npm --prefix /project/node_modules/@kburson/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree',
     },
   };
   const report = doctor(base);

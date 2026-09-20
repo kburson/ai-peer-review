@@ -123,7 +123,7 @@ npm run build:broker-security -- --nodedir /absolute/local/node-development-tree
 From a consumer project root:
 
 ```bash
-npm --prefix ./node_modules/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree
+npm --prefix ./node_modules/@kburson/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree
 ```
 
 For a read-only installation, build the same installed package in a writable

@@ -134,6 +134,12 @@ export function platformSecurity({
   const connectionHandles = new WeakMap();
   function wrapConnection(handle) {
     let closed = false;
+    function closeNative(connection) {
+      if (closed) return;
+      closed = true;
+      connectionHandles.delete(connection);
+      native.closeConnection(handle);
+    }
     const connection = {
       readFrame() {
         if (closed) {
@@ -141,7 +147,16 @@ export function platformSecurity({
             recovery: 'Reconnect to the authenticated broker and retry the bounded request.',
           });
         }
-        return native.connectionRead(handle, maxNativeFrame);
+        try {
+          return native.connectionRead(handle, maxNativeFrame);
+        } catch (error) {
+          try {
+            closeNative(connection);
+          } catch {
+            // Preserve the protocol failure that caused the connection fence.
+          }
+          throw error;
+        }
       },
       write(bytes) {
         if (closed) {
@@ -149,17 +164,23 @@ export function platformSecurity({
             recovery: 'Reconnect to the authenticated broker and retry the bounded request.',
           });
         }
-        native.connectionWrite(handle, Buffer.from(bytes));
+        try {
+          native.connectionWrite(handle, Buffer.from(bytes));
+        } catch (error) {
+          try {
+            closeNative(connection);
+          } catch {
+            // Preserve the protocol failure that caused the connection fence.
+          }
+          throw error;
+        }
       },
       exchange(bytes) {
         this.write(bytes);
         return this.readFrame();
       },
       close() {
-        if (closed) return;
-        closed = true;
-        connectionHandles.delete(connection);
-        native.closeConnection(handle);
+        closeNative(connection);
       },
     };
     connectionHandles.set(connection, handle);
