@@ -46,9 +46,6 @@ try {
     .join('.');
   if (actual !== process.versions.node)
     fail(`Development files are for Node ${actual}; running Node is ${process.versions.node}.`);
-  const config = readFileSync(path.join(include, 'config.gypi'), 'utf8');
-  if (!new RegExp(`['"]target_arch['"]\\s*:\\s*['"]${process.arch}['"]`).test(config))
-    fail('Development architecture does not match the running Node.');
   if (
     process.platform === 'win32' &&
     !statSync(path.join(options['--nodedir'], 'Release', 'node.lib')).isFile()

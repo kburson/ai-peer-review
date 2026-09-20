@@ -33,6 +33,10 @@ test('explicit builder refuses absent, relative, extra and missing local develop
 test('native build is explicit and package includes only the five owned build sources', () => {
   const pkg = JSON.parse(readFileSync(path.join(root, 'package.json')));
   const builderSource = readFileSync(builder, 'utf8');
+  const ownershipTestSource = readFileSync(
+    path.join(root, 'test/unit/broker-ownership.test.mjs'),
+    'utf8'
+  );
   assert.equal(pkg.dependencies['node-gyp'], '12.4.0');
   assert.equal(pkg.scripts['build:broker-security'], 'node scripts/build-broker-security.mjs');
   for (const event of ['preinstall', 'install', 'postinstall', 'prepare'])
@@ -53,6 +57,17 @@ test('native build is explicit and package includes only the five owned build so
     /path\.join\(options\['--nodedir'\], 'Release', 'node\.lib'\)/,
     'explicit Windows nodedir validation must match node-gyp configure lookup'
   );
+  assert.doesNotMatch(
+    builderSource,
+    /target_arch/,
+    'the architecture-neutral POSIX header archive cannot prove the target architecture'
+  );
+  assert.match(builderSource, /`--arch=\$\{process\.arch\}`/);
+  assert.match(
+    ownershipTestSource,
+    /fileURLToPath\(new URL\('\.\.\/\.\.\/scripts\/build-broker-security\.mjs'/
+  );
+  assert.doesNotMatch(ownershipTestSource, /\.pathname/);
 });
 
 test('native ownership release preserves lock evidence and IPC waits are bounded', () => {

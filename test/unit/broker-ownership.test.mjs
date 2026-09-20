@@ -14,6 +14,7 @@ import {
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { acquireBrokerOwnership } from '../../src/broker/ownership.mjs';
 import { createFrameDecoder, encodeFrame, validateHandshake } from '../../src/broker/ipc.mjs';
 
@@ -202,7 +203,7 @@ test(
       const build = spawnSync(
         process.execPath,
         [
-          new URL('../../scripts/build-broker-security.mjs', import.meta.url).pathname,
+          fileURLToPath(new URL('../../scripts/build-broker-security.mjs', import.meta.url)),
           '--nodedir',
           nodeDevelopmentRoot,
         ],
@@ -214,7 +215,7 @@ test(
     const security = platformSecurity();
     const scratch = new URL('../../.scratch/test/', import.meta.url);
     mkdirSync(scratch, { recursive: true });
-    const directory = mkdtempSync(new URL('broker-native-', scratch).pathname);
+    const directory = mkdtempSync(fileURLToPath(new URL('broker-native-', scratch)));
     t.after(() => rmSync(directory, { recursive: true, force: true }));
     const endpointRoot =
       process.platform === 'win32' ? null : mkdtempSync(path.join(tmpdir(), 'apr-native-'));
