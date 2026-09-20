@@ -118,6 +118,42 @@ test('manifest rendering is deterministic, ordered, and privacy bounded', () => 
   assert.match(first.toString(), /reviewer-consensus/);
 });
 
+test('manifest preserves legacy omission and emits a newly sealed runtime descriptor', () => {
+  const events = acceptancePendingEvents();
+  const legacy = buildManifest(
+    review(events, {
+      status: 'accepted',
+      acceptance_basis: 'reviewer-consensus',
+      final_commit: events[0].payload.artifact.head,
+    })
+  );
+  assert.equal(Object.hasOwn(legacy, 'runtime'), false);
+  events[0].payload.startup.runtime = {
+    schema: 'ai-peer-review.runtime/v1',
+    classification: 'XPR',
+    ownership: 'broker',
+    transport_mode: 'manual',
+    reviewer: {
+      selector: 'claude',
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'fixture-opus',
+      model_display: 'Fixture Opus',
+      effort: 'high',
+    },
+    adapter_version: '1.0.0',
+    project_root_digest: 'a'.repeat(64),
+  };
+  const sealed = buildManifest(
+    review(events, {
+      status: 'accepted',
+      acceptance_basis: 'reviewer-consensus',
+      final_commit: events[0].payload.artifact.head,
+    })
+  );
+  assert.deepEqual(sealed.runtime, events[0].payload.startup.runtime);
+});
+
 test('phase manifest binds one current phase without claiming terminal authority', () => {
   const events = acceptancePendingEvents();
   events[0].payload.phases = { kinds: ['spec', 'plan'] };

@@ -89,7 +89,13 @@
         "review_path_template": { "type": "string", "minLength": 1 },
         "max_turns": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
         "claim_ttl_ms": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
-        "transport_mode": { "enum": ["manual", "resume-only", "automatic-required"] }
+        "transport_mode": { "enum": ["manual", "resume-only", "automatic-required"] },
+        "startup_transport_preference": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["manual", "resume-only", "automatic-required"] }
+        }
       }
     },
     "setup": {

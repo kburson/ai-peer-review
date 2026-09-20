@@ -118,6 +118,14 @@ const PROTECTED_ACTION = Object.freeze({
   'supplement-registered': 'supplement',
 });
 
+test('legacy review-created authority reduces without adding runtime fields', () => {
+  const legacy = sequence(['review-created']);
+  const reduced = reduceEvents(legacy);
+  assert.equal(Object.hasOwn(legacy[0].payload.startup, 'runtime'), false);
+  assert.equal(Object.hasOwn(reduced.protocol.startup, 'runtime'), false);
+  assert.deepEqual(reduced.protocol.startup, legacy[0].payload.startup);
+});
+
 function withConsumedChallenge(prefix, next) {
   const action = PROTECTED_ACTION[next.type];
   if (!action) return [...prefix, next];

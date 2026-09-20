@@ -124,12 +124,13 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     }
   }
 
-  function root(cwd) {
+  function physicalLocation(cwd) {
     const value = run(cwd, ['rev-parse', '--show-toplevel'], {
       code: 'APR_REPOSITORY_NOT_FOUND',
     });
+    let physicalRoot;
     try {
-      return outputPath(cwd, value);
+      physicalRoot = outputPath(cwd, value);
     } catch (cause) {
       throw gitError(
         'APR_REPOSITORY_NOT_FOUND',
@@ -139,12 +140,28 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
         cause
       );
     }
+    const commonValue = run(physicalRoot, ['rev-parse', '--git-common-dir']);
+    let commonDirectory;
+    try {
+      commonDirectory = outputPath(physicalRoot, commonValue);
+    } catch (cause) {
+      throw gitError(
+        'APR_REPOSITORY_NOT_FOUND',
+        'Git did not return a canonical common directory.',
+        'Run the command inside a valid Git worktree.',
+        { cwd: path.resolve(cwd) },
+        cause
+      );
+    }
+    return Object.freeze({ physicalRoot, commonDirectory });
+  }
+
+  function root(cwd) {
+    return physicalLocation(cwd).physicalRoot;
   }
 
   function commonDir(cwd) {
-    const repositoryRoot = root(cwd);
-    const value = run(repositoryRoot, ['rev-parse', '--git-common-dir']);
-    return outputPath(repositoryRoot, value);
+    return physicalLocation(cwd).commonDirectory;
   }
 
   function gitPath(cwd, name) {
@@ -383,6 +400,7 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
   }
 
   return Object.freeze({
+    physicalLocation,
     root,
     commonDir,
     gitPath,

@@ -1,3 +1,4 @@
+// cspell:words devdir
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
@@ -46,6 +47,11 @@ test('published tarball is closed and exact-pins its audited production dependen
     'package.json',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'scripts/build-broker-security.mjs',
+    'native/broker-security/binding.gyp',
+    'native/broker-security/addon.cc',
+    'native/broker-security/posix.cc',
+    'native/broker-security/windows.cc',
   ]);
   assert.ok(
     files.every(
@@ -68,6 +74,12 @@ test('published tarball is closed and exact-pins its audited production dependen
     'provenance/release-manifest.json',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'scripts/build-broker-security.mjs',
+    'native/broker-security/binding.gyp',
+    'native/broker-security/addon.cc',
+    'native/broker-security/posix.cc',
+    'native/broker-security/windows.cc',
+    'schemas/broker-v1.json',
   ])
     assert.ok(files.includes(required), `missing ${required}`);
   assert.ok(
@@ -79,6 +91,7 @@ test('published tarball is closed and exact-pins its audited production dependen
 
   assert.deepEqual(packageJson.dependencies ?? {}, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    'node-gyp': '12.4.0',
     zod: '4.6.2',
   });
   const dependencyTree = JSON.parse(
@@ -91,8 +104,13 @@ test('published tarball is closed and exact-pins its audited production dependen
     .filter(([, dependency]) => dependency.extraneous !== true)
     .map(([name]) => name)
     .sort();
-  assert.deepEqual(installedProductionDependencies, ['@modelcontextprotocol/sdk', 'zod']);
+  assert.deepEqual(installedProductionDependencies, [
+    '@modelcontextprotocol/sdk',
+    'node-gyp',
+    'zod',
+  ]);
   assert.equal(dependencyTree.dependencies['@modelcontextprotocol/sdk'].version, '1.30.0');
+  assert.equal(dependencyTree.dependencies['node-gyp'].version, '12.4.0');
   assert.equal(dependencyTree.dependencies.zod.version, '4.6.2');
 });
 
@@ -224,6 +242,37 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.doesNotMatch(live, /needs:/);
   const minimumNode = ci.match(/node-24:[\s\S]*?\n  preferred-node:/)?.[0] ?? '';
   assert.match(minimumNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
+  assert.doesNotMatch(
+    minimumNode,
+    /runs-on: \$\{\{ matrix\.os \}\}\n    env:\n      APR_NODEDIR_BASE:/,
+    'runner.temp is unavailable in job-level env'
+  );
+  assert.match(
+    minimumNode,
+    /name: Provision native Node development files[\s\S]*node_modules\/node-gyp\/bin\/node-gyp\.js install --ensure[\s\S]*--devdir="\$\{\{ runner\.temp \}\}\/node-gyp"/
+  );
+  const namedStep = (name) => {
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return (
+      minimumNode.match(
+        new RegExp(`      - name: ${escapedName}\\n(?:(?!      - )[\\s\\S])*`)
+      )?.[0] ?? ''
+    );
+  };
+  const normalizeWindows = namedStep('Normalize Windows import library');
+  assert.match(normalizeWindows, /if: runner\.os == 'Windows'/);
+  assert.match(
+    normalizeWindows,
+    /env:\n          APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp\n        run:/
+  );
+  assert.match(normalizeWindows, /cpSync/);
+  assert.match(normalizeWindows, /process\.arch/);
+  assert.match(normalizeWindows, /'Release'/);
+  const defaultTests = namedStep('Run default tests');
+  assert.match(
+    defaultTests,
+    /env:\n          APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp\n        run: npm test/
+  );
   const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [preferredNode, boundary]) {

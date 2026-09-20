@@ -8,6 +8,8 @@
     ".scratch/**",
     ".ai-task-manager/memory/**",
     "docs/superpowers/**",
+    "docs/peer-reviews/**/*author-response-*.md",
+    "docs/peer-reviews/**/*reviewer-response-*.md",
     "scripts/providers/**",
     "scripts/review/**",
     "scripts/tests/**"

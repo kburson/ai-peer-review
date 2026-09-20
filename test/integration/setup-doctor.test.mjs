@@ -435,6 +435,37 @@ test('doctor runs active Phase 2 checks without making them mandatory for permis
   );
 });
 
+test('doctor reports the explicit broker helper build command without blocking legacy manual rows', () => {
+  const base = {
+    requestedMode: 'manual',
+    packageResolved: true,
+    skillAvailable: true,
+    identity: { identity_source: 'runtime', session_fingerprint: 'sha256:abc' },
+    git: { repository: true, worktreeSafe: true, scratchIgnored: true },
+    authority: {},
+    transport: { mode: 'manual', healthy: true },
+    brokerSecurity: {
+      healthy: false,
+      build_command:
+        'npm --prefix /project/node_modules/@kburson/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree',
+    },
+  };
+  const report = doctor(base);
+  const broker = report.rows.find((entry) => entry.id === 'broker-security');
+  assert.deepEqual(broker, {
+    id: 'broker-security',
+    status: 'unavailable',
+    required: false,
+    details: base.brokerSecurity,
+  });
+  assert.equal(report.healthy, true);
+  assert.equal(
+    doctor({ ...base, brokerSecurity: { ...base.brokerSecurity, healthy: true } }).healthy,
+    true
+  );
+  assert.equal(doctor({ ...base, requestedMode: 'automatic-required' }).healthy, false);
+});
+
 test('setup-only project configuration keeps consensus startup and resume diagnostics available', async (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'apr-setup-start-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -457,6 +488,7 @@ test('setup-only project configuration keeps consensus startup and resume diagno
     },
     stdout: { write: (value) => (doctorOutput += value) },
     stderr: { write: (value) => (doctorError += value) },
+    brokerSecurity: { healthy: true, build_command: 'already-built' },
   });
   assert.equal(doctorCode, 0, doctorError);
   assert.equal(JSON.parse(doctorOutput).healthy, true);
@@ -473,6 +505,7 @@ test('setup-only project configuration keeps consensus startup and resume diagno
     },
     stdout: { write() {} },
     stderr: { write() {} },
+    brokerSecurity: { healthy: true, build_command: 'already-built' },
   });
   assert.equal(unavailableCode, 1);
   config.hosts.codex.resume.command = ['codex', 'resume'];

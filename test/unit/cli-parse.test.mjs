@@ -55,6 +55,12 @@ test('start options have stable names, repeatability, and defaults', () => {
     'docs/spec.md',
     '--artifact-kind',
     'spec',
+    '--reviewer-provider',
+    'claude',
+    '--reviewer-model',
+    'claude-opus-5',
+    '--reviewer-effort',
+    'high',
     '--issue=1531',
     '--record-id',
     'record-1531',
@@ -73,6 +79,9 @@ test('start options have stable names, repeatability, and defaults', () => {
     args: ['docs/spec.md'],
     options: {
       artifactKind: 'spec',
+      reviewerProvider: 'claude',
+      reviewerModel: 'claude-opus-5',
+      reviewerEffort: 'high',
       issue: 1531,
       recordId: 'record-1531',
       phases: 'spec,plan',
@@ -83,8 +92,30 @@ test('start options have stable names, repeatability, and defaults', () => {
     },
   });
   assert.equal(
-    parseCommand(['start', 'x', '--artifact-kind', 'plan']).options.claimTtlMs,
+    parseCommand([
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'gpt-6',
+    ]).options.claimTtlMs,
     8 * 60 * 60 * 1000
+  );
+  assert.equal(
+    parseCommand([
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'opus',
+    ]).options.reviewerEffort,
+    'medium'
   );
   assert.deepEqual(parseCommand(['setup', '--agent', 'codex', '--agent=claude']).options.agent, [
     'codex',
@@ -162,6 +193,116 @@ test('rejects unknown syntax, boolean values, duplicates, and invalid positions'
   usage(['status', 'x', '--json', '--json'], /duplicate/i);
   usage(['start', 'x', '--artifact-kind'], /requires a value/i);
   usage(['start', 'x', '--artifact-kind', 'spec', '--artifact-kind', 'plan'], /duplicate/i);
+  usage(['start', 'x', '--artifact-kind', 'plan'], /reviewer-provider.*reviewer-model/i);
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'other',
+      '--reviewer-model',
+      'm',
+    ],
+    /reviewer-provider.*codex.*claude.*grok/i
+  );
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'google',
+      '--reviewer-model',
+      'm',
+    ],
+    /reviewer-provider.*codex.*claude.*grok/i
+  );
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      '',
+    ],
+    /non-empty/i
+  );
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'm',
+      '--reviewer-effort',
+      '',
+    ],
+    /non-empty/i
+  );
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'm',
+      '--reviewer-model',
+      'n',
+    ],
+    /duplicate/i
+  );
+  for (const [flag, first, second] of [
+    ['--reviewer-provider', 'codex', 'claude'],
+    ['--reviewer-model', 'm', 'n'],
+    ['--reviewer-effort', 'medium', 'high'],
+  ]) {
+    usage(
+      [
+        'start',
+        'x',
+        '--artifact-kind',
+        'plan',
+        '--reviewer-provider',
+        'codex',
+        '--reviewer-model',
+        'm',
+        flag,
+        first,
+        flag,
+        second,
+      ],
+      /duplicate/i
+    );
+  }
+  for (const phases of ['spec,plan', 'plan,plan', 'plan,,spec', 'plan,other']) {
+    usage(
+      [
+        'start',
+        'x',
+        '--artifact-kind',
+        'plan',
+        '--reviewer-provider',
+        'codex',
+        '--reviewer-model',
+        'm',
+        '--phases',
+        phases,
+      ],
+      /phases/i
+    );
+  }
 });
 
 test('rejects invalid positive integers and accepts Phase 2 automatic-required mode', () => {
@@ -170,7 +311,21 @@ test('rejects invalid positive integers and accepts Phase 2 automatic-required m
     ['--max-turns', '-1'],
     ['--claim-ttl', '1.5'],
   ]) {
-    usage(['start', 'x', '--artifact-kind', 'spec', flag, value], /positive integer/i);
+    usage(
+      [
+        'start',
+        'x',
+        '--artifact-kind',
+        'spec',
+        '--reviewer-provider',
+        'codex',
+        '--reviewer-model',
+        'gpt-6',
+        flag,
+        value,
+      ],
+      /positive integer/i
+    );
   }
   assert.equal(
     parseCommand([
@@ -178,6 +333,10 @@ test('rejects invalid positive integers and accepts Phase 2 automatic-required m
       'x',
       '--artifact-kind',
       'spec',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'gpt-6',
       '--transport-mode',
       'automatic-required',
     ]).options.transportMode,

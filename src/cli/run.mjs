@@ -38,6 +38,7 @@ import {
   runClaudeReviewerLaunch,
 } from '../provider/claude-launch.mjs';
 import { doctor } from '../doctor.mjs';
+import { inspectPlatformSecurity } from '../broker/platform.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
 import {
@@ -68,6 +69,7 @@ import {
   validateEvent,
   validateVersionedEvent,
 } from '../protocol/events.mjs';
+import { assertRequestedReviewer, validateRuntimeDescriptor } from '../startup/runtime.mjs';
 import {
   canonicalProjection,
   initializeReview,
@@ -832,6 +834,15 @@ export async function startReview(input, deps = {}) {
     );
   }
   const transport = configuredTransport({ ...input, transportMode: requestedTransportMode, now });
+  const runtime =
+    input.runtime === undefined ? undefined : validateRuntimeDescriptor(input.runtime);
+  if (runtime && runtime.transport_mode !== transport.mode) {
+    fail(
+      'APR_USAGE',
+      'Runtime descriptor transport mode conflicts with requested startup transport.',
+      'Use one exact transport mode for the sealed runtime descriptor and startup request.'
+    );
+  }
   const requestedAuthority = configuredAuthority(root, input.authority, loaded);
   const startupAssurance = input.testHumanAuthority
     ? 'unverified-test'
@@ -852,6 +863,7 @@ export async function startReview(input, deps = {}) {
       author_fingerprint: input.identity.session_fingerprint,
       authority: requestedAuthority,
       transport_mode: transport.mode,
+      ...(runtime ? { runtime } : {}),
       ...(phaseKinds ? { phases: phaseKinds } : {}),
     });
   const recordId = input.recordId ?? reviewId;
@@ -961,6 +973,7 @@ export async function startReview(input, deps = {}) {
       sealed.reviewer_invitation_digest === sha256(reviewerInvitationBytes) &&
       sealed.transport_mode === transport.mode &&
       sealed.author_transport_capability === transport.capability &&
+      sameValue(sealed.runtime ?? null, runtime ?? null) &&
       sameValue(state.protocol.phases?.kinds ?? null, phaseKinds) &&
       authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
@@ -1045,6 +1058,7 @@ export async function startReview(input, deps = {}) {
     reviewer_invitation_digest: sha256(reviewerInvitationBytes),
     transport_mode: transport.mode,
     author_transport_capability: transport.capability,
+    ...(runtime ? { runtime } : {}),
     no_commit_baseline: noCommitBaseline,
     bootstrap,
   };
@@ -1226,8 +1240,26 @@ export async function joinReview(input, deps = {}) {
     );
   }
   assertDistinctParticipants(state.participants.author, input.identity);
+  if (state.protocol.startup.runtime !== undefined) {
+    assertRequestedReviewer(
+      state.protocol.startup.runtime,
+      input.identity,
+      input.runtimeObservation
+    );
+  }
   const requestedMode = state.protocol.startup.transport_mode;
   let reviewerCapability = input.transportCapability ?? 'manual';
+  if (
+    state.protocol.startup.runtime !== undefined &&
+    input.identity.identity_source === 'declared' &&
+    reviewerCapability !== 'manual'
+  ) {
+    fail(
+      'APR_TRANSPORT_UNAVAILABLE',
+      'A declared reviewer registration cannot claim an unverified non-manual transport.',
+      'Join with manual transport or use a runtime-assured reviewer session.'
+    );
+  }
   if (requestedMode === 'automatic-required') {
     const negotiated = await negotiateAutomaticRequired({
       author: input.authorTransportObservation,
@@ -4239,6 +4271,7 @@ function detectedDoctorContext(io, loaded, requestedMode) {
           ? { mode: 'automatic-required', healthy: automaticHealthy }
           : { mode: 'manual', healthy: requestedMode === 'manual' },
     phaseTwo,
+    brokerSecurity: io.brokerSecurity ?? inspectPlatformSecurity(),
   };
 }
 
@@ -4396,10 +4429,16 @@ export async function run(argv, io) {
         ...context,
       });
       if (parsed.options.json) writeJson(io.stdout, response);
-      else
-        io.stdout.write(
-          `${response.healthy ? 'healthy' : 'unhealthy'}\n${response.rows.map((entry) => `${entry.id}: ${entry.status}`).join('\n')}\n`
-        );
+      else {
+        const rows = response.rows.map((entry) => {
+          const recovery =
+            entry.id === 'broker-security' && entry.details?.build_command
+              ? `\n  recovery: ${entry.details.build_command}`
+              : '';
+          return `${entry.id}: ${entry.status}${recovery}`;
+        });
+        io.stdout.write(`${response.healthy ? 'healthy' : 'unhealthy'}\n${rows.join('\n')}\n`);
+      }
       return response.healthy ? 0 : 1;
     }
     if (parsed.command === 'request-grant') {

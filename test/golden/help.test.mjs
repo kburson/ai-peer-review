@@ -144,6 +144,7 @@ test('help --all, search, JSON, and stable error explanations have deterministic
     /bootstrap-grant.*pin-verifier/
   );
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_REQUIRED'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_UNSUPPORTED'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_POLICY'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));

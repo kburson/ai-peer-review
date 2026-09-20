@@ -241,6 +241,7 @@ function assertManifestTruth(model, { closed = false } = {}) {
       'authority',
       'human_decision',
     ];
+    if (Object.hasOwn(model, 'runtime')) keys.push('runtime');
     if (Object.hasOwn(model, 'lineage_receipt')) keys.push('lineage_receipt');
     exactKeys(model, keys, 'Manifest model');
   }
@@ -349,6 +350,7 @@ export function buildManifest(review) {
         : null,
     },
     human_decision: review.human_decision ? structuredClone(review.human_decision) : null,
+    ...(protocol.startup?.runtime ? { runtime: structuredClone(protocol.startup.runtime) } : {}),
   };
   return deepFreeze(assertManifestTruth(model, { closed: true }));
 }

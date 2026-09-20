@@ -11,6 +11,7 @@ function row(id, status, required, details = null) {
 
 export function doctor(context = {}) {
   const requestedMode = context.requestedMode ?? 'manual';
+  const brokerRequired = requestedMode === 'automatic-required';
   const transportViable =
     context.transport?.healthy &&
     (requestedMode === 'manual' ||
@@ -42,6 +43,16 @@ export function doctor(context = {}) {
     row('authority-policy', context.authority?.authority_policy ?? 'unavailable', false),
     row('transport', context.transport?.healthy ? context.transport.mode : 'unavailable', true),
     row('requested-mode', transportViable ? 'ok' : 'unavailable', true, requestedMode),
+    ...(context.brokerSecurity
+      ? [
+          row(
+            'broker-security',
+            context.brokerSecurity.healthy ? 'ok' : 'unavailable',
+            brokerRequired,
+            context.brokerSecurity
+          ),
+        ]
+      : []),
   ];
   const required = requestedMode === 'automatic-required';
   const phaseTwo = [

@@ -606,6 +606,8 @@ function applyProjection(state, event) {
     protocol.max_turns = event.payload.max_turns;
     protocol.claim_ttl_ms = event.payload.claim_ttl_ms;
     protocol.authority = copy(event.payload.authority);
+    // The closed event validator admits optional runtime authority here; copying
+    // the whole startup object preserves byte-compatible legacy authority when absent.
     protocol.startup = copy(event.payload.startup);
     protocol.transports.author = event.payload.startup.author_transport_capability;
     protocol.artifact = copy(event.payload.artifact);

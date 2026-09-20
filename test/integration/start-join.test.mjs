@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { joinReview, startReview, statusReview } from '../../src/cli/run.mjs';
+import { joinReview, run, startReview, statusReview } from '../../src/cli/run.mjs';
 import {
   canonicalChallengeBytes,
   digestGrantParameters,
@@ -35,6 +35,39 @@ function repositoryFixture(prefix = 'apr-start-') {
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
+
+test('CLI start accepts explicit reviewer intent without changing direct startReview enforcement', async (t) => {
+  const fx = repositoryFixture('apr-cli-start-');
+  t.after(fx.cleanup);
+  let stdout = '';
+  const code = await run(
+    [
+      'start',
+      'docs/example.md',
+      '--artifact-kind',
+      'spec',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'claude-opus-5',
+      '--reviewer-effort',
+      'medium',
+    ],
+    {
+      cwd: fx.root,
+      env: {
+        CODEX_THREAD_ID: 'start-cli-author',
+        CODEX_MODEL_ID: 'gpt-test',
+        CODEX_MODEL_DISPLAY: 'GPT Test',
+      },
+      now: new Date(NOW),
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: () => {} },
+    }
+  );
+  assert.equal(code, 0);
+  assert.match(stdout, /awaiting-reviewer/);
+});
 
 test('generated routing and commands remain safe for shell metacharacters in paths', async (t) => {
   const fx = repositoryFixture("apr start ' `tick` $()-");
@@ -528,6 +561,190 @@ test('join binds the same physical worktree and a distinct reviewer before draft
   assert.equal(retried.paths.response, joined.paths.response);
   assert.equal(retried.state, 'reviewer-turn');
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 5);
+});
+
+test('runtime-sealed startup rejects a mismatched reviewer before joining or claiming', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const runtime = {
+    schema: 'ai-peer-review.runtime/v1',
+    classification: 'XPR',
+    ownership: 'broker',
+    transport_mode: 'manual',
+    reviewer: {
+      selector: 'claude',
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'fixture-opus',
+      model_display: 'Fixture Opus',
+      effort: 'high',
+    },
+    adapter_version: '1.0.0',
+    project_root_digest: 'a'.repeat(64),
+  };
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'plan',
+    identity: identity('author', 'author-runtime'),
+    runtime,
+    reviewId: 'review-runtime-registration',
+    now: NOW,
+  });
+  await assert.rejects(
+    joinReview({
+      cwd: fx.root,
+      invitation: started.paths.reviewer_invitation,
+      identity: identity('reviewer', 'wrong-runtime'),
+      runtimeObservation: {
+        provider: 'openai',
+        host: 'codex',
+        model_id: 'gpt-test',
+        effort: 'high',
+        adapter_version: '1.0.0',
+        assurance: 'runtime',
+      },
+      now: NOW,
+    }),
+    (error) => error.code === 'APR_IDENTITY_CONFLICT'
+  );
+  assert.deepEqual(
+    readFileSync(started.paths.events, 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line).type),
+    ['review-created', 'compatibility-declared', 'identity-changed']
+  );
+  const requested = participantIdentity({
+    role: 'reviewer',
+    host: 'claude-code',
+    provider: 'anthropic',
+    modelId: 'fixture-opus',
+    modelDisplay: 'Fixture Opus',
+    sessionId: 'requested-runtime',
+    source: 'runtime',
+    joinedAt: NOW,
+  });
+  const joined = await joinReview({
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: requested,
+    runtimeObservation: {
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'fixture-opus',
+      effort: 'high',
+      adapter_version: '1.0.0',
+      assurance: 'runtime',
+    },
+    now: NOW,
+  });
+  assert.equal(joined.state, 'reviewer-turn');
+  assert.deepEqual(inspectReview(started.paths.workspace).protocol.startup.runtime, runtime);
+});
+
+test('runtime-sealed declared registration cannot claim unverified resume-only transport', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const runtime = {
+    schema: 'ai-peer-review.runtime/v1',
+    classification: 'XPR',
+    ownership: 'broker',
+    transport_mode: 'manual',
+    reviewer: {
+      selector: 'claude',
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'fixture-opus',
+      model_display: 'Fixture Opus',
+      effort: 'high',
+    },
+    adapter_version: '1.0.0',
+    project_root_digest: 'a'.repeat(64),
+  };
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'plan',
+    identity: identity('author', 'author-declared-transport'),
+    runtime,
+    reviewId: 'review-declared-transport',
+    now: NOW,
+  });
+  const declared = participantIdentity({
+    role: 'reviewer',
+    host: 'claude-code',
+    provider: 'anthropic',
+    modelId: 'fixture-opus',
+    modelDisplay: 'Fixture Opus',
+    sessionId: 'declared-transport',
+    source: 'declared',
+    joinedAt: NOW,
+  });
+  await assert.rejects(
+    joinReview({
+      cwd: fx.root,
+      invitation: started.paths.reviewer_invitation,
+      identity: declared,
+      runtimeObservation: {
+        provider: 'anthropic',
+        host: 'claude-code',
+        model_id: 'fixture-opus',
+        effort: 'high',
+        adapter_version: '1.0.0',
+        assurance: 'declared',
+      },
+      transportCapability: 'resume-only',
+      now: NOW,
+    }),
+    (error) => error.code === 'APR_TRANSPORT_UNAVAILABLE'
+  );
+  const events = readFileSync(started.paths.events, 'utf8').trim().split('\n');
+  assert.deepEqual(
+    events.map((line) => JSON.parse(line).type),
+    ['review-created', 'compatibility-declared', 'identity-changed']
+  );
+  assert.equal(inspectReview(started.paths.workspace).protocol.claims.reviewer, undefined);
+});
+
+test('start refuses a runtime descriptor whose transport disagrees before creating reviewer authority', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const runtime = {
+    schema: 'ai-peer-review.runtime/v1',
+    classification: 'XPR',
+    ownership: 'broker',
+    transport_mode: 'manual',
+    reviewer: {
+      selector: 'claude',
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'fixture-opus',
+      model_display: 'Fixture Opus',
+      effort: 'high',
+    },
+    adapter_version: '1.0.0',
+    project_root_digest: 'a'.repeat(64),
+  };
+  await assert.rejects(
+    startReview({
+      cwd: fx.root,
+      artifact: 'docs/example.md',
+      artifactKind: 'plan',
+      identity: identity('author', 'author-transport-conflict'),
+      runtime,
+      transportMode: 'resume-only',
+      transportCapability: 'resume-only',
+      reviewId: 'review-runtime-transport-conflict',
+      now: NOW,
+    }),
+    (error) => error.code === 'APR_USAGE'
+  );
+  assert.throws(() =>
+    readFileSync(
+      path.join(fx.root, '.scratch/peer-review/review-runtime-transport-conflict/events.jsonl')
+    )
+  );
 });
 
 test('join resumes an identical registration interrupted before its claim event', async (t) => {

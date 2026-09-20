@@ -1,4 +1,5 @@
 import { AprError } from '../errors.mjs';
+import { validateRuntimeDescriptor } from '../startup/runtime.mjs';
 import {
   canonicalGrantParameters,
   digestChallenge,
@@ -425,21 +426,20 @@ function validateRepositoryBoundary(value, label) {
 }
 
 function validateStartup(value) {
-  exactKeys(
-    value,
-    [
-      'context',
-      'context_digest',
-      'destination',
-      'author_startup_digest',
-      'reviewer_invitation_digest',
-      'transport_mode',
-      'author_transport_capability',
-      'no_commit_baseline',
-      'bootstrap',
-    ],
-    'review-created startup'
-  );
+  if (!isPlainObject(value)) throw invalid('review-created startup object');
+  const startupFields = [
+    'context',
+    'context_digest',
+    'destination',
+    'author_startup_digest',
+    'reviewer_invitation_digest',
+    'transport_mode',
+    'author_transport_capability',
+    'no_commit_baseline',
+    'bootstrap',
+  ];
+  if (Object.hasOwn(value, 'runtime')) startupFields.push('runtime');
+  exactKeys(value, startupFields, 'review-created startup');
   const context = value.context;
   const contextFields = [
     'schema',
@@ -475,6 +475,16 @@ function validateStartup(value) {
     ['manual', 'resume-only', 'automatic-required'],
     'startup transport_mode'
   );
+  if (value.runtime !== undefined) {
+    try {
+      validateRuntimeDescriptor(value.runtime);
+    } catch {
+      throw invalid('startup runtime');
+    }
+    if (value.runtime.transport_mode !== value.transport_mode) {
+      throw invalid('startup runtime transport_mode');
+    }
+  }
   assertEnum(
     value.author_transport_capability,
     ['manual', 'resume-only', 'live-wait', 'native-push'],

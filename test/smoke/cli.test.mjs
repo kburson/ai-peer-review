@@ -74,7 +74,20 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: host, stdio: 'ignore' });
   const started = runNpm(
     'npx',
-    ['--no-install', 'peer-review', 'start', 'docs/spec.md', '--artifact-kind', 'spec'],
+    [
+      '--no-install',
+      'peer-review',
+      'start',
+      'docs/spec.md',
+      '--artifact-kind',
+      'spec',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'claude-opus-5',
+      '--reviewer-effort',
+      'medium',
+    ],
     {
       cwd: host,
       encoding: 'utf8',

@@ -15,6 +15,7 @@ test('schema artifacts identify the three closed v1 projections', () => {
     ['schemas/event-v1.json', 'ai-peer-review.event/v1'],
     ['schemas/protocol-v1.json', 'ai-peer-review.protocol/v1'],
     ['schemas/participants-v1.json', 'ai-peer-review.participants/v1'],
+    ['schemas/runtime-v1.json', 'ai-peer-review.runtime/v1'],
   ]) {
     const schema = JSON.parse(readFileSync(new URL(`../../${file}`, import.meta.url)));
     assert.equal(schema.$id, id);
@@ -167,6 +168,70 @@ test('rejects unknown event fields, types, and payload fields', () => {
       (error) => error.code === 'APR_EVENT_INVALID'
     );
   }
+});
+
+test('accepts optional sibling startup runtime but keeps legacy startup valid', () => {
+  const created = event('review-created');
+  const legacy = structuredClone(created);
+  const runtime = {
+    schema: 'ai-peer-review.runtime/v1',
+    classification: 'XPR',
+    ownership: 'broker',
+    transport_mode: 'manual',
+    reviewer: {
+      selector: 'claude',
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'fixture-opus',
+      model_display: 'Fixture Opus',
+      effort: 'high',
+    },
+    adapter_version: '1.0.0',
+    project_root_digest: 'a'.repeat(64),
+  };
+  assert.equal(validateEvent(legacy), true);
+  assert.equal(
+    validateEvent({
+      ...created,
+      payload: { ...created.payload, startup: { ...created.payload.startup, runtime } },
+    }),
+    true
+  );
+  assert.throws(
+    () =>
+      validateEvent({
+        ...created,
+        payload: {
+          ...created.payload,
+          startup: { ...created.payload.startup, runtime: { ...runtime, unexpected: true } },
+        },
+      }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  assert.throws(
+    () =>
+      validateEvent({
+        ...created,
+        payload: {
+          ...created.payload,
+          startup: {
+            ...created.payload.startup,
+            transport_mode: 'resume-only',
+            author_transport_capability: 'resume-only',
+            runtime,
+          },
+        },
+      }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+});
+
+test('rejects malformed startup objects with the stable event error', () => {
+  const created = event('review-created');
+  assert.throws(
+    () => validateEvent({ ...created, payload: { ...created.payload, startup: null } }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
 });
 
 test('rejects prototype-key event types with the stable event error', () => {

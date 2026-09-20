@@ -23,11 +23,17 @@
     "provenance/",
     "scripts/verify-extraction.mjs",
     "scripts/verify-release.mjs",
+    "native/broker-security/binding.gyp",
+    "native/broker-security/addon.cc",
+    "native/broker-security/posix.cc",
+    "native/broker-security/windows.cc",
+    "scripts/build-broker-security.mjs",
     "LICENSE",
     "NOTICE",
     "README.md"
   ],
   "scripts": {
+    "build:broker-security": "node scripts/build-broker-security.mjs",
     "pretarball:install": "npm uninstall -D @kburson/ai-task-manager",
     "tarball:install": "npm install -D file:vendors/kburson-ai-task-manager-0.1.0.tgz",
     "test": "npm run test:unit && npm run test:golden",
@@ -48,6 +54,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
+    "node-gyp": "12.4.0",
     "zod": "4.6.2"
   },
   "devDependencies": {

@@ -37,6 +37,7 @@ const REVIEW = new Set([
   'max_turns',
   'claim_ttl_ms',
   'transport_mode',
+  'startup_transport_preference',
 ]);
 const SETUP = new Set([
   'owner',
@@ -220,6 +221,19 @@ export function validateConfig(value) {
       !['manual', 'resume-only', 'automatic-required'].includes(value.review.transport_mode)
     )
       invalid('review.transport_mode is invalid.');
+    if (value.review.startup_transport_preference !== undefined) {
+      const preference = value.review.startup_transport_preference;
+      if (
+        !Array.isArray(preference) ||
+        preference.length === 0 ||
+        preference.some(
+          (mode) => !['manual', 'resume-only', 'automatic-required'].includes(mode)
+        ) ||
+        new Set(preference).size !== preference.length
+      ) {
+        invalid('review.startup_transport_preference must be a non-empty unique transport list.');
+      }
+    }
   }
   if (value.setup !== undefined) {
     closed(value.setup, SETUP, 'setup');
