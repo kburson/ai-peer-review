@@ -3,6 +3,7 @@
 #include <process.h>
 #include <sddl.h>
 
+#include <cstring>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -13,6 +14,7 @@ struct Directory { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION 
 struct Lock { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Endpoint { HANDLE handle; std::wstring path; };
 struct Connection { HANDLE handle; bool server_side; };
+struct PipeReadRequest { HANDLE handle; std::vector<unsigned char> bytes; LONG references; };
 struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
 
@@ -153,34 +155,58 @@ bool ReadAll(HANDLE handle, std::vector<unsigned char>* bytes) {
   return true;
 }
 
-bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
-  DWORD mode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
-  if (!SetNamedPipeHandleState(handle, &mode, nullptr, nullptr)) return false;
-  const ULONGLONG deadline = GetTickCount64() + kIpcTimeoutMilliseconds;
+void ReleasePipeRead(PipeReadRequest* request) {
+  if (InterlockedDecrement(&request->references) == 0) delete request;
+}
+
+unsigned __stdcall ReadPipeThread(void* value) {
+  auto* request = static_cast<PipeReadRequest*>(value);
   size_t offset = 0;
   bool complete = true;
-  while (offset < size) {
+  while (offset < request->bytes.size()) {
     DWORD count = 0;
-    const bool read = ReadFile(
-      handle,
-      bytes + offset,
-      static_cast<DWORD>(size - offset),
-      &count,
-      nullptr) != 0;
-    if (read && count > 0) {
-      offset += count;
-      continue;
+    if (!ReadFile(
+          request->handle,
+          request->bytes.data() + offset,
+          static_cast<DWORD>(request->bytes.size() - offset),
+          &count,
+          nullptr) || count == 0) {
+      complete = false;
+      break;
     }
-    const DWORD error = read ? ERROR_SUCCESS : GetLastError();
-    if ((read || error == ERROR_NO_DATA) && GetTickCount64() < deadline) {
-      Sleep(1);
-      continue;
-    }
-    complete = false;
-    break;
+    offset += count;
   }
-  mode = PIPE_READMODE_BYTE | PIPE_WAIT;
-  return complete && SetNamedPipeHandleState(handle, &mode, nullptr, nullptr) != 0;
+  CloseHandle(request->handle);
+  ReleasePipeRead(request);
+  return complete ? ERROR_SUCCESS : ERROR_READ_FAULT;
+}
+
+bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
+  HANDLE duplicate = INVALID_HANDLE_VALUE;
+  if (!DuplicateHandle(
+        GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
+        0, FALSE, DUPLICATE_SAME_ACCESS)) return false;
+  auto* request = new PipeReadRequest{duplicate, std::vector<unsigned char>(size), 2};
+  HANDLE thread = reinterpret_cast<HANDLE>(
+    _beginthreadex(nullptr, 0, ReadPipeThread, request, 0, nullptr));
+  if (thread == nullptr) {
+    CloseHandle(duplicate);
+    delete request;
+    return false;
+  }
+  DWORD wait = WaitForSingleObject(thread, kIpcTimeoutMilliseconds);
+  if (wait == WAIT_TIMEOUT) {
+    CancelSynchronousIo(thread);
+    wait = WaitForSingleObject(thread, 1000);
+  }
+  DWORD result = ERROR_READ_FAULT;
+  const bool complete = wait == WAIT_OBJECT_0 &&
+                        GetExitCodeThread(thread, &result) != 0 &&
+                        result == ERROR_SUCCESS;
+  if (complete && size > 0) std::memcpy(bytes, request->bytes.data(), size);
+  CloseHandle(thread);
+  ReleasePipeRead(request);
+  return complete;
 }
 
 unsigned __stdcall WritePipeThread(void* value) {

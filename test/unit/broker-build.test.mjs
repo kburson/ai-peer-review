@@ -90,9 +90,16 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.match(posix, /poll\(/);
   assert.match(posixWrite, /MSG_DONTWAIT/);
   assert.match(windows, /kIpcTimeoutMilliseconds/);
-  assert.doesNotMatch(windowsRead, /PeekNamedPipe/);
-  assert.match(windowsRead, /PIPE_NOWAIT/);
-  assert.match(windowsRead, /GetTickCount64/);
+  assert.doesNotMatch(
+    windowsRead,
+    /PeekNamedPipe|PIPE_NOWAIT|SetNamedPipeHandleState|GetTickCount64/
+  );
+  assert.match(windows, /struct PipeReadRequest/);
+  assert.match(windows, /unsigned __stdcall ReadPipeThread\(void\* value\)/);
+  assert.match(windowsRead, /DuplicateHandle\(/);
+  assert.match(windowsRead, /_beginthreadex\(/);
+  assert.match(windowsRead, /WaitForSingleObject\(thread, kIpcTimeoutMilliseconds\)/);
+  assert.match(windowsRead, /CancelSynchronousIo\(thread\)/);
   assert.match(windows, /struct PipeWriteRequest/);
   assert.match(windows, /unsigned __stdcall WritePipeThread\(void\* value\)/);
   assert.match(windowsBoundedWrite, /DuplicateHandle\(/);
