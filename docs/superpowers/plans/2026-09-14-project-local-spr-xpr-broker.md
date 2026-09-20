@@ -267,6 +267,13 @@ assert.equal(
 - [ ] Test cache deletion while an owner is live: a second project must not deliver. Both processes inspect provider live state immediately before delivery; a failure to establish exclusivity yields `APR_PROVIDER_RESOURCE_BUSY` or the integrity/staleness error. Heartbeat expiry alone never releases ownership. Release only after operations finish or are reconciled; unresolved outcome keeps recovery obligations durable.
 - [ ] Rerun focused tests and commit exact files with `feat(broker): coordinate exclusive provider resources`.
 
+#### Story Intent
+
+- **Beneficiary:** peer-review operator running ai-peer-review reviews across independent projects and versions
+- **Capability:** Coordinate exclusive provider surfaces with passive user-scoped leases
+- **Need:** Project-local brokers can contend for the same provider account or UI surface without a shared scheduler
+- **Value or failure prevented:** Concurrent automation cannot steal or ambiguously reuse a live provider resource, while completed or reconciled work can release it safely
+
 ### Task 6: Preserve runtime files and register project work durably
 
 **Files:** Create `src/broker/runtime-image.mjs`, `src/broker/registry.mjs`, `test/unit/broker-registry.test.mjs`, `test/integration/broker-upgrade.test.mjs`; also modify `src/cli/help-data.mjs`, `test/golden/help.test.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`.
