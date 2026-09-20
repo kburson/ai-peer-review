@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -9,7 +10,9 @@ import {
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import { Worker } from 'node:worker_threads';
 
 import { reconcileRegistrations, registerReview } from '../../src/broker/registry.mjs';
 import { pinRuntimeImage, verifyRuntimeImage } from '../../src/broker/runtime-image.mjs';
@@ -36,6 +39,7 @@ function fixture(t) {
       type: 'module',
       license: 'Apache-2.0',
       bin: { 'peer-review': './cli.mjs' },
+      files: ['cli.mjs'],
       dependencies: { 'tiny-dependency': '1.0.0' },
       optionalDependencies: { 'absent-platform-helper': '1.0.0' },
     })}\n`
@@ -45,6 +49,13 @@ function fixture(t) {
     "import value from 'tiny-dependency';\nconsole.log(value);\n"
   );
   writeFileSync(path.join(packageRoot, 'LICENSE'), 'fixture license\n');
+  const nativeRoot = path.join(packageRoot, 'native', 'broker-security', 'build', 'Release');
+  mkdirSync(nativeRoot, { recursive: true });
+  writeFileSync(path.join(nativeRoot, 'broker_security.node'), 'native-fixture\n');
+  writeFileSync(path.join(nativeRoot, 'build-identity.json'), '{}\n');
+  mkdirSync(path.join(packageRoot, '.scratch'), { recursive: true });
+  writeFileSync(path.join(packageRoot, '.scratch', 'secret.txt'), 'do not copy\n');
+  writeFileSync(path.join(packageRoot, '.env'), 'TOKEN=secret\n');
   writeFileSync(
     path.join(dependency, 'package.json'),
     `${JSON.stringify({
@@ -99,6 +110,14 @@ test('pinRuntimeImage preserves the package closure, node bytes, licenses, and a
     [...value.image.files].sort((left, right) => left.path.localeCompare(right.path))
   );
   assert.ok(value.image.files.some(({ path: name }) => name === 'package/LICENSE'));
+  assert.ok(
+    value.image.files.some(
+      ({ path: name }) =>
+        name === 'package/native/broker-security/build/Release/broker_security.node'
+    )
+  );
+  assert.ok(!value.image.files.some(({ path: name }) => name.includes('.scratch')));
+  assert.ok(!value.image.files.some(({ path: name }) => name.endsWith('/.env')));
   assert.ok(
     value.image.files.some(
       ({ path: name }) => name === 'package/node_modules/tiny-dependency/index.cjs'
@@ -161,6 +180,12 @@ test('pinRuntimeImage rejects symlinked package content instead of following for
   const foreign = path.join(value.root, 'foreign.txt');
   writeFileSync(foreign, 'foreign\n');
   symlinkSync(foreign, path.join(value.packageRoot, 'foreign-link'));
+  const manifestFile = path.join(value.packageRoot, 'package.json');
+  const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+  writeFileSync(
+    manifestFile,
+    `${JSON.stringify({ ...manifest, files: ['cli.mjs', 'foreign-link'] })}\n`
+  );
   assert.throws(
     () =>
       pinRuntimeImage({
@@ -183,10 +208,139 @@ test('pinRuntimeImage rejects a symlinked destination parent', (t) => {
       pinRuntimeImage({
         packageRoot: value.packageRoot,
         nodeExecutable: value.nodeExecutable,
-        destination: path.join(alias, 'runtime-v2'),
+        destination: path.join(alias, 'new-parent', 'runtime-v2'),
       }),
     (error) => error.code === 'APR_RUNTIME_IMAGE_INVALID' && /destination/i.test(error.message)
   );
+  assert.equal(
+    existsSync(path.join(foreign, 'new-parent')),
+    false,
+    'rejection must not create directories through a symlinked ancestor'
+  );
+});
+
+test('pinRuntimeImage resolves a hoisted installed dependency into an executable image', (t) => {
+  const scratch = path.join(process.cwd(), '.scratch', 'test');
+  mkdirSync(scratch, { recursive: true });
+  const root = mkdtempSync(path.join(scratch, 'broker-hoisted-install-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const consumer = path.join(root, 'consumer');
+  const sources = path.join(root, 'sources');
+  const packageSource = path.join(sources, 'runtime-fixture');
+  const dependencySource = path.join(sources, 'tiny-dependency');
+  const tarballs = path.join(root, 'tarballs');
+  mkdirSync(packageSource, { recursive: true });
+  mkdirSync(dependencySource, { recursive: true });
+  mkdirSync(tarballs);
+  writeFileSync(
+    path.join(packageSource, 'package.json'),
+    `${JSON.stringify({
+      name: 'runtime-fixture',
+      version: '1.0.0',
+      type: 'module',
+      bin: './cli.mjs',
+      files: ['cli.mjs'],
+      dependencies: { 'tiny-dependency': '1.0.0' },
+    })}\n`
+  );
+  writeFileSync(
+    path.join(packageSource, 'cli.mjs'),
+    "import value from 'tiny-dependency'; console.log(value);\n"
+  );
+  writeFileSync(
+    path.join(dependencySource, 'package.json'),
+    `${JSON.stringify({ name: 'tiny-dependency', version: '1.0.0', main: 'index.cjs' })}\n`
+  );
+  writeFileSync(path.join(dependencySource, 'index.cjs'), "module.exports = 'hoisted-ok';\n");
+  for (const source of [packageSource, dependencySource]) {
+    const packed = spawnSync(
+      process.platform === 'win32' ? 'npm.cmd' : 'npm',
+      ['pack', '--ignore-scripts', '--pack-destination', tarballs],
+      { cwd: source, encoding: 'utf8' }
+    );
+    assert.equal(packed.status, 0, packed.stderr);
+  }
+  mkdirSync(consumer);
+  writeFileSync(
+    path.join(consumer, 'package.json'),
+    `${JSON.stringify({ name: 'consumer', version: '1.0.0', private: true })}\n`
+  );
+  const installed = spawnSync(
+    process.platform === 'win32' ? 'npm.cmd' : 'npm',
+    [
+      'install',
+      '--ignore-scripts',
+      '--offline',
+      '--no-audit',
+      '--no-fund',
+      '--package-lock=false',
+      path.join(tarballs, 'runtime-fixture-1.0.0.tgz'),
+      path.join(tarballs, 'tiny-dependency-1.0.0.tgz'),
+    ],
+    { cwd: consumer, encoding: 'utf8' }
+  );
+  assert.equal(installed.status, 0, installed.stderr);
+  const packageRoot = path.join(consumer, 'node_modules', 'runtime-fixture');
+  assert.equal(existsSync(path.join(packageRoot, 'node_modules', 'tiny-dependency')), false);
+  assert.equal(existsSync(path.join(consumer, 'node_modules', 'tiny-dependency')), true);
+  const nodeExecutable = path.join(root, 'node-fixture');
+  writeFileSync(nodeExecutable, 'node-v1\n');
+  chmodSync(nodeExecutable, 0o755);
+
+  const image = pinRuntimeImage({
+    packageRoot,
+    nodeExecutable,
+    destination: path.join(root, 'images', 'runtime-v1'),
+  });
+  rmSync(consumer, { recursive: true, force: true });
+  const execution = spawnSync(process.execPath, [image.entrypoint], { encoding: 'utf8' });
+  assert.equal(execution.status, 0, execution.stderr);
+  assert.equal(execution.stdout, 'hoisted-ok\n');
+});
+
+test('pinRuntimeImage rejects a source inventory added while copying', async (t) => {
+  const value = fixture(t);
+  const payloadDirectory = path.join(value.packageRoot, 'payload');
+  mkdirSync(payloadDirectory);
+  writeFileSync(path.join(payloadDirectory, 'large.bin'), Buffer.alloc(32 * 1024 * 1024, 1));
+  const manifestFile = path.join(value.packageRoot, 'package.json');
+  const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+  writeFileSync(
+    manifestFile,
+    `${JSON.stringify({ ...manifest, files: ['cli.mjs', 'payload/'] })}\n`
+  );
+  const destination = path.join(value.root, 'images', 'mutating');
+  const added = path.join(payloadDirectory, 'added-during-copy.txt');
+  const worker = new Worker(
+    `
+      const { existsSync, readdirSync, writeFileSync } = require('node:fs');
+      const path = require('node:path');
+      const { parentPort, workerData } = require('node:worker_threads');
+      parentPort.postMessage('ready');
+      for (;;) {
+        if (existsSync(workerData.images)) {
+          const stage = readdirSync(workerData.images).find((name) => name.startsWith('mutating.staging-'));
+          if (stage && existsSync(path.join(workerData.images, stage, 'package', 'cli.mjs'))) {
+            writeFileSync(workerData.added, 'late\\n');
+            break;
+          }
+        }
+      }
+    `,
+    { eval: true, workerData: { images: path.dirname(destination), added } }
+  );
+  t.after(() => worker.terminate());
+  await new Promise((resolve) => worker.once('message', resolve));
+  assert.throws(
+    () =>
+      pinRuntimeImage({
+        packageRoot: value.packageRoot,
+        nodeExecutable: value.nodeExecutable,
+        destination,
+      }),
+    (error) => error.code === 'APR_RUNTIME_IMAGE_CHANGED'
+  );
+  assert.equal(existsSync(added), true);
 });
 
 test('registerReview is idempotent only for the exact immutable registration', (t) => {
@@ -250,6 +404,55 @@ test('registration identity includes the exact workspace instead of deduplicatin
   );
   assert.notEqual(first.review_id, second.review_id);
   assert.notEqual(first.registration_file, second.registration_file);
+});
+
+test('registerReview rejects symlinked store and workspace ancestors without foreign writes', (t) => {
+  const value = fixture(t);
+  const foreignStore = path.join(value.root, 'foreign-store');
+  const brokerRoot = path.join(value.project.physicalRoot, '.scratch', 'peer-review', 'broker');
+  mkdirSync(foreignStore);
+  mkdirSync(path.dirname(brokerRoot), { recursive: true });
+  symlinkSync(foreignStore, brokerRoot);
+  const workspace = path.join(
+    value.project.physicalRoot,
+    '.scratch',
+    'peer-review',
+    'reviews',
+    'review-store-link'
+  );
+  mkdirSync(workspace, { recursive: true });
+  assert.throws(
+    () =>
+      registerReview(
+        { project: value.project, requestDigest: DIGEST_A, workspace, runtime: value.image },
+        value.store
+      ),
+    (error) => error.code === 'APR_BROKER_REGISTRATION_INVALID'
+  );
+  assert.equal(existsSync(path.join(foreignStore, 'registrations')), false);
+
+  rmSync(brokerRoot);
+  const reviewRoot = path.join(value.project.physicalRoot, '.scratch', 'peer-review', 'reviews');
+  const foreignReviews = path.join(value.root, 'foreign-reviews');
+  rmSync(reviewRoot, { recursive: true, force: true });
+  mkdirSync(foreignReviews);
+  symlinkSync(foreignReviews, reviewRoot);
+  const foreignWorkspace = path.join(reviewRoot, 'review-workspace-link');
+  mkdirSync(foreignWorkspace);
+  assert.throws(
+    () =>
+      registerReview(
+        {
+          project: value.project,
+          requestDigest: DIGEST_A,
+          workspace: foreignWorkspace,
+          runtime: value.image,
+        },
+        value.store
+      ),
+    (error) => error.code === 'APR_BROKER_REGISTRATION_INVALID'
+  );
+  assert.equal(existsSync(path.join(foreignStore, 'registrations')), false);
 });
 
 test('reconcileRegistrations preserves exact live authority and fences missing or ambiguous evidence', async (t) => {

@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
@@ -35,6 +35,59 @@ function contained(parent, candidate) {
   );
 }
 
+function physicalDirectory(directory, code, label) {
+  let status;
+  try {
+    status = lstatSync(directory);
+  } catch (cause) {
+    throw failure(
+      code,
+      `${label} is missing or unreadable.`,
+      'Restore the exact non-symlink project-owned directory and retry.',
+      { directory },
+      cause
+    );
+  }
+  if (!status.isDirectory() || status.isSymbolicLink() || realpathSync(directory) !== directory) {
+    throw failure(
+      code,
+      `${label} is not its canonical physical directory.`,
+      'Use the exact non-symlink project-owned directory and retry.',
+      { directory }
+    );
+  }
+}
+
+function inspectOwnedDirectoryChain(root, target, code, label) {
+  physicalDirectory(root, code, 'Project root');
+  if (target !== root && !contained(root, target)) {
+    throw failure(
+      code,
+      `${label} is outside the project root.`,
+      'Use the exact project-owned path.',
+      { root, target }
+    );
+  }
+  const segments = path.relative(root, target).split(path.sep).filter(Boolean);
+  let current = root;
+  for (const segment of segments) {
+    current = path.join(current, segment);
+    if (!existsSync(current)) break;
+    physicalDirectory(current, code, label);
+  }
+}
+
+function ensureOwnedDirectoryChain(root, target, code, label) {
+  inspectOwnedDirectoryChain(root, target, code, label);
+  const segments = path.relative(root, target).split(path.sep).filter(Boolean);
+  let current = root;
+  for (const segment of segments) {
+    current = path.join(current, segment);
+    if (!existsSync(current)) mkdirSync(current, { mode: 0o700 });
+    physicalDirectory(current, code, label);
+  }
+}
+
 function canonicalProject(project) {
   if (
     !project ||
@@ -49,10 +102,11 @@ function canonicalProject(project) {
       'Recompute the exact canonical project identity and retry registration.'
     );
   }
+  physicalDirectory(project.physicalRoot, 'APR_BROKER_REGISTRATION_INVALID', 'Project root');
   return project;
 }
 
-function registrationRoot(project, store) {
+function registrationRoot(project, store, { recovery = false } = {}) {
   const expected = path.join(
     project.physicalRoot,
     '.scratch',
@@ -69,6 +123,12 @@ function registrationRoot(project, store) {
       { expected, actual }
     );
   }
+  inspectOwnedDirectoryChain(
+    project.physicalRoot,
+    actual,
+    recovery ? 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED' : 'APR_BROKER_REGISTRATION_INVALID',
+    'Registration store'
+  );
   return actual;
 }
 
@@ -110,6 +170,14 @@ function canonicalWorkspace(project, workspace) {
     throw failure(
       'APR_BROKER_REGISTRATION_INVALID',
       'Review workspace is not an owned directory.',
+      'Use the exact non-symlink project review workspace.',
+      { workspace }
+    );
+  }
+  if (realpathSync(workspace) !== workspace) {
+    throw failure(
+      'APR_BROKER_REGISTRATION_INVALID',
+      'Review workspace has a symbolic-link or noncanonical ancestor.',
       'Use the exact non-symlink project review workspace.',
       { workspace }
     );
@@ -256,6 +324,12 @@ export function registerReview({ project, requestDigest, workspace, runtime } = 
         : new Date().toISOString(),
   };
   const file = path.join(root, `${location.reviewId}.json`);
+  ensureOwnedDirectoryChain(
+    identity.physicalRoot,
+    root,
+    'APR_BROKER_REGISTRATION_INVALID',
+    'Registration store'
+  );
   if (lstatExists(file)) {
     const existing = readRegistration(file);
     if (!sameRegistration(existing, registration))
@@ -265,6 +339,12 @@ export function registerReview({ project, requestDigest, workspace, runtime } = 
   try {
     const payload = `${JSON.stringify(registration)}\n`;
     atomicCreate(file, payload);
+    inspectOwnedDirectoryChain(
+      identity.physicalRoot,
+      root,
+      'APR_BROKER_REGISTRATION_INVALID',
+      'Registration store'
+    );
     if (readFileSync(file, 'utf8') !== payload) registrationConflict(file, null, registration);
   } catch (cause) {
     if (cause?.code !== 'APR_OUTPUT_COLLISION') throw cause;
@@ -366,7 +446,7 @@ async function inspectWorkspaceAuthority(inspectAuthority, project, workspace, r
 
 export async function reconcileRegistrations({ project, store, inspectAuthority } = {}) {
   const identity = canonicalProject(project);
-  const root = registrationRoot(identity, store);
+  const root = registrationRoot(identity, store, { recovery: true });
   if (typeof inspectAuthority !== 'function') {
     throw failure(
       'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',

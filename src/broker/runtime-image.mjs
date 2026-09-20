@@ -53,6 +53,46 @@ function contained(parent, candidate) {
   );
 }
 
+function samePhysicalPath(value) {
+  try {
+    return realpathSync(value) === value;
+  } catch {
+    return false;
+  }
+}
+
+function ensureCanonicalDirectory(directory, label) {
+  const missing = [];
+  let existing = directory;
+  while (!existsSync(existing)) {
+    missing.unshift(existing);
+    const parent = path.dirname(existing);
+    if (parent === existing) break;
+    existing = parent;
+  }
+  directoryStatus(existing, label);
+  if (!samePhysicalPath(existing)) {
+    throw failure(
+      'APR_RUNTIME_IMAGE_INVALID',
+      `${label} has a symbolic-link or noncanonical ancestor.`,
+      'Use the exact non-symlink package-owned project cache directory.',
+      { directory }
+    );
+  }
+  for (const child of missing) {
+    mkdirSync(child, { mode: 0o700 });
+    directoryStatus(child, label);
+    if (!samePhysicalPath(child)) {
+      throw failure(
+        'APR_RUNTIME_IMAGE_INVALID',
+        `${label} changed to a symbolic-link or noncanonical path while it was created.`,
+        'Preserve the path for inspection and retry only with an exact owned directory.',
+        { directory: child }
+      );
+    }
+  }
+}
+
 function regularFile(file, label) {
   let status;
   try {
@@ -159,18 +199,28 @@ function entrypointFor(manifest) {
   );
 }
 
-function resolveDependency(packageDirectory, packageRoot, name, { optional = false } = {}) {
+function installationBoundary(packageRoot) {
+  let boundary = packageRoot;
+  let current = packageRoot;
+  while (path.dirname(current) !== current) {
+    if (path.basename(current) === 'node_modules') boundary = path.dirname(current);
+    current = path.dirname(current);
+  }
+  return boundary;
+}
+
+function resolveDependency(packageDirectory, boundary, name, { optional = false } = {}) {
   let current = packageDirectory;
   for (;;) {
     const candidate = path.join(current, 'node_modules', ...name.split('/'));
     if (existsSync(candidate)) {
       directoryStatus(candidate, `Runtime dependency ${name}`);
-      if (!contained(packageRoot, candidate)) break;
+      if (!contained(boundary, candidate) || !samePhysicalPath(candidate)) break;
       return candidate;
     }
-    if (current === packageRoot) break;
+    if (current === boundary) break;
     const parent = path.dirname(current);
-    if (!contained(packageRoot, parent) && parent !== packageRoot) break;
+    if (!contained(boundary, parent) && parent !== boundary) break;
     current = parent;
   }
   if (optional) return null;
@@ -180,6 +230,125 @@ function resolveDependency(packageDirectory, packageRoot, name, { optional = fal
     'Restore every installed production dependency without fetching during review startup, then retry.',
     { dependency: name, packageDirectory }
   );
+}
+
+const ALWAYS_INCLUDED_PACKAGE_FILE =
+  /^(?:package\.json|readme(?:\.[^/]*)?|license(?:\.[^/]*)?|licence(?:\.[^/]*)?|notice(?:\.[^/]*)?|copying(?:\.[^/]*)?|changelog(?:\.[^/]*)?)$/i;
+const DEFAULT_EXCLUDED_PACKAGE_ENTRY = new Set([
+  '.ai-task-manager',
+  '.codex',
+  '.git',
+  '.github',
+  '.scratch',
+  'test',
+  'tests',
+]);
+
+function normalizedPackageRule(value) {
+  return String(value).replace(/^\.\//, '').replaceAll('\\', '/').replace(/\/$/, '');
+}
+
+function packageFileRules(manifest, packageDirectory) {
+  const rules = Array.isArray(manifest.files)
+    ? manifest.files
+        .filter((value) => typeof value === 'string' && value.trim())
+        .map(normalizedPackageRule)
+    : null;
+  const declared = [];
+  const addDeclared = (value) => {
+    if (typeof value === 'string' && value && !path.isAbsolute(value)) {
+      declared.push(normalizedPackageRule(value));
+    }
+  };
+  addDeclared(manifest.main);
+  addDeclared(manifest.module);
+  if (typeof manifest.bin === 'string') addDeclared(manifest.bin);
+  else if (manifest.bin && typeof manifest.bin === 'object') {
+    for (const value of Object.values(manifest.bin)) addDeclared(value);
+  }
+  const nativeRoot = path.join(packageDirectory, 'native', 'broker-security', 'build', 'Release');
+  const native = ['broker_security.node', 'build-identity.json']
+    .map((name) => `native/broker-security/build/Release/${name}`)
+    .filter((relative) => existsSync(path.join(packageDirectory, ...relative.split('/'))));
+  if (native.length === 1) {
+    throw failure(
+      'APR_RUNTIME_IMAGE_INVALID',
+      'The package-owned native helper is incomplete.',
+      'Rebuild the exact installed native helper and retry runtime-image creation.',
+      { nativeRoot }
+    );
+  }
+  return { rules, declared: [...new Set([...declared, ...native])] };
+}
+
+function includedPackageFile(relative, selection) {
+  const portable = relative.split(path.sep).join('/');
+  const basename = path.posix.basename(portable);
+  if (!portable.includes('/') && ALWAYS_INCLUDED_PACKAGE_FILE.test(basename)) return true;
+  if (selection.declared.includes(portable)) return true;
+  if (selection.rules === null) {
+    const first = portable.split('/')[0];
+    return !DEFAULT_EXCLUDED_PACKAGE_ENTRY.has(first) && !first.startsWith('.');
+  }
+  return selection.rules.some(
+    (rule) =>
+      portable === rule ||
+      portable.startsWith(`${rule}/`) ||
+      path.matchesGlob(portable, rule) ||
+      path.matchesGlob(portable, `${rule}/**`)
+  );
+}
+
+function packageInventory(packageDirectory, manifest) {
+  const selection = packageFileRules(manifest, packageDirectory);
+  const files = [];
+  const visit = (relative = '') => {
+    const directory = relative ? path.join(packageDirectory, relative) : packageDirectory;
+    directoryStatus(directory, `Runtime package directory ${relative || '.'}`);
+    for (const name of readdirSync(directory).sort()) {
+      if (!relative && name === 'node_modules') continue;
+      const childRelative = relative ? path.join(relative, name) : name;
+      const child = path.join(packageDirectory, childRelative);
+      const status = lstatSync(child);
+      if (status.isDirectory()) {
+        visit(childRelative);
+      } else if (status.isFile()) {
+        if (includedPackageFile(childRelative, selection)) files.push(childRelative);
+      } else if (status.isSymbolicLink()) {
+        if (includedPackageFile(childRelative, selection)) {
+          throw failure(
+            'APR_RUNTIME_IMAGE_INVALID',
+            `Runtime package contains a selected symbolic link: ${child}`,
+            'Use an installed package whose package-owned runtime files are regular files and directories.',
+            { path: child }
+          );
+        }
+      } else if (includedPackageFile(childRelative, selection)) {
+        throw failure(
+          'APR_RUNTIME_IMAGE_INVALID',
+          `Runtime package contains a selected unsupported filesystem object: ${child}`,
+          'Restore the package using regular files and directories only.',
+          { path: child }
+        );
+      }
+    }
+  };
+  visit();
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
+function packageTarget(sourceRoot, boundary, packageDirectory) {
+  if (packageDirectory === sourceRoot) return 'package';
+  const relative = path.relative(boundary, packageDirectory);
+  if (!contained(boundary, packageDirectory) || !relative.startsWith(`node_modules${path.sep}`)) {
+    throw failure(
+      'APR_RUNTIME_IMAGE_INVALID',
+      'Runtime dependency resolves outside the canonical installation boundary.',
+      'Install the complete dependency closure within the exact package installation.',
+      { packageDirectory, boundary }
+    );
+  }
+  return `package/${relative.split(path.sep).join('/')}`;
 }
 
 function publicDescriptor(root, manifest) {
@@ -305,7 +474,23 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
     );
   }
   directoryStatus(sourceRoot, 'Installed package root');
+  if (!samePhysicalPath(sourceRoot)) {
+    throw failure(
+      'APR_RUNTIME_IMAGE_INVALID',
+      'Installed package root is not its canonical physical path.',
+      'Use the exact non-symlink installed package path.',
+      { packageRoot: sourceRoot }
+    );
+  }
   const nodeStatus = regularFile(nodeExecutable, 'Selected Node executable');
+  if (!samePhysicalPath(nodeExecutable)) {
+    throw failure(
+      'APR_RUNTIME_IMAGE_INVALID',
+      'Selected Node executable is not its canonical physical path.',
+      'Select the exact non-symlink Node executable used for broker startup.',
+      { nodeExecutable }
+    );
+  }
   if ((nodeStatus.mode & 0o111) === 0) {
     throw failure(
       'APR_RUNTIME_IMAGE_INVALID',
@@ -332,15 +517,7 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
   }
 
   const parent = path.dirname(target);
-  mkdirSync(parent, { recursive: true });
-  if (realpathSync(parent) !== parent) {
-    throw failure(
-      'APR_RUNTIME_IMAGE_INVALID',
-      'Runtime image destination parent is not its canonical physical path.',
-      'Use the exact non-symlink package-owned project cache directory.',
-      { parent }
-    );
-  }
+  ensureCanonicalDirectory(parent, 'Runtime image destination parent');
   const stage = `${target}.staging-${process.pid}-${randomUUID()}`;
   const lock = `${target}.lock`;
   let lockDescriptor;
@@ -353,6 +530,18 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
     const files = [];
     const licenses = [];
     const packages = new Set();
+    const packageSnapshots = [];
+    const dependencyEdges = [];
+    const boundary = installationBoundary(sourceRoot);
+    directoryStatus(boundary, 'Runtime installation boundary');
+    if (!samePhysicalPath(boundary)) {
+      throw failure(
+        'APR_RUNTIME_IMAGE_INVALID',
+        'Runtime installation boundary is not its canonical physical path.',
+        'Use an exact non-symlink package installation.',
+        { boundary }
+      );
+    }
 
     const copyFile = (source, relative) => {
       const status = regularFile(source, `Runtime file ${relative}`);
@@ -372,58 +561,22 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
         );
       }
       files.push({ path: relative, digest: before, size: bytes.length, mode: status.mode & 0o777 });
-      copiedSources.push({ source, digest: before });
-    };
-
-    const copyTree = (source, relative) => {
-      directoryStatus(source, `Runtime directory ${relative}`);
-      for (const name of readdirSync(source).sort()) {
-        if (name === 'node_modules') continue;
-        const child = path.join(source, name);
-        const status = lstatSync(child);
-        if (status.isSymbolicLink()) {
-          throw failure(
-            'APR_RUNTIME_IMAGE_INVALID',
-            `Runtime package contains a symbolic link: ${child}`,
-            'Use an installed package whose runtime closure contains only owned regular files and directories.',
-            { path: child }
-          );
-        }
-        const childRelative = `${relative}/${name}`;
-        if (status.isDirectory()) copyTree(child, childRelative);
-        else if (status.isFile()) copyFile(child, childRelative);
-        else {
-          throw failure(
-            'APR_RUNTIME_IMAGE_INVALID',
-            `Runtime package contains an unsupported filesystem object: ${child}`,
-            'Restore the package using regular files and directories only.',
-            { path: child }
-          );
-        }
-      }
+      copiedSources.push({ source, digest: before, mode: status.mode & 0o777, size: status.size });
     };
 
     const copyPackage = (packageDirectory) => {
       if (packages.has(packageDirectory)) return;
       packages.add(packageDirectory);
-      const relativeSource =
-        packageDirectory === sourceRoot ? '' : path.relative(sourceRoot, packageDirectory);
-      if (
-        relativeSource &&
-        (!contained(sourceRoot, packageDirectory) || relativeSource.startsWith('..'))
-      ) {
-        throw failure(
-          'APR_RUNTIME_IMAGE_INVALID',
-          'Runtime dependency resolves outside the installed package root.',
-          'Install the complete dependency closure within the exact package installation.',
-          { packageDirectory }
+      const manifest = parsePackage(packageDirectory);
+      const relativeTarget = packageTarget(sourceRoot, boundary, packageDirectory);
+      const inventory = packageInventory(packageDirectory, manifest);
+      packageSnapshots.push({ packageDirectory, manifest, inventory });
+      for (const relative of inventory) {
+        copyFile(
+          path.join(packageDirectory, relative),
+          `${relativeTarget}/${relative.split(path.sep).join('/')}`
         );
       }
-      const manifest = parsePackage(packageDirectory);
-      const relativeTarget = relativeSource
-        ? `package/${relativeSource.split(path.sep).join('/')}`
-        : 'package';
-      copyTree(packageDirectory, relativeTarget);
       licenses.push({
         name: manifest.name,
         version: manifest.version,
@@ -433,18 +586,21 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
       for (const name of Object.keys(manifest.dependencies ?? {})
         .filter((name) => !optionalDependencies.has(name))
         .sort()) {
-        copyPackage(resolveDependency(packageDirectory, sourceRoot, name));
+        const resolved = resolveDependency(packageDirectory, boundary, name);
+        dependencyEdges.push({ packageDirectory, name, optional: false, resolved });
+        copyPackage(resolved);
       }
       for (const name of [...optionalDependencies].sort()) {
-        const dependency = resolveDependency(packageDirectory, sourceRoot, name, {
+        const dependency = resolveDependency(packageDirectory, boundary, name, {
           optional: true,
         });
+        dependencyEdges.push({ packageDirectory, name, optional: true, resolved: dependency });
         if (dependency !== null) copyPackage(dependency);
       }
       for (const name of Object.keys(manifest.peerDependencies ?? {}).sort()) {
-        const dependency = resolveDependency(packageDirectory, sourceRoot, name, {
-          optional: manifest.peerDependenciesMeta?.[name]?.optional === true,
-        });
+        const optional = manifest.peerDependenciesMeta?.[name]?.optional === true;
+        const dependency = resolveDependency(packageDirectory, boundary, name, { optional });
+        dependencyEdges.push({ packageDirectory, name, optional, resolved: dependency });
         if (dependency !== null) copyPackage(dependency);
       }
     };
@@ -477,12 +633,42 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
       `${left.name}@${left.version}`.localeCompare(`${right.name}@${right.version}`)
     );
     for (const copied of copiedSources) {
-      if (digest(readFileSync(copied.source)) !== copied.digest) {
+      const current = regularFile(copied.source, 'Runtime source file');
+      if (
+        current.size !== copied.size ||
+        (current.mode & 0o777) !== copied.mode ||
+        digest(readFileSync(copied.source)) !== copied.digest
+      ) {
         throw failure(
           'APR_RUNTIME_IMAGE_CHANGED',
           'Runtime source changed before the immutable image could be published.',
           'Retry from a quiescent exact package installation.',
           { source: copied.source }
+        );
+      }
+    }
+    for (const snapshot of packageSnapshots) {
+      const currentManifest = parsePackage(snapshot.packageDirectory);
+      const currentInventory = packageInventory(snapshot.packageDirectory, currentManifest);
+      if (canonicalJson(currentInventory) !== canonicalJson(snapshot.inventory)) {
+        throw failure(
+          'APR_RUNTIME_IMAGE_CHANGED',
+          'Runtime package membership changed before the immutable image could be published.',
+          'Retry from a quiescent exact package installation.',
+          { packageDirectory: snapshot.packageDirectory }
+        );
+      }
+    }
+    for (const edge of dependencyEdges) {
+      const current = resolveDependency(edge.packageDirectory, boundary, edge.name, {
+        optional: edge.optional,
+      });
+      if (current !== edge.resolved) {
+        throw failure(
+          'APR_RUNTIME_IMAGE_CHANGED',
+          'Runtime dependency resolution changed before the immutable image could be published.',
+          'Retry from a quiescent exact package installation.',
+          { packageDirectory: edge.packageDirectory, dependency: edge.name }
         );
       }
     }
