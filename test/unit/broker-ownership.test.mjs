@@ -187,10 +187,18 @@ test(
       )
     ) {
       const executableDirectory = path.dirname(process.execPath);
-      const nodeDevelopmentRoot = [executableDirectory, path.dirname(executableDirectory)].find(
-        (candidate) => existsSync(path.join(candidate, 'include', 'node', 'node_api.h'))
+      const provisionedDevelopmentRoot = process.env.APR_NODEDIR_BASE
+        ? path.join(process.env.APR_NODEDIR_BASE, process.versions.node)
+        : null;
+      const nodeDevelopmentRoot = [
+        provisionedDevelopmentRoot,
+        executableDirectory,
+        path.dirname(executableDirectory),
+      ].find(
+        (candidate) =>
+          candidate !== null && existsSync(path.join(candidate, 'include', 'node', 'node_api.h'))
       );
-      assert.ok(nodeDevelopmentRoot, 'hosted CI must expose the setup-node development tree');
+      assert.ok(nodeDevelopmentRoot, 'hosted CI must provision the complete Node development tree');
       const build = spawnSync(
         process.execPath,
         [

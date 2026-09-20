@@ -23,6 +23,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
     steps:
       - uses: actions/checkout@v6
         with:
@@ -32,6 +34,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Provision native Node development files
+        run: >-
+          node node_modules/node-gyp/bin/node-gyp.js install --ensure
+          --devdir="${{ runner.temp }}/node-gyp"
       - run: npm run format:check
       - run: npm run lint
       - run: npm test
