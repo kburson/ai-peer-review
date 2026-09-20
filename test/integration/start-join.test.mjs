@@ -608,7 +608,13 @@ test('runtime-sealed startup rejects a mismatched reviewer before joining or cla
     }),
     (error) => error.code === 'APR_IDENTITY_CONFLICT'
   );
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+  assert.deepEqual(
+    readFileSync(started.paths.events, 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line).type),
+    ['review-created', 'compatibility-declared', 'identity-changed']
+  );
   const requested = participantIdentity({
     role: 'reviewer',
     host: 'claude-code',
@@ -694,8 +700,10 @@ test('runtime-sealed declared registration cannot claim unverified resume-only t
     (error) => error.code === 'APR_TRANSPORT_UNAVAILABLE'
   );
   const events = readFileSync(started.paths.events, 'utf8').trim().split('\n');
-  assert.equal(events.length, 1);
-  assert.equal(JSON.parse(events[0]).type, 'review-created');
+  assert.deepEqual(
+    events.map((line) => JSON.parse(line).type),
+    ['review-created', 'compatibility-declared', 'identity-changed']
+  );
   assert.equal(inspectReview(started.paths.workspace).protocol.claims.reviewer, undefined);
 });
 
