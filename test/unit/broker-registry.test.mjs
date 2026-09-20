@@ -72,7 +72,7 @@ function fixture(t) {
     `${JSON.stringify({ name: 'peer-helper', version: '1.0.0', main: 'index.cjs' })}\n`
   );
   writeFileSync(path.join(peerDependency, 'index.cjs'), "module.exports = 'peer';\n");
-  const nodeExecutable = path.join(root, 'node-fixture');
+  const nodeExecutable = path.join(root, 'node-fixture.exe');
   writeFileSync(nodeExecutable, 'node-v1\n');
   chmodSync(nodeExecutable, 0o755);
   const destination = path.join(root, 'images', 'runtime-v1');
@@ -104,6 +104,7 @@ test('pinRuntimeImage preserves the package closure, node bytes, licenses, and a
     'a registration cannot substitute an executable outside the verified image'
   );
   assert.equal(readFileSync(value.image.nodeExecutable, 'utf8'), 'node-v1\n');
+  assert.equal(path.basename(value.image.nodeExecutable), 'node-fixture.exe');
   assert.equal(readFileSync(value.image.entrypoint, 'utf8').includes('tiny-dependency'), true);
   assert.deepEqual(
     value.image.files,
@@ -283,6 +284,54 @@ test('pinRuntimeImage resolves a hoisted installed dependency into an executable
   const packageRoot = path.join(consumer, 'node_modules', 'runtime-fixture');
   assert.equal(existsSync(path.join(packageRoot, 'node_modules', 'tiny-dependency')), false);
   assert.equal(existsSync(path.join(consumer, 'node_modules', 'tiny-dependency')), true);
+  const image = pinRuntimeImage({
+    packageRoot,
+    nodeExecutable: process.execPath,
+    destination: path.join(root, 'images', 'runtime-v1'),
+  });
+  rmSync(consumer, { recursive: true, force: true });
+  assert.equal(path.basename(image.nodeExecutable), path.basename(process.execPath));
+  const execution = spawnSync(image.nodeExecutable, [image.entrypoint], { encoding: 'utf8' });
+  assert.equal(execution.status, 0, execution.stderr);
+  assert.equal(execution.stdout, 'hoisted-ok\n');
+});
+
+test('pinRuntimeImage preserves a root dependency nested by a hoisted version conflict', (t) => {
+  const scratch = path.join(process.cwd(), '.scratch', 'test');
+  mkdirSync(scratch, { recursive: true });
+  const root = mkdtempSync(path.join(scratch, 'broker-nested-install-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const consumer = path.join(root, 'consumer');
+  const packageRoot = path.join(consumer, 'node_modules', 'runtime-fixture');
+  const nested = path.join(packageRoot, 'node_modules', 'tiny-dependency');
+  const hoisted = path.join(consumer, 'node_modules', 'tiny-dependency');
+  mkdirSync(nested, { recursive: true });
+  mkdirSync(hoisted, { recursive: true });
+  writeFileSync(
+    path.join(packageRoot, 'package.json'),
+    `${JSON.stringify({
+      name: 'runtime-fixture',
+      version: '1.0.0',
+      type: 'module',
+      bin: './cli.mjs',
+      files: ['cli.mjs'],
+      dependencies: { 'tiny-dependency': '1.0.0' },
+    })}\n`
+  );
+  writeFileSync(
+    path.join(packageRoot, 'cli.mjs'),
+    "import value from 'tiny-dependency'; console.log(value);\n"
+  );
+  writeFileSync(
+    path.join(nested, 'package.json'),
+    `${JSON.stringify({ name: 'tiny-dependency', version: '1.0.0', main: 'index.cjs' })}\n`
+  );
+  writeFileSync(path.join(nested, 'index.cjs'), "module.exports = 'nested-v1';\n");
+  writeFileSync(
+    path.join(hoisted, 'package.json'),
+    `${JSON.stringify({ name: 'tiny-dependency', version: '2.0.0', main: 'index.cjs' })}\n`
+  );
+  writeFileSync(path.join(hoisted, 'index.cjs'), "module.exports = 'hoisted-v2';\n");
   const nodeExecutable = path.join(root, 'node-fixture');
   writeFileSync(nodeExecutable, 'node-v1\n');
   chmodSync(nodeExecutable, 0o755);
@@ -295,7 +344,7 @@ test('pinRuntimeImage resolves a hoisted installed dependency into an executable
   rmSync(consumer, { recursive: true, force: true });
   const execution = spawnSync(process.execPath, [image.entrypoint], { encoding: 'utf8' });
   assert.equal(execution.status, 0, execution.stderr);
-  assert.equal(execution.stdout, 'hoisted-ok\n');
+  assert.equal(execution.stdout, 'nested-v1\n');
 });
 
 test('pinRuntimeImage rejects a source inventory added while copying', async (t) => {
@@ -500,6 +549,39 @@ test('reconcileRegistrations preserves exact live authority and fences missing o
     }),
     (error) => error.code === 'APR_BROKER_RUNTIME_MISSING'
   );
+});
+
+test('reconcileRegistrations rejects a registered workspace replaced by a symlink', async (t) => {
+  const value = fixture(t);
+  const workspace = path.join(
+    value.project.physicalRoot,
+    '.scratch',
+    'peer-review',
+    'reviews',
+    'review-replaced'
+  );
+  mkdirSync(workspace, { recursive: true });
+  registerReview(
+    { project: value.project, requestDigest: DIGEST_A, workspace, runtime: value.image },
+    value.store
+  );
+  const foreign = path.join(value.root, 'foreign-replaced-workspace');
+  mkdirSync(foreign);
+  rmSync(workspace, { recursive: true });
+  symlinkSync(foreign, workspace);
+  let inspected = false;
+  await assert.rejects(
+    reconcileRegistrations({
+      project: value.project,
+      store: value.store,
+      inspectAuthority: async () => {
+        inspected = true;
+        return { status: 'active' };
+      },
+    }),
+    (error) => error.code === 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED'
+  );
+  assert.equal(inspected, false);
 });
 
 test('reconcileRegistrations rebuilds only exact contained authority and ignores foreign paths', async (t) => {

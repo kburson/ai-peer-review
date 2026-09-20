@@ -299,6 +299,22 @@ function includedPackageFile(relative, selection) {
   );
 }
 
+function includedPackageDirectory(relative, selection) {
+  const portable = relative.split(path.sep).join('/');
+  if (selection.rules === null) {
+    const first = portable.split('/')[0];
+    return !DEFAULT_EXCLUDED_PACKAGE_ENTRY.has(first) && !first.startsWith('.');
+  }
+  const candidates = [...selection.rules, ...selection.declared];
+  return candidates.some(
+    (rule) =>
+      rule === portable ||
+      rule.startsWith(`${portable}/`) ||
+      portable.startsWith(`${rule}/`) ||
+      /[*?[]/.test(rule)
+  );
+}
+
 function packageInventory(packageDirectory, manifest) {
   const selection = packageFileRules(manifest, packageDirectory);
   const files = [];
@@ -311,7 +327,7 @@ function packageInventory(packageDirectory, manifest) {
       const child = path.join(packageDirectory, childRelative);
       const status = lstatSync(child);
       if (status.isDirectory()) {
-        visit(childRelative);
+        if (includedPackageDirectory(childRelative, selection)) visit(childRelative);
       } else if (status.isFile()) {
         if (includedPackageFile(childRelative, selection)) files.push(childRelative);
       } else if (status.isSymbolicLink()) {
@@ -339,6 +355,12 @@ function packageInventory(packageDirectory, manifest) {
 
 function packageTarget(sourceRoot, boundary, packageDirectory) {
   if (packageDirectory === sourceRoot) return 'package';
+  if (contained(sourceRoot, packageDirectory)) {
+    const nested = path.relative(sourceRoot, packageDirectory);
+    if (nested.startsWith(`node_modules${path.sep}`)) {
+      return `package/${nested.split(path.sep).join('/')}`;
+    }
+  }
   const relative = path.relative(boundary, packageDirectory);
   if (!contained(boundary, packageDirectory) || !relative.startsWith(`node_modules${path.sep}`)) {
     throw failure(
@@ -491,7 +513,7 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
       { nodeExecutable }
     );
   }
-  if ((nodeStatus.mode & 0o111) === 0) {
+  if (process.platform !== 'win32' && (nodeStatus.mode & 0o111) === 0) {
     throw failure(
       'APR_RUNTIME_IMAGE_INVALID',
       'Selected Node executable is not executable.',
@@ -627,7 +649,8 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
     }
     regularFile(sourceEntrypoint, 'Package entrypoint');
     copyPackage(sourceRoot);
-    copyFile(nodeExecutable, 'node/node');
+    const nodeRelative = `node/${path.basename(nodeExecutable)}`;
+    copyFile(nodeExecutable, nodeRelative);
     files.sort((left, right) => left.path.localeCompare(right.path));
     licenses.sort((left, right) =>
       `${left.name}@${left.version}`.localeCompare(`${right.name}@${right.version}`)
@@ -679,7 +702,7 @@ export function pinRuntimeImage({ packageRoot, nodeExecutable, destination } = {
         version: rootPackage.version,
         entrypoint: `package/${normalizedEntrypoint.split(path.sep).join('/')}`,
       },
-      node: { path: 'node/node' },
+      node: { path: nodeRelative },
       files,
       licenses,
     };

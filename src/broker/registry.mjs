@@ -491,6 +491,11 @@ export async function reconcileRegistrations({ project, store, inspectAuthority 
       if (!lstatExists(registration.workspace)) {
         authorityFailure('Durable registration references a missing review workspace.', { file });
       }
+      physicalDirectory(
+        registration.workspace,
+        'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
+        'Registered review workspace'
+      );
       runtimeRecord(registration.runtime);
       registrations.set(registration.review_id, result(registration, file));
     }
