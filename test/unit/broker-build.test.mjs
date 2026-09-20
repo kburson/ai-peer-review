@@ -90,6 +90,15 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.match(windowsRead, /GetTickCount64/);
   assert.match(windowsWrite, /PIPE_NOWAIT/);
   assert.match(windowsWrite, /GetTickCount64/);
+  assert.match(windows, /bool FlushServerBounded\(HANDLE handle\)/);
+  assert.match(windows, /DuplicateHandle\(/);
+  assert.match(windows, /CreateThread\(/);
+  assert.match(windows, /CancelSynchronousIo\(/);
+  assert.match(
+    windows,
+    /connection->server_side && !FlushServerBounded\(connection->handle\)/,
+    'a server reply must be read before DisconnectNamedPipe can discard it'
+  );
 });
 
 test('missing or mismatched native helper fails with the installation-specific offline build command', (t) => {

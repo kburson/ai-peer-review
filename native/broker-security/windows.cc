@@ -181,6 +181,36 @@ bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
   return complete && SetNamedPipeHandleState(handle, &mode, nullptr, nullptr) != 0;
 }
 
+DWORD WINAPI FlushServerThread(void* value) {
+  HANDLE handle = static_cast<HANDLE>(value);
+  const bool flushed = FlushFileBuffers(handle) != 0;
+  CloseHandle(handle);
+  return flushed ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
+}
+
+bool FlushServerBounded(HANDLE handle) {
+  HANDLE duplicate = INVALID_HANDLE_VALUE;
+  if (!DuplicateHandle(
+        GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
+        0, FALSE, DUPLICATE_SAME_ACCESS)) return false;
+  HANDLE thread = CreateThread(nullptr, 0, FlushServerThread, duplicate, 0, nullptr);
+  if (thread == nullptr) {
+    CloseHandle(duplicate);
+    return false;
+  }
+  DWORD wait = WaitForSingleObject(thread, kIpcTimeoutMilliseconds);
+  if (wait == WAIT_TIMEOUT) {
+    CancelSynchronousIo(thread);
+    wait = WaitForSingleObject(thread, 1000);
+  }
+  DWORD result = ERROR_WRITE_FAULT;
+  const bool complete = wait == WAIT_OBJECT_0 &&
+                        GetExitCodeThread(thread, &result) != 0 &&
+                        result == ERROR_SUCCESS;
+  CloseHandle(thread);
+  return complete;
+}
+
 HANDLE CreateOwnerPipe(const std::wstring& path, bool first,
                        std::string* code, std::string* message) {
   SECURITY_ATTRIBUTES attributes {};
@@ -531,6 +561,9 @@ bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
   }
   mode = PIPE_READMODE_BYTE | PIPE_WAIT;
   const bool restored = SetNamedPipeHandleState(connection->handle, &mode, nullptr, nullptr) != 0;
+  if (complete && restored && connection->server_side && !FlushServerBounded(connection->handle)) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame delivery timed out.");
+  }
   return complete && restored
     ? true
     : Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame cannot be written completely.");
