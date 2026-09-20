@@ -341,7 +341,9 @@ test(
       const connection = platform.connectPrivate(process.argv[1]);
       assert.equal(platform.peerUser(connection), platform.userId());
       connection.write(encodeFrame(expected));
-      process.stdout.write('READING\\n');
+      await new Promise((resolve, reject) => {
+        process.stdout.write('READING\\n', (error) => error ? reject(error) : resolve());
+      });
       const decoder = createFrameDecoder();
       const frames = decoder.push(connection.readFrame());
       decoder.end();
@@ -385,7 +387,9 @@ test(
       const platform = platformSecurity();
       const connection = platform.connectPrivate(process.argv[1]);
       connection.write(Buffer.from([0, 0, 0, 16, 123]));
-      process.stdout.write('WRITTEN\\n');
+      await new Promise((resolve, reject) => {
+        process.stdout.write('WRITTEN\\n', (error) => error ? reject(error) : resolve());
+      });
       setTimeout(() => {}, 20000);
     `;
     const partialChild = spawn(
