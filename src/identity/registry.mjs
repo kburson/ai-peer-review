@@ -1,8 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { AprError } from '../errors.mjs';
-import { validateEvent } from '../protocol/events.mjs';
+import { EVENT_V2_SCHEMA } from '../protocol/compatibility.mjs';
+import { validateEvent, validateVersionedEvent } from '../protocol/events.mjs';
 import { mutateReview } from '../protocol/service.mjs';
+import { identityEvidence, mergeObservedIdentity, v1Participant } from './evidence.mjs';
 import { claudeAdapter } from './claude.mjs';
 import { codexAdapter } from './codex.mjs';
 import { genericAdapter } from './generic.mjs';
@@ -82,10 +84,18 @@ function claimTtl(review, fallbackClaim = null) {
   return value;
 }
 
-function eventEnvelope(review, type, actor, at, payload, revisionDelta) {
+function eventEnvelope(
+  review,
+  type,
+  actor,
+  at,
+  payload,
+  revisionDelta,
+  schema = 'ai-peer-review.event/v1'
+) {
   const protocol = protocolOf(review);
   const value = {
-    schema: 'ai-peer-review.event/v1',
+    schema,
     review_id: protocol.review_id,
     sequence: protocol.sequence + 1,
     revision: protocol.revision + revisionDelta,
@@ -94,7 +104,8 @@ function eventEnvelope(review, type, actor, at, payload, revisionDelta) {
     at: instant(at).toISOString(),
     payload,
   };
-  validateEvent(value);
+  if (schema === EVENT_V2_SCHEMA) validateVersionedEvent(value);
+  else validateEvent(value);
   return Object.freeze(value);
 }
 
@@ -157,6 +168,8 @@ export function participantIdentity({
   modelDisplay,
   sessionId,
   source,
+  sessionSource = source === 'runtime' ? 'legacy-unclassified' : 'explicit-declaration',
+  modelSource = source === 'runtime' ? 'legacy-unclassified' : 'explicit-declaration',
   joinedAt = new Date(),
 }) {
   if (!ROLES.has(role) || !HOSTS.has(host) || !PROVIDERS.has(provider) || !SOURCES.has(source)) {
@@ -167,15 +180,22 @@ export function participantIdentity({
     );
   }
   const joined = instant(joinedAt, 'identity join time', 'APR_IDENTITY_INVALID').toISOString();
+  const session_fingerprint = fingerprintSession(provider, sessionId);
   return Object.freeze({
     role,
     host,
     provider,
     model_id: text(modelId, 'model_id'),
     model_display: text(modelDisplay, 'model_display'),
-    session_fingerprint: fingerprintSession(provider, sessionId),
+    session_fingerprint,
     identity_source: source,
     joined_at: joined,
+    evidence: identityEvidence({
+      sessionFingerprint: session_fingerprint,
+      sessionSource,
+      modelId,
+      modelSource,
+    }),
   });
 }
 
@@ -241,6 +261,8 @@ export function resolveIdentity(context = {}) {
   });
 }
 
+export { identityEvidence, mergeObservedIdentity, v1Participant };
+
 export function assertDistinctParticipants(author, reviewer) {
   if (
     !author?.session_fingerprint ||
@@ -274,8 +296,12 @@ export function identityChangeEvent(review, prior, current, now = new Date()) {
     'identity-changed',
     current.session_fingerprint,
     now,
-    { role: current.role, identity: { ...current, joined_at: prior.joined_at } },
-    0
+    {
+      role: current.role,
+      identity: { ...current, joined_at: prior.joined_at },
+    },
+    0,
+    EVENT_V2_SCHEMA
   );
 }
 

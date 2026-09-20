@@ -295,8 +295,10 @@ test('submit records same-session model refresh for reviewer and author', async 
     .trim()
     .split('\n')
     .map(JSON.parse);
+  const identityChanges = events.filter((event) => event.type === 'identity-changed');
+  assert.equal(identityChanges[0].payload.role, 'author');
   assert.deepEqual(
-    events.filter((event) => event.type === 'identity-changed').map((event) => event.payload.role),
+    identityChanges.slice(1).map((event) => event.payload.role),
     ['reviewer', 'author']
   );
   assert.equal(

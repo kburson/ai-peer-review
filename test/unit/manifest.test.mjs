@@ -35,13 +35,55 @@ test('manifest schema is closed and covers both terminal authority paths', () =>
   assert.equal(schema.$id, 'ai-peer-review.manifest/v1');
   assert.equal(schema.additionalProperties, false);
   assert.equal(schema.required.includes('record_id'), true);
+  assert.equal(schema.required.includes('lineage_receipt'), false);
+  assert.deepEqual(schema.properties.lineage_receipt, {
+    anyOf: [{ type: 'null' }, { $ref: '#/$defs/lineageReceipt' }],
+  });
   assert.deepEqual(schema.properties.record_id, { $ref: '#/$defs/id' });
   assert.deepEqual(schema.properties.acceptance_basis.enum, [
     'reviewer-consensus',
     'human-override',
   ]);
   assert.equal(schema.$defs.participant.additionalProperties, false);
+  assert.equal(schema.$defs.participant.required.includes('evidence'), false);
+  assert.deepEqual(schema.$defs.participant.properties.evidence, {
+    $ref: 'ai-peer-review.participants/v2#/$defs/evidence',
+  });
   assert.equal(schema.$defs.claim.properties.pid, undefined);
+});
+
+test('terminal manifests retain an optional deterministic lineage receipt without changing legacy manifests', () => {
+  const events = acceptancePendingEvents();
+  const lineageReceipt = {
+    schema: 'ai-peer-review.lineage-receipt/v1',
+    complete: true,
+    attempts: [
+      {
+        review_id: events[0].review_id,
+        record_id: events[0].review_id,
+        root_review_id: events[0].review_id,
+        recovery_ordinal: 0,
+        predecessor_review_id: null,
+        successor_review_id: null,
+        recovery_id: null,
+        recovery_claim_digest: null,
+        reciprocal_receipt_digest: null,
+        consumed_grant_digest: null,
+        event_log_digest: `sha256:${'a'.repeat(64)}`,
+      },
+    ],
+  };
+  const base = {
+    status: 'accepted',
+    acceptance_basis: 'reviewer-consensus',
+    final_commit: events[0].payload.artifact.head,
+  };
+  const legacy = buildManifest(review(events, base));
+  assert.equal(Object.hasOwn(legacy, 'lineage_receipt'), false);
+
+  const current = buildManifest(review(events, { ...base, lineage_receipt: lineageReceipt }));
+  assert.deepEqual(current.lineage_receipt, lineageReceipt);
+  assert.match(renderManifest(current).toString(), /ai-peer-review\.lineage-receipt\/v1/);
 });
 
 test('phase manifest schema is closed and nonterminal', () => {
@@ -154,6 +196,7 @@ test('manifest preserves bounded identity, claim, recovery, and supplement histo
     final_commit: state.protocol.artifact.head,
   });
   assert.equal(model.identity_changes[0].identity.identity_source, 'runtime');
+  assert.equal(model.identity_changes[0].identity.evidence.model.source, 'legacy-unclassified');
   assert.equal(model.claims.length, 1);
   assert.equal(Object.hasOwn(model.claims[0], 'pid'), false);
   assert.equal(model.recoveries[0].type, 'same-session-reclaim');

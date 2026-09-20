@@ -34,4 +34,4 @@ When the host reports that the durable coordinator is active, yield after each h
 
 Installed help: `peer-review status --help`
 
-Zero-install help: `npx --yes ai-peer-review@0.2.2 status --help`
+Zero-install help: `npx --yes @kburson/ai-peer-review@0.2.2 status --help`

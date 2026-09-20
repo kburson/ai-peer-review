@@ -3,10 +3,14 @@ function frozen(values) {
 }
 
 function resolveRuntime({ runtime = {}, env = {}, declaredModel = {} } = {}) {
-  const sessionId = runtime.sessionId ?? env.CLAUDE_CODE_SESSION_ID ?? env.CLAUDE_SESSION_ID;
-  const modelId = runtime.modelId ?? env.CLAUDE_MODEL_ID;
+  const runtimeSession = runtime.sessionId;
+  const runtimeModel = runtime.modelId;
+  const sessionId = runtimeSession ?? env.CLAUDE_CODE_SESSION_ID ?? env.CLAUDE_SESSION_ID;
+  const modelId = runtimeModel ?? env.CLAUDE_MODEL_ID;
   const modelDisplay = runtime.modelDisplay ?? env.CLAUDE_MODEL_DISPLAY ?? modelId;
   if ([sessionId, modelId, modelDisplay].every((value) => typeof value === 'string' && value)) {
+    const sessionSource = runtimeSession ? 'official-runtime' : 'environment-declaration';
+    const modelSource = runtimeModel ? 'official-runtime' : 'environment-declaration';
     return {
       host: 'claude-code',
       provider: 'anthropic',
@@ -14,6 +18,8 @@ function resolveRuntime({ runtime = {}, env = {}, declaredModel = {} } = {}) {
       modelId,
       modelDisplay,
       source: 'runtime',
+      sessionSource,
+      modelSource,
     };
   }
 
@@ -32,6 +38,8 @@ function resolveRuntime({ runtime = {}, env = {}, declaredModel = {} } = {}) {
       modelId: declaredModel.modelId,
       modelDisplay: declaredModel.modelDisplay,
       source: 'declared',
+      sessionSource: runtimeSession ? 'official-runtime' : 'environment-declaration',
+      modelSource: 'configuration',
     };
   }
   return null;

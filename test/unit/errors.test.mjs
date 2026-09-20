@@ -9,7 +9,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     await readFile(new URL('../../package.json', import.meta.url), 'utf8')
   );
 
-  assert.equal(packageJson.name, 'ai-peer-review');
+  assert.equal(packageJson.name, '@kburson/ai-peer-review');
   assert.equal(packageJson.version, '0.2.2');
   assert.equal(packageJson.type, 'module');
   assert.equal(packageJson.engines.node, '>=24');
@@ -21,7 +21,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     zod: '4.6.2',
   });
   assert.deepEqual(packageJson.devDependencies, {
-    'ai-task-manager': 'file:vendors/kburson-ai-task-manager-1.0.0.tgz',
+    '@kburson/ai-task-manager': 'file:vendors/kburson-ai-task-manager-0.1.0.tgz',
     cspell: '8.19.4',
     eslint: '9.39.4',
     'markdownlint-cli2': '0.23.2',
@@ -29,6 +29,8 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   });
   assert.deepEqual(packageJson.scripts, {
     'build:broker-security': 'node scripts/build-broker-security.mjs',
+    'pretarball:install': 'npm uninstall -D @kburson/ai-task-manager',
+    'tarball:install': 'npm install -D file:vendors/kburson-ai-task-manager-0.1.0.tgz',
     test: 'npm run test:unit && npm run test:golden',
     'test:unit': 'node --test "test/unit/**/*.test.mjs"',
     'test:golden': 'node --test "test/golden/**/*.test.mjs"',
@@ -77,7 +79,7 @@ test('repository tooling configuration is explicit and credential-free', async (
   for (const ignored of ['node_modules/', 'coverage/', '*.tgz', '.scratch/peer-review/']) {
     assert.match(gitignore, new RegExp(ignored.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
-  assert.match(gitignore, /!vendors\/kburson-ai-task-manager-1\.0\.0\.tgz/);
+  assert.match(gitignore, /!vendors\/kburson-ai-task-manager-0\.1\.0\.tgz/);
   assert.equal(JSON.parse(prettier).singleQuote, true);
   assert.match(markdownlint, /"MD013": false/);
   assert.equal(JSON.parse(spelling).version, '0.2');

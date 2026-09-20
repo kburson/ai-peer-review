@@ -243,7 +243,7 @@ test('model refresh emits an identity-change event without exposing raw IDs', ()
   assert.equal(identityChangeEvent(review, current, { ...current }, new Date(joinedAt)), null);
 });
 
-test('participantIdentity returns a closed Task 4-compatible participant', () => {
+test('participantIdentity carries evidence while its v1 projection remains closed', () => {
   const identity = participantIdentity({
     role: 'author',
     host: 'codex',
@@ -255,6 +255,7 @@ test('participantIdentity returns a closed Task 4-compatible participant', () =>
     joinedAt,
   });
   assert.deepEqual(Object.keys(identity).sort(), [
+    'evidence',
     'host',
     'identity_source',
     'joined_at',
@@ -264,6 +265,7 @@ test('participantIdentity returns a closed Task 4-compatible participant', () =>
     'role',
     'session_fingerprint',
   ]);
+  assert.deepEqual(Object.keys(identity.evidence).sort(), ['model', 'session']);
   assert.equal(Object.isFrozen(identity), true);
 });
 

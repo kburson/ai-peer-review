@@ -68,7 +68,7 @@ idle model turns. You remain the tie-breaker when they cannot agree.
 
 Ask your agent to do it:
 
-> Install `ai-peer-review` as a dev dependency and run its project setup for
+> Install `@kburson/ai-peer-review` as a dev dependency and run its project setup for
 > Claude Code.
 
 Setup is deliberately boring and fully reversible. It writes four things:
@@ -159,6 +159,14 @@ guesses the active model. A runtime session combined with configured model
 metadata is labeled `identity_source: declared`; complete runtime session and
 model metadata remains `runtime`. Doctor, start, join, submit, finalize, grant,
 recovery, and abandonment all use this same resolution contract.
+
+The compatibility `identity_source` field remains for legacy readers; it is not
+an independent model-verification claim. Current manifests expose separate
+session and model evidence. Environment, configuration, and launch-request
+values remain `assurance: declared`; only an authoritative provider result may
+be `assurance: observed`. Conflicting declared and observed model IDs are
+retained together with `conflict: true`, while legacy v1 records render as
+`legacy-unclassified` instead of being retroactively promoted.
 
 Codex and Claude Code setup install package-owned versioned settings for the
 `peer-review-mcp` server, an eight-hour tool timeout, and a lease heartbeat.
@@ -386,7 +394,7 @@ CLI and nothing is hidden from you.
 After a confirmed local installation, the short binary name works:
 
 ```bash
-npm install --save-dev ai-peer-review
+npm install --save-dev @kburson/ai-peer-review
 npx peer-review --help
 ```
 
@@ -395,11 +403,21 @@ locally. Before that — or if you would rather install nothing at all — call 
 by its full registry name:
 
 ```bash
-npx --yes ai-peer-review@0.2.2 --help
-npx --yes ai-peer-review@0.2.2 setup --scope project --agent claude --dry-run
-npx --yes ai-peer-review@0.2.2 start docs/spec.md --artifact-kind spec
-npx --yes ai-peer-review@0.2.2 status .scratch/peer-review/<review-id> --next
+npx --yes @kburson/ai-peer-review@0.2.2 --help
+npx --yes @kburson/ai-peer-review@0.2.2 setup --scope project --agent claude --dry-run
+npx --yes @kburson/ai-peer-review@0.2.2 start docs/spec.md --artifact-kind spec
+npx --yes @kburson/ai-peer-review@0.2.2 status .scratch/peer-review/<review-id> --next
 ```
+
+Existing consumers should replace the unscoped package without changing commands or state paths:
+
+```bash
+npm uninstall ai-peer-review
+npm install --save-dev @kburson/ai-peer-review
+```
+
+The `ai-peer-review`, `peer-review`, and `peer-review-mcp` binaries, `.ai-peer-review.json`, and
+`.scratch/peer-review/` remain unchanged.
 
 | Command         | Role            | What it does                                    |
 | --------------- | --------------- | ----------------------------------------------- |
@@ -478,7 +496,7 @@ import {
   runCoordinator,
   statusReview,
   validateResidentLease,
-} from 'ai-peer-review';
+} from '@kburson/ai-peer-review';
 ```
 
 Protocol mutation is routed through the CLI. Coordinator exports are narrow

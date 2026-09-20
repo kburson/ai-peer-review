@@ -9,8 +9,8 @@
 - **Scope:** Design only; no runtime implementation or backlog issues are
   authorized by this document
 - **Related evidence:**
-  [manual cross-provider case study](../manual-cross-provider-peer-review.md),
-  [runtime orchestration white paper](../whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md),
+  [manual cross-provider case study](../../manual-cross-provider-peer-review.md),
+  [runtime orchestration white paper](../../whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md),
   and
   [original extraction design](2026-09-07-ai-peer-review-extraction-design.md)
 

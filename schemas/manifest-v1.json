@@ -29,6 +29,9 @@
     "schema": { "const": "ai-peer-review.manifest/v1" },
     "review_id": { "$ref": "#/$defs/id" },
     "record_id": { "$ref": "#/$defs/id" },
+    "lineage_receipt": {
+      "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/lineageReceipt" }]
+    },
     "status": {
       "enum": [
         "accepted",
@@ -161,7 +164,8 @@
         "model_display": { "type": "string", "minLength": 1 },
         "session_fingerprint": { "$ref": "#/$defs/digest" },
         "identity_source": { "type": "string", "minLength": 1 },
-        "joined_at": { "$ref": "#/$defs/time" }
+        "joined_at": { "$ref": "#/$defs/time" },
+        "evidence": { "$ref": "ai-peer-review.participants/v2#/$defs/evidence" }
       }
     },
     "turn": {
@@ -324,6 +328,62 @@
         },
         "acceptance_attestation": {
           "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/attestation" }]
+        }
+      }
+    },
+    "lineageAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_id",
+        "record_id",
+        "root_review_id",
+        "recovery_ordinal",
+        "predecessor_review_id",
+        "successor_review_id",
+        "recovery_id",
+        "recovery_claim_digest",
+        "reciprocal_receipt_digest",
+        "consumed_grant_digest",
+        "event_log_digest"
+      ],
+      "properties": {
+        "review_id": { "$ref": "#/$defs/id" },
+        "record_id": { "$ref": "#/$defs/id" },
+        "root_review_id": { "$ref": "#/$defs/id" },
+        "recovery_ordinal": { "type": "integer", "minimum": 0 },
+        "predecessor_review_id": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }]
+        },
+        "successor_review_id": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }]
+        },
+        "recovery_id": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }]
+        },
+        "recovery_claim_digest": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }]
+        },
+        "reciprocal_receipt_digest": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }]
+        },
+        "consumed_grant_digest": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }]
+        },
+        "event_log_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "lineageReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "complete", "attempts"],
+      "properties": {
+        "schema": { "const": "ai-peer-review.lineage-receipt/v1" },
+        "complete": { "const": true },
+        "attempts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/lineageAttempt" }
         }
       }
     }

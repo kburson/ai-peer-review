@@ -17,9 +17,21 @@ import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 import { nextActionCommand } from '../cli/help-data.mjs';
 import { AprError } from '../errors.mjs';
-import { validateEvent } from './events.mjs';
+import {
+  assertReaderWriterCompatibility,
+  compatibilityDeclared,
+  currentCompatibility,
+  EVENT_V2_SCHEMA,
+} from './compatibility.mjs';
+import { validateEvent, validateVersionedEvent } from './events.mjs';
 import { reduceEvents } from './reducer.mjs';
-import { atomicCreate, atomicWrite, withReviewLock } from './store.mjs';
+import {
+  appendLockedEvents,
+  atomicCreate,
+  atomicWrite,
+  reclaimReviewLock as retainReviewLock,
+  withReviewLock,
+} from './store.mjs';
 
 function ordered(value) {
   if (Array.isArray(value)) return value.map(ordered);
@@ -101,11 +113,6 @@ export function sealNoCommitHandoff({ review, artifactBytes, responses, store })
     snapshot_digest: snapshot.digest,
     response_digests: Object.freeze([...responseDigests]),
   });
-}
-
-function appendLockedEvent(file, priorBytes, event) {
-  const record = Buffer.from(`${JSON.stringify(ordered(event))}\n`, 'utf8');
-  atomicWrite(file, Buffer.concat([Buffer.from(priorBytes, 'utf8'), record]));
 }
 
 function authorityError(code, message, recovery, details = {}, cause = null) {
@@ -372,6 +379,64 @@ export function inspectReviewAuthority(workspace) {
   return Object.freeze({ events: Object.freeze([...events]), state });
 }
 
+export function inspectReviewerExecutionAuthority(workspace) {
+  const authority = inspectReviewAuthority(workspace);
+  if (authority.state.protocol.current_actor !== 'reviewer') {
+    throw authorityError(
+      'APR_INVALID_TRANSITION',
+      'Reviewer execution requires the current event-authorized reviewer turn.',
+      'Read current status and build execution only when the reviewer owns the turn.'
+    );
+  }
+  return authority;
+}
+
+const TERMINAL_REVIEW_STATES = new Set([
+  'accepted',
+  'accepted-uncommitted',
+  'accepted-over-objections',
+  'accepted-over-objections-uncommitted',
+  'abandoned',
+  'superseded',
+]);
+
+export async function reclaimReviewLock(input = {}) {
+  const receipt = await retainReviewLock(input);
+  const workspace = input.workspace;
+  const eventFile = path.join(workspace, 'events.jsonl');
+  if (!existsSync(eventFile)) return Object.freeze({ ...receipt, event_appended: false });
+
+  return withReviewLock(workspace, async () => {
+    const { events, state, file, bytes } = readAuthority(workspace);
+    if (
+      TERMINAL_REVIEW_STATES.has(state.protocol.state) ||
+      state.protocol.schema !== 'ai-peer-review.protocol/v2'
+    ) {
+      return Object.freeze({ ...receipt, event_appended: false });
+    }
+    const receiptBytes = readFileSync(receipt.receipt_path);
+    const reclaimed = {
+      schema: 'ai-peer-review.event/v2',
+      review_id: state.protocol.review_id,
+      sequence: state.protocol.sequence + 1,
+      revision: state.protocol.revision,
+      type: 'lock-reclaimed',
+      actor: 'system',
+      at: receipt.reclaimed_at,
+      payload: {
+        lock_digest: receipt.lock_digest,
+        receipt_digest: sha256(receiptBytes),
+        reason: receipt.reason,
+      },
+    };
+    validateVersionedEvent(reclaimed);
+    const next = reduceEvents([...events, reclaimed]);
+    appendLockedEvents(file, bytes, [reclaimed]);
+    writeProjections(workspace, next);
+    return Object.freeze({ ...receipt, event_appended: true, event: Object.freeze(reclaimed) });
+  });
+}
+
 function statusPaths(state) {
   const startup = state.protocol.startup;
   const context = startup?.context;
@@ -566,6 +631,12 @@ export async function initializeReview(workspace, event) {
   });
 }
 
+function assertExistingWriterCompatibility(events) {
+  const compatibility = events.find((event) => event.type === 'compatibility-declared')?.payload
+    .compatibility;
+  if (compatibility) assertReaderWriterCompatibility(compatibility);
+}
+
 export async function mutateReview(workspace, expected, createEvent) {
   const preflight = readAuthority(workspace).state;
   assertExpected(preflight, expected);
@@ -580,11 +651,78 @@ export async function mutateReview(workspace, expected, createEvent) {
   return withReviewLock(workspace, async () => {
     const { events, state: current, file, bytes } = readAuthority(workspace);
     assertExpected(current, expected);
-    const nextEvent = await createEvent(current);
-    validateEvent(nextEvent);
-    const next = reduceEvents([...events, nextEvent]);
+    assertExistingWriterCompatibility(events);
+    let nextEvent = await createEvent(current);
+    validateVersionedEvent(nextEvent);
+    let batch = [nextEvent];
+    const hasV2 = events.some((event) => event.schema === EVENT_V2_SCHEMA);
+    if (nextEvent.schema === EVENT_V2_SCHEMA && !hasV2) {
+      const declaration = compatibilityDeclared(current.protocol, currentCompatibility(), {
+        at: nextEvent.at,
+      });
+      nextEvent = Object.freeze({ ...nextEvent, sequence: nextEvent.sequence + 1 });
+      validateVersionedEvent(nextEvent);
+      batch = [declaration, nextEvent];
+    }
+    const next = reduceEvents([...events, ...batch]);
     ensureDeliveryReceipts(workspace, next, { write: false });
-    appendLockedEvent(file, bytes, nextEvent);
+    appendLockedEvents(file, bytes, batch);
+    writeProjections(workspace, next);
+    ensureDeliveryReceipts(workspace, next);
+    return next;
+  });
+}
+
+export async function mutateReviewBatch(workspace, expected, createEvents) {
+  const preflight = readAuthority(workspace).state;
+  assertExpected(preflight, expected);
+  if (typeof createEvents !== 'function') {
+    throw authorityError(
+      'APR_EVENT_INVALID',
+      'Review batch mutation requires an event factory.',
+      'Provide a function that creates a non-empty batch from the locked current state.'
+    );
+  }
+
+  return withReviewLock(workspace, async () => {
+    const { events, state: current, file, bytes } = readAuthority(workspace);
+    assertExpected(current, expected);
+    assertExistingWriterCompatibility(events);
+    const batch = await createEvents(current.protocol);
+    if (!Array.isArray(batch) || batch.length === 0) {
+      throw authorityError(
+        'APR_EVENT_INVALID',
+        'Review batch mutation requires one or more events.',
+        'Create a non-empty batch from the locked current review authority.'
+      );
+    }
+    if (
+      batch.some((event) => event.type === 'compatibility-declared') &&
+      (batch.filter((event) => event.type === 'compatibility-declared').length !== 1 ||
+        batch.length < 2 ||
+        batch[0]?.type !== 'compatibility-declared' ||
+        batch[1]?.schema !== 'ai-peer-review.event/v2' ||
+        batch[1]?.type === 'compatibility-declared')
+    ) {
+      throw authorityError(
+        'APR_EVENT_INVALID',
+        'A compatibility declaration must be atomically paired with the first v2 event.',
+        'Append compatibility-declared immediately before the first v2 event in one batch.'
+      );
+    }
+    for (const event of batch) {
+      validateVersionedEvent(event);
+    }
+    const compatibility = [...events, ...batch]
+      .slice()
+      .reverse()
+      .find((event) => event.type === 'compatibility-declared')?.payload.compatibility;
+    if (batch.some((event) => event.schema === 'ai-peer-review.event/v2') && compatibility) {
+      assertReaderWriterCompatibility(compatibility);
+    }
+    const next = reduceEvents([...events, ...batch]);
+    ensureDeliveryReceipts(workspace, next, { write: false });
+    appendLockedEvents(file, bytes, batch);
     writeProjections(workspace, next);
     ensureDeliveryReceipts(workspace, next);
     return next;

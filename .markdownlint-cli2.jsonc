@@ -15,7 +15,7 @@
     "templates/reviewer-response.md",
     "templates/human-decision.md",
     "test/golden/templates/**",
-    "docs/peer-reviews/**/*author-response-*.md",
-    "docs/peer-reviews/**/*reviewer-response-*.md",
+    "docs/superpowers/peer-reviews/**/*author-response-*.md",
+    "docs/superpowers/peer-reviews/**/*reviewer-response-*.md",
   ],
 }

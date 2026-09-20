@@ -43,18 +43,22 @@ jobs:
           test "$(git rev-parse "$RELEASE_TAG^{}")" = "$(git rev-parse HEAD)"
       - name: Pack release artifact
         run: |
+          version="$(node -p "require('./package.json').version")"
+          artifact="kburson-ai-peer-review-${version}.tgz"
+          printf 'artifact=%s\n' "$artifact" >> "$GITHUB_ENV"
           npm pack
-          shasum -a 256 ai-peer-review-*.tgz > SHA256SUMS
+          test -f "$artifact"
+          shasum -a 256 "$artifact" > SHA256SUMS
       - name: Publish or verify matching npm artifact
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          package="ai-peer-review@$(node -p "require('./package.json').version")"
+          package="@kburson/ai-peer-review@$(node -p "require('./package.json').version")"
           if tarball_url="$(npm view "$package" dist.tarball 2>/dev/null)"; then
             curl --fail --location --silent --show-error "$tarball_url" --output registry.tgz
             test "$(shasum -a 256 registry.tgz | cut -d ' ' -f 1)" = "$(cut -d ' ' -f 1 SHA256SUMS)"
           else
-            npm publish ai-peer-review-*.tgz --access public --provenance
+            npm publish "$artifact" --access public --provenance
           fi
       - name: Create or verify matching immutable GitHub release
         env:
@@ -63,9 +67,9 @@ jobs:
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             mkdir observed-release
-            gh release download "$RELEASE_TAG" --dir observed-release --pattern 'ai-peer-review-*.tgz' --pattern SHA256SUMS
-            cmp ai-peer-review-*.tgz observed-release/ai-peer-review-*.tgz
+            gh release download "$RELEASE_TAG" --dir observed-release --pattern "$artifact" --pattern SHA256SUMS
+            cmp "$artifact" observed-release/"$artifact"
             cmp SHA256SUMS observed-release/SHA256SUMS
           else
-            gh release create "$RELEASE_TAG" ai-peer-review-*.tgz SHA256SUMS --verify-tag --generate-notes
+            gh release create "$RELEASE_TAG" "$artifact" SHA256SUMS --verify-tag --generate-notes
           fi

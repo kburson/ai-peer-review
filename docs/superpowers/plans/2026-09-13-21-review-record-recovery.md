@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 24+, ECMAScript modules, `node:test`, append-only JSONL protocol events, Git exact-path transactions, Markdown/JSON collateral.
 
-**Spec:** `docs/design/2026-09-13-21-review-record-recovery-design.md`
+**Spec:** `docs/superpowers/specs/2026-09-13-21-review-record-recovery-design.md`
 
 ## Global Constraints
 

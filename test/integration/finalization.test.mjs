@@ -232,6 +232,8 @@ test('consensus finalization commits only acceptance and deterministic manifest'
   assert.match(manifest, /"status": "accepted"/);
   assert.match(manifest, /"acceptance_basis": "reviewer-consensus"/);
   assert.match(manifest, new RegExp(`"final_commit": "${base}"`));
+  assert.match(manifest, /"lineage_receipt": \{/);
+  assert.match(manifest, /"recovery_ordinal": 0/);
   const eventBytes = readFileSync(review.started.paths.events);
   const retried = await api.finalizeReview({
     cwd: fx.root,
@@ -298,6 +300,7 @@ test('no-commit consensus finalization writes retained manifest without Git muta
   const manifest = readFileSync(finalized.paths.manifest, 'utf8');
   assert.match(manifest, /NO-COMMIT TEST MODE/);
   assert.match(manifest, /"final_commit": null/);
+  assert.match(manifest, /"lineage_receipt": \{/);
   assert.match(api.resumeReview(review.started.paths.workspace).instructions, /terminal/);
 });
 

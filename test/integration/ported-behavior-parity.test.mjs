@@ -82,12 +82,7 @@ test('every immutable legacy test behavior has an exact standalone parity owner'
 });
 
 test('publishable HEAD contains no parity-gated legacy path', () => {
-  for (const legacy of [
-    'scripts/review',
-    'scripts/providers',
-    'scripts/tests',
-    'docs/superpowers',
-  ]) {
+  for (const legacy of ['scripts/review', 'scripts/providers', 'scripts/tests']) {
     const target = path.join(root, legacy);
     const files = existsSync(target)
       ? readdirSync(target, { recursive: true, withFileTypes: true }).filter((entry) =>
@@ -96,4 +91,17 @@ test('publishable HEAD contains no parity-gated legacy path', () => {
       : [];
     assert.deepEqual(files, [], legacy);
   }
+  // `docs/superpowers/{specs,plans}` is this repository's own spec and plan
+  // layout, mandated by the superpowers skill. The gate was never the directory
+  // name: it is that the inherited AITM co-review documents deleted at release
+  // commit 9b43eff must not return. Assert those exact paths rather than the
+  // namespace, so the repository can use the layout the skill requires. The
+  // list is the `docs/superpowers` subset of the extraction manifest's frozen
+  // retained inventory, so it cannot drift from the extraction record.
+  const inheritedDocs = JSON.parse(
+    readFileSync(path.join(root, 'provenance/extraction-manifest.json'), 'utf8')
+  ).retained_path_inventory.paths.filter((pathname) => pathname.startsWith('docs/superpowers/'));
+  assert.equal(inheritedDocs.length, 18, 'inherited AITM co-review document inventory');
+  const present = inheritedDocs.filter((pathname) => existsSync(path.join(root, pathname)));
+  assert.deepEqual(present, [], 'inherited AITM co-review documents');
 });

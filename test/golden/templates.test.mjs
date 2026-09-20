@@ -19,7 +19,7 @@ const values = Object.freeze({
   installed_join_display:
     '`peer-review join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
   zero_install_join_display:
-    '`npx --yes ai-peer-review@0.2.2 join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
+    '`npx --yes @kburson/ai-peer-review@0.2.2 join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
   recovery_display: '`peer-review resume /repo/.scratch/peer-review/review-01`',
   frontmatter: '---\nschema: "ai-peer-review.response/v1"\n---',
   summary: 'Summary text.',
@@ -77,7 +77,8 @@ test('startup templates use absolute paths and document installed and zero-insta
     assert.match(output, /\/repo\/docs\/example\.md/);
     assert.match(output, /\/repo\/\.scratch\/peer-review\/review-01/);
     assert.match(output, /`peer-review /);
-    assert.match(output, /`npx --yes ai-peer-review@0\.2\.2 (?:status|join) /);
+    assert.match(output, /`npx --yes @kburson\/ai-peer-review@0\.2\.2 (?:status|join) /);
+    assert.doesNotMatch(output, /`npx --yes ai-peer-review@0\.2\.2/);
   }
   const invitation = hydrateTemplate('reviewer-invitation', {
     ...Object.fromEntries(

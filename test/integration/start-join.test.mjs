@@ -13,7 +13,11 @@ import {
 } from '../../src/authority/canonicalize.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
-import { participantIdentity } from '../../src/identity/registry.mjs';
+import {
+  participantIdentity,
+  resolveIdentity,
+  v1Participant,
+} from '../../src/identity/registry.mjs';
 import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
@@ -91,7 +95,7 @@ test('generated routing and commands remain safe for shell metacharacters in pat
 });
 
 function identity(role, session) {
-  return participantIdentity({
+  const participant = participantIdentity({
     role,
     host: 'codex',
     provider: 'openai',
@@ -101,6 +105,8 @@ function identity(role, session) {
     source: 'runtime',
     joinedAt: NOW,
   });
+  assert.ok(Object.hasOwn(participant, 'evidence'));
+  return participant;
 }
 
 test('start performs preflight checks before mutation and writes default event-first collateral', async (t) => {
@@ -144,7 +150,7 @@ test('start performs preflight checks before mutation and writes default event-f
   assert.equal(started.review.author_transport_capability, 'manual');
   assert.equal(started.review.no_commit_baseline, null);
   assert.equal(started.review.authority.authority_policy, 'unavailable');
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
   assert.match(readFileSync(started.paths.author_startup, 'utf8'), /# Author startup/);
   assert.match(readFileSync(started.paths.reviewer_invitation, 'utf8'), /# Reviewer invitation/);
   const retried = await startReview({
@@ -155,7 +161,8 @@ test('start performs preflight checks before mutation and writes default event-f
     now: '2026-09-08T13:00:00.000Z',
   });
   assert.equal(retried.paths.events, started.paths.events);
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+  assert.equal(retried.review_id, started.review_id);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 
   rmSync(started.paths.author_startup);
   rmSync(path.join(started.paths.workspace, 'protocol.json'));
@@ -177,7 +184,48 @@ test('start performs preflight checks before mutation and writes default event-f
     JSON.parse(readFileSync(path.join(started.paths.workspace, 'participants.json'))).review_id,
     started.review_id
   );
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
+});
+
+test('start retry accepts an existing v1 environment-derived author participant', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const historic = participantIdentity({
+    role: 'author',
+    host: 'codex',
+    provider: 'openai',
+    modelId: 'gpt-6-astra',
+    modelDisplay: 'gpt-6-astra',
+    sessionId: 'environment-author-session',
+    source: 'runtime',
+    joinedAt: NOW,
+  });
+  const started = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: historic,
+    reviewId: 'review-environment-retry',
+    now: NOW,
+  });
+  const retried = await startReview({
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: resolveIdentity({
+      adapter: 'codex',
+      role: 'author',
+      joinedAt: NOW,
+      env: {
+        CODEX_THREAD_ID: 'environment-author-session',
+        CODEX_MODEL_ID: 'gpt-6-astra',
+      },
+    }),
+    reviewId: 'review-environment-retry',
+    now: '2026-09-08T13:00:00.000Z',
+  });
+
+  assert.equal(retried.paths.events, started.paths.events);
 });
 
 test('replacement attempts share one explicit record destination without sharing protocol authority', async (t) => {
@@ -253,7 +301,7 @@ test('exact start recovery validates every collision before repairing derived fi
   assert.throws(() => readFileSync(participants));
   assert.throws(() => readFileSync(reservation));
   assert.equal(readFileSync(context, 'utf8'), 'foreign bytes');
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 });
 
 test('start validates transport and seals the no-commit Git baseline', async (t) => {
@@ -303,7 +351,7 @@ test('start validates transport and seals the no-commit Git baseline', async (t)
     now: '2026-09-08T13:00:00.000Z',
   });
   assert.equal(retried.paths.events, started.paths.events);
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 
   await assert.rejects(
     startReview({
@@ -503,7 +551,7 @@ test('join binds the same physical worktree and a distinct reviewer before draft
   assert.equal(joined.next_action, 'reviewer-submit');
   assert.equal(joined.review.claim.role, 'reviewer');
   assert.match(readFileSync(joined.paths.response, 'utf8'), /role: "reviewer"/);
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 5);
   const retried = await joinReview({
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
@@ -511,7 +559,8 @@ test('join binds the same physical worktree and a distinct reviewer before draft
     now: '2026-09-08T13:00:00.000Z',
   });
   assert.equal(retried.paths.response, joined.paths.response);
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
+  assert.equal(retried.state, 'reviewer-turn');
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 5);
 });
 
 test('runtime-sealed startup rejects a mismatched reviewer before joining or claiming', async (t) => {
@@ -702,6 +751,7 @@ test('join resumes an identical registration interrupted before its claim event'
     now: NOW,
   });
   const reviewer = identity('reviewer', 'reviewer-session');
+  assert.ok(Object.hasOwn(reviewer, 'evidence'));
   const initial = inspectReview(started.paths.workspace);
   await mutateReview(
     started.paths.workspace,
@@ -714,13 +764,13 @@ test('join resumes an identical registration interrupted before its claim event'
     () => ({
       schema: 'ai-peer-review.event/v1',
       review_id: initial.protocol.review_id,
-      sequence: 2,
-      revision: 2,
+      sequence: initial.protocol.sequence + 1,
+      revision: initial.protocol.revision + 1,
       type: 'reviewer-joined',
       actor: reviewer.session_fingerprint,
       at: NOW,
       payload: {
-        reviewer,
+        reviewer: v1Participant(reviewer),
         transport_capability: 'manual',
         repository_boundary: createGitRepository().reviewerBoundary(
           fx.root,
@@ -744,7 +794,8 @@ test('join resumes an identical registration interrupted before its claim event'
   });
   assert.equal(joined.state, 'reviewer-turn');
   assert.equal(joined.review.claim.role, 'reviewer');
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
+  assert.equal(joined.paths.workspace, started.paths.workspace);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 5);
 });
 
 test('join rejects scratch context and invitation redirection outside sealed startup authority', async (t) => {
@@ -800,5 +851,5 @@ test('join rejects scratch context and invitation redirection outside sealed sta
     }),
     (error) => error.code === 'APR_INVITATION_INVALID'
   );
-  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 1);
+  assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 });

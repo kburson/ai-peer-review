@@ -169,6 +169,48 @@ function attemptFixture(root, reviewId, recordId, disposition, { draft = null } 
   return { reviewId, recordId, paths, workspace: paths.scratch.absolute };
 }
 
+function writeLineageReceipt(attempts) {
+  const reciprocal = `sha256:${'d'.repeat(64)}`;
+  const models = attempts.map((attempt, index) => {
+    const events = readFileSync(path.join(attempt.workspace, 'events.jsonl'), 'utf8')
+      .trimEnd()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    return {
+      review_id: attempt.reviewId,
+      record_id: attempt.recordId,
+      root_review_id: attempts[0].reviewId,
+      recovery_ordinal: index,
+      predecessor_review_id: attempts[index - 1]?.reviewId ?? null,
+      successor_review_id: attempts[index + 1]?.reviewId ?? null,
+      recovery_id: index === 0 ? null : `recovery-${index}`,
+      recovery_claim_digest: index === 0 ? null : `sha256:${'e'.repeat(64)}`,
+      reciprocal_receipt_digest: reciprocal,
+      consumed_grant_digest: index <= 1 ? null : `sha256:${'f'.repeat(64)}`,
+      event_log_digest: digest(
+        Buffer.from(
+          `${events
+            .slice(0, -1)
+            .map((event) => JSON.stringify(JSON.parse(canonicalProjection(event))))
+            .join('\n')}\n`
+        )
+      ),
+    };
+  });
+  const receipt = {
+    schema: 'ai-peer-review.lineage-receipt/v1',
+    complete: true,
+    attempts: models,
+  };
+  for (const attempt of attempts) {
+    writeFileSync(
+      path.join(attempt.workspace, 'lineage-receipt.json'),
+      `${JSON.stringify(receipt, null, 2)}\n`
+    );
+  }
+  return receipt;
+}
+
 test('plans one immutable ordered record without promoting drafts to decisions', async (t) => {
   const { planReviewRecord, renderReviewHistory } = await recordModule();
   assert.equal(typeof planReviewRecord, 'function', 'planReviewRecord must be exported');
@@ -215,6 +257,28 @@ test('plans one immutable ordered record without promoting drafts to decisions',
   const history = renderReviewHistory(plan);
   assert.match(history, /review-01[\s\S]*not-submitted[\s\S]*review-02[\s\S]*incomplete/);
   assert.match(history, /review-03[\s\S]*accepted/);
+});
+
+test('preserves one validated lineage receipt through plan, history, and relocation receipt', async (t) => {
+  const { planReviewRecord, applyReviewRecord, renderReviewHistory } = await recordModule();
+  const { root } = fixture(t);
+  const first = attemptFixture(root, 'review-01', 'record-01', 'superseded');
+  const second = attemptFixture(root, 'review-02', 'record-01', 'accepted', {
+    draft: { submitted: true },
+  });
+  const lineage = writeLineageReceipt([first, second]);
+
+  const plan = planReviewRecord({
+    workspaces: [second.workspace, first.workspace],
+    destination: 'docs/peer-reviews/spec/record-01',
+    now: new Date('2026-09-08T13:00:00.000Z'),
+  });
+
+  assert.deepEqual(plan.lineage_receipt, lineage);
+  assert.match(renderReviewHistory(plan), /## Validated lineage[\s\S]*review-01[\s\S]*review-02/);
+  applyReviewRecord(plan, { mode: 'no-commit' });
+  const relocation = JSON.parse(readFileSync(plan.receipt.absolute, 'utf8'));
+  assert.deepEqual(relocation.lineage_receipt, lineage);
 });
 
 test('rejects attempts from different record identities', async (t) => {
@@ -626,4 +690,112 @@ test('consolidate apply recomputes authority and commits the exact relocation', 
     }).trim(),
     'unrelated.txt'
   );
+});
+
+test('tracked archive-root receipt proves every path relocated by issue 65', () => {
+  const repositoryRoot = realpathSync(process.cwd());
+  const relocationCommit = '9e6059c4e6b67ad8084e948ae1c5da52d189fcb3';
+  const sourceCommit = '1181d7f82309b96ae24089e890b2dc789e8eb5c4';
+  const receiptPath = path.join(
+    repositoryRoot,
+    'docs/superpowers/peer-reviews/relocation-receipt.json'
+  );
+  const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+  const renameLines = execFileSync(
+    'git',
+    [
+      'diff-tree',
+      '-r',
+      '-M',
+      '--name-status',
+      sourceCommit,
+      relocationCommit,
+      '--',
+      'docs/peer-reviews',
+      'docs/superpowers/peer-reviews',
+    ],
+    { cwd: repositoryRoot, encoding: 'utf8', shell: false }
+  )
+    .trim()
+    .split('\n')
+    .map((line) => line.split('\t'))
+    .filter(([status]) => status.startsWith('R'));
+
+  assert.equal(receipt.schema, 'ai-peer-review.relocation-receipt/v1');
+  assert.equal(receipt.record_kind, 'repository-archive-relocation');
+  assert.equal(receipt.source_commit, sourceCommit);
+  assert.equal(receipt.relocation_commit, relocationCommit);
+  assert.equal(receipt.source_root, 'docs/peer-reviews');
+  assert.equal(receipt.destination_root, 'docs/superpowers/peer-reviews');
+  assert.equal(receipt.decision.receipt_scope, 'repository-level');
+  assert.equal(receipt.tooling_finding.retroactive_consolidate_supported, false);
+  assert.equal(renameLines.length, 56);
+  assert.equal(receipt.relocations.length, renameLines.length);
+
+  const blobIdsAt = (commit, root) =>
+    new Map(
+      execFileSync('git', ['ls-tree', '-r', '-z', commit, '--', root], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        shell: false,
+      })
+        .split('\0')
+        .filter(Boolean)
+        .map((record) => {
+          const [metadata, filePath] = record.split('\t');
+          const [, type, objectId] = metadata.split(' ');
+          assert.equal(type, 'blob', `Git object type for ${filePath}`);
+          return [filePath, objectId];
+        })
+    );
+  const sourceBlobIds = blobIdsAt(sourceCommit, 'docs/peer-reviews');
+  const destinationBlobIds = blobIdsAt(relocationCommit, 'docs/superpowers/peer-reviews');
+  const readBlob = (objectId, filePath) => {
+    assert.ok(objectId, `missing Git blob for ${filePath}`);
+    return execFileSync('git', ['cat-file', 'blob', objectId], {
+      cwd: repositoryRoot,
+      encoding: null,
+      shell: false,
+    });
+  };
+  const entries = new Map(receipt.relocations.map((entry) => [entry.source_path, entry]));
+  let byteIdenticalCount = 0;
+  let changedGeneratedCount = 0;
+  for (const [status, sourcePath, destinationPath] of renameLines) {
+    const entry = entries.get(sourcePath);
+    assert.ok(entry, `missing receipt entry for ${sourcePath}`);
+    assert.equal(entry.destination_path, destinationPath);
+
+    const sourceBytes = readBlob(sourceBlobIds.get(sourcePath), sourcePath);
+    const destinationBytes = readBlob(destinationBlobIds.get(destinationPath), destinationPath);
+    const sourceSha256 = digest(sourceBytes).slice('sha256:'.length);
+    const destinationSha256 = digest(destinationBytes).slice('sha256:'.length);
+    const byteIdentity = sourceBytes.equals(destinationBytes);
+
+    if (byteIdentity) {
+      byteIdenticalCount += 1;
+    } else if (path.basename(destinationPath) === '00-review-history.md') {
+      changedGeneratedCount += 1;
+    }
+
+    assert.equal(entry.bytes, sourceBytes.length, `source byte count for ${sourcePath}`);
+    assert.equal(entry.sha256, sourceSha256, `source digest for ${sourcePath}`);
+    assert.equal(
+      entry.destination_bytes,
+      destinationBytes.length,
+      `destination byte count for ${destinationPath}`
+    );
+    assert.equal(
+      entry.destination_sha256,
+      destinationSha256,
+      `destination digest for ${destinationPath}`
+    );
+    assert.equal(entry.byte_identity, byteIdentity, `byte identity for ${sourcePath}`);
+    assert.equal(status === 'R100', byteIdentity, `Git rename score for ${sourcePath}`);
+  }
+
+  assert.equal(entries.size, renameLines.length, 'receipt contains no extra source paths');
+  assert.equal(receipt.relocation_count, renameLines.length);
+  assert.equal(receipt.byte_identical_count, byteIdenticalCount);
+  assert.equal(receipt.changed_generated_count, changedGeneratedCount);
 });

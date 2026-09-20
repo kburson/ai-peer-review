@@ -3,6 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
+import { encodeClaudeExecutionPermissions } from '../provider/claude-launch.mjs';
+import {
+  CLAUDE_ENVIRONMENT_ALLOWLIST,
+  PROVIDER_IDENTITY_ENVIRONMENT_KEYS,
+} from '../provider/preflight.mjs';
 
 const TOP_LEVEL = new Set(['schema', 'authority', 'hosts', 'review', 'setup']);
 const AUTHORITY = new Set(['authority_policy', 'challenge_ttl_ms', 'verifier']);
@@ -323,5 +328,27 @@ export function loadConfig(options = {}) {
     config,
     paths,
     sources: Object.freeze({ user: Boolean(user), project: Boolean(project) }),
+  });
+}
+
+export function buildClaudeProviderCapability({ executable } = {}) {
+  if (
+    typeof executable !== 'string' ||
+    !path.isAbsolute(executable) ||
+    path.normalize(executable) !== executable
+  ) {
+    invalid('Claude provider executable must be canonical and absolute.', {
+      executable,
+    });
+  }
+  return Object.freeze({
+    schema: 'ai-peer-review.provider-capability/v1',
+    provider: 'claude',
+    executable,
+    minimum_version: '2.0.0',
+    probe_argv: Object.freeze(['--version']),
+    environment_allowlist: CLAUDE_ENVIRONMENT_ALLOWLIST,
+    identity_removal: PROVIDER_IDENTITY_ENVIRONMENT_KEYS,
+    permissionEncoder: encodeClaudeExecutionPermissions,
   });
 }

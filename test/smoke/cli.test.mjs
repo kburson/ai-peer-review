@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -22,7 +22,7 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
       cwd: root,
       encoding: 'utf8',
     }),
-    { expectedPackageName: 'ai-peer-review', requireFilename: true }
+    { expectedPackageName: '@kburson/ai-peer-review', requireFilename: true }
   );
   const tarball = path.join(packDir, packed.filename);
   const zeroInstallHelp = runNpm(
@@ -39,11 +39,30 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
     cwd: host,
     stdio: 'pipe',
   });
-  const help = runNpm('npx', ['--no-install', 'peer-review', '--help'], {
+  execFileSync(
+    process.execPath,
+    ['--input-type=module', '--eval', "await import('@kburson/ai-peer-review');"],
+    { cwd: host, encoding: 'utf8' }
+  );
+  const binDirectory = path.join(host, 'node_modules', '.bin');
+  for (const name of ['ai-peer-review', 'peer-review', 'peer-review-mcp']) {
+    assert.ok(
+      ['', '.cmd', '.ps1'].some((suffix) =>
+        existsSync(path.join(binDirectory, `${name}${suffix}`))
+      ),
+      `missing installed binary ${name}`
+    );
+  }
+  const installedAiHelp = runNpm('npx', ['--no-install', 'ai-peer-review', '--help'], {
     cwd: host,
     encoding: 'utf8',
   });
-  assert.match(help, /Commands:/);
+  assert.match(installedAiHelp, /Commands:/);
+  const installedPeerHelp = runNpm('npx', ['--no-install', 'peer-review', '--help'], {
+    cwd: host,
+    encoding: 'utf8',
+  });
+  assert.match(installedPeerHelp, /Commands:/);
 
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: host, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: host });
