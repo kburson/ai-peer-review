@@ -148,6 +148,7 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_POLICY'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_BROKER_REGISTRATION_CONFLICT'));
   assert.ok(helpRequest('join', 'json').errors.includes('APR_TRANSPORT_UNAVAILABLE'));
   const consolidate = helpRequest('consolidate', 'json');
   assert.match(consolidate.usage, /--destination.*--dry-run.*--apply/);
@@ -155,6 +156,10 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.equal(consolidate.commit, 'Exact relocation paths only in normal mode.');
   assert.equal(explainError('APR_STALE_REVIEW').code, 'APR_STALE_REVIEW');
   assert.equal(explainError('APR_TEMPLATE_INVALID').code, 'APR_TEMPLATE_INVALID');
+  assert.match(
+    explainError('APR_BROKER_REGISTRATION_CONFLICT').recovery,
+    /preserve.*registration.*inspect.*exact.*request/i
+  );
   assert.ok(helpRequest('review', 'json', { search: true }).matches.includes('submit'));
   assert.equal(explainError('APR_ARTIFACT_DIRTY').code, 'APR_ARTIFACT_DIRTY');
   assert.match(

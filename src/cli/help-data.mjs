@@ -167,6 +167,7 @@ const ERRORS = Object.freeze({
     'APR_TRANSPORT_UNAVAILABLE',
     'APR_AUTHORITY_REQUIRED',
     'APR_AUTHORITY_POLICY',
+    'APR_BROKER_REGISTRATION_CONFLICT',
     'APR_OUTPUT_COLLISION',
     'APR_GRANT_INVALID',
     'APR_STALE_REVIEW',
@@ -711,6 +712,11 @@ const ERROR_CATALOG = Object.freeze({
   APR_OUTPUT_COLLISION: {
     message: 'A peer-review output path is occupied by conflicting content.',
     recovery: 'Preserve the bytes, inspect the collision, and use explicit recovery.',
+  },
+  APR_BROKER_REGISTRATION_CONFLICT: {
+    message: 'A broker review ID is already bound to different immutable registration evidence.',
+    recovery:
+      'Preserve the existing registration, inspect its exact request digest, workspace, and runtime image, then use explicit recovery.',
   },
   APR_EVENT_LOG_CORRUPT: {
     message: 'The authoritative event log cannot be reduced safely.',
