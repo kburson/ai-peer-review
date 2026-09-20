@@ -38,6 +38,14 @@ jobs:
         run: >-
           node node_modules/node-gyp/bin/node-gyp.js install --ensure
           --devdir="${{ runner.temp }}/node-gyp"
+      - name: Normalize Windows import library
+        if: runner.os == 'Windows'
+        run: >-
+          node --input-type=module -e "import { cpSync, mkdirSync } from 'node:fs';
+          import path from 'node:path';
+          const root = path.join(process.env.APR_NODEDIR_BASE, process.versions.node);
+          mkdirSync(path.join(root, 'Release'), { recursive: true });
+          cpSync(path.join(root, process.arch, 'node.lib'), path.join(root, 'Release', 'node.lib'));"
       - run: npm run format:check
       - run: npm run lint
       - run: npm test

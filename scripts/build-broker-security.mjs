@@ -51,9 +51,9 @@ try {
     fail('Development architecture does not match the running Node.');
   if (
     process.platform === 'win32' &&
-    !statSync(path.join(options['--nodedir'], process.arch, 'node.lib')).isFile()
+    !statSync(path.join(options['--nodedir'], 'Release', 'node.lib')).isFile()
   )
-    fail('Matching Windows node.lib is required.');
+    fail('Matching Windows Release/node.lib is required.');
   if (options['--python']) accessSync(options['--python'], constants.X_OK);
   const require = createRequire(import.meta.url);
   const builder = require.resolve('node-gyp/bin/node-gyp.js');

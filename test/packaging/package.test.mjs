@@ -247,6 +247,11 @@ test('workflows retain complete platform and release safety gates', () => {
     minimumNode,
     /name: Provision native Node development files[\s\S]*node_modules\/node-gyp\/bin\/node-gyp\.js install --ensure[\s\S]*--devdir="\$\{\{ runner\.temp \}\}\/node-gyp"/
   );
+  assert.match(minimumNode, /name: Normalize Windows import library/);
+  assert.match(minimumNode, /if: runner\.os == 'Windows'/);
+  assert.match(minimumNode, /cpSync/);
+  assert.match(minimumNode, /process\.arch/);
+  assert.match(minimumNode, /'Release'/);
   const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [preferredNode, boundary]) {
