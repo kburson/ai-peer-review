@@ -297,6 +297,13 @@ assert.throws(() => registerReview({ ...request, requestDigest: 'different' }, s
 - [ ] Acquire/probe the stable endpoint before considering a new image active. On version mismatch print `APR_BROKER_INCOMPATIBLE`, observed versions, and the exact status/recovery command; never kill, repin, replace, or start a second broker. Preserve old image files until its verified lock release and operation reconciliation. Missing image files fence automatic work; manual recovery remains available.
 - [ ] Test old broker draining from its image while its original installation is replaced, all three independent version mismatches, and refusal to reclaim before release. Rerun focused suites and commit exact files with `feat(broker): preserve runtime and recovery registrations`.
 
+#### Story Intent
+
+- **Beneficiary:** peer-review operator running new reviews after package upgrades or interrupted starts
+- **Capability:** Reuse an immutable verified runtime and recover each project review from a durable registration
+- **Need:** Mutable installations and lost or conflicting scratch state can otherwise orphan, corrupt, or duplicate active review work
+- **Value or failure prevented:** In-flight reviews stay bound to exact executable and package bytes, while retries and recovery fail closed instead of launching conflicting work
+
 ### Task 7: Project service lifecycle and internal review workers
 
 **Files:** Create `src/broker/service.mjs`, `src/broker/worker.mjs`, `src/broker/client.mjs`, `bin/peer-review-broker.mjs`, `test/unit/broker-lifecycle.test.mjs`, `test/integration/broker-multiproject.test.mjs`; modify `src/coordinator/service.mjs`, `test/integration/coordinator-wake.test.mjs`.
