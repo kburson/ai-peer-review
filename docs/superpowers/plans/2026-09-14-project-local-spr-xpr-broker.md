@@ -325,6 +325,13 @@ assert.equal(exited, true);
 - [ ] Derive terminal status from `reduceEvents`/`statusReview`, including abandoned/superseded outcomes; no new protocol lifecycle states. A pending automatic handoff or author finalization is live work. Recovery suspension is runtime status only. Close watchers and provider adapters and persist recovery obligations before releasing owned locks. Do not spend model turns to wait.
 - [ ] Test two roots with different package versions run concurrently, multiple reviews share one broker, and linked worktrees remain separate. A foreign project registration is refused even when the workspace path exists. Rerun focused suites plus `node --test test/integration/coordinator-wake.test.mjs` and commit exact files with `feat(broker): supervise project-local review workers`.
 
+#### Story Intent
+
+- **Beneficiary:** peer-review operator supervising concurrent reviews in one project
+- **Capability:** Keep the project broker alive exactly while review work or automatic handoffs remain actionable
+- **Need:** Independent coordinator processes can otherwise duplicate ownership, lose recoverable work, or exit while a participant still needs service
+- **Value or failure prevented:** Reviews share one authenticated project service without cross-project interference, premature shutdown, or loss of durable recovery obligations
+
 ### Task 8: Transactional startup and fenced manual recovery
 
 **Files:** Modify `src/cli/run.mjs`, `src/startup/runtime.mjs`, `src/broker/client.mjs`, `src/broker/registry.mjs`, `src/protocol/service.mjs`, `test/integration/start-join.test.mjs`, `test/integration/status-resume.test.mjs`, `test/integration/recovery.test.mjs`; create `test/integration/broker-startup.test.mjs`; also modify `schemas/cli-result-v1.json`, `test/helpers/intervention-fixture.mjs`, `test/helpers/internal-api.mjs`, `test/integration/claims.test.mjs`, `test/integration/finalization.test.mjs`, `test/integration/reviewer-boundary.test.mjs`, `test/integration/setup-doctor.test.mjs`, `test/integration/review-record.test.mjs`, `test/integration/phased-review.test.mjs`, `test/integration/automatic-required.test.mjs`, `test/integration/no-commit.test.mjs`, `test/integration/submit.test.mjs`, `test/integration/budget-intervention.test.mjs`, `test/integration/communication-policy.test.mjs`, `test/integration/claude-identity.test.mjs`, `test/smoke/cli.test.mjs`.
