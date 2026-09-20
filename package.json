@@ -61,7 +61,7 @@
     "@kburson/ai-task-manager": "file:vendors/kburson-ai-task-manager-0.1.0.tgz",
     "cspell": "8.19.4",
     "eslint": "9.39.4",
-    "markdownlint-cli2": "0.23.2",
+    "markdownlint-cli2": "^0.23.3",
     "prettier": "3.8.3"
   },
   "repository": {
