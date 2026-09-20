@@ -32,6 +32,37 @@ const paths = {
 };
 const versions = { package_version: '0.2.2', broker_protocol_version: 1, node_major: 26 };
 
+function waitForChildOutput(child, stream, expected, getStderr) {
+  return new Promise((resolve, reject) => {
+    let observed = '';
+    const cleanup = () => {
+      clearTimeout(timer);
+      stream.off('data', onData);
+      child.off('error', onError);
+      child.off('exit', onExit);
+    };
+    const finish = (error) => {
+      cleanup();
+      if (error) reject(error);
+      else resolve();
+    };
+    const onData = (chunk) => {
+      observed += chunk;
+      if (observed.includes(expected)) finish();
+    };
+    const onError = (error) => finish(error);
+    const onExit = (status) =>
+      finish(new Error(`Native child exited before readiness (${status}): ${getStderr()}`));
+    const timer = setTimeout(
+      () => finish(new Error(`Native child readiness timed out: ${getStderr()}`)),
+      15_000
+    );
+    stream.on('data', onData);
+    child.once('error', onError);
+    child.once('exit', onExit);
+  });
+}
+
 function fixture() {
   let valid = true,
     locked = false,
@@ -307,6 +338,7 @@ test(
       import { createFrameDecoder, encodeFrame, validateHandshake } from ${JSON.stringify(new URL('../../src/broker/ipc.mjs', import.meta.url).href)};
       const platform = platformSecurity();
       const expected = JSON.parse(process.argv[2]);
+      process.stdout.write('READY\\n');
       const connection = platform.connectPrivate(process.argv[1]);
       assert.equal(platform.peerUser(connection), platform.userId());
       connection.write(encodeFrame(expected));
@@ -323,6 +355,7 @@ test(
       ['--input-type=module', '-e', clientSource, endpointPath, JSON.stringify(nativeHandshake)],
       { shell: false, stdio: ['ignore', 'pipe', 'pipe'] }
     );
+    t.after(() => ipcChild.kill());
     const ipcExit = once(ipcChild, 'exit');
     let ipcStdout = '';
     let ipcStderr = '';
@@ -334,6 +367,7 @@ test(
     ipcChild.stderr.on('data', (bytes) => {
       ipcStderr += bytes;
     });
+    await waitForChildOutput(ipcChild, ipcChild.stdout, 'READY\n', () => ipcStderr);
     const accepted = endpoint.accept();
     const decoder = createFrameDecoder();
     const frames = decoder.push(accepted.readFrame());
@@ -344,20 +378,30 @@ test(
     accepted.close();
     const [ipcStatus] = await ipcExit;
     assert.equal(ipcStatus, 0, ipcStderr);
-    assert.equal(ipcStdout, 'AUTHENTICATED');
+    assert.equal(ipcStdout, 'READY\nAUTHENTICATED');
 
     const partialSource = `
       import { platformSecurity } from ${JSON.stringify(new URL('../../src/broker/platform.mjs', import.meta.url).href)};
-      const connection = platformSecurity().connectPrivate(process.argv[1]);
+      const platform = platformSecurity();
+      process.stdout.write('READY\\n');
+      const connection = platform.connectPrivate(process.argv[1]);
       connection.write(Buffer.from([0, 0, 0, 16, 123]));
       setTimeout(() => {}, 20000);
     `;
     const partialChild = spawn(
       process.execPath,
       ['--input-type=module', '-e', partialSource, endpointPath],
-      { shell: false, stdio: ['ignore', 'ignore', 'pipe'] }
+      { shell: false, stdio: ['ignore', 'pipe', 'pipe'] }
     );
+    t.after(() => partialChild.kill());
     const partialExit = once(partialChild, 'exit');
+    let partialStderr = '';
+    partialChild.stdout.setEncoding('utf8');
+    partialChild.stderr.setEncoding('utf8');
+    partialChild.stderr.on('data', (bytes) => {
+      partialStderr += bytes;
+    });
+    await waitForChildOutput(partialChild, partialChild.stdout, 'READY\n', () => partialStderr);
     const partial = endpoint.accept();
     const started = Date.now();
     assert.throws(() => partial.readFrame(), { code: 'APR_BROKER_PROTOCOL' });
