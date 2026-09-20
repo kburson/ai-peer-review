@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { inspectPlatformSecurity, platformSecurity } from '../../src/broker/platform.mjs';
 
+// cspell:ignore DONTWAIT NOWAIT
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const builder = path.join(root, 'scripts/build-broker-security.mjs');
 
@@ -46,6 +47,28 @@ test('native build is explicit and package includes only the five owned build so
     assert.ok(existsSync(path.join(root, file)));
   }
   assert.ok(!pkg.files.includes('native/'));
+});
+
+test('native ownership release preserves lock evidence and IPC waits are bounded', () => {
+  const posix = readFileSync(path.join(root, 'native/broker-security/posix.cc'), 'utf8');
+  const windows = readFileSync(path.join(root, 'native/broker-security/windows.cc'), 'utf8');
+  const posixRelease = posix.match(/bool ReleaseExclusive[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsRelease = windows.match(/bool ReleaseExclusive[\s\S]*?\n}/)?.[0] ?? '';
+  const posixWrite = posix.match(/bool SendAll[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsRead = windows.match(/bool ReadExact[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsWrite = windows.match(/bool ConnectionWrite[\s\S]*?\n}/)?.[0] ?? '';
+
+  assert.doesNotMatch(posixRelease, /unlink/);
+  assert.doesNotMatch(windowsRelease, /DeleteFileW|FileDisposition/);
+  assert.match(posix, /kIpcTimeoutMilliseconds/);
+  assert.match(posix, /poll\(/);
+  assert.match(posixWrite, /MSG_DONTWAIT/);
+  assert.match(windows, /kIpcTimeoutMilliseconds/);
+  assert.doesNotMatch(windowsRead, /PeekNamedPipe/);
+  assert.match(windowsRead, /PIPE_NOWAIT/);
+  assert.match(windowsRead, /GetTickCount64/);
+  assert.match(windowsWrite, /PIPE_NOWAIT/);
+  assert.match(windowsWrite, /GetTickCount64/);
 });
 
 test('missing or mismatched native helper fails with the installation-specific offline build command', (t) => {
@@ -113,7 +136,26 @@ test('platform wrapper retains native handles and never reaches the builder impl
       calls.push(['closeEndpoint']);
       return true;
     },
-    peerUser() {
+    acceptPrivate(handle) {
+      calls.push(['acceptPrivate', handle]);
+      return 4;
+    },
+    connectPrivate(value) {
+      calls.push(['connectPrivate', value]);
+      return 5;
+    },
+    connectionRead(handle, maximum) {
+      calls.push(['connectionRead', handle, maximum]);
+      return Buffer.from('response');
+    },
+    connectionWrite(handle, bytes) {
+      calls.push(['connectionWrite', handle, bytes.toString()]);
+    },
+    closeConnection(handle) {
+      calls.push(['closeConnection', handle]);
+    },
+    peerUser(handle) {
+      calls.push(['peerUser', handle]);
       return '501';
     },
   };
@@ -129,6 +171,15 @@ test('platform wrapper retains native handles and never reaches the builder impl
   assert.equal(lock.release(), true);
   const endpoint = platform.listenPrivate('/private/broker.sock');
   assert.equal(endpoint.verify(), true);
+  const accepted = endpoint.accept();
+  assert.equal(platform.peerUser(accepted), '501');
+  assert.equal(accepted.readFrame().toString(), 'response');
+  accepted.write(Buffer.from('reply'));
+  accepted.close();
+  assert.throws(() => platform.peerUser(accepted), { code: 'APR_BROKER_AUTH_FAILED' });
+  const client = platform.connectPrivate('/private/broker.sock');
+  assert.equal(client.exchange(Buffer.from('request')).toString(), 'response');
+  client.close();
   endpoint.close();
   directory.close();
   assert.deepEqual(
@@ -138,6 +189,15 @@ test('platform wrapper retains native handles and never reaches the builder impl
       'create',
       'acquireExclusive',
       'listenPrivate',
+      'acceptPrivate',
+      'peerUser',
+      'connectionRead',
+      'connectionWrite',
+      'closeConnection',
+      'connectPrivate',
+      'connectionWrite',
+      'connectionRead',
+      'closeConnection',
       'closeEndpoint',
       'closeDirectory',
     ]

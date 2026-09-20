@@ -11,6 +11,8 @@ namespace {
 struct Directory { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Lock { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Endpoint { HANDLE handle; std::wstring path; };
+struct Connection { HANDLE handle; bool server_side; };
+constexpr DWORD kIpcTimeoutMilliseconds = 5000;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const char* text) {
   *code = stable;
@@ -48,21 +50,25 @@ std::wstring Join(const std::wstring& parent, const std::string& child) {
   return parent + L"\\" + Wide(child);
 }
 
-std::string CurrentSid(std::string* code, std::string* message) {
+bool CurrentSidBytes(std::vector<unsigned char>* bytes, std::string* code, std::string* message) {
   HANDLE token = nullptr;
   if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
-    Fail(code, message, "APR_BROKER_AUTH_FAILED", "Current process token is unavailable.");
-    return {};
+    return Fail(code, message, "APR_BROKER_AUTH_FAILED", "Current process token is unavailable.");
   }
   DWORD size = 0;
   GetTokenInformation(token, TokenUser, nullptr, 0, &size);
-  std::vector<unsigned char> bytes(size);
-  if (!GetTokenInformation(token, TokenUser, bytes.data(), size, &size)) {
+  bytes->resize(size);
+  if (!GetTokenInformation(token, TokenUser, bytes->data(), size, &size)) {
     CloseHandle(token);
-    Fail(code, message, "APR_BROKER_AUTH_FAILED", "Current user SID is unavailable.");
-    return {};
+    return Fail(code, message, "APR_BROKER_AUTH_FAILED", "Current user SID is unavailable.");
   }
   CloseHandle(token);
+  return true;
+}
+
+std::string CurrentSid(std::string* code, std::string* message) {
+  std::vector<unsigned char> bytes;
+  if (!CurrentSidBytes(&bytes, code, message)) return {};
   LPSTR sid = nullptr;
   if (!ConvertSidToStringSidA(reinterpret_cast<TOKEN_USER*>(bytes.data())->User.Sid, &sid)) {
     Fail(code, message, "APR_BROKER_AUTH_FAILED", "Current user SID cannot be encoded.");
@@ -71,6 +77,55 @@ std::string CurrentSid(std::string* code, std::string* message) {
   std::string result(sid);
   LocalFree(sid);
   return result;
+}
+
+bool OwnerAttributes(SECURITY_ATTRIBUTES* attributes, PSECURITY_DESCRIPTOR* descriptor,
+                     std::string* code, std::string* message) {
+  const std::string sid = CurrentSid(code, message);
+  if (!code->empty()) return false;
+  const std::string sddl = "O:" + sid + "D:P(A;;GA;;;" + sid + ")";
+  if (!ConvertStringSecurityDescriptorToSecurityDescriptorA(
+        sddl.c_str(), SDDL_REVISION_1, descriptor, nullptr)) {
+    return Fail(code, message, "APR_BROKER_STALE", "Owner-only security cannot be constructed.");
+  }
+  *attributes = {sizeof(SECURITY_ATTRIBUTES), *descriptor, FALSE};
+  return true;
+}
+
+bool OwnerOnly(HANDLE handle) {
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  PSID owner = nullptr;
+  PACL dacl = nullptr;
+  const DWORD observed = GetSecurityInfo(
+    handle, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+    &owner, nullptr, &dacl, nullptr, &descriptor);
+  if (observed != ERROR_SUCCESS || descriptor == nullptr || owner == nullptr || dacl == nullptr) {
+    if (descriptor != nullptr) LocalFree(descriptor);
+    return false;
+  }
+  std::vector<unsigned char> current;
+  std::string code, message;
+  bool valid = CurrentSidBytes(&current, &code, &message) &&
+               EqualSid(owner, reinterpret_cast<TOKEN_USER*>(current.data())->User.Sid);
+  SECURITY_DESCRIPTOR_CONTROL control = 0;
+  DWORD revision = 0;
+  valid = valid && GetSecurityDescriptorControl(descriptor, &control, &revision) &&
+          (control & SE_DACL_PROTECTED) != 0;
+  ACL_SIZE_INFORMATION information {};
+  valid = valid && GetAclInformation(
+    dacl, &information, sizeof(information), AclSizeInformation) &&
+    information.AceCount == 1;
+  void* raw = nullptr;
+  valid = valid && GetAce(dacl, 0, &raw) != 0;
+  if (valid) {
+    auto* header = static_cast<ACE_HEADER*>(raw);
+    auto* ace = reinterpret_cast<ACCESS_ALLOWED_ACE*>(raw);
+    valid = header->AceType == ACCESS_ALLOWED_ACE_TYPE &&
+            EqualSid(&ace->SidStart, reinterpret_cast<TOKEN_USER*>(current.data())->User.Sid) &&
+            ((ace->Mask & GENERIC_ALL) != 0 || (ace->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS);
+  }
+  LocalFree(descriptor);
+  return valid;
 }
 
 bool WriteAll(HANDLE handle, const std::vector<unsigned char>& bytes) {
@@ -94,6 +149,75 @@ bool ReadAll(HANDLE handle, std::vector<unsigned char>* bytes) {
     offset += count;
   }
   return true;
+}
+
+bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
+  DWORD mode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
+  if (!SetNamedPipeHandleState(handle, &mode, nullptr, nullptr)) return false;
+  const ULONGLONG deadline = GetTickCount64() + kIpcTimeoutMilliseconds;
+  size_t offset = 0;
+  bool complete = true;
+  while (offset < size) {
+    DWORD count = 0;
+    const bool read = ReadFile(
+      handle,
+      bytes + offset,
+      static_cast<DWORD>(size - offset),
+      &count,
+      nullptr) != 0;
+    if (read && count > 0) {
+      offset += count;
+      continue;
+    }
+    const DWORD error = read ? ERROR_SUCCESS : GetLastError();
+    if ((read || error == ERROR_NO_DATA) && GetTickCount64() < deadline) {
+      Sleep(1);
+      continue;
+    }
+    complete = false;
+    break;
+  }
+  mode = PIPE_READMODE_BYTE | PIPE_WAIT;
+  return complete && SetNamedPipeHandleState(handle, &mode, nullptr, nullptr) != 0;
+}
+
+HANDLE CreateOwnerPipe(const std::wstring& path, bool first,
+                       std::string* code, std::string* message) {
+  SECURITY_ATTRIBUTES attributes {};
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  if (!OwnerAttributes(&attributes, &descriptor, code, message)) return INVALID_HANDLE_VALUE;
+  const DWORD mode = PIPE_ACCESS_DUPLEX | (first ? FILE_FLAG_FIRST_PIPE_INSTANCE : 0);
+  HANDLE handle = CreateNamedPipeW(
+    path.c_str(), mode,
+    PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+    16, 65540, 65540, kIpcTimeoutMilliseconds, &attributes);
+  LocalFree(descriptor);
+  if (handle == INVALID_HANDLE_VALUE) {
+    Fail(
+      code,
+      message,
+      GetLastError() == ERROR_ACCESS_DENIED ? "APR_BROKER_OWNED" : "APR_BROKER_START_FAILED",
+      "Private named pipe cannot be created.");
+  }
+  return handle;
+}
+
+std::string TokenSid(HANDLE token, std::string* code, std::string* message) {
+  DWORD size = 0;
+  GetTokenInformation(token, TokenUser, nullptr, 0, &size);
+  std::vector<unsigned char> bytes(size);
+  if (!GetTokenInformation(token, TokenUser, bytes.data(), size, &size)) {
+    Fail(code, message, "APR_BROKER_AUTH_FAILED", "Peer token SID is unavailable.");
+    return {};
+  }
+  LPSTR sid = nullptr;
+  if (!ConvertSidToStringSidA(reinterpret_cast<TOKEN_USER*>(bytes.data())->User.Sid, &sid)) {
+    Fail(code, message, "APR_BROKER_AUTH_FAILED", "Peer SID cannot be encoded.");
+    return {};
+  }
+  std::string result(sid);
+  LocalFree(sid);
+  return result;
 }
 }  // namespace
 
@@ -120,13 +244,25 @@ std::string UserId(std::string* code, std::string* message) { return CurrentSid(
 
 void* OpenPrivateDirectory(const std::string& input, std::string* code, std::string* message) {
   const auto path = Wide(input);
-  if (!CreateDirectoryW(path.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS) {
+  SECURITY_ATTRIBUTES attributes {};
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  if (!OwnerAttributes(&attributes, &descriptor, code, message)) return nullptr;
+  const bool created = CreateDirectoryW(path.c_str(), &attributes) != 0;
+  const DWORD createError = created ? ERROR_SUCCESS : GetLastError();
+  LocalFree(descriptor);
+  if (!created && createError != ERROR_ALREADY_EXISTS) {
     Fail(code, message, "APR_BROKER_STALE", "Private broker directory cannot be created.");
     return nullptr;
   }
-  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | READ_CONTROL,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING,
+                              FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                              nullptr);
   BY_HANDLE_FILE_INFORMATION info {};
-  if (handle == INVALID_HANDLE_VALUE || !Info(handle, &info) || (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 || (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+  if (handle == INVALID_HANDLE_VALUE || !Info(handle, &info) || !OwnerOnly(handle) ||
+      (info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ||
+      (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
     if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
     Fail(code, message, "APR_BROKER_STALE", "Private broker directory is unsafe.");
     return nullptr;
@@ -137,8 +273,16 @@ void* OpenPrivateDirectory(const std::string& input, std::string* code, std::str
 bool VerifyDirectory(void* value) {
   auto* directory = static_cast<Directory*>(value);
   BY_HANDLE_FILE_INFORMATION held {}, named {};
-  HANDLE current = CreateFileW(directory->path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-  const bool valid = Info(directory->handle, &held) && Info(current, &named) && Same(directory->identity, held) && Same(directory->identity, named) && (named.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0;
+  HANDLE current = CreateFileW(directory->path.c_str(), GENERIC_READ | READ_CONTROL,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                               nullptr, OPEN_EXISTING,
+                               FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                               nullptr);
+  const bool valid = Info(directory->handle, &held) && Info(current, &named) &&
+                     OwnerOnly(directory->handle) && OwnerOnly(current) &&
+                     Same(directory->identity, held) && Same(directory->identity, named) &&
+                     (named.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0 &&
+                     (named.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
   if (current != INVALID_HANDLE_VALUE) CloseHandle(current);
   return valid;
 }
@@ -147,10 +291,13 @@ bool DirectoryRead(void* value, const std::string& name, std::vector<unsigned ch
   auto* directory = static_cast<Directory*>(value);
   const auto path = Join(directory->path, name);
   if (path.empty() || !VerifyDirectory(value)) return Fail(code, message, "APR_BROKER_STALE", "Broker resource path or directory identity is unsafe.");
-  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | READ_CONTROL, FILE_SHARE_READ,
+                              nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
   if (handle == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND) { *found = false; return true; }
   BY_HANDLE_FILE_INFORMATION info {};
-  if (handle == INVALID_HANDLE_VALUE || !Info(handle, &info) || (info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) != 0 || !ReadAll(handle, bytes)) {
+  if (handle == INVALID_HANDLE_VALUE || !Info(handle, &info) || !OwnerOnly(handle) ||
+      (info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) != 0 ||
+      !ReadAll(handle, bytes)) {
     if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
     return Fail(code, message, "APR_BROKER_STALE", "Broker resource cannot be read safely.");
   }
@@ -163,8 +310,14 @@ bool DirectoryCreate(void* value, const std::string& name, const std::vector<uns
   auto* directory = static_cast<Directory*>(value);
   const auto path = Join(directory->path, name);
   if (path.empty() || !VerifyDirectory(value)) return Fail(code, message, "APR_BROKER_STALE", "Broker directory changed before resource creation.");
-  HANDLE handle = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-  if (handle == INVALID_HANDLE_VALUE || !WriteAll(handle, bytes)) {
+  SECURITY_ATTRIBUTES attributes {};
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  if (!OwnerAttributes(&attributes, &descriptor, code, message)) return false;
+  HANDLE handle = CreateFileW(path.c_str(), GENERIC_WRITE | READ_CONTROL, 0, &attributes,
+                              CREATE_NEW, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+                              nullptr);
+  LocalFree(descriptor);
+  if (handle == INVALID_HANDLE_VALUE || !OwnerOnly(handle) || !WriteAll(handle, bytes)) {
     if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
     return Fail(code, message, "APR_BROKER_STALE", "Broker resource cannot be created exclusively.");
   }
@@ -187,18 +340,31 @@ void CloseDirectory(void* value) { auto* directory = static_cast<Directory*>(val
 
 void* AcquireExclusive(const std::string& input, const std::vector<unsigned char>& bytes, std::string* code, std::string* message) {
   const auto path = Wide(input);
-  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  SECURITY_ATTRIBUTES attributes {};
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  if (!OwnerAttributes(&attributes, &descriptor, code, message)) return nullptr;
+  HANDLE handle = CreateFileW(
+    path.c_str(), GENERIC_READ | GENERIC_WRITE | READ_CONTROL,
+    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+    &attributes, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  LocalFree(descriptor);
   if (handle == INVALID_HANDLE_VALUE) { Fail(code, message, "APR_BROKER_OWNED", "Broker lock is already owned or unsafe."); return nullptr; }
+  BY_HANDLE_FILE_INFORMATION info {};
+  if (!Info(handle, &info) || !OwnerOnly(handle) ||
+      (info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) != 0) {
+    CloseHandle(handle);
+    Fail(code, message, "APR_BROKER_STALE", "Broker lock has unsafe ownership, access, or type.");
+    return nullptr;
+  }
   OVERLAPPED overlap {};
   if (!LockFileEx(handle, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, MAXDWORD, MAXDWORD, &overlap)) {
     CloseHandle(handle);
     Fail(code, message, "APR_BROKER_OWNED", "Broker ownership is already held.");
     return nullptr;
   }
-  SetFilePointer(handle, 0, nullptr, FILE_BEGIN);
-  SetEndOfFile(handle);
-  BY_HANDLE_FILE_INFORMATION info {};
-  if (!WriteAll(handle, bytes) || !Info(handle, &info)) {
+  LARGE_INTEGER start {};
+  if (!SetFilePointerEx(handle, start, nullptr, FILE_BEGIN) || !SetEndOfFile(handle) ||
+      !WriteAll(handle, bytes) || !Info(handle, &info) || !OwnerOnly(handle)) {
     UnlockFileEx(handle, 0, MAXDWORD, MAXDWORD, &overlap);
     CloseHandle(handle);
     Fail(code, message, "APR_BROKER_STALE", "Broker lock evidence cannot be published.");
@@ -210,8 +376,13 @@ void* AcquireExclusive(const std::string& input, const std::vector<unsigned char
 bool VerifyExclusive(void* value) {
   auto* lock = static_cast<Lock*>(value);
   BY_HANDLE_FILE_INFORMATION held {}, named {};
-  HANDLE current = CreateFileW(lock->path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-  const bool valid = Info(lock->handle, &held) && Info(current, &named) && Same(lock->identity, held) && Same(lock->identity, named) && (named.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0;
+  HANDLE current = CreateFileW(lock->path.c_str(), READ_CONTROL,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                               nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  const bool valid = Info(lock->handle, &held) && Info(current, &named) &&
+                     OwnerOnly(lock->handle) && OwnerOnly(current) &&
+                     Same(lock->identity, held) && Same(lock->identity, named) &&
+                     (named.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) == 0;
   if (current != INVALID_HANDLE_VALUE) CloseHandle(current);
   return valid;
 }
@@ -222,7 +393,6 @@ bool ReleaseExclusive(void* value) {
   OVERLAPPED overlap {};
   UnlockFileEx(lock->handle, 0, MAXDWORD, MAXDWORD, &overlap);
   CloseHandle(lock->handle);
-  if (valid) DeleteFileW(lock->path.c_str());
   delete lock;
   return valid;
 }
@@ -236,22 +406,9 @@ void AbandonExclusive(void* value) {
 }
 
 void* ListenPrivate(const std::string& input, std::string* code, std::string* message) {
-  std::string sid = CurrentSid(code, message);
-  if (!code->empty()) return nullptr;
-  const std::string sddl = "D:P(A;;GA;;;" + sid + ")";
-  PSECURITY_DESCRIPTOR descriptor = nullptr;
-  if (!ConvertStringSecurityDescriptorToSecurityDescriptorA(sddl.c_str(), SDDL_REVISION_1, &descriptor, nullptr)) {
-    Fail(code, message, "APR_BROKER_START_FAILED", "Owner-only named-pipe security cannot be constructed.");
-    return nullptr;
-  }
-  SECURITY_ATTRIBUTES attributes {sizeof(SECURITY_ATTRIBUTES), descriptor, FALSE};
   const auto path = Wide(input);
-  HANDLE handle = CreateNamedPipeW(path.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 16, 65536, 65536, 0, &attributes);
-  LocalFree(descriptor);
-  if (handle == INVALID_HANDLE_VALUE) {
-    Fail(code, message, GetLastError() == ERROR_ACCESS_DENIED ? "APR_BROKER_OWNED" : "APR_BROKER_START_FAILED", "Private named pipe cannot be created.");
-    return nullptr;
-  }
+  HANDLE handle = CreateOwnerPipe(path, true, code, message);
+  if (handle == INVALID_HANDLE_VALUE) return nullptr;
   return new Endpoint{handle, path};
 }
 
@@ -259,26 +416,165 @@ bool VerifyEndpoint(void* value) { return static_cast<Endpoint*>(value)->handle 
 bool CloseEndpoint(void* value) { auto* endpoint = static_cast<Endpoint*>(value); const bool valid = VerifyEndpoint(value); CloseHandle(endpoint->handle); delete endpoint; return valid; }
 void AbandonEndpoint(void* value) { auto* endpoint = static_cast<Endpoint*>(value); CloseHandle(endpoint->handle); delete endpoint; }
 
-std::string PeerUser(std::intptr_t raw, std::string* code, std::string* message) {
-  HANDLE pipe = reinterpret_cast<HANDLE>(raw);
-  if (!ImpersonateNamedPipeClient(pipe)) { Fail(code, message, "APR_BROKER_AUTH_FAILED", "Named-pipe client cannot be authenticated."); return {}; }
+void* AcceptPrivate(void* value, std::string* code, std::string* message) {
+  auto* endpoint = static_cast<Endpoint*>(value);
+  if (!VerifyEndpoint(value)) {
+    Fail(code, message, "APR_BROKER_STALE", "Broker endpoint is unavailable before accept.");
+    return nullptr;
+  }
+  DWORD mode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
+  if (!SetNamedPipeHandleState(endpoint->handle, &mode, nullptr, nullptr)) {
+    Fail(code, message, "APR_BROKER_START_FAILED", "Named-pipe accept cannot be bounded.");
+    return nullptr;
+  }
+  const ULONGLONG deadline = GetTickCount64() + kIpcTimeoutMilliseconds;
+  bool connected = false;
+  while (!connected) {
+    connected = ConnectNamedPipe(endpoint->handle, nullptr) != 0;
+    const DWORD error = connected ? ERROR_SUCCESS : GetLastError();
+    if (error == ERROR_PIPE_CONNECTED) {
+      connected = true;
+    } else if (!connected && error == ERROR_PIPE_LISTENING && GetTickCount64() < deadline) {
+      Sleep(1);
+    } else if (!connected) {
+      break;
+    }
+  }
+  mode = PIPE_READMODE_BYTE | PIPE_WAIT;
+  if (!connected || !SetNamedPipeHandleState(endpoint->handle, &mode, nullptr, nullptr)) {
+    Fail(code, message, "APR_BROKER_START_FAILED", "Named-pipe connection cannot be accepted.");
+    return nullptr;
+  }
+  HANDLE accepted = endpoint->handle;
+  endpoint->handle = CreateOwnerPipe(endpoint->path, false, code, message);
+  if (endpoint->handle == INVALID_HANDLE_VALUE) {
+    DisconnectNamedPipe(accepted);
+    CloseHandle(accepted);
+    return nullptr;
+  }
+  return new Connection{accepted, true};
+}
+
+void* ConnectPrivate(const std::string& input, std::string* code, std::string* message) {
+  const auto path = Wide(input);
+  if (!WaitNamedPipeW(path.c_str(), 5000) && GetLastError() != ERROR_SEM_TIMEOUT) {
+    Fail(code, message, "APR_BROKER_START_FAILED", "Private named pipe is unavailable.");
+    return nullptr;
+  }
+  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    Fail(code, message, "APR_BROKER_START_FAILED", "Private named pipe cannot be connected.");
+    return nullptr;
+  }
+  DWORD mode = PIPE_READMODE_BYTE;
+  if (!SetNamedPipeHandleState(handle, &mode, nullptr, nullptr)) {
+    CloseHandle(handle);
+    Fail(code, message, "APR_BROKER_START_FAILED", "Private named-pipe mode cannot be fixed.");
+    return nullptr;
+  }
+  return new Connection{handle, false};
+}
+
+bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* bytes,
+                    std::string* code, std::string* message) {
+  auto* connection = static_cast<Connection*>(value);
+  unsigned char prefix[4];
+  if (!ReadExact(connection->handle, prefix, sizeof(prefix))) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame prefix is truncated.");
+  }
+  const size_t length = (static_cast<size_t>(prefix[0]) << 24) |
+                        (static_cast<size_t>(prefix[1]) << 16) |
+                        (static_cast<size_t>(prefix[2]) << 8) |
+                        static_cast<size_t>(prefix[3]);
+  if (length == 0 || length + sizeof(prefix) > maximum) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame exceeds the bounded native read.");
+  }
+  bytes->assign(prefix, prefix + sizeof(prefix));
+  bytes->resize(sizeof(prefix) + length);
+  if (!ReadExact(connection->handle, bytes->data() + sizeof(prefix), length)) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame body is truncated.");
+  }
+  return true;
+}
+
+bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
+                     std::string* code, std::string* message) {
+  auto* connection = static_cast<Connection*>(value);
+  DWORD mode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
+  if (!SetNamedPipeHandleState(connection->handle, &mode, nullptr, nullptr)) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame write cannot be bounded.");
+  }
+  const ULONGLONG deadline = GetTickCount64() + kIpcTimeoutMilliseconds;
+  DWORD offset = 0;
+  bool complete = true;
+  while (offset < bytes.size()) {
+    DWORD count = 0;
+    const bool wrote = WriteFile(
+      connection->handle,
+      bytes.data() + offset,
+      static_cast<DWORD>(bytes.size() - offset),
+      &count,
+      nullptr) != 0;
+    if (wrote && count > 0) {
+      offset += count;
+      continue;
+    }
+    const DWORD error = wrote ? ERROR_SUCCESS : GetLastError();
+    if ((wrote || error == ERROR_NO_DATA || error == ERROR_PIPE_BUSY) &&
+        GetTickCount64() < deadline) {
+      Sleep(1);
+      continue;
+    }
+    complete = false;
+    break;
+  }
+  mode = PIPE_READMODE_BYTE | PIPE_WAIT;
+  const bool restored = SetNamedPipeHandleState(connection->handle, &mode, nullptr, nullptr) != 0;
+  return complete && restored
+    ? true
+    : Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame cannot be written completely.");
+}
+
+void CloseConnection(void* value) {
+  auto* connection = static_cast<Connection*>(value);
+  if (connection->server_side) DisconnectNamedPipe(connection->handle);
+  CloseHandle(connection->handle);
+  delete connection;
+}
+
+std::string PeerUser(void* value, std::string* code, std::string* message) {
+  auto* connection = static_cast<Connection*>(value);
   HANDLE token = nullptr;
-  if (!OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, TRUE, &token)) {
+  if (connection->server_side) {
+    if (!ImpersonateNamedPipeClient(connection->handle)) {
+      Fail(code, message, "APR_BROKER_AUTH_FAILED", "Named-pipe client cannot be authenticated.");
+      return {};
+    }
+    if (!OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, TRUE, &token)) {
+      RevertToSelf();
+      Fail(code, message, "APR_BROKER_AUTH_FAILED", "Named-pipe client token is unavailable.");
+      return {};
+    }
+    const std::string result = TokenSid(token, code, message);
+    CloseHandle(token);
     RevertToSelf();
-    Fail(code, message, "APR_BROKER_AUTH_FAILED", "Named-pipe client token is unavailable.");
+    return result;
+  }
+  ULONG processId = 0;
+  if (!GetNamedPipeServerProcessId(connection->handle, &processId)) {
+    Fail(code, message, "APR_BROKER_AUTH_FAILED", "Named-pipe server process is unavailable.");
     return {};
   }
-  DWORD size = 0;
-  GetTokenInformation(token, TokenUser, nullptr, 0, &size);
-  std::vector<unsigned char> bytes(size);
-  const bool read = GetTokenInformation(token, TokenUser, bytes.data(), size, &size) != 0;
+  HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId);
+  if (process == nullptr || !OpenProcessToken(process, TOKEN_QUERY, &token)) {
+    if (process != nullptr) CloseHandle(process);
+    Fail(code, message, "APR_BROKER_AUTH_FAILED", "Named-pipe server token is unavailable.");
+    return {};
+  }
+  CloseHandle(process);
+  const std::string result = TokenSid(token, code, message);
   CloseHandle(token);
-  RevertToSelf();
-  if (!read) { Fail(code, message, "APR_BROKER_AUTH_FAILED", "Named-pipe client SID is unavailable."); return {}; }
-  LPSTR sid = nullptr;
-  if (!ConvertSidToStringSidA(reinterpret_cast<TOKEN_USER*>(bytes.data())->User.Sid, &sid)) { Fail(code, message, "APR_BROKER_AUTH_FAILED", "Named-pipe client SID cannot be encoded."); return {}; }
-  std::string result(sid);
-  LocalFree(sid);
   return result;
 }
 }  // namespace broker_security

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
 import test from 'node:test';
 import {
   existsSync,
@@ -11,14 +12,17 @@ import {
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { acquireBrokerOwnership } from '../../src/broker/ownership.mjs';
+import { createFrameDecoder, encodeFrame, validateHandshake } from '../../src/broker/ipc.mjs';
 
 const identity = {
   tuple: ['ai-peer-review.broker-root/v1', '/project', null, '501'],
   userId: '501',
 };
 const paths = {
+  authorityDirectories: ['/cache/ai-peer-review', '/cache/ai-peer-review/brokers', '/cache'],
+  endpointDirectories: ['/run/ai-peer-review', '/run/ai-peer-review/v1'],
   directory: '/cache',
   lock: '/cache/broker.lock',
   metadata: '/cache/broker.json',
@@ -32,9 +36,11 @@ function fixture() {
     metadata = null,
     released = 0,
     abandoned = 0;
+  const opened = [];
   const platform = {
     userId: () => '501',
-    openPrivateDirectory() {
+    openPrivateDirectory(value) {
+      opened.push(value);
       return {
         verify: () => valid,
         read: () => metadata,
@@ -76,8 +82,35 @@ function fixture() {
     },
     released: () => released,
     abandoned: () => abandoned,
+    opened: () => opened,
   };
 }
+
+test('ownership provisions each private authority and endpoint directory in order', () => {
+  const f = fixture();
+  const owner = acquireBrokerOwnership(
+    { identity, paths, versions, reconcile: () => true },
+    f.platform
+  );
+  assert.deepEqual(f.opened(), [...paths.authorityDirectories, ...paths.endpointDirectories]);
+  assert.equal(owner.release(), true);
+});
+
+test('ownership closes every retained directory when a later directory is unsafe', () => {
+  let opened = 0,
+    closed = 0;
+  const f = fixture();
+  f.platform.openPrivateDirectory = () => {
+    opened++;
+    return { verify: () => opened < 2, close: () => closed++ };
+  };
+  assert.throws(
+    () => acquireBrokerOwnership({ identity, paths, versions, reconcile: () => true }, f.platform),
+    { code: 'APR_BROKER_STALE' }
+  );
+  assert.equal(opened, 2);
+  assert.equal(closed, 2);
+});
 
 test('live OS ownership defeats dead-looking discovery and a second instance', () => {
   const f = fixture();
@@ -144,7 +177,7 @@ const nativeAvailable = existsSync(
   new URL('../../native/broker-security/build/Release/broker_security.node', import.meta.url)
 );
 test(
-  'native retained lock rejects contention and replacement and enforces private resources',
+  'native ownership and authenticated IPC work across the hosted platform boundary',
   { skip: !nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED },
   async (t) => {
     if (
@@ -174,6 +207,38 @@ test(
     mkdirSync(scratch, { recursive: true });
     const directory = mkdtempSync(new URL('broker-native-', scratch).pathname);
     t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const nestedAuthority = [
+      path.join(directory, 'authority'),
+      path.join(directory, 'authority', 'brokers'),
+      path.join(directory, 'authority', 'brokers', 'root'),
+    ];
+    const nestedEndpoints =
+      process.platform === 'win32'
+        ? []
+        : [path.join(directory, 'runtime'), path.join(directory, 'runtime', 'v1')];
+    const provisioned = acquireBrokerOwnership(
+      {
+        identity: {
+          tuple: ['ai-peer-review.broker-root/v1', directory, null, security.userId()],
+        },
+        paths: {
+          authorityDirectories: nestedAuthority,
+          endpointDirectories: nestedEndpoints,
+          directory: nestedAuthority.at(-1),
+          lock: path.join(nestedAuthority.at(-1), 'broker.lock'),
+          metadata: path.join(nestedAuthority.at(-1), 'broker.json'),
+          endpoint:
+            process.platform === 'win32'
+              ? `\\\\.\\pipe\\ai-peer-review-provision-${process.pid}-${Date.now()}`
+              : path.join(nestedEndpoints.at(-1), 'broker.sock'),
+        },
+        versions,
+        reconcile: () => true,
+      },
+      security
+    );
+    assert.equal(provisioned.verify(), true);
+    assert.equal(provisioned.release(), true);
     const privatePath = path.join(directory, 'private');
     const ownedDirectory = security.openPrivateDirectory(privatePath);
     assert.equal(ownedDirectory.verify(), true);
@@ -197,6 +262,85 @@ test(
     );
     assert.equal(child.status, 0);
     assert.match(child.stdout, /APR_BROKER_OWNED/);
+
+    const endpointPath =
+      process.platform === 'win32'
+        ? `\\\\.\\pipe\\ai-peer-review-native-${process.pid}-${Date.now()}`
+        : path.join(privatePath, 'broker.sock');
+    const endpoint = security.listenPrivate(endpointPath);
+    const nativeHandshake = {
+      schema: 'ai-peer-review.broker-handshake/v1',
+      tuple: ['ai-peer-review.broker-root/v1', directory, null, security.userId()],
+      versions,
+      instance_id: 'e'.repeat(64),
+      nonce: 'f'.repeat(64),
+    };
+    const clientSource = `
+      import assert from 'node:assert/strict';
+      import { platformSecurity } from ${JSON.stringify(new URL('../../src/broker/platform.mjs', import.meta.url).href)};
+      import { createFrameDecoder, encodeFrame, validateHandshake } from ${JSON.stringify(new URL('../../src/broker/ipc.mjs', import.meta.url).href)};
+      const platform = platformSecurity();
+      const expected = JSON.parse(process.argv[2]);
+      const connection = platform.connectPrivate(process.argv[1]);
+      assert.equal(platform.peerUser(connection), platform.userId());
+      connection.write(encodeFrame(expected));
+      const decoder = createFrameDecoder();
+      const frames = decoder.push(connection.readFrame());
+      decoder.end();
+      assert.equal(frames.length, 1);
+      validateHandshake(frames[0], expected, platform.peerUser(connection));
+      connection.close();
+      process.stdout.write('AUTHENTICATED');
+    `;
+    const ipcChild = spawn(
+      process.execPath,
+      ['--input-type=module', '-e', clientSource, endpointPath, JSON.stringify(nativeHandshake)],
+      { shell: false, stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+    const ipcExit = once(ipcChild, 'exit');
+    let ipcStdout = '';
+    let ipcStderr = '';
+    ipcChild.stdout.setEncoding('utf8');
+    ipcChild.stderr.setEncoding('utf8');
+    ipcChild.stdout.on('data', (bytes) => {
+      ipcStdout += bytes;
+    });
+    ipcChild.stderr.on('data', (bytes) => {
+      ipcStderr += bytes;
+    });
+    const accepted = endpoint.accept();
+    const decoder = createFrameDecoder();
+    const frames = decoder.push(accepted.readFrame());
+    decoder.end();
+    assert.equal(frames.length, 1);
+    validateHandshake(frames[0], nativeHandshake, security.peerUser(accepted));
+    accepted.write(encodeFrame(nativeHandshake));
+    accepted.close();
+    const [ipcStatus] = await ipcExit;
+    assert.equal(ipcStatus, 0, ipcStderr);
+    assert.equal(ipcStdout, 'AUTHENTICATED');
+
+    const partialSource = `
+      import { platformSecurity } from ${JSON.stringify(new URL('../../src/broker/platform.mjs', import.meta.url).href)};
+      const connection = platformSecurity().connectPrivate(process.argv[1]);
+      connection.write(Buffer.from([0, 0, 0, 16, 123]));
+      setTimeout(() => {}, 20000);
+    `;
+    const partialChild = spawn(
+      process.execPath,
+      ['--input-type=module', '-e', partialSource, endpointPath],
+      { shell: false, stdio: ['ignore', 'ignore', 'pipe'] }
+    );
+    const partialExit = once(partialChild, 'exit');
+    const partial = endpoint.accept();
+    const started = Date.now();
+    assert.throws(() => partial.readFrame(), { code: 'APR_BROKER_PROTOCOL' });
+    assert.ok(Date.now() - started < 7500, 'partial frame must hit the bounded native deadline');
+    partial.close();
+    partialChild.kill();
+    await partialExit;
+    endpoint.close();
+
     if (process.platform !== 'win32') {
       renameSync(target, `${target}.held`);
       writeFileSync(target, 'foreign', { mode: 0o600 });
@@ -208,7 +352,14 @@ test(
       assert.throws(() => security.openPrivateDirectory(alias), { code: 'APR_BROKER_STALE' });
       chmodSync(privatePath, 0o755);
       assert.throws(() => security.openPrivateDirectory(privatePath), { code: 'APR_BROKER_STALE' });
-    } else assert.equal(lock.release(), true);
+    } else {
+      const inheritedPath = path.join(directory, 'inherited-security');
+      mkdirSync(inheritedPath);
+      assert.throws(() => security.openPrivateDirectory(inheritedPath), {
+        code: 'APR_BROKER_STALE',
+      });
+      assert.equal(lock.release(), true);
+    }
     ownedDirectory.close();
   }
 );

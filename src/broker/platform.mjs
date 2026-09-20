@@ -20,6 +20,7 @@ const identityRelative = path.join(
   'Release',
   'build-identity.json'
 );
+const maxNativeFrame = 65540;
 
 function quote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
@@ -122,9 +123,48 @@ export function platformSecurity({
     'listenPrivate',
     'verifyEndpoint',
     'closeEndpoint',
+    'acceptPrivate',
+    'connectPrivate',
+    'connectionRead',
+    'connectionWrite',
+    'closeConnection',
     'peerUser',
   ]);
   const maxEndpointLength = kind === 'darwin' ? 103 : kind === 'linux' ? 107 : 256;
+  const connectionHandles = new WeakMap();
+  function wrapConnection(handle) {
+    let closed = false;
+    const connection = {
+      readFrame() {
+        if (closed) {
+          throw new AprError('APR_BROKER_STALE', 'The broker connection is closed.', {
+            recovery: 'Reconnect to the authenticated broker and retry the bounded request.',
+          });
+        }
+        return native.connectionRead(handle, maxNativeFrame);
+      },
+      write(bytes) {
+        if (closed) {
+          throw new AprError('APR_BROKER_STALE', 'The broker connection is closed.', {
+            recovery: 'Reconnect to the authenticated broker and retry the bounded request.',
+          });
+        }
+        native.connectionWrite(handle, Buffer.from(bytes));
+      },
+      exchange(bytes) {
+        this.write(bytes);
+        return this.readFrame();
+      },
+      close() {
+        if (closed) return;
+        closed = true;
+        connectionHandles.delete(connection);
+        native.closeConnection(handle);
+      },
+    };
+    connectionHandles.set(connection, handle);
+    return Object.freeze(connection);
+  }
   return Object.freeze({
     kind,
     maxEndpointLength,
@@ -172,6 +212,14 @@ export function platformSecurity({
       let closed = false;
       return Object.freeze({
         verify: () => !closed && native.verifyEndpoint(handle),
+        accept() {
+          if (closed) {
+            throw new AprError('APR_BROKER_STALE', 'The broker endpoint is closed.', {
+              recovery: 'Reacquire broker ownership before accepting another connection.',
+            });
+          }
+          return wrapConnection(native.acceptPrivate(handle));
+        },
         close() {
           if (closed) return false;
           closed = true;
@@ -179,9 +227,21 @@ export function platformSecurity({
         },
       });
     },
-    peerUser(handle) {
-      const descriptor = typeof handle === 'number' ? handle : handle?._handle?.fd;
-      return native.peerUser(descriptor ?? handle);
+    connectPrivate(value) {
+      return wrapConnection(native.connectPrivate(value));
+    },
+    peerUser(connection) {
+      const handle = connectionHandles.get(connection);
+      if (handle === undefined) {
+        throw new AprError(
+          'APR_BROKER_AUTH_FAILED',
+          'Peer identity requires an owned broker connection.',
+          {
+            recovery: 'Use the connection returned by this platform security instance.',
+          }
+        );
+      }
+      return native.peerUser(handle);
     },
   });
 }

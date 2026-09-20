@@ -83,6 +83,7 @@ test('commands admit only a closed local control vocabulary', () => {
 
 test('authenticated connect binds discovery, live nonce proof, versions and kernel peer user', async () => {
   const metadata = Buffer.from(JSON.stringify(handshake));
+  const opened = [];
   const connection = {
     async exchange(bytes) {
       const decoder = createFrameDecoder();
@@ -94,7 +95,10 @@ test('authenticated connect binds discovery, live nonce proof, versions and kern
   };
   const platform = {
     userId: () => '501',
-    openPrivateDirectory: () => ({ read: () => metadata, close() {} }),
+    openPrivateDirectory: (value) => {
+      opened.push(value);
+      return { read: () => metadata, close() {} };
+    },
     connectPrivate: async () => connection,
     peerUser: () => '501',
   };
@@ -102,6 +106,7 @@ test('authenticated connect binds discovery, live nonce proof, versions and kern
     {
       identity: { tuple: handshake.tuple },
       paths: {
+        authorityDirectories: ['/cache/ai-peer-review', '/cache/ai-peer-review/brokers', '/cache'],
         directory: '/cache',
         metadata: '/cache/broker.json',
         endpoint: '/cache/broker.sock',
@@ -112,6 +117,7 @@ test('authenticated connect binds discovery, live nonce proof, versions and kern
   );
   assert.deepEqual(client.handshake, handshake);
   assert.equal(client.connection, connection);
+  assert.deepEqual(opened, ['/cache/ai-peer-review', '/cache/ai-peer-review/brokers', '/cache']);
 });
 
 test('authenticated connect preserves evidence and refuses peer, version and response substitution', async () => {

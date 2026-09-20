@@ -138,8 +138,22 @@ function expectedHandshake(identity, versions, discovery) {
   });
 }
 
+function openAuthorityDirectory(paths, platform) {
+  const values = paths.authorityDirectories ?? [paths.directory];
+  const directories = [];
+  try {
+    for (const value of values) directories.push(platform.openPrivateDirectory(value));
+    const retained = directories.pop();
+    for (const directory of directories) directory.close();
+    return retained;
+  } catch (error) {
+    for (const directory of directories.reverse()) directory.close();
+    throw error;
+  }
+}
+
 export async function connectBroker({ identity, paths, versions }, platform) {
-  const directory = platform.openPrivateDirectory(paths.directory);
+  const directory = openAuthorityDirectory(paths, platform);
   let connection = null;
   try {
     const metadataName = path.basename(paths.metadata);

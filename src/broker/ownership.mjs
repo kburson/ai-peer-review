@@ -2,8 +2,27 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { brokerError, validateHandshake } from './ipc.mjs';
 
+function provisionDirectories(values, platform, { keepLast = false } = {}) {
+  const directories = [];
+  try {
+    for (const value of values) {
+      const directory = platform.openPrivateDirectory(value);
+      directories.push(directory);
+      if (!directory.verify())
+        throw brokerError('APR_BROKER_STALE', 'Broker directory ownership is indeterminate.');
+    }
+    const retained = keepLast ? directories.pop() : null;
+    for (const directory of directories) directory.close();
+    return retained;
+  } catch (error) {
+    for (const directory of directories.reverse()) directory.close();
+    throw error;
+  }
+}
+
 export function acquireBrokerOwnership({ identity, paths, versions, reconcile }, platform) {
-  const directory = platform.openPrivateDirectory(paths.directory);
+  const authorityDirectories = paths.authorityDirectories ?? [paths.directory];
+  const directory = provisionDirectories(authorityDirectories, platform, { keepLast: true });
   let lock,
     endpoint,
     metadata,
@@ -50,6 +69,7 @@ export function acquireBrokerOwnership({ identity, paths, versions, reconcile },
     },
   };
   try {
+    provisionDirectories(paths.endpointDirectories ?? [], platform);
     validateHandshake(handshake, handshake, platform.userId());
     lock = platform.acquireExclusive(paths.lock, {
       instanceId: owner.instanceId,
