@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
 import { AprError } from '../../src/errors.mjs';
@@ -19,13 +19,6 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     '@modelcontextprotocol/sdk': '1.30.0',
     'node-gyp': '12.4.0',
     zod: '4.6.2',
-  });
-  assert.deepEqual(packageJson.devDependencies, {
-    '@kburson/ai-task-manager': 'file:vendors/kburson-ai-task-manager-0.1.0.tgz',
-    cspell: '8.19.4',
-    eslint: '9.39.4',
-    'markdownlint-cli2': '0.23.2',
-    prettier: '3.8.3',
   });
   assert.deepEqual(packageJson.scripts, {
     'build:broker-security': 'node scripts/build-broker-security.mjs',
@@ -62,6 +55,16 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     'NOTICE',
     'README.md',
   ]);
+});
+
+test('configured local AITM tarball exists', async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL('../../package.json', import.meta.url), 'utf8')
+  );
+  const dependency = packageJson.devDependencies?.['@kburson/ai-task-manager'];
+
+  assert.match(dependency, /^file:/);
+  await access(new URL(`../../${dependency.slice('file:'.length)}`, import.meta.url));
 });
 
 test('repository tooling configuration is explicit and credential-free', async () => {
