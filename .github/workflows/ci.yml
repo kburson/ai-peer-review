@@ -23,8 +23,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    env:
-      APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
     steps:
       - uses: actions/checkout@v6
         with:
@@ -40,6 +38,8 @@ jobs:
           --devdir="${{ runner.temp }}/node-gyp"
       - name: Normalize Windows import library
         if: runner.os == 'Windows'
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
         run: >-
           node --input-type=module -e "import { cpSync, mkdirSync } from 'node:fs';
           import path from 'node:path';
@@ -48,7 +48,10 @@ jobs:
           cpSync(path.join(root, process.arch, 'node.lib'), path.join(root, 'Release', 'node.lib'));"
       - run: npm run format:check
       - run: npm run lint
-      - run: npm test
+      - name: Run default tests
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+        run: npm test
       - run: npm run test:integration
       - run: npm run test:mcp
       - run: npm run test:packaging
