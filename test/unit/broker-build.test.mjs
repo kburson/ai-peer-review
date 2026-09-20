@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { inspectPlatformSecurity, platformSecurity } from '../../src/broker/platform.mjs';
 
-// cspell:ignore DONTWAIT NOWAIT
+// cspell:ignore beginthreadex DONTWAIT NOWAIT
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const builder = path.join(root, 'scripts/build-broker-security.mjs');
 
@@ -77,6 +77,7 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   const windowsRelease = windows.match(/bool ReleaseExclusive[\s\S]*?\n}/)?.[0] ?? '';
   const posixWrite = posix.match(/bool SendAll[\s\S]*?\n}/)?.[0] ?? '';
   const windowsRead = windows.match(/bool ReadExact[\s\S]*?\n}/)?.[0] ?? '';
+  const windowsBoundedWrite = windows.match(/bool WritePipeBounded[\s\S]*?\n}/)?.[0] ?? '';
   const windowsWrite = windows.match(/bool ConnectionWrite[\s\S]*?\n}/)?.[0] ?? '';
 
   assert.doesNotMatch(posixRelease, /unlink/);
@@ -88,8 +89,15 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.doesNotMatch(windowsRead, /PeekNamedPipe/);
   assert.match(windowsRead, /PIPE_NOWAIT/);
   assert.match(windowsRead, /GetTickCount64/);
-  assert.match(windowsWrite, /PIPE_NOWAIT/);
-  assert.match(windowsWrite, /GetTickCount64/);
+  assert.match(windows, /struct PipeWriteRequest/);
+  assert.match(windows, /unsigned __stdcall WritePipeThread\(void\* value\)/);
+  assert.match(windowsBoundedWrite, /DuplicateHandle\(/);
+  assert.match(windowsBoundedWrite, /_beginthreadex\(/);
+  assert.doesNotMatch(windowsBoundedWrite, /CreateThread\(/);
+  assert.match(windowsBoundedWrite, /WaitForSingleObject\(thread, kIpcTimeoutMilliseconds\)/);
+  assert.match(windowsBoundedWrite, /CancelSynchronousIo\(thread\)/);
+  assert.match(windowsWrite, /WritePipeBounded\(connection->handle, bytes\)/);
+  assert.doesNotMatch(windowsWrite, /PIPE_NOWAIT|SetNamedPipeHandleState|GetTickCount64/);
   assert.match(windows, /bool FlushServerBounded\(HANDLE handle\)/);
   assert.match(windows, /DuplicateHandle\(/);
   assert.match(windows, /CreateThread\(/);

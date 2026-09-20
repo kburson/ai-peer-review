@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <aclapi.h>
+#include <process.h>
 #include <sddl.h>
 
 #include <cstdint>
@@ -12,6 +13,7 @@ struct Directory { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION 
 struct Lock { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Endpoint { HANDLE handle; std::wstring path; };
 struct Connection { HANDLE handle; bool server_side; };
+struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const char* text) {
@@ -179,6 +181,54 @@ bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
   }
   mode = PIPE_READMODE_BYTE | PIPE_WAIT;
   return complete && SetNamedPipeHandleState(handle, &mode, nullptr, nullptr) != 0;
+}
+
+unsigned __stdcall WritePipeThread(void* value) {
+  auto* request = static_cast<PipeWriteRequest*>(value);
+  size_t offset = 0;
+  bool complete = true;
+  while (offset < request->bytes.size()) {
+    DWORD count = 0;
+    if (!WriteFile(
+          request->handle,
+          request->bytes.data() + offset,
+          static_cast<DWORD>(request->bytes.size() - offset),
+          &count,
+          nullptr) || count == 0) {
+      complete = false;
+      break;
+    }
+    offset += count;
+  }
+  CloseHandle(request->handle);
+  delete request;
+  return complete ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
+}
+
+bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes) {
+  HANDLE duplicate = INVALID_HANDLE_VALUE;
+  if (!DuplicateHandle(
+        GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
+        0, FALSE, DUPLICATE_SAME_ACCESS)) return false;
+  auto* request = new PipeWriteRequest{duplicate, bytes};
+  HANDLE thread = reinterpret_cast<HANDLE>(
+    _beginthreadex(nullptr, 0, WritePipeThread, request, 0, nullptr));
+  if (thread == nullptr) {
+    CloseHandle(duplicate);
+    delete request;
+    return false;
+  }
+  DWORD wait = WaitForSingleObject(thread, kIpcTimeoutMilliseconds);
+  if (wait == WAIT_TIMEOUT) {
+    CancelSynchronousIo(thread);
+    wait = WaitForSingleObject(thread, 1000);
+  }
+  DWORD result = ERROR_WRITE_FAULT;
+  const bool complete = wait == WAIT_OBJECT_0 &&
+                        GetExitCodeThread(thread, &result) != 0 &&
+                        result == ERROR_SUCCESS;
+  CloseHandle(thread);
+  return complete;
 }
 
 DWORD WINAPI FlushServerThread(void* value) {
@@ -531,42 +581,13 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
 bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
-  DWORD mode = PIPE_READMODE_BYTE | PIPE_NOWAIT;
-  if (!SetNamedPipeHandleState(connection->handle, &mode, nullptr, nullptr)) {
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame write cannot be bounded.");
+  if (!WritePipeBounded(connection->handle, bytes)) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame cannot be written completely.");
   }
-  const ULONGLONG deadline = GetTickCount64() + kIpcTimeoutMilliseconds;
-  DWORD offset = 0;
-  bool complete = true;
-  while (offset < bytes.size()) {
-    DWORD count = 0;
-    const bool wrote = WriteFile(
-      connection->handle,
-      bytes.data() + offset,
-      static_cast<DWORD>(bytes.size() - offset),
-      &count,
-      nullptr) != 0;
-    if (wrote && count > 0) {
-      offset += count;
-      continue;
-    }
-    const DWORD error = wrote ? ERROR_SUCCESS : GetLastError();
-    if ((wrote || error == ERROR_NO_DATA || error == ERROR_PIPE_BUSY) &&
-        GetTickCount64() < deadline) {
-      Sleep(1);
-      continue;
-    }
-    complete = false;
-    break;
-  }
-  mode = PIPE_READMODE_BYTE | PIPE_WAIT;
-  const bool restored = SetNamedPipeHandleState(connection->handle, &mode, nullptr, nullptr) != 0;
-  if (complete && restored && connection->server_side && !FlushServerBounded(connection->handle)) {
+  if (connection->server_side && !FlushServerBounded(connection->handle)) {
     return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame delivery timed out.");
   }
-  return complete && restored
-    ? true
-    : Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame cannot be written completely.");
+  return true;
 }
 
 void CloseConnection(void* value) {
