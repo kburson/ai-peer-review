@@ -484,6 +484,17 @@ Run `node scripts/update-template-goldens.mjs`; inspect every changed fixture an
 
 - [ ] Rerun golden tests and `node --test test/smoke/cli.test.mjs test/integration/communication-policy.test.mjs`; commit exact changed paths with `docs: publish intent-first broker workflow`.
 
+**Task 11 standalone-path inventory adjustment (2026-09-21):** The required new
+development-only `scripts/update-template-goldens.mjs` is a tracked path, while
+the default test suite verifies a closed inventory of standalone current-tree
+paths. Include `scripts/verify-extraction.mjs`, `provenance/extraction-manifest.json`,
+and `test/unit/verify-extraction.test.mjs` in this task's exact path boundary
+solely to admit that one new script in both current-tree exact lists and prove
+the admission. Preserve all frozen source-history inventories, relicensing
+evidence, signatures, and digests unchanged. This adjustment is necessary for
+Task 11's required script and default suite to coexist; it does not transfer
+Task 12's release compatibility work into Task 11.
+
 #### Story Intent
 
 - **Beneficiary:** An author or reviewer operating the installed peer-review package
