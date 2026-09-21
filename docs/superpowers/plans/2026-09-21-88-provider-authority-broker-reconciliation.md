@@ -10,6 +10,13 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-21-88-provider-authority-broker-reconciliation-design.md` (amends `docs/superpowers/specs/2026-09-14-project-local-spr-xpr-broker-design.md`).
 
+## Story Intent
+
+- **Beneficiary:** Peer-review release operator
+- **Capability:** Start and complete broker-owned reviews with independently verified participant sessions and exact automatic handoffs
+- **Need:** Current startup, join, and installed worker paths can deadlock or claim provider control without independent session evidence
+- **Value or failure prevented:** Reviews advance with verifiable authority without stranded participants or duplicate wakes
+
 ## Global Constraints
 
 - Epic #39 and child #88 stay open until the exact implementation head passes whole-branch review, all suites, supported-host CI, and one real installed-package automatic handoff. A fixture-only handoff cannot satisfy release.

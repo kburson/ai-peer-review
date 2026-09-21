@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { atomicWrite } from '../protocol/store.mjs';
+import { evaluateSurfaceConformance } from './conformance.mjs';
 
 export const SELECTORS = Object.freeze({
   codex: Object.freeze({ provider: 'openai', host: 'codex' }),
@@ -96,6 +97,17 @@ export function createProviderAdapter({
     typeof surface?.resume === 'function' &&
     typeof surface?.monitor === 'function' &&
     typeof surface?.observe === 'function';
+
+  const provenSurface = async () => {
+    if (!exactNative || typeof surface?.conformance !== 'function')
+      return evaluateSurfaceConformance({ adapterVersion });
+    try {
+      const report = await surface.conformance();
+      return evaluateSurfaceConformance({ ...report, adapterVersion });
+    } catch {
+      return evaluateSurfaceConformance({ adapterVersion });
+    }
+  };
 
   const surfaceAvailable = async () => {
     if (typeof surface?.available === 'function') {
@@ -231,28 +243,34 @@ export function createProviderAdapter({
     },
     async observeCapabilities() {
       const available = await surfaceAvailable();
+      const conformance = await provenSurface();
+      const automatic = available && conformance.reviewerLaunchable;
       return Object.freeze({
         selector,
         provider,
         host,
         adapter_version: adapterVersion,
         available,
-        native: Object.freeze(available && exactNative ? ['exact-session'] : []),
+        automatic,
+        unavailable_reasons: conformance.reasons,
+        native: Object.freeze(automatic ? ['exact-session'] : []),
         broker: Object.freeze([
           Object.freeze({ transport_mode: 'manual', adapter_version: adapterVersion }),
         ]),
         transport: Object.freeze([
           'manual',
           ...(available && typeof surface?.resume === 'function' ? ['resume-only'] : []),
-          ...(available && exactNative ? ['automatic-required'] : []),
+          ...(automatic ? ['automatic-required'] : []),
         ]),
         resource: Object.freeze({ ...resource }),
       });
     },
     async capabilities({ selection } = {}) {
       const available = await surfaceAvailable();
+      const conformance = await provenSurface();
+      const automatic = available && conformance.reviewerLaunchable;
       const native =
-        available && exactNative && selection?.classification === 'SPR'
+        automatic && selection?.classification === 'SPR'
           ? [
               Object.freeze({
                 exact_session: true,
@@ -270,7 +288,7 @@ export function createProviderAdapter({
           ...(available && typeof surface?.resume === 'function'
             ? [Object.freeze({ transport_mode: 'resume-only', adapter_version: adapterVersion })]
             : []),
-          ...(available && exactNative
+          ...(automatic
             ? [
                 Object.freeze({
                   transport_mode: 'automatic-required',

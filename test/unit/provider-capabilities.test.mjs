@@ -4,7 +4,11 @@ import test from 'node:test';
 import { createClaudeAdapter } from '../../src/providers/claude.mjs';
 import { createCodexAdapter } from '../../src/providers/codex.mjs';
 import { createGrokAdapter } from '../../src/providers/grok.mjs';
-import { productionProviderAdapters, selectedAdapter } from '../../src/providers/registry.mjs';
+import {
+  productionProviderAdapters,
+  selectedAdapter,
+  SELECTORS,
+} from '../../src/providers/registry.mjs';
 import { participantIdentityFromProviderObservation } from '../../src/identity/registry.mjs';
 import { doctor } from '../../src/doctor.mjs';
 
@@ -82,14 +86,14 @@ test('Claude production adapter probes its official CLI without claiming native 
   ]);
 });
 
-test('native SPR is advertised only for exact launch, resume, and monitor control', async () => {
+test('method presence without official exact-session evidence never advertises automatic SPR', async () => {
   const incomplete = createCodexAdapter({ surface: { launch: async () => ({}) } });
   assert.deepEqual(
     (await incomplete.capabilities({ selection: { classification: 'SPR' } })).native,
     []
   );
 
-  const exact = createCodexAdapter({
+  const unproven = createCodexAdapter({
     surface: {
       launch: async () => ({}),
       resume: async () => ({}),
@@ -97,12 +101,16 @@ test('native SPR is advertised only for exact launch, resume, and monitor contro
       observe: async () => ({}),
     },
   });
-  const capabilities = await exact.capabilities({ selection: { classification: 'SPR' } });
-  assert.equal(capabilities.native[0].exact_session, true);
-  assert.equal(capabilities.native[0].provider, 'openai');
+  const capabilities = await unproven.capabilities({ selection: { classification: 'SPR' } });
+  assert.deepEqual(capabilities.native, []);
+  assert.equal(
+    capabilities.broker.some((entry) => entry.transport_mode === 'automatic-required'),
+    false
+  );
 });
 
 test('production registry contains every selector without a provider fallback', () => {
+  assert.deepEqual(Object.keys(SELECTORS).sort(), ['claude', 'codex', 'grok']);
   const adapters = productionProviderAdapters();
   assert.deepEqual([...adapters.keys()].sort(), ['claude', 'codex', 'grok']);
   assert.equal(adapters.get('claude').provider, 'anthropic');
@@ -148,4 +156,32 @@ test('doctor fails a required recognized provider whose exact control surface is
       details: { selector: 'grok', available: false, adapter_version: '1.0.0' },
     }
   );
+});
+
+test('doctor automatic-required refuses each unproven production surface', async () => {
+  for (const adapter of [
+    createClaudeAdapter({
+      execFile: async () => ({ stdout: '2.1.278 (Claude Code)\n', stderr: '' }),
+    }),
+    createCodexAdapter(),
+    createGrokAdapter(),
+  ]) {
+    const providerAdapter = await adapter.observeCapabilities();
+    const result = doctor({
+      requestedMode: 'automatic-required',
+      packageResolved: true,
+      skillAvailable: true,
+      identity: { identity_source: 'runtime', session_fingerprint: 'sha256:x' },
+      git: { repository: true, worktreeSafe: true, scratchIgnored: true },
+      transport: { healthy: true, mode: 'automatic-required' },
+      providerAdapter,
+      providerRequired: true,
+    });
+    assert.equal(result.healthy, false, adapter.selector);
+    assert.equal(
+      result.rows.find((entry) => entry.id === 'provider-adapter').status,
+      'unavailable',
+      adapter.selector
+    );
+  }
 });

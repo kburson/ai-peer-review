@@ -47,7 +47,10 @@ export function doctor(context = {}) {
       ? [
           row(
             'provider-adapter',
-            context.providerAdapter.available ? 'ok' : 'unavailable',
+            context.providerAdapter.available &&
+              (!brokerRequired || context.providerAdapter.automatic === true)
+              ? 'ok'
+              : 'unavailable',
             context.providerRequired === true,
             context.providerAdapter
           ),
