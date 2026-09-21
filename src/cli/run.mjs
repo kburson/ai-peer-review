@@ -2818,24 +2818,30 @@ function sealedAuthorFromEvent(root, event) {
   });
 }
 
-function phaseTrailers(state, trailers) {
-  return state.protocol.phases
-    ? { ...trailers, 'Peer-Review-Phase': String(state.protocol.phases.cursor + 1) }
-    : trailers;
+function phaseTrailers(state, trailers, transactionRepository) {
+  if (!state.protocol.phases) return trailers;
+  const phased = { ...trailers, 'Peer-Review-Phase': String(state.protocol.phases.cursor + 1) };
+  if (transactionRepository.readTransaction(phased).record) return phased;
+  const legacy = transactionRepository.readTransaction(trailers).record;
+  return legacy && sameValue(legacy.trailers, trailers) ? trailers : phased;
 }
 
 function turnBudgetExhausted(protocol) {
   return (protocol.phases?.phase_turns_used ?? protocol.turns_used) >= protocol.max_turns;
 }
 
-function authorTrailers(state, event, decision) {
-  return phaseTrailers(state, {
-    'Peer-Review-ID': state.protocol.review_id,
-    'Peer-Review-Turn': String(event.payload.turn),
-    'Peer-Review-Artifact-Blob': event.payload.artifact.blob,
-    'Peer-Review-Reviewer-Response': decision.payload.response.digest,
-    'Peer-Review-Author-Response': event.payload.response.digest,
-  });
+function authorTrailers(state, event, decision, transactionRepository) {
+  return phaseTrailers(
+    state,
+    {
+      'Peer-Review-ID': state.protocol.review_id,
+      'Peer-Review-Turn': String(event.payload.turn),
+      'Peer-Review-Artifact-Blob': event.payload.artifact.blob,
+      'Peer-Review-Reviewer-Response': decision.payload.response.digest,
+      'Peer-Review-Author-Response': event.payload.response.digest,
+    },
+    transactionRepository
+  );
 }
 
 async function completeAuthorHandoff({
@@ -3004,7 +3010,7 @@ async function recoverAuthorHandoff({ input, deps, authority, git, transactionRe
         'Restore the exact sealed reviewer response before retrying the handoff.'
       );
     }
-    const trailers = authorTrailers(state, event, decision);
+    const trailers = authorTrailers(state, event, decision, transactionRepository);
     const journal = transactionRepository.readTransaction(trailers);
     if (!journal.record) {
       fail(
@@ -3330,13 +3336,17 @@ export async function submitAuthorTurn(input, deps = {}) {
         ]
       : [decision.payload.response.path, repositoryRelative(root, responseFile, 'author response')],
   };
-  const trailers = phaseTrailers(state, {
-    'Peer-Review-ID': state.protocol.review_id,
-    'Peer-Review-Turn': String(turn),
-    'Peer-Review-Artifact-Blob': artifactBlob,
-    'Peer-Review-Reviewer-Response': decision.payload.response.digest,
-    'Peer-Review-Author-Response': sealedResponse.digest,
-  });
+  const trailers = phaseTrailers(
+    state,
+    {
+      'Peer-Review-ID': state.protocol.review_id,
+      'Peer-Review-Turn': String(turn),
+      'Peer-Review-Artifact-Blob': artifactBlob,
+      'Peer-Review-Reviewer-Response': decision.payload.response.digest,
+      'Peer-Review-Author-Response': sealedResponse.digest,
+    },
+    transactionRepository
+  );
   const message = `Peer review revision ${turn}`;
   const commit = commitExactPaths(transactionRepository, transaction, message, trailers);
   checkpoint(deps, 'transaction-completed');
@@ -3638,7 +3648,11 @@ function validateTerminalFinalization({
     );
   }
   if (state.protocol.commit_mode === 'normal') {
-    const trailers = phaseTrailers(state, finalTrailers({ state, acceptance, manifest }));
+    const trailers = phaseTrailers(
+      state,
+      finalTrailers({ state, acceptance, manifest }),
+      transactionRepository
+    );
     const transaction = pathsToSeals(decision ? [decision, manifest] : [acceptance, manifest], {
       expected_head: expectedHead,
     });
@@ -3839,7 +3853,11 @@ export async function finalizeReview(input, deps = {}) {
       let transaction = null;
       let trailers = null;
       if (state.protocol.commit_mode === 'normal') {
-        trailers = phaseTrailers(state, finalTrailers({ state, acceptance, manifest }));
+        trailers = phaseTrailers(
+          state,
+          finalTrailers({ state, acceptance, manifest }),
+          transactionRepository
+        );
         transaction = pathsToSeals([acceptance, manifest], { expected_head: expectedHead });
         committed = commitExactPaths(
           transactionRepository,
@@ -3933,7 +3951,11 @@ export async function finalizeReview(input, deps = {}) {
     let trailers = null;
     let transaction = null;
     if (state.protocol.commit_mode === 'normal') {
-      trailers = phaseTrailers(state, finalTrailers({ state, acceptance, manifest }));
+      trailers = phaseTrailers(
+        state,
+        finalTrailers({ state, acceptance, manifest }),
+        transactionRepository
+      );
       transaction = pathsToSeals([acceptance, manifest], { expected_head: expectedHead });
       commit = commitExactPaths(transactionRepository, transaction, finalMessage(state), trailers);
       checkpoint(deps, 'finalization-commit-created');
@@ -4063,7 +4085,11 @@ export async function finalizeReview(input, deps = {}) {
   let trailers = null;
   let transaction = null;
   if (state.protocol.commit_mode === 'normal') {
-    trailers = phaseTrailers(state, finalTrailers({ state, acceptance: decision, manifest }));
+    trailers = phaseTrailers(
+      state,
+      finalTrailers({ state, acceptance: decision, manifest }),
+      transactionRepository
+    );
     transaction = pathsToSeals([decision, manifest], { expected_head: expectedHead });
     commit = commitExactPaths(transactionRepository, transaction, finalMessage(state), trailers);
     checkpoint(deps, 'finalization-commit-created');
@@ -4238,13 +4264,16 @@ function inspectBrokerWorkspaceEvidence(workspace) {
   }
 }
 
-function offlineBrokerStatus(project, evidence) {
+function offlineBrokerStatus(project, evidence, error = null) {
   const workspace = evidence.unreconciled_workspaces[0] ?? null;
   return brokerProjection('status', {
     status: 'offline',
     project_digest: project.digest,
     recovery: Object.freeze({
       ...evidence,
+      ...(error
+        ? { diagnostic: { code: error.code ?? 'APR_BROKER_START_FAILED', message: error.message } }
+        : {}),
       action: workspace
         ? `peer-review broker reconcile ${quoteShellArgument(workspace)}`
         : 'Retry peer-review broker status --json after restoring authentic broker discovery.',
@@ -4253,21 +4282,36 @@ function offlineBrokerStatus(project, evidence) {
 }
 
 async function brokerCommand(verb, workspace, io) {
-  const security =
-    io.brokerPlatform ??
-    (io.brokerConnect
-      ? Object.freeze({
-          kind: process.platform,
-          canonicalPath: realpathSync,
-          userId: () => String(process.geteuid?.() ?? process.env.USERNAME),
-        })
-      : platformSecurity());
-  const project = canonicalProjectIdentity({
+  const readOnlyPlatform = Object.freeze({
+    kind: process.platform,
+    canonicalPath: realpathSync,
+    userId: () => String(process.geteuid?.() ?? process.env.USERNAME),
+  });
+  const repository = io.repository ?? createGitRepository();
+  const offlineProject = canonicalProjectIdentity({
     cwd: io.cwd,
     platform: Object.freeze({
-      ...security,
-      repository: io.repository ?? createGitRepository(),
+      ...readOnlyPlatform,
+      repository,
     }),
+  });
+  const inspectEvidence = io.brokerInspectEvidence ?? inspectBrokerEvidence;
+  const evidence = inspectEvidence(offlineProject);
+  let security;
+  try {
+    security =
+      io.brokerPlatform ??
+      (io.brokerConnect
+        ? readOnlyPlatform
+        : platformSecurity(io.brokerSecurityRoot ? { root: io.brokerSecurityRoot } : undefined));
+  } catch (error) {
+    if (verb === 'status' && error?.code === 'APR_BROKER_START_FAILED')
+      return offlineBrokerStatus(offlineProject, evidence, error);
+    throw error;
+  }
+  const project = canonicalProjectIdentity({
+    cwd: io.cwd,
+    platform: Object.freeze({ ...security, repository }),
   });
   const versions = brokerVersions(io);
   const paths = io.brokerConnect
@@ -4278,8 +4322,6 @@ async function brokerCommand(verb, workspace, io) {
         env: io.env,
         home: os.homedir(),
       });
-  const inspectEvidence = io.brokerInspectEvidence ?? inspectBrokerEvidence;
-  const evidence = inspectEvidence(project);
   if (verb === 'reconcile') {
     const inspectWorkspace = io.brokerInspectWorkspaceEvidence ?? inspectBrokerWorkspaceEvidence;
     if (inspectWorkspace(workspace).ambiguous) {
@@ -4292,12 +4334,37 @@ async function brokerCommand(verb, workspace, io) {
     }
   }
   const connect = io.brokerConnect ?? ((input) => connectBroker(input, security));
+  if (verb === 'suspend') {
+    const authority = inspectReviewAuthority(workspace);
+    if (authority.state.protocol.startup.context.repository_root !== project.physicalRoot) {
+      fail(
+        'APR_BROKER_AUTH_FAILED',
+        'Broker review belongs to a different canonical project.',
+        'Run the command from the registered project and use its exact review workspace.'
+      );
+    }
+    const recovery = await fenceManualRecovery(workspace, {
+      connect: () => connect({ identity: project, paths, versions }),
+    });
+    if (!recovery?.fenced) {
+      fail(
+        'APR_BROKER_START_FAILED',
+        'Broker suspension did not establish durable recovery exclusion.',
+        'Preserve broker and review evidence and reconcile the exact review before retrying.'
+      );
+    }
+    return brokerProjection('suspend', {
+      status: 'recovery-only',
+      review_id: authority.state.protocol.review_id,
+      project_digest: project.digest,
+    });
+  }
   let client;
   try {
     client = await connect({ identity: project, paths, versions });
   } catch (error) {
     if (verb === 'status' && ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code)) {
-      return offlineBrokerStatus(project, evidence);
+      return offlineBrokerStatus(project, evidence, error);
     }
     throw error;
   }

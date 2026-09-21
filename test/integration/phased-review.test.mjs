@@ -90,6 +90,129 @@ async function accept(root, workspace, response, reviewer, now) {
   });
 }
 
+// Replays the pre-phase-trailer transaction format against the real Git adapter.
+// The committed Git message and durable journal remain legacy-shaped on disk.
+function legacyTransactionRepository(root) {
+  const repository = api.createGitTransactionRepository(root);
+  const legacy = (trailers) => {
+    const result = { ...trailers };
+    delete result['Peer-Review-Phase'];
+    return result;
+  };
+  return {
+    ...repository,
+    readTransaction(trailers) {
+      const journal = repository.readTransaction(legacy(trailers));
+      return {
+        ...journal,
+        record: journal.record ? { ...journal.record, trailers: { ...trailers } } : null,
+      };
+    },
+    writeTransaction(file, record) {
+      repository.writeTransaction(file, { ...record, trailers: legacy(record.trailers) });
+    },
+    commitOnly(paths, message, trailers) {
+      return repository.commitOnly(paths, message, legacy(trailers));
+    },
+    assertCommit(commit, paths, message, trailers) {
+      return repository.assertCommit(commit, paths, message, legacy(trailers));
+    },
+  };
+}
+
+function assertLegacyFinalizationJournal(root, reviewId) {
+  const repository = api.createGitTransactionRepository(root);
+  const trailers = { 'Peer-Review-ID': reviewId, 'Peer-Review-Turn': '2' };
+  const legacy = repository.readTransaction(trailers);
+  assert.ok(legacy.record);
+  assert.equal(Object.hasOwn(legacy.record.trailers, 'Peer-Review-Phase'), false);
+  assert.equal(repository.readTransaction({ ...trailers, 'Peer-Review-Phase': '1' }).record, null);
+}
+
+async function acceptedPhasedReview(t, reviewId, phases) {
+  const root = fixture(t);
+  const author = identity('author');
+  const reviewer = identity('reviewer');
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      phases,
+      identity: author,
+      reviewId,
+      maxTurns: 1,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
+  const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
+    cwd: root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: NOW,
+  });
+  await accept(
+    root,
+    started.paths.workspace,
+    joined.paths.response,
+    reviewer,
+    '2026-09-09T12:01:00.000Z'
+  );
+  return { root, author, started };
+}
+
+test('legacy phased commit interrupted before event append recovers with original journal and trailers', async (t) => {
+  const { root, author, started } = await acceptedPhasedReview(
+    t,
+    'legacy-phase-crash',
+    'spec,plan'
+  );
+  const input = {
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:02:00.000Z',
+  };
+  await assert.rejects(
+    api.finalizeReview(input, {
+      transactionRepository: legacyTransactionRepository(root),
+      checkpoint(name) {
+        if (name === 'finalization-commit-created') throw new Error('legacy commit before event');
+      },
+    }),
+    /legacy commit before event/
+  );
+  assert.equal(
+    inspectReviewAuthority(started.paths.workspace).state.protocol.state,
+    'author-finalization'
+  );
+  assertLegacyFinalizationJournal(root, started.review_id);
+  assert.doesNotMatch(git(root, ['show', '-s', '--format=%B']), /Peer-Review-Phase:/);
+  const recovered = await api.finalizeReview(input);
+  assert.equal(recovered.state, 'awaiting-phase-artifact');
+});
+
+test('legacy phased terminal finalization retry retains original journal and trailers', async (t) => {
+  const { root, author, started } = await acceptedPhasedReview(t, 'legacy-terminal-retry', 'spec');
+  const input = {
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:02:00.000Z',
+  };
+  const first = await api.finalizeReview(input, {
+    transactionRepository: legacyTransactionRepository(root),
+  });
+  assert.equal(first.state, 'accepted');
+  assertLegacyFinalizationJournal(root, started.review_id);
+  assert.doesNotMatch(git(root, ['show', '-s', '--format=%B']), /Peer-Review-Phase:/);
+  const retried = await api.finalizeReview(input);
+  assert.equal(retried.state, 'accepted');
+});
+
 async function reconcileThroughWorker(workspace, participant, now, calls) {
   const worker = createReviewWorker({
     registration: { workspace },

@@ -5,7 +5,13 @@ import { createReviewWorker } from '../../src/broker/worker.mjs';
 import { existsSync, readFileSync, realpathSync, writeFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { fixture, identity, NOW, replaceSection } from '../helpers/intervention-fixture.mjs';
-import { startReview, joinReview, submitReviewTurn, abandonReview } from '../../src/cli/run.mjs';
+import {
+  startReview,
+  joinReview,
+  submitReviewTurn,
+  abandonReview,
+  run,
+} from '../../src/cli/run.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { AprError } from '../../src/errors.mjs';
 import { fixtureStartupDeps } from '../helpers/internal-api.mjs';
@@ -130,6 +136,70 @@ test('replacement worker cannot reserve or deliver between suspension and fence 
   });
   assert.equal(providerCalls, 0);
   assert.equal(latestWakeOperation(started.paths.workspace), null);
+  assert.equal(statusReview(started.paths.workspace).review.recovery.fenced, true);
+});
+
+test('public broker suspend fences before removal and blocks reconcile and restart delivery', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), fixtureStartupDeps);
+  let deliveries = 0;
+  const createWorker = () =>
+    createReviewWorker({
+      registration: { workspace: started.paths.workspace },
+      adapter: {
+        automatic: true,
+        observation: {},
+        deliver: async () => {
+          deliveries += 1;
+          return { status: 'acknowledged' };
+        },
+      },
+      reconcile: async ({ adapter }) => {
+        await adapter.deliver({
+          expected_revision: inspectReviewAuthority(started.paths.workspace).state.protocol
+            .revision,
+        });
+      },
+      clock: { now: () => Date.parse(NOW) },
+    });
+  const original = createWorker();
+  await original.start();
+  const stdout = [];
+  const stderr = [];
+  const io = {
+    cwd: fx.root,
+    env: {},
+    stdout: { write: (value) => stdout.push(String(value)) },
+    stderr: { write: (value) => stderr.push(String(value)) },
+    brokerConnect: async () => ({
+      request: async (message) => {
+        assert.equal(message.command, 'suspend');
+        assert.equal(
+          existsSync(path.join(started.paths.workspace, 'manual-suspension.json')),
+          true
+        );
+        return { status: await original.suspend(), review_id: started.review_id };
+      },
+    }),
+    brokerInspectEvidence: () => ({
+      registrations: [],
+      recovery_records: [],
+      unreconciled_workspaces: [],
+    }),
+  };
+  assert.equal(
+    await run(['broker', 'suspend', started.paths.workspace, '--json'], io),
+    0,
+    stderr.join('')
+  );
+  assert.equal(JSON.parse(stdout.at(-1)).status, 'recovery-only');
+  assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), true);
+  await original.reconcile();
+  const replacement = createWorker();
+  await replacement.start();
+  await replacement.reconcile();
+  assert.equal(deliveries, 0);
   assert.equal(statusReview(started.paths.workspace).review.recovery.fenced, true);
 });
 

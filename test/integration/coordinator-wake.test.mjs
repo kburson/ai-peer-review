@@ -206,7 +206,7 @@ test('bounded coordinator status reports the latest durable outcome without sess
   assert.doesNotMatch(JSON.stringify(status), /opaque_handle|session_fingerprint|capsule_text/);
 });
 
-test('closed broker CLI authenticates project routing for reconcile, suspend, status, and stop', async (t) => {
+test('closed broker CLI authenticates project routing and refuses suspension without review authority', async (t) => {
   const root = workspace(t);
   const io = brokerIo((message) => {
     if (message.command === 'status') {
@@ -222,7 +222,7 @@ test('closed broker CLI authenticates project routing for reconcile, suspend, st
     if (message.command === 'stop')
       return { status: 'stopping', project_digest: 'fixture-project' };
     return {
-      status: message.command === 'suspend' ? 'recovery-only' : 'automatic-wait',
+      status: 'automatic-wait',
       review_id: path.basename(root),
       project_digest: 'fixture-project',
     };
@@ -234,8 +234,8 @@ test('closed broker CLI authenticates project routing for reconcile, suspend, st
   assert.equal(reconciled.status, 'automatic-wait');
   assert.doesNotMatch(JSON.stringify(reconciled), /opaque_handle|session_fingerprint|capsule_text/);
 
-  assert.equal(await run(['broker', 'suspend', root, '--json'], io), 0);
-  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).status, 'recovery-only');
+  assert.equal(await run(['broker', 'suspend', root, '--json'], io), 1);
+  assert.equal(io.brokerRequests.length, 1);
   assert.equal(await run(['broker', 'status', '--json'], io), 0, io.stderrBytes.join(''));
   assert.equal(JSON.parse(io.stdoutBytes.at(-1)).status, 'running');
   assert.equal(await run(['broker', 'stop', '--json'], io), 0);
@@ -244,7 +244,6 @@ test('closed broker CLI authenticates project routing for reconcile, suspend, st
     io.brokerRequests.map(({ message }) => [message.command, message.workspace]),
     [
       ['reconcile', root],
-      ['suspend', root],
       ['status', null],
       ['stop', null],
     ]
@@ -326,6 +325,42 @@ test('offline broker status reads project-local startup evidence without a test 
   assert.deepEqual(status.recovery.registrations, [path.join(registrations, 'review-01.json')]);
   assert.deepEqual(status.recovery.unreconciled_workspaces, [workspace]);
   assert.match(status.recovery.action, /broker reconcile/);
+});
+
+test('offline broker status survives a real missing native security helper without connector injection', async (t) => {
+  const projectRoot = mkdtempSync(path.join(tmpdir(), 'apr-broker-native-offline-'));
+  t.after(() => rmSync(projectRoot, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-b', 'trunk'], { cwd: projectRoot, stdio: 'ignore' });
+  const workspace = path.join(realpathSync(projectRoot), '.scratch', 'peer-review', 'review-01');
+  const registrations = path.join(
+    projectRoot,
+    '.scratch',
+    'peer-review',
+    'broker',
+    'registrations'
+  );
+  mkdirSync(workspace, { recursive: true });
+  mkdirSync(registrations, { recursive: true });
+  writeFileSync(path.join(registrations, 'review-01.json'), JSON.stringify({ workspace }));
+  writeFileSync(
+    path.join(workspace, 'startup-request.json'),
+    JSON.stringify({ stage: 'outcome-unknown' })
+  );
+  const stdout = [];
+  const stderr = [];
+  const io = {
+    cwd: projectRoot,
+    env: {},
+    brokerSecurityRoot: projectRoot,
+    stdout: { write: (value) => stdout.push(String(value)) },
+    stderr: { write: (value) => stderr.push(String(value)) },
+  };
+  assert.equal(await run(['broker', 'status', '--json'], io), 0, stderr.join(''));
+  const status = JSON.parse(stdout.at(-1));
+  assert.equal(status.status, 'offline');
+  assert.deepEqual(status.recovery.unreconciled_workspaces, [workspace]);
+  assert.equal(status.recovery.diagnostic.code, 'APR_BROKER_START_FAILED');
+  assert.match(status.recovery.diagnostic.message, /security helper/);
 });
 
 test('broker reconcile never replays an ambiguous provider action', async (t) => {
