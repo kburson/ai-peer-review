@@ -14,6 +14,7 @@ const AUTHOR_ACTIONS = new Set([
   'commit-acceptance',
   'advance-phase-artifact',
 ]);
+const WAKE_STATES = new Set(['runnable', 'automatic-wait']);
 
 function classify(status, adapter) {
   if (TERMINAL_STATES.has(status?.state)) return 'terminal';
@@ -139,7 +140,7 @@ export function createReviewWorker({
       if (!started) {
         started = true;
         observe();
-        if (state === 'automatic-wait') startCoordinator();
+        if (WAKE_STATES.has(state)) startCoordinator();
       }
       return state;
     },
@@ -148,7 +149,7 @@ export function createReviewWorker({
       if (!started) await this.start();
       observe();
       if (
-        state === 'automatic-wait' &&
+        WAKE_STATES.has(state) &&
         adapter?.observation &&
         typeof adapter?.deliver === 'function'
       ) {
@@ -156,7 +157,7 @@ export function createReviewWorker({
           typeof adapter.observation === 'function'
             ? await adapter.observation(registration)
             : adapter.observation;
-        if (suspended || closed || observe() !== 'automatic-wait') return state;
+        if (suspended || closed || !WAKE_STATES.has(observe())) return state;
         await reconcile({
           workspace: registration.workspace,
           observation,

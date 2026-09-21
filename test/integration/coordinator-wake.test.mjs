@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 import { canonicalProjection } from '../../src/protocol/service.mjs';
 import { run } from '../../src/cli/run.mjs';
+import { AprError } from '../../src/errors.mjs';
 import { decideWake } from '../../src/coordinator/decision.mjs';
-import { acquireCoordinatorLease, requestCoordinatorStop } from '../../src/coordinator/lease.mjs';
+import { requestCoordinatorStop } from '../../src/coordinator/lease.mjs';
 import { reserveWakeOperation } from '../../src/coordinator/ledger.mjs';
 import {
   coordinatorStatus,
@@ -119,9 +122,10 @@ function input(root, wakeAdapter, now = NOW) {
   };
 }
 
-function cliIo(wakeAdapter) {
+function brokerIo(respond, evidence = {}) {
   const stdout = [];
   const stderr = [];
+  const requests = [];
   return {
     cwd: process.cwd(),
     env: {},
@@ -130,9 +134,25 @@ function cliIo(wakeAdapter) {
     stderr: { write: (value) => stderr.push(String(value)) },
     stdoutBytes: stdout,
     stderrBytes: stderr,
-    coordinatorObservation: observation(),
-    coordinatorAdapter: wakeAdapter,
-    coordinatorInspect: () => authority(),
+    brokerRequests: requests,
+    brokerConnect: async ({ identity }) => {
+      let used = false;
+      return {
+        async request(message) {
+          if (used) throw new Error('broker connections accept exactly one command');
+          used = true;
+          requests.push({ project: identity, message });
+          return respond(message);
+        },
+      };
+    },
+    brokerInspectEvidence: () => ({
+      registrations: [],
+      recovery_records: [],
+      unreconciled_workspaces: [],
+      ...evidence,
+    }),
+    brokerInspectWorkspaceEvidence: () => ({ ambiguous: false }),
   };
 }
 
@@ -186,38 +206,137 @@ test('bounded coordinator status reports the latest durable outcome without sess
   assert.doesNotMatch(JSON.stringify(status), /opaque_handle|session_fingerprint|capsule_text/);
 });
 
-test('closed coordinator CLI reconciles, reports bounded status, and requests exact stop', async (t) => {
+test('closed broker CLI authenticates project routing for reconcile, suspend, status, and stop', async (t) => {
   const root = workspace(t);
-  writeReceipt(root);
-  const io = cliIo(adapter());
+  const io = brokerIo((message) => {
+    if (message.command === 'status') {
+      return {
+        status: 'running',
+        project_digest: 'fixture-project',
+        package_version: '0.2.2',
+        broker_protocol_version: 1,
+        node_major: 24,
+        reviews: 0,
+      };
+    }
+    if (message.command === 'stop')
+      return { status: 'stopping', project_digest: 'fixture-project' };
+    return {
+      status: message.command === 'suspend' ? 'recovery-only' : 'automatic-wait',
+      review_id: path.basename(root),
+      project_digest: 'fixture-project',
+    };
+  });
 
-  assert.equal(await run(['coordinator', 'reconcile', root, '--json'], io), 0);
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0);
   const reconciled = JSON.parse(io.stdoutBytes.at(-1));
   assert.equal(reconciled.command, 'reconcile');
-  assert.equal(reconciled.status, 'acknowledged');
+  assert.equal(reconciled.status, 'automatic-wait');
   assert.doesNotMatch(JSON.stringify(reconciled), /opaque_handle|session_fingerprint|capsule_text/);
 
-  assert.equal(await run(['coordinator', 'status', root, '--json'], io), 0);
-  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).latest.status, 'acknowledged');
-
-  const controller = acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, new Date(NOW), {
-    instanceId: 'cli-stop-instance',
-    nonce: 'cli-stop-nonce',
-  });
-  assert.equal(await run(['coordinator', 'stop', root, '--json'], io), 0);
-  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).status, 'stop-requested');
-  assert.equal(controller.stopRequested(), true);
-  controller.release();
+  assert.equal(await run(['broker', 'suspend', root, '--json'], io), 0);
+  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).status, 'recovery-only');
+  assert.equal(await run(['broker', 'status', '--json'], io), 0, io.stderrBytes.join(''));
+  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).status, 'running');
+  assert.equal(await run(['broker', 'stop', '--json'], io), 0);
+  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).status, 'stopping');
+  assert.deepEqual(
+    io.brokerRequests.map(({ message }) => [message.command, message.workspace]),
+    [
+      ['reconcile', root],
+      ['suspend', root],
+      ['status', null],
+      ['stop', null],
+    ]
+  );
+  assert.ok(io.brokerRequests.every(({ project }) => project.physicalRoot === process.cwd()));
 });
 
-test('coordinator reconcile fails visibly when the host did not inject a wake capability', async (t) => {
+test('broker stop refuses runnable and unreconciled project work', async (t) => {
   const root = workspace(t);
-  const io = cliIo(adapter());
-  delete io.coordinatorObservation;
-  delete io.coordinatorAdapter;
+  const refused = () => {
+    throw new AprError('APR_BROKER_STOP_REFUSED', 'Broker owns runnable work.', {
+      recovery: 'Reconcile or suspend the exact review.',
+    });
+  };
+  const runnable = brokerIo(refused);
+  assert.equal(await run(['broker', 'stop', '--json'], runnable), 1);
+  assert.equal(JSON.parse(runnable.stderrBytes.at(-1)).code, 'APR_BROKER_STOP_REFUSED');
+  assert.deepEqual(
+    runnable.brokerRequests.map(({ message }) => message.command),
+    ['stop']
+  );
 
-  assert.equal(await run(['coordinator', 'reconcile', root, '--json'], io), 1);
-  assert.equal(JSON.parse(io.stderrBytes.at(-1)).code, 'APR_WAKE_CAPABILITY_UNAVAILABLE');
+  const unreconciled = brokerIo(refused, {
+    unreconciled_workspaces: [root],
+  });
+  assert.equal(await run(['broker', 'stop', '--json'], unreconciled), 1);
+  assert.equal(JSON.parse(unreconciled.stderrBytes.at(-1)).code, 'APR_BROKER_STOP_REFUSED');
+  assert.deepEqual(
+    unreconciled.brokerRequests.map(({ message }) => message.command),
+    ['stop']
+  );
+});
+
+test('offline broker status reports recovery evidence without starting a broker', async (t) => {
+  const root = workspace(t);
+  const io = brokerIo(() => null, {
+    registrations: [path.join(root, 'registration.json')],
+    recovery_records: [path.join(root, 'recovery.json')],
+    unreconciled_workspaces: [root],
+  });
+  io.brokerConnect = async () => {
+    throw Object.assign(new Error('absent'), { code: 'ENOENT' });
+  };
+  assert.equal(await run(['broker', 'status', '--json'], io), 0);
+  const status = JSON.parse(io.stdoutBytes.at(-1));
+  assert.equal(status.status, 'offline');
+  assert.deepEqual(status.recovery.unreconciled_workspaces, [root]);
+  assert.match(status.recovery.action, /broker reconcile/);
+});
+
+test('offline broker status reads project-local startup evidence without a test projection', async (t) => {
+  const projectRoot = mkdtempSync(path.join(tmpdir(), 'apr-broker-offline-'));
+  t.after(() => rmSync(projectRoot, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-b', 'trunk'], { cwd: projectRoot, stdio: 'ignore' });
+  const physicalRoot = realpathSync(projectRoot);
+  const workspace = path.join(physicalRoot, '.scratch', 'peer-review', 'review-01');
+  const registrations = path.join(
+    physicalRoot,
+    '.scratch',
+    'peer-review',
+    'broker',
+    'registrations'
+  );
+  mkdirSync(workspace, { recursive: true });
+  mkdirSync(registrations, { recursive: true });
+  writeFileSync(path.join(registrations, 'review-01.json'), JSON.stringify({ workspace }));
+  writeFileSync(
+    path.join(workspace, 'startup-request.json'),
+    JSON.stringify({ stage: 'outcome-unknown' })
+  );
+  const io = brokerIo(() => null);
+  io.cwd = projectRoot;
+  delete io.brokerInspectEvidence;
+  io.brokerConnect = async () => {
+    throw Object.assign(new Error('absent'), { code: 'ENOENT' });
+  };
+  assert.equal(await run(['broker', 'status', '--json'], io), 0, io.stderrBytes.join(''));
+  const status = JSON.parse(io.stdoutBytes.at(-1));
+  assert.deepEqual(status.recovery.registrations, [path.join(registrations, 'review-01.json')]);
+  assert.deepEqual(status.recovery.unreconciled_workspaces, [workspace]);
+  assert.match(status.recovery.action, /broker reconcile/);
+});
+
+test('broker reconcile never replays an ambiguous provider action', async (t) => {
+  const root = workspace(t);
+  const io = brokerIo(() => {
+    throw new Error('must not request broker replay');
+  });
+  io.brokerInspectWorkspaceEvidence = () => ({ ambiguous: true });
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 1);
+  assert.equal(JSON.parse(io.stderrBytes.at(-1)).code, 'APR_WAKE_OUTCOME_UNKNOWN');
+  assert.equal(io.brokerRequests.length, 0);
 });
 
 test('restart reconciles a crash after reservation before provider delivery', async (t) => {

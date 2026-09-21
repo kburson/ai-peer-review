@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ai-peer-review.cli-result/v1",
+  "$comment": "Project broker operator commands use the separate ai-peer-review.broker-result/v1 envelope and never enter this review-result schema.",
   "type": "object",
   "additionalProperties": false,
   "required": [

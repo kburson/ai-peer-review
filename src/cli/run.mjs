@@ -19,10 +19,13 @@ import {
 } from '../authority/canonicalize.mjs';
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
+import { requestBroker } from '../broker/client.mjs';
+import { canonicalProjectIdentity } from '../broker/identity.mjs';
+import { connectBroker } from '../broker/ipc.mjs';
+import { brokerPaths } from '../broker/paths.mjs';
+import { platformSecurity } from '../broker/platform.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { applyReviewRecord, planReviewRecord } from '../collateral/review-record.mjs';
-import { requestCoordinatorStop } from '../coordinator/lease.mjs';
-import { coordinatorStatus, reconcileWake, runCoordinator } from '../coordinator/service.mjs';
 import { loadConfig } from '../config/load.mjs';
 import { setup } from '../config/setup.mjs';
 import {
@@ -101,7 +104,13 @@ import {
 } from '../transport/registry.mjs';
 import { createResumeTransport, isOfficialResumeCommand } from '../transport/resume.mjs';
 import { residentHealth } from '../transport/resident.mjs';
-import { explainError, helpRequest, markdownCodeSpan, renderCommand } from './help-data.mjs';
+import {
+  explainError,
+  helpRequest,
+  markdownCodeSpan,
+  quoteShellArgument,
+  renderCommand,
+} from './help-data.mjs';
 import { parseCommand } from './parse.mjs';
 
 const DEFAULT_AUTHORITY = Object.freeze({
@@ -234,11 +243,11 @@ function repositoryRelative(root, absolute, label = 'repository path') {
 
 function noCommitOwnedChangedPaths(state) {
   const { context, paths } = sealedPaths(state);
+  const maximum = state.protocol.max_turns * (state.protocol.phases?.kinds?.length ?? 1);
   return new Set(
-    [
-      ...Object.values(trackedStartupPaths(paths)),
-      ...everyReservedPath(paths, state.protocol.max_turns),
-    ].map((absolute) => repositoryRelative(context.repository_root, absolute))
+    [...Object.values(trackedStartupPaths(paths)), ...everyReservedPath(paths, maximum)].map(
+      (absolute) => repositoryRelative(context.repository_root, absolute)
+    )
   );
 }
 
@@ -2809,14 +2818,24 @@ function sealedAuthorFromEvent(root, event) {
   });
 }
 
+function phaseTrailers(state, trailers) {
+  return state.protocol.phases
+    ? { ...trailers, 'Peer-Review-Phase': String(state.protocol.phases.cursor + 1) }
+    : trailers;
+}
+
+function turnBudgetExhausted(protocol) {
+  return (protocol.phases?.phase_turns_used ?? protocol.turns_used) >= protocol.max_turns;
+}
+
 function authorTrailers(state, event, decision) {
-  return {
+  return phaseTrailers(state, {
     'Peer-Review-ID': state.protocol.review_id,
     'Peer-Review-Turn': String(event.payload.turn),
     'Peer-Review-Artifact-Blob': event.payload.artifact.blob,
     'Peer-Review-Reviewer-Response': decision.payload.response.digest,
     'Peer-Review-Author-Response': event.payload.response.digest,
-  };
+  });
 }
 
 async function completeAuthorHandoff({
@@ -3223,10 +3242,9 @@ export async function submitAuthorTurn(input, deps = {}) {
     };
     const nextReviewerPath = paths.reviewerResponse(turn + 1);
     const repositoryBoundary = git.reviewerBoundary(root, nextReviewerPath.relative);
-    const eventType =
-      turn >= state.protocol.max_turns
-        ? 'author-closing-round-sealed-no-commit'
-        : 'author-revision-sealed-no-commit';
+    const eventType = turnBudgetExhausted(state.protocol)
+      ? 'author-closing-round-sealed-no-commit'
+      : 'author-revision-sealed-no-commit';
     const sealedState = await mutateReview(absolute, expected(state), (current) => {
       assertCurrentParticipant(current, 'author', input.identity, input.now);
       const lockedSeal = sealNoCommitHandoff({
@@ -3312,22 +3330,21 @@ export async function submitAuthorTurn(input, deps = {}) {
         ]
       : [decision.payload.response.path, repositoryRelative(root, responseFile, 'author response')],
   };
-  const trailers = {
+  const trailers = phaseTrailers(state, {
     'Peer-Review-ID': state.protocol.review_id,
     'Peer-Review-Turn': String(turn),
     'Peer-Review-Artifact-Blob': artifactBlob,
     'Peer-Review-Reviewer-Response': decision.payload.response.digest,
     'Peer-Review-Author-Response': sealedResponse.digest,
-  };
+  });
   const message = `Peer review revision ${turn}`;
   const commit = commitExactPaths(transactionRepository, transaction, message, trailers);
   checkpoint(deps, 'transaction-completed');
   const nextReviewerPath = paths.reviewerResponse(turn + 1);
   const repositoryBoundary = git.reviewerBoundary(root, nextReviewerPath.relative);
-  const eventType =
-    turn >= state.protocol.max_turns
-      ? 'author-closing-round-committed'
-      : 'author-revision-committed';
+  const eventType = turnBudgetExhausted(state.protocol)
+    ? 'author-closing-round-committed'
+    : 'author-revision-committed';
   const committed = await mutateReview(absolute, expected(state), (current) => {
     assertCurrentParticipant(current, 'author', input.identity, input.now);
     const retry = commitExactPaths(transactionRepository, transaction, message, trailers);
@@ -3621,7 +3638,7 @@ function validateTerminalFinalization({
     );
   }
   if (state.protocol.commit_mode === 'normal') {
-    const trailers = finalTrailers({ state, acceptance, manifest });
+    const trailers = phaseTrailers(state, finalTrailers({ state, acceptance, manifest }));
     const transaction = pathsToSeals(decision ? [decision, manifest] : [acceptance, manifest], {
       expected_head: expectedHead,
     });
@@ -3822,7 +3839,7 @@ export async function finalizeReview(input, deps = {}) {
       let transaction = null;
       let trailers = null;
       if (state.protocol.commit_mode === 'normal') {
-        trailers = finalTrailers({ state, acceptance, manifest });
+        trailers = phaseTrailers(state, finalTrailers({ state, acceptance, manifest }));
         transaction = pathsToSeals([acceptance, manifest], { expected_head: expectedHead });
         committed = commitExactPaths(
           transactionRepository,
@@ -3916,7 +3933,7 @@ export async function finalizeReview(input, deps = {}) {
     let trailers = null;
     let transaction = null;
     if (state.protocol.commit_mode === 'normal') {
-      trailers = finalTrailers({ state, acceptance, manifest });
+      trailers = phaseTrailers(state, finalTrailers({ state, acceptance, manifest }));
       transaction = pathsToSeals([acceptance, manifest], { expected_head: expectedHead });
       commit = commitExactPaths(transactionRepository, transaction, finalMessage(state), trailers);
       checkpoint(deps, 'finalization-commit-created');
@@ -4046,7 +4063,7 @@ export async function finalizeReview(input, deps = {}) {
   let trailers = null;
   let transaction = null;
   if (state.protocol.commit_mode === 'normal') {
-    trailers = finalTrailers({ state, acceptance: decision, manifest });
+    trailers = phaseTrailers(state, finalTrailers({ state, acceptance: decision, manifest }));
     transaction = pathsToSeals([decision, manifest], { expected_head: expectedHead });
     commit = commitExactPaths(transactionRepository, transaction, finalMessage(state), trailers);
     checkpoint(deps, 'finalization-commit-created');
@@ -4142,82 +4159,166 @@ function writeClaudeLaunchResult(stream, value) {
   stream.write(`${lines.join('\n')}\n`);
 }
 
-function coordinatorProjection(command, workspace, value) {
-  if (command === 'status') return value;
-  if (command === 'stop') {
-    return Object.freeze({
-      schema: 'ai-peer-review.coordinator-result/v1',
-      command,
-      review_id: path.basename(workspace),
-      status: 'stop-requested',
-      instance_id: value.instance_id,
-    });
-  }
-  const operation = command === 'run' ? value.last : value;
+function brokerProjection(command, value) {
   return Object.freeze({
-    schema: 'ai-peer-review.coordinator-result/v1',
+    schema: 'ai-peer-review.broker-result/v1',
     command,
-    review_id: operation?.review_id ?? path.basename(workspace),
-    status: command === 'run' ? value.status : (operation?.status ?? 'idle'),
-    latest: operation?.operation_id
-      ? Object.freeze({
-          operation_id: operation.operation_id,
-          protocol_revision: operation.protocol_revision,
-          target_role: operation.target_role,
-          status: operation.status,
-          outcome_count: operation.outcomes?.length ?? 0,
-        })
-      : null,
+    ...value,
   });
 }
 
-function writeCoordinatorResult(stream, value) {
-  const detail = value.latest
-    ? ` revision ${value.latest.protocol_revision} ${value.latest.target_role} ${value.latest.status}`
-    : '';
-  stream.write(
-    `Coordinator ${value.review_id}: ${value.status ?? (value.running ? 'running' : 'stopped')}${detail}\n`
-  );
+function writeBrokerResult(stream, value) {
+  const detail = value.review_id ? ` review ${value.review_id}` : '';
+  stream.write(`Broker ${value.status}${detail}\n`);
 }
 
-async function coordinatorCommand(verb, workspace, io) {
-  if (verb === 'status') return coordinatorStatus(workspace);
-  if (verb === 'stop') {
-    return coordinatorProjection(
-      verb,
-      workspace,
-      requestCoordinatorStop(workspace, io.now ?? new Date())
-    );
+function brokerVersions(io) {
+  if (io.brokerVersions) return io.brokerVersions;
+  const packageVersion = JSON.parse(
+    readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+  ).version;
+  return Object.freeze({
+    package_version: packageVersion,
+    broker_protocol_version: 1,
+    node_major: Number(process.versions.node.split('.')[0]),
+  });
+}
+
+function listRegularJson(directory) {
+  if (!existsSync(directory)) return [];
+  const status = lstatSync(directory);
+  if (!status.isDirectory() || status.isSymbolicLink()) return [directory];
+  return readdirSync(directory)
+    .filter((name) => name.endsWith('.json'))
+    .sort()
+    .map((name) => path.join(directory, name));
+}
+
+function inspectBrokerEvidence(project) {
+  const root = path.join(project.physicalRoot, '.scratch', 'peer-review', 'broker');
+  const registrations = listRegularJson(path.join(root, 'registrations'));
+  const recoveryRecords = listRegularJson(path.join(root, 'recovery'));
+  const unreconciled = new Set();
+  for (const file of registrations) {
+    try {
+      const record = JSON.parse(readFileSync(file, 'utf8'));
+      const journal = JSON.parse(
+        readFileSync(path.join(record.workspace, 'startup-request.json'), 'utf8')
+      );
+      if (['launch-pending', 'outcome-unknown'].includes(journal.stage)) {
+        unreconciled.add(record.workspace);
+      }
+    } catch {
+      unreconciled.add(file);
+    }
   }
-  if (!io.coordinatorObservation || !io.coordinatorAdapter) {
-    fail(
-      'APR_WAKE_CAPABILITY_UNAVAILABLE',
-      'The host did not inject an exact durable-wake participant and adapter.',
-      `Use peer-review status ${workspace} --next as the bounded manual fallback.`
-    );
+  for (const file of recoveryRecords) {
+    try {
+      const record = JSON.parse(readFileSync(file, 'utf8'));
+      unreconciled.add(record.workspace ?? file);
+    } catch {
+      unreconciled.add(file);
+    }
   }
-  const input = {
-    workspace,
-    observation: io.coordinatorObservation,
-    adapter: io.coordinatorAdapter,
-    now: io.now ?? new Date(),
-    platform: io.platform ?? process.platform,
-    inspect: io.coordinatorInspect,
-  };
+  return Object.freeze({
+    registrations: Object.freeze(registrations),
+    recovery_records: Object.freeze(recoveryRecords),
+    unreconciled_workspaces: Object.freeze([...unreconciled].sort()),
+  });
+}
+
+function inspectBrokerWorkspaceEvidence(workspace) {
+  try {
+    const journal = JSON.parse(readFileSync(path.join(workspace, 'startup-request.json'), 'utf8'));
+    return Object.freeze({
+      ambiguous: ['launch-pending', 'outcome-unknown'].includes(journal.stage),
+    });
+  } catch {
+    return Object.freeze({ ambiguous: false });
+  }
+}
+
+function offlineBrokerStatus(project, evidence) {
+  const workspace = evidence.unreconciled_workspaces[0] ?? null;
+  return brokerProjection('status', {
+    status: 'offline',
+    project_digest: project.digest,
+    recovery: Object.freeze({
+      ...evidence,
+      action: workspace
+        ? `peer-review broker reconcile ${quoteShellArgument(workspace)}`
+        : 'Retry peer-review broker status --json after restoring authentic broker discovery.',
+    }),
+  });
+}
+
+async function brokerCommand(verb, workspace, io) {
+  const security =
+    io.brokerPlatform ??
+    (io.brokerConnect
+      ? Object.freeze({
+          kind: process.platform,
+          canonicalPath: realpathSync,
+          userId: () => String(process.geteuid?.() ?? process.env.USERNAME),
+        })
+      : platformSecurity());
+  const project = canonicalProjectIdentity({
+    cwd: io.cwd,
+    platform: Object.freeze({
+      ...security,
+      repository: io.repository ?? createGitRepository(),
+    }),
+  });
+  const versions = brokerVersions(io);
+  const paths = io.brokerConnect
+    ? null
+    : brokerPaths({
+        identity: project,
+        platform: security,
+        env: io.env,
+        home: os.homedir(),
+      });
+  const inspectEvidence = io.brokerInspectEvidence ?? inspectBrokerEvidence;
+  const evidence = inspectEvidence(project);
   if (verb === 'reconcile') {
-    return coordinatorProjection(verb, workspace, await reconcileWake(input));
+    const inspectWorkspace = io.brokerInspectWorkspaceEvidence ?? inspectBrokerWorkspaceEvidence;
+    if (inspectWorkspace(workspace).ambiguous) {
+      fail(
+        'APR_WAKE_OUTCOME_UNKNOWN',
+        'Ambiguous provider action cannot be replayed by broker reconciliation.',
+        'Preserve provider and startup evidence and reconcile the exact provider operation manually.',
+        { workspace }
+      );
+    }
   }
-  return coordinatorProjection(
-    verb,
-    workspace,
-    await runCoordinator({
-      ...input,
-      owner: io.coordinatorOwner ?? { kind: 'cli', pid: process.pid },
-      leaseOptions: io.coordinatorLeaseOptions,
-      subscribe: io.coordinatorSubscribe,
-      waitForStop: io.coordinatorWaitForStop,
-    })
-  );
+  const connect = io.brokerConnect ?? ((input) => connectBroker(input, security));
+  let client;
+  try {
+    client = await connect({ identity: project, paths, versions });
+  } catch (error) {
+    if (verb === 'status' && ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code)) {
+      return offlineBrokerStatus(project, evidence);
+    }
+    throw error;
+  }
+  let value;
+  try {
+    value = await requestBroker(client, verb, workspace);
+  } finally {
+    client.connection?.close?.();
+  }
+  return brokerProjection(verb, value);
+}
+
+function assertBrokerWorkspace(projectRoot, workspace) {
+  const relative = path.relative(projectRoot, workspace);
+  if (relative === '' || relative === '..' || relative.startsWith(`..${path.sep}`)) {
+    fail(
+      'APR_BROKER_AUTH_FAILED',
+      'Broker review workspace is outside the canonical current project.',
+      'Run the command from the registered project and use its exact contained workspace.'
+    );
+  }
 }
 
 function consolidationResult(plan, applied = null) {
@@ -4584,14 +4685,16 @@ export async function run(argv, io) {
       });
       return 0;
     }
-    if (parsed.command === 'coordinator') {
+    if (parsed.command === 'broker') {
       const [verb, workspaceArg] = parsed.args;
-      const workspace = path.isAbsolute(workspaceArg)
-        ? workspaceArg
-        : path.resolve(io.cwd, workspaceArg);
-      const response = await coordinatorCommand(verb, workspace, io);
+      const workspace = workspaceArg ? path.resolve(io.cwd, workspaceArg) : null;
+      if (workspace) {
+        const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
+        assertBrokerWorkspace(repositoryRoot, workspace);
+      }
+      const response = await brokerCommand(verb, workspace, io);
       if (parsed.options.json) writeJson(io.stdout, response);
-      else writeCoordinatorResult(io.stdout, response);
+      else writeBrokerResult(io.stdout, response);
       return 0;
     }
     if (parsed.command === 'launch-reviewer') {

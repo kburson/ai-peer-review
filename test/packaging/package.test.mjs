@@ -157,14 +157,6 @@ test('public exports and command guidance remain narrow and installation-aware',
       "export { inspectRecordLineage, validateSuccessor } from './protocol/record-lineage.mjs';\n" +
       "export { currentPhase, isFinalPhase, isPhased, parsePhaseKinds } from './protocol/phases.mjs';\n" +
       "export { buildPhaseManifest, sealPhaseManifest } from './manifest/render.mjs';\n" +
-      "export { decideWake, canonicalWakeCapsule, wakeOperationKey } from './coordinator/decision.mjs';\n" +
-      "export { inspectCoordinatorLease, requestCoordinatorStop } from './coordinator/lease.mjs';\n" +
-      'export {\n' +
-      '  appendWakeOutcome,\n' +
-      '  readWakeOperation,\n' +
-      '  reserveWakeOperation,\n' +
-      "} from './coordinator/ledger.mjs';\n" +
-      "export { coordinatorStatus, reconcileWake, runCoordinator } from './coordinator/service.mjs';\n" +
       'export {\n' +
       '  refreshResidentLease,\n' +
       '  residentHealth,\n' +

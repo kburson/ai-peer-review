@@ -38,13 +38,13 @@ function server() {
   };
 }
 
-function worker() {
+function worker(observe = () => 'automatic-wait') {
   return {
     start: async () => {},
     reconcile: async () => 'automatic-wait',
     suspend: async () => {},
     close: async () => {},
-    workState: () => 'automatic-wait',
+    workState: observe,
   };
 }
 
@@ -111,6 +111,7 @@ test('multiple reviews share one broker while a foreign registration is refused'
     },
   ];
   const workers = [];
+  const states = new Map(registrations.map((item) => [item.review_id, 'automatic-wait']));
   const brokerServer = server();
   const brokerClock = clock();
   const running = runBroker({
@@ -123,7 +124,7 @@ test('multiple reviews share one broker while a foreign registration is refused'
     },
     workerFactory(item) {
       workers.push(item.review_id);
-      return worker();
+      return worker(() => states.get(item.review_id));
     },
     clock: brokerClock,
     server: brokerServer,
@@ -143,8 +144,25 @@ test('multiple reviews share one broker while a foreign registration is refused'
     { code: 'APR_BROKER_AUTH_FAILED' }
   );
 
-  registrations.splice(0);
-  await brokerServer.request({ id: 'stop', command: 'stop', workspace: null });
+  registrations.splice(2);
+  await assert.rejects(
+    brokerServer.request({ id: 'stop-runnable', command: 'stop', workspace: null }),
+    {
+      code: 'APR_BROKER_STOP_REFUSED',
+    }
+  );
+  for (const item of registrations) {
+    states.set(item.review_id, 'terminal');
+    await brokerServer.request({
+      id: `reconcile-${item.review_id}`,
+      command: 'reconcile',
+      workspace: item.workspace,
+    });
+  }
+  assert.equal(
+    (await brokerServer.request({ id: 'stop', command: 'stop', workspace: null })).status,
+    'stopping'
+  );
   await running;
 });
 
@@ -295,6 +313,7 @@ test('spawn errors become APR_BROKER_START_FAILED instead of escaping asynchrono
 test('broker resolves registrations dynamically after startup', async () => {
   const local = identity('5'.repeat(64), '/projects/dynamic');
   const registrations = [];
+  let state = 'automatic-wait';
   const brokerServer = server();
   const brokerClock = clock();
   const running = runBroker({
@@ -305,7 +324,7 @@ test('broker resolves registrations dynamically after startup', async () => {
       list: async () => [...registrations],
       get: async (workspace) => registrations.find((item) => item.workspace === workspace) ?? null,
     },
-    workerFactory: worker,
+    workerFactory: () => worker(() => state),
     clock: brokerClock,
     server: brokerServer,
   });
@@ -322,6 +341,19 @@ test('broker resolves registrations dynamically after startup', async () => {
     workspace: added.workspace,
   });
   assert.equal(response.review_id, added.review_id);
-  await brokerServer.request({ id: 'stop-dynamic', command: 'stop', workspace: null });
+  await assert.rejects(
+    brokerServer.request({ id: 'stop-dynamic-runnable', command: 'stop', workspace: null }),
+    { code: 'APR_BROKER_STOP_REFUSED' }
+  );
+  state = 'terminal';
+  await brokerServer.request({
+    id: 'reconcile-dynamic',
+    command: 'reconcile',
+    workspace: added.workspace,
+  });
+  assert.equal(
+    (await brokerServer.request({ id: 'stop-dynamic', command: 'stop', workspace: null })).status,
+    'stopping'
+  );
   await running;
 });

@@ -32,7 +32,7 @@ function success() {
   });
 }
 
-test('registers one strict wait_for_handoff tool with the expected schema', () => {
+test('registers only the strict wait_for_handoff tool and no broker internals', () => {
   const fake = fakeServerFactory();
   createHandoffMcpServer({
     createServer: fake.createServer,
@@ -45,6 +45,7 @@ test('registers one strict wait_for_handoff tool with the expected schema', () =
   assert.equal(fake.registered.length, 1);
   const [{ name, definition }] = fake.registered;
   assert.equal(name, 'wait_for_handoff');
+  assert.doesNotMatch(name, /coordinator|broker/);
   assert.match(definition.description, /blocks without model turns/i);
   assert.deepEqual(
     definition.inputSchema.safeParse({

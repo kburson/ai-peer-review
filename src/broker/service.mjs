@@ -239,6 +239,29 @@ export async function runBroker(input = {}) {
       });
     }
     if (message?.command === 'stop') {
+      const unreconciled = [];
+      try {
+        for (const registration of await registry.list()) {
+          const worker = await addWorker(registration);
+          if (worker.workState() === 'recovery-only') unreconciled.push(registration.workspace);
+        }
+        await settleWorkers();
+      } catch (error) {
+        fail(
+          'APR_BROKER_STOP_REFUSED',
+          'Broker registration or worker authority could not be reconciled before stop.',
+          'Preserve project broker evidence and reconcile the exact registered reviews before retrying.',
+          { cause_code: error?.code ?? 'unknown' }
+        );
+      }
+      if (workers.size || unreconciled.length) {
+        fail(
+          'APR_BROKER_STOP_REFUSED',
+          'Broker still owns runnable or unreconciled reviews.',
+          'Reconcile or suspend the reported reviews before retrying broker stop.',
+          { active_workspaces: [...workers.keys()], unreconciled_workspaces: unreconciled }
+        );
+      }
       stop();
       return Object.freeze({ status: 'stopping', project_digest: identity.digest });
     }

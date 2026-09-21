@@ -200,6 +200,71 @@ test('supported automatic wait remains resident until work becomes terminal', as
   assert.equal(exited, true);
 });
 
+test('serialized broker stop refuses a runnable registration added after a status inspection', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  const item = registration('review-stop-race');
+  const registrations = [];
+  const worker = fakeWorker('runnable', ['terminal']);
+  let exited = false;
+  const running = runBroker(
+    brokerInput({
+      clock,
+      server,
+      registrations,
+      workers: new Map([[item.review_id, worker]]),
+    })
+  ).then(() => (exited = true));
+
+  await server.ready;
+  assert.equal(
+    (await server.request({ id: 'status-before-register', command: 'status', workspace: null }))
+      .reviews,
+    0
+  );
+  registrations.push(item);
+  await assert.rejects(
+    server.request({ id: 'stop-after-register', command: 'stop', workspace: null }),
+    {
+      code: 'APR_BROKER_STOP_REFUSED',
+    }
+  );
+  assert.equal(exited, false);
+  assert.equal(worker.workState(), 'runnable');
+  await server.request({
+    id: 'reconcile-before-stop',
+    command: 'reconcile',
+    workspace: item.workspace,
+  });
+  assert.equal(
+    (await server.request({ id: 'stop-after-reconcile', command: 'stop', workspace: null })).status,
+    'stopping'
+  );
+  await running;
+  assert.equal(exited, true);
+});
+
+test('serialized broker stop refuses recovery-only registration evidence', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  const item = registration('review-unreconciled');
+  const worker = fakeWorker('recovery-only');
+  const running = runBroker(
+    brokerInput({
+      clock,
+      server,
+      registrations: [item],
+      workers: new Map([[item.review_id, worker]]),
+    })
+  );
+  await server.ready;
+  await assert.rejects(server.request({ id: 'stop-recovery', command: 'stop', workspace: null }), {
+    code: 'APR_BROKER_STOP_REFUSED',
+  });
+  await clock.advance(60_000);
+  await running;
+});
+
 test('recovery-only work records suspension before releasing resources', async () => {
   const order = [];
   const worker = createReviewWorker({
@@ -385,7 +450,7 @@ test('rejected registration preserves the broker idle deadline', async () => {
   assert.equal(exited, true);
 });
 
-test('broker shutdown persists recovery before releasing active worker resources', async () => {
+test('broker suspension persists recovery before idle shutdown releases active worker resources', async () => {
   const clock = fakeClock();
   const server = fakeServer();
   const order = [];
@@ -415,7 +480,8 @@ test('broker shutdown persists recovery before releasing active worker resources
   );
 
   await server.ready;
-  await server.request({ id: 'stop-active', command: 'stop', workspace: null });
+  await server.request({ id: 'suspend-active', command: 'suspend', workspace: item.workspace });
+  await clock.advance(60_000);
   await running;
   assert.deepEqual(order, ['persist-recovery', 'adapter-close', 'resource-release']);
 });
@@ -434,7 +500,9 @@ test('broker retains ownership when worker recovery persistence fails', async ()
         [
           item.review_id,
           {
-            start: async () => {},
+            start: async () => {
+              throw new Error('startup observation failed');
+            },
             reconcile: async () => {},
             suspend: async () => {
               throw new Error('recovery write failed');
@@ -447,8 +515,6 @@ test('broker retains ownership when worker recovery persistence fails', async ()
     }),
     owner: { release: () => (ownerReleased = true) },
   });
-  await server.ready;
-  await server.request({ id: 'stop-failed-recovery', command: 'stop', workspace: null });
   await assert.rejects(running, /recovery write failed/);
   assert.equal(ownerReleased, false);
 });
