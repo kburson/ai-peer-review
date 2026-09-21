@@ -575,6 +575,51 @@ test('start validates transport and seals the no-commit Git baseline', async (t)
   );
 });
 
+test('automatic start accepts a provider-observed author fingerprint only when it matches identity', async (t) => {
+  const fx = repositoryFixture('apr-automatic-author-');
+  t.after(fx.cleanup);
+  const author = identity('author', 'automatic-author');
+  const observation = {
+    session_fingerprint: author.session_fingerprint,
+    capability: 'live-wait',
+    adapter_version: 'fixture-v1',
+    lease: {
+      schema: 'ai-peer-review.resident-lease/v1',
+      process_instance_id: 'test-author',
+      pid: null,
+      opaque_handle: 'automatic-author',
+      host: 'codex',
+      adapter_version: 'fixture-v1',
+      heartbeat_sequence: 1,
+      observed_at: NOW,
+      expires_at: '2026-09-08T12:00:30.000Z',
+    },
+  };
+  const input = {
+    ...fixtureSelection('codex', 'gpt-test'),
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: author,
+    reviewId: 'review-automatic-author',
+    transportMode: 'automatic-required',
+    transportObservation: observation,
+    now: NOW,
+  };
+  await assert.rejects(
+    startReview(
+      {
+        ...input,
+        transportObservation: { ...observation, session_fingerprint: 'sha256:' + 'a'.repeat(64) },
+      },
+      fixtureStartupDeps
+    ),
+    { code: 'APR_IDENTITY_CONFLICT' }
+  );
+  const started = await startReview(input, fixtureStartupDeps);
+  assert.equal(started.review.author_transport_capability, 'live-wait');
+});
+
 test('start verifies and consumes an exact prevention-grade pin-verifier grant', async (t) => {
   const fx = repositoryFixture();
   t.after(fx.cleanup);

@@ -202,6 +202,7 @@ export function createClaudeProviderSurface(options = {}) {
     });
   };
   return Object.freeze({
+    nativeAutomatic: false,
     async conformance() {
       const observed = await version();
       const supported = observed === SUPPORTED_SURFACE_VERSION;

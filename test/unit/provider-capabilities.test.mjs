@@ -133,7 +133,8 @@ test('pinned Claude stream and transcript adapter exposes exact reviewer launch 
   assert.equal(observed.reviewerLaunchable, true);
   assert.ok(observed.transport.includes('automatic-required'));
   const reviewer = await adapter.capabilities({ selection: { classification: 'SPR' } });
-  assert.equal(reviewer.native.length, 1);
+  assert.equal(reviewer.native.length, 0);
+  assert.ok(reviewer.broker.some((entry) => entry.transport_mode === 'automatic-required'));
 });
 
 test('method presence without official exact-session evidence never advertises automatic SPR', async () => {

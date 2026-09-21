@@ -475,7 +475,19 @@ function ensureSealedStartupFile(file, digest, currentTemplateBytes) {
 function configuredTransport(input) {
   const mode = input.transportMode ?? 'manual';
   if (mode === 'automatic-required') {
-    const observation = validateAutomaticParticipant(input.transportObservation, input.now);
+    const observed = input.transportObservation;
+    if (
+      observed?.session_fingerprint !== undefined &&
+      observed.session_fingerprint !== input.identity?.session_fingerprint
+    )
+      fail(
+        'APR_IDENTITY_CONFLICT',
+        'Author transport session differs from the sealed author.',
+        'Re-observe the exact provider session before starting the review.'
+      );
+    const { session_fingerprint: _fingerprint, ...participantObservation } = observed ?? {};
+    void _fingerprint;
+    const observation = validateAutomaticParticipant(participantObservation, input.now);
     if (
       input.transportCapability !== undefined &&
       input.transportCapability !== observation.capability

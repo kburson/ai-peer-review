@@ -270,7 +270,7 @@ export function createProviderAdapter({
       const conformance = await provenSurface();
       const automatic = available && conformance.reviewerLaunchable;
       const native =
-        automatic && selection?.classification === 'SPR'
+        automatic && surface?.nativeAutomatic !== false && selection?.classification === 'SPR'
           ? [
               Object.freeze({
                 exact_session: true,
