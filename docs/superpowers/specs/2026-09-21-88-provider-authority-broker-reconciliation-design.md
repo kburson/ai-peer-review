@@ -68,11 +68,13 @@ No provider is silently substituted when a selected surface fails a gate.
 
 Before a reviewer claims a turn, compare the sealed selection with an
 independent, current observation from the selected provider's official local
-surface. The observation must be bound to the exact provider session and
-record its source, time, adapter version, and operation ID. The claim requires
-matching provider family, host, exact model, effort, and distinct session
-identity. Persist only bounded, non-secret evidence or a digest and owned
-pointer; never put raw provider handles or credentials in tracked collateral.
+surface. Provider evidence must be bound to the exact provider session and
+record its source, time, and operation ID. The executing pinned runtime
+separately attests its own adapter version; that value is not represented as
+provider-emitted metadata. The claim requires matching provider family, host,
+exact model, effort, adapter version, and distinct session identity. Persist
+only bounded, non-secret evidence or a digest and owned pointer; never put raw
+provider handles or credentials in tracked collateral.
 
 An observation cannot obtain `runtime` assurance from environment variables,
 generated invitations, launch arguments, or fields copied from the sealed
@@ -80,7 +82,7 @@ request. A provider-reported model is evidence for the model only. A command
 flag for effort is a requested setting, not proof of the effective effort
 unless an official acknowledgment or session/result record binds that setting
 to the exact run. Missing, ambiguous, stale, or divergent evidence denies the
-runtime claim before reviewer work. A deliberately declared identity remains
+runtime claim before the reviewer turn is claimed. A deliberately declared identity remains
 the existing restricted manual-assurance path; it cannot satisfy provider
 conformance or automatic wake.
 
@@ -133,7 +135,7 @@ surface before any retry. A worker with no conformant delivery surface is
 honestly recovery-only and cannot satisfy an automatic request.
 
 The first installed-package release gate must prove at least one real,
-supported local-provider path through this production assembly, not just an
+supported local-provider automatic handoff through this production assembly, not just an
 injected worker fixture. If none of the three installed provider surfaces
 can furnish the required observation and operation semantics, #88 and #39
 remain open for an explicit scope decision. Passing offline fixture tests
