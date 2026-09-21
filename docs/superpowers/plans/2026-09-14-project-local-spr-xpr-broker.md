@@ -358,6 +358,13 @@ Define `startWithUnavailableBroker`, `createdEvents`, and `providerCalls` in thi
 - [ ] Preserve all legacy manual operations without a live broker. For registered new reviews, offline protocol submission remains available but automatic delivery must first be fenced: request authenticated suspension, wait for in-flight operation settlement, then record the fence; if broker is dead, verify OS ownership and reconcile provider outcome. Unknown outcome returns its existing error and exact reconciliation command, never a duplicate wake. A later worker revalidates event revision and the fence before delivery.
 - [ ] Test preserved `--phases`, reviews-root/template, record ID, issue, turn/claim limits, bootstrap grant, no-commit/test authority, and explicit transports end to end. `automatic-required` still requires every resident/capability/health row. Run `npm run test:integration`, `npm run test:smoke`, and `npm test` in addition to the focused suites so every migrated caller executes; commit exact task paths with `feat(startup): route new reviews through sealed runtime`.
 
+#### Story Intent
+
+- **Beneficiary:** ai-peer-review operators who initiate or recover cross-provider reviews
+- **Capability:** Start each new review through sealed transactional broker registration and enter manual recovery only behind a durable delivery fence
+- **Need:** New XPR startup must coordinate participant selection, runtime sealing, output reservation, authority creation, broker registration, and reviewer dispatch without exposing partial authority or ambiguous delivery
+- **Value or failure prevented:** Partial failures cannot launch provider work or duplicate a wake, while existing reviews retain exact offline recovery
+
 ### Task 9: Provider adapters, exact model launch, and native SPR
 
 **Files:** Create `src/providers/codex.mjs`, `src/providers/claude.mjs`, `src/providers/grok.mjs`, `test/unit/provider-capabilities.test.mjs`, `test/integration/provider-conformance.test.mjs`; modify `src/providers/registry.mjs`, `src/identity/registry.mjs`, `src/transport/registry.mjs`, `src/doctor.mjs`, `src/cli/run.mjs`.
