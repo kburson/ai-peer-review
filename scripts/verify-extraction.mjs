@@ -84,6 +84,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'native/broker-security/windows.cc',
     'scripts/build-broker-security.mjs',
     'scripts/run-secret-scan.mjs',
+    'scripts/task-tracker/verify-epic-trail.mjs',
     'scripts/update-template-goldens.mjs',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',

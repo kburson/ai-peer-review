@@ -120,6 +120,7 @@ function validManifest(overrides = {}) {
         'native/broker-security/windows.cc',
         'scripts/build-broker-security.mjs',
         'scripts/run-secret-scan.mjs',
+        'scripts/task-tracker/verify-epic-trail.mjs',
         'scripts/update-template-goldens.mjs',
         'scripts/verify-extraction.mjs',
         'scripts/verify-release.mjs',
@@ -339,6 +340,23 @@ test('accepts only the development template-golden updater in the closed standal
       runGit: fakeGit({ current: 'LICENSE\nscripts/update-template-goldens-copy.mjs' }),
     }),
     /foreign standalone paths: scripts\/update-template-goldens-copy\.mjs/
+  );
+});
+
+test('admits only the declared epic-trail verifier adapter in the standalone script inventory', async () => {
+  const manifest = validManifest();
+  await verifyExtraction({
+    root: '/repo',
+    manifest,
+    runGit: fakeGit({ current: 'LICENSE\nscripts/task-tracker/verify-epic-trail.mjs' }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest,
+      runGit: fakeGit({ current: 'LICENSE\nscripts/task-tracker/other.mjs' }),
+    }),
+    /foreign standalone paths: scripts\/task-tracker\/other\.mjs/
   );
 });
 
