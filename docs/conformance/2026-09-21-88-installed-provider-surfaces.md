@@ -14,6 +14,12 @@ No separately billed API-key environment variable was present in the probe envir
 
 No Claude/Claude SPR, Codex/Codex SPR, Grok/Grok SPR, or cross-provider XPR author/reviewer pair is qualified. A single installed binary, a launch flag, a successful JSON result, local configured effort, and a fixture cannot fill missing official exact-session fields or prove delivery/reconciliation. Task 2 and the installed release gate remain blocked pending an explicit scope decision or new bounded conformance evidence. Gemini/Antigravity is excluded from the production selector set.
 
+## Prior working cross-provider review
+
+The operator reports having watched GPT-6 Astra author and headless Claude Opus 5 reviewer sessions exchange response files across turns, with exact `resume` used to wake the partner; the operator also reports a working Grok reviewer exchange. The accepted [#76 plan review manifest](../superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-review-manifest.md) corroborates a four-turn GPT-6 Astra/Claude Opus 5 XPR with distinct participant fingerprints and accepted outcome. This is real operational evidence for headless review coordination, and it was omitted from the first Task 1 record.
+
+That manifest does not retain the provider command/results for each wake, an official effective-effort acknowledgment, or same-operation post-crash reconciliation. The installed package broker still creates a recovery adapter with no provider-resource lease in `bin/peer-review-broker.mjs`. The prior agent-supervised exchange therefore supports the candidate surfaces and the design's exact-resume approach, while the current installed broker capability remains unproved under the accepted Task 1 requirements.
+
 ## Policy consequence
 
 The package evaluator requires official exact-session model, effective effort, and session evidence; exact delivery and reconciliation; a version match; and fresh health. Reviewer launch additionally requires exact launch. Production adapters lacking that proof expose only manual or recovery capability. A deterministic fully evidenced test fixture exercises the evaluator's positive branch without becoming a production conformance row.
