@@ -388,6 +388,13 @@ assert.notEqual(observation.session_fingerprint, author.session_fingerprint);
 - [ ] Exercise acknowledgement, definitely-not-submitted, outcome-unknown, provider quota failure, expired lease, changed process instance, incompatible adapter versions, and native/automatic end-to-end gates. Use existing intervention and reconciliation semantics. Automate fixture suites offline; document optional live conformance commands and run only on the explicitly selected provider surface.
 - [ ] Rerun focused suites plus `node --test test/integration/automatic-required.test.mjs test/unit/transport.test.mjs` and commit exact paths with `feat(providers): launch exact requested reviewer sessions`.
 
+#### Story Intent
+
+- **Beneficiary:** ai-peer-review operators launching same-provider or cross-provider reviews
+- **Capability:** Select and launch an exact reviewer model, effort, and distinct session through a provider adapter with truthful transport and resource evidence
+- **Need:** Provider aliases, unavailable control surfaces, shared resources, and ambiguous dispatch outcomes can otherwise substitute a reviewer, collide across projects, or duplicate work
+- **Value or failure prevented:** Reviews use the requested independent reviewer session or fail closed without model substitution, false automation claims, leaked handles, or duplicate provider actions
+
 ### Task 10: Phase integration and retirement of public coordinator surface
 
 **Files:** Modify `src/public-api.mjs`, `src/cli/parse.mjs`, `src/cli/run.mjs`, `src/cli/help-data.mjs`, `src/broker/worker.mjs`, `test/integration/phased-review.test.mjs`, `test/unit/coordinator-decision.test.mjs`, `test/integration/coordinator-wake.test.mjs`, `test/packaging/package.test.mjs`, `test/mcp/server.test.mjs`; also modify `test/unit/cli-parse.test.mjs`, `test/golden/help.test.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `schemas/cli-result-v1.json`.
