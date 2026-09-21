@@ -302,13 +302,56 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
   });
   renameSync(path.join(host, 'node_modules'), path.join(host, 'replaced-node_modules'));
   assert.equal(verifyRuntimeImage(image), true);
-  const execution = `await import('./src/mcp/server.mjs'); const { platformSecurity } = await import('./src/broker/platform.mjs'); console.log(platformSecurity().userId());`;
-  assert.ok(
+  const execution = `
+    import { createRequire } from 'node:module';
+    import { realpathSync } from 'node:fs';
+    import path from 'node:path';
+    const imagePackage = realpathSync(process.cwd());
+    function resolveInside(consumer, specifier) {
+      const resolved = realpathSync(createRequire(consumer).resolve(specifier));
+      const relative = path.relative(imagePackage, resolved);
+      if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative))
+        throw new Error('APR_TEST_RUNTIME_DEPENDENCY_ESCAPE: ' + specifier + ' -> ' + resolved);
+      return resolved;
+    }
+    const sdk = resolveInside(new URL('./src/mcp/server.mjs', import.meta.url), '@modelcontextprotocol/sdk/server/mcp.js');
+    const zod = resolveInside(sdk, 'zod');
+    await import('./src/mcp/server.mjs');
+    const { platformSecurity } = await import('./src/broker/platform.mjs');
+    console.log(JSON.stringify({ sdk, zod, user: platformSecurity().userId() }));
+  `;
+  const observed = JSON.parse(
     execFileSync(image.nodeExecutable, ['--input-type=module', '--eval', execution], {
       cwd: path.join(image.root, 'package'),
       encoding: 'utf8',
-    }).trim()
+    })
   );
+  assert.ok(observed.user);
+  for (const [name, directory] of [
+    ['sdk', '@modelcontextprotocol/sdk'],
+    ['zod', 'zod'],
+  ]) {
+    const dependencyRoot = path.join(image.root, 'package/node_modules', directory);
+    const relative = path.relative(realpathSync(dependencyRoot), observed[name]);
+    assert.ok(relative && !relative.startsWith('..') && !path.isAbsolute(relative), name);
+    const withheld = path.join(scratch, `withheld-image-${name}`);
+    renameSync(dependencyRoot, withheld);
+    try {
+      assert.throws(
+        () =>
+          execFileSync(image.nodeExecutable, ['--input-type=module', '--eval', execution], {
+            cwd: path.join(image.root, 'package'),
+            encoding: 'utf8',
+            stdio: 'pipe',
+          }),
+        (error) => error.status !== 0 && /APR_TEST_RUNTIME_DEPENDENCY_ESCAPE/.test(error.stderr),
+        `missing image ${name} must reject checkout fallback`
+      );
+    } finally {
+      renameSync(withheld, dependencyRoot);
+    }
+  }
+  assert.equal(verifyRuntimeImage(image), true);
   const stillLive = await connectBroker(
     { identity: live[1].project, paths: live[1].paths, versions },
     platform
