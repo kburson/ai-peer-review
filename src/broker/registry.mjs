@@ -42,6 +42,7 @@ export function readStartupJournal(workspace) {
       'stage',
       ...(Object.hasOwn(journal, 'registration_file') ? ['registration_file'] : []),
       ...(Object.hasOwn(journal, 'created_at') ? ['created_at'] : []),
+      ...(Object.hasOwn(journal, 'provider_operation') ? ['provider_operation'] : []),
     ].sort();
     if (
       !exactFields(journal, fields) ||
@@ -60,6 +61,20 @@ export function readStartupJournal(workspace) {
       ].includes(journal.stage) ||
       journal.request_digest !==
         createHash('sha256').update(canonicalProjection(journal.request)).digest('hex') ||
+      (Object.hasOwn(journal, 'provider_operation') &&
+        (!exactFields(journal.provider_operation, [
+          'intent_digest',
+          'operation_id',
+          'session_fingerprint',
+          'status',
+        ]) ||
+          !/^launch:[a-f0-9]{64}$/.test(journal.provider_operation.operation_id) ||
+          !/^sha256:[a-f0-9]{64}$/.test(journal.provider_operation.intent_digest) ||
+          !['reserved', 'acknowledged', 'not-submitted', 'outcome-unknown'].includes(
+            journal.provider_operation.status
+          ) ||
+          (journal.provider_operation.session_fingerprint !== null &&
+            !/^sha256:[a-f0-9]{64}$/.test(journal.provider_operation.session_fingerprint)))) ||
       journal.workspace !== realpathSync(workspace) ||
       journal.review_id !== path.basename(workspace) ||
       canonicalProjection(journal.descriptor) !==

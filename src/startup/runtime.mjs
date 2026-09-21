@@ -322,7 +322,11 @@ export async function activateStartup(prepared, deps = {}) {
             ),
           }
         );
-        const registered = await requestBroker(request.broker, 'register', workspace);
+        const registered = await (deps.requestBroker ?? requestBroker)(
+          request.broker,
+          'register',
+          workspace
+        );
         if (
           !['runnable', 'automatic-wait', 'recovery-only', 'terminal'].includes(registered?.status)
         ) {
@@ -335,6 +339,16 @@ export async function activateStartup(prepared, deps = {}) {
         save('registered', { registration_file: registration.registration_file });
       } else save('registered');
       await deps.afterStartupStage?.('registration', { workspace });
+      if (prepared.runtime.ownership === 'broker') {
+        if (typeof request.adapter.launch !== 'function') {
+          save('manual');
+          return enriched(result);
+        }
+        await (deps.requestBroker ?? requestBroker)(request.broker, 'launch', workspace);
+        const settled = startupEvidence(workspace, inspectReview(workspace));
+        if (!['launched', 'launch-pending'].includes(settled.journal.stage)) throw unknown();
+        return enriched(result);
+      }
       return withReviewLock(path.join(workspace, 'dispatch'), async () => {
         const fresh = inspectReview(workspace);
         const evidence = startupEvidence(workspace, fresh);

@@ -120,6 +120,29 @@ function brokerInput({ clock, server, registrations = [], workers = new Map(), i
   };
 }
 
+test('installed recovery-only broker worker refuses launch before provider action', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  const item = registration('review-recovery-launch');
+  const worker = fakeWorker('recovery-only');
+  const running = runBroker(
+    brokerInput({
+      clock,
+      server,
+      registrations: [item],
+      workers: new Map([[item.review_id, worker]]),
+    })
+  );
+  await server.ready;
+  await assert.rejects(
+    server.request({ id: 'launch-1', command: 'launch', workspace: item.workspace }),
+    { code: 'APR_TRANSPORT_UNAVAILABLE' }
+  );
+  await clock.advance(60_000);
+  await running;
+  assert.equal(worker.calls.includes('launchReviewer'), false);
+});
+
 test('broker exits at exactly sixty seconds without runnable work', async () => {
   const clock = fakeClock();
   const server = fakeServer();

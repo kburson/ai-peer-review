@@ -4,7 +4,15 @@ import {
   fixtureObservation,
 } from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -488,6 +496,7 @@ async function authorTurn(root, reviewId, options = {}) {
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
+    transportCapability: options.transportCapability,
     now: NOW,
   });
   replaceSection(joined.paths.response, 'Summary', 'One required repair.');
@@ -509,6 +518,36 @@ async function authorTurn(root, reviewId, options = {}) {
   replaceSection(handoff.paths.response, 'Verification', 'Reviewed exact bytes.');
   return { author, reviewer, started, handoff };
 }
+
+test('ordinary author submission and replay preserve broker delivery without a manual fence', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const review = await authorTurn(fx.root, 'author-broker-progress', {
+    transportMode: 'resume-only',
+    transportCapability: 'resume-only',
+  });
+  let suspensions = 0;
+  const input = {
+    cwd: fx.root,
+    workspace: review.started.paths.workspace,
+    identity: review.author,
+    noArtifactChange: true,
+    reason: 'The repair was explanatory.',
+    now: '2026-09-09T02:02:00.000Z',
+  };
+  const deps = {
+    connect: async () => ({
+      request: async () => {
+        suspensions++;
+        return { status: 'recovery-only' };
+      },
+    }),
+  };
+  await api.submitAuthorTurn(input, deps);
+  await api.submitAuthorTurn(input, deps);
+  assert.equal(suspensions, 0);
+  assert.equal(existsSync(path.join(review.started.paths.workspace, 'manual-fence.json')), false);
+});
 
 test('unchanged artifact requires and records an explicit rationale without mutating on refusal', async (t) => {
   const fx = fixture();

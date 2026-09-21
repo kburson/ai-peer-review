@@ -3,7 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { AprError } from '../errors.mjs';
 
 const MAX_FRAME = 65536;
-const COMMANDS = new Set(['status', 'register', 'suspend', 'stop', 'reconcile']);
+const COMMANDS = new Set(['status', 'register', 'launch', 'suspend', 'stop', 'reconcile']);
 const HASH = /^[a-f0-9]{64}$/;
 
 export function brokerError(code, message) {

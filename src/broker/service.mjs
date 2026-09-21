@@ -1,8 +1,9 @@
 import { AprError } from '../errors.mjs';
 import { createFrameDecoder, encodeFrame, validateCommand, validateHandshake } from './ipc.mjs';
+import { reserveReviewerLaunch, settleReservedReviewerLaunch } from './launch.mjs';
 
 const IDLE_MILLISECONDS = 60_000;
-const ACTIVE_STATES = new Set(['runnable', 'automatic-wait']);
+const ACTIVE_STATES = new Set(['bootstrap', 'runnable', 'automatic-wait']);
 
 function fail(code, message, recovery, details = {}) {
   throw new AprError(code, message, { recovery, details });
@@ -143,6 +144,7 @@ export async function runBroker(input = {}) {
   assertInput(input);
   const { identity, owner, versions, registry, workerFactory, clock, server } = input;
   const workers = new Map();
+  const launchRuns = new Map();
   const workerSubscriptions = new Map();
   let idleTimer = null;
   let stopped = false;
@@ -270,7 +272,33 @@ export async function runBroker(input = {}) {
     clearIdle();
     if (message.command === 'reconcile' || message.command === 'register') {
       await worker.reconcile();
+    } else if (message.command === 'launch') {
+      let operation;
+      try {
+        operation = await reserveReviewerLaunch({ registration, worker });
+      } catch (cause) {
+        await settleWorkers({ resetIdle: true });
+        throw cause;
+      }
+      if (operation === null) {
+        await worker.reconcile();
+      } else {
+        const running = settleReservedReviewerLaunch({ registration, worker, operation })
+          .catch(() => {})
+          .then(() => worker.reconcile())
+          .finally(() => {
+            launchRuns.delete(registration.workspace);
+            const cleanup = sequence.then(() => settleWorkers({ resetIdle: true }));
+            sequence = cleanup.catch(() => stop());
+          });
+        launchRuns.set(registration.workspace, running);
+      }
     } else if (message.command === 'suspend') {
+      if (launchRuns.has(registration.workspace)) {
+        throw new AprError('APR_WAKE_OUTCOME_UNKNOWN', 'Reviewer launch is still in flight.', {
+          recovery: 'Wait for exact launch settlement, then reconcile before manual takeover.',
+        });
+      }
       await worker.suspend();
     } else {
       fail(
@@ -283,6 +311,7 @@ export async function runBroker(input = {}) {
     await settleWorkers({ resetIdle: true });
     return Object.freeze({
       status: worker.workState(),
+      ...(launchRuns.has(registration.workspace) ? { launch_status: 'pending' } : {}),
       review_id: registration.review_id,
       project_digest: identity.digest,
     });

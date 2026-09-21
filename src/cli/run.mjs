@@ -20,6 +20,7 @@ import {
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { requestBroker } from '../broker/client.mjs';
+import { startupEvidence } from '../broker/registry.mjs';
 import {
   openParticipantBinding,
   recordParticipantBinding,
@@ -1486,6 +1487,19 @@ export async function joinReview(input, deps = {}) {
     );
   }
   assertDistinctParticipants(state.participants.author, input.identity);
+  if (state.protocol.startup.runtime?.ownership === 'broker') {
+    const operation = startupEvidence(values.workspace, state)?.journal?.provider_operation;
+    if (
+      operation?.status === 'acknowledged' &&
+      operation.session_fingerprint &&
+      operation.session_fingerprint !== input.identity.session_fingerprint
+    )
+      fail(
+        'APR_IDENTITY_CONFLICT',
+        'Reviewer differs from acknowledged launch session.',
+        'Preserve the review and reconcile the exact provider launch before joining.'
+      );
+  }
   if (state.protocol.startup.runtime !== undefined) {
     assertRequestedReviewer(
       state.protocol.startup.runtime,
@@ -2846,7 +2860,6 @@ export async function submitReviewTurn(input, deps = {}) {
     requireCurrent: !recoverable,
     requireActive: !recoverable,
   });
-  await fenceRegisteredDelivery(input.workspace, authority.state, deps);
   const { absolute, paths, events, state } = authority;
   if (state.protocol.state !== 'reviewer-turn') {
     const decision = latestReviewerDecision(events);
@@ -3276,7 +3289,6 @@ export async function submitAuthorTurn(input, deps = {}) {
     requireCurrent: !recoverable,
     requireActive: !recoverable,
   });
-  await fenceRegisteredDelivery(input.workspace, authority.state, deps);
   const { absolute, paths, events, state } = authority;
   if (state.protocol.state !== 'author-revision') {
     return recoverAuthorHandoff({ input, deps, authority, git, transactionRepository });

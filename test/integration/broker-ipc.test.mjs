@@ -62,7 +62,7 @@ test('handshake binds every tuple/version/instance/nonce field and kernel user',
 });
 
 test('commands admit only a closed local control vocabulary', () => {
-  for (const command of ['status', 'register', 'suspend', 'stop', 'reconcile']) {
+  for (const command of ['status', 'register', 'launch', 'suspend', 'stop', 'reconcile']) {
     assert.equal(
       validateCommand({
         id: '1',

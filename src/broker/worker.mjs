@@ -1,5 +1,6 @@
 import { reconcileWake, runCoordinator } from '../coordinator/service.mjs';
 import { statusReview } from '../protocol/service.mjs';
+import { AprError } from '../errors.mjs';
 
 const TERMINAL_STATES = new Set([
   'accepted',
@@ -18,6 +19,14 @@ const WAKE_STATES = new Set(['runnable', 'automatic-wait']);
 
 function classify(status, adapter) {
   if (TERMINAL_STATES.has(status?.state)) return 'terminal';
+  if (
+    adapter?.bootstrap === true &&
+    status?.state === 'awaiting-reviewer' &&
+    ['registered', 'launch-pending', 'launched'].includes(status?.review?.recovery?.stage) &&
+    !status?.review?.recovery?.fenced &&
+    !status?.review?.recovery?.suspending
+  )
+    return 'bootstrap';
   if (
     status?.review?.recovery?.fenced ||
     status?.review?.recovery?.suspending ||
@@ -134,7 +143,7 @@ export function createReviewWorker({
     });
   };
 
-  return Object.freeze({
+  const worker = {
     async start() {
       if (closed) throw new Error('broker-worker: closed');
       if (!started) {
@@ -193,7 +202,46 @@ export function createReviewWorker({
     workState() {
       return state;
     },
-  });
+  };
+  if (
+    typeof adapter?.launchReviewer === 'function' &&
+    typeof adapter?.resourceObservation === 'function' &&
+    typeof resourceLease?.beforeDelivery === 'function'
+  ) {
+    worker.launchReviewer = async (input) => {
+      const fresh = inspectStatus(registration.workspace, {
+        now: new Date(clock?.now?.() ?? Date.now()),
+      });
+      if (
+        suspended ||
+        closed ||
+        fresh.review?.recovery?.fenced ||
+        fresh.review?.recovery?.suspending ||
+        fresh.review?.recovery?.stage !== 'launch-pending'
+      )
+        throw new AprError('APR_BROKER_STALE', 'Broker reviewer launch is fenced.', {
+          recovery: 'Preserve the reserved launch and reconcile the exact provider operation.',
+        });
+      const observation = await adapter.resourceObservation(input);
+      resourceLease.beforeDelivery(observation);
+      const immediatelyBefore = inspectStatus(registration.workspace, {
+        now: new Date(clock?.now?.() ?? Date.now()),
+      });
+      if (
+        suspended ||
+        closed ||
+        immediatelyBefore.review?.recovery?.fenced ||
+        immediatelyBefore.review?.recovery?.suspending ||
+        immediatelyBefore.review?.recovery?.stage !== 'launch-pending'
+      ) {
+        throw new AprError('APR_BROKER_STALE', 'Broker reviewer launch lost worker authority.', {
+          recovery: 'Preserve the reserved launch and reconcile the exact provider operation.',
+        });
+      }
+      return adapter.launchReviewer(input);
+    };
+  }
+  return Object.freeze(worker);
 }
 
 export { classify as classifyReviewWork };
