@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -88,16 +93,21 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
   const root = fixture(t);
   const author = identity('author');
   const reviewer = identity('reviewer');
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/spec.md',
-    artifactKind: 'spec',
-    phases: 'spec,plan',
-    identity: author,
-    reviewId: 'phased-normal',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      phases: 'spec,plan',
+      identity: author,
+      reviewId: 'phased-normal',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -232,14 +242,18 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
 
 test('legacy start result and projection omit phase authority', async (t) => {
   const root = fixture(t);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/spec.md',
-    artifactKind: 'spec',
-    identity: identity('author'),
-    reviewId: 'legacy-control',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      identity: identity('author'),
+      reviewId: 'legacy-control',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   assert.equal(Object.hasOwn(started, 'phases'), false);
   assert.equal(
     Object.hasOwn(inspectReviewAuthority(started.paths.workspace).state.protocol, 'phases'),
@@ -255,17 +269,22 @@ test('no-commit phase advance seals next artifact bytes without Git mutation', a
   const baseline = git(root, ['rev-parse', 'HEAD']);
   const author = identity('author');
   const reviewer = identity('reviewer');
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/spec.md',
-    artifactKind: 'spec',
-    phases: 'spec,plan',
-    noCommit: true,
-    identity: author,
-    reviewId: 'phased-no-commit',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      phases: 'spec,plan',
+      noCommit: true,
+      identity: author,
+      reviewId: 'phased-no-commit',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -305,15 +324,19 @@ test('invalid phase declarations fail before creating review authority', async (
   const root = fixture(t);
   for (const phases of ['', 'spec,spec', 'spec,report', 'plan,spec']) {
     await assert.rejects(
-      api.startReview({
-        cwd: root,
-        artifact: 'docs/spec.md',
-        artifactKind: 'spec',
-        phases,
-        identity: identity('author'),
-        reviewId: `invalid-${phases || 'empty'}`.replaceAll(',', '-'),
-        now: NOW,
-      }),
+      api.startReview(
+        {
+          ...fixtureSelection('codex', 'gpt-test'),
+          cwd: root,
+          artifact: 'docs/spec.md',
+          artifactKind: 'spec',
+          phases,
+          identity: identity('author'),
+          reviewId: `invalid-${phases || 'empty'}`.replaceAll(',', '-'),
+          now: NOW,
+        },
+        fixtureStartupDeps
+      ),
       { code: 'APR_PHASE_INVALID' }
     );
   }

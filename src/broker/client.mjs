@@ -5,9 +5,16 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 import { AprError } from '../errors.mjs';
-import { connectBroker } from './ipc.mjs';
+import { connectBroker, createFrameDecoder, encodeFrame, validateCommand } from './ipc.mjs';
 import { brokerPaths } from './paths.mjs';
 import { verifyRuntimeImage } from './runtime-image.mjs';
+import { startupEvidence } from './registry.mjs';
+import { inspectReviewAuthority } from '../protocol/service.mjs';
+import { atomicCreate, withReviewLock } from '../protocol/store.mjs';
+import { latestWakeOperation } from '../coordinator/ledger.mjs';
+import { canonicalProjectIdentity } from './identity.mjs';
+import { platformSecurity } from './platform.mjs';
+import { createGitRepository } from '../git/repository.mjs';
 
 function startFailure(cause, details = {}) {
   const error = new AprError(
@@ -172,3 +179,113 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
 }
 
 export { bootstrapRecord };
+
+export async function requestBroker(client, command, workspace = null) {
+  const message = validateCommand({ id: randomUUID(), command, workspace });
+  if (typeof client?.request === 'function') return client.request(message);
+  const decoder = createFrameDecoder();
+  const values = decoder.push(await client.connection.exchange(encodeFrame(message)));
+  decoder.end();
+  if (values.length !== 1 || values[0].id !== message.id || typeof values[0].ok !== 'boolean')
+    throw startFailure(null, { reason: 'invalid-command-response' });
+  const response = values[0];
+  if (!response.ok)
+    throw new AprError(response.error.code, response.error.message, {
+      recovery: response.error.recovery,
+    });
+  return response.result;
+}
+
+export async function fenceManualRecovery(workspace, deps = {}) {
+  const authority = inspectReviewAuthority(workspace);
+  const evidence = startupEvidence(workspace, authority.state);
+  if (!evidence || evidence.recovery.fenced) return evidence?.recovery ?? null;
+  if (authority.state.protocol.startup.runtime.ownership !== 'broker') return null;
+  const unknown = () =>
+    new AprError(
+      'APR_WAKE_OUTCOME_UNKNOWN',
+      'Provider outcome must be reconciled before manual recovery.',
+      { recovery: evidence.recovery.reconciliation_command }
+    );
+  let platform, project, paths, client, ownership;
+  const location = () => {
+    platform ??= deps.platform ?? platformSecurity();
+    project ??= canonicalProjectIdentity({
+      cwd: authority.state.protocol.startup.context.repository_root,
+      platform: { ...platform, repository: createGitRepository() },
+    });
+    paths ??= brokerPaths({ identity: project, platform, env: process.env, home: homedir() });
+    return { platform, project, paths };
+  };
+  try {
+    try {
+      client = await (
+        deps.connect ??
+        (() => {
+          const current = location();
+          return connectBroker(
+            {
+              identity: current.project,
+              paths: current.paths,
+              versions: evidence.journal.versions,
+            },
+            current.platform
+          );
+        })
+      )();
+    } catch (error) {
+      if (!['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code)) throw error;
+      // Hold the same OS-enforced broker lock across reconciliation and fence
+      // publication. A stale file or a failed connect is never ownership proof.
+      ownership = deps.acquireRecoveryOwnership
+        ? await deps.acquireRecoveryOwnership()
+        : (() => {
+            const current = location();
+            return current.platform.acquireExclusive(current.paths.lock, {
+              instanceId: randomUUID(),
+              nonce: randomUUID(),
+            });
+          })();
+      if (!ownership?.verify()) throw startFailure(null, { reason: 'recovery-ownership-unproven' });
+      const outcome = await deps.reconcileProvider?.({
+        workspace,
+        journal: evidence.journal,
+        operation: latestWakeOperation(workspace),
+      });
+      if (!['acknowledged', 'not-submitted', 'refused'].includes(outcome?.status)) throw unknown();
+    }
+    if (client) {
+      const settled = await requestBroker(client, 'suspend', workspace);
+      if (!['recovery-only', 'terminal'].includes(settled?.status))
+        throw startFailure(null, { reason: 'suspension-unsettled' });
+      const operation = latestWakeOperation(workspace);
+      if (
+        ['launch-pending', 'outcome-unknown'].includes(evidence.journal.stage) ||
+        ['reserved', 'outcome-unknown'].includes(operation?.status)
+      )
+        throw unknown();
+    }
+    return await withReviewLock(workspace, () => {
+      const fresh = inspectReviewAuthority(workspace);
+      const current = startupEvidence(workspace, fresh.state);
+      if (current.recovery.fenced) return current.recovery;
+      if (ownership && !ownership.verify())
+        throw startFailure(null, { reason: 'recovery-ownership-lost' });
+      if (fresh.state.protocol.revision !== authority.state.protocol.revision)
+        throw new AprError(
+          'APR_BROKER_STALE',
+          'Review changed while suspending automatic delivery.',
+          { recovery: evidence.recovery.reconciliation_command }
+        );
+      atomicCreate(
+        path.join(workspace, 'manual-fence.json'),
+        `${JSON.stringify({ schema: 'ai-peer-review.manual-fence/v1', review_id: fresh.state.protocol.review_id, request_digest: current.recovery.request_digest, event_revision: fresh.state.protocol.revision })}\n`
+      );
+      return { ...current.recovery, fenced: true };
+    });
+  } finally {
+    client?.close?.();
+    client?.connection?.close?.();
+    ownership?.release?.();
+  }
+}

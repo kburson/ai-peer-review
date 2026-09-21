@@ -17,6 +17,11 @@ const AUTHOR_ACTIONS = new Set([
 
 function classify(status, adapter) {
   if (TERMINAL_STATES.has(status?.state)) return 'terminal';
+  if (
+    status?.review?.recovery?.fenced ||
+    ['launch-pending', 'outcome-unknown'].includes(status?.review?.recovery?.stage)
+  )
+    return 'recovery-only';
   const action = status?.next_action?.action ?? status?.next_action ?? null;
   if (AUTHOR_ACTIONS.has(action)) return 'runnable';
   if (status?.state === 'intervention-required' || action === 'human-intervention') {
@@ -49,6 +54,24 @@ export function createReviewWorker({
   let coordinatorFailure = null;
   let recoveryPersisted = false;
   const listeners = new Set();
+  const guardedAdapter = adapter && {
+    ...adapter,
+    async deliver(input) {
+      const fresh = inspectStatus(registration.workspace, {
+        now: new Date(clock?.now?.() ?? Date.now()),
+      });
+      const evidence = fresh.review?.recovery;
+      if (
+        suspended ||
+        closed ||
+        evidence?.fenced ||
+        (evidence && evidence.event_revision !== input.expected_revision)
+      ) {
+        return { status: 'refused', reason: 'manual-recovery-fence-or-stale-revision' };
+      }
+      return adapter.deliver(input);
+    },
+  };
 
   const observe = () => {
     status = inspectStatus(registration.workspace, { now: new Date(clock?.now?.() ?? Date.now()) });
@@ -77,7 +100,7 @@ export function createReviewWorker({
     const running = coordinator({
       ...input,
       workspace: registration.workspace,
-      adapter,
+      adapter: guardedAdapter,
       onStarted(controller) {
         coordinatorStop = controller.stop;
         return input.onStarted?.(controller);
@@ -119,7 +142,9 @@ export function createReviewWorker({
       return state;
     },
     async reconcile() {
+      if (suspended || closed) return state;
       if (!started) await this.start();
+      observe();
       if (
         state === 'automatic-wait' &&
         adapter?.observation &&
@@ -131,7 +156,7 @@ export function createReviewWorker({
             typeof adapter.observation === 'function'
               ? await adapter.observation(registration)
               : adapter.observation,
-          adapter,
+          adapter: guardedAdapter,
           now: clock?.now?.() ?? Date.now(),
         });
       }

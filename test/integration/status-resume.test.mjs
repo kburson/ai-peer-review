@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,6 +16,26 @@ import { participantIdentity } from '../../src/identity/registry.mjs';
 import { statusReview as publicStatusReview } from '../../src/public-api.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
+
+test('closed CLI result schema accepts startup and offline recovery evidence', async (t) => {
+  const started = await joinedFixture(t);
+  const status = statusReview(started.paths.workspace, { now: NOW });
+  const schema = JSON.parse(
+    readFileSync(new URL('../../schemas/cli-result-v1.json', import.meta.url))
+  );
+  for (const output of [started, status]) {
+    assert.equal(output.review.runtime.reviewer.model_id, 'gpt-test');
+    assert.equal(output.review.recovery.fenced, false);
+    for (const field of Object.keys(output.review))
+      assert.ok(
+        Object.hasOwn(schema.properties.review.properties, field),
+        `Unspecified CLI result field: ${field}`
+      );
+    const definition = schema.$defs.startupRecovery;
+    assert.equal(definition.additionalProperties, false);
+    assert.deepEqual(Object.keys(output.review.recovery).sort(), [...definition.required].sort());
+  }
+});
 
 function identity(role, session) {
   return participantIdentity({
@@ -36,15 +61,20 @@ async function joinedFixture(t) {
   writeFileSync(path.join(root, '.git/info/exclude'), '.scratch/peer-review/\n');
   execFileSync('git', ['add', 'docs/example.md'], { cwd: root });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
-  const started = await startReview({
-    cwd: root,
-    artifact: 'docs/example.md',
-    artifactKind: 'spec',
-    identity: identity('author', 'author-session'),
-    reviewId: 'review-status',
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-session'),
+      reviewId: 'review-status',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   await joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: identity('reviewer', 'reviewer-session'),
@@ -64,14 +94,18 @@ test('status before join names the exact sealed invitation path', async (t) => {
   writeFileSync(path.join(root, '.git/info/exclude'), '.scratch/peer-review/\n');
   execFileSync('git', ['add', 'docs/example.md'], { cwd: root });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
-  const started = await startReview({
-    cwd: root,
-    artifact: 'docs/example.md',
-    artifactKind: 'spec',
-    identity: identity('author', 'author-session'),
-    reviewId: 'review-status-invite',
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-session'),
+      reviewId: 'review-status-invite',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const status = statusReview(started.paths.workspace, { now: NOW });
   const joinCommand = renderCommand(['peer-review', 'join', started.paths.reviewer_invitation]);
   assert.equal(status.next_action.command, joinCommand);

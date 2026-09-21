@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -56,16 +61,21 @@ function replaceSection(file, heading, content) {
 async function joinedReview(root, reviewId, options = {}) {
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId,
-    now: NOW,
-    ...options,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId,
+      now: NOW,
+      ...options,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -460,16 +470,21 @@ test('CLI submit resolves the current author and emits one closed result', async
 async function authorTurn(root, reviewId, options = {}) {
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId,
-    now: NOW,
-    ...options,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId,
+      now: NOW,
+      ...options,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

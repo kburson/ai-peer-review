@@ -1,3 +1,4 @@
+import { fixtureSelection, fixtureStartupDeps, fixtureObservation } from './internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -109,18 +110,23 @@ export async function budgetIntervention(root, reviewId = 'budget-intervention',
   const fixtureId = `${reviewId}-authority`;
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId,
-    maxTurns: 1,
-    noCommit: true,
-    testHumanAuthority: fixtureId,
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId,
+      maxTurns: 1,
+      noCommit: true,
+      testHumanAuthority: fixtureId,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

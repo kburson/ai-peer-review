@@ -39,6 +39,7 @@ import {
 } from '../provider/claude-launch.mjs';
 import { doctor } from '../doctor.mjs';
 import { inspectPlatformSecurity } from '../broker/platform.mjs';
+import { fenceManualRecovery } from '../broker/client.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
 import {
@@ -69,7 +70,12 @@ import {
   validateEvent,
   validateVersionedEvent,
 } from '../protocol/events.mjs';
-import { assertRequestedReviewer, validateRuntimeDescriptor } from '../startup/runtime.mjs';
+import {
+  activateStartup,
+  prepareStartup,
+  assertRequestedReviewer,
+  validateRuntimeDescriptor,
+} from '../startup/runtime.mjs';
 import {
   canonicalProjection,
   initializeReview,
@@ -779,6 +785,7 @@ function startResult(state, paths, startup) {
 }
 
 export async function startReview(input, deps = {}) {
+  if (!deps.validatedStartup) return activateStartup(await prepareStartup(input, deps), deps);
   const repository = deps.repository ?? createGitRepository();
   const root = repository.root(input.cwd);
   const loaded = deps.config ?? loadConfig({ cwd: root });
@@ -948,7 +955,6 @@ export async function startReview(input, deps = {}) {
       return sealed.bootstrap === null && sameValue(state.protocol.authority, requestedAuthority);
     })();
     const exactRetry =
-      state.protocol.state === 'awaiting-reviewer' &&
       state.protocol.review_id === reviewId &&
       state.protocol.max_turns === maximum &&
       state.protocol.claim_ttl_ms === claimTtlMs &&
@@ -977,6 +983,13 @@ export async function startReview(input, deps = {}) {
       sameValue(state.protocol.phases?.kinds ?? null, phaseKinds) &&
       authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
+    if (deps.preflightOnly) {
+      reserveCollateral({ ...state, paths }, { write: false });
+      validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
+      validateExactFile(startup.author_startup, authorStartupBytes);
+      validateExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+      return { artifact, paths, reviewId, context, existing: state };
+    }
     const repaired = await repairReview(paths.scratch.absolute, expected(state), {
       preflight: (current) => {
         reserveCollateral({ ...current, paths }, { write: false });
@@ -1084,7 +1097,8 @@ export async function startReview(input, deps = {}) {
     },
     now
   );
-  let state = await initializeReview(paths.scratch.absolute, initial);
+  if (deps.preflightOnly) return { artifact, paths, reviewId, context, initial };
+  let state = await (deps.initializeReview ?? initializeReview)(paths.scratch.absolute, initial);
   state = await mutateReview(paths.scratch.absolute, expected(state), (current) =>
     eventFor(
       current,
@@ -1960,6 +1974,7 @@ export async function recoverReview(input, deps = {}) {
         'Resume from the same registered role session.'
       );
     }
+    await fenceRegisteredDelivery(absolute, state, deps);
     const previous = [...authority.events]
       .reverse()
       .find(
@@ -2033,6 +2048,7 @@ export async function recoverReview(input, deps = {}) {
   }
   const otherRole = replacementRole === 'author' ? 'reviewer' : 'author';
   assertDistinctParticipants(input.identity, state.participants[otherRole]);
+  await fenceRegisteredDelivery(absolute, state, deps);
   const parameters = {
     role: replacementRole,
     outgoing_claim_id: outgoing.claim_id,
@@ -2565,6 +2581,15 @@ async function completeReviewerHandoff({ input, deps, absolute, paths, state, se
   );
 }
 
+async function fenceRegisteredDelivery(workspace, state, deps) {
+  if (
+    state.protocol.startup?.runtime?.ownership === 'broker' &&
+    state.protocol.startup.transport_mode !== 'manual'
+  ) {
+    await fenceManualRecovery(workspace, deps);
+  }
+}
+
 export async function submitReviewTurn(input, deps = {}) {
   const repository = deps.repository ?? createGitRepository();
   const authority = submissionAuthority(input.workspace);
@@ -2586,6 +2611,7 @@ export async function submitReviewTurn(input, deps = {}) {
     requireCurrent: !recoverable,
     requireActive: !recoverable,
   });
+  await fenceRegisteredDelivery(input.workspace, authority.state, deps);
   const { absolute, paths, events, state } = authority;
   if (state.protocol.state !== 'reviewer-turn') {
     const decision = latestReviewerDecision(events);
@@ -2999,6 +3025,7 @@ export async function submitAuthorTurn(input, deps = {}) {
     requireCurrent: !recoverable,
     requireActive: !recoverable,
   });
+  await fenceRegisteredDelivery(input.workspace, authority.state, deps);
   const { absolute, paths, events, state } = authority;
   if (state.protocol.state !== 'author-revision') {
     return recoverAuthorHandoff({ input, deps, authority, git, transactionRepository });
@@ -4520,24 +4547,27 @@ export async function run(argv, io) {
         io.transportCapability ??
         io.transportObservation?.capability ??
         (resumable ? 'resume-only' : 'manual');
-      response = await startReview(
-        {
-          cwd: io.cwd,
-          artifact: parsed.args[0],
-          artifactKind: parsed.options.artifactKind,
-          identity,
-          now: io.now ?? new Date(),
-          authority: io.authority,
-          transportCapability,
-          transportObservation: io.transportObservation,
-          ...parsed.options,
-        },
-        {
-          config: loaded,
-          verifyBootstrapGrant: io.verifyBootstrapGrant,
-          verifyTestHumanAuthority: io.verifyTestHumanAuthority,
-          hostVerifier: io.hostVerifier,
-        }
+      const startupInput = {
+        cwd: io.cwd,
+        artifact: parsed.args[0],
+        artifactKind: parsed.options.artifactKind,
+        identity,
+        now: io.now ?? new Date(),
+        authority: io.authority,
+        transportCapability,
+        transportObservation: io.transportObservation,
+        ...parsed.options,
+      };
+      const startupDeps = {
+        ...io,
+        config: loaded,
+        verifyBootstrapGrant: io.verifyBootstrapGrant,
+        verifyTestHumanAuthority: io.verifyTestHumanAuthority,
+        hostVerifier: io.hostVerifier,
+      };
+      response = await activateStartup(
+        await prepareStartup(startupInput, startupDeps),
+        startupDeps
       );
       if (transportCapability === 'resume-only')
         storeResumeHandle(response.paths.workspace, 'author', resumable);
@@ -4557,6 +4587,7 @@ export async function run(argv, io) {
         cwd: io.cwd,
         invitation: path.resolve(io.cwd, parsed.args[0]),
         identity,
+        runtimeObservation: io.runtimeObservation,
         transportCapability,
         transportObservation: io.transportObservation,
         authorTransportObservation: io.authorTransportObservation,

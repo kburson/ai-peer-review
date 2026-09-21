@@ -1,3 +1,4 @@
+import { fixtureSelection, fixtureStartupDeps } from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -103,14 +104,18 @@ test('public start persists environment model provenance into the rendered manif
     env: { CODEX_THREAD_ID: 'codex-session-secret', CODEX_MODEL_ID: 'gpt-6-astra' },
   });
 
-  const started = await api.startReview({
-    cwd: fixture.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'model-provenance-public-start',
-    now: '2026-09-09T02:00:00.000Z',
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fixture.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'model-provenance-public-start',
+      now: '2026-09-09T02:00:00.000Z',
+    },
+    fixtureStartupDeps
+  );
   const state = inspectReview(started.paths.workspace);
   const manifest = manifestForWorkspace(started.paths.events, state);
 

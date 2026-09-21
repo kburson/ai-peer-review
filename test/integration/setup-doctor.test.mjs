@@ -1,3 +1,4 @@
+import { fixtureSelection, fixtureStartupDeps } from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -511,22 +512,26 @@ test('setup-only project configuration keeps consensus startup and resume diagno
   config.hosts.codex.resume.command = ['codex', 'resume'];
   config.review = { reviews_root: 'docs/custom-reviews', max_turns: 4 };
   writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
-  const started = await startReview({
-    cwd: root,
-    artifact: 'docs/plan.md',
-    artifactKind: 'plan',
-    identity: participantIdentity({
-      role: 'author',
-      host: 'other',
-      provider: 'other',
-      modelId: 'test',
-      modelDisplay: 'Test',
-      sessionId: 'setup-start',
-      source: 'declared',
-      joinedAt: '2026-09-09T12:00:00.000Z',
-    }),
-    now: '2026-09-09T12:00:00.000Z',
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/plan.md',
+      artifactKind: 'plan',
+      identity: participantIdentity({
+        role: 'author',
+        host: 'codex',
+        provider: 'openai',
+        modelId: 'test',
+        modelDisplay: 'Test',
+        sessionId: 'setup-start',
+        source: 'declared',
+        joinedAt: '2026-09-09T12:00:00.000Z',
+      }),
+      now: '2026-09-09T12:00:00.000Z',
+    },
+    fixtureStartupDeps
+  );
   assert.equal(started.review.authority.authority_policy, 'unavailable');
   assert.equal(started.review.max_turns, 4);
   assert.match(started.paths.reviewer_invitation, /docs[\\/]custom-reviews/);

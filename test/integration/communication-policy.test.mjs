@@ -1,3 +1,4 @@
+import { fixtureSelection, fixtureStartupDeps } from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -68,15 +69,19 @@ const MODES = [
 for (const [mode, options] of MODES) {
   test(`${mode} startup directs both participants to durable documents and keeps resume bounded`, async (t) => {
     const root = repositoryFixture(t, mode);
-    const started = await startReview({
-      cwd: root,
-      artifact: 'docs/example.md',
-      artifactKind: 'spec',
-      identity: identity(`author-${mode}`),
-      reviewId: `review-communication-${mode}`,
-      now: NOW,
-      ...options,
-    });
+    const started = await startReview(
+      {
+        ...fixtureSelection('codex', 'gpt-test'),
+        cwd: root,
+        artifact: 'docs/example.md',
+        artifactKind: 'spec',
+        identity: identity(`author-${mode}`),
+        reviewId: `review-communication-${mode}`,
+        now: NOW,
+        ...options,
+      },
+      fixtureStartupDeps
+    );
 
     for (const file of [started.paths.author_startup, started.paths.reviewer_invitation]) {
       const bytes = readFileSync(file, 'utf8');

@@ -18,12 +18,11 @@ import { canonicalProjectIdentity } from '../src/broker/identity.mjs';
 import { acquireBrokerOwnership } from '../src/broker/ownership.mjs';
 import { brokerPaths } from '../src/broker/paths.mjs';
 import { platformSecurity } from '../src/broker/platform.mjs';
-import { reconcileRegistrations } from '../src/broker/registry.mjs';
+import { inspectStartupAuthority, reconcileRegistrations } from '../src/broker/registry.mjs';
 import { verifyRuntimeImage } from '../src/broker/runtime-image.mjs';
 import { createAuthenticatedBrokerServer, runBroker } from '../src/broker/service.mjs';
 import { createReviewWorker } from '../src/broker/worker.mjs';
 import { createGitRepository } from '../src/git/repository.mjs';
-import { inspectReviewAuthority } from '../src/protocol/service.mjs';
 
 function exact(value, fields) {
   return (
@@ -137,44 +136,6 @@ function recoveryAdapter(registration) {
   });
 }
 
-function inspectRegistrationAuthority(workspace, registration) {
-  if (workspace === null) {
-    return {
-      status: 'recovery-required',
-      event_authority: 'unknown',
-      output_reservation: 'unknown',
-    };
-  }
-  if (!registration) {
-    return {
-      status: 'recovery-required',
-      event_authority: 'unknown',
-      output_reservation: 'unknown',
-    };
-  }
-  const authority = inspectReviewAuthority(workspace);
-  const terminal = new Set([
-    'accepted',
-    'accepted-uncommitted',
-    'accepted-over-objections',
-    'accepted-over-objections-uncommitted',
-    'abandoned',
-    'superseded',
-  ]).has(authority.state.protocol.state);
-  return {
-    // Task 8 adds the transaction authority that independently binds request,
-    // runtime, and output reservation. Until then, event authority alone is
-    // insufficient and startup must remain recovery-only rather than echoing
-    // registration claims as exact evidence.
-    status: 'recovery-required',
-    review_id: registration.review_id,
-    workspace,
-    event_authority: 'exact',
-    output_reservation: 'unknown',
-    observed_protocol_status: terminal ? 'terminal' : 'active',
-  };
-}
-
 function assertExecutingRuntime(bootstrap) {
   const packageRoot = path.join(bootstrap.runtimeImage.root, 'package');
   const expectedEntrypoint = path.join(packageRoot, 'bin', 'peer-review-broker.mjs');
@@ -247,8 +208,7 @@ export async function runBrokerEntrypoint(file) {
     reconcileRegistrations({
       project: identity,
       store,
-      inspectAuthority: ({ workspace, registration }) =>
-        inspectRegistrationAuthority(workspace, registration),
+      inspectAuthority: inspectStartupAuthority,
     });
   const registrations = await loadRegistrations();
   const paths = brokerPaths({

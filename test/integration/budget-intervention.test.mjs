@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -80,30 +85,39 @@ test('a registered participant can supersede a nonterminal attempt with exact re
   t.after(fx.cleanup);
   const author = identity('author', 'supersede-author');
   const reviewer = identity('reviewer', 'supersede-reviewer');
-  const started = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'review-superseded',
-    recordId: 'record-chain',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'review-superseded',
+      recordId: 'record-chain',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
     now: NOW,
   });
-  const successor = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'review-successor',
-    recordId: 'record-chain',
-    now: '2026-09-09T02:01:00.000Z',
-  });
+  const successor = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'review-successor',
+      recordId: 'record-chain',
+      now: '2026-09-09T02:01:00.000Z',
+    },
+    fixtureStartupDeps
+  );
   const reciprocal = `sha256:${'a'.repeat(64)}`;
   const lineage = {
     schema: 'ai-peer-review.lineage-receipt/v1',

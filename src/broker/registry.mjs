@@ -1,5 +1,9 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { canonicalProjection, inspectReviewAuthority } from '../protocol/service.mjs';
+import { reserveCollateral } from '../collateral/responses.mjs';
+import { resolveReviewPaths } from '../collateral/paths.mjs';
 
 import { AprError } from '../errors.mjs';
 import { atomicCreate } from '../protocol/store.mjs';
@@ -18,6 +22,164 @@ const REGISTRATION_FIELDS = [
   'workspace',
 ];
 const RUNTIME_FIELDS = ['digest', 'entrypoint', 'nodeExecutable', 'root'];
+
+export function readStartupJournal(workspace) {
+  const file = path.join(workspace, 'startup-request.json');
+  if (!lstatExists(file)) return null;
+  try {
+    const stat = lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('unsafe journal');
+    const journal = JSON.parse(readFileSync(file, 'utf8'));
+    const fields = [
+      'schema',
+      'request_digest',
+      'request',
+      'workspace',
+      'review_id',
+      'runtime',
+      'versions',
+      'descriptor',
+      'stage',
+      ...(Object.hasOwn(journal, 'registration_file') ? ['registration_file'] : []),
+    ].sort();
+    if (
+      !exactFields(journal, fields) ||
+      journal.schema !== 'ai-peer-review.startup-request/v1' ||
+      ![
+        'reserved',
+        'authority',
+        'registered',
+        'launch-pending',
+        'outcome-unknown',
+        'launched',
+        'manual',
+      ].includes(journal.stage) ||
+      journal.request_digest !==
+        createHash('sha256').update(canonicalProjection(journal.request)).digest('hex') ||
+      journal.workspace !== realpathSync(workspace) ||
+      journal.review_id !== path.basename(workspace) ||
+      canonicalProjection(journal.descriptor) !==
+        canonicalProjection(journal.request.startup.runtime)
+    )
+      throw new Error('journal authority');
+    return journal;
+  } catch (cause) {
+    authorityFailure(
+      'Startup journal is unreadable or contradicts its reserved request.',
+      { file },
+      cause
+    );
+  }
+}
+
+export function startupEvidence(workspace, state) {
+  workspace = realpathSync(workspace);
+  const file = path.join(workspace, 'startup-request.json');
+  if (!existsSync(file)) return null;
+  if (!lstatSync(file).isFile() || lstatSync(file).isSymbolicLink())
+    authorityFailure('Startup journal is not an owned regular file.', { file });
+  const journal = readStartupJournal(workspace);
+  const initial = JSON.parse(
+    readFileSync(path.join(workspace, 'events.jsonl'), 'utf8').split('\n')[0]
+  );
+  const digest = createHash('sha256').update(canonicalProjection(initial.payload)).digest('hex');
+  if (
+    journal.schema !== 'ai-peer-review.startup-request/v1' ||
+    journal.request_digest !== digest ||
+    journal.workspace !== workspace ||
+    journal.review_id !== state.protocol.review_id ||
+    canonicalProjection(journal.descriptor) !== canonicalProjection(state.protocol.startup.runtime)
+  )
+    authorityFailure('Startup journal contradicts review authority.', { file });
+  const fenceFile = path.join(workspace, 'manual-fence.json');
+  let fence = null;
+  if (existsSync(fenceFile)) {
+    if (!lstatSync(fenceFile).isFile() || lstatSync(fenceFile).isSymbolicLink())
+      authorityFailure('Manual fence is not an owned regular file.', { fenceFile });
+    try {
+      fence = JSON.parse(readFileSync(fenceFile, 'utf8'));
+    } catch {
+      authorityFailure('Manual fence is unreadable.', { fenceFile });
+    }
+    if (
+      fence.schema !== 'ai-peer-review.manual-fence/v1' ||
+      fence.request_digest !== digest ||
+      fence.review_id !== state.protocol.review_id ||
+      !Number.isSafeInteger(fence.event_revision) ||
+      fence.event_revision > state.protocol.revision ||
+      fence.event_revision < 1
+    )
+      authorityFailure('Manual fence contradicts review authority.', { fenceFile });
+  }
+  return {
+    journal,
+    recovery: {
+      request_digest: digest,
+      stage: journal.stage,
+      fenced: fence !== null,
+      event_revision: state.protocol.revision,
+      reconciliation_command: `peer-review broker reconcile '${workspace.replaceAll("'", "'\\''")}'`,
+    },
+  };
+}
+
+export function inspectStartupAuthority({ workspace, project } = {}) {
+  if (workspace === null) {
+    if (!project || reviewWorkspaces(project).length) return { status: 'recovery-required' };
+    return { status: 'clear', event_authority: 'exact', output_reservation: 'exact' };
+  }
+  const journalFile = path.join(workspace, 'startup-request.json');
+  const eventFile = path.join(workspace, 'events.jsonl');
+  if (!existsSync(eventFile)) {
+    if (!existsSync(journalFile)) return { status: 'absent' };
+    const journal = readStartupJournal(workspace);
+    if (
+      journal.stage === 'reserved' &&
+      journal.workspace === workspace &&
+      journal.request_digest ===
+        createHash('sha256').update(canonicalProjection(journal.request)).digest('hex')
+    )
+      return { status: 'absent' };
+    return { status: 'recovery-required' };
+  }
+  const { state } = inspectReviewAuthority(workspace);
+  if (!state.protocol.startup?.runtime || state.protocol.startup.runtime.ownership !== 'broker')
+    return { status: 'absent' };
+  const evidence = startupEvidence(workspace, state);
+  const terminal = [
+    'accepted',
+    'accepted-uncommitted',
+    'accepted-over-objections',
+    'accepted-over-objections-uncommitted',
+    'abandoned',
+    'superseded',
+  ].includes(state.protocol.state);
+  const reserved = existsSync(path.join(workspace, 'collateral-reservation.json'));
+  if (!evidence || (!reserved && !terminal)) return { status: 'recovery-required' };
+  const context = state.protocol.startup.context;
+  const paths = resolveReviewPaths({
+    root: context.repository_root,
+    reviewsRoot: context.reviews_root,
+    reviewPathTemplate: context.review_path_template,
+    issue: context.issue,
+    kind: context.artifact_kind,
+    name: context.artifact_name,
+    date: context.review_date,
+    reviewId: context.review_id,
+    recordId: context.record_id ?? context.review_id,
+  });
+  if (reserved) reserveCollateral({ ...state, paths }, { write: false });
+  return {
+    status: terminal ? 'terminal' : 'active',
+    review_id: state.protocol.review_id,
+    workspace,
+    event_authority: 'exact',
+    output_reservation: 'exact',
+    request_digest: evidence.recovery.request_digest,
+    runtime: evidence.journal.runtime,
+    runtime_digest: evidence.journal.runtime?.digest,
+  };
+}
 
 function failure(code, message, recovery, details = {}, cause) {
   const error = new AprError(code, message, { recovery, details });
@@ -146,7 +308,7 @@ function canonicalWorkspace(project, workspace) {
     );
   }
   const reviewRoot = path.join(project.physicalRoot, '.scratch', 'peer-review', 'reviews');
-  if (!contained(reviewRoot, workspace)) {
+  if (!contained(reviewRoot, workspace) && !transactionWorkspace(project, workspace)) {
     throw failure(
       'APR_BROKER_REGISTRATION_INVALID',
       'Review workspace is outside the project-owned review root.',
@@ -192,6 +354,28 @@ function canonicalWorkspace(project, workspace) {
     );
   }
   return { workspace, reviewId };
+}
+
+function transactionWorkspace(project, workspace) {
+  const root = path.join(project.physicalRoot, '.scratch', 'peer-review');
+  if (
+    path.dirname(workspace) !== root ||
+    ['broker', 'runtimes', 'reviews'].includes(path.basename(workspace))
+  )
+    return false;
+  const file = path.join(workspace, 'startup-request.json');
+  try {
+    const stat = lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink()) return false;
+    const journal = JSON.parse(readFileSync(file, 'utf8'));
+    return (
+      journal.schema === 'ai-peer-review.startup-request/v1' &&
+      journal.workspace === workspace &&
+      journal.review_id === path.basename(workspace)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function runtimeRecord(runtime) {
@@ -379,14 +563,28 @@ function ownedRegistration(project, root, file, registration) {
   }
   const reviewRoot = path.join(project.physicalRoot, '.scratch', 'peer-review', 'reviews');
   return (
-    contained(reviewRoot, registration.workspace) &&
+    (contained(reviewRoot, registration.workspace) ||
+      transactionWorkspace(project, registration.workspace)) &&
     path.basename(registration.workspace) === registration.review_id
   );
 }
 
 function reviewWorkspaces(project) {
   const root = path.join(project.physicalRoot, '.scratch', 'peer-review', 'reviews');
-  if (!lstatExists(root)) return [];
+  const scratch = path.dirname(root);
+  const transactions = lstatExists(scratch)
+    ? readdirSync(scratch, { withFileTypes: true })
+        .filter(
+          (entry) => entry.isDirectory() && !['reviews', 'broker', 'runtimes'].includes(entry.name)
+        )
+        .map((entry) => path.join(scratch, entry.name))
+        .filter(
+          (workspace) =>
+            existsSync(path.join(workspace, 'startup-request.json')) ||
+            existsSync(path.join(workspace, 'events.jsonl'))
+        )
+    : [];
+  if (!lstatExists(root)) return transactions;
   let status;
   try {
     status = lstatSync(root);
@@ -407,14 +605,19 @@ function reviewWorkspaces(project) {
       { root }
     );
   }
-  return readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(entry.name))
-    .map((entry) => path.join(root, entry.name))
-    .filter((workspace) => {
-      const entry = lstatSync(workspace);
-      return entry.isDirectory() && !entry.isSymbolicLink();
-    })
-    .sort();
+  return [
+    ...transactions,
+    ...readdirSync(root, { withFileTypes: true })
+      .filter(
+        (entry) => entry.isDirectory() && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(entry.name)
+      )
+      .map((entry) => path.join(root, entry.name))
+      .filter((workspace) => {
+        const entry = lstatSync(workspace);
+        return entry.isDirectory() && !entry.isSymbolicLink();
+      })
+      .sort(),
+  ];
 }
 
 function authorityFailure(message, details = {}, cause) {

@@ -1,3 +1,4 @@
+import { fixtureStartupDeps, fixtureObservation } from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -44,6 +45,15 @@ async function runJson(argv, root, sessionId) {
   let stdout = '';
   let stderr = '';
   const code = await run([...argv, '--json'], {
+    ...fixtureStartupDeps,
+    transportCapability: 'manual',
+    runtimeObservation: fixtureObservation(
+      'anthropic',
+      'claude-code',
+      'claude-opus-5',
+      'medium',
+      'declared'
+    ),
     cwd: root,
     env: { CLAUDE_CODE_SESSION_ID: sessionId },
     now: new Date('2026-09-13T14:00:00.000Z'),
@@ -62,6 +72,15 @@ async function runText(argv, root, sessionId) {
   let stdout = '';
   let stderr = '';
   const code = await run(argv, {
+    ...fixtureStartupDeps,
+    transportCapability: 'manual',
+    runtimeObservation: fixtureObservation(
+      'anthropic',
+      'claude-code',
+      'claude-opus-5',
+      'medium',
+      'declared'
+    ),
     cwd: root,
     env: { CLAUDE_CODE_SESSION_ID: sessionId },
     now: new Date('2026-09-13T14:00:00.000Z'),
@@ -126,9 +145,11 @@ test('start, join, submit, and finalize share the configured Claude identity con
       '--artifact-kind',
       'spec',
       '--reviewer-provider',
-      'codex',
+      'claude',
       '--reviewer-model',
-      'gpt-test',
+      'claude-opus-5',
+      '--transport-mode',
+      'manual',
       '--reviewer-effort',
       'medium',
     ],
