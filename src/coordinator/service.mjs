@@ -256,6 +256,7 @@ export async function runCoordinator(input = {}) {
       }
       last = await reconcileWake(input);
       lease.heartbeat(new Date(input.now ?? Date.now()));
+      await input.onSettled?.(last);
       return last;
     });
     queue.catch((error) => {
@@ -283,6 +284,14 @@ export async function runCoordinator(input = {}) {
       input.watch
     );
     await reconcile();
+    await input.onStarted?.(
+      Object.freeze({
+        reconcile,
+        stop,
+        lease: lease.lease,
+        untilStopped,
+      })
+    );
     if (!stopped) {
       await (input.waitForStop ?? signalWait)({
         reconcile,
@@ -296,6 +305,7 @@ export async function runCoordinator(input = {}) {
     return Object.freeze({ status: 'stopped', last });
   } finally {
     subscription?.close();
+    await input.beforeRelease?.(Object.freeze({ last, fatal }));
     await adapterClose(input.adapter);
     lease.release();
   }

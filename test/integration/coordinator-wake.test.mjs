@@ -297,6 +297,44 @@ test('foreground coordinator honors only its exact durable stop request', async 
   assert.equal(wakeAdapter.calls.length, 1);
 });
 
+test('broker-owned coordinator lifetime exposes one controller and closes every retained resource', async (t) => {
+  const root = workspace(t);
+  writeReceipt(root);
+  const wakeAdapter = adapter();
+  const closed = [];
+  let controller;
+  const result = await runCoordinator({
+    ...input(root, wakeAdapter),
+    adapter: {
+      ...wakeAdapter,
+      async close() {
+        closed.push('adapter');
+      },
+    },
+    owner: { kind: 'app-host', pid: 42 },
+    leaseOptions: { instanceId: 'coordinator-broker-01', nonce: 'nonce-broker-01' },
+    subscribe() {
+      return { close: () => closed.push('subscription') };
+    },
+    beforeRelease() {
+      closed.push('recovery');
+    },
+    onStarted(value) {
+      controller = value;
+      value.stop();
+    },
+    async waitForStop() {
+      throw new Error('broker controller stopped before foreground waiting');
+    },
+  });
+
+  assert.equal(result.status, 'stopped');
+  assert.equal(typeof controller.reconcile, 'function');
+  assert.equal(typeof controller.stop, 'function');
+  assert.deepEqual(closed, ['subscription', 'recovery', 'adapter']);
+  assert.equal(coordinatorStatus(root).running, false);
+});
+
 test('default observation ignores its own heartbeat and reacts to only an exact stop hint', async (t) => {
   const root = workspace(t);
   writeReceipt(root);
