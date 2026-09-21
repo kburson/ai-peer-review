@@ -221,7 +221,9 @@ test('restart repairs interruption inside authority creation before broker recon
     ensureBroker: async ({ project }) => {
       reconciled = await registry.reconcileRegistrations({
         project,
-        store: { root: path.join(fx.root, '.scratch/peer-review/broker/registrations') },
+        store: {
+          root: path.join(project.physicalRoot, '.scratch/peer-review/broker/registrations'),
+        },
         inspectAuthority: registry.inspectStartupAuthority,
       });
       return fixtureStartupDeps.ensureBroker();
