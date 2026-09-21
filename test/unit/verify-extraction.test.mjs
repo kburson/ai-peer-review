@@ -107,6 +107,7 @@ function validManifest(overrides = {}) {
         'NOTICE',
         'README.md',
         'cspell.json',
+        'docs/conformance/2026-09-21-88-installed-provider-surfaces.md',
         'docs/dependency-audit-broker-build.md',
         'docs/dependency-audit-mcp.md',
         'docs/manual-cross-provider-peer-review.md',
@@ -371,6 +372,26 @@ test('accepts the bounded standalone white-paper documentation path', async () =
       ].join('\n'),
     }),
   });
+});
+
+test('accepts the exact #88 conformance record without admitting neighboring documents', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: ['LICENSE', 'docs/conformance/2026-09-21-88-installed-provider-surfaces.md'].join(
+        '\n'
+      ),
+    }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ current: ['LICENSE', 'docs/conformance/unrelated.md'].join('\n') }),
+    }),
+    /foreign standalone paths: docs\/conformance\/unrelated\.md/
+  );
 });
 
 test('accepts bounded governed implementation plans', async () => {

@@ -71,6 +71,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'NOTICE',
     'README.md',
     'cspell.json',
+    'docs/conformance/2026-09-21-88-installed-provider-surfaces.md',
     'docs/dependency-audit-broker-build.md',
     'docs/dependency-audit-mcp.md',
     'docs/manual-cross-provider-peer-review.md',
