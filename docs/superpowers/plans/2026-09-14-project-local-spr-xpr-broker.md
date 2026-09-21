@@ -484,6 +484,13 @@ Run `node scripts/update-template-goldens.mjs`; inspect every changed fixture an
 
 - [ ] Rerun golden tests and `node --test test/smoke/cli.test.mjs test/integration/communication-policy.test.mjs`; commit exact changed paths with `docs: publish intent-first broker workflow`.
 
+#### Story Intent
+
+- **Beneficiary:** An author or reviewer operating the installed peer-review package
+- **Capability:** Consult complete offline start and SPR/XPR conceptual help and use shell-safe generated handoffs and recovery instructions for the project-local broker
+- **Need:** Active guidance still describes retired coordinator operations or omits explicit reviewer selection, effort, and broker recovery requirements
+- **Value or failure prevented:** Operators can start and recover the intended review without treating obsolete historical commands as live guidance or silently falling back to a different runtime
+
 ### Task 12: Release compatibility, packaging, and full verification
 
 **Files:** Modify `package.json`, `package-lock.json`, `docs/releases/0.3.0.md`, `test/packaging/package.test.mjs`, `test/smoke/cli.test.mjs`, and `.github/workflows/ci.yml` (`node-24`, `preferred-node`, `npm-pack-compatibility`, and `phase-2-boundary` jobs). Add `test/integration/broker-release.test.mjs` for installed-package scenarios; also modify `templates/author-startup.md`, `README.md`, `src/mcp/server.mjs`, `test/mcp/server.test.mjs`, `test/unit/errors.test.mjs`, `src/cli/help-data.mjs`, `src/cli/run.mjs`, `test/golden/help.test.mjs`, `test/golden/templates.test.mjs`, `test/helpers/template-values.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `test/golden/templates/author-startup.md`, `test/golden/templates/reviewer-invitation.md`.
