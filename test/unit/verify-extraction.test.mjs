@@ -120,6 +120,7 @@ function validManifest(overrides = {}) {
         'native/broker-security/windows.cc',
         'scripts/build-broker-security.mjs',
         'scripts/run-secret-scan.mjs',
+        'scripts/update-template-goldens.mjs',
         'scripts/verify-extraction.mjs',
         'scripts/verify-release.mjs',
         'vendors/kburson-ai-task-manager-0.1.0.tgz',
@@ -322,6 +323,22 @@ test('rejects a foreign path in standalone HEAD', async () => {
       runGit: fakeGit({ current: 'LICENSE\nprivate.txt' }),
     }),
     /foreign standalone paths: private\.txt/
+  );
+});
+
+test('accepts only the development template-golden updater in the closed standalone script inventory', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: 'LICENSE\nscripts/update-template-goldens.mjs' }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ current: 'LICENSE\nscripts/update-template-goldens-copy.mjs' }),
+    }),
+    /foreign standalone paths: scripts\/update-template-goldens-copy\.mjs/
   );
 });
 
