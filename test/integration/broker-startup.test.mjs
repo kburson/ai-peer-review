@@ -14,10 +14,189 @@ import * as brokerClient from '../../src/broker/client.mjs';
 import { statusReview } from '../../src/cli/run.mjs';
 import * as registry from '../../src/broker/registry.mjs';
 import {
+  latestWakeOperation,
+  reserveWakeOperation,
+  appendWakeOutcome,
+} from '../../src/coordinator/ledger.mjs';
+import {
   inspectReviewAuthority,
   mutateReview,
   initializeReview,
 } from '../../src/protocol/service.mjs';
+
+function wakeDecision(state) {
+  return {
+    kind: 'wake',
+    authority_revision: state.protocol.revision,
+    participant_fingerprint: `sha256:${'b'.repeat(64)}`,
+    transport: { capability: 'native-push', adapter: 'codex-app', adapter_version: '2.0.0' },
+    delivery: {
+      delivery_id: 'author-turn-1-to-reviewer',
+      recipient: 'reviewer',
+      digest: `sha256:${'d'.repeat(64)}`,
+      sequence: 7,
+      revision: state.protocol.revision,
+      receipt_verified: true,
+    },
+    capsule: {
+      schema: 'ai-peer-review.wake-capsule/v1',
+      review_id: state.protocol.review_id,
+      expected_revision: state.protocol.revision,
+      target_role: 'reviewer',
+      reason: 'role-actionable',
+      next_command: 'peer-review resume /fixture/workspace',
+    },
+  };
+}
+
+test('pre-authority exact retry reuses sealed timestamps after one minute', async (t) => {
+  for (const testAuthority of [false, true]) {
+    const fx = fixture();
+    t.after(fx.cleanup);
+    const input = {
+      ...request(fx.root),
+      now: testAuthority ? '2026-09-09T23:59:30.000Z' : NOW,
+      ...(testAuthority ? { noCommit: true, testHumanAuthority: 'timestamp-authority' } : {}),
+    };
+    await assert.rejects(
+      startReview(input, {
+        ...fixtureStartupDeps,
+        afterStartupStage: async (stage) => {
+          if (stage === 'reservation') throw new Error('reserved-stop');
+        },
+      }),
+      /reserved-stop/
+    );
+    const workspace = path.join(fx.root, '.scratch/peer-review/transaction-review');
+    const original = JSON.parse(readFileSync(path.join(workspace, 'startup-request.json')));
+    const now = testAuthority ? '2026-09-10T00:00:30.000Z' : '2026-09-09T02:01:00.000Z';
+    const retry = { ...input, now, identity: identity('author', 'transaction-author', now) };
+    for (const changed of [
+      { reviewerModel: 'other-model' },
+      { maxTurns: 99 },
+      { identity: identity('author', 'other-author', now) },
+      ...(testAuthority ? [{ testHumanAuthority: 'changed-authority' }] : []),
+    ])
+      await assert.rejects(startReview({ ...retry, ...changed }, fixtureStartupDeps), {
+        code: 'APR_OUTPUT_COLLISION',
+      });
+    const started = await startReview(retry, fixtureStartupDeps);
+    assert.equal(started.review.recovery.request_digest, original.request_digest);
+    assert.deepEqual(inspectReviewAuthority(workspace).events[0].payload, original.request);
+    assert.equal(inspectReviewAuthority(workspace).events[0].at, original.created_at);
+  }
+});
+
+test('replacement worker cannot reserve or deliver between suspension and fence publication', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), fixtureStartupDeps);
+  let providerCalls = 0;
+  const createWorker = () =>
+    createReviewWorker({
+      registration: { workspace: started.paths.workspace },
+      adapter: {
+        observation: {},
+        deliver: async () => {
+          providerCalls++;
+          return { status: 'acknowledged' };
+        },
+      },
+      reconcile: async ({ workspace, adapter }) => {
+        const state = inspectReviewAuthority(workspace).state;
+        const operation = reserveWakeOperation(workspace, wakeDecision(state), new Date(NOW));
+        const result = await adapter.deliver({ expected_revision: state.protocol.revision });
+        appendWakeOutcome(
+          workspace,
+          operation.operation_id,
+          { ...result, reason: 'test-delivery' },
+          new Date(NOW)
+        );
+      },
+      clock: { now: () => Date.parse(NOW) },
+    });
+  const original = createWorker();
+  await original.start();
+  await brokerClient.fenceManualRecovery(started.paths.workspace, {
+    connect: async () => ({
+      request: async () => {
+        await original.suspend();
+        assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
+        const replacement = createWorker();
+        await replacement.reconcile();
+        return { status: 'recovery-only' };
+      },
+    }),
+  });
+  assert.equal(providerCalls, 0);
+  assert.equal(latestWakeOperation(started.paths.workspace), null);
+  assert.equal(statusReview(started.paths.workspace).review.recovery.fenced, true);
+});
+
+test('fence publication rejects wake evidence that changed after provider reconciliation began', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), fixtureStartupDeps);
+  await assert.rejects(
+    brokerClient.fenceManualRecovery(started.paths.workspace, {
+      connect: async () => {
+        throw Object.assign(new Error('dead'), { code: 'ENOENT' });
+      },
+      acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
+      reconcileProvider: async () => {
+        reserveWakeOperation(
+          started.paths.workspace,
+          wakeDecision(inspectReviewAuthority(started.paths.workspace).state),
+          new Date(NOW)
+        );
+        return { status: 'acknowledged' };
+      },
+    }),
+    { code: 'APR_WAKE_OUTCOME_UNKNOWN' }
+  );
+  assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
+});
+
+test('suspended worker cannot reserve a wake after its awaited observation resumes', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), fixtureStartupDeps);
+  let observed, release;
+  const entered = new Promise((resolve) => {
+    observed = resolve;
+  });
+  const waiting = new Promise((resolve) => {
+    release = resolve;
+  });
+  const worker = createReviewWorker({
+    registration: { workspace: started.paths.workspace },
+    clock: { now: () => Date.parse(NOW) },
+    adapter: {
+      observation: async () => {
+        observed();
+        await waiting;
+        return {};
+      },
+      deliver: async () => {
+        throw new Error('must not deliver');
+      },
+    },
+    reconcile: async ({ workspace }) =>
+      reserveWakeOperation(
+        workspace,
+        wakeDecision(inspectReviewAuthority(workspace).state),
+        new Date(NOW)
+      ),
+  });
+  const running = worker.reconcile();
+  await entered;
+  await brokerClient.fenceManualRecovery(started.paths.workspace, {
+    connect: async () => ({ request: async () => ({ status: await worker.suspend() }) }),
+  });
+  release();
+  await running;
+  assert.equal(latestWakeOperation(started.paths.workspace), null);
+});
 
 test('restart repairs interruption inside authority creation before broker reconciliation', async (t) => {
   const fx = fixture();
@@ -387,6 +566,14 @@ test('terminal authority reconciles after its owned output reservation is releas
     registry.inspectStartupAuthority({ workspace: started.paths.workspace }).status,
     'terminal'
   );
+  const events = readFileSync(started.paths.events);
+  const retried = await startReview(input, fixtureStartupDeps);
+  assert.equal(retried.state, 'abandoned');
+  assert.equal(
+    existsSync(path.join(started.paths.workspace, 'collateral-reservation.json')),
+    false
+  );
+  assert.deepEqual(readFileSync(started.paths.events), events);
 });
 
 test('registration refusal cannot dispatch a reviewer and remains exactly recoverable', async (t) => {
@@ -485,7 +672,7 @@ test('manual recovery records a fence only after authenticated suspension settle
   await entered;
   assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
   settle();
-  await fencing;
+  assert.equal((await fencing).suspending, false);
   const status = statusReview(started.paths.workspace);
   assert.equal(status.review.recovery.fenced, true);
   assert.equal(status.review.runtime.classification, 'XPR');

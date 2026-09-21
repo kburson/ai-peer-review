@@ -73,20 +73,41 @@ export async function prepareStartup(input, deps = {}) {
   });
   if (input.runtime && canonicalProjection(input.runtime) !== canonicalProjection(runtime))
     usage('Supplied runtime conflicts with resolved selection.');
-  const resolvedInput = { ...input, runtime, transportMode: runtime.transport_mode };
-  const preflight = await startReview(resolvedInput, {
+  let resolvedInput = { ...input, runtime, transportMode: runtime.transport_mode };
+  let preflight = await startReview(resolvedInput, {
     ...deps,
     config: loaded,
     validatedStartup: true,
     preflightOnly: true,
   });
-  const initial =
+  let initial =
     preflight.initial ??
     JSON.parse(
       readFileSync(path.join(preflight.paths.scratch.absolute, 'events.jsonl'), 'utf8').split(
         '\n'
       )[0]
     );
+  const prior = readStartupJournal(preflight.paths.scratch.absolute);
+  if (prior?.stage === 'reserved' && !preflight.existing) {
+    // First preflight above checks today's artifact, authority and capability.
+    // Rebuild with sealed timestamps only; every stable field must still hash
+    // to the original request before any authority is created.
+    resolvedInput = {
+      ...resolvedInput,
+      now:
+        prior.created_at ??
+        prior.request.startup.bootstrap?.attestation.verified_at ??
+        `${prior.request.startup.context.review_date}T00:00:00.000Z`,
+      identity: { ...resolvedInput.identity, joined_at: prior.request.author.joined_at },
+    };
+    preflight = await startReview(resolvedInput, {
+      ...deps,
+      config: loaded,
+      validatedStartup: true,
+      preflightOnly: true,
+    });
+    initial = preflight.initial;
+  }
   const requestDigest = createHash('sha256')
     .update(canonicalProjection(initial.payload))
     .digest('hex');
@@ -94,7 +115,6 @@ export async function prepareStartup(input, deps = {}) {
   let broker = null;
   let versions = null;
   const journalFile = path.join(preflight.paths.scratch.absolute, 'startup-request.json');
-  const prior = readStartupJournal(preflight.paths.scratch.absolute);
   if (preflight.existing) startupEvidence(preflight.paths.scratch.absolute, preflight.existing);
   if (prior && prior.request_digest !== requestDigest)
     throw new AprError('APR_OUTPUT_COLLISION', 'A different startup request owns this workspace.', {
@@ -161,6 +181,7 @@ export async function prepareStartup(input, deps = {}) {
     broker,
     adapter,
     requestAuthority: structuredClone(initial.payload),
+    createdAt: initial.at,
     preparedSnapshot: canonicalProjection(prepared),
   });
   return prepared;
@@ -200,6 +221,7 @@ export async function activateStartup(prepared, deps = {}) {
           schema: 'ai-peer-review.startup-request/v1',
           request_digest: prepared.requestDigest,
           request: request.requestAuthority,
+          created_at: request.createdAt,
           workspace,
           review_id: request.preflight.reviewId,
           runtime: request.image,
@@ -285,6 +307,7 @@ export async function activateStartup(prepared, deps = {}) {
         if (['launch-pending', 'outcome-unknown'].includes(journal.stage)) throw unknown();
         if (
           evidence.recovery.fenced ||
+          evidence.recovery.suspending ||
           journal.stage !== 'registered' ||
           fresh.protocol.revision !== dispatchRevision
         )

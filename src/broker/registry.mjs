@@ -41,10 +41,14 @@ export function readStartupJournal(workspace) {
       'descriptor',
       'stage',
       ...(Object.hasOwn(journal, 'registration_file') ? ['registration_file'] : []),
+      ...(Object.hasOwn(journal, 'created_at') ? ['created_at'] : []),
     ].sort();
     if (
       !exactFields(journal, fields) ||
       journal.schema !== 'ai-peer-review.startup-request/v1' ||
+      (Object.hasOwn(journal, 'created_at') &&
+        (!Number.isFinite(Date.parse(journal.created_at)) ||
+          new Date(journal.created_at).toISOString() !== journal.created_at)) ||
       ![
         'reserved',
         'authority',
@@ -108,32 +112,37 @@ export function startupEvidence(workspace, state) {
     canonicalProjection(journal.descriptor) !== canonicalProjection(state.protocol.startup.runtime)
   )
     authorityFailure('Startup journal contradicts review authority.', { file });
-  const fenceFile = path.join(workspace, 'manual-fence.json');
-  let fence = null;
-  if (existsSync(fenceFile)) {
-    if (!lstatSync(fenceFile).isFile() || lstatSync(fenceFile).isSymbolicLink())
-      authorityFailure('Manual fence is not an owned regular file.', { fenceFile });
-    try {
-      fence = JSON.parse(readFileSync(fenceFile, 'utf8'));
-    } catch {
-      authorityFailure('Manual fence is unreadable.', { fenceFile });
+  const records = {};
+  for (const kind of ['fence', 'suspension']) {
+    const fenceFile = path.join(workspace, `manual-${kind}.json`);
+    let fence = null;
+    if (lstatExists(fenceFile)) {
+      if (!lstatSync(fenceFile).isFile() || lstatSync(fenceFile).isSymbolicLink())
+        authorityFailure('Manual fence is not an owned regular file.', { fenceFile });
+      try {
+        fence = JSON.parse(readFileSync(fenceFile, 'utf8'));
+      } catch {
+        authorityFailure('Manual fence is unreadable.', { fenceFile });
+      }
+      if (
+        fence.schema !== `ai-peer-review.manual-${kind}/v1` ||
+        fence.request_digest !== digest ||
+        fence.review_id !== state.protocol.review_id ||
+        !Number.isSafeInteger(fence.event_revision) ||
+        fence.event_revision > state.protocol.revision ||
+        fence.event_revision < 1
+      )
+        authorityFailure('Manual fence contradicts review authority.', { fenceFile });
     }
-    if (
-      fence.schema !== 'ai-peer-review.manual-fence/v1' ||
-      fence.request_digest !== digest ||
-      fence.review_id !== state.protocol.review_id ||
-      !Number.isSafeInteger(fence.event_revision) ||
-      fence.event_revision > state.protocol.revision ||
-      fence.event_revision < 1
-    )
-      authorityFailure('Manual fence contradicts review authority.', { fenceFile });
+    records[kind] = fence;
   }
   return {
     journal,
     recovery: {
       request_digest: digest,
       stage: journal.stage,
-      fenced: fence !== null,
+      fenced: records.fence !== null,
+      suspending: records.suspension !== null && records.fence === null,
       event_revision: state.protocol.revision,
       reconciliation_command: `peer-review broker reconcile '${workspace.replaceAll("'", "'\\''")}'`,
     },

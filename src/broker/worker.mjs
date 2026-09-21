@@ -19,6 +19,7 @@ function classify(status, adapter) {
   if (TERMINAL_STATES.has(status?.state)) return 'terminal';
   if (
     status?.review?.recovery?.fenced ||
+    status?.review?.recovery?.suspending ||
     ['launch-pending', 'outcome-unknown'].includes(status?.review?.recovery?.stage)
   )
     return 'recovery-only';
@@ -65,6 +66,7 @@ export function createReviewWorker({
         suspended ||
         closed ||
         evidence?.fenced ||
+        evidence?.suspending ||
         (evidence && evidence.event_revision !== input.expected_revision)
       ) {
         return { status: 'refused', reason: 'manual-recovery-fence-or-stale-revision' };
@@ -150,12 +152,14 @@ export function createReviewWorker({
         adapter?.observation &&
         typeof adapter?.deliver === 'function'
       ) {
+        const observation =
+          typeof adapter.observation === 'function'
+            ? await adapter.observation(registration)
+            : adapter.observation;
+        if (suspended || closed || observe() !== 'automatic-wait') return state;
         await reconcile({
           workspace: registration.workspace,
-          observation:
-            typeof adapter.observation === 'function'
-              ? await adapter.observation(registration)
-              : adapter.observation,
+          observation,
           adapter: guardedAdapter,
           now: clock?.now?.() ?? Date.now(),
         });

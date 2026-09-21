@@ -158,7 +158,14 @@
     "startupRecovery": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["request_digest", "stage", "fenced", "event_revision", "reconciliation_command"],
+      "required": [
+        "request_digest",
+        "stage",
+        "fenced",
+        "suspending",
+        "event_revision",
+        "reconciliation_command"
+      ],
       "properties": {
         "request_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "stage": {
@@ -173,6 +180,7 @@
           ]
         },
         "fenced": { "type": "boolean" },
+        "suspending": { "type": "boolean" },
         "event_revision": { "$ref": "#/$defs/positive" },
         "reconciliation_command": { "type": "string", "minLength": 1 }
       }

@@ -9,7 +9,7 @@ import { connectBroker, createFrameDecoder, encodeFrame, validateCommand } from 
 import { brokerPaths } from './paths.mjs';
 import { verifyRuntimeImage } from './runtime-image.mjs';
 import { startupEvidence } from './registry.mjs';
-import { inspectReviewAuthority } from '../protocol/service.mjs';
+import { inspectReviewAuthority, canonicalProjection } from '../protocol/service.mjs';
 import { atomicCreate, withReviewLock } from '../protocol/store.mjs';
 import { latestWakeOperation } from '../coordinator/ledger.mjs';
 import { canonicalProjectIdentity } from './identity.mjs';
@@ -248,6 +248,24 @@ export async function fenceManualRecovery(workspace, deps = {}) {
           })();
       if (!ownership?.verify()) throw startFailure(null, { reason: 'recovery-ownership-unproven' });
     }
+    // Persist exclusion before asking the broker to remove its current worker.
+    // Replacements must see it even if suspension/publication is interrupted.
+    await withReviewLock(path.join(workspace, 'dispatch'), () =>
+      withReviewLock(workspace, () => {
+        const fresh = inspectReviewAuthority(workspace);
+        const current = startupEvidence(workspace, fresh.state);
+        if (current.recovery.fenced || current.recovery.suspending) return;
+        atomicCreate(
+          path.join(workspace, 'manual-suspension.json'),
+          `${JSON.stringify({
+            schema: 'ai-peer-review.manual-suspension/v1',
+            review_id: fresh.state.protocol.review_id,
+            request_digest: current.recovery.request_digest,
+            event_revision: fresh.state.protocol.revision,
+          })}\n`
+        );
+      })
+    );
     if (client) {
       const settled = await requestBroker(client, 'suspend', workspace);
       if (!['recovery-only', 'terminal'].includes(settled?.status))
@@ -273,6 +291,8 @@ export async function fenceManualRecovery(workspace, deps = {}) {
         const fresh = inspectReviewAuthority(workspace);
         const current = startupEvidence(workspace, fresh.state);
         if (current.recovery.fenced) return current.recovery;
+        if (canonicalProjection(latestWakeOperation(workspace)) !== canonicalProjection(operation))
+          throw unknown();
         if (current.journal.stage !== observed.journal.stage) throw unknown();
         if (ownership && !ownership.verify())
           throw startFailure(null, { reason: 'recovery-ownership-lost' });
@@ -286,7 +306,7 @@ export async function fenceManualRecovery(workspace, deps = {}) {
           path.join(workspace, 'manual-fence.json'),
           `${JSON.stringify({ schema: 'ai-peer-review.manual-fence/v1', review_id: fresh.state.protocol.review_id, request_digest: current.recovery.request_digest, event_revision: fresh.state.protocol.revision })}\n`
         );
-        return { ...current.recovery, fenced: true };
+        return { ...current.recovery, fenced: true, suspending: false };
       });
     });
   } finally {

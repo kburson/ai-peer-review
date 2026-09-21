@@ -990,6 +990,27 @@ export async function startReview(input, deps = {}) {
       sameValue(state.protocol.phases?.kinds ?? null, phaseKinds) &&
       authorityRetryMatches;
     if (!exactRetry) collision(eventsFile);
+    if (
+      [
+        'accepted',
+        'accepted-uncommitted',
+        'accepted-over-objections',
+        'accepted-over-objections-uncommitted',
+        'abandoned',
+        'superseded',
+      ].includes(state.protocol.state)
+    ) {
+      // Terminal event authority owns the retained output. A legitimately
+      // released reservation must not be recreated over those retained files.
+      if (entryExists(path.join(paths.scratch.absolute, 'collateral-reservation.json')))
+        reserveCollateral({ ...state, paths }, { write: false });
+      validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
+      validateExactFile(startup.author_startup, authorStartupBytes);
+      validateExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+      return deps.preflightOnly
+        ? { artifact, paths, reviewId, context, existing: state }
+        : startResult(state, paths, startup);
+    }
     if (deps.preflightOnly) {
       reserveCollateral({ ...state, paths }, { write: false });
       validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
