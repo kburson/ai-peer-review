@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createReviewWorker } from '../../src/broker/worker.mjs';
-import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { fixture, identity, NOW, replaceSection } from '../helpers/intervention-fixture.mjs';
 import { startReview, joinReview, submitReviewTurn, abandonReview } from '../../src/cli/run.mjs';
@@ -13,7 +13,196 @@ import { activateStartup, prepareStartup } from '../../src/startup/runtime.mjs';
 import * as brokerClient from '../../src/broker/client.mjs';
 import { statusReview } from '../../src/cli/run.mjs';
 import * as registry from '../../src/broker/registry.mjs';
-import { inspectReviewAuthority, mutateReview } from '../../src/protocol/service.mjs';
+import {
+  inspectReviewAuthority,
+  mutateReview,
+  initializeReview,
+} from '../../src/protocol/service.mjs';
+
+test('restart repairs interruption inside authority creation before broker reconciliation', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const input = request(fx.root);
+  await assert.rejects(
+    startReview(input, {
+      ...fixtureStartupDeps,
+      initializeReview: async (...args) => {
+        await initializeReview(...args);
+        throw new Error('inside-authority');
+      },
+    }),
+    /inside-authority/
+  );
+  const workspace = path.join(fx.root, '.scratch/peer-review/transaction-review');
+  assert.equal(existsSync(path.join(workspace, 'events.jsonl')), true);
+  assert.equal(existsSync(path.join(workspace, 'collateral-reservation.json')), false);
+  let reconciled;
+  const resumed = await startReview(input, {
+    ...fixtureStartupDeps,
+    ensureBroker: async ({ project }) => {
+      reconciled = await registry.reconcileRegistrations({
+        project,
+        store: { root: path.join(fx.root, '.scratch/peer-review/broker/registrations') },
+        inspectAuthority: registry.inspectStartupAuthority,
+      });
+      return fixtureStartupDeps.ensureBroker();
+    },
+  });
+  assert.equal(reconciled.length, 1);
+  assert.equal(resumed.review_id, 'transaction-review');
+  assert.equal(existsSync(path.join(workspace, 'collateral-reservation.json')), true);
+  assert.equal(
+    inspectReviewAuthority(workspace).events.filter((event) => event.type === 'identity-changed')
+      .length,
+    1
+  );
+});
+
+test('activation snapshots mutable phases and time before reserving authority', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const input = { ...request(fx.root), phases: ['spec', 'plan'], now: new Date(NOW) };
+  const prepared = await prepareStartup(input, fixtureStartupDeps);
+  input.phases.pop();
+  input.now.setUTCDate(25);
+  const started = await activateStartup(prepared, fixtureStartupDeps);
+  const { state } = inspectReviewAuthority(started.paths.workspace);
+  assert.deepEqual(state.protocol.phases.kinds, ['spec', 'plan']);
+  assert.equal(state.protocol.startup.context.review_date, '2026-09-09');
+  assert.equal(started.review.recovery.request_digest, prepared.requestDigest);
+});
+
+test('activation does not expose its sealed launch intent to later caller mutation', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  let launchedModel;
+  const deps = {
+    ...fixtureStartupDeps,
+    adapters: {
+      claude: {
+        ...fixtureStartupDeps.adapters.claude,
+        launch: async ({ runtime }) => {
+          launchedModel = runtime.reviewer.model_id;
+          return { status: 'launched' };
+        },
+      },
+    },
+  };
+  const prepared = await prepareStartup(request(fx.root), deps);
+  const output = await activateStartup(prepared, {
+    ...deps,
+    afterStartupStage: async (stage) => {
+      if (stage === 'registration')
+        prepared.runtime.reviewer.model_id = 'changed-during-activation';
+    },
+  });
+  assert.equal(launchedModel, 'claude-opus-5');
+  assert.equal(output.review.runtime.reviewer.model_id, 'claude-opus-5');
+});
+
+test('authority creation verifies rebuilt payload against the reserved digest before events', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const prepared = await prepareStartup(request(fx.root), fixtureStartupDeps);
+  await assert.rejects(
+    startReview(
+      { ...request(fx.root), runtime: prepared.runtime, maxTurns: 999 },
+      {
+        ...fixtureStartupDeps,
+        validatedStartup: true,
+        requestDigest: prepared.requestDigest,
+      }
+    ),
+    { code: 'APR_OUTPUT_COLLISION' }
+  );
+  assert.equal(existsSync(path.join(prepared.paths.scratch.absolute, 'events.jsonl')), false);
+  const started = await activateStartup(prepared, fixtureStartupDeps);
+  const before = readFileSync(started.paths.events);
+  await assert.rejects(
+    startReview(
+      { ...request(fx.root), runtime: prepared.runtime },
+      {
+        ...fixtureStartupDeps,
+        validatedStartup: true,
+        requestDigest: '0'.repeat(64),
+      }
+    ),
+    { code: 'APR_OUTPUT_COLLISION' }
+  );
+  assert.deepEqual(readFileSync(started.paths.events), before);
+});
+
+test('registered review with missing journal refuses status and manual fence without mutation', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), fixtureStartupDeps);
+  const events = readFileSync(started.paths.events);
+  unlinkSync(path.join(started.paths.workspace, 'startup-request.json'));
+  await assert.rejects(brokerClient.fenceManualRecovery(started.paths.workspace), {
+    code: 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
+  });
+  await assert.rejects(startReview(request(fx.root), fixtureStartupDeps), {
+    code: 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
+  });
+  assert.throws(() => statusReview(started.paths.workspace), {
+    code: 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
+  });
+  assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
+  assert.deepEqual(readFileSync(started.paths.events), events);
+});
+
+test('startup dispatch cannot cross a manual fence published after registration', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  let launches = 0;
+  await assert.rejects(
+    startReview(request(fx.root), {
+      ...fixtureStartupDeps,
+      adapters: {
+        claude: {
+          ...fixtureStartupDeps.adapters.claude,
+          launch: async () => {
+            launches++;
+            return { status: 'launched' };
+          },
+        },
+      },
+      afterStartupStage: async (stage, { workspace }) => {
+        if (stage === 'registration')
+          await brokerClient.fenceManualRecovery(workspace, {
+            connect: async () => ({ request: async () => ({ status: 'recovery-only' }) }),
+          });
+      },
+    }),
+    { code: 'APR_BROKER_STALE' }
+  );
+  assert.equal(launches, 0);
+  assert.equal(
+    statusReview(path.join(fx.root, '.scratch/peer-review/transaction-review')).review.recovery
+      .fenced,
+    true
+  );
+});
+
+test('manual fence revalidates a launch outcome changed during suspension', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), fixtureStartupDeps);
+  const file = path.join(started.paths.workspace, 'startup-request.json');
+  await assert.rejects(
+    brokerClient.fenceManualRecovery(started.paths.workspace, {
+      connect: async () => ({
+        request: async () => {
+          const journal = JSON.parse(readFileSync(file));
+          writeFileSync(file, JSON.stringify({ ...journal, stage: 'outcome-unknown' }));
+          return { status: 'recovery-only' };
+        },
+      }),
+    }),
+    { code: 'APR_WAKE_OUTCOME_UNKNOWN' }
+  );
+  assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
+});
 
 test('registered exact retry stays offline and retains the originally pinned runtime', async (t) => {
   const fx = fixture();

@@ -247,41 +247,47 @@ export async function fenceManualRecovery(workspace, deps = {}) {
             });
           })();
       if (!ownership?.verify()) throw startFailure(null, { reason: 'recovery-ownership-unproven' });
-      const outcome = await deps.reconcileProvider?.({
-        workspace,
-        journal: evidence.journal,
-        operation: latestWakeOperation(workspace),
-      });
-      if (!['acknowledged', 'not-submitted', 'refused'].includes(outcome?.status)) throw unknown();
     }
     if (client) {
       const settled = await requestBroker(client, 'suspend', workspace);
       if (!['recovery-only', 'terminal'].includes(settled?.status))
         throw startFailure(null, { reason: 'suspension-unsettled' });
+    }
+    return await withReviewLock(path.join(workspace, 'dispatch'), async () => {
+      const observed = startupEvidence(workspace, inspectReviewAuthority(workspace).state);
       const operation = latestWakeOperation(workspace);
-      if (
-        ['launch-pending', 'outcome-unknown'].includes(evidence.journal.stage) ||
+      if (ownership) {
+        const outcome = await deps.reconcileProvider?.({
+          workspace,
+          journal: observed.journal,
+          operation,
+        });
+        if (!['acknowledged', 'not-submitted', 'refused'].includes(outcome?.status))
+          throw unknown();
+      } else if (
+        ['launch-pending', 'outcome-unknown'].includes(observed.journal.stage) ||
         ['reserved', 'outcome-unknown'].includes(operation?.status)
       )
         throw unknown();
-    }
-    return await withReviewLock(workspace, () => {
-      const fresh = inspectReviewAuthority(workspace);
-      const current = startupEvidence(workspace, fresh.state);
-      if (current.recovery.fenced) return current.recovery;
-      if (ownership && !ownership.verify())
-        throw startFailure(null, { reason: 'recovery-ownership-lost' });
-      if (fresh.state.protocol.revision !== authority.state.protocol.revision)
-        throw new AprError(
-          'APR_BROKER_STALE',
-          'Review changed while suspending automatic delivery.',
-          { recovery: evidence.recovery.reconciliation_command }
+      return await withReviewLock(workspace, () => {
+        const fresh = inspectReviewAuthority(workspace);
+        const current = startupEvidence(workspace, fresh.state);
+        if (current.recovery.fenced) return current.recovery;
+        if (current.journal.stage !== observed.journal.stage) throw unknown();
+        if (ownership && !ownership.verify())
+          throw startFailure(null, { reason: 'recovery-ownership-lost' });
+        if (fresh.state.protocol.revision !== authority.state.protocol.revision)
+          throw new AprError(
+            'APR_BROKER_STALE',
+            'Review changed while suspending automatic delivery.',
+            { recovery: evidence.recovery.reconciliation_command }
+          );
+        atomicCreate(
+          path.join(workspace, 'manual-fence.json'),
+          `${JSON.stringify({ schema: 'ai-peer-review.manual-fence/v1', review_id: fresh.state.protocol.review_id, request_digest: current.recovery.request_digest, event_revision: fresh.state.protocol.revision })}\n`
         );
-      atomicCreate(
-        path.join(workspace, 'manual-fence.json'),
-        `${JSON.stringify({ schema: 'ai-peer-review.manual-fence/v1', review_id: fresh.state.protocol.review_id, request_digest: current.recovery.request_digest, event_revision: fresh.state.protocol.revision })}\n`
-      );
-      return { ...current.recovery, fenced: true };
+        return { ...current.recovery, fenced: true };
+      });
     });
   } finally {
     client?.close?.();

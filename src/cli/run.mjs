@@ -911,6 +911,13 @@ export async function startReview(input, deps = {}) {
 
   if (entryExists(eventsFile)) {
     const state = inspectReview(paths.scratch.absolute);
+    if (
+      deps.requestDigest &&
+      sha256(
+        canonicalProjection(inspectReviewAuthority(paths.scratch.absolute).events[0].payload)
+      ) !== `sha256:${deps.requestDigest}`
+    )
+      collision(eventsFile);
     const sealed = state.protocol.startup;
     if (!sealed?.context) collision(eventsFile);
     const context = sealed.context;
@@ -990,7 +997,7 @@ export async function startReview(input, deps = {}) {
       validateExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
       return { artifact, paths, reviewId, context, existing: state };
     }
-    const repaired = await repairReview(paths.scratch.absolute, expected(state), {
+    let repaired = await repairReview(paths.scratch.absolute, expected(state), {
       preflight: (current) => {
         reserveCollateral({ ...current, paths }, { write: false });
         validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
@@ -1004,6 +1011,21 @@ export async function startReview(input, deps = {}) {
         ensureExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
       },
     });
+    if (deps.repairStartupIdentity && !repaired.participants.author.evidence) {
+      repaired = await mutateReview(paths.scratch.absolute, expected(repaired), (current) =>
+        eventFor(
+          current,
+          'identity-changed',
+          input.identity.session_fingerprint,
+          {
+            role: 'author',
+            identity: { ...input.identity, joined_at: current.participants.author.joined_at },
+          },
+          now,
+          EVENT_V2_SCHEMA
+        )
+      );
+    }
     return startResult(repaired, paths, startup);
   }
 
@@ -1098,6 +1120,11 @@ export async function startReview(input, deps = {}) {
     now
   );
   if (deps.preflightOnly) return { artifact, paths, reviewId, context, initial };
+  if (
+    deps.requestDigest &&
+    sha256(canonicalProjection(initial.payload)) !== `sha256:${deps.requestDigest}`
+  )
+    collision(path.join(paths.scratch.absolute, 'startup-request.json'));
   let state = await (deps.initializeReview ?? initializeReview)(paths.scratch.absolute, initial);
   state = await mutateReview(paths.scratch.absolute, expected(state), (current) =>
     eventFor(

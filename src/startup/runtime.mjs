@@ -20,12 +20,13 @@ const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
 const preparedRequests = new WeakMap();
 
 export async function prepareStartup(input, deps = {}) {
+  input = structuredClone({ ...input, now: input.now ?? new Date() });
   if (!text(input.reviewerProvider) || !text(input.reviewerModel)) {
     usage('New reviews require explicit reviewer provider and model selection.');
   }
   const repository = deps.repository ?? createGitRepository();
   const root = repository.root(input.cwd);
-  const loaded = deps.config ?? loadConfig({ cwd: root });
+  const loaded = structuredClone(deps.config ?? loadConfig({ cwd: root }));
   const selection = await resolveSelection(
     {
       author: input.identity,
@@ -94,10 +95,24 @@ export async function prepareStartup(input, deps = {}) {
   let versions = null;
   const journalFile = path.join(preflight.paths.scratch.absolute, 'startup-request.json');
   const prior = readStartupJournal(preflight.paths.scratch.absolute);
+  if (preflight.existing) startupEvidence(preflight.paths.scratch.absolute, preflight.existing);
   if (prior && prior.request_digest !== requestDigest)
     throw new AprError('APR_OUTPUT_COLLISION', 'A different startup request owns this workspace.', {
       recovery: `Preserve ${journalFile} and reconcile the exact request.`,
     });
+  if (prior?.stage === 'reserved' && preflight.existing) {
+    // Existing exact event authority may predate its derived reservations after
+    // an interrupted create. Repair that owned transaction before broker reload.
+    await withReviewLock(path.join(preflight.paths.scratch.absolute, 'startup'), () =>
+      startReview(resolvedInput, {
+        ...deps,
+        config: loaded,
+        validatedStartup: true,
+        requestDigest,
+        repairStartupIdentity: true,
+      })
+    );
+  }
   if (runtime.ownership === 'broker') {
     image =
       prior?.runtime ??
@@ -137,7 +152,7 @@ export async function prepareStartup(input, deps = {}) {
     paths: preflight.paths,
   });
   preparedRequests.set(prepared, {
-    input: resolvedInput,
+    input: structuredClone(resolvedInput),
     preflight,
     loaded,
     project,
@@ -145,7 +160,8 @@ export async function prepareStartup(input, deps = {}) {
     versions,
     broker,
     adapter,
-    requestAuthority: initial.payload,
+    requestAuthority: structuredClone(initial.payload),
+    preparedSnapshot: canonicalProjection(prepared),
   });
   return prepared;
 }
@@ -153,10 +169,7 @@ export async function prepareStartup(input, deps = {}) {
 export async function activateStartup(prepared, deps = {}) {
   const request = preparedRequests.get(prepared);
   if (!request) usage('Startup requires a validated preparation from this process.');
-  if (
-    createHash('sha256').update(canonicalProjection(request.requestAuthority)).digest('hex') !==
-    prepared.requestDigest
-  ) {
+  if (canonicalProjection(prepared) !== request.preparedSnapshot) {
     request.broker?.close?.();
     request.broker?.connection?.close?.();
     throw new AprError(
@@ -165,6 +178,7 @@ export async function activateStartup(prepared, deps = {}) {
       { recovery: 'Prepare the exact requested review again before activating it.' }
     );
   }
+  prepared = JSON.parse(request.preparedSnapshot);
   const workspace = prepared.paths.scratch.absolute;
   const file = path.join(workspace, 'startup-request.json');
   try {
@@ -227,8 +241,10 @@ export async function activateStartup(prepared, deps = {}) {
         ...deps,
         config: request.loaded,
         validatedStartup: true,
+        requestDigest: prepared.requestDigest,
       });
       if (['launched', 'manual'].includes(journal.stage)) return enriched(result);
+      const dispatchRevision = inspectReview(workspace).protocol.revision;
       save('authority');
       await deps.afterStartupStage?.('authority', { workspace });
       if (prepared.runtime.ownership === 'broker') {
@@ -262,30 +278,48 @@ export async function activateStartup(prepared, deps = {}) {
         save('registered', { registration_file: registration.registration_file });
       } else save('registered');
       await deps.afterStartupStage?.('registration', { workspace });
-      if (typeof request.adapter.launch !== 'function') {
-        save('manual');
+      return withReviewLock(path.join(workspace, 'dispatch'), async () => {
+        const fresh = inspectReview(workspace);
+        const evidence = startupEvidence(workspace, fresh);
+        journal = evidence.journal;
+        if (['launch-pending', 'outcome-unknown'].includes(journal.stage)) throw unknown();
+        if (
+          evidence.recovery.fenced ||
+          journal.stage !== 'registered' ||
+          fresh.protocol.revision !== dispatchRevision
+        )
+          throw new AprError(
+            'APR_BROKER_STALE',
+            'Startup dispatch authority changed before launch.',
+            {
+              recovery: evidence.recovery.reconciliation_command,
+            }
+          );
+        if (typeof request.adapter.launch !== 'function') {
+          save('manual');
+          return enriched(result);
+        }
+        save('launch-pending');
+        let outcome;
+        try {
+          outcome = await request.adapter.launch({
+            workspace,
+            invitation: result.paths.reviewer_invitation,
+            selection: prepared.selection,
+            runtime: prepared.runtime,
+            requestDigest: prepared.requestDigest,
+          });
+        } catch {
+          save('outcome-unknown');
+          throw unknown();
+        }
+        if (outcome?.status !== 'launched') {
+          save('outcome-unknown');
+          throw unknown();
+        }
+        save('launched');
         return enriched(result);
-      }
-      save('launch-pending');
-      let outcome;
-      try {
-        outcome = await request.adapter.launch({
-          workspace,
-          invitation: result.paths.reviewer_invitation,
-          selection: prepared.selection,
-          runtime: prepared.runtime,
-          requestDigest: prepared.requestDigest,
-        });
-      } catch {
-        save('outcome-unknown');
-        throw unknown();
-      }
-      if (outcome?.status !== 'launched') {
-        save('outcome-unknown');
-        throw unknown();
-      }
-      save('launched');
-      return enriched(result);
+      });
     });
   } finally {
     request.broker?.close?.();

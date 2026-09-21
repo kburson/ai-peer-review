@@ -75,7 +75,24 @@ export function readStartupJournal(workspace) {
 export function startupEvidence(workspace, state) {
   workspace = realpathSync(workspace);
   const file = path.join(workspace, 'startup-request.json');
-  if (!existsSync(file)) return null;
+  if (!lstatExists(file)) {
+    const root = state.protocol.startup?.context?.repository_root;
+    const registration =
+      root &&
+      path.join(
+        root,
+        '.scratch',
+        'peer-review',
+        'broker',
+        'registrations',
+        `${state.protocol.review_id}.json`
+      );
+    // A durable registration makes this a transaction, not historical history.
+    // Even damaged registration bytes must not turn missing evidence into permission.
+    if (registration && lstatExists(registration))
+      authorityFailure('Registered review is missing its startup journal.', { file, registration });
+    return null;
+  }
   if (!lstatSync(file).isFile() || lstatSync(file).isSymbolicLink())
     authorityFailure('Startup journal is not an owned regular file.', { file });
   const journal = readStartupJournal(workspace);
