@@ -61,6 +61,27 @@ test('unproven surfaces remain unavailable and never advertise native control', 
   assert.deepEqual(observed.resource, { concurrent: false, resource_id: 'grok-desktop' });
 });
 
+test('Claude production adapter probes its official CLI without claiming native SPR', async () => {
+  const calls = [];
+  const adapter = createClaudeAdapter({
+    execFile: async (file, args, options) => {
+      calls.push({ file, args, options });
+      return { stdout: 'Claude Code 9.9.9\n', stderr: '' };
+    },
+  });
+  const observed = await adapter.observeCapabilities();
+  assert.equal(observed.available, true);
+  assert.deepEqual(observed.native, []);
+  assert.deepEqual(observed.transport, ['manual', 'resume-only']);
+  assert.deepEqual(calls, [
+    {
+      file: 'claude',
+      args: ['--version'],
+      options: { shell: false, encoding: 'utf8' },
+    },
+  ]);
+});
+
 test('native SPR is advertised only for exact launch, resume, and monitor control', async () => {
   const incomplete = createCodexAdapter({ surface: { launch: async () => ({}) } });
   assert.deepEqual(
@@ -89,7 +110,7 @@ test('production registry contains every selector without a provider fallback', 
   assert.equal(productionProviderAdapters().size, 3);
 });
 
-test('provider observation becomes runtime identity without exposing a raw session handle', () => {
+test('safe provider observation becomes runtime identity without exposing a raw session handle', () => {
   const identity = participantIdentityFromProviderObservation({
     role: 'reviewer',
     observation: {
@@ -97,13 +118,13 @@ test('provider observation becomes runtime identity without exposing a raw sessi
       host: 'claude-code',
       model_id: 'claude-opus-5',
       model_display: 'Claude Opus 5',
-      session_id: 'raw-secret',
+      session_fingerprint: `sha256:${'a'.repeat(64)}`,
       assurance: 'runtime',
     },
     joinedAt: '2026-09-21T00:00:00.000Z',
   });
-  assert.match(identity.session_fingerprint, /^sha256:[0-9a-f]{64}$/);
-  assert.equal(JSON.stringify(identity).includes('raw-secret'), false);
+  assert.equal(identity.session_fingerprint, `sha256:${'a'.repeat(64)}`);
+  assert.equal(JSON.stringify(identity).includes('session_id'), false);
 });
 
 test('doctor fails a required recognized provider whose exact control surface is unproven', () => {

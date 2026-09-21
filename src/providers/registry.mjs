@@ -1,6 +1,8 @@
 import { AprError } from '../errors.mjs';
 import { createHash } from 'node:crypto';
+import { existsSync, lstatSync, readFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
+import { atomicWrite } from '../protocol/store.mjs';
 
 export const SELECTORS = Object.freeze({
   codex: Object.freeze({ provider: 'openai', host: 'codex' }),
@@ -95,6 +97,17 @@ export function createProviderAdapter({
     typeof surface?.monitor === 'function' &&
     typeof surface?.observe === 'function';
 
+  const surfaceAvailable = async () => {
+    if (typeof surface?.available === 'function') {
+      try {
+        return (await surface.available()) === true;
+      } catch {
+        return false;
+      }
+    }
+    return typeof surface?.launch === 'function';
+  };
+
   const fingerprintSession = (sessionId) => {
     if (!text(sessionId)) identityConflict('Provider session observation is incomplete.');
     return `sha256:${createHash('sha256')
@@ -103,6 +116,61 @@ export function createProviderAdapter({
       .update('\n', 'utf8')
       .update(sessionId, 'utf8')
       .digest('hex')}`;
+  };
+
+  const operationFile = (scratchRoot, operationId) => {
+    if (
+      !path.isAbsolute(scratchRoot ?? '') ||
+      path.normalize(scratchRoot) !== scratchRoot ||
+      !/^[A-Za-z0-9._:-]+$/.test(operationId ?? '')
+    ) {
+      identityConflict('Provider operation storage identity is invalid.');
+    }
+    return path.join(scratchRoot, 'provider', selector, 'operations', `${operationId}.json`);
+  };
+
+  const persistOperation = (scratchRoot, operationId, operation) => {
+    if (scratchRoot === undefined) return;
+    atomicWrite(
+      operationFile(scratchRoot, operationId),
+      `${JSON.stringify({
+        schema: 'ai-peer-review.provider-operation/v1',
+        selector,
+        operation_id: operationId,
+        handle: operation.handle,
+        session_fingerprint: operation.fingerprint,
+      })}\n`
+    );
+  };
+
+  const storedOperation = (scratchRoot, operationId) => {
+    const memory = operations.get(operationId);
+    if (memory) return memory;
+    if (scratchRoot === undefined) return null;
+    const file = operationFile(scratchRoot, operationId);
+    let value;
+    try {
+      const metadata = lstatSync(file);
+      if (!metadata.isFile() || metadata.isSymbolicLink()) throw new Error('unsafe operation file');
+      value = JSON.parse(readFileSync(file, 'utf8'));
+    } catch {
+      unavailable('Provider operation handle is unavailable.', { operationId });
+    }
+    if (
+      value?.schema !== 'ai-peer-review.provider-operation/v1' ||
+      value.selector !== selector ||
+      value.operation_id !== operationId ||
+      !text(value.handle) ||
+      !/^sha256:[0-9a-f]{64}$/.test(value.session_fingerprint ?? '')
+    ) {
+      identityConflict('Provider operation handle conflicts with sealed reviewer intent.');
+    }
+    const operation = Object.freeze({
+      handle: value.handle,
+      fingerprint: value.session_fingerprint,
+    });
+    operations.set(operationId, operation);
+    return operation;
   };
 
   const validateObservation = (
@@ -162,28 +230,29 @@ export function createProviderAdapter({
       });
     },
     async observeCapabilities() {
-      const available = typeof surface?.launch === 'function';
+      const available = await surfaceAvailable();
       return Object.freeze({
         selector,
         provider,
         host,
         adapter_version: adapterVersion,
         available,
-        native: Object.freeze(exactNative ? ['exact-session'] : []),
+        native: Object.freeze(available && exactNative ? ['exact-session'] : []),
         broker: Object.freeze([
           Object.freeze({ transport_mode: 'manual', adapter_version: adapterVersion }),
         ]),
         transport: Object.freeze([
           'manual',
-          ...(typeof surface?.resume === 'function' ? ['resume-only'] : []),
-          ...(exactNative ? ['automatic-required'] : []),
+          ...(available && typeof surface?.resume === 'function' ? ['resume-only'] : []),
+          ...(available && exactNative ? ['automatic-required'] : []),
         ]),
         resource: Object.freeze({ ...resource }),
       });
     },
     async capabilities({ selection } = {}) {
+      const available = await surfaceAvailable();
       const native =
-        exactNative && selection?.classification === 'SPR'
+        available && exactNative && selection?.classification === 'SPR'
           ? [
               Object.freeze({
                 exact_session: true,
@@ -198,10 +267,10 @@ export function createProviderAdapter({
         native: Object.freeze(native),
         broker: Object.freeze([
           Object.freeze({ transport_mode: 'manual', adapter_version: adapterVersion }),
-          ...(typeof surface?.resume === 'function'
+          ...(available && typeof surface?.resume === 'function'
             ? [Object.freeze({ transport_mode: 'resume-only', adapter_version: adapterVersion })]
             : []),
-          ...(exactNative
+          ...(available && exactNative
             ? [
                 Object.freeze({
                   transport_mode: 'automatic-required',
@@ -219,6 +288,7 @@ export function createProviderAdapter({
       effort,
       operationId,
       authorSessionFingerprint = null,
+      scratchRoot,
     } = {}) {
       if (
         !path.isAbsolute(invitationPath ?? '') ||
@@ -250,17 +320,22 @@ export function createProviderAdapter({
         null,
         authorSessionFingerprint
       );
-      operations.set(
-        operationId,
-        Object.freeze({
-          handle: result.handle,
-          fingerprint: observed.session_fingerprint,
-        })
-      );
+      if (!text(result.handle)) unavailable('Provider launch did not return a resumable handle.');
+      const operation = Object.freeze({
+        handle: result.handle,
+        fingerprint: observed.session_fingerprint,
+      });
+      operations.set(operationId, operation);
+      persistOperation(scratchRoot, operationId, operation);
       return Object.freeze({ status: 'launched', observation: observed });
     },
-    async observeSession({ operationId, expected, authorSessionFingerprint = null } = {}) {
-      const operation = operations.get(operationId);
+    async observeSession({
+      operationId,
+      expected,
+      authorSessionFingerprint = null,
+      scratchRoot,
+    } = {}) {
+      const operation = storedOperation(scratchRoot, operationId);
       if (!operation || typeof surface?.observe !== 'function')
         unavailable('Provider session observation is unavailable.');
       const observed = await surface.observe(operation.handle);
@@ -273,16 +348,27 @@ export function createProviderAdapter({
     },
     async deliver(input) {
       if (typeof surface?.deliver !== 'function') unavailable('Provider delivery is unavailable.');
-      return surface.deliver(input);
+      const operation = storedOperation(input?.scratchRoot, input?.operationId);
+      return surface.deliver({ ...input, handle: operation?.handle });
     },
     async reconcile(input) {
       if (typeof surface?.reconcile !== 'function')
         unavailable('Provider reconciliation is unavailable.');
-      return surface.reconcile(input);
+      const operation = storedOperation(input?.scratchRoot, input?.operationId);
+      return surface.reconcile({ ...input, handle: operation?.handle });
     },
     async close(input) {
-      operations.clear();
-      return typeof surface?.close === 'function' ? surface.close(input) : undefined;
+      const operation = storedOperation(input?.scratchRoot, input?.operationId);
+      const result =
+        typeof surface?.close === 'function'
+          ? await surface.close({ ...input, handle: operation?.handle })
+          : undefined;
+      operations.delete(input?.operationId);
+      if (input?.scratchRoot !== undefined) {
+        const file = operationFile(input.scratchRoot, input.operationId);
+        if (existsSync(file)) unlinkSync(file);
+      }
+      return result;
     },
   };
   if (typeof surface?.launch === 'function') {
@@ -291,6 +377,7 @@ export function createProviderAdapter({
       selection,
       requestDigest,
       authorSessionFingerprint = null,
+      workspace,
     }) =>
       adapter.launchReviewer({
         invitationPath: invitation,
@@ -304,6 +391,7 @@ export function createProviderAdapter({
         effort: selection.effort,
         operationId: requestDigest,
         authorSessionFingerprint,
+        scratchRoot: workspace,
       });
   }
   return Object.freeze(adapter);

@@ -202,7 +202,7 @@ export function participantIdentity({
 export function participantIdentityFromProviderObservation({ role, observation, joinedAt } = {}) {
   if (
     observation?.assurance !== 'runtime' ||
-    typeof observation.session_id !== 'string' ||
+    !/^sha256:[0-9a-f]{64}$/.test(observation.session_fingerprint ?? '') ||
     typeof observation.model_id !== 'string'
   ) {
     fail(
@@ -211,17 +211,35 @@ export function participantIdentityFromProviderObservation({ role, observation, 
       'Observe the exact provider session and model before registering the participant.'
     );
   }
-  return participantIdentity({
+  if (!ROLES.has(role) || !HOSTS.has(observation.host) || !PROVIDERS.has(observation.provider)) {
+    fail(
+      'APR_IDENTITY_INVALID',
+      'Provider runtime observation identity is invalid.',
+      'Use a documented role, host, and provider.'
+    );
+  }
+  const joined = instant(
+    joinedAt ?? new Date(),
+    'identity join time',
+    'APR_IDENTITY_INVALID'
+  ).toISOString();
+  const modelId = text(observation.model_id, 'model_id');
+  const modelDisplay = text(observation.model_display ?? observation.model_id, 'model_display');
+  return Object.freeze({
     role,
     host: observation.host,
     provider: observation.provider,
-    modelId: observation.model_id,
-    modelDisplay: observation.model_display ?? observation.model_id,
-    sessionId: observation.session_id,
-    source: 'runtime',
-    sessionSource: 'official-runtime',
-    modelSource: 'official-runtime',
-    joinedAt,
+    model_id: modelId,
+    model_display: modelDisplay,
+    session_fingerprint: observation.session_fingerprint,
+    identity_source: 'runtime',
+    joined_at: joined,
+    evidence: identityEvidence({
+      sessionFingerprint: observation.session_fingerprint,
+      sessionSource: 'provider-result',
+      modelId,
+      modelSource: 'provider-result',
+    }),
   });
 }
 

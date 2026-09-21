@@ -1228,6 +1228,21 @@ function invitationValues(file) {
   };
 }
 
+function runtimeObservationForJoin(invitation, identity, supplied) {
+  if (supplied !== undefined) return supplied;
+  const values = invitationValues(invitation);
+  const runtime = inspectReview(values.workspace).protocol.startup.runtime;
+  if (runtime === undefined) return undefined;
+  return Object.freeze({
+    provider: identity.provider,
+    host: identity.host,
+    model_id: identity.model_id,
+    effort: runtime.reviewer.effort,
+    adapter_version: runtime.adapter_version,
+    assurance: identity.identity_source,
+  });
+}
+
 function pathsForContext(context) {
   return resolveReviewPaths({
     root: context.repository_root,
@@ -4277,7 +4292,7 @@ function commandIdentity(io, state, role = null, { allowReplacement = false, con
   );
 }
 
-function detectedDoctorContext(io, loaded, requestedMode) {
+async function detectedDoctorContext(io, loaded, requestedMode) {
   let identity = null;
   let identityRecovery = null;
   try {
@@ -4341,6 +4356,22 @@ function detectedDoctorContext(io, loaded, requestedMode) {
     },
   };
   const automaticHealthy = Object.values(phaseTwo).every((entry) => entry?.healthy === true);
+  const selector =
+    identity?.host === 'claude-code'
+      ? 'claude'
+      : identity?.host === 'codex'
+        ? 'codex'
+        : identity?.host === 'grok'
+          ? 'grok'
+          : null;
+  const adapters = io.adapters ?? productionProviderAdapters();
+  const adapter = selector
+    ? adapters instanceof Map
+      ? adapters.get(selector)
+      : adapters?.[selector]
+    : null;
+  const providerAdapter =
+    typeof adapter?.observeCapabilities === 'function' ? await adapter.observeCapabilities() : null;
   return {
     requestedMode,
     packageResolved: true,
@@ -4356,6 +4387,8 @@ function detectedDoctorContext(io, loaded, requestedMode) {
           ? { mode: 'automatic-required', healthy: automaticHealthy }
           : { mode: 'manual', healthy: requestedMode === 'manual' },
     phaseTwo,
+    providerAdapter,
+    providerRequired: requestedMode === 'automatic-required',
     brokerSecurity: io.brokerSecurity ?? inspectPlatformSecurity(),
   };
 }
@@ -4507,7 +4540,7 @@ export async function run(argv, io) {
     }
     if (parsed.command === 'doctor') {
       const loaded = loadConfig({ cwd: io.cwd, env: io.env });
-      const detected = detectedDoctorContext(io, loaded, parsed.options.mode ?? 'manual');
+      const detected = await detectedDoctorContext(io, loaded, parsed.options.mode ?? 'manual');
       const context = io.doctorContext ?? {};
       const response = doctor({
         ...detected,
@@ -4618,6 +4651,7 @@ export async function run(argv, io) {
       };
       const startupDeps = {
         ...io,
+        adapters: io.adapters ?? productionProviderAdapters(),
         config: loaded,
         verifyBootstrapGrant: io.verifyBootstrapGrant,
         verifyTestHumanAuthority: io.verifyTestHumanAuthority,
@@ -4631,6 +4665,7 @@ export async function run(argv, io) {
         storeResumeHandle(response.paths.workspace, 'author', resumable);
     } else if (parsed.command === 'join') {
       const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+      const invitation = path.resolve(io.cwd, parsed.args[0]);
       const identity = resolveIdentity({
         role: 'reviewer',
         env: io.env,
@@ -4643,9 +4678,9 @@ export async function run(argv, io) {
         (resumable ? 'resume-only' : 'manual');
       response = await joinReview({
         cwd: io.cwd,
-        invitation: path.resolve(io.cwd, parsed.args[0]),
+        invitation,
         identity,
-        runtimeObservation: io.runtimeObservation,
+        runtimeObservation: runtimeObservationForJoin(invitation, identity, io.runtimeObservation),
         transportCapability,
         transportObservation: io.transportObservation,
         authorTransportObservation: io.authorTransportObservation,

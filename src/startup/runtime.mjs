@@ -18,6 +18,10 @@ import { resolveSelection } from './selection.mjs';
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
 const preparedRequests = new WeakMap();
+const DEFINITELY_NOT_SUBMITTED_ERRORS = new Set([
+  'APR_PROVIDER_QUOTA',
+  'APR_PROVIDER_RESOURCE_BUSY',
+]);
 
 export async function prepareStartup(input, deps = {}) {
   input = structuredClone({ ...input, now: input.now ?? new Date() });
@@ -333,9 +337,24 @@ export async function activateStartup(prepared, deps = {}) {
             requestDigest: prepared.requestDigest,
             authorSessionFingerprint: request.input.identity.session_fingerprint,
           });
-        } catch {
+        } catch (cause) {
+          if (cause instanceof AprError && DEFINITELY_NOT_SUBMITTED_ERRORS.has(cause.code)) {
+            save('registered');
+            throw cause;
+          }
           save('outcome-unknown');
           throw unknown();
+        }
+        if (outcome?.status === 'definitely-not-submitted') {
+          save('registered');
+          throw new AprError(
+            'APR_WAKE_NOT_SUBMITTED',
+            'Reviewer launch was definitely not submitted.',
+            {
+              recovery: `Retry the exact startup request for ${workspace}.`,
+              details: { workspace, request_digest: prepared.requestDigest },
+            }
+          );
         }
         if (outcome?.status !== 'launched') {
           save('outcome-unknown');
