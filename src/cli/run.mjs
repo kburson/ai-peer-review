@@ -32,6 +32,10 @@ import {
   sealResponse,
 } from '../collateral/responses.mjs';
 import { AprError } from '../errors.mjs';
+import '../providers/codex.mjs';
+import '../providers/claude.mjs';
+import '../providers/grok.mjs';
+import { productionProviderAdapters } from '../providers/registry.mjs';
 import {
   buildClaudeReviewerLaunch,
   buildClaudeReviewerResume,
@@ -785,7 +789,13 @@ function startResult(state, paths, startup) {
 }
 
 export async function startReview(input, deps = {}) {
-  if (!deps.validatedStartup) return activateStartup(await prepareStartup(input, deps), deps);
+  if (!deps.validatedStartup) {
+    const startupDeps = {
+      ...deps,
+      adapters: deps.adapters ?? productionProviderAdapters(),
+    };
+    return activateStartup(await prepareStartup(input, startupDeps), startupDeps);
+  }
   const repository = deps.repository ?? createGitRepository();
   const root = repository.root(input.cwd);
   const loaded = deps.config ?? loadConfig({ cwd: root });

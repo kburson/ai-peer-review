@@ -331,6 +331,7 @@ export async function activateStartup(prepared, deps = {}) {
             selection: prepared.selection,
             runtime: prepared.runtime,
             requestDigest: prepared.requestDigest,
+            authorSessionFingerprint: request.input.identity.session_fingerprint,
           });
         } catch {
           save('outcome-unknown');
