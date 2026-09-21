@@ -3,7 +3,7 @@
 ## Status and authority
 
 - Date: 2026-09-21
-- Status: Proposed for human and independent peer review; not implementation authority
+- Status: Human-approved for planning; independent Claude and GPT-6 Astra critiques completed; implementation remains plan-gated
 - Parent: epic #39; remediation child #88
 - Amends: [Project-Local SPR/XPR Broker Design](2026-09-14-project-local-spr-xpr-broker-design.md)
 - Evidence: whole-branch review of `0f5dfb2`; the three findings are tracked
@@ -12,7 +12,7 @@
 The accepted 2026-09-14 design and plan remain immutable provenance. This
 amendment narrows how their provider-conformance and broker-worker requirements
 can be claimed. Epic #39 cannot pass integrated acceptance or release until
-#88 is Done and its exact implementation head has passed whole-branch review,
+child #88 is Done and its exact implementation head has passed whole-branch review,
 the full verification matrix, and the supported-host CI gate. No published
 package, API credential, or provider subscription limit is changed by this
 document.
@@ -42,8 +42,8 @@ Claude Code, Codex, and Grok Build are the intended review partners. Their
 installed local command-line or officially supported local SDK/agent-control
 interfaces are the candidate surfaces. This amendment does **not** authorize a
 new separately billed provider API dependency or a request to expand the
-operator's paid budget. Claude live calls must wait for the stated 04:00 CT
-limit reset; provider-limit errors stop that provider's conformance run rather
+operator's paid budget. Claude live calls must wait for the active session-limit
+reset; provider-limit errors stop that provider's conformance run rather
 than trigger retries, substitutions, or a background loop.
 
 Official interfaces establish candidate control, not conformance by
