@@ -513,6 +513,16 @@ asserts this skill command. Keep its historical `0.2.1` migration reference and
 all versioned protocol fixtures unchanged. Leaving the active pin stale would
 contradict this task's exact-version release contract.
 
+**Task 12 Windows bootstrap security adjustment (2026-09-21):** Also modify
+`src/broker/client.mjs` and `bin/peer-review-broker.mjs`, and add
+`test/unit/broker-bootstrap.test.mjs`. The installed-package Windows broker
+scenario exposes an earlier POSIX-mode-only bootstrap check that cannot attest
+Windows ownership. Create and read the bootstrap through the existing native
+private-directory operations so Windows verifies owner-only DACL and rejects
+reparse or unsafe files, while retaining strict POSIX mode and UID checks. The
+already named `test/integration/broker-release.test.mjs` proves this on the
+hosted Windows lane. Do not weaken or skip the bootstrap security boundary.
+
 **Interfaces:** One installable package containing the broker entrypoint, OS helper source and the explicit opt-in builder selected in Task 4, schemas, and internal workers. The package root exposes only intended public APIs. No global install or external broker package is required.
 
 - [ ] Before choosing the release number/removal policy, read registry metadata and inspect published tarballs without running their scripts. Record package version, integrity, file list, and public parse/export contents in the release evidence. The design's 2026-09-14 observation is not a permanent publication fact.
