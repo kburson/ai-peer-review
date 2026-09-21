@@ -5,6 +5,40 @@ import assert from 'node:assert/strict';
 
 import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS } from '../../src/cli/parse.mjs';
 import { explainError, helpRequest } from '../../src/cli/help-data.mjs';
+import { parseCommand } from '../../src/cli/parse.mjs';
+
+test('concept topics remain separate from the closed command grammar', () => {
+  for (const name of ['spr', 'xpr']) {
+    assert.equal(COMMANDS.includes(name), false);
+    assert.equal(helpRequest(name, 'json').schema, 'ai-peer-review.help-concept/v1');
+    assert.equal(parseCommand(['help', name]).args[0], name);
+    assert.ok(helpRequest(name, 'text').includes(name.toUpperCase()));
+    assert.ok(helpRequest(name, 'json').examples.length);
+    assert.throws(() => parseCommand([name, 'docs/a.md']), { code: 'APR_USAGE' });
+  }
+  assert.deepEqual(helpRequest(null, 'json').concepts, ['spr', 'xpr']);
+  assert.deepEqual(
+    helpRequest(null, 'json', { all: true }).concepts.map((v) => v.topic),
+    ['spr', 'xpr']
+  );
+  assert.ok(helpRequest('cross-provider', 'json', { search: true }).matches.includes('xpr'));
+  assert.throws(() => parseCommand(['help', 'unknown-concept']), { code: 'APR_USAGE' });
+});
+
+test('start help gives complete intent-first selection and recovery guidance', () => {
+  const start = helpRequest('start', 'text');
+  assert.match(start, /--reviewer-provider/);
+  assert.match(start, /--reviewer-model/);
+  assert.match(start, /medium/);
+  assert.match(start, /invoking session.*author/i);
+  assert.match(start, /broker/i);
+  assert.match(
+    start,
+    /peer-review start docs\/spec\.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
+  );
+  assert.match(start, /APR_USAGE/);
+  assert.doesNotMatch(start, /--runtime/);
+});
 
 test('all offline help topics derive complete contracts from the frozen command catalog', () => {
   const resultSchema = JSON.parse(

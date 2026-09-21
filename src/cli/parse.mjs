@@ -1,5 +1,6 @@
 import { AprError } from '../errors.mjs';
 import { GRANT_PARAMETER_FIELDS } from '../authority/canonicalize.mjs';
+import { CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 export { GRANT_PARAMETER_FIELDS } from '../authority/canonicalize.mjs';
 
@@ -351,7 +352,13 @@ function validateConstraints(command, args, options) {
       usage('--grant requires --replace-participant on recover');
     }
   }
-  if (command === 'help' && args[0] && args[0] !== 'search' && !COMMANDS.includes(args[0])) {
+  if (
+    command === 'help' &&
+    args[0] &&
+    args[0] !== 'search' &&
+    !COMMANDS.includes(args[0]) &&
+    !CONCEPT_HELP_TOPICS.includes(args[0])
+  ) {
     usage(`unknown help topic: ${args[0]}`);
   }
 }

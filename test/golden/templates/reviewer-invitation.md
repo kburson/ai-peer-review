@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:67647a97b95d0d88ad485fdc636134e56a7bf2688c4aab40d4acdfdcac1a98af" -->
+<!-- ai-peer-review-template version="1" digest="sha256:9901816a2120d7bb8c6b3f501e59f03217faec9e5dbafadd145408a1662398b9" -->
 <!-- ai-peer-review-invitation data="cGF5bG9hZA" -->
 
 # Reviewer invitation
@@ -11,6 +11,8 @@ Mode: `normal`
 - Workspace: `/repo/.scratch/peer-review/review-01`
 - Response: `/repo/docs/peer-reviews/spec/example/reviewer-response-1.md`
 - Invitation: `/repo/docs/peer-reviews/spec/example/reviewer-invitation.md`
+- Reviewer: Claude Opus 5 (claude-opus-5), effort: medium
+- Runtime: XPR, project-local broker
 
 ## Communication policy (v1)
 
@@ -27,11 +29,11 @@ Read the relevant durable reviewer or author response document; do not rely on a
 
 “Terse chat” does not mean terse review evidence. Durable reviewer and author response documents remain complete, self-contained, and authoritative.
 
-## Durable coordinator
+## Project-local broker and recovery
 
 Phased sessions remain event-authoritative. After a non-final acceptance, the registered author finalizes and advances the exact next artifact; resume only from the generated reviewer response and never infer or skip a phase from chat.
 
-When the host reports that the durable coordinator is active, yield after each handoff. The coordinator sleeps outside participant context and wakes only the exact configured session for an actionable protocol revision; do not poll or repeat wait calls. If durable wake is unavailable, use only the bounded manual fallback `peer-review status <workspace> --next`.
+When the project-local broker is active, yield after each handoff; do not poll or repeat wait calls. Inspect `peer-review broker status --json` for authenticated instance state. After a failure, preserve receipts and run `peer-review broker reconcile /repo/.scratch/peer-review/review-01 --json` only when the exact recovery evidence calls for it. A broker failure never silently changes the selected reviewer or transport. If the broker is unavailable for an existing manual review, use the bounded `peer-review status /repo/.scratch/peer-review/review-01 --next` recovery path.
 
 Role: reviewer. Join from a distinct session in the same physical worktree.
 

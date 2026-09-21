@@ -18,8 +18,8 @@ test('installable skill states the complete provider-neutral operating contract'
     'manual recovery',
     'automatic-required',
     'wait_for_handoff',
-    'peer-review coordinator run',
-    'status <workspace> --next',
+    'peer-review broker status',
+    'peer-review broker reconcile',
     'resident lease',
     'refs/codex/turn-diffs/checkpoints/',
     'every other ref',
@@ -39,7 +39,8 @@ test('installable skill states the complete provider-neutral operating contract'
     assert.ok(normalized.toLowerCase().includes(phrase.toLowerCase()), phrase);
   }
   assert.doesNotMatch(text, /\baitm\b|\/task\b/i);
-  assert.match(normalized, /coordinator.*do not (?:poll|repeat).*wait/i);
+  assert.match(normalized, /broker.*(?:poll|repeat).*wait/i);
+  assert.doesNotMatch(normalized, /peer-review coordinator /i);
   for (const phrase of [
     'peer-review launch-reviewer',
     'permission-mode dontAsk',

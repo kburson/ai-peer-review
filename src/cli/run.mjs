@@ -731,7 +731,8 @@ function startupVariables(
   paths,
   reviewId,
   commitMode = 'normal',
-  authorityAssurance = 'unavailable'
+  authorityAssurance = 'unavailable',
+  runtime = undefined
 ) {
   const startup = trackedStartupPaths(paths);
   const artifactAbsolute = path.join(root, artifact.path);
@@ -770,6 +771,18 @@ function startupVariables(
       ),
       recovery_display: markdownCodeSpan(
         renderCommand(['peer-review', 'resume', workspaceAbsolute])
+      ),
+      reviewer_selection_display: runtime
+        ? `${markdownCodeSpan(runtime.reviewer.model_display)} (${markdownCodeSpan(runtime.reviewer.model_id)}), effort: ${markdownCodeSpan(runtime.reviewer.effort)}`
+        : 'Legacy review: consult sealed startup authority',
+      runtime_display: runtime
+        ? `${runtime.classification}, ${runtime.ownership === 'broker' ? 'project-local broker' : 'provider-native'}`
+        : 'Legacy recorded runtime',
+      broker_reconcile_display: markdownCodeSpan(
+        renderCommand(['peer-review', 'broker', 'reconcile', workspaceAbsolute, '--json'])
+      ),
+      status_next_display: markdownCodeSpan(
+        renderCommand(['peer-review', 'status', workspaceAbsolute, '--next'])
       ),
     },
   };
@@ -947,7 +960,8 @@ export async function startReview(input, deps = {}) {
       paths,
       reviewId,
       commitMode,
-      startupAssurance
+      startupAssurance,
+      sealed.runtime
     );
     const contextBytes = Buffer.from(canonicalProjection(context));
     const authorStartupBytes = hydrateTemplate('author-startup', variables);
@@ -1077,7 +1091,8 @@ export async function startReview(input, deps = {}) {
     paths,
     reviewId,
     commitMode,
-    startupAssurance
+    startupAssurance,
+    runtime
   );
   const authorStartupBytes = hydrateTemplate('author-startup', variables);
   const reviewerInvitationBytes = hydrateTemplate('reviewer-invitation', variables);
@@ -1298,7 +1313,8 @@ function validateJoinAuthority({ state, root, invitation, values }) {
       paths,
       state.protocol.review_id,
       state.protocol.commit_mode,
-      state.protocol.authority?.verifier?.signer_strength ?? 'unavailable'
+      state.protocol.authority?.verifier?.signer_strength ?? 'unavailable',
+      state.protocol.startup.runtime
     ).variables
   );
   if (

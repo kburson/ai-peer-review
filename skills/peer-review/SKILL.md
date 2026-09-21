@@ -116,11 +116,18 @@ model turns while idle. An expired lease or changed process instance requires
 the recorded participant-loss intervention. If any automatic delivery remains
 pending, use the exact printed manual recovery command.
 
-When the host declares durable coordination active, run `peer-review coordinator run <workspace>`
-in the host-owned foreground process (or invoke
-`coordinator reconcile` from its out-of-context timer). The coordinator
-validates event authority and the current resident adapter before waking the
-exact participant. Under an active coordinator, do not poll or repeat wait
-calls. If coordinator startup reports a capability refusal, use only the
-bounded manual fallback `peer-review status <workspace> --next`; never claim
-unattended progress from a manual or resume-only host.
+Start from the invoking author session with an explicit reviewer provider and
+model; print the resolved effort even when it defaults to medium. Human
+sponsorship is not participant identity. Use `peer-review help start`,
+`peer-review help spr`, and `peer-review help xpr` for offline guidance. Native
+SPR needs a same-provider second-session capability. New XPR, including manual
+transport, requires the project-local broker; broker failure never triggers an
+automatic fallback to a different reviewer or runtime.
+
+For broker recovery, inspect `peer-review broker status --json`, preserve
+receipts, then use `peer-review broker reconcile <absolute-workspace> --json`
+only when the reported evidence calls for it. `broker suspend` fences one
+review; `broker stop` refuses runnable or unreconciled work. Under an active
+broker, yield after a handoff rather than polling or repeating wait calls.
+Existing manual reviews may use the bounded `peer-review status
+<absolute-workspace> --next` recovery path.

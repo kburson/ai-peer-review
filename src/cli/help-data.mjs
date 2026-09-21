@@ -1,5 +1,6 @@
 import { AprError } from '../errors.mjs';
 import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './parse.mjs';
+import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
   setup: 'Install or remove reversible peer-review agent integration.',
@@ -81,7 +82,9 @@ const PRECONDITIONS = Object.freeze({
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
+    'The invoking session must be the author participant; human sponsorship does not substitute for participant identity.',
     'An explicit supported reviewer provider and model; reviewer effort defaults to medium.',
+    'Native SPR requires a supported same-provider launch capability; new XPR requires the broker even for manual transport. No automatic fallback occurs.',
     'Optional --bootstrap-grant must authorize the exact protected pin-verifier action.',
   ],
   advance: ['A registered author claim and the exact event-derived next artifact.'],
@@ -157,6 +160,7 @@ const ERRORS = Object.freeze({
   ],
   doctor: ['APR_CONFIG_INVALID', 'APR_REPOSITORY_NOT_FOUND', 'APR_TRANSPORT_UNAVAILABLE'],
   start: [
+    'APR_USAGE',
     'APR_REPOSITORY_NOT_FOUND',
     'APR_ARTIFACT_UNTRACKED',
     'APR_ARTIFACT_DIRTY',
@@ -971,6 +975,11 @@ function topic(command) {
     examples: [
       COMMAND_USAGE[command],
       `npx --yes @kburson/ai-peer-review@0.2.2 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      ...(command === 'start'
+        ? [
+            'peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
+          ]
+        : []),
     ],
     result: 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
@@ -1032,6 +1041,10 @@ export function helpRequest(name = null, format = 'text', options = {}) {
     const term = String(name ?? '').toLowerCase();
     const matches = COMMANDS.filter((command) =>
       `${command} ${PURPOSE[command]} ${COMMAND_USAGE[command]}`.toLowerCase().includes(term)
+    ).concat(
+      CONCEPT_HELP_TOPICS.filter((concept) =>
+        `${concept} ${CONCEPT_HELP[concept].summary}`.toLowerCase().includes(term)
+      )
     );
     const result = Object.freeze({ schema: 'ai-peer-review.help-search/v1', term, matches });
     return format === 'json' ? result : `${matches.join('\n')}\n`;
@@ -1039,18 +1052,29 @@ export function helpRequest(name = null, format = 'text', options = {}) {
   if (options.all) {
     const values = COMMANDS.map(topic);
     return format === 'json'
-      ? Object.freeze({ schema: 'ai-peer-review.help-all/v1', topics: values })
-      : values.map(render).join('\n');
+      ? Object.freeze({
+          schema: 'ai-peer-review.help-all/v1',
+          topics: values,
+          concepts: CONCEPT_HELP_TOPICS.map((name) => CONCEPT_HELP[name]),
+        })
+      : `${values.map(render).join('\n')}\nConcepts:\n${CONCEPT_HELP_TOPICS.map((name) => `  ${name.toUpperCase()}: ${CONCEPT_HELP[name].summary}`).join('\n')}\n`;
   }
   if (name === null || name === undefined || name === '') {
     const result = Object.freeze({
       schema: 'ai-peer-review.help-index/v1',
       commands: COMMANDS,
+      concepts: CONCEPT_HELP_TOPICS,
       usage: 'peer-review help [<command>] [--all] [--json]',
     });
     return format === 'json'
       ? result
-      : `${result.usage}\n\nCommands:\n${COMMANDS.map((command) => `  ${command}`).join('\n')}\n`;
+      : `${result.usage}\n\nCommands:\n${COMMANDS.map((command) => `  ${command}`).join('\n')}\n\nConcepts:\n${CONCEPT_HELP_TOPICS.map((name) => `  ${name}`).join('\n')}\n`;
+  }
+  if (CONCEPT_HELP_TOPICS.includes(name)) {
+    const concept = CONCEPT_HELP[name];
+    return format === 'json'
+      ? concept
+      : `${name.toUpperCase()}\n\n${concept.summary}\n\nExamples:\n${concept.examples.map((example) => `  ${example}`).join('\n')}\n\nRelated commands: ${concept.related_commands.join(', ')}\n`;
   }
   if (!COMMANDS.includes(name)) usage(`Unknown help topic: ${name}`);
   const result = topic(name);

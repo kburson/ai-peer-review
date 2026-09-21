@@ -59,10 +59,12 @@ Then, back in the first session, whenever the reviewer hands work back:
 > Read the review findings, revise the spec, and submit the round.
 
 The two agents pass the document back and forth until the reviewer accepts it.
-Manual and resume-only modes keep you as the courier. With two healthy resident
-adapters, `automatic-required` can use a host-owned durable coordinator to wake
-the exact dormant participant once per actionable revision, with no polling or
-idle model turns. You remain the tie-breaker when they cannot agree.
+Manual and resume-only modes keep you as the courier. New cross-provider reviews
+(XPR) still register through the project-local broker, even when handoffs are
+manual. Same-provider reviews (SPR) may use native orchestration only when the
+provider can launch and resume the distinct reviewer session; otherwise they
+need the broker. There is no automatic fallback to another reviewer or runtime.
+You remain the tie-breaker when the agents cannot agree.
 
 ## Setting it up
 
@@ -182,7 +184,19 @@ status-line configuration, and other settings.
 The document has to be tracked and committed first — the review binds to an
 exact blob, so a dirty file is refused rather than quietly reviewed.
 
-> Start a peer review of `docs/spec.md` as a spec.
+> Start a peer review of `docs/spec.md` as a spec, with Claude Opus 5 as the reviewer at medium effort.
+
+From the author session, the equivalent explicit command is:
+
+```bash
+peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
+```
+
+The invoking session is the author participant; a sponsoring human is not a
+substitute for its identity. Normal mode creates the tracked review evidence
+and author-owned commits when required. `--no-commit` is an explicit
+non-durable test mode, not an equivalent assurance level. `peer-review help
+start`, `peer-review help spr`, and `peer-review help xpr` work offline.
 
 Your agent gets back a workspace, a brief of its own, and a reviewer invitation
 containing every path the second agent needs.
@@ -253,7 +267,7 @@ One review can govern an immutable ordered artifact sequence. Phase authority
 comes only from `events.jsonl`; provider transcripts are never consulted:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --phases spec,plan
+peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --phases spec,plan
 # review and finalize the specification, then follow status --next:
 peer-review advance .scratch/peer-review/<review-id> docs/plan.md
 # review and finalize the plan normally
@@ -271,7 +285,7 @@ If an attempt cannot finish, preserve it and start the replacement under the
 same record identity:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --record-id record-554e80ec
+peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --record-id record-554e80ec
 peer-review supersede .scratch/peer-review/review-old \
   --reason "Replacement attempt started" --by review-new
 ```
@@ -419,29 +433,29 @@ npm install --save-dev @kburson/ai-peer-review
 The `ai-peer-review`, `peer-review`, and `peer-review-mcp` binaries, `.ai-peer-review.json`, and
 `.scratch/peer-review/` remain unchanged.
 
-| Command         | Role            | What it does                                    |
-| --------------- | --------------- | ----------------------------------------------- |
-| `setup`         | you             | install or remove the agent integration         |
-| `doctor`        | anyone          | read-only readiness check                       |
-| `start`         | author          | begin a review of a tracked artifact            |
-| `advance`       | author          | bind the next phased artifact and resume review |
-| `join`          | reviewer        | join from an invitation                         |
-| `status`        | anyone          | current state and the single next action        |
-| `resume`        | anyone          | rebuild the current actor's instructions        |
-| `submit`        | author/reviewer | seal and hand off the current response          |
-| `finalize`      | author          | commit acceptance and the review manifest       |
-| `continue`      | author/reviewer | extend the turn budget under a signed grant     |
-| `supplement`    | author/reviewer | register human-authorized extra context         |
-| `recover`       | author/reviewer | reclaim a stale turn or replace a participant   |
-| `abandon`       | author/reviewer | end a stuck review, keeping the evidence        |
-| `supersede`     | author/reviewer | terminate a replaced attempt without acceptance |
-| `consolidate`   | anyone          | verify and relocate one multi-attempt record    |
-| `request-grant` | author/reviewer | raise a human authority challenge               |
-| `coordinator`   | host            | run, reconcile, inspect, or stop durable wakes  |
-| `help`          | anyone          | the complete offline command contract           |
-| `explain`       | anyone          | what one `APR_` error means and how to recover  |
+| Command         | Role            | What it does                                      |
+| --------------- | --------------- | ------------------------------------------------- |
+| `setup`         | you             | install or remove the agent integration           |
+| `doctor`        | anyone          | read-only readiness check                         |
+| `start`         | author          | begin a review of a tracked artifact              |
+| `advance`       | author          | bind the next phased artifact and resume review   |
+| `join`          | reviewer        | join from an invitation                           |
+| `status`        | anyone          | current state and the single next action          |
+| `resume`        | anyone          | rebuild the current actor's instructions          |
+| `submit`        | author/reviewer | seal and hand off the current response            |
+| `finalize`      | author          | commit acceptance and the review manifest         |
+| `continue`      | author/reviewer | extend the turn budget under a signed grant       |
+| `supplement`    | author/reviewer | register human-authorized extra context           |
+| `recover`       | author/reviewer | reclaim a stale turn or replace a participant     |
+| `abandon`       | author/reviewer | end a stuck review, keeping the evidence          |
+| `supersede`     | author/reviewer | terminate a replaced attempt without acceptance   |
+| `consolidate`   | anyone          | verify and relocate one multi-attempt record      |
+| `request-grant` | author/reviewer | raise a human authority challenge                 |
+| `broker`        | anyone          | inspect or recover the authenticated local broker |
+| `help`          | anyone          | the complete offline command contract             |
+| `explain`       | anyone          | what one `APR_` error means and how to recover    |
 
-`doctor`, `status`, `help`, `explain`, and bounded coordinator operations take
+`doctor`, `status`, `help`, `explain`, and bounded broker operations take
 `--json`, and
 `peer-review help --all` prints the full contract offline — roles, valid states,
 flags, effects, and error codes for every command. Agents should query it rather
@@ -452,29 +466,30 @@ rather than reconstructing them, and let `status --next` tell you the next
 command instead of assuming. Argument quoting in generated commands is
 POSIX-safe on macOS and Linux and PowerShell-safe on Windows.
 
-### Durable wake coordination
+### Project-local broker recovery
 
-An official host integration supplies the exact validated resident observation
-and wake adapter, then keeps the coordinator in the foreground:
-
-```bash
-peer-review coordinator run .scratch/peer-review/<review-id>
-```
-
-Filesystem hints and an out-of-context timer both use the same one-shot path:
+The broker is scoped to one canonical project root. Read authenticated status
+before attempting recovery; use the exact absolute workspace path from the
+generated startup artifact:
 
 ```bash
-peer-review coordinator reconcile .scratch/peer-review/<review-id> --json
-peer-review coordinator status .scratch/peer-review/<review-id> --json
-peer-review coordinator stop .scratch/peer-review/<review-id> --json
+peer-review broker status --json
+peer-review broker reconcile /absolute/review/workspace --json
 ```
 
-`stop` records a request for only the matching owned instance. Wake operations
-contain a pointer capsule, revision, target role, and session fingerprint—not a
-raw provider handle or review prose. A host without a current `live-wait` or
-official `native-push` capability is refused visibly. Its bounded manual
-fallback is `peer-review status <workspace> --next`; participant-side repeated
-polling is never an automatic mode.
+Suspend one review or stop an idle, reconciled broker only when the reported
+state calls for it:
+
+```bash
+peer-review broker suspend /absolute/review/workspace --json
+peer-review broker stop --json
+```
+
+`stop` refuses runnable or unreconciled work. Ambiguous provider actions are
+never replayed automatically. Preserve receipts and follow the printed
+reconciliation instructions. Existing manual reviews can use bounded
+`peer-review status /absolute/review/workspace --next` recovery; new XPR startup
+does not silently fall back when its broker is unavailable.
 
 ## Public API
 
@@ -484,24 +499,18 @@ exposing the adapter validation needed by official host integrations:
 ```js
 import {
   applyReviewRecord,
-  coordinatorStatus,
   createNativePushTransport,
-  decideWake,
   explainError,
-  reconcileWake,
   negotiateAutomaticRequired,
   planReviewRecord,
   renderReviewHistory,
   residentHealth,
-  runCoordinator,
   statusReview,
   validateResidentLease,
 } from '@kburson/ai-peer-review';
 ```
 
-Protocol mutation is routed through the CLI. Coordinator exports are narrow
-host-integration seams: authority selection, ledger operations, owned leases,
-one-shot reconciliation, and the foreground loop. The record helpers expose the same
+Protocol mutation is routed through the CLI. The record helpers expose the same
 frozen plan, deterministic index, and verified relocation transaction used by
 `consolidate`, so official integrations do not need to recreate those safety
 checks.
