@@ -49,6 +49,19 @@ test('command, flag, and positional catalogs are closed and frozen', () => {
   assert.ok(Object.isFrozen(POSITIONAL_GRAMMAR));
 });
 
+test('SPR and XPR are named help concepts, never executable commands', () => {
+  for (const concept of ['spr', 'xpr']) {
+    assert.equal(COMMANDS.includes(concept), false);
+    assert.deepEqual(parseCommand(['help', concept]), {
+      command: 'help',
+      args: [concept],
+      options: {},
+    });
+    usage([concept, 'docs/example.md'], /unknown command/i);
+  }
+  usage(['help', 'unlisted-concept'], /unknown help topic/i);
+});
+
 test('start options have stable names, repeatability, and defaults', () => {
   const parsed = parseCommand([
     'start',

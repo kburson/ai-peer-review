@@ -451,6 +451,20 @@ function validateExactFile(file, bytes) {
   if (entryExists(file) && !exactFile(file, bytes)) collision(file);
 }
 
+function validateSealedStartupFile(file, digest, currentTemplateBytes) {
+  if (entryExists(file)) {
+    if (!exactRegularDigest(file, digest)) collision(file);
+  } else if (sha256(currentTemplateBytes) !== digest) {
+    // An older template cannot be reconstructed from the installed package.
+    collision(file);
+  }
+}
+
+function ensureSealedStartupFile(file, digest, currentTemplateBytes) {
+  validateSealedStartupFile(file, digest, currentTemplateBytes);
+  if (!entryExists(file)) atomicCreate(file, currentTemplateBytes);
+}
+
 function configuredTransport(input) {
   const mode = input.transportMode ?? 'manual';
   if (mode === 'automatic-required') {
@@ -1015,8 +1029,10 @@ export async function startReview(input, deps = {}) {
       context.issue === requestedContext.issue &&
       sealed.context_digest === sha256(contextBytes) &&
       sealed.destination === paths.destination.relative &&
-      sealed.author_startup_digest === sha256(authorStartupBytes) &&
-      sealed.reviewer_invitation_digest === sha256(reviewerInvitationBytes) &&
+      (sealed.author_startup_digest === sha256(authorStartupBytes) ||
+        exactRegularDigest(startup.author_startup, sealed.author_startup_digest)) &&
+      (sealed.reviewer_invitation_digest === sha256(reviewerInvitationBytes) ||
+        exactRegularDigest(startup.reviewer_invitation, sealed.reviewer_invitation_digest)) &&
       sealed.transport_mode === transport.mode &&
       sealed.author_transport_capability === transport.capability &&
       sameValue(sealed.runtime ?? null, runtime ?? null) &&
@@ -1038,8 +1054,16 @@ export async function startReview(input, deps = {}) {
       if (entryExists(path.join(paths.scratch.absolute, 'collateral-reservation.json')))
         reserveCollateral({ ...state, paths }, { write: false });
       validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
-      validateExactFile(startup.author_startup, authorStartupBytes);
-      validateExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+      validateSealedStartupFile(
+        startup.author_startup,
+        sealed.author_startup_digest,
+        authorStartupBytes
+      );
+      validateSealedStartupFile(
+        startup.reviewer_invitation,
+        sealed.reviewer_invitation_digest,
+        reviewerInvitationBytes
+      );
       return deps.preflightOnly
         ? { artifact, paths, reviewId, context, existing: state }
         : startResult(state, paths, startup);
@@ -1047,22 +1071,46 @@ export async function startReview(input, deps = {}) {
     if (deps.preflightOnly) {
       reserveCollateral({ ...state, paths }, { write: false });
       validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
-      validateExactFile(startup.author_startup, authorStartupBytes);
-      validateExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+      validateSealedStartupFile(
+        startup.author_startup,
+        sealed.author_startup_digest,
+        authorStartupBytes
+      );
+      validateSealedStartupFile(
+        startup.reviewer_invitation,
+        sealed.reviewer_invitation_digest,
+        reviewerInvitationBytes
+      );
       return { artifact, paths, reviewId, context, existing: state };
     }
     let repaired = await repairReview(paths.scratch.absolute, expected(state), {
       preflight: (current) => {
         reserveCollateral({ ...current, paths }, { write: false });
         validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
-        validateExactFile(startup.author_startup, authorStartupBytes);
-        validateExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+        validateSealedStartupFile(
+          startup.author_startup,
+          sealed.author_startup_digest,
+          authorStartupBytes
+        );
+        validateSealedStartupFile(
+          startup.reviewer_invitation,
+          sealed.reviewer_invitation_digest,
+          reviewerInvitationBytes
+        );
       },
       repair: (current) => {
         reserveCollateral({ ...current, paths });
         ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
-        ensureExactFile(startup.author_startup, authorStartupBytes);
-        ensureExactFile(startup.reviewer_invitation, reviewerInvitationBytes);
+        ensureSealedStartupFile(
+          startup.author_startup,
+          sealed.author_startup_digest,
+          authorStartupBytes
+        );
+        ensureSealedStartupFile(
+          startup.reviewer_invitation,
+          sealed.reviewer_invitation_digest,
+          reviewerInvitationBytes
+        );
       },
     });
     if (deps.repairStartupIdentity && !repaired.participants.author.evidence) {
@@ -1305,18 +1353,6 @@ function sealedPaths(state) {
 function validateJoinAuthority({ state, root, invitation, values }) {
   const { startup, context, paths } = sealedPaths(state);
   const contextBytes = Buffer.from(canonicalProjection(context));
-  const expectedInvitation = hydrateTemplate(
-    'reviewer-invitation',
-    startupVariables(
-      root,
-      state.protocol.artifact,
-      paths,
-      state.protocol.review_id,
-      state.protocol.commit_mode,
-      state.protocol.authority?.verifier?.signer_strength ?? 'unavailable',
-      state.protocol.startup.runtime
-    ).variables
-  );
   if (
     root !== context.repository_root ||
     values.reviewId !== state.protocol.review_id ||
@@ -1325,8 +1361,7 @@ function validateJoinAuthority({ state, root, invitation, values }) {
     values.response !== paths.reviewerResponse(1).absolute ||
     invitation !== trackedStartupPaths(paths).reviewer_invitation ||
     !exactFile(contextFile(paths.scratch.absolute), contextBytes) ||
-    sha256(expectedInvitation) !== startup.reviewer_invitation_digest ||
-    !exactFile(invitation, expectedInvitation)
+    !exactRegularDigest(invitation, startup.reviewer_invitation_digest)
   ) {
     fail(
       'APR_INVITATION_INVALID',
@@ -4186,6 +4221,13 @@ function writeJson(stream, value) {
 function writeResult(stream, value) {
   const nextAction = value.next_action?.command ?? value.next_action ?? 'none';
   const lines = [`Review ${value.review_id}: ${value.state}`, `Next: ${nextAction}`];
+  if (value.command === 'start' && value.review?.runtime) {
+    const runtime = value.review.runtime;
+    lines.push(
+      `Runtime: ${runtime.classification} via ${runtime.ownership === 'broker' ? 'project-local broker' : 'provider-native'}`,
+      `Reviewer: ${runtime.reviewer.model_id}; effort: ${runtime.reviewer.effort}`
+    );
+  }
   if (value.command === 'resume') lines.push(`Instructions: ${value.instructions}`);
   if (value.review?.delivery?.manual?.command)
     lines.push(`Manual recovery: ${value.review.delivery.manual.command}`);

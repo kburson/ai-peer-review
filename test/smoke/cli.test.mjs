@@ -118,4 +118,6 @@ test('packed CLI installs into a non-Node host and starts a review through injec
   assert.equal(code, 0, errors);
   assert.match(started, /Review .*: awaiting-reviewer/);
   assert.match(started, /Next:/);
+  assert.match(started, /Runtime: XPR via project-local broker/);
+  assert.match(started, /Reviewer: claude-opus-5; effort: medium/);
 });
