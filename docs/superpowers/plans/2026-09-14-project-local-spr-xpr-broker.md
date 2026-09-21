@@ -540,6 +540,13 @@ The extraction/release verifiers validate historical provenance (the current rel
 
 - [ ] Inspect final diff and commit the task's exact listed source/template/documentation/package/CI/test paths with `release: prepare project-local broker minor release`. Record local verification against this commit and require hosted CI on the exact delivery SHA. Publishing, merging, and issue lifecycle transitions remain separate authorized delivery actions; this plan does not execute them.
 
+#### Story Intent
+
+- **Beneficiary:** The ai-peer-review maintainer and installed-package operator
+- **Capability:** Prepare one versioned package and cross-platform verification contract that proves broker behavior after installation
+- **Need:** Source-tree tests alone do not establish installed native-helper prerequisites, independent project routing, exact version pins, and supported Node and operating-system behavior
+- **Value or failure prevented:** An operator can adopt a compatible release candidate without hidden dependencies, stale commands, or an unverified platform claim
+
 ## Acceptance coverage and review checkpoints
 
 | Design acceptance requirement                                       | Tasks and decisive evidence                                   |
