@@ -10,7 +10,7 @@ import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 test('generated join commands round-trip spaces and Windows-style paths', () => {
   for (const invitation of [
     '/repo/Review Files/reviewer invitation.md',
-    "C:\\Review Files\\O'Brien\\reviewer invitation.md",
+    "C:\\Review Files\\Owner's\\reviewer invitation.md",
   ]) {
     assert.equal(
       executeJoinCommand(renderCommand(['peer-review', 'join', invitation])),
@@ -18,10 +18,10 @@ test('generated join commands round-trip spaces and Windows-style paths', () => 
     );
   }
   assert.equal(
-    renderCommand(['peer-review', 'join', "C:\\Review Files\\O'Brien\\reviewer invitation.md"], {
+    renderCommand(['peer-review', 'join', "C:\\Review Files\\Owner's\\reviewer invitation.md"], {
       platform: 'win32',
     }),
-    "peer-review join 'C:\\Review Files\\O''Brien\\reviewer invitation.md'"
+    "peer-review join 'C:\\Review Files\\Owner''s\\reviewer invitation.md'"
   );
 });
 
