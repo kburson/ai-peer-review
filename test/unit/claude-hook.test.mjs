@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
 import {
   captureClaudeStartHook,
+  captureClaudeStartHookWhenPresent,
   readClaudeStartHook,
   readClaudeStartHookForSession,
 } from '../../src/providers/claude-hook.mjs';
@@ -81,6 +82,18 @@ test('Claude start hook refuses transcript model or tool-use divergence', (t) =>
       token: TOKEN,
     })
   );
+});
+
+test('Claude start hook waits briefly for the same provider tool use to reach its transcript', async (t) => {
+  const { event } = fixture(t);
+  const bytes = readFileSync(event.transcript_path);
+  writeFileSync(event.transcript_path, '{"type":"user"}\n');
+  setTimeout(() => writeFileSync(event.transcript_path, bytes), 15);
+  const output = await captureClaudeStartHookWhenPresent(
+    { event, sourceVersion: '2.1.278', token: TOKEN },
+    { delay: 20, attempts: 4 }
+  );
+  assert.equal(output.hookSpecificOutput.permissionDecision, 'allow');
 });
 
 test('verified active Claude author tool use supplies a current automatic transport lease', async (t) => {

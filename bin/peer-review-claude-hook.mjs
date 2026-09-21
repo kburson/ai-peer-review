@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 
-import { captureClaudeStartHook } from '../src/providers/claude-hook.mjs';
+import { captureClaudeStartHookWhenPresent } from '../src/providers/claude-hook.mjs';
 
 let input = '';
 for await (const chunk of process.stdin) {
@@ -20,7 +20,7 @@ try {
   const version = execFileSync('claude', ['--version'], { encoding: 'utf8' })
     .trim()
     .match(/^(\d+\.\d+\.\d+)(?:\s|$)/)?.[1];
-  const output = captureClaudeStartHook({
+  const output = await captureClaudeStartHookWhenPresent({
     event,
     sourceVersion: version,
     token: randomBytes(16).toString('hex'),

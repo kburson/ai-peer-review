@@ -65,8 +65,10 @@ function toolObservation(event, sourceVersion, observedAt) {
     );
     if (calls?.length) matches.push({ entry, calls });
   }
+  if (matches.length === 0)
+    invalid('Claude start tool use is not yet present in its provider transcript.');
   if (matches.length !== 1 || matches[0].calls.length !== 1)
-    invalid('Claude start tool use is missing or ambiguous in its provider transcript.');
+    invalid('Claude start tool use is ambiguous in its provider transcript.');
   const { entry, calls } = matches[0];
   const age = new Date(observedAt).valueOf() - Date.parse(entry.timestamp);
   if (
@@ -118,6 +120,25 @@ export function captureClaudeStartHook({
       }),
     }),
   });
+}
+
+export async function captureClaudeStartHookWhenPresent(
+  input,
+  { delay = 100, attempts = 20 } = {}
+) {
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      return captureClaudeStartHook(input);
+    } catch (cause) {
+      if (
+        cause?.code !== 'APR_CLAUDE_HOOK_INVALID' ||
+        cause.message !== 'Claude start tool use is not yet present in its provider transcript.' ||
+        index === attempts - 1
+      )
+        throw cause;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 }
 
 export function readClaudeStartHook({ root, token, sessionId, operationId } = {}) {
