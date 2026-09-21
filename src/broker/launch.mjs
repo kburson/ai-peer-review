@@ -112,6 +112,8 @@ export async function settleReservedReviewerLaunch({
       : outcome?.status === 'definitely-not-submitted' || NOT_SUBMITTED.has(failure?.code)
         ? 'not-submitted'
         : 'outcome-unknown';
+  const sessionFingerprint =
+    outcome?.observation?.session_fingerprint ?? outcome?.session_fingerprint ?? null;
   await withReviewLock(path.join(workspace, 'dispatch'), () => {
     const journal = readStartupJournal(workspace);
     const state = inspectReview(workspace);
@@ -126,8 +128,8 @@ export async function settleReservedReviewerLaunch({
     if (
       status === 'acknowledged' &&
       state.participants.reviewer &&
-      (!outcome.session_fingerprint ||
-        outcome.session_fingerprint !== state.participants.reviewer.session_fingerprint)
+      (!sessionFingerprint ||
+        sessionFingerprint !== state.participants.reviewer.session_fingerprint)
     )
       status = 'outcome-unknown';
     save(workspace, {
@@ -141,8 +143,7 @@ export async function settleReservedReviewerLaunch({
       provider_operation: {
         ...current,
         status,
-        session_fingerprint:
-          status === 'acknowledged' ? (outcome.session_fingerprint ?? null) : null,
+        session_fingerprint: status === 'acknowledged' ? sessionFingerprint : null,
       },
     });
   });

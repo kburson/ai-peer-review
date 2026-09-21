@@ -305,9 +305,12 @@ test('workflows retain complete platform and release safety gates', () => {
     '*windows-compiler',
     '*node-development',
     '*windows-library',
+    '*warm-broker',
     '*offline-broker',
   ])
     assert.ok(preferredNode.includes(gate), gate);
+  assert.match(ci, /&warm-broker\s+name: Warm npm cache for packed release/);
+  assert.ok(preferredNode.indexOf('*warm-broker') < preferredNode.indexOf('*offline-broker'));
   const offline = namedStep('Build and verify installed broker without network');
   for (const gate of [
     'unshare --net',

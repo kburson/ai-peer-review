@@ -215,6 +215,40 @@ test('linked worktrees keep separate broker identity and startup uses literal ar
   );
 });
 
+test('freshly launched broker waits for complete discovery bytes before authenticating', async () => {
+  const project = identity('e'.repeat(64), '/projects/discovery-race');
+  const runtimeImage = {
+    root: '/cache/images/runtime-race',
+    nodeExecutable: '/cache/images/runtime-race/node',
+    digest: `sha256:${'f'.repeat(64)}`,
+  };
+  let attempts = 0;
+  const client = { project_digest: project.digest };
+  const result = await ensureBroker({
+    project,
+    versions: { package_version: '1.0.0', broker_protocol_version: 1, node_major: 24 },
+    runtimeImage,
+    platform: {
+      verifyRuntimeImage: () => true,
+      async connect() {
+        attempts++;
+        if (attempts === 1) throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+        if (attempts === 2)
+          throw Object.assign(new Error('Broker discovery metadata is malformed.'), {
+            code: 'APR_BROKER_STALE',
+          });
+        return client;
+      },
+      discoveryState: () => 'present',
+      createBootstrap: () => '/projects/discovery-race/bootstrap.json',
+      spawn: () => ({ ready: Promise.resolve(), unref() {} }),
+      async delay() {},
+    },
+  });
+  assert.equal(result, client);
+  assert.equal(attempts, 3);
+});
+
 test('missing discovery launches once while contradictory stale evidence remains fenced', async () => {
   const project = identity('1'.repeat(64), '/projects/fresh');
   const runtimeImage = {

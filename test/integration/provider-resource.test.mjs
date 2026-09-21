@@ -141,6 +141,19 @@ test('different projects and versions contend on one user/provider/resource dige
   assert.equal(complete(second), true);
 });
 
+test('unused exclusive lease releases only after a fresh available provider observation', () => {
+  const f = sharedPlatform();
+  const first = acquire(f, identity('1'.repeat(64), '0.2.2', 1), instanceA, nonceA);
+  f.setProviderStatus('busy');
+  assert.throws(() => first.releaseUnused(), { code: 'APR_PROVIDER_RESOURCE_BUSY' });
+  assert.equal(f.lockCount(), 1);
+  f.setProviderStatus('available');
+  assert.equal(first.releaseUnused(), true);
+  assert.equal(f.lockCount(), 0);
+  const second = acquire(f, identity('2'.repeat(64), '9.0.0', 17), instanceB, nonceB);
+  assert.equal(complete(second), true);
+});
+
 test('cache deletion cannot authorize a second project while provider state is live', () => {
   const f = sharedPlatform();
   const first = acquire(f, identity('1'.repeat(64), '0.2.2', 1), instanceA, nonceA);

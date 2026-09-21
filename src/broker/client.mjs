@@ -184,7 +184,10 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
     return await connectUntilReady(
       connect,
       platform,
-      (error) => error?.code === 'APR_BROKER_STALE' && missingDiscovery(project, platform)
+      (error) =>
+        error?.code === 'APR_BROKER_STALE' &&
+        (missingDiscovery(project, platform) ||
+          error.message === 'Broker discovery metadata is malformed.')
     );
   } catch (error) {
     throw startFailure(error, { bootstrap });

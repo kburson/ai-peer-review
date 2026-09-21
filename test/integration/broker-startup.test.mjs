@@ -167,10 +167,20 @@ test('broker launch reservation releases dispatch lock during a deferred provide
   await assert.rejects(launchReviewerOperation({ registration, worker: { launchReviewer() {} } }), {
     code: 'APR_WAKE_OUTCOME_UNKNOWN',
   });
-  release({ status: 'launched', session_fingerprint: reviewer.session_fingerprint });
+  release({
+    status: 'launched',
+    observation: { session_fingerprint: reviewer.session_fingerprint },
+  });
   assert.equal((await launching).status, 'launched');
   assert.equal(calls, 1);
-  assert.equal(registry.readStartupJournal(workspace).provider_operation.status, 'acknowledged');
+  assert.deepEqual(
+    {
+      status: registry.readStartupJournal(workspace).provider_operation.status,
+      session_fingerprint:
+        registry.readStartupJournal(workspace).provider_operation.session_fingerprint,
+    },
+    { status: 'acknowledged', session_fingerprint: reviewer.session_fingerprint }
+  );
 });
 
 test('bootstrap worker rechecks provider lease and fence immediately before launch', async () => {
@@ -1094,6 +1104,40 @@ test('launch that joins before acknowledgement and its retry return the current 
   const retry = await startReview(request(fx.root), brokerLaunchDeps(deps));
   assert.equal(retry.state, 'reviewer-turn');
   assert.equal(launches, 1);
+});
+
+test('authenticated join after launch notifies the resident broker for promotion', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), brokerLaunchDeps(fixtureStartupDeps));
+  const reviewer = participantIdentity({
+    role: 'reviewer',
+    host: 'claude-code',
+    provider: 'anthropic',
+    modelId: 'claude-opus-5',
+    modelDisplay: 'Claude Opus 5',
+    sessionId: 'post-launch-join',
+    source: 'runtime',
+    joinedAt: NOW,
+  });
+  const notified = [];
+  const input = {
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: NOW,
+    runtimeObservation: {
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'claude-opus-5',
+      effort: 'medium',
+      adapter_version: 'fixture-v1',
+      assurance: 'runtime',
+    },
+  };
+  await joinReview(input, { onJoined: async (workspace) => notified.push(workspace) });
+  await joinReview(input, { onJoined: async (workspace) => notified.push(workspace) });
+  assert.deepEqual(notified, [started.paths.workspace, started.paths.workspace]);
 });
 
 test('manual recovery records a fence only after authenticated suspension settles', async (t) => {

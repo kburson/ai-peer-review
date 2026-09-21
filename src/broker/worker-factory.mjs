@@ -261,15 +261,9 @@ export async function createProductionReviewWorker({
       leases.set(entry.key, { entry, lease: acquired, prior: null });
     }
   } catch (error) {
-    // No provider action has occurred. Release only resources whose adapter can
-    // prove a clean reconciliation; otherwise preserve the ownership evidence.
-    for (const { entry, lease } of [...leases.values()].reverse()) {
-      const release = await entry.adapter.observeResourceRelease?.({
-        role: entry.role,
-        status: 'reconciled-recovery',
-      });
-      if (release) await lease.release(release);
-    }
+    // No provider action has occurred. Each lease verifies the provider is
+    // available before releasing an exclusive OS lock and owned record.
+    for (const { lease } of [...leases.values()].reverse()) await lease.releaseUnused();
     throw error;
   }
   const lease = {
@@ -320,7 +314,10 @@ export async function createProductionReviewWorker({
     },
     async release() {
       for (const { entry, lease: owned, prior } of [...leases.values()].reverse()) {
-        if (!prior) continue;
+        if (!prior) {
+          await owned.releaseUnused();
+          continue;
+        }
         const release = await entry.adapter.observeResourceRelease({
           role: entry.role,
           prior,

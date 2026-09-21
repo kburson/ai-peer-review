@@ -237,6 +237,8 @@ test('production factory keeps a verified author-only worker launch-capable and 
   let coordinatorInput;
   const resourceAcquisitions = [];
   const resourceChecks = [];
+  const unusedReleases = [];
+  let terminal = false;
   const current = () => ({
     state: {
       protocol: {
@@ -273,7 +275,7 @@ test('production factory keeps a verified author-only worker launch-capable and 
     },
   });
   const status = () => ({
-    state: joined ? 'reviewer-turn' : 'awaiting-reviewer',
+    state: terminal ? 'accepted' : joined ? 'reviewer-turn' : 'awaiting-reviewer',
     next_action: joined ? 'reviewer-submit' : 'reviewer-join',
     review: {
       recovery: {
@@ -384,7 +386,7 @@ test('production factory keeps a verified author-only worker launch-capable and 
     },
     async reconcileDelivery() {},
   };
-  const worker = await createProductionReviewWorker({
+  const workerInput = {
     registration: {
       review_id: 'review-01',
       workspace,
@@ -427,10 +429,11 @@ test('production factory keeps a verified author-only worker launch-capable and 
       handle_locator: `${role}-session`,
     }),
     acquireResource: () => {
-      resourceAcquisitions.push(true);
+      const index = resourceAcquisitions.push(true) - 1;
       return {
         beforeDelivery: (value) => resourceChecks.push(value.session_handle),
         release: () => true,
+        releaseUnused: () => unusedReleases.push(index),
       };
     },
     coordinator: async (input) => {
@@ -438,7 +441,32 @@ test('production factory keeps a verified author-only worker launch-capable and 
       coordinatorStarts += 1;
       await input.onStarted({ stop() {} });
     },
+  };
+  let attempted = 0;
+  let partialReleases = 0;
+  await assert.rejects(
+    createProductionReviewWorker({
+      ...workerInput,
+      acquireResource: () => {
+        if (attempted++ === 1) throw new Error('second resource refused');
+        return { releaseUnused: () => partialReleases++ };
+      },
+    }),
+    /second resource refused/
+  );
+  assert.equal(partialReleases, 1);
+  let prelaunchReleases = 0;
+  const prelaunch = await createProductionReviewWorker({
+    ...workerInput,
+    acquireResource: () => ({ releaseUnused: () => prelaunchReleases++ }),
   });
+  assert.equal(await prelaunch.start(), 'bootstrap');
+  terminal = true;
+  await prelaunch.close();
+  terminal = false;
+  assert.equal(prelaunchReleases, 2);
+  assert.equal(launchCalls, 0);
+  const worker = await createProductionReviewWorker(workerInput);
   assert.equal(await worker.start(), 'bootstrap');
   assert.equal(coordinatorStarts, 0);
   assert.equal(typeof worker.launchReviewer, 'function');
@@ -453,4 +481,7 @@ test('production factory keeps a verified author-only worker launch-capable and 
   assert.equal((await coordinatorInput.adapter.deliver(wake)).status, 'acknowledged');
   assert.equal(resourceAcquisitions.length, 3);
   assert.deepEqual(resourceChecks, ['reviewer-launch', 'reviewer-session']);
+  terminal = true;
+  await worker.close();
+  assert.equal(unusedReleases.length, 1);
 });

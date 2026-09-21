@@ -70,6 +70,24 @@ jobs:
           const root = path.join(process.env.APR_NODEDIR_BASE, process.versions.node);
           mkdirSync(path.join(root, 'Release'), { recursive: true });
           cpSync(path.join(root, process.arch, 'node.lib'), path.join(root, 'Release', 'node.lib'));"
+      - &warm-broker
+        name: Warm npm cache for packed release
+        shell: pwsh
+        run: |
+          $scratch = Join-Path $env:RUNNER_TEMP 'apr-cache-warm'
+          New-Item -ItemType Directory -Force -Path $scratch | Out-Null
+          $packed = npm pack --ignore-scripts --json --pack-destination $scratch | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $hostRoot = Join-Path $scratch 'host'
+          New-Item -ItemType Directory -Force -Path $hostRoot | Out-Null
+          Set-Content -Path (Join-Path $hostRoot 'package.json') -Value '{"private":true}'
+          Push-Location $hostRoot
+          try {
+            npm install --omit=dev --ignore-scripts --no-audit --no-fund (Join-Path $scratch $packed.'@kburson/ai-peer-review'.filename)
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
       - &offline-broker
         name: Build and verify installed broker without network
         shell: pwsh
@@ -135,6 +153,7 @@ jobs:
       - *posix-compiler
       - *node-development
       - *windows-library
+      - *warm-broker
       - *offline-broker
       - run: npm test
       - run: npm run test:integration
@@ -186,6 +205,7 @@ jobs:
       - *python
       - *posix-compiler
       - *node-development
+      - *warm-broker
       - *offline-broker
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm ls --omit=dev --json

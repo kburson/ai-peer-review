@@ -1483,6 +1483,12 @@ export async function joinReview(input, deps = {}) {
   const state = inspectReview(values.workspace);
   const root = repository.root(input.cwd);
   const paths = validateJoinAuthority({ state, root, invitation, values });
+  const joinedResult = async (...args) => {
+    const response = result(...args);
+    if (state.protocol.startup.runtime?.ownership === 'broker')
+      await deps.onJoined?.(values.workspace);
+    return response;
+  };
   const ensureReviewerBinding = () => {
     if (!input.providerBinding) return;
     const runtime = state.protocol.startup.runtime;
@@ -1589,7 +1595,7 @@ export async function joinReview(input, deps = {}) {
         claimRole(current, registered, input.now ?? new Date())
       );
       const draft = createResponseDraft({ ...claimed, paths }, 'reviewer', 1);
-      return result(
+      return joinedResult(
         'join',
         claimed,
         { workspace: values.workspace, response: draft.path },
@@ -1609,7 +1615,7 @@ export async function joinReview(input, deps = {}) {
     ) {
       ensureReviewerBinding();
       const draft = createResponseDraft({ ...state, paths }, 'reviewer', 1);
-      return result(
+      return joinedResult(
         'join',
         state,
         { workspace: values.workspace, response: draft.path },
@@ -1659,7 +1665,7 @@ export async function joinReview(input, deps = {}) {
     claimRole(current, input.identity, input.now ?? new Date())
   );
   const draft = createResponseDraft({ ...claimed, paths }, 'reviewer', 1);
-  return result(
+  return joinedResult(
     'join',
     claimed,
     { workspace: values.workspace, response: draft.path },
@@ -5160,25 +5166,36 @@ export async function run(argv, io) {
         io.transportCapability ??
         transportObservation?.capability ??
         (resumable ? 'resume-only' : 'manual');
-      response = await joinReview({
-        cwd: io.cwd,
-        invitation,
-        identity,
-        runtimeObservation: joinRuntime.observation,
-        providerBinding: joinRuntime.binding,
-        transportCapability,
-        transportObservation,
-        authorTransportObservation,
-        transportHealthCheck:
-          io.transportHealthCheck ??
-          (automaticJoin
-            ? async () => {
-                const status = await brokerCommand('status', null, io);
-                return { healthy: status.status === 'running', reason: status.status };
+      response = await joinReview(
+        {
+          cwd: io.cwd,
+          invitation,
+          identity,
+          runtimeObservation: joinRuntime.observation,
+          providerBinding: joinRuntime.binding,
+          transportCapability,
+          transportObservation,
+          authorTransportObservation,
+          transportHealthCheck:
+            io.transportHealthCheck ??
+            (automaticJoin
+              ? async () => {
+                  const status = await brokerCommand('status', null, io);
+                  return { healthy: status.status === 'running', reason: status.status };
+                }
+              : undefined),
+          now: io.now ?? new Date(),
+        },
+        {
+          onJoined: automaticJoin
+            ? async (workspace) => {
+                const joinedState = inspectReview(workspace);
+                if (startupEvidence(workspace, joinedState)?.journal?.stage === 'launched')
+                  await brokerCommand('reconcile', workspace, io);
               }
-            : undefined),
-        now: io.now ?? new Date(),
-      });
+            : undefined,
+        }
+      );
       if (transportCapability === 'resume-only')
         storeResumeHandle(response.paths.workspace, 'reviewer', resumable);
     } else if (parsed.command === 'status') {
