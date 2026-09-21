@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { canonicalProjectIdentity } from '../broker/identity.mjs';
 import { ensureBroker, requestBroker } from '../broker/client.mjs';
 import { registerReview, readStartupJournal, startupEvidence } from '../broker/registry.mjs';
+import { recordParticipantBinding } from '../broker/participant-binding.mjs';
 import { platformSecurity } from '../broker/platform.mjs';
 import { pinRuntimeImage, verifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { createGitRepository } from '../git/repository.mjs';
@@ -14,6 +15,7 @@ import { loadConfig } from '../config/load.mjs';
 import { canonicalProjection, inspectReview } from '../protocol/service.mjs';
 import { atomicCreate, atomicWrite, withReviewLock } from '../protocol/store.mjs';
 import { startReview } from '../cli/run.mjs';
+import { productionProviderAdapters } from '../providers/registry.mjs';
 import { resolveSelection } from './selection.mjs';
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -269,6 +271,35 @@ export async function activateStartup(prepared, deps = {}) {
         validatedStartup: true,
         requestDigest: prepared.requestDigest,
       });
+      if (deps.env?.APR_CODEX_HOOK_TOKEN) {
+        const adapter = deps.codexAuthorAdapter ?? productionProviderAdapters().get('codex');
+        const operationId = `start:${result.review_id}`;
+        const handleLocator = deps.env.CODEX_THREAD_ID ?? deps.env.CODEX_SESSION_ID;
+        const providerEvidence = await adapter.observeCurrentSession({
+          root: request.project.physicalRoot,
+          token: deps.env.APR_CODEX_HOOK_TOKEN,
+          handleLocator,
+          operationId,
+        });
+        const adapterAttestation = await adapter.attestVersion({ runtimeImage: request.image });
+        recordParticipantBinding({
+          workspace,
+          role: 'author',
+          authority: {
+            review_id: result.review_id,
+            selector: 'codex',
+            provider: 'openai',
+            host: 'codex',
+            model_id: request.input.identity.model_id,
+            adapter_version: adapterAttestation.adapter_version,
+            operation_id: operationId,
+          },
+          providerEvidence,
+          adapterAttestation,
+          handleLocator,
+          now: deps.now ?? new Date(),
+        });
+      }
       if (['launched', 'manual'].includes(journal.stage)) return enriched(result);
       const dispatchRevision = inspectReview(workspace).protocol.revision;
       save('authority');

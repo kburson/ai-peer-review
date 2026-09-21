@@ -8,9 +8,16 @@ import { AprError } from '../errors.mjs';
 import {
   buildClaudeReviewerLaunch,
   buildClaudeReviewerResume,
+  claudeJoinCommand,
   runClaudeReviewerLaunch,
 } from '../provider/claude-launch.mjs';
 import { inspectReview } from '../protocol/service.mjs';
+import {
+  createClaudeStreamRecorder,
+  createClaudeStreamingExec,
+  readClaudeSessionSnapshot,
+  readClaudeStreamObservation,
+} from './claude-stream.mjs';
 
 const execFile = promisify(execFileCallback);
 const ADAPTER_VERSION = '1.0.0';
@@ -86,10 +93,13 @@ function launchState(workspace, expected) {
   return value;
 }
 
-export function createClaudeProviderSurface({
-  execFile: execute = execFile,
-  runLaunch = runClaudeReviewerLaunch,
-} = {}) {
+export function createClaudeProviderSurface(options = {}) {
+  const {
+    execFile: execute = execFile,
+    runLaunch = runClaudeReviewerLaunch,
+    spawnProcess,
+    claudeHome,
+  } = options;
   const executeReview = async (request, resume) => {
     const routing = routingFromInvitation(request.invitationPath);
     const state = inspectReview(routing.workspace);
@@ -115,21 +125,46 @@ export function createClaudeProviderSurface({
         CLAUDE_MODEL_DISPLAY: base.model,
       }),
     });
-    const result = await runLaunch({ contract, resume, execFile: execute });
+    const recorder = createClaudeStreamRecorder({
+      workspace: routing.workspace,
+      operationId: `join:${routing.review_id}`,
+      expectedCommand: claudeJoinCommand(contract),
+    });
+    const execution =
+      Object.hasOwn(options, 'execFile') || Object.hasOwn(options, 'runLaunch')
+        ? execute
+        : createClaudeStreamingExec({ recorder, spawnProcess });
+    const result = await runLaunch({ contract, resume, execFile: execution });
     if (!['submitted', 'permission-blocked'].includes(result.status)) {
       return Object.freeze({ status: 'outcome-unknown' });
     }
     const stored = launchState(routing.workspace, base);
+    const observed = readClaudeStreamObservation({
+      workspace: routing.workspace,
+      operationId: `join:${routing.review_id}`,
+      handleLocator: stored.session_handle,
+    });
+    if (observed.model_id !== request.model)
+      throw new AprError(
+        'APR_IDENTITY_CONFLICT',
+        'Claude active model differs from reviewer selection.',
+        {
+          recovery: 'Preserve the exact session and reconcile its provider stream.',
+        }
+      );
     return Object.freeze({
       status: 'acknowledged',
       handle: stored.session_handle,
       observation: Object.freeze({
         provider: 'anthropic',
         host: 'claude-code',
-        model_id: base.model,
-        effort: base.effort,
+        model_id: observed.model_id,
+        model_source: 'official-exact-session',
+        effort: request.effort,
+        effort_source: 'requested',
         adapter_version: ADAPTER_VERSION,
-        session_id: stored.session_handle,
+        adapter_source: 'pinned-runtime',
+        session_id: observed.session_id,
         assurance: 'runtime',
       }),
     });
@@ -138,6 +173,34 @@ export function createClaudeProviderSurface({
     async available() {
       await execute('claude', ['--version'], { shell: false, encoding: 'utf8' });
       return true;
+    },
+    async version() {
+      const result = await execute('claude', ['--version'], { shell: false, encoding: 'utf8' });
+      const version = String(result.stdout ?? '').match(/^(\d+\.\d+\.\d+)(?:\s|$)/)?.[1];
+      if (!version)
+        throw new AprError('APR_CLAUDE_SESSION_INVALID', 'Claude version cannot be attested.', {
+          recovery: 'Use the installed Claude CLI with a parseable version result.',
+        });
+      return version;
+    },
+    observeCurrentSession: ({ workspace, operationId, handleLocator }) =>
+      readClaudeStreamObservation({ workspace, operationId, handleLocator }),
+    observeBoundSession: ({ projectRoot, workspace, handleLocator, expected, now }) => {
+      try {
+        return readClaudeSessionSnapshot({
+          projectRoot,
+          sessionId: handleLocator,
+          claudeHome,
+          now,
+        });
+      } catch (cause) {
+        if (cause?.code !== 'APR_CLAUDE_SESSION_ACTIVE') throw cause;
+        return readClaudeStreamObservation({
+          workspace,
+          operationId: expected.operation_id,
+          handleLocator,
+        });
+      }
     },
     launch: (request) => executeReview(request, false),
     resume: (request) => executeReview(request, true),

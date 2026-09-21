@@ -129,6 +129,10 @@ function renderClaudeBashCommand(argv) {
   return renderCommand(portableArgv, { platform: 'linux' });
 }
 
+export function claudeJoinCommand(contract) {
+  return renderClaudeBashCommand(['peer-review', 'join', contract?.invitation]);
+}
+
 function encodeClaudeBashRule(argv) {
   const command = renderClaudeBashCommand(argv);
   if (UNSUPPORTED_BASH_PATTERN.test(command)) {

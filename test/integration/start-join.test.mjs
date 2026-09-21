@@ -6,7 +6,7 @@ import {
 } from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -22,6 +22,8 @@ import { createGitRepository } from '../../src/git/repository.mjs';
 import { participantIdentity, v1Participant } from '../../src/identity/registry.mjs';
 import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 import { prepareStartup } from '../../src/startup/runtime.mjs';
+import { captureCodexStartHook } from '../../src/providers/codex-hook.mjs';
+import { createCodexAdapter, createCodexProviderSurface } from '../../src/providers/codex.mjs';
 import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
@@ -73,6 +75,73 @@ test('CLI start resolves explicit reviewer intent through the sealed startup run
   );
   assert.equal(code, 0);
   assert.match(stdout, /awaiting-reviewer/);
+});
+
+test('CLI start derives its author model from the active Codex hook record', async (t) => {
+  const fx = repositoryFixture('apr-codex-author-start-');
+  t.after(fx.cleanup);
+  captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'peer-review start docs/example.md --artifact-kind spec' },
+      tool_use_id: 'call-author-start',
+      turn_id: 'turn-author',
+      session_id: 'author-hook-session',
+      model: 'gpt-5.6-sol',
+      cwd: fx.root,
+    },
+    sourceVersion: '0.155.0-alpha.9.2',
+    token: 'c'.repeat(32),
+    observedAt: NOW,
+  });
+  let stdout = '';
+  let stderr = '';
+  const code = await run(
+    [
+      'start',
+      'docs/example.md',
+      '--artifact-kind',
+      'spec',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'claude-opus-5',
+      '--transport-mode',
+      'manual',
+    ],
+    {
+      ...fixtureStartupDeps,
+      codexAuthorAdapter: createCodexAdapter({
+        surface: createCodexProviderSurface({
+          executeVersion: async () => '0.155.0-alpha.9.2',
+        }),
+      }),
+      cwd: fx.root,
+      env: { CODEX_THREAD_ID: 'author-hook-session', APR_CODEX_HOOK_TOKEN: 'c'.repeat(32) },
+      now: new Date(NOW),
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: (value) => (stderr += value) },
+    }
+  );
+  assert.equal(code, 0, stderr);
+  const reviewId = stdout.match(/^Review ([^:]+):/m)?.[1];
+  assert.ok(reviewId);
+  const workspace = resolveReviewPaths({
+    root: fx.root,
+    kind: 'spec',
+    name: 'example',
+    date: NOW.slice(0, 10),
+    reviewId,
+  }).scratch.absolute;
+  assert.equal(inspectReview(workspace).participants.author.model_id, 'gpt-5.6-sol');
+  const binding = JSON.parse(
+    readFileSync(path.join(workspace, 'provider/bindings/author.json'), 'utf8')
+  );
+  assert.equal(binding.provider, 'openai');
+  assert.equal(binding.model_id, 'gpt-5.6-sol');
+  assert.equal(binding.handle_locator, 'author-hook-session');
+  assert.equal(existsSync(path.join(workspace, 'provider/bindings/reviewer.json')), false);
 });
 
 test('generated routing and commands remain safe for shell metacharacters in paths', async (t) => {

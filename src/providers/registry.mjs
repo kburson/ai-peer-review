@@ -389,6 +389,20 @@ export function createProviderAdapter({
       return result;
     },
   };
+  if (typeof surface?.observeCurrentSession === 'function') {
+    adapter.observeCurrentSession = (input) => surface.observeCurrentSession(input);
+  }
+  if (typeof surface?.observeBoundSession === 'function') {
+    adapter.observeBoundSession = (input) => surface.observeBoundSession(input);
+  }
+  if (typeof surface?.version === 'function') {
+    adapter.attestVersion = async () =>
+      Object.freeze({
+        source: 'pinned-runtime',
+        adapter_version: adapterVersion,
+        surface_version: await surface.version(),
+      });
+  }
   if (typeof surface?.launch === 'function') {
     adapter.launch = async ({
       invitation,

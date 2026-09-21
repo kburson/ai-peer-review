@@ -20,6 +20,10 @@ import {
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { requestBroker } from '../broker/client.mjs';
+import {
+  openParticipantBinding,
+  recordParticipantBinding,
+} from '../broker/participant-binding.mjs';
 import { canonicalProjectIdentity } from '../broker/identity.mjs';
 import { connectBroker } from '../broker/ipc.mjs';
 import { brokerPaths } from '../broker/paths.mjs';
@@ -39,6 +43,7 @@ import '../providers/codex.mjs';
 import '../providers/claude.mjs';
 import '../providers/grok.mjs';
 import { productionProviderAdapters } from '../providers/registry.mjs';
+import { verifyProviderEvidence } from '../providers/evidence.mjs';
 import {
   buildClaudeReviewerLaunch,
   buildClaudeReviewerResume,
@@ -68,6 +73,7 @@ import {
   deriveClaimStatus,
   enterStaleClaimIntervention,
   identityChangeEvent,
+  participantIdentityFromProviderObservation,
   reclaimRole,
   resolveIdentity,
   v1Participant,
@@ -1300,19 +1306,95 @@ function invitationValues(file) {
   };
 }
 
-function runtimeObservationForJoin(invitation, identity, supplied) {
-  if (supplied !== undefined) return supplied;
+async function runtimeObservationForJoin(invitation, identity, io) {
   const values = invitationValues(invitation);
-  const runtime = inspectReview(values.workspace).protocol.startup.runtime;
-  if (runtime === undefined) return undefined;
-  return Object.freeze({
-    provider: identity.provider,
-    host: identity.host,
-    model_id: identity.model_id,
-    effort: runtime.reviewer.effort,
+  const state = inspectReview(values.workspace);
+  const runtime = state.protocol.startup.runtime;
+  if (runtime === undefined) return { observation: io.runtimeObservation, binding: null };
+  if (identity.identity_source === 'declared') {
+    if (runtime.transport_mode !== 'manual')
+      fail('APR_IDENTITY_CONFLICT', 'Declared identity requires manual transport.');
+    return {
+      observation: Object.freeze({
+        provider: identity.provider,
+        host: identity.host,
+        model_id: identity.model_id,
+        effort: runtime.reviewer.effort,
+        adapter_version: runtime.adapter_version,
+        assurance: 'declared',
+      }),
+      binding: null,
+    };
+  }
+  const adapters = io.adapters ?? productionProviderAdapters();
+  if (runtime.ownership === 'broker' && runtime.transport_mode === 'automatic-required') {
+    const author = state.participants.author;
+    const selector = { codex: 'codex', 'claude-code': 'claude', grok: 'grok' }[author.host];
+    if (!selector) fail('APR_IDENTITY_CONFLICT', 'Author provider selector is unavailable.');
+    const authorBinding = await openParticipantBinding({
+      workspace: values.workspace,
+      role: 'author',
+      authority: {
+        review_id: values.reviewId,
+        selector,
+        provider: author.provider,
+        host: author.host,
+        model_id: author.model_id,
+        adapter_version: runtime.adapter_version,
+        operation_id: `start:${values.reviewId}`,
+      },
+      adapters,
+      projectRoot: state.protocol.startup.context.repository_root,
+      now: io.now ?? new Date(),
+    });
+    if (authorBinding.session_fingerprint !== author.session_fingerprint)
+      fail('APR_IDENTITY_CONFLICT', 'Author binding differs from sealed startup identity.');
+  }
+  const adapter =
+    adapters instanceof Map
+      ? adapters.get(runtime.reviewer.selector)
+      : adapters?.[runtime.reviewer.selector];
+  if (
+    typeof adapter?.observeCurrentSession !== 'function' ||
+    typeof adapter?.attestVersion !== 'function'
+  )
+    fail(
+      'APR_IDENTITY_CONFLICT',
+      'No exact provider observation is available for the joining session.',
+      'Use a conformant provider adapter or an explicitly declared manual identity.'
+    );
+  const expected = {
+    ...runtime.reviewer,
     adapter_version: runtime.adapter_version,
-    assurance: identity.identity_source,
+    operation_id: `join:${values.reviewId}`,
+  };
+  const providerEvidence = await adapter.observeCurrentSession({
+    operationId: expected.operation_id,
+    expected,
+    workspace: values.workspace,
+    handleLocator: rawSession(io, runtime.reviewer.selector),
   });
+  const adapterAttestation = await adapter.attestVersion({ runtimeImage: runtime });
+  const verified = verifyProviderEvidence({
+    expected,
+    providerEvidence,
+    adapterAttestation,
+    authorFingerprint: inspectReview(values.workspace).participants.author.session_fingerprint,
+    now: io.now ?? new Date(),
+  });
+  if (verified.session_fingerprint !== identity.session_fingerprint)
+    fail('APR_IDENTITY_CONFLICT', 'Joining identity differs from provider session evidence.');
+  return {
+    observation: Object.freeze({
+      provider: verified.provider,
+      host: verified.host,
+      model_id: verified.model_id,
+      effort: verified.effort,
+      adapter_version: verified.adapter_version,
+      assurance: verified.assurance,
+    }),
+    binding: { providerEvidence, adapterAttestation, handleLocator: providerEvidence.session_id },
+  };
 }
 
 function pathsForContext(context) {
@@ -1379,6 +1461,23 @@ export async function joinReview(input, deps = {}) {
   const state = inspectReview(values.workspace);
   const root = repository.root(input.cwd);
   const paths = validateJoinAuthority({ state, root, invitation, values });
+  const ensureReviewerBinding = () => {
+    if (!input.providerBinding) return;
+    const runtime = state.protocol.startup.runtime;
+    if (!runtime) fail('APR_IDENTITY_CONFLICT', 'Legacy join cannot claim a new provider binding.');
+    recordParticipantBinding({
+      workspace: values.workspace,
+      role: 'reviewer',
+      authority: {
+        review_id: values.reviewId,
+        ...runtime.reviewer,
+        adapter_version: runtime.adapter_version,
+        operation_id: `join:${values.reviewId}`,
+      },
+      ...input.providerBinding,
+      now: input.now ?? new Date(),
+    });
+  };
   if (input.identity?.role !== 'reviewer') {
     fail(
       'APR_IDENTITY_REQUIRED',
@@ -1450,6 +1549,7 @@ export async function joinReview(input, deps = {}) {
       state.protocol.transports.reviewer === reviewerCapability &&
       !claim
     ) {
+      ensureReviewerBinding();
       const claimed = await mutateReview(values.workspace, expected(state), (current) =>
         claimRole(current, registered, input.now ?? new Date())
       );
@@ -1472,6 +1572,7 @@ export async function joinReview(input, deps = {}) {
       state.protocol.transports.reviewer === reviewerCapability &&
       claim?.session_fingerprint === input.identity.session_fingerprint
     ) {
+      ensureReviewerBinding();
       const draft = createResponseDraft({ ...state, paths }, 'reviewer', 1);
       return result(
         'join',
@@ -1518,6 +1619,7 @@ export async function joinReview(input, deps = {}) {
       EVENT_V2_SCHEMA
     );
   });
+  ensureReviewerBinding();
   const claimed = await mutateReview(values.workspace, expected(joined), (current) =>
     claimRole(current, input.identity, input.now ?? new Date())
   );
@@ -4674,6 +4776,45 @@ function rawSession(io, host) {
   return null;
 }
 
+async function authorIdentityForStart(io, loaded) {
+  const token = io.env?.APR_CODEX_HOOK_TOKEN;
+  if (!token)
+    return resolveIdentity({
+      role: 'author',
+      env: io.env,
+      ...configuredIdentityContext(io, loaded.config),
+    });
+  const adapter = io.codexAuthorAdapter ?? productionProviderAdapters().get('codex');
+  const root = (io.repository ?? createGitRepository()).root(io.cwd);
+  const operationId = 'start:pending';
+  const providerEvidence = await adapter.observeCurrentSession({
+    root,
+    token,
+    handleLocator: rawSession(io, 'codex'),
+    operationId,
+  });
+  const adapterAttestation = await adapter.attestVersion({});
+  if (io.env?.CODEX_MODEL_ID && io.env.CODEX_MODEL_ID !== providerEvidence.model_id)
+    fail('APR_IDENTITY_CONFLICT', 'Requested author model differs from the active Codex model.');
+  const verified = verifyProviderEvidence({
+    expected: {
+      provider: 'openai',
+      host: 'codex',
+      model_id: providerEvidence.model_id,
+      adapter_version: adapterAttestation.adapter_version,
+      operation_id: operationId,
+    },
+    providerEvidence,
+    adapterAttestation,
+    now: io.now ?? new Date(),
+  });
+  return participantIdentityFromProviderObservation({
+    role: 'author',
+    observation: verified,
+    joinedAt: io.now ?? new Date(),
+  });
+}
+
 function configuredResume(input, config, identity) {
   const host = transportHost(identity);
   const command = config.hosts?.[host]?.resume?.command;
@@ -4856,11 +4997,7 @@ export async function run(argv, io) {
     let response;
     if (parsed.command === 'start') {
       const loaded = loadConfig({ cwd: io.cwd, env: io.env });
-      const identity = resolveIdentity({
-        role: 'author',
-        env: io.env,
-        ...configuredIdentityContext(io, loaded.config),
-      });
+      const identity = await authorIdentityForStart(io, loaded);
       const resumable = configuredResume(io, loaded.config, identity);
       const transportCapability =
         io.transportCapability ??
@@ -4904,11 +5041,13 @@ export async function run(argv, io) {
         io.transportCapability ??
         io.transportObservation?.capability ??
         (resumable ? 'resume-only' : 'manual');
+      const joinRuntime = await runtimeObservationForJoin(invitation, identity, io);
       response = await joinReview({
         cwd: io.cwd,
         invitation,
         identity,
-        runtimeObservation: runtimeObservationForJoin(invitation, identity, io.runtimeObservation),
+        runtimeObservation: joinRuntime.observation,
+        providerBinding: joinRuntime.binding,
         transportCapability,
         transportObservation: io.transportObservation,
         authorTransportObservation: io.authorTransportObservation,
