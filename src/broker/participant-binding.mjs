@@ -126,7 +126,7 @@ export function recordParticipantBinding({
   return publicBinding(record);
 }
 
-export async function openParticipantBinding({
+async function verifyParticipantSession({
   workspace,
   role,
   authority,
@@ -167,5 +167,15 @@ export async function openParticipantBinding({
         });
   if (verified.session_fingerprint !== record.session_fingerprint)
     conflict('Re-observed participant session differs from its binding.');
-  return publicBinding({ ...record, evidence_digest: verified.evidence_digest });
+  return Object.freeze({ ...record, evidence_digest: verified.evidence_digest });
+}
+
+export async function openParticipantBinding(input) {
+  return publicBinding(await verifyParticipantSession(input));
+}
+
+// Broker-internal only: the raw locator stays in the owner-only binding store and
+// must never be projected into tracked collateral or broker IPC responses.
+export async function openParticipantSession(input) {
+  return verifyParticipantSession(input);
 }

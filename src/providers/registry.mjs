@@ -395,6 +395,33 @@ export function createProviderAdapter({
   if (typeof surface?.observeBoundSession === 'function') {
     adapter.observeBoundSession = (input) => surface.observeBoundSession(input);
   }
+  if (typeof surface?.observeTransport === 'function') {
+    adapter.observeTransport = (input) => surface.observeTransport(input);
+  }
+  if (typeof surface?.deliverToSession === 'function') {
+    adapter.deliverToSession = ({ binding, ...input } = {}) => {
+      if (
+        !['author', 'reviewer'].includes(binding?.role) ||
+        binding.provider !== provider ||
+        binding.host !== host ||
+        !text(binding.handle_locator)
+      )
+        identityConflict('Role wake lacks its exact bound provider session.');
+      return surface.deliverToSession({ ...input, binding, handle: binding.handle_locator });
+    };
+  }
+  if (typeof surface?.reconcileDelivery === 'function') {
+    adapter.reconcileDelivery = ({ binding, ...input } = {}) => {
+      if (
+        !['author', 'reviewer'].includes(binding?.role) ||
+        binding.provider !== provider ||
+        binding.host !== host ||
+        !text(binding.handle_locator)
+      )
+        identityConflict('Role reconciliation lacks its exact bound provider session.');
+      return surface.reconcileDelivery({ ...input, binding, handle: binding.handle_locator });
+    };
+  }
   if (typeof surface?.version === 'function') {
     adapter.attestVersion = async () =>
       Object.freeze({

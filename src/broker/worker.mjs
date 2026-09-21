@@ -157,6 +157,9 @@ export function createReviewWorker({
       if (suspended || closed) return state;
       if (!started) await this.start();
       observe();
+      if (WAKE_STATES.has(state) && adapter?.coordinatorInput && !coordinatorRun)
+        startCoordinator();
+      if (coordinatorRun) return state;
       if (
         WAKE_STATES.has(state) &&
         adapter?.observation &&

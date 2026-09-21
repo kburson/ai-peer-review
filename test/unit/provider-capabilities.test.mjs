@@ -5,6 +5,7 @@ import { createClaudeAdapter } from '../../src/providers/claude.mjs';
 import { createCodexAdapter } from '../../src/providers/codex.mjs';
 import { createGrokAdapter } from '../../src/providers/grok.mjs';
 import {
+  createProviderAdapter,
   productionProviderAdapters,
   selectedAdapter,
   SELECTORS,
@@ -25,6 +26,41 @@ test('provider aliases resolve to exact immutable model and effort records', asy
   await assert.rejects(adapter.resolveModel({ model: 'opus', effort: 'maximum' }), {
     code: 'APR_REVIEWER_SELECTION_UNSUPPORTED',
   });
+});
+
+test('role wake methods use the bound session and never a reviewer launch operation handle', async () => {
+  const calls = [];
+  const adapter = createProviderAdapter({
+    selector: 'codex',
+    provider: 'openai',
+    host: 'codex',
+    models: {},
+    surface: {
+      async deliverToSession(input) {
+        calls.push(input);
+        return { status: 'acknowledged' };
+      },
+      async reconcileDelivery(input) {
+        calls.push(input);
+        return { status: 'not-submitted' };
+      },
+    },
+  });
+  const binding = {
+    role: 'author',
+    provider: 'openai',
+    host: 'codex',
+    handle_locator: 'author-session',
+  };
+  await adapter.deliverToSession({ binding, wakeOperationId: 'wake-01' });
+  await adapter.reconcileDelivery({ binding, wakeOperationId: 'wake-01' });
+  assert.deepEqual(
+    calls.map(({ handle, wakeOperationId }) => [handle, wakeOperationId]),
+    [
+      ['author-session', 'wake-01'],
+      ['author-session', 'wake-01'],
+    ]
+  );
 });
 
 test('all production adapters expose the complete contract and closed provider identity', () => {

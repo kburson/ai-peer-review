@@ -429,6 +429,33 @@ test('read-before-subscribe, post-subscribe reread, and duplicate hints share on
   assert.equal(closed, true);
 });
 
+test('coordinator obtains a fresh role observation for every reconciliation', async (t) => {
+  const root = workspace(t);
+  writeReceipt(root);
+  const wakeAdapter = adapter();
+  let observed = 0;
+  const result = await runCoordinator({
+    ...input(root, wakeAdapter),
+    observation: undefined,
+    observe: async () => {
+      observed += 1;
+      return observation();
+    },
+    owner: { kind: 'cli', pid: 42 },
+    leaseOptions: { instanceId: 'coordinator-fresh-01', nonce: 'nonce-fresh-01' },
+    subscribe() {
+      return { close() {} };
+    },
+    async waitForStop({ reconcile, stop }) {
+      await reconcile();
+      stop();
+    },
+  });
+  assert.equal(result.status, 'stopped');
+  assert.equal(observed, 3);
+  assert.equal(wakeAdapter.calls.length, 1);
+});
+
 test('foreground coordinator honors only its exact durable stop request', async (t) => {
   const root = workspace(t);
   writeReceipt(root);

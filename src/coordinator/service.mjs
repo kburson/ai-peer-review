@@ -254,7 +254,9 @@ export async function runCoordinator(input = {}) {
         resolveStopped();
         return last;
       }
-      last = await reconcileWake(input);
+      const observation =
+        typeof input.observe === 'function' ? await input.observe() : input.observation;
+      last = await reconcileWake({ ...input, observation });
       lease.heartbeat(new Date(input.now ?? Date.now()));
       await input.onSettled?.(last);
       return last;
