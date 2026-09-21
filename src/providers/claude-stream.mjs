@@ -141,6 +141,54 @@ export function createClaudeStreamRecorder({ workspace, operationId, expectedCom
   });
 }
 
+export function createClaudeWakeRecorder({ sessionId, expectedModel } = {}) {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(sessionId ?? '') ||
+    typeof expectedModel !== 'string' ||
+    !expectedModel
+  )
+    invalid('Claude wake stream expectation is invalid.');
+  let initialized = null;
+  let assistant = false;
+  let terminal = false;
+  return Object.freeze({
+    accept(event) {
+      if (event?.type === 'system' && event.subtype === 'init') {
+        if (
+          initialized ||
+          event.session_id !== sessionId ||
+          event.model !== expectedModel ||
+          typeof event.claude_code_version !== 'string' ||
+          !event.claude_code_version
+        )
+          invalid('Claude wake initialization changed session or model.');
+        initialized = {
+          session_id: event.session_id,
+          model_id: event.model,
+          source_version: event.claude_code_version,
+        };
+      } else if (event?.type === 'assistant') {
+        if (
+          !initialized ||
+          event.session_id !== sessionId ||
+          event.message?.model !== expectedModel
+        )
+          invalid('Claude wake assistant stream changed session or model.');
+        assistant = true;
+      } else if (event?.type === 'result') {
+        if (!initialized || event.session_id !== sessionId || event.is_error === true)
+          invalid('Claude wake result changed session or failed.');
+        terminal = true;
+      }
+    },
+    confirm() {
+      if (!initialized || !assistant || !terminal)
+        invalid('Claude wake has no complete same-session model stream.');
+      return Object.freeze({ ...initialized });
+    },
+  });
+}
+
 export function readClaudeStreamObservation({ workspace, operationId, handleLocator } = {}) {
   const file = observationFile(workspace, operationId);
   let observed;
@@ -243,4 +291,93 @@ export function readClaudeSessionSnapshot({
     session_id: sessionId,
     phase: 'terminal-snapshot',
   });
+}
+
+export function readClaudeWakeOutcome({
+  projectRoot,
+  claudeHome = path.join(os.homedir(), '.claude'),
+  sessionId,
+  wakeOperationId,
+  capsuleDigest,
+  expectedModel,
+} = {}) {
+  if (
+    !path.isAbsolute(projectRoot ?? '') ||
+    path.normalize(projectRoot) !== projectRoot ||
+    !path.isAbsolute(claudeHome ?? '') ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(sessionId ?? '') ||
+    !/^sha256:[0-9a-f]{64}$/.test(wakeOperationId ?? '') ||
+    !/^sha256:[0-9a-f]{64}$/.test(capsuleDigest ?? '') ||
+    typeof expectedModel !== 'string' ||
+    !expectedModel
+  )
+    invalid('Claude wake transcript identity is invalid.');
+  const file = path.join(
+    claudeHome,
+    'projects',
+    projectRoot.replace(/[^A-Za-z0-9]/g, '-'),
+    `${sessionId}.jsonl`
+  );
+  let lines;
+  try {
+    const stat = lstatSync(file);
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      stat.size > 64 * 1024 * 1024 ||
+      (process.platform !== 'win32' && stat.mode & 0o077)
+    )
+      invalid('Claude wake transcript is not a bounded owner-only file.');
+    lines = readFileSync(file, 'utf8').trimEnd().split('\n');
+  } catch (cause) {
+    if (cause instanceof AprError) throw cause;
+    invalid('Claude wake transcript cannot be read safely.');
+  }
+  const marker = `APR_WAKE_OPERATION ${wakeOperationId} ${capsuleDigest}`;
+  let matchingPrompts = 0;
+  let awaitingAssistant = false;
+  let completed = false;
+  for (const line of lines) {
+    let entry;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      invalid('Claude wake transcript contains invalid JSON.');
+    }
+    if (entry?.type !== 'user' && entry?.type !== 'assistant') continue;
+    if (entry.sessionId !== sessionId || !Number.isFinite(Date.parse(entry.timestamp)))
+      invalid('Claude wake transcript contains a mismatched session message.');
+    if (entry.type === 'user') {
+      const content = entry.message?.content;
+      const prompt =
+        typeof content === 'string'
+          ? content
+          : Array.isArray(content)
+            ? content
+                .filter((part) => part?.type === 'text')
+                .map((part) => part.text)
+                .join('\n')
+            : '';
+      if (prompt.includes(marker)) {
+        matchingPrompts += 1;
+        awaitingAssistant = true;
+        completed = false;
+      } else if (awaitingAssistant) {
+        awaitingAssistant = false;
+      }
+      continue;
+    }
+    if (!awaitingAssistant) continue;
+    if (entry.message?.model !== expectedModel) invalid('Claude wake model changed in transcript.');
+    if (entry.message?.stop_reason === 'end_turn') {
+      completed = true;
+      awaitingAssistant = false;
+    }
+  }
+  if (matchingPrompts > 1) invalid('Claude wake operation appears more than once.');
+  return Object.freeze(
+    matchingPrompts === 1 && completed
+      ? { status: 'acknowledged', reason: 'provider-terminal-turn' }
+      : { status: 'outcome-unknown', reason: 'provider-turn-unconfirmed' }
+  );
 }

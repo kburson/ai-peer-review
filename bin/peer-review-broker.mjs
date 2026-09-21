@@ -1,14 +1,6 @@
 #!/usr/bin/env node
 
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -21,7 +13,7 @@ import { platformSecurity } from '../src/broker/platform.mjs';
 import { inspectStartupAuthority, reconcileRegistrations } from '../src/broker/registry.mjs';
 import { verifyRuntimeImage } from '../src/broker/runtime-image.mjs';
 import { createAuthenticatedBrokerServer, runBroker } from '../src/broker/service.mjs';
-import { createReviewWorker } from '../src/broker/worker.mjs';
+import { createProductionReviewWorker } from '../src/broker/worker-factory.mjs';
 import { createGitRepository } from '../src/git/repository.mjs';
 
 function exact(value, fields) {
@@ -112,47 +104,6 @@ function sameIdentity(actual, expected) {
     actual.physicalRoot === expected.physicalRoot &&
     JSON.stringify(actual.tuple) === JSON.stringify(expected.tuple)
   );
-}
-
-function recoveryAdapter(registration) {
-  return Object.freeze({
-    automatic: false,
-    async persistRecovery({ status }) {
-      const root = path.join(
-        registration.project_root,
-        '.scratch',
-        'peer-review',
-        'broker',
-        'recovery'
-      );
-      mkdirSync(root, { recursive: true, mode: 0o700 });
-      const file = path.join(root, `${registration.review_id}.json`);
-      const value = `${JSON.stringify({
-        schema: 'ai-peer-review.broker-recovery/v1',
-        review_id: registration.review_id,
-        project_digest: registration.project_digest,
-        workspace: registration.workspace,
-        request_digest: registration.request_digest,
-        runtime_digest: registration.runtime.digest,
-        protocol_state: status?.state ?? null,
-      })}\n`;
-      if (existsSync(file)) {
-        if (readFileSync(file, 'utf8') !== value) {
-          throw new AprError(
-            'APR_BROKER_STALE',
-            'Durable broker recovery record conflicts with current review authority.',
-            {
-              recovery: 'Preserve both records and reconcile the exact review authority manually.',
-              details: { file },
-            }
-          );
-        }
-        return;
-      }
-      writeFileSync(file, value, { flag: 'wx', mode: 0o600 });
-    },
-    async close() {},
-  });
 }
 
 function assertExecutingRuntime(bootstrap) {
@@ -258,10 +209,12 @@ export async function runBrokerEntrypoint(file) {
       },
     },
     workerFactory: (registration) =>
-      createReviewWorker({
+      createProductionReviewWorker({
         registration,
-        adapter: recoveryAdapter(registration),
-        resourceLease: null,
+        project: identity,
+        runtimeImage: bootstrap.runtimeImage,
+        owner,
+        platform,
         clock: {
           now: () => Date.now(),
           setTimeout: (callback, delay) => setTimeout(callback, delay),

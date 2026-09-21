@@ -6,7 +6,15 @@ import {
 } from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -23,6 +31,8 @@ import { participantIdentity, v1Participant } from '../../src/identity/registry.
 import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
 import { prepareStartup } from '../../src/startup/runtime.mjs';
 import { captureCodexStartHook } from '../../src/providers/codex-hook.mjs';
+import { captureClaudeStartHook } from '../../src/providers/claude-hook.mjs';
+import { createClaudeAdapter, createClaudeProviderSurface } from '../../src/providers/claude.mjs';
 import { createCodexAdapter, createCodexProviderSurface } from '../../src/providers/codex.mjs';
 import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
@@ -142,6 +152,91 @@ test('CLI start derives its author model from the active Codex hook record', asy
   assert.equal(binding.model_id, 'gpt-5.6-sol');
   assert.equal(binding.handle_locator, 'author-hook-session');
   assert.equal(existsSync(path.join(workspace, 'provider/bindings/reviewer.json')), false);
+});
+
+test('CLI start binds a Claude author from exact PreToolUse transcript evidence', async (t) => {
+  const fx = repositoryFixture('apr-claude-author-start-');
+  t.after(fx.cleanup);
+  const physicalRoot = realpathSync(fx.root);
+  const session = '11111111-1111-4111-8111-111111111111';
+  const directory = path.join(physicalRoot, '.claude', 'projects', 'fixture');
+  mkdirSync(directory, { recursive: true });
+  const transcript = path.join(directory, `${session}.jsonl`);
+  const command = 'peer-review start docs/example.md --artifact-kind spec';
+  writeFileSync(
+    transcript,
+    `${JSON.stringify({
+      type: 'assistant',
+      sessionId: session,
+      version: '2.1.278',
+      timestamp: NOW,
+      message: {
+        role: 'assistant',
+        model: 'claude-opus-5',
+        content: [{ type: 'tool_use', id: 'call-start', name: 'Bash', input: { command } }],
+      },
+    })}\n`,
+    { mode: 0o600 }
+  );
+  captureClaudeStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_use_id: 'call-start',
+      session_id: session,
+      transcript_path: transcript,
+      cwd: physicalRoot,
+      tool_input: { command },
+    },
+    sourceVersion: '2.1.278',
+    token: 'd'.repeat(32),
+    observedAt: NOW,
+  });
+  let stdout = '';
+  let stderr = '';
+  const code = await run(
+    [
+      'start',
+      'docs/example.md',
+      '--artifact-kind',
+      'spec',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'claude-opus-5',
+      '--transport-mode',
+      'manual',
+    ],
+    {
+      ...fixtureStartupDeps,
+      claudeAuthorAdapter: createClaudeAdapter({
+        surface: createClaudeProviderSurface({
+          execFile: async () => ({ stdout: '2.1.278 (Claude Code)\n' }),
+        }),
+      }),
+      cwd: physicalRoot,
+      env: { CLAUDE_CODE_SESSION_ID: session, APR_CLAUDE_HOOK_TOKEN: 'd'.repeat(32) },
+      now: new Date(NOW),
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: (value) => (stderr += value) },
+    }
+  );
+  assert.equal(code, 0, stderr);
+  const reviewId = stdout.match(/^Review ([^:]+):/m)?.[1];
+  assert.ok(reviewId);
+  const workspace = resolveReviewPaths({
+    root: physicalRoot,
+    kind: 'spec',
+    name: 'example',
+    date: NOW.slice(0, 10),
+    reviewId,
+  }).scratch.absolute;
+  const binding = JSON.parse(
+    readFileSync(path.join(workspace, 'provider/bindings/author.json'), 'utf8')
+  );
+  assert.equal(binding.provider, 'anthropic');
+  assert.equal(binding.model_id, 'claude-opus-5');
+  assert.equal(binding.handle_locator, session);
 });
 
 test('generated routing and commands remain safe for shell metacharacters in paths', async (t) => {

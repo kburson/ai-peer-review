@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import { createProviderBridge } from '../../src/broker/provider-bridge.mjs';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
+import { createProductionReviewWorker } from '../../src/broker/worker-factory.mjs';
 import { canonicalProjection } from '../../src/protocol/service.mjs';
 
 const AUTHOR = `sha256:${'a'.repeat(64)}`;
@@ -49,6 +50,9 @@ function fixture() {
         async deliverToSession(input) {
           calls.push(input);
           return { status: 'acknowledged' };
+        },
+        async observeResource({ binding }) {
+          return { session_fingerprint: binding.session_fingerprint };
         },
         async reconcileDelivery(input) {
           reconciled.push(input);
@@ -223,4 +227,230 @@ test('one bootstrap worker starts its coordinator after authenticated join', asy
   assert.equal(starts, 1);
   assert.equal(await worker.reconcile(), 'automatic-wait');
   assert.equal(starts, 1);
+});
+
+test('production factory keeps a verified author-only worker launch-capable and promotes it after join', async () => {
+  let joined = false;
+  let launchPending = false;
+  let launchCalls = 0;
+  let coordinatorStarts = 0;
+  let coordinatorInput;
+  const resourceAcquisitions = [];
+  const resourceChecks = [];
+  const current = () => ({
+    state: {
+      protocol: {
+        review_id: 'review-01',
+        revision: joined ? 3 : 1,
+        current_actor: 'reviewer',
+        startup: {
+          context: { repository_root: '/tmp/project' },
+          runtime: {
+            ownership: 'broker',
+            transport_mode: 'automatic-required',
+            project_root_digest: 'a'.repeat(64),
+            adapter_version: '1.0.0',
+            reviewer: { selector: 'claude', model_id: 'claude-opus-5', effort: 'medium' },
+          },
+        },
+      },
+      participants: {
+        author: {
+          provider: 'openai',
+          host: 'codex',
+          model_id: 'gpt-6-astra',
+          session_fingerprint: AUTHOR,
+        },
+        reviewer: joined
+          ? {
+              provider: 'anthropic',
+              host: 'claude-code',
+              model_id: 'claude-opus-5',
+              session_fingerprint: REVIEWER,
+            }
+          : null,
+      },
+    },
+  });
+  const status = () => ({
+    state: joined ? 'reviewer-turn' : 'awaiting-reviewer',
+    next_action: joined ? 'reviewer-submit' : 'reviewer-join',
+    review: {
+      recovery: {
+        stage: joined ? 'launched' : launchPending ? 'launch-pending' : 'registered',
+        fenced: false,
+        event_revision: joined ? 3 : 1,
+      },
+    },
+  });
+  const transport = (binding) => ({
+    session_fingerprint: binding.session_fingerprint,
+    capability: binding.host === 'codex' ? 'native-push' : 'live-wait',
+    ...(binding.host === 'codex' ? { adapter: 'codex-app' } : {}),
+    adapter_version: '1.0.0',
+    lease: {
+      schema: 'ai-peer-review.resident-lease/v1',
+      process_instance_id: `${binding.role}-process`,
+      pid: null,
+      opaque_handle: binding.handle_locator,
+      host: binding.host,
+      adapter_version: '1.0.0',
+      heartbeat_sequence: 1,
+      observed_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+    },
+  });
+  const reviewer = {
+    selector: 'claude',
+    provider: 'anthropic',
+    host: 'claude-code',
+    adapter_version: '1.0.0',
+    async observeCapabilities() {
+      return {
+        available: true,
+        automatic: true,
+        reviewerLaunchable: true,
+        resource: { concurrent: true, resource_id: null },
+      };
+    },
+    async launchReviewer() {
+      launchCalls += 1;
+      return { status: 'launched', observation: { session_fingerprint: REVIEWER } };
+    },
+    async observeLaunchResource() {
+      return {
+        status: 'ready',
+        session_handle: 'reviewer-launch',
+        observed_at: new Date().toISOString(),
+      };
+    },
+    async observeBoundSession() {},
+    async attestVersion() {},
+    async observeResourceRelease() {
+      return {
+        status: 'complete',
+        session_handle: 'reviewer-launch',
+        observed_at: new Date().toISOString(),
+      };
+    },
+    async observeResource({ binding }) {
+      return {
+        status: 'ready',
+        session_handle: binding.handle_locator,
+        observed_at: new Date().toISOString(),
+      };
+    },
+    async observeTransport({ binding }) {
+      return transport(binding);
+    },
+    async deliverToSession() {
+      return { status: 'acknowledged' };
+    },
+    async reconcileDelivery() {},
+  };
+  const author = {
+    selector: 'codex',
+    provider: 'openai',
+    host: 'codex',
+    adapter_version: '1.0.0',
+    async observeCapabilities() {
+      return {
+        available: true,
+        automatic: true,
+        resource: { concurrent: true, resource_id: null },
+      };
+    },
+    async observeBoundSession() {},
+    async attestVersion() {},
+    async observeResourceRelease() {
+      return {
+        status: 'complete',
+        session_handle: 'author',
+        observed_at: new Date().toISOString(),
+      };
+    },
+    async observeResource({ binding }) {
+      return {
+        status: 'ready',
+        session_handle: binding.handle_locator,
+        observed_at: new Date().toISOString(),
+      };
+    },
+    async observeTransport({ binding }) {
+      return transport(binding);
+    },
+    async deliverToSession() {
+      return { status: 'acknowledged' };
+    },
+    async reconcileDelivery() {},
+  };
+  const worker = await createProductionReviewWorker({
+    registration: {
+      review_id: 'review-01',
+      workspace,
+      project_root: '/tmp/project',
+      project_digest: 'a'.repeat(64),
+      request_digest: 'b'.repeat(64),
+      runtime: { digest: 'sha256:image' },
+    },
+    project: { physicalRoot: '/tmp/project', digest: 'a'.repeat(64) },
+    runtimeImage: { digest: 'sha256:image' },
+    invitationPath: '/tmp/project/reviewer-invitation.md',
+    owner: { instanceId: 'c'.repeat(64), nonce: 'd'.repeat(64), verify: () => true },
+    platform: { userId: () => 'fixture-user' },
+    adapters: new Map([
+      ['codex', author],
+      ['claude', reviewer],
+    ]),
+    verifyImage: () => true,
+    inspect: current,
+    inspectStatus: status,
+    startup: () => ({
+      journal: {
+        stage: joined ? 'launched' : 'registered',
+        request_digest: 'b'.repeat(64),
+        provider_operation: joined
+          ? { status: 'acknowledged', session_fingerprint: REVIEWER }
+          : null,
+      },
+      recovery: { fenced: false, suspending: false },
+    }),
+    openBinding: async ({ role }) => ({
+      role,
+      session_fingerprint: role === 'author' ? AUTHOR : REVIEWER,
+    }),
+    openSession: async ({ role }) => ({
+      role,
+      provider: role === 'author' ? 'openai' : 'anthropic',
+      host: role === 'author' ? 'codex' : 'claude-code',
+      session_fingerprint: role === 'author' ? AUTHOR : REVIEWER,
+      handle_locator: `${role}-session`,
+    }),
+    acquireResource: () => {
+      resourceAcquisitions.push(true);
+      return {
+        beforeDelivery: (value) => resourceChecks.push(value.session_handle),
+        release: () => true,
+      };
+    },
+    coordinator: async (input) => {
+      coordinatorInput = input;
+      coordinatorStarts += 1;
+      await input.onStarted({ stop() {} });
+    },
+  });
+  assert.equal(await worker.start(), 'bootstrap');
+  assert.equal(coordinatorStarts, 0);
+  assert.equal(typeof worker.launchReviewer, 'function');
+  launchPending = true;
+  await worker.launchReviewer({ operationId: LAUNCH, intentDigest: REVIEWER });
+  assert.equal(launchCalls, 1);
+  joined = true;
+  assert.equal(await worker.reconcile(), 'automatic-wait');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(coordinatorStarts, 1);
+  const wake = fixture().wake('reviewer', 3);
+  assert.equal((await coordinatorInput.adapter.deliver(wake)).status, 'acknowledged');
+  assert.equal(resourceAcquisitions.length, 3);
+  assert.deepEqual(resourceChecks, ['reviewer-launch', 'reviewer-session']);
 });

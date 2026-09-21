@@ -11,6 +11,7 @@
     "ai-peer-review": "./bin/peer-review.mjs",
     "peer-review": "./bin/peer-review.mjs",
     "peer-review-codex-hook": "./bin/peer-review-codex-hook.mjs",
+    "peer-review-claude-hook": "./bin/peer-review-claude-hook.mjs",
     "peer-review-mcp": "./bin/peer-review-mcp.mjs"
   },
   "exports": "./src/public-api.mjs",

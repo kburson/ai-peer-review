@@ -22,7 +22,7 @@ import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { requestBroker } from '../broker/client.mjs';
 import { startupEvidence } from '../broker/registry.mjs';
 import {
-  openParticipantBinding,
+  openParticipantSession,
   recordParticipantBinding,
 } from '../broker/participant-binding.mjs';
 import { canonicalProjectIdentity } from '../broker/identity.mjs';
@@ -1328,11 +1328,12 @@ async function runtimeObservationForJoin(invitation, identity, io) {
     };
   }
   const adapters = io.adapters ?? productionProviderAdapters();
+  let authorBinding = null;
   if (runtime.ownership === 'broker' && runtime.transport_mode === 'automatic-required') {
     const author = state.participants.author;
     const selector = { codex: 'codex', 'claude-code': 'claude', grok: 'grok' }[author.host];
     if (!selector) fail('APR_IDENTITY_CONFLICT', 'Author provider selector is unavailable.');
-    const authorBinding = await openParticipantBinding({
+    authorBinding = await openParticipantSession({
       workspace: values.workspace,
       role: 'author',
       authority: {
@@ -1395,6 +1396,14 @@ async function runtimeObservationForJoin(invitation, identity, io) {
       assurance: verified.assurance,
     }),
     binding: { providerEvidence, adapterAttestation, handleLocator: providerEvidence.session_id },
+    active: {
+      adapter,
+      providerEvidence,
+      authorBinding,
+      adapters,
+      state,
+      workspace: values.workspace,
+    },
   };
 }
 
@@ -4789,29 +4798,43 @@ function rawSession(io, host) {
 }
 
 async function authorIdentityForStart(io, loaded) {
-  const token = io.env?.APR_CODEX_HOOK_TOKEN;
+  const host = io.env?.APR_CODEX_HOOK_TOKEN
+    ? 'codex'
+    : io.env?.APR_CLAUDE_HOOK_TOKEN
+      ? 'claude'
+      : null;
+  const token = host === 'codex' ? io.env?.APR_CODEX_HOOK_TOKEN : io.env?.APR_CLAUDE_HOOK_TOKEN;
   if (!token)
-    return resolveIdentity({
-      role: 'author',
-      env: io.env,
-      ...configuredIdentityContext(io, loaded.config),
-    });
-  const adapter = io.codexAuthorAdapter ?? productionProviderAdapters().get('codex');
+    return {
+      identity: resolveIdentity({
+        role: 'author',
+        env: io.env,
+        ...configuredIdentityContext(io, loaded.config),
+      }),
+      active: null,
+    };
+  const adapter =
+    (host === 'codex' ? io.codexAuthorAdapter : io.claudeAuthorAdapter) ??
+    productionProviderAdapters().get(host);
   const root = (io.repository ?? createGitRepository()).root(io.cwd);
   const operationId = 'start:pending';
   const providerEvidence = await adapter.observeCurrentSession({
     root,
     token,
-    handleLocator: rawSession(io, 'codex'),
+    handleLocator: rawSession(io, host),
     operationId,
   });
   const adapterAttestation = await adapter.attestVersion({});
-  if (io.env?.CODEX_MODEL_ID && io.env.CODEX_MODEL_ID !== providerEvidence.model_id)
+  if (
+    host === 'codex' &&
+    io.env?.CODEX_MODEL_ID &&
+    io.env.CODEX_MODEL_ID !== providerEvidence.model_id
+  )
     fail('APR_IDENTITY_CONFLICT', 'Requested author model differs from the active Codex model.');
   const verified = verifyProviderEvidence({
     expected: {
-      provider: 'openai',
-      host: 'codex',
+      provider: adapter.provider,
+      host: adapter.host,
       model_id: providerEvidence.model_id,
       adapter_version: adapterAttestation.adapter_version,
       operation_id: operationId,
@@ -4820,11 +4843,24 @@ async function authorIdentityForStart(io, loaded) {
     adapterAttestation,
     now: io.now ?? new Date(),
   });
-  return participantIdentityFromProviderObservation({
-    role: 'author',
-    observation: verified,
-    joinedAt: io.now ?? new Date(),
-  });
+  if (
+    host === 'claude' &&
+    io.env?.CLAUDE_MODEL_ID &&
+    io.env.CLAUDE_MODEL_ID !== providerEvidence.model_id
+  )
+    fail('APR_IDENTITY_CONFLICT', 'Requested author model differs from the active Claude model.');
+  return {
+    identity: participantIdentityFromProviderObservation({
+      role: 'author',
+      observation: verified,
+      joinedAt: io.now ?? new Date(),
+    }),
+    active: {
+      adapter,
+      providerEvidence,
+      handleLocator: rawSession(io, host),
+    },
+  };
 }
 
 function configuredResume(input, config, identity) {
@@ -5009,11 +5045,30 @@ export async function run(argv, io) {
     let response;
     if (parsed.command === 'start') {
       const loaded = loadConfig({ cwd: io.cwd, env: io.env });
-      const identity = await authorIdentityForStart(io, loaded);
+      const author = await authorIdentityForStart(io, loaded);
+      const identity = author.identity;
+      const transportObservation =
+        parsed.options.transportMode === 'automatic-required' &&
+        !io.transportObservation &&
+        typeof author.active?.adapter?.observeTransport === 'function'
+          ? await author.active.adapter.observeTransport({
+              binding: {
+                role: 'author',
+                provider: identity.provider,
+                host: identity.host,
+                model_id: identity.model_id,
+                session_fingerprint: identity.session_fingerprint,
+                handle_locator: author.active.handleLocator,
+              },
+              projectRoot: (io.repository ?? createGitRepository()).root(io.cwd),
+              activeEvidence: author.active.providerEvidence,
+              now: io.now ?? new Date(),
+            })
+          : io.transportObservation;
       const resumable = configuredResume(io, loaded.config, identity);
       const transportCapability =
         io.transportCapability ??
-        io.transportObservation?.capability ??
+        transportObservation?.capability ??
         (resumable ? 'resume-only' : 'manual');
       const startupInput = {
         cwd: io.cwd,
@@ -5023,7 +5078,7 @@ export async function run(argv, io) {
         now: io.now ?? new Date(),
         authority: io.authority,
         transportCapability,
-        transportObservation: io.transportObservation,
+        transportObservation,
         ...parsed.options,
       };
       const startupDeps = {
@@ -5049,11 +5104,50 @@ export async function run(argv, io) {
         ...configuredIdentityContext(io, loaded.config),
       });
       const resumable = configuredResume(io, loaded.config, identity);
+      const joinRuntime = await runtimeObservationForJoin(invitation, identity, io);
+      const automaticJoin =
+        joinRuntime.active?.state.protocol.startup.runtime?.transport_mode === 'automatic-required';
+      const projectRoot = joinRuntime.active?.state.protocol.startup.context.repository_root;
+      const transportObservation =
+        automaticJoin && !io.transportObservation
+          ? await joinRuntime.active.adapter.observeTransport({
+              binding: {
+                role: 'reviewer',
+                provider: identity.provider,
+                host: identity.host,
+                model_id: identity.model_id,
+                session_fingerprint: identity.session_fingerprint,
+                handle_locator: joinRuntime.binding.handleLocator,
+              },
+              projectRoot,
+              activeEvidence: joinRuntime.active.providerEvidence,
+              now: io.now ?? new Date(),
+            })
+          : io.transportObservation;
+      const authorTransportObservation =
+        automaticJoin && !io.authorTransportObservation
+          ? await (() => {
+              const authorBinding = joinRuntime.active.authorBinding;
+              const selector = { codex: 'codex', 'claude-code': 'claude', grok: 'grok' }[
+                authorBinding.host
+              ];
+              const adapter =
+                joinRuntime.active.adapters instanceof Map
+                  ? joinRuntime.active.adapters.get(selector)
+                  : joinRuntime.active.adapters?.[selector];
+              if (typeof adapter?.observeTransport !== 'function')
+                fail('APR_TRANSPORT_UNAVAILABLE', 'Author transport observation is unavailable.');
+              return adapter.observeTransport({
+                binding: authorBinding,
+                projectRoot,
+                now: io.now ?? new Date(),
+              });
+            })()
+          : io.authorTransportObservation;
       const transportCapability =
         io.transportCapability ??
-        io.transportObservation?.capability ??
+        transportObservation?.capability ??
         (resumable ? 'resume-only' : 'manual');
-      const joinRuntime = await runtimeObservationForJoin(invitation, identity, io);
       response = await joinReview({
         cwd: io.cwd,
         invitation,
@@ -5061,9 +5155,16 @@ export async function run(argv, io) {
         runtimeObservation: joinRuntime.observation,
         providerBinding: joinRuntime.binding,
         transportCapability,
-        transportObservation: io.transportObservation,
-        authorTransportObservation: io.authorTransportObservation,
-        transportHealthCheck: io.transportHealthCheck,
+        transportObservation,
+        authorTransportObservation,
+        transportHealthCheck:
+          io.transportHealthCheck ??
+          (automaticJoin
+            ? async () => {
+                const status = await brokerCommand('status', null, io);
+                return { healthy: status.status === 'running', reason: status.status };
+              }
+            : undefined),
         now: io.now ?? new Date(),
       });
       if (transportCapability === 'resume-only')

@@ -271,13 +271,19 @@ export async function activateStartup(prepared, deps = {}) {
         validatedStartup: true,
         requestDigest: prepared.requestDigest,
       });
-      if (deps.env?.APR_CODEX_HOOK_TOKEN) {
-        const adapter = deps.codexAuthorAdapter ?? productionProviderAdapters().get('codex');
+      if (deps.env?.APR_CODEX_HOOK_TOKEN || deps.env?.APR_CLAUDE_HOOK_TOKEN) {
+        const host = deps.env?.APR_CODEX_HOOK_TOKEN ? 'codex' : 'claude';
+        const adapter =
+          (host === 'codex' ? deps.codexAuthorAdapter : deps.claudeAuthorAdapter) ??
+          productionProviderAdapters().get(host);
         const operationId = `start:${result.review_id}`;
-        const handleLocator = deps.env.CODEX_THREAD_ID ?? deps.env.CODEX_SESSION_ID;
+        const handleLocator =
+          host === 'codex'
+            ? (deps.env.CODEX_THREAD_ID ?? deps.env.CODEX_SESSION_ID)
+            : (deps.env.CLAUDE_CODE_SESSION_ID ?? deps.env.CLAUDE_SESSION_ID);
         const providerEvidence = await adapter.observeCurrentSession({
           root: request.project.physicalRoot,
-          token: deps.env.APR_CODEX_HOOK_TOKEN,
+          token: host === 'codex' ? deps.env.APR_CODEX_HOOK_TOKEN : deps.env.APR_CLAUDE_HOOK_TOKEN,
           handleLocator,
           operationId,
         });
@@ -287,9 +293,9 @@ export async function activateStartup(prepared, deps = {}) {
           role: 'author',
           authority: {
             review_id: result.review_id,
-            selector: 'codex',
-            provider: 'openai',
-            host: 'codex',
+            selector: host,
+            provider: adapter.provider,
+            host: adapter.host,
             model_id: request.input.identity.model_id,
             adapter_version: adapterAttestation.adapter_version,
             operation_id: operationId,

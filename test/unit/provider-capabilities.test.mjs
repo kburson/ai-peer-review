@@ -101,7 +101,7 @@ test('unproven surfaces remain unavailable and never advertise native control', 
   assert.deepEqual(observed.resource, { concurrent: false, resource_id: 'grok-desktop' });
 });
 
-test('Claude production adapter probes its official CLI without claiming native SPR', async () => {
+test('Claude production adapter refuses an unpinned installed CLI version', async () => {
   const calls = [];
   const adapter = createClaudeAdapter({
     execFile: async (file, args, options) => {
@@ -113,13 +113,27 @@ test('Claude production adapter probes its official CLI without claiming native 
   assert.equal(observed.available, true);
   assert.deepEqual(observed.native, []);
   assert.deepEqual(observed.transport, ['manual', 'resume-only']);
-  assert.deepEqual(calls, [
-    {
+  assert.deepEqual(
+    calls,
+    Array.from({ length: 2 }, () => ({
       file: 'claude',
       args: ['--version'],
       options: { shell: false, encoding: 'utf8' },
-    },
-  ]);
+    }))
+  );
+});
+
+test('pinned Claude stream and transcript adapter exposes exact reviewer launch capability', async () => {
+  const adapter = createClaudeAdapter({
+    execFile: async () => ({ stdout: '2.1.278 (Claude Code)\n', stderr: '' }),
+  });
+  const observed = await adapter.observeCapabilities();
+  assert.equal(observed.available, true);
+  assert.equal(observed.automatic, true);
+  assert.equal(observed.reviewerLaunchable, true);
+  assert.ok(observed.transport.includes('automatic-required'));
+  const reviewer = await adapter.capabilities({ selection: { classification: 'SPR' } });
+  assert.equal(reviewer.native.length, 1);
 });
 
 test('method presence without official exact-session evidence never advertises automatic SPR', async () => {
@@ -143,6 +157,38 @@ test('method presence without official exact-session evidence never advertises a
     capabilities.broker.some((entry) => entry.transport_mode === 'automatic-required'),
     false
   );
+});
+
+test('author exact wake can be conformant without reviewer launch authority', async () => {
+  const surface = {
+    available: async () => true,
+    observeBoundSession: async () => ({}),
+    deliverToSession: async () => ({}),
+    reconcileDelivery: async () => ({}),
+    conformance: async () => ({
+      surfaceVersion: 'installed-1',
+      evidenceSources: { model: 'official-exact-session', session: 'official-exact-session' },
+      operations: { deliverToSession: 'exact', reconcile: 'exact' },
+      health: {
+        installed: true,
+        healthy: true,
+        fresh: true,
+        surfaceVersion: 'installed-1',
+        adapterVersion: '1.0.0',
+      },
+    }),
+  };
+  const adapter = createProviderAdapter({
+    selector: 'codex',
+    provider: 'openai',
+    host: 'codex',
+    models: {},
+    surface,
+  });
+  const author = await adapter.observeCapabilities();
+  assert.equal(author.automatic, true);
+  const reviewer = await adapter.capabilities({ selection: { classification: 'SPR' } });
+  assert.equal(reviewer.native.length, 0);
 });
 
 test('production registry contains every selector without a provider fallback', () => {
@@ -194,14 +240,8 @@ test('doctor fails a required recognized provider whose exact control surface is
   );
 });
 
-test('doctor automatic-required refuses each unproven production surface', async () => {
-  for (const adapter of [
-    createClaudeAdapter({
-      execFile: async () => ({ stdout: '2.1.278 (Claude Code)\n', stderr: '' }),
-    }),
-    createCodexAdapter(),
-    createGrokAdapter(),
-  ]) {
+test('doctor automatic-required refuses unproven Codex and Grok surfaces', async () => {
+  for (const adapter of [createCodexAdapter(), createGrokAdapter()]) {
     const providerAdapter = await adapter.observeCapabilities();
     const result = doctor({
       requestedMode: 'automatic-required',

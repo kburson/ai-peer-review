@@ -1107,8 +1107,8 @@ test('startup preserves definitely-not-submitted and stable provider failures', 
     const fx = repositoryFixture(`apr-provider-outcome-${failure.code}-`);
     t.after(fx.cleanup);
     const input = {
-      reviewerProvider: 'claude',
-      reviewerModel: 'claude-opus-5',
+      reviewerProvider: 'codex',
+      reviewerModel: 'gpt-test',
       reviewerEffort: 'medium',
       transportMode: 'manual',
       cwd: fx.root,
@@ -1121,8 +1121,8 @@ test('startup preserves definitely-not-submitted and stable provider failures', 
     const deps = {
       ...fixtureStartupDeps,
       adapters: {
-        claude: {
-          ...fixtureStartupDeps.adapters.claude,
+        codex: {
+          ...fixtureStartupDeps.adapters.codex,
           launch: async () => {
             if (failure.error) throw failure.error;
             return failure.outcome;

@@ -172,7 +172,7 @@ export async function runBroker(input = {}) {
     const valid = assertRegistration(identity, registration);
     const existing = workers.get(valid.workspace);
     if (existing) return existing;
-    const worker = workerFactory(valid);
+    const worker = await workerFactory(valid);
     if (!worker || typeof worker.workState !== 'function') {
       fail(
         'APR_BROKER_START_FAILED',

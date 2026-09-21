@@ -93,10 +93,9 @@ export function createProviderAdapter({
   const catalog = new Map(Object.entries(models ?? {}));
   const operations = new Map();
   const exactNative =
-    typeof surface?.launch === 'function' &&
-    typeof surface?.resume === 'function' &&
-    typeof surface?.monitor === 'function' &&
-    typeof surface?.observe === 'function';
+    typeof surface?.observeBoundSession === 'function' &&
+    typeof surface?.deliverToSession === 'function' &&
+    typeof surface?.reconcileDelivery === 'function';
 
   const provenSurface = async () => {
     if (!exactNative || typeof surface?.conformance !== 'function')
@@ -244,7 +243,7 @@ export function createProviderAdapter({
     async observeCapabilities() {
       const available = await surfaceAvailable();
       const conformance = await provenSurface();
-      const automatic = available && conformance.reviewerLaunchable;
+      const automatic = available && conformance.automatic;
       return Object.freeze({
         selector,
         provider,
@@ -252,6 +251,7 @@ export function createProviderAdapter({
         adapter_version: adapterVersion,
         available,
         automatic,
+        reviewerLaunchable: available && conformance.reviewerLaunchable,
         unavailable_reasons: conformance.reasons,
         native: Object.freeze(automatic ? ['exact-session'] : []),
         broker: Object.freeze([
@@ -397,6 +397,15 @@ export function createProviderAdapter({
   }
   if (typeof surface?.observeTransport === 'function') {
     adapter.observeTransport = (input) => surface.observeTransport(input);
+  }
+  if (typeof surface?.observeResource === 'function') {
+    adapter.observeResource = (input) => surface.observeResource(input);
+  }
+  if (typeof surface?.observeLaunchResource === 'function') {
+    adapter.observeLaunchResource = (input) => surface.observeLaunchResource(input);
+  }
+  if (typeof surface?.observeResourceRelease === 'function') {
+    adapter.observeResourceRelease = (input) => surface.observeResourceRelease(input);
   }
   if (typeof surface?.deliverToSession === 'function') {
     adapter.deliverToSession = ({ binding, ...input } = {}) => {

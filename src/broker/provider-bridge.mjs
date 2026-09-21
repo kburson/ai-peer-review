@@ -130,7 +130,12 @@ export function createProviderBridge({
     const { binding, adapter } = await bound(role, inspected);
     if (typeof adapter.observeTransport !== 'function')
       unavailable('Role-specific resident health observation is unavailable.');
-    const observation = await adapter.observeTransport({ binding, workspace, now: now() });
+    const observation = await adapter.observeTransport({
+      binding,
+      workspace,
+      projectRoot: inspected.state.protocol.startup?.context?.repository_root,
+      now: now(),
+    });
     if (observation?.session_fingerprint !== binding.session_fingerprint)
       conflict('Resident transport observation differs from bound provider session.');
     validateAutomaticParticipant(
@@ -163,14 +168,18 @@ export function createProviderBridge({
     const result = await observeRole(input.target_role, inspected);
     if (result.binding.session_fingerprint !== input.target_session_fingerprint)
       conflict('Wake target differs from sealed participant.');
-    return result;
+    return {
+      ...result,
+      projectRoot: inspected.state.protocol.startup?.context?.repository_root,
+    };
   };
 
   const bridge = {
     bootstrap: true,
     automatic: true,
     coordinatorInput: Object.freeze({
-      owner,
+      owner: Object.freeze({ kind: 'app-host', pid: process.pid }),
+      leaseOptions: Object.freeze({ instanceId: owner.instanceId, nonce: owner.nonce }),
       observe: observation,
     }),
     observation,
@@ -178,7 +187,15 @@ export function createProviderBridge({
       const selected = await target(input);
       if (typeof selected.adapter.deliverToSession !== 'function')
         unavailable('Role-specific exact wake is unavailable.');
-      lease.beforeDelivery(input.target_role, selected.observation);
+      if (typeof selected.adapter.observeResource !== 'function')
+        unavailable('Role-specific provider resource observation is unavailable.');
+      const resource = await selected.adapter.observeResource({
+        binding: selected.binding,
+        role: input.target_role,
+        workspace,
+        projectRoot: selected.projectRoot,
+      });
+      lease.beforeDelivery(input.target_role, resource);
       // Re-open event authority after the lease check, immediately before provider action.
       checkWake(input, guarded());
       return selected.adapter.deliverToSession({
@@ -187,6 +204,8 @@ export function createProviderBridge({
         capsule: input.capsule,
         capsuleDigest: input.capsule_digest,
         expectedRevision: input.expected_revision,
+        workspace,
+        projectRoot: selected.projectRoot,
       });
     },
     async reconcile(input) {
@@ -197,6 +216,8 @@ export function createProviderBridge({
         binding: selected.binding,
         wakeOperationId: input.operation_id,
         capsuleDigest: input.capsule_digest,
+        workspace,
+        projectRoot: selected.projectRoot,
       });
       return ['acknowledged', 'not-submitted', 'outcome-unknown'].includes(result?.status)
         ? result
