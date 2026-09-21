@@ -1,0 +1,318 @@
+// cspell:words nodedir DACL pwsh LiteralPath AccessRuleProtection
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
+import { fixtureStartupDeps, loadLegacyAuthority } from '../helpers/internal-api.mjs';
+import { identity, NOW } from '../helpers/intervention-fixture.mjs';
+
+const root = fileURLToPath(new URL('../..', import.meta.url));
+
+function verifyWindowsBootstrapSecurity(scratch, platform, readBootstrap) {
+  const projectRoot = path.join(scratch, 'bootstrap-security');
+  const parent = path.join(projectRoot, '.scratch/peer-review');
+  mkdirSync(parent, { recursive: true });
+  const directoryRoot = path.join(parent, 'broker');
+  const directory = platform.openPrivateDirectory(directoryRoot);
+  const record = {
+    schema: 'ai-peer-review.broker-bootstrap/v1',
+    project: {
+      digest: 'a'.repeat(64),
+      physicalRoot: projectRoot,
+      tuple: ['ai-peer-review.broker-root/v1', projectRoot, null, platform.userId()],
+    },
+    versions: {
+      package_version: '0.3.0',
+      broker_protocol_version: 1,
+      node_major: Number(process.versions.node.split('.')[0]),
+    },
+    runtimeImage: {
+      root: path.join(scratch, 'image'),
+      nodeExecutable: process.execPath,
+      digest: `sha256:${'b'.repeat(64)}`,
+    },
+  };
+  const file = path.join(directoryRoot, 'bootstrap-a1.json');
+  try {
+    directory.create(path.basename(file), JSON.stringify(record));
+  } finally {
+    directory.close();
+  }
+  assert.deepEqual(readBootstrap(file), record);
+  const link = path.join(directoryRoot, 'bootstrap-a2.json');
+  symlinkSync(file, link, 'file');
+  assert.throws(() => readBootstrap(link), { code: 'APR_BROKER_START_FAILED' });
+  const reopened = platform.openPrivateDirectory(directoryRoot);
+  try {
+    assert.throws(() => reopened.read(path.basename(link)), { code: 'APR_BROKER_STALE' });
+  } finally {
+    reopened.close();
+  }
+  // The same safe regular file becomes untrusted when its DACL inherits.
+  const script = path.join(scratch, 'weaken-fixture-acl.ps1');
+  writeFileSync(
+    script,
+    'param([string]$Target)\n$acl = Get-Acl -LiteralPath $Target\n$acl.SetAccessRuleProtection($false, $true)\nSet-Acl -LiteralPath $Target -AclObject $acl\n'
+  );
+  execFileSync('pwsh', ['-NoProfile', '-File', script, '-Target', file], { stdio: 'pipe' });
+  assert.throws(() => readBootstrap(file), { code: 'APR_BROKER_STALE' });
+}
+
+function projectFixture(scratch) {
+  const projectRoot = mkdtempSync(path.join(scratch, 'project-'));
+  const git = (...args) => execFileSync('git', args, { cwd: projectRoot, stdio: 'pipe' });
+  git('init', '-b', 'trunk');
+  git('config', 'user.email', 'test@example.invalid');
+  git('config', 'user.name', 'Test');
+  mkdirSync(path.join(projectRoot, 'docs'));
+  writeFileSync(path.join(projectRoot, 'docs/artifact.md'), '# Artifact\n');
+  writeFileSync(path.join(projectRoot, '.git/info/exclude'), '.scratch/peer-review/\n');
+  git('add', 'docs/artifact.md');
+  git('commit', '-m', 'fixture');
+  return { root: projectRoot, cleanup() {} };
+}
+
+test('installed release preserves legacy recovery, isolated brokers and pinned runtime closure', async (t) => {
+  mkdirSync(path.join(root, '.scratch/test'), { recursive: true });
+  const scratch = realpathSync(mkdtempSync(path.join(root, '.scratch/test/apr-release-')));
+  const live = [];
+  const projects = [];
+  let stopBrokers = async () => {};
+  t.after(async () => {
+    await stopBrokers();
+    for (const project of projects) project.cleanup();
+    rmSync(scratch, { recursive: true, force: true });
+  });
+  const host = path.join(scratch, 'host');
+  mkdirSync(host);
+  writeFileSync(path.join(host, 'package.json'), '{"private":true}\n');
+  const packed = parseNpmPackOutput(
+    runNpm('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], {
+      cwd: root,
+      encoding: 'utf8',
+    }),
+    { expectedPackageName: '@kburson/ai-peer-review', requireFilename: true }
+  );
+  runNpm(
+    'npm',
+    [
+      'install',
+      '--offline',
+      '--omit=dev',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      path.join(scratch, packed.filename),
+    ],
+    { cwd: host, stdio: 'pipe' }
+  );
+  const installed = path.join(host, 'node_modules/@kburson/ai-peer-review');
+  const manifest = JSON.parse(readFileSync(path.join(installed, 'package.json')));
+  assert.equal(manifest.version, '0.3.0');
+  assert.equal(existsSync(path.join(host, 'node_modules/eslint')), false);
+  const load = (file) => import(pathToFileURL(path.join(installed, file)));
+  const api = await load('src/cli/run.mjs');
+  const protocol = await load('src/protocol/service.mjs');
+  const securityApi = await load('src/broker/platform.mjs');
+  const clientApi = await load('src/broker/client.mjs');
+  const { canonicalProjectIdentity } = await load('src/broker/identity.mjs');
+  const { createGitRepository } = await load('src/git/repository.mjs');
+  const { brokerPaths } = await load('src/broker/paths.mjs');
+  const { connectBroker } = await load('src/broker/ipc.mjs');
+  const { pinRuntimeImage, verifyRuntimeImage } = await load('src/broker/runtime-image.mjs');
+  const publicApi = await load('src/public-api.mjs');
+  assert.ok(!Object.keys(publicApi).some((key) => /coordinator|broker/i.test(key)));
+  const help = execFileSync(
+    process.execPath,
+    [path.join(installed, 'bin/peer-review.mjs'), 'help', '--all'],
+    { encoding: 'utf8' }
+  );
+  assert.doesNotMatch(help, /peer-review coordinator/);
+  projects.push(projectFixture(scratch), projectFixture(scratch));
+  const legacy = await loadLegacyAuthority({
+    cwd: projects[0].root,
+    identity: identity('author', 'legacy-release'),
+    reviewId: 'legacy-release',
+    now: NOW,
+  });
+  const recovered = await api.resumeReview(legacy.paths.workspace);
+  assert.ok(recovered);
+  assert.equal(securityApi.inspectPlatformSecurity().healthy, false);
+  assert.throws(() => securityApi.platformSecurity(), { code: 'APR_BROKER_START_FAILED' });
+
+  const developmentRoot = [
+    process.env.APR_NODEDIR_BASE && path.join(process.env.APR_NODEDIR_BASE, process.versions.node),
+    path.dirname(process.execPath),
+    path.dirname(path.dirname(process.execPath)),
+  ].find((candidate) => candidate && existsSync(path.join(candidate, 'include/node/node_api.h')));
+  assert.ok(
+    developmentRoot,
+    'provision matching full Node development files before the offline test'
+  );
+  const reported = securityApi.inspectPlatformSecurity().build_command;
+  assert.equal(
+    reported,
+    `npm --prefix '${installed}' run build:broker-security -- --nodedir /absolute/local/node-development-tree`
+  );
+  runNpm(
+    'npm',
+    ['--prefix', installed, 'run', 'build:broker-security', '--', '--nodedir', developmentRoot],
+    { cwd: host, stdio: 'pipe' }
+  );
+  assert.equal(securityApi.inspectPlatformSecurity().healthy, true);
+  const platform = { ...securityApi.platformSecurity(), repository: createGitRepository() };
+  if (process.platform === 'win32') {
+    const { readBrokerBootstrap } = await load('bin/peer-review-broker.mjs');
+    verifyWindowsBootstrapSecurity(scratch, platform, readBrokerBootstrap);
+  }
+  const image = pinRuntimeImage({
+    packageRoot: installed,
+    nodeExecutable: realpathSync(process.execPath),
+    destination: path.join(scratch, 'image'),
+  });
+  const versions = {
+    package_version: manifest.version,
+    broker_protocol_version: 1,
+    node_major: Number(process.versions.node.split('.')[0]),
+  };
+  stopBrokers = async () => {
+    for (const { project, paths, workspace } of live) {
+      if (workspace) {
+        const state = protocol.inspectReview(workspace);
+        await protocol.mutateReview(
+          workspace,
+          {
+            reviewId: state.protocol.review_id,
+            revision: state.protocol.revision,
+            sequence: state.protocol.sequence,
+            actor: state.protocol.current_actor,
+          },
+          (current) => ({
+            schema: 'ai-peer-review.event/v1',
+            review_id: current.protocol.review_id,
+            sequence: current.protocol.sequence + 1,
+            revision: current.protocol.revision + 1,
+            type: 'intervention-entered',
+            actor: 'system',
+            at: NOW,
+            payload: {
+              intervention_id: 'release-cleanup',
+              reason: 'participant-loss',
+              interrupted_state: current.protocol.state,
+            },
+          })
+        );
+        await api.abandonReview({
+          workspace,
+          cwd: project.physicalRoot,
+          identity: identity('author', 'release-xpr'),
+          reason: 'Disposable release verification complete.',
+          now: NOW,
+        });
+      }
+      const client = await connectBroker({ identity: project, paths, versions }, platform);
+      await clientApi.requestBroker(client, 'stop');
+      client.connection?.close();
+    }
+  };
+  for (let index = 0; index < projects.length; index++) {
+    const project = canonicalProjectIdentity({ cwd: projects[index].root, platform });
+    const paths = brokerPaths({
+      identity: project,
+      platform,
+      env: process.env,
+      home: os.homedir(),
+    });
+    const client = await clientApi.ensureBroker({
+      project,
+      versions,
+      runtimeImage: image,
+      platform,
+    });
+    live.push({ project, paths });
+    const status = await clientApi.requestBroker(client, 'status');
+    assert.equal(status.package_version, '0.3.0');
+    client.connection?.close();
+    for (const mismatch of [
+      { ...versions, package_version: '0.4.0' },
+      { ...versions, node_major: versions.node_major + 1 },
+    ]) {
+      await assert.rejects(
+        connectBroker({ identity: project, paths, versions: mismatch }, platform),
+        { code: 'APR_BROKER_INCOMPATIBLE' }
+      );
+    }
+  }
+  assert.notEqual(live[0].project.digest, live[1].project.digest);
+  assert.notEqual(live[0].paths.endpoint, live[1].paths.endpoint);
+  const started = await api.startReview(
+    {
+      cwd: projects[0].root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'release-xpr'),
+      reviewerProvider: 'claude',
+      reviewerModel: 'claude-opus-5',
+      reviewerEffort: 'medium',
+      transportMode: 'manual',
+      reviewId: 'release-xpr',
+      now: NOW,
+    },
+    { adapters: fixtureStartupDeps.adapters, pinRuntimeImage: () => image }
+  );
+  assert.equal(started.state, 'awaiting-reviewer');
+  live[0].workspace = started.paths.workspace;
+  const { participantIdentity } = await load('src/identity/registry.mjs');
+  await api.joinReview({
+    cwd: projects[0].root,
+    invitation: started.paths.reviewer_invitation,
+    now: NOW,
+    identity: participantIdentity({
+      role: 'reviewer',
+      host: 'claude-code',
+      provider: 'anthropic',
+      modelId: 'claude-opus-5',
+      modelDisplay: 'Claude Opus 5',
+      sessionId: 'release-reviewer',
+      source: 'runtime',
+      joinedAt: NOW,
+    }),
+    runtimeObservation: {
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'claude-opus-5',
+      effort: 'medium',
+      adapter_version: 'fixture-v1',
+      assurance: 'runtime',
+    },
+  });
+  renameSync(path.join(host, 'node_modules'), path.join(host, 'replaced-node_modules'));
+  assert.equal(verifyRuntimeImage(image), true);
+  const execution = `await import('./src/mcp/server.mjs'); const { platformSecurity } = await import('./src/broker/platform.mjs'); console.log(platformSecurity().userId());`;
+  assert.ok(
+    execFileSync(image.nodeExecutable, ['--input-type=module', '--eval', execution], {
+      cwd: path.join(image.root, 'package'),
+      encoding: 'utf8',
+    }).trim()
+  );
+  const stillLive = await connectBroker(
+    { identity: live[1].project, paths: live[1].paths, versions },
+    platform
+  );
+  assert.equal((await clientApi.requestBroker(stillLive, 'status')).package_version, '0.3.0');
+  stillLive.connection?.close();
+});

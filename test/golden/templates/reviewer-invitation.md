@@ -39,7 +39,7 @@ Role: reviewer. Join from a distinct session in the same physical worktree.
 
 Installed join: `peer-review join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`
 
-Zero-install join: `npx --yes @kburson/ai-peer-review@0.2.2 join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`
+Zero-install join: `npx --yes @kburson/ai-peer-review@0.3.0 join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`
 
 Rules of engagement:
 

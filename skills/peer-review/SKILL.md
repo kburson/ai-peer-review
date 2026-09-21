@@ -16,7 +16,7 @@ Install the scoped registry package while continuing to invoke the local `peer-r
 
 ```bash
 npm install --save-dev @kburson/ai-peer-review
-npx --yes @kburson/ai-peer-review@0.2.2 --help
+npx --yes @kburson/ai-peer-review@0.3.0 --help
 ```
 
 Existing consumers migrate without changing binary, configuration, or runtime paths:

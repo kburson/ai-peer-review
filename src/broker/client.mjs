@@ -47,11 +47,24 @@ function bootstrapRecord({ project, versions, runtimeImage }) {
   });
 }
 
-function createBootstrap(record) {
+function createBootstrap(record, platform) {
   const root = path.join(record.project.physicalRoot, '.scratch', 'peer-review', 'broker');
-  mkdirSync(root, { recursive: true, mode: 0o700 });
   const file = path.join(root, `bootstrap-${randomUUID()}.json`);
-  writeFileSync(file, `${JSON.stringify(record)}\n`, { flag: 'wx', mode: 0o600 });
+  const bytes = `${JSON.stringify(record)}\n`;
+  if ((platform?.kind ?? process.platform) === 'win32') {
+    mkdirSync(path.dirname(root), { recursive: true });
+    const directory = (platform ?? platformSecurity()).openPrivateDirectory(root);
+    try {
+      if (!directory.verify()) throw startFailure(null, { reason: 'bootstrap-directory-unsafe' });
+      directory.create(path.basename(file), bytes);
+      if (!directory.verify()) throw startFailure(null, { reason: 'bootstrap-directory-changed' });
+    } finally {
+      directory.close();
+    }
+  } else {
+    mkdirSync(root, { recursive: true, mode: 0o700 });
+    writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
+  }
   return file;
 }
 
@@ -148,7 +161,7 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
   const bootstrap =
     typeof platform?.createBootstrap === 'function'
       ? platform.createBootstrap({ project, versions, runtimeImage, record })
-      : createBootstrap(record);
+      : createBootstrap(record, platform);
   const entrypoint = path.join(runtimeImage.root, 'package', 'bin', 'peer-review-broker.mjs');
   const launch = platform?.spawn ?? spawn;
   let child;

@@ -33,13 +33,14 @@ function exact(value, fields) {
   );
 }
 
-export function readBrokerBootstrap(file) {
+export function readBrokerBootstrap(file, { platform = null } = {}) {
   if (typeof file !== 'string' || !path.isAbsolute(file)) {
     throw new AprError('APR_BROKER_START_FAILED', 'Broker bootstrap path is not absolute.', {
       recovery: 'Launch the broker only through the package-created bootstrap path.',
     });
   }
   const status = lstatSync(file);
+  const windows = (platform?.kind ?? process.platform) === 'win32';
   const expectedRoot = path.join(
     path.dirname(path.dirname(path.dirname(path.dirname(file)))),
     '.scratch',
@@ -52,14 +53,32 @@ export function readBrokerBootstrap(file) {
     realpathSync(file) !== file ||
     path.dirname(file) !== expectedRoot ||
     !/^bootstrap-[a-f0-9-]+\.json$/.test(path.basename(file)) ||
-    (status.mode & 0o077) !== 0 ||
-    (typeof process.getuid === 'function' && status.uid !== process.getuid())
+    (!windows && (status.mode & 0o077) !== 0) ||
+    (!windows && typeof process.getuid === 'function' && status.uid !== process.getuid())
   ) {
     throw new AprError('APR_BROKER_START_FAILED', 'Broker bootstrap is not a regular file.', {
       recovery: 'Preserve the unsafe path and create a new package-owned bootstrap.',
     });
   }
-  const value = JSON.parse(readFileSync(file, 'utf8'));
+  let bytes;
+  if (windows) {
+    const directory = (platform ?? platformSecurity()).openPrivateDirectory(path.dirname(file));
+    try {
+      const changed = () =>
+        new AprError('APR_BROKER_START_FAILED', 'Bootstrap authority changed.', {
+          recovery:
+            'Preserve the bootstrap and restore its verified owner-only directory and file.',
+        });
+      if (!directory.verify()) throw changed();
+      bytes = directory.read(path.basename(file));
+      if (bytes === null || !directory.verify()) throw changed();
+    } finally {
+      directory.close();
+    }
+  } else {
+    bytes = readFileSync(file, 'utf8');
+  }
+  const value = JSON.parse(bytes);
   if (
     !exact(value, ['project', 'runtimeImage', 'schema', 'versions']) ||
     value.schema !== 'ai-peer-review.broker-bootstrap/v1' ||

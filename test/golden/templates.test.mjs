@@ -67,8 +67,18 @@ test('startup templates use absolute paths and document installed and zero-insta
     assert.match(output, /\/repo\/docs\/example\.md/);
     assert.match(output, /\/repo\/\.scratch\/peer-review\/review-01/);
     assert.match(output, /`peer-review /);
-    assert.match(output, /`npx --yes @kburson\/ai-peer-review@0\.2\.2 (?:status|join) /);
-    assert.doesNotMatch(output, /`npx --yes ai-peer-review@0\.2\.2/);
+    const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url)));
+    const commands = [...output.matchAll(/`npx --yes @kburson\/ai-peer-review@([^ ]+) ([^`]+)`/g)];
+    assert.equal(commands.length, 1, name);
+    assert.equal(commands[0][1], manifest.version, name);
+    assert.equal(
+      commands[0][2],
+      name === 'author-startup'
+        ? 'status --help'
+        : 'join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md',
+      name
+    );
+    assert.doesNotMatch(output, /`npx --yes ai-peer-review@/);
   }
   const invitation = hydrateTemplate('reviewer-invitation', {
     ...Object.fromEntries(

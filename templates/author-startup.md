@@ -36,4 +36,4 @@ When the project-local broker is active, yield after each handoff; do not poll o
 
 Installed help: `peer-review status --help`
 
-Zero-install help: `npx --yes @kburson/ai-peer-review@0.2.2 status --help`
+Zero-install help: `npx --yes @kburson/ai-peer-review@0.3.0 status --help`

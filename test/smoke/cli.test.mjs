@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -36,10 +36,15 @@ test('packed CLI installs into a non-Node host and starts a review through injec
   );
   assert.match(zeroInstallHelp, /Commands:/);
   writeFileSync(path.join(host, 'package.json'), '{"private":true}\n');
-  runNpm('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], {
+  runNpm('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', tarball], {
     cwd: host,
     stdio: 'pipe',
   });
+  assert.equal(
+    JSON.parse(readFileSync(path.join(host, 'node_modules/@kburson/ai-peer-review/package.json')))
+      .version,
+    '0.3.0'
+  );
   execFileSync(
     process.execPath,
     ['--input-type=module', '--eval', "await import('@kburson/ai-peer-review');"],

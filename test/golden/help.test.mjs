@@ -86,7 +86,7 @@ test('all offline help topics derive complete contracts from the frozen command 
       topic.flags.map(({ flag }) => flag),
       COMMAND_FLAGS[command]
     );
-    assert.match(topic.examples[1], /^npx --yes @kburson\/ai-peer-review@0\.2\.2 /);
+    assert.match(topic.examples[1], /^npx --yes @kburson\/ai-peer-review@0\.3\.0 /);
     assert.doesNotMatch(topic.examples.join('\n'), /^npx --yes ai-peer-review@/m);
     for (const code of topic.errors) {
       const explanation = explainError(code);

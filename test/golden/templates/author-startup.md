@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:29f5f6e97f3508b1871bf2d8b64fe675082d347d27f1e14065a95e1fec9c0e75" -->
+<!-- ai-peer-review-template version="1" digest="sha256:407c0183bbb626968282060157995fdb989c70593266bae91803b66facb669e2" -->
 
 # Author startup
 
@@ -36,4 +36,4 @@ When the project-local broker is active, yield after each handoff; do not poll o
 
 Installed help: `peer-review status --help`
 
-Zero-install help: `npx --yes @kburson/ai-peer-review@0.2.2 status --help`
+Zero-install help: `npx --yes @kburson/ai-peer-review@0.3.0 status --help`

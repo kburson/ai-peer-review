@@ -417,10 +417,10 @@ locally. Before that — or if you would rather install nothing at all — call 
 by its full registry name:
 
 ```bash
-npx --yes @kburson/ai-peer-review@0.2.2 --help
-npx --yes @kburson/ai-peer-review@0.2.2 setup --scope project --agent claude --dry-run
-npx --yes @kburson/ai-peer-review@0.2.2 start docs/spec.md --artifact-kind spec
-npx --yes @kburson/ai-peer-review@0.2.2 status .scratch/peer-review/<review-id> --next
+npx --yes @kburson/ai-peer-review@0.3.0 --help
+npx --yes @kburson/ai-peer-review@0.3.0 setup --scope project --agent claude --dry-run
+npx --yes @kburson/ai-peer-review@0.3.0 start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
+npx --yes @kburson/ai-peer-review@0.3.0 status .scratch/peer-review/<review-id> --next
 ```
 
 Existing consumers should replace the unscoped package without changing commands or state paths:

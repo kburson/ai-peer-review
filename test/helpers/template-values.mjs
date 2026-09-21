@@ -13,7 +13,7 @@ export const TEMPLATE_FIXTURE_VALUES = Object.freeze({
   installed_join_display:
     '`peer-review join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
   zero_install_join_display:
-    '`npx --yes @kburson/ai-peer-review@0.2.2 join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
+    '`npx --yes @kburson/ai-peer-review@0.3.0 join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
   recovery_display: '`peer-review resume /repo/.scratch/peer-review/review-01`',
   reviewer_selection_display: 'Claude Opus 5 (claude-opus-5), effort: medium',
   runtime_display: 'XPR, project-local broker',

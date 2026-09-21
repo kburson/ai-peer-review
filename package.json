@@ -1,6 +1,6 @@
 {
   "name": "@kburson/ai-peer-review",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A deterministic, provider-neutral peer review protocol for AI agents",
   "type": "module",
   "license": "Apache-2.0",
