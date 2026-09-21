@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { requestBroker } from '../../src/broker/client.mjs';
 import {
   connectBroker,
   createFrameDecoder,
@@ -16,6 +17,26 @@ const handshake = {
   instance_id: 'a'.repeat(64),
   nonce: 'b'.repeat(64),
 };
+
+test('an ambiguous command exchange is closed without reconnecting or replaying', async () => {
+  let exchanges = 0;
+  let closes = 0;
+  const failure = Object.assign(new Error('lost reply'), { code: 'APR_BROKER_PROTOCOL' });
+  const client = {
+    connection: {
+      exchange() {
+        exchanges += 1;
+        throw failure;
+      },
+      close() {
+        closes += 1;
+      },
+    },
+  };
+  await assert.rejects(requestBroker(client, 'launch', '/review'), (error) => error === failure);
+  assert.equal(exchanges, 1);
+  assert.equal(closes, 1);
+});
 
 test('length-prefixed JSON accepts fragmented and coalesced frames up to 64 KiB', () => {
   const decoder = createFrameDecoder();

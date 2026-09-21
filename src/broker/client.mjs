@@ -200,7 +200,14 @@ export async function requestBroker(client, command, workspace = null) {
   const message = validateCommand({ id: randomUUID(), command, workspace });
   if (typeof client?.request === 'function') return client.request(message);
   const decoder = createFrameDecoder();
-  const values = decoder.push(await client.connection.exchange(encodeFrame(message)));
+  const connection = client.takeConnection ? await client.takeConnection() : client.connection;
+  let bytes;
+  try {
+    bytes = await connection.exchange(encodeFrame(message));
+  } finally {
+    connection.close?.();
+  }
+  const values = decoder.push(bytes);
   decoder.end();
   if (values.length !== 1 || values[0].id !== message.id || typeof values[0].ok !== 'boolean')
     throw startFailure(null, { reason: 'invalid-command-response' });

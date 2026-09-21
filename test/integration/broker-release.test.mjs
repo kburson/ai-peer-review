@@ -246,6 +246,10 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     live.push({ project, paths });
     const status = await clientApi.requestBroker(client, 'status');
     assert.equal(status.package_version, '0.3.0');
+    // Startup sends register then launch through one client. Each command
+    // needs a fresh authenticated native connection after the previous closes.
+    const repeated = await clientApi.requestBroker(client, 'status');
+    assert.equal(repeated.project_digest, project.digest);
     client.connection?.close();
     for (const mismatch of [
       { ...versions, package_version: '0.4.0' },

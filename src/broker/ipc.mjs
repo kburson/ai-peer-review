@@ -181,7 +181,21 @@ export async function connectBroker({ identity, paths, versions }, platform) {
       );
     }
     validateHandshake(responses[0], expected, platform.peerUser(connection));
-    return Object.freeze({ handshake: responses[0], connection });
+    let available = connection;
+    return Object.freeze({
+      handshake: responses[0],
+      connection,
+      async takeConnection() {
+        if (available) {
+          const first = available;
+          available = null;
+          return first;
+        }
+        // The server admits exactly one command after each handshake. Do not
+        // retry a sent command; authenticate a new connection for the next one.
+        return (await connectBroker({ identity, paths, versions }, platform)).connection;
+      },
+    });
   } catch (error) {
     connection?.close?.();
     throw error;
