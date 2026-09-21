@@ -506,6 +506,13 @@ Task 12's release compatibility work into Task 11.
 
 **Files:** Modify `package.json`, `package-lock.json`, `docs/releases/0.3.0.md`, `test/packaging/package.test.mjs`, `test/smoke/cli.test.mjs`, and `.github/workflows/ci.yml` (`node-24`, `preferred-node`, `npm-pack-compatibility`, and `phase-2-boundary` jobs). Add `test/integration/broker-release.test.mjs` for installed-package scenarios; also modify `templates/author-startup.md`, `README.md`, `src/mcp/server.mjs`, `test/mcp/server.test.mjs`, `test/unit/errors.test.mjs`, `src/cli/help-data.mjs`, `src/cli/run.mjs`, `test/golden/help.test.mjs`, `test/golden/templates.test.mjs`, `test/helpers/template-values.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `test/golden/templates/author-startup.md`, `test/golden/templates/reviewer-invitation.md`.
 
+**Task 12 active-skill pin adjustment (2026-09-21):** Also modify
+`skills/peer-review/SKILL.md` only to reconcile its active scoped zero-install
+`0.2.2` command with the selected version. The Task 12 packaging test already
+asserts this skill command. Keep its historical `0.2.1` migration reference and
+all versioned protocol fixtures unchanged. Leaving the active pin stale would
+contradict this task's exact-version release contract.
+
 **Interfaces:** One installable package containing the broker entrypoint, OS helper source and the explicit opt-in builder selected in Task 4, schemas, and internal workers. The package root exposes only intended public APIs. No global install or external broker package is required.
 
 - [ ] Before choosing the release number/removal policy, read registry metadata and inspect published tarballs without running their scripts. Record package version, integrity, file list, and public parse/export contents in the release evidence. The design's 2026-09-14 observation is not a permanent publication fact.
