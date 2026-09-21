@@ -25,7 +25,7 @@ export function evaluateSurfaceConformance({
   reasonIf(health.healthy === true && health.fresh === true, 'health-unproven', reasons);
   reasonIf(health.surfaceVersion === surfaceVersion, 'surface-version-changed', reasons);
   reasonIf(health.adapterVersion === adapterVersion, 'adapter-version-changed', reasons);
-  for (const field of ['model', 'effort', 'session'])
+  for (const field of ['model', 'session'])
     reasonIf(evidenceSources[field] === EXACT, `${field}-not-official-exact-session`, reasons);
   reasonIf(operations.deliverToSession === 'exact', 'exact-delivery-unavailable', reasons);
   reasonIf(operations.reconcile === 'exact', 'exact-reconciliation-unavailable', reasons);

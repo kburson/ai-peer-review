@@ -29,14 +29,15 @@ const exact = {
   },
 };
 
-test('installed executable without official effort acknowledgment stays manual', () => {
+test('requested effort can remain unverified when exact model, session and control are proven', () => {
   const result = evaluateSurfaceConformance({
     ...exact,
     evidenceSources: { ...exact.evidenceSources, effort: 'requested-flag' },
   });
   assert.equal(result.installed, true);
-  assert.equal(result.automatic, false);
-  assert.ok(result.reasons.includes('effort-not-official-exact-session'));
+  assert.equal(result.automatic, true);
+  assert.equal(result.reviewerLaunchable, true);
+  assert.equal(result.reasons.includes('effort-not-official-exact-session'), false);
 });
 
 test('changed version or absent exact reconciliation denies automatic delivery', () => {
