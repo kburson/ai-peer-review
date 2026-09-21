@@ -201,6 +201,16 @@ start`, `peer-review help spr`, and `peer-review help xpr` work offline.
 Your agent gets back a workspace, a brief of its own, and a reviewer invitation
 containing every path the second agent needs.
 
+For automatic Claude Code broker handoffs, install the package locally, build
+its native broker helper, and add a `PreToolUse` Bash hook to the project
+`.claude/settings.json` with command
+`node node_modules/@kburson/ai-peer-review/bin/peer-review-claude-hook.mjs`.
+Check `peer-review doctor --mode automatic-required`, then add
+`--transport-mode automatic-required` to `peer-review start`. The broker
+validates both exact sessions and can resume either role. Manual and
+resume-only operation remain choices; requested effort is not claimed as
+provider-verified.
+
 ### 2. The reviewer joins
 
 Open a second session in the same worktree and give it the invitation path. It

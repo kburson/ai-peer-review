@@ -73,8 +73,7 @@ function toolObservation(event, sourceVersion, observedAt) {
     calls[0].name !== 'Bash' ||
     calls[0].input?.command !== event.tool_input.command ||
     typeof entry.message?.model !== 'string' ||
-    !entry.message.model ||
-    entry.message.model.startsWith('<') ||
+    !/^[A-Za-z0-9._:-]+$/.test(entry.message.model) ||
     entry.version !== sourceVersion ||
     !Number.isFinite(age) ||
     age < -30_000 ||
@@ -115,7 +114,7 @@ export function captureClaudeStartHook({
       permissionDecision: 'allow',
       updatedInput: Object.freeze({
         ...event.tool_input,
-        command: `APR_CLAUDE_HOOK_TOKEN=${token} ${command}`,
+        command: `APR_CLAUDE_HOOK_TOKEN=${token} CLAUDE_CODE_SESSION_ID=${event.session_id} CLAUDE_MODEL_ID=${model} ${command}`,
       }),
     }),
   });

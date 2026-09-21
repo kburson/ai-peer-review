@@ -55,7 +55,7 @@ test('Claude PreToolUse binds exact transcript model, session, and start command
   assert.equal(output.hookSpecificOutput.permissionDecision, 'allow');
   assert.equal(
     output.hookSpecificOutput.updatedInput.command,
-    `APR_CLAUDE_HOOK_TOKEN=${TOKEN} ${COMMAND}`
+    `APR_CLAUDE_HOOK_TOKEN=${TOKEN} CLAUDE_CODE_SESSION_ID=${SESSION} CLAUDE_MODEL_ID=claude-opus-5 ${COMMAND}`
   );
   const observed = readClaudeStartHook({
     root,
