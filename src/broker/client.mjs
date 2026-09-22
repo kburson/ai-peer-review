@@ -114,6 +114,13 @@ function missingDiscovery(project, platform) {
   }
 }
 
+function discoveryChangedDuringHandshake(error) {
+  return (
+    error?.code === 'APR_BROKER_STALE' &&
+    error.message === 'Broker discovery changed during handshake.'
+  );
+}
+
 function discoveryPublicationPending(error) {
   // A writer can publish broker.json between the failed read and a second
   // presence check. Retry only these incomplete-publication observations;
@@ -123,6 +130,7 @@ function discoveryPublicationPending(error) {
     [
       'Broker discovery metadata is unavailable.',
       'Broker discovery metadata is malformed.',
+      'Broker discovery changed during handshake.',
     ].includes(error.message)
   );
 }
@@ -166,7 +174,7 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
   } catch (error) {
     // A Windows exclusive writer may still be publishing discovery. Wait for
     // that existing broker; never launch a second process for this condition.
-    if (error?.code === 'EBUSY')
+    if (error?.code === 'EBUSY' || discoveryChangedDuringHandshake(error))
       return connectUntilReady(connect, platform, discoveryPublicationPending);
     const launchable =
       ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_OWNED'].includes(error?.code) ||

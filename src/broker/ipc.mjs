@@ -155,9 +155,10 @@ function openAuthorityDirectory(paths, platform) {
 export async function connectBroker({ identity, paths, versions }, platform) {
   const directory = openAuthorityDirectory(paths, platform);
   let connection = null;
+  const metadataName = path.basename(paths.metadata);
+  let bytes;
   try {
-    const metadataName = path.basename(paths.metadata);
-    const bytes = directory.read(metadataName);
+    bytes = directory.read(metadataName);
     if (!Buffer.isBuffer(bytes)) {
       throw brokerError('APR_BROKER_STALE', 'Broker discovery metadata is unavailable.');
     }
@@ -181,6 +182,9 @@ export async function connectBroker({ identity, paths, versions }, platform) {
       );
     }
     validateHandshake(responses[0], expected, platform.peerUser(connection));
+    const current = directory.read(metadataName);
+    if (!Buffer.isBuffer(current) || !current.equals(bytes))
+      throw brokerError('APR_BROKER_STALE', 'Broker discovery changed during handshake.');
     let available = connection;
     return Object.freeze({
       handshake: responses[0],
@@ -198,6 +202,22 @@ export async function connectBroker({ identity, paths, versions }, platform) {
     });
   } catch (error) {
     connection?.close?.();
+    if (connection && ['APR_BROKER_PROTOCOL', 'APR_BROKER_AUTH_FAILED'].includes(error?.code)) {
+      // A client can read the dead owner's discovery, then reach the new
+      // broker's pipe before its discovery replaces those bytes. Retry only
+      // when the authenticated directory proves that generation changed.
+      let changed = false;
+      let publishing = null;
+      try {
+        const current = directory.read(metadataName);
+        changed = !Buffer.isBuffer(current) || !current.equals(bytes);
+      } catch (readError) {
+        if (readError?.code === 'EBUSY') publishing = readError;
+      }
+      if (publishing) throw publishing;
+      if (changed)
+        throw brokerError('APR_BROKER_STALE', 'Broker discovery changed during handshake.');
+    }
     throw error;
   } finally {
     directory.close();

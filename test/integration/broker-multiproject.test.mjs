@@ -241,6 +241,10 @@ test('freshly launched broker waits for complete discovery bytes before authenti
           throw Object.assign(new Error('Broker discovery metadata is malformed.'), {
             code: 'APR_BROKER_STALE',
           });
+        if (attempts === 4)
+          throw Object.assign(new Error('Broker discovery changed during handshake.'), {
+            code: 'APR_BROKER_STALE',
+          });
         return client;
       },
       discoveryState: () => 'present',
@@ -250,7 +254,7 @@ test('freshly launched broker waits for complete discovery bytes before authenti
     },
   });
   assert.equal(result, client);
-  assert.equal(attempts, 4);
+  assert.equal(attempts, 5);
 });
 
 test('missing discovery launches once while contradictory stale evidence remains fenced', async () => {
