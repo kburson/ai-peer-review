@@ -10,7 +10,7 @@ import { AprError } from '../errors.mjs';
 import { readClaudeStartHook, readClaudeStartHookForSession } from './claude-hook.mjs';
 import {
   buildClaudeReviewerLaunch,
-  buildClaudeWakePermissions,
+  buildClaudeWakeContract,
   buildClaudeReviewerResume,
   claudeJoinCommand,
   runClaudeReviewerLaunch,
@@ -395,7 +395,7 @@ export function createClaudeProviderSurface(options = {}) {
         sessionId: binding.handle_locator,
         expectedModel: binding.model_id,
       });
-      const permissions = buildClaudeWakePermissions({
+      const contract = buildClaudeWakeContract({
         workspace,
         role: binding.role,
         ...inspectWakeAuthority(workspace),
@@ -403,7 +403,12 @@ export function createClaudeProviderSurface(options = {}) {
       const prompt = [
         `APR_WAKE_OPERATION ${wakeOperationId} ${capsuleDigest}`,
         `Resume your ${binding.role} role for review ${capsule.review_id}.`,
-        `Run ${capsule.next_command} and complete the next documented action.`,
+        `The sealed capsule requests: ${capsule.next_command}.`,
+        'Use the exact installed commands below, without adding wrappers, flags, pipelines, or changing the working directory.',
+        ...contract.commands.map(({ name, command }) => `${name}: ${command}`),
+        'First execute the resume command, then read the response instructions and complete the pending action. For no byte change, use submit-without-artifact-change exactly.',
+        'Use Edit for existing response and artifact files. Do not use Write or shell commands to rewrite files.',
+        'A package command commits its own protocol changes; do not run Git yourself.',
         'Use the review workspace as the authority; preserve its exact issue and participant identity.',
         ...(binding.role === 'author'
           ? [
@@ -423,7 +428,7 @@ export function createClaudeProviderSurface(options = {}) {
         '--model',
         binding.model_id,
         '--allowedTools',
-        ...permissions,
+        ...contract.permissions,
       ];
       const execution = await (
         runWake ??
@@ -431,7 +436,14 @@ export function createClaudeProviderSurface(options = {}) {
           createClaudeStreamingExec({ recorder: context.recorder, spawnProcess })(
             'claude',
             values,
-            { cwd: context.projectRoot, env: withoutProviderIdentity(process.env) }
+            {
+              cwd: context.projectRoot,
+              env: {
+                ...withoutProviderIdentity(process.env),
+                npm_config_offline: 'true',
+                npm_config_yes: 'false',
+              },
+            }
           ))
       )(args, { recorder, projectRoot, workspace });
       if (execution?.exit_code !== 0) return { status: 'outcome-unknown', reason: 'provider-exit' };

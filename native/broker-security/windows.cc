@@ -567,6 +567,15 @@ void AbandonExclusive(void* value) {
   delete lock;
 }
 
+bool ReclaimStaleEndpoint(void* lock, const std::string&, std::string* code, std::string* message) {
+  // Named pipes leave no filesystem socket after the owner exits. The next
+  // first-instance creation below remains the live-owner exclusion proof.
+  if (VerifyExclusive(lock)) return true;
+  *code = "APR_BROKER_STALE";
+  *message = "Broker lock changed before endpoint reconciliation.";
+  return false;
+}
+
 void* ListenPrivate(const std::string& input, std::string* code, std::string* message) {
   const auto path = Wide(input);
   HANDLE handle = CreateOwnerPipe(path, true, code, message);
@@ -621,14 +630,20 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
 
 void* ConnectPrivate(const std::string& input, std::string* code, std::string* message) {
   const auto path = Wide(input);
-  if (!WaitNamedPipeW(path.c_str(), 5000) && GetLastError() != ERROR_SEM_TIMEOUT) {
-    Fail(code, message, "APR_BROKER_START_FAILED", "Private named pipe is unavailable.");
-    return nullptr;
+  if (!WaitNamedPipeW(path.c_str(), 5000)) {
+    const DWORD error = GetLastError();
+    if (error != ERROR_SEM_TIMEOUT) {
+      Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" : "APR_BROKER_START_FAILED",
+           "Private named pipe is unavailable.");
+      return nullptr;
+    }
   }
   HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
-    Fail(code, message, "APR_BROKER_START_FAILED", "Private named pipe cannot be connected.");
+    const DWORD error = GetLastError();
+    Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" : "APR_BROKER_START_FAILED",
+         "Private named pipe cannot be connected.");
     return nullptr;
   }
   DWORD mode = PIPE_READMODE_BYTE;

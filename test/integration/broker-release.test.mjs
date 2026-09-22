@@ -229,7 +229,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     { encoding: 'utf8' }
   );
   assert.doesNotMatch(help, /peer-review coordinator/);
-  projects.push(projectFixture(scratch), projectFixture(scratch));
+  projects.push(projectFixture(scratch), projectFixture(scratch), projectFixture(scratch));
   const legacy = await loadLegacyAuthority({
     cwd: projects[0].root,
     identity: identity('author', 'legacy-release'),
@@ -294,6 +294,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
   });
   for (const directory of idlePaths.endpointDirectories)
     platform.openPrivateDirectory(directory).close();
+  assert.throws(() => platform.connectPrivate(idlePaths.endpoint), { code: 'ENOENT' });
   const idleEndpoint = platform.listenPrivate(idlePaths.endpoint);
   try {
     const before = performance.now();
@@ -336,6 +337,13 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     CODEX_MODEL_ID: 'parent-model-must-not-leak',
     APR_CODEX_HOOK_TOKEN: 'parent-hook-must-not-leak',
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${preload}`,
+    ...(process.platform === 'win32'
+      ? {
+          npm_execpath:
+            process.env.npm_execpath ??
+            path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'),
+        }
+      : {}),
     APR_FIXTURE_PACKAGE: installed,
     APR_FIXTURE_IMAGE: JSON.stringify({
       root: image.root,
@@ -344,6 +352,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     }),
     APR_FIXTURE_CALLS: path.join(scratch, 'provider-calls.txt'),
     APR_FIXTURE_BROKER_LOG: path.join(scratch, 'automatic-broker.log'),
+    APR_FIXTURE_RESTART_SIMULATION: '1',
     APR_OFFLINE_WINDOWS_NODES: JSON.stringify([process.execPath, image.nodeExecutable]),
     APR_PROVIDER_DEADLINE_MS: String(Date.now() + 90_000),
   };

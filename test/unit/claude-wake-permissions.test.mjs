@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import {
@@ -78,4 +78,65 @@ test('author finalization grants exact finalize and resume without response or a
       'an unbound next artifact grants no advance authority'
     );
   }
+});
+
+test('installed npx wake commands have exact grants without permitting other workspaces or flags', (t) => {
+  const root = mkdtempSync(path.join(process.cwd(), '.scratch/test/wake npx '));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const packageRoot = path.join(root, 'node_modules/@kburson/ai-peer-review');
+  mkdirSync(path.join(packageRoot, 'bin'), { recursive: true });
+  writeFileSync(
+    path.join(packageRoot, 'package.json'),
+    JSON.stringify({
+      name: '@kburson/ai-peer-review',
+      version: '0.3.0',
+      bin: { 'peer-review': './bin/peer-review.mjs' },
+    })
+  );
+  writeFileSync(path.join(packageRoot, 'bin/peer-review.mjs'), '');
+  const workspace = path.join(root, 'workspace');
+  const state = {
+    protocol: {
+      current_actor: 'author',
+      artifact: { path: 'artifact.md' },
+      startup: { context: { repository_root: root } },
+    },
+  };
+  const status = { paths: { response: path.join(root, 'author-response-1.md') } };
+  const input = { workspace, role: 'author', state, status };
+  assert.ok(
+    !buildClaudeWakePermissions(input).some((rule) => rule.startsWith('Bash(npx ')),
+    'manifest alone does not prove npm bin resolution'
+  );
+  const binDir = path.join(root, 'node_modules/.bin');
+  mkdirSync(binDir);
+  const shim = path.join(binDir, process.platform === 'win32' ? 'peer-review.cmd' : 'peer-review');
+  if (process.platform === 'win32') writeFileSync(shim, '"%dp0%\\..\\wrong.mjs" %*');
+  else symlinkSync(path.join(packageRoot, 'package.json'), shim);
+  assert.ok(
+    !buildClaudeWakePermissions(input).some((rule) => rule.startsWith('Bash(npx ')),
+    'a stale or colliding bin is not the installed package'
+  );
+  rmSync(shim);
+  if (process.platform === 'win32')
+    writeFileSync(shim, '"%dp0%\\..\\@kburson\\ai-peer-review\\bin\\peer-review.mjs" %*');
+  else symlinkSync(path.join(packageRoot, 'bin/peer-review.mjs'), shim);
+  const rules = buildClaudeWakePermissions(input);
+  const portable = workspace.replaceAll('\\', '/');
+  assert.ok(rules.includes(`Bash(npx peer-review resume '${portable}')`));
+  assert.ok(rules.includes(`Bash(npx --no-install peer-review submit '${portable}')`));
+  assert.ok(
+    rules.includes(
+      `Bash(npx peer-review submit '${portable}' --no-artifact-change --reason 'No artifact change is required for this response.')`
+    )
+  );
+  assert.ok(!rules.includes(`Bash(npx peer-review resume '${portable}-neighbor')`));
+  assert.ok(!rules.some((rule) => rule.includes('*') || rule === 'Bash(npx:*)'));
+  rmSync(path.join(root, 'node_modules'), { recursive: true });
+  assert.ok(
+    !buildClaudeWakePermissions({ workspace, role: 'author', state, status }).some((rule) =>
+      rule.startsWith('Bash(npx ')
+    ),
+    'no npx fallback without the project-local installed package'
+  );
 });

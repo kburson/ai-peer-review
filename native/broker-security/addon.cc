@@ -17,6 +17,7 @@ void* AcquireExclusive(const std::string&, const std::vector<unsigned char>&, st
 bool VerifyExclusive(void*);
 bool ReleaseExclusive(void*);
 void AbandonExclusive(void*);
+bool ReclaimStaleEndpoint(void*, const std::string&, std::string*, std::string*);
 void* ListenPrivate(const std::string&, std::string*, std::string*);
 bool VerifyEndpoint(void*);
 bool CloseEndpoint(void*);
@@ -254,6 +255,18 @@ napi_value ListenPrivate(napi_env env, napi_callback_info info) {
   return value ? External(env, Kind::endpoint, value) : Throw(env, code, message);
 }
 
+napi_value ReclaimStaleEndpoint(napi_env env, napi_callback_info info) {
+  napi_value values[2];
+  if (!Args(env, info, 2, values)) return nullptr;
+  auto* lock = Handle(env, values[0], Kind::lock);
+  std::string path, code, message;
+  if (!lock) return nullptr;
+  if (!String(env, values[1], &path)) return Throw(env, "APR_BROKER_PATH_INVALID", "Endpoint must be a string.");
+  return broker_security::ReclaimStaleEndpoint(lock->value, path, &code, &message)
+    ? Undefined(env)
+    : Throw(env, code, message);
+}
+
 napi_value VerifyEndpoint(napi_env env, napi_callback_info info) {
   napi_value values[1];
   if (!Args(env, info, 1, values)) return nullptr;
@@ -366,6 +379,7 @@ napi_value Init(napi_env env, napi_value exports) {
     {"releaseExclusive", nullptr, ReleaseExclusive},
     {"abandonExclusive", nullptr, AbandonExclusive},
     {"listenPrivate", nullptr, ListenPrivate},
+    {"reclaimStaleEndpoint", nullptr, ReclaimStaleEndpoint},
     {"verifyEndpoint", nullptr, VerifyEndpoint},
     {"closeEndpoint", nullptr, CloseEndpoint},
     {"acceptPrivate", nullptr, AcceptPrivate},

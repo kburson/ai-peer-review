@@ -53,6 +53,24 @@ function toolResult(id) {
   return entry('user', [{ type: 'tool_result', tool_use_id: id, content: 'submitted' }]);
 }
 
+function skillCall(id) {
+  const value = toolCall(id);
+  value.message.content[0] = {
+    type: 'tool_use',
+    id,
+    name: 'Skill',
+    input: { skill: 'peer-review' },
+  };
+  return value;
+}
+
+function skillMetadata(
+  id,
+  content = 'Base directory for this skill: /synthetic/skills/peer-review'
+) {
+  return { ...entry('user', content), isMeta: true, sourceToolUseID: id };
+}
+
 function outcome(location) {
   return readClaudeWakeOutcome({
     ...location,
@@ -73,6 +91,131 @@ test('Claude wake remains correlated across multiple tool-use and tool-result ex
     entry('assistant', 'completed the requested role action'),
   ]);
   assert.deepEqual(outcome(location), { status: 'acknowledged', reason: 'provider-terminal-turn' });
+});
+
+test('Claude wake correlates completed Skill metadata and acknowledges a terminal refusal only as transport', (t) => {
+  const denied = toolResult('denied-command');
+  denied.message.content[0].is_error = true;
+  denied.message.content[0].content = 'Permission denied for this Bash command.';
+  for (const terminal of ['The role action is complete.', 'I cannot run the denied command.']) {
+    const entries = [
+      entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`),
+      skillCall('skill-expansion'),
+      toolResult('skill-expansion'),
+      skillMetadata('skill-expansion'),
+      toolCall('denied-command'),
+      denied,
+      entry('assistant', terminal),
+    ];
+    const recorder = createClaudeWakeRecorder({
+      sessionId: SESSION,
+      expectedModel: 'claude-opus-5',
+    });
+    recorder.accept({
+      type: 'system',
+      subtype: 'init',
+      session_id: SESSION,
+      model: 'claude-opus-5',
+      claude_code_version: '2.1.278',
+    });
+    for (const value of entries) recorder.accept({ ...value, session_id: value.sessionId });
+    recorder.accept({ type: 'result', session_id: SESSION, is_error: false });
+    assert.equal(recorder.confirm().session_id, SESSION);
+    assert.deepEqual(outcome(fixture(t, entries)), {
+      status: 'acknowledged',
+      reason: 'provider-terminal-turn',
+    });
+  }
+});
+
+test('Claude wake accepts text-block Skill metadata for a completed call in the current wake', (t) => {
+  assert.equal(
+    outcome(
+      fixture(t, [
+        entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`),
+        skillCall('skill-expansion'),
+        toolResult('skill-expansion'),
+        skillMetadata('skill-expansion', [{ type: 'text', text: 'Skill instructions' }]),
+        entry('assistant', 'done'),
+      ])
+    ).status,
+    'acknowledged'
+  );
+});
+
+test('Claude wake rejects metadata that is not text correlated to its completed Skill call', (t) => {
+  const prompt = entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`);
+  const terminal = entry('assistant', 'done');
+  for (const exchange of [
+    [skillCall('skill'), toolResult('skill'), skillMetadata('unrelated')],
+    [skillCall('skill'), skillMetadata('skill'), toolResult('skill')],
+    [toolCall('bash'), toolResult('bash'), skillMetadata('bash')],
+    [skillCall('skill'), toolResult('skill'), { ...skillMetadata('skill'), isMeta: false }],
+    [
+      skillCall('skill'),
+      toolResult('skill'),
+      { ...skillMetadata('skill'), sourceToolUseID: undefined },
+    ],
+    [skillCall('skill'), toolResult('skill'), skillMetadata('skill', [{ type: 'unknown' }])],
+    [skillCall('skill'), toolResult('skill'), entry('user', 'An unrelated human request')],
+    [skillMetadata('older-skill')],
+  ]) {
+    assert.equal(
+      outcome(
+        fixture(t, [
+          entry('user', 'An earlier turn'),
+          skillCall('older-skill'),
+          toolResult('older-skill'),
+          terminal,
+          prompt,
+          ...exchange,
+          terminal,
+        ])
+      ).status,
+      'outcome-unknown'
+    );
+  }
+});
+
+test('Claude wake Skill metadata preserves session/model and unique-marker validation', (t) => {
+  const prompt = entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`);
+  const terminal = entry('assistant', 'done');
+  for (const extra of [
+    { ...terminal, message: { ...terminal.message, model: 'claude-sonnet-5' } },
+    { ...terminal, sessionId: '22222222-2222-4222-8222-222222222222' },
+    prompt,
+    skillMetadata('skill', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`),
+  ]) {
+    assert.throws(
+      () =>
+        outcome(
+          fixture(t, [
+            prompt,
+            skillCall('skill'),
+            toolResult('skill'),
+            skillMetadata('skill'),
+            extra,
+          ])
+        ),
+      { code: 'APR_CLAUDE_SESSION_INVALID' }
+    );
+  }
+});
+
+test('Claude wake Skill expansion without a terminal response never authorizes blind retry', (t) => {
+  const entries = [
+    entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`),
+    skillCall('skill'),
+    toolResult('skill'),
+    skillMetadata('skill'),
+  ];
+  assert.deepEqual(outcome(fixture(t, entries)), {
+    status: 'outcome-unknown',
+    reason: 'provider-turn-unconfirmed',
+  });
+  const truncated = fixture(t, [...entries, entry('assistant', 'done')]);
+  appendFileSync(truncated.transcript, '{"type":"assistant"');
+  assert.throws(() => outcome(truncated), { code: 'APR_CLAUDE_SESSION_INVALID' });
 });
 
 test('Claude wake never attributes an unrelated or incomplete tool exchange to its operation', (t) => {

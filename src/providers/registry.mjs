@@ -372,6 +372,31 @@ export function createProviderAdapter({
       persistOperation(scratchRoot, operationId, operation);
       return Object.freeze({ status: 'launched', observation: observed });
     },
+    async reconcileReviewerLaunch({
+      operationId,
+      scratchRoot,
+      expected,
+      authorSessionFingerprint = null,
+    } = {}) {
+      if (expected?.adapter_version !== adapterVersion)
+        identityConflict('Launch reconciliation adapter differs from sealed intent.');
+      // Only launchReviewer writes this receipt, after validating the provider's
+      // acknowledgement. A join record alone never establishes launch success.
+      const file = existingOperationFile(scratchRoot, operationId);
+      if (!existsSync(file)) return Object.freeze({ status: 'outcome-unknown' });
+      const operation = storedOperation(scratchRoot, operationId);
+      if (
+        operation.fingerprint !== fingerprintSession(operation.handle) ||
+        operation.fingerprint === authorSessionFingerprint
+      )
+        identityConflict('Launch acknowledgement differs from the exact reviewer session.');
+      return Object.freeze({
+        status: 'launched',
+        observation: Object.freeze({
+          session_fingerprint: operation.fingerprint,
+        }),
+      });
+    },
     async observeSession({
       operationId,
       expected,

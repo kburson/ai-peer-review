@@ -198,6 +198,9 @@ test('platform wrapper retains native handles and never reaches the builder impl
     abandonExclusive() {
       calls.push(['abandonExclusive']);
     },
+    reclaimStaleEndpoint(handle, value) {
+      calls.push(['reclaimStaleEndpoint', handle, value]);
+    },
     listenPrivate(value) {
       calls.push(['listenPrivate', value]);
       return 3;
@@ -243,7 +246,12 @@ test('platform wrapper retains native handles and never reaches the builder impl
     nonce: 'b'.repeat(64),
   });
   assert.equal(lock.verify(), true);
+  platform.reclaimStaleEndpoint('/private/broker.sock', lock);
+  assert.ok(calls.some((call) => call[0] === 'reclaimStaleEndpoint' && call[1] === 2));
   assert.equal(lock.release(), true);
+  assert.throws(() => platform.reclaimStaleEndpoint('/private/broker.sock', lock), {
+    code: 'APR_BROKER_STALE',
+  });
   const endpoint = platform.listenPrivate('/private/broker.sock');
   assert.equal(endpoint.verify(), true);
   const accepted = endpoint.accept();
@@ -281,6 +289,7 @@ test('platform wrapper retains native handles and never reaches the builder impl
       'openPrivateDirectory',
       'create',
       'acquireExclusive',
+      'reclaimStaleEndpoint',
       'listenPrivate',
       'acceptPrivate',
       'peerUser',

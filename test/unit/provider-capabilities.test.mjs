@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 import { createClaudeAdapter } from '../../src/providers/claude.mjs';
 import { createCodexAdapter } from '../../src/providers/codex.mjs';
@@ -261,4 +264,56 @@ test('doctor automatic-required refuses unproven Codex and Grok surfaces', async
       adapter.selector
     );
   }
+});
+
+test('restarted adapter reconciles only an exact durable launch acknowledgement without launching', async (t) => {
+  const parent = fileURLToPath(new URL('../../.scratch/test/', import.meta.url));
+  mkdirSync(parent, { recursive: true });
+  const scratchRoot = mkdtempSync(path.join(parent, 'apr-launch-ack-'));
+  t.after(() => rmSync(scratchRoot, { recursive: true, force: true }));
+  let calls = 0;
+  const surface = {
+    async launch() {
+      calls++;
+      return {
+        status: 'acknowledged',
+        handle: 'exact-reviewer',
+        observation: {
+          provider: 'anthropic',
+          host: 'claude-code',
+          model_id: 'claude-opus-5',
+          effort: 'medium',
+          adapter_version: '1.0.0',
+          assurance: 'runtime',
+          session_id: 'exact-reviewer',
+        },
+      };
+    },
+  };
+  const expected = { model_id: 'claude-opus-5', effort: 'medium', adapter_version: '1.0.0' };
+  const input = { operationId: 'launch:exact', scratchRoot, expected };
+  const first = createClaudeAdapter({ surface });
+  assert.equal((await first.reconcileReviewerLaunch(input)).status, 'outcome-unknown');
+  const launched = await first.launchReviewer({
+    ...input,
+    invitationPath: path.join(scratchRoot, 'invitation.md'),
+    effort: 'medium',
+  });
+  const restarted = createClaudeAdapter({ surface });
+  assert.deepEqual(await restarted.reconcileReviewerLaunch(input), {
+    status: 'launched',
+    observation: { session_fingerprint: launched.observation.session_fingerprint },
+  });
+  assert.equal(
+    (await restarted.reconcileReviewerLaunch({ ...input, operationId: 'launch:other' })).status,
+    'outcome-unknown'
+  );
+  await assert.rejects(
+    restarted.reconcileReviewerLaunch({
+      ...input,
+      authorSessionFingerprint: launched.observation.session_fingerprint,
+    }),
+    { code: 'APR_IDENTITY_CONFLICT' }
+  );
+  assert.equal(calls, 1);
 });

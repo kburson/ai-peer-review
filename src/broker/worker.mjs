@@ -21,8 +21,9 @@ function classify(status, adapter) {
   if (TERMINAL_STATES.has(status?.state)) return 'terminal';
   if (
     adapter?.bootstrap === true &&
-    status?.state === 'awaiting-reviewer' &&
-    ['registered', 'launch-pending', 'launched'].includes(status?.review?.recovery?.stage) &&
+    (['launch-pending', 'outcome-unknown'].includes(status?.review?.recovery?.stage) ||
+      (status?.state === 'awaiting-reviewer' &&
+        ['registered', 'launched'].includes(status?.review?.recovery?.stage))) &&
     !status?.review?.recovery?.fenced &&
     !status?.review?.recovery?.suspending
   )
@@ -77,6 +78,7 @@ export function createReviewWorker({
         closed ||
         evidence?.fenced ||
         evidence?.suspending ||
+        ['launch-pending', 'outcome-unknown'].includes(evidence?.stage) ||
         (evidence && evidence.event_revision !== input.expected_revision)
       ) {
         return { status: 'refused', reason: 'manual-recovery-fence-or-stale-revision' };
@@ -89,6 +91,16 @@ export function createReviewWorker({
     status = inspectStatus(registration.workspace, { now: new Date(clock?.now?.() ?? Date.now()) });
     state = classify(status, adapter);
     return state;
+  };
+  const reconcileLaunch = async () => {
+    if (
+      state === 'bootstrap' &&
+      ['launch-pending', 'outcome-unknown'].includes(status?.review?.recovery?.stage) &&
+      typeof adapter?.reconcileLaunch === 'function'
+    ) {
+      await adapter.reconcileLaunch();
+      if (!suspended && !closed) observe();
+    }
   };
   const notify = () => {
     for (const listener of listeners) listener(state);
@@ -149,14 +161,18 @@ export function createReviewWorker({
       if (!started) {
         started = true;
         observe();
-        if (WAKE_STATES.has(state)) startCoordinator();
+        await reconcileLaunch();
+        if (!suspended && !closed && WAKE_STATES.has(state)) startCoordinator();
       }
       return state;
     },
     async reconcile() {
       if (suspended || closed) return state;
       if (!started) await this.start();
+      if (suspended || closed) return state;
       observe();
+      await reconcileLaunch();
+      if (suspended || closed) return state;
       if (WAKE_STATES.has(state) && adapter?.coordinatorInput && !coordinatorRun)
         startCoordinator();
       if (coordinatorRun) return state;

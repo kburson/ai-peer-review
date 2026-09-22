@@ -11,11 +11,27 @@ import { acquireProviderResource, providerResourceDigest } from './provider-reso
 import { startupEvidence } from './registry.mjs';
 import { verifyRuntimeImage } from './runtime-image.mjs';
 import { createReviewWorker } from './worker.mjs';
+import { reconcileReviewerLaunch } from './launch.mjs';
 
 function failure(message) {
   return new AprError('APR_BROKER_START_FAILED', message, {
     recovery: 'Preserve the registered review and restore its exact broker runtime authority.',
   });
+}
+
+function joinedLaunchMatches(journal, reviewer) {
+  const operation = journal?.provider_operation;
+  return (
+    (journal?.stage === 'launch-pending' &&
+      operation?.status === 'reserved' &&
+      operation.session_fingerprint === null) ||
+    (journal?.stage === 'outcome-unknown' &&
+      operation?.status === 'outcome-unknown' &&
+      operation.session_fingerprint === null) ||
+    (journal?.stage === 'launched' &&
+      operation?.status === 'acknowledged' &&
+      operation.session_fingerprint === reviewer.session_fingerprint)
+  );
 }
 
 function recoveryAdapter(registration) {
@@ -135,6 +151,7 @@ export async function createProductionReviewWorker({
   acquireResource = acquireProviderResource,
   coordinator,
   invitationPath,
+  reconcileLaunch = reconcileReviewerLaunch,
 } = {}) {
   if (
     !registration ||
@@ -212,12 +229,7 @@ export async function createProductionReviewWorker({
   if (authorBinding.session_fingerprint !== author.session_fingerprint)
     throw failure('Author binding differs from sealed startup participant.');
   if (state.participants.reviewer) {
-    if (
-      journal.stage !== 'launched' ||
-      journal.provider_operation?.status !== 'acknowledged' ||
-      journal.provider_operation.session_fingerprint !==
-        state.participants.reviewer.session_fingerprint
-    )
+    if (!joinedLaunchMatches(journal, state.participants.reviewer))
       throw failure('Reviewer join differs from acknowledged launch session.');
     const reviewerBinding = await openBinding({
       workspace,
@@ -338,13 +350,7 @@ export async function createProductionReviewWorker({
     const current = inspect(root);
     const currentEvidence = startup(root, current.state);
     const reviewer = current.state.participants.reviewer;
-    if (
-      reviewer &&
-      (currentEvidence?.journal?.stage !== 'launched' ||
-        currentEvidence.journal.provider_operation?.status !== 'acknowledged' ||
-        currentEvidence.journal.provider_operation.session_fingerprint !==
-          reviewer.session_fingerprint)
-    )
+    if (reviewer && !joinedLaunchMatches(currentEvidence?.journal, reviewer))
       throw failure('Current reviewer differs from exact launch acknowledgment.');
     return current;
   };
@@ -368,6 +374,25 @@ export async function createProductionReviewWorker({
         operationId,
         authorSessionFingerprint: author.session_fingerprint,
         scratchRoot: workspace,
+      });
+    },
+    reconcileLaunch: async () => {
+      if (!owner.verify()) throw failure('Broker ownership changed before launch reconciliation.');
+      if (
+        typeof reconcileLaunch !== 'function' ||
+        typeof reviewerAdapter.reconcileReviewerLaunch !== 'function'
+      )
+        return { status: 'outcome-unknown' };
+      return reconcileLaunch({
+        registration,
+        observe: ({ operationId }) =>
+          reviewerAdapter.reconcileReviewerLaunch({
+            operationId,
+            scratchRoot: workspace,
+            expected: { ...runtime.reviewer, adapter_version: runtime.adapter_version },
+            authorSessionFingerprint: author.session_fingerprint,
+            projectRoot: project.physicalRoot,
+          }),
       });
     },
     resourceObservation: (input) =>

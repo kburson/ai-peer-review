@@ -87,6 +87,7 @@ export function createProviderBridge({
   lease,
   owner,
   launchReviewer,
+  reconcileLaunch,
   resourceObservation,
   clock,
 } = {}) {
@@ -99,10 +100,14 @@ export function createProviderBridge({
   const open = bindings.open ?? openParticipantSession;
   const now = () => new Date(clock?.now?.() ?? Date.now());
 
-  const guarded = () => {
+  const guarded = ({ allowPendingLaunch = false } = {}) => {
     const inspected = inspect(workspace);
     const recovery = status(workspace, { now: now() })?.review?.recovery;
-    if (recovery?.fenced || recovery?.suspending)
+    if (
+      recovery?.fenced ||
+      recovery?.suspending ||
+      (!allowPendingLaunch && ['launch-pending', 'outcome-unknown'].includes(recovery?.stage))
+    )
       conflict('Wake delivery is fenced for manual recovery.');
     return inspected;
   };
@@ -225,6 +230,16 @@ export function createProviderBridge({
     },
     async close() {},
   };
+  if (typeof reconcileLaunch === 'function') {
+    bridge.reconcileLaunch = async () => {
+      const before = guarded({ allowPendingLaunch: true });
+      if (before.state.participants.reviewer) await bound('reviewer', before);
+      const result = await reconcileLaunch();
+      const after = guarded({ allowPendingLaunch: true });
+      if (after.state.participants.reviewer) await bound('reviewer', after);
+      return result;
+    };
+  }
   if (typeof launchReviewer === 'function' && typeof resourceObservation === 'function') {
     bridge.launchReviewer = launchReviewer;
     bridge.resourceObservation = resourceObservation;

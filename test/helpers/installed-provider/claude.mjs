@@ -10,6 +10,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { runNpm } from '../npm-command.mjs';
 
 process.on('uncaughtExceptionMonitor', (error) => {
   if (process.env.APR_FIXTURE_BROKER_LOG)
@@ -43,7 +44,7 @@ const directory = path.join(
 mkdirSync(directory, { recursive: true });
 const transcript = path.join(directory, `${session}.jsonl`);
 const emit = (event) => process.stdout.write(`${JSON.stringify(event)}\n`);
-const record = (type, content, stop = 'end_turn') => {
+const record = (type, content, stop = 'end_turn', metadata = {}) => {
   const message =
     type === 'user'
       ? { role: 'user', content }
@@ -59,6 +60,7 @@ const record = (type, content, stop = 'end_turn') => {
     version: '2.1.278',
     timestamp: new Date().toISOString(),
     message,
+    ...metadata,
   };
   appendFileSync(transcript, `${JSON.stringify(value)}\n`, { mode: 0o600 });
   if (type === 'assistant') emit({ ...value, session_id: session });
@@ -159,7 +161,9 @@ if (initial) {
     const { claudeJoinCommand } = await import(
       pathToFileURL(path.join(installed, 'src/provider/claude-launch.mjs'))
     );
-    tool('join-call', claudeJoinCommand({ invitation }));
+    const joinCommand = claudeJoinCommand({ invitation });
+    assert.ok(args.includes(`Bash(${joinCommand})`));
+    tool('join-call', joinCommand);
     const { readClaudeStreamObservation } = await import(
       pathToFileURL(path.join(installed, 'src/providers/claude-stream.mjs'))
     );
@@ -179,23 +183,81 @@ if (initial) {
     cli(['join', invitation]);
     result('join-call');
   }
-  tool('resume-call', `peer-review resume ${ws}`);
-  cli(['resume', ws]);
+  const { renderCommand } = await import(
+    pathToFileURL(path.join(installed, 'src/cli/help-data.mjs'))
+  );
+  const allow = args.slice(args.indexOf('--allowedTools') + 1);
+  const image = JSON.parse(process.env.APR_FIXTURE_IMAGE);
+  const pinned = [image.nodeExecutable, path.join(image.root, 'package/bin/peer-review.mjs')];
+  const commandFor = (argv) =>
+    renderCommand(
+      [...(resume ? pinned : ['peer-review']), ...argv].map((part) => part.replaceAll('\\', '/')),
+      { platform: 'linux' }
+    );
+  // This models exact grants, not Claude's real permission engine. Execute the
+  // same argv represented by the emitted command only after checking its grant.
+  const runTool = (id, argv, name) => {
+    let command = commandFor(argv);
+    if (resume) {
+      assert.ok(prompt.includes(`${name}: ${command}`), 'prompt and executable argv must agree');
+      assert.equal(process.env.npm_config_offline, 'true');
+      assert.equal(process.env.npm_config_yes, 'false');
+      if (author) {
+        const alias = renderCommand(
+          ['npx', 'peer-review', ...argv].map((part) => part.replaceAll('\\', '/')),
+          { platform: 'linux' }
+        );
+        assert.ok(allow.includes(`Bash(${alias})`), 'observed npx alias must have an exact grant');
+        command = alias;
+      }
+    }
+    assert.ok(
+      allow.includes(`Bash(${command})`),
+      `missing exact grant for fixture command: ${command}`
+    );
+    tool(id, command);
+    if (resume && author)
+      runNpm('npx', ['peer-review', ...argv], {
+        cwd: root,
+        env,
+        encoding: 'utf8',
+        timeout: 30_000,
+      });
+    else if (resume)
+      execFileSync(pinned[0], [pinned[1], ...argv], {
+        cwd: root,
+        env,
+        encoding: 'utf8',
+        timeout: 30_000,
+      });
+    else cli(argv);
+    result(id);
+  };
+  if (resume) {
+    record(
+      'assistant',
+      [{ type: 'tool_use', id: 'skill-call', name: 'Skill', input: { skill: 'peer-review' } }],
+      'tool_use'
+    );
+    result('skill-call');
+    record('user', 'Loaded peer-review skill instructions.', undefined, {
+      isMeta: true,
+      sourceToolUseID: 'skill-call',
+    });
+    runTool('resume-call', ['resume', ws], 'resume');
+  }
   const resumed = cli(['status', ws, '--json']);
   writeFileSync(
     path.join(root, '.scratch', `fixture-${author ? 'author' : 'reviewer'}-resume.json`),
     JSON.stringify(resumed)
   );
-  result('resume-call');
   const response = resumed.paths.response;
   if (!response) {
     assert.equal(author, true);
     const allow = args.slice(args.indexOf('--allowedTools') + 1);
     assert.ok(allow.some((rule) => rule.startsWith('Bash(peer-review finalize ')));
     assert.ok(!allow.some((rule) => rule.startsWith('Edit(')));
-    tool('finalize-call', `peer-review finalize ${ws}`);
-    cli(['finalize', ws]);
-    result('finalize-call');
+    runTool('finalize-call', ['finalize', ws], 'finalize');
   } else {
     if (resume) {
       const { encodeClaudeEditRule } = await import(
@@ -237,16 +299,33 @@ if (initial) {
       replace(response, 'Optional suggestions', 'None.');
       replace(response, 'Decision', resume ? 'accepted' : 'revisions-requested');
     }
-    tool('submit-call', `peer-review submit ${ws}`);
-    cli([
-      'submit',
-      ws,
-      ...(author
-        ? ['--no-artifact-change', '--reason', 'No artifact change is required for this response.']
-        : []),
-    ]);
-    result('submit-call');
+    runTool(
+      'submit-call',
+      [
+        'submit',
+        ws,
+        ...(author
+          ? [
+              '--no-artifact-change',
+              '--reason',
+              'No artifact change is required for this response.',
+            ]
+          : []),
+      ],
+      author ? 'submit-without-artifact-change' : 'submit'
+    );
   }
+}
+if (!initial && !resume && process.env.APR_FIXTURE_RESTART_SIMULATION === '1') {
+  // The installed test owns this synthetic process and terminates it after
+  // ordinary join/submit, before any launch acknowledgement can be persisted.
+  writeFileSync(
+    path.join(root, '.scratch/fixture-held-launch.json'),
+    JSON.stringify({ pid: process.pid, session }),
+    { mode: 0o600 }
+  );
+  await new Promise((resolve) => setTimeout(resolve, 60_000));
+  throw new Error('Synthetic held launch was not terminated by its fixture.');
 }
 record('assistant', [{ type: 'text', text: 'Completed the requested action.' }]);
 emit({ type: 'result', session_id: session, is_error: false, result: 'Completed.' });

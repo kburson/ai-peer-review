@@ -122,9 +122,20 @@ export async function settleReservedReviewerLaunch({
       journal?.request_digest !== registration.request_digest ||
       current?.operation_id !== operation.operation_id ||
       current?.intent_digest !== operation.intent_digest ||
-      current?.status !== 'reserved'
+      !['reserved', 'acknowledged'].includes(current?.status)
     )
       throw unknown(workspace);
+    // A read-only reconciliation may have consumed the durable adapter receipt
+    // while this original call was returning. Never overwrite that exact ack.
+    if (current.status === 'acknowledged') {
+      if (
+        journal.stage !== 'launched' ||
+        (sessionFingerprint && current.session_fingerprint !== sessionFingerprint)
+      )
+        throw unknown(workspace);
+      status = 'acknowledged';
+      return;
+    }
     if (
       status === 'acknowledged' &&
       state.participants.reviewer &&
@@ -161,4 +172,64 @@ export async function launchReviewerOperation(input = {}) {
   const operation = await reserveReviewerLaunch(input);
   if (operation === null) return Object.freeze({ status: 'launched' });
   return settleReservedReviewerLaunch({ ...input, operation });
+}
+
+// Reconcile a completed adapter acknowledgement across the journal-write crash
+// window. Missing evidence remains unknown; this path never dispatches a launch.
+export async function reconcileReviewerLaunch({ registration, observe } = {}) {
+  const workspace = registration?.workspace;
+  if (!workspace || typeof observe !== 'function')
+    throw unavailable('Launch reconciliation authority is incomplete.');
+  const read = () => {
+    const state = inspectReview(workspace);
+    const evidence = startupEvidence(workspace, state);
+    const journal = evidence?.journal;
+    if (
+      journal?.request_digest !== registration.request_digest ||
+      journal?.descriptor?.ownership !== 'broker' ||
+      evidence.recovery.fenced ||
+      evidence.recovery.suspending
+    )
+      throw stale();
+    return { journal, state };
+  };
+  const { journal } = await withReviewLock(path.join(workspace, 'dispatch'), read);
+  if (journal.stage === 'launched') return Object.freeze({ status: 'launched' });
+  const operation = journal.provider_operation;
+  if (
+    !['launch-pending', 'outcome-unknown'].includes(journal.stage) ||
+    !['reserved', 'outcome-unknown'].includes(operation?.status)
+  )
+    return Object.freeze({ status: 'outcome-unknown' });
+  const outcome = await observe({ operationId: operation.operation_id });
+  const fingerprint = outcome?.observation?.session_fingerprint;
+  if (outcome?.status !== 'launched' || !/^sha256:[a-f0-9]{64}$/.test(fingerprint ?? ''))
+    return Object.freeze({ status: 'outcome-unknown' });
+  return withReviewLock(path.join(workspace, 'dispatch'), () => {
+    const current = read();
+    const latest = current.journal.provider_operation;
+    if (
+      latest?.operation_id !== operation.operation_id ||
+      latest?.intent_digest !== operation.intent_digest ||
+      !['reserved', 'outcome-unknown', 'acknowledged'].includes(latest?.status)
+    )
+      throw stale();
+    if (
+      fingerprint === current.state.participants.author.session_fingerprint ||
+      (current.state.participants.reviewer &&
+        fingerprint !== current.state.participants.reviewer.session_fingerprint) ||
+      (latest.status === 'acknowledged' && latest.session_fingerprint !== fingerprint)
+    )
+      throw stale();
+    save(workspace, {
+      ...current.journal,
+      stage: 'launched',
+      provider_operation: {
+        ...latest,
+        status: 'acknowledged',
+        session_fingerprint: fingerprint,
+      },
+    });
+    return Object.freeze({ status: 'launched' });
+  });
 }

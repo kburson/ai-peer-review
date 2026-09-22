@@ -66,6 +66,18 @@ try {
     timeout: 45_000,
     encoding: 'utf8',
   });
+  if (process.env.APR_FIXTURE_RESTART_SIMULATION === '1') {
+    stage = 'simulated-launch-restart';
+    const { verifyInstalledLaunchRestart } = await import('./restart-scenario.mjs');
+    client = await verifyInstalledLaunchRestart({
+      load,
+      root,
+      project,
+      platform,
+      children,
+      client,
+    });
+  }
   const { inspectReviewAuthority } = await load('src/protocol/service.mjs');
   stage = 'automatic-handoff';
   const { readWakeOperation } = await load('src/coordinator/ledger.mjs');

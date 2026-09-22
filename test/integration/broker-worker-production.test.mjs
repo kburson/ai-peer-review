@@ -12,10 +12,11 @@ const REVIEWER = `sha256:${'b'.repeat(64)}`;
 const LAUNCH = 'launch:reviewer-operation';
 const workspace = '/tmp/apr-bridge-fixture';
 
-function fixture() {
+function fixture({ reconcileLaunch } = {}) {
   let role = 'author';
   let revision = 4;
   let fenced = false;
+  let stage = 'launched';
   const calls = [];
   const reconciled = [];
   const opens = [];
@@ -68,7 +69,7 @@ function fixture() {
         participants,
       },
     }),
-    status: () => ({ review: { recovery: { fenced, suspending: false } } }),
+    status: () => ({ review: { recovery: { fenced, suspending: false, stage } } }),
     forRole: (target) => ({
       review_id: 'review-01',
       selector: target === 'author' ? 'codex' : 'claude',
@@ -95,6 +96,7 @@ function fixture() {
     bindings,
     adapters,
     lease,
+    reconcileLaunch,
     owner: { kind: 'broker', instanceId: 'owner-01' },
   });
   const wake = (target, nextRevision = revision) => {
@@ -138,6 +140,9 @@ function fixture() {
     setRole(value, nextRevision) {
       role = value;
       revision = nextRevision;
+    },
+    setStage(value) {
+      stage = value;
     },
     setFenced(value) {
       fenced = value;
@@ -484,4 +489,267 @@ test('production factory keeps a verified author-only worker launch-capable and 
   terminal = true;
   await worker.close();
   assert.equal(unusedReleases.length, 1);
+});
+
+for (const joined of [false, true]) {
+  for (const stage of ['launch-pending', 'outcome-unknown']) {
+    test(`restart retains ${stage} ${joined ? 'joined' : 'pre-join'} worker without waking`, async () => {
+      let currentStage = stage;
+      let starts = 0;
+      let observations = 0;
+      const worker = createReviewWorker({
+        registration: { workspace },
+        adapter: {
+          bootstrap: true,
+          automatic: true,
+          coordinatorInput: {},
+          async reconcileLaunch() {
+            observations += 1;
+          },
+        },
+        inspectStatus: () => ({
+          state: joined ? 'reviewer-turn' : 'awaiting-reviewer',
+          review: { recovery: { stage: currentStage } },
+        }),
+        coordinator: async () => {
+          starts += 1;
+        },
+      });
+      assert.equal(await worker.start(), 'bootstrap');
+      assert.equal(await worker.reconcile(), 'bootstrap');
+      assert.equal(observations, 2);
+      assert.equal(starts, 0);
+      currentStage = 'launched';
+      assert.equal(await worker.reconcile(), joined ? 'automatic-wait' : 'bootstrap');
+      assert.equal(starts, joined ? 1 : 0);
+      assert.equal(observations, 2, 'acknowledged launch must not be reconciled again');
+    });
+  }
+}
+
+function restartFactoryFixture(stage) {
+  let currentStage = stage;
+  let fingerprint = REVIEWER;
+  let openedReviewer = 0;
+  let starts = 0;
+  let providerCalls = 0;
+  const runtime = {
+    ownership: 'broker',
+    transport_mode: 'automatic-required',
+    project_root_digest: 'a'.repeat(64),
+    adapter_version: '1.0.0',
+    reviewer: {
+      selector: 'claude',
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'claude-opus-5',
+    },
+  };
+  const state = {
+    protocol: {
+      review_id: 'review-01',
+      revision: 2,
+      current_actor: 'reviewer',
+      startup: { runtime, context: { repository_root: '/tmp/project' } },
+    },
+    participants: {
+      author: {
+        provider: 'openai',
+        host: 'codex',
+        model_id: 'gpt-6-astra',
+        session_fingerprint: AUTHOR,
+      },
+      reviewer: {
+        provider: 'anthropic',
+        host: 'claude-code',
+        model_id: 'claude-opus-5',
+        session_fingerprint: REVIEWER,
+      },
+    },
+  };
+  const status = () => ({
+    state: 'reviewer-turn',
+    review: { recovery: { stage: currentStage, fenced: false } },
+  });
+  const adapter = (role) => ({
+    ...state.participants[role],
+    selector: role === 'author' ? 'codex' : 'claude',
+    adapter_version: '1.0.0',
+    observeCapabilities: async () => ({
+      available: true,
+      automatic: true,
+      reviewerLaunchable: true,
+      resource: { concurrent: true },
+    }),
+    observeBoundSession: async () => {},
+    attestVersion: async () => {},
+    observeTransport: async () => {},
+    observeResource: async () => {},
+    observeResourceRelease: async () => {},
+    reconcileDelivery: async () => {},
+    observeLaunchResource: async () => {},
+    deliverToSession: async () => {
+      providerCalls += 1;
+    },
+    launchReviewer: async () => {
+      providerCalls += 1;
+    },
+    reconcileReviewerLaunch: async () => ({ status: 'outcome-unknown' }),
+  });
+  const reviewer = adapter('reviewer');
+  const input = {
+    registration: {
+      review_id: 'review-01',
+      workspace,
+      project_root: '/tmp/project',
+      project_digest: 'a'.repeat(64),
+      request_digest: 'b'.repeat(64),
+      runtime: { digest: 'sha256:image' },
+    },
+    project: { physicalRoot: '/tmp/project', digest: 'a'.repeat(64) },
+    runtimeImage: { digest: 'sha256:image' },
+    owner: { verify: () => true, instanceId: 'owner', nonce: 'nonce' },
+    platform: { userId: () => 'test' },
+    verifyImage: () => true,
+    inspect: () => ({ state }),
+    inspectStatus: status,
+    startup: () => ({
+      journal: {
+        request_digest: 'b'.repeat(64),
+        stage: currentStage,
+        provider_operation: {
+          status:
+            currentStage === 'launched'
+              ? 'acknowledged'
+              : currentStage === 'launch-pending'
+                ? 'reserved'
+                : 'outcome-unknown',
+          session_fingerprint: currentStage === 'launched' ? fingerprint : null,
+        },
+      },
+      recovery: { fenced: false },
+    }),
+    adapters: new Map([
+      ['codex', adapter('author')],
+      ['claude', reviewer],
+    ]),
+    openBinding: async ({ role }) => {
+      if (role === 'reviewer') openedReviewer += 1;
+      return { session_fingerprint: role === 'reviewer' ? fingerprint : AUTHOR };
+    },
+    openSession: async ({ role }) => {
+      if (role === 'reviewer') openedReviewer += 1;
+      return {
+        ...state.participants[role],
+        session_fingerprint: role === 'reviewer' ? fingerprint : AUTHOR,
+      };
+    },
+    acquireResource: () => ({ releaseUnused() {}, release() {} }),
+    coordinator: async () => {
+      starts += 1;
+    },
+    reconcileLaunch: async ({ observe }) => {
+      const result = await observe({ operationId: LAUNCH });
+      if (result.status === 'launched') currentStage = 'launched';
+      return result;
+    },
+  };
+  return {
+    input,
+    reviewer,
+    get stats() {
+      return { openedReviewer, starts, providerCalls };
+    },
+    setFingerprint(value) {
+      fingerprint = value;
+    },
+  };
+}
+
+for (const stage of ['launch-pending', 'outcome-unknown']) {
+  test(`production restart re-observes joined binding while retaining ${stage}`, async () => {
+    const f = restartFactoryFixture(stage);
+    const worker = await createProductionReviewWorker(f.input);
+    assert.equal(await worker.start(), 'bootstrap');
+    const before = f.stats.openedReviewer;
+    assert.equal(await worker.reconcile(), 'bootstrap');
+    assert.ok(f.stats.openedReviewer > before);
+    assert.deepEqual([f.stats.starts, f.stats.providerCalls], [0, 0]);
+    f.reviewer.reconcileReviewerLaunch = async (input) => {
+      assert.equal(input.operationId, LAUNCH);
+      assert.equal(input.scratchRoot, workspace);
+      assert.equal(input.authorSessionFingerprint, AUTHOR);
+      assert.equal(input.projectRoot, '/tmp/project');
+      assert.equal(input.expected.adapter_version, '1.0.0');
+      return { status: 'launched', observation: { session_fingerprint: REVIEWER } };
+    };
+    assert.equal(await worker.reconcile(), 'automatic-wait');
+    assert.equal(f.stats.starts, 1);
+    assert.equal(f.stats.providerCalls, 0);
+  });
+}
+
+test('production restart rejects a joined binding mismatch while launch is unknown', async () => {
+  const f = restartFactoryFixture('outcome-unknown');
+  f.setFingerprint(AUTHOR);
+  await assert.rejects(createProductionReviewWorker(f.input), /Reviewer binding differs/);
+});
+
+test('production restart rejects an acknowledged reviewer session mismatch', async () => {
+  const f = restartFactoryFixture('launched');
+  f.setFingerprint(AUTHOR);
+  await assert.rejects(createProductionReviewWorker(f.input), /Reviewer join differs/);
+});
+
+test('pending launch blocks bridge wakes and fenced recovery blocks launch reconciliation', async () => {
+  let reconciliations = 0;
+  const f = fixture({
+    reconcileLaunch: async () => {
+      reconciliations += 1;
+    },
+  });
+  f.setStage('launch-pending');
+  await assert.rejects(f.bridge.observation(), { code: 'APR_IDENTITY_CONFLICT' });
+  await assert.rejects(f.bridge.deliver(f.wake('author')), { code: 'APR_IDENTITY_CONFLICT' });
+  await f.bridge.reconcileLaunch();
+  assert.equal(reconciliations, 1);
+  assert.equal(f.calls.length, 0);
+  f.setFenced(true);
+  await assert.rejects(f.bridge.reconcileLaunch(), { code: 'APR_IDENTITY_CONFLICT' });
+  assert.equal(reconciliations, 1);
+});
+
+test('suspension during read-only launch reconciliation cannot start a coordinator afterward', async () => {
+  let complete;
+  let entered;
+  const observed = new Promise((resolve) => {
+    entered = resolve;
+  });
+  let stage = 'launch-pending';
+  let starts = 0;
+  const worker = createReviewWorker({
+    registration: { workspace },
+    adapter: {
+      bootstrap: true,
+      automatic: true,
+      coordinatorInput: {},
+      reconcileLaunch: async () => {
+        entered();
+        await new Promise((resolve) => {
+          complete = resolve;
+        });
+        stage = 'launched';
+      },
+    },
+    inspectStatus: () => ({ state: 'reviewer-turn', review: { recovery: { stage } } }),
+    coordinator: async () => {
+      starts += 1;
+    },
+  });
+  const starting = worker.start();
+  await observed;
+  await worker.suspend();
+  complete();
+  assert.equal(await starting, 'recovery-only');
+  assert.equal(starts, 0);
 });

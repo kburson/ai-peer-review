@@ -361,7 +361,8 @@ export function readClaudeWakeOutcome({
   let matchingPrompts = 0;
   let awaitingAssistant = false;
   let completed = false;
-  const pendingTools = new Set();
+  const pendingTools = new Map();
+  const completedSkills = new Set();
   for (const line of lines) {
     let entry;
     try {
@@ -384,7 +385,10 @@ export function readClaudeWakeOutcome({
       ) {
         const ids = content.map((part) => part.tool_use_id);
         if (new Set(ids).size === ids.length && ids.every((id) => pendingTools.has(id))) {
-          for (const id of ids) pendingTools.delete(id);
+          for (const id of ids) {
+            if (pendingTools.get(id) === 'Skill') completedSkills.add(id);
+            pendingTools.delete(id);
+          }
           continue;
         }
       }
@@ -397,14 +401,29 @@ export function readClaudeWakeOutcome({
                 .map((part) => part.text)
                 .join('\n')
             : '';
+      // Skill expansion follows its tool result as a separate metadata user
+      // message. A completed Skill in this wake, not just any tool, must own it.
+      if (
+        awaitingAssistant &&
+        !prompt.includes(marker) &&
+        entry.isMeta === true &&
+        completedSkills.has(entry.sourceToolUseID) &&
+        (typeof content === 'string' ||
+          (Array.isArray(content) &&
+            content.length > 0 &&
+            content.every((part) => part?.type === 'text' && typeof part.text === 'string')))
+      )
+        continue;
       if (prompt.includes(marker)) {
         matchingPrompts += 1;
         awaitingAssistant = true;
         completed = false;
         pendingTools.clear();
+        completedSkills.clear();
       } else if (awaitingAssistant) {
         awaitingAssistant = false;
         pendingTools.clear();
+        completedSkills.clear();
       }
       continue;
     }
@@ -414,7 +433,7 @@ export function readClaudeWakeOutcome({
       if (part?.type !== 'tool_use') continue;
       if (typeof part.id !== 'string' || !part.id || pendingTools.has(part.id))
         invalid('Claude wake tool call identity is missing or repeated.');
-      pendingTools.add(part.id);
+      pendingTools.set(part.id, part.name);
     }
     if (entry.message?.stop_reason === 'end_turn') {
       completed = pendingTools.size === 0;

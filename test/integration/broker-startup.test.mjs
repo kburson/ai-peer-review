@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createReviewWorker } from '../../src/broker/worker.mjs';
-import { launchReviewerOperation } from '../../src/broker/launch.mjs';
+import { launchReviewerOperation, reconcileReviewerLaunch } from '../../src/broker/launch.mjs';
 import { runBroker } from '../../src/broker/service.mjs';
 import { existsSync, readFileSync, realpathSync, writeFileSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
@@ -167,6 +167,28 @@ test('broker launch reservation releases dispatch lock during a deferred provide
   await assert.rejects(launchReviewerOperation({ registration, worker: { launchReviewer() {} } }), {
     code: 'APR_WAKE_OUTCOME_UNKNOWN',
   });
+  await assert.rejects(
+    reconcileReviewerLaunch({
+      registration,
+      observe: async () => ({
+        status: 'launched',
+        observation: { session_fingerprint: `sha256:${'e'.repeat(64)}` },
+      }),
+    }),
+    { code: 'APR_BROKER_STALE' }
+  );
+  assert.equal(
+    (
+      await reconcileReviewerLaunch({
+        registration,
+        observe: async () => ({
+          status: 'launched',
+          observation: { session_fingerprint: reviewer.session_fingerprint },
+        }),
+      })
+    ).status,
+    'launched'
+  );
   release({
     status: 'launched',
     observation: { session_fingerprint: reviewer.session_fingerprint },
@@ -278,6 +300,35 @@ test('timed-out broker launch is durable unknown and never dispatches a second c
   await assert.rejects(launchReviewerOperation({ registration, worker, timeoutMs: 5 }), {
     code: 'APR_WAKE_OUTCOME_UNKNOWN',
   });
+  assert.equal(calls, 1);
+  const reserved = registry.readStartupJournal(workspace).provider_operation;
+  const observe = async ({ operationId }) => {
+    assert.equal(operationId, reserved.operation_id);
+    return { status: 'outcome-unknown' };
+  };
+  assert.equal(
+    (await reconcileReviewerLaunch({ registration, observe })).status,
+    'outcome-unknown'
+  );
+  assert.deepEqual(registry.readStartupJournal(workspace).provider_operation, reserved);
+  const fingerprint = `sha256:${'b'.repeat(64)}`;
+  assert.equal(
+    (
+      await reconcileReviewerLaunch({
+        registration,
+        observe: async () => ({
+          status: 'launched',
+          observation: { session_fingerprint: fingerprint },
+        }),
+      })
+    ).status,
+    'launched'
+  );
+  assert.equal(
+    registry.readStartupJournal(workspace).provider_operation.session_fingerprint,
+    fingerprint
+  );
+  assert.equal((await launchReviewerOperation({ registration, worker })).status, 'launched');
   assert.equal(calls, 1);
 });
 
