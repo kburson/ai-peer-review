@@ -114,6 +114,19 @@ function missingDiscovery(project, platform) {
   }
 }
 
+function discoveryPublicationPending(error) {
+  // A writer can publish broker.json between the failed read and a second
+  // presence check. Retry only these incomplete-publication observations;
+  // conflicting owner, ACL, and handshake failures stay terminal.
+  return (
+    error?.code === 'APR_BROKER_STALE' &&
+    [
+      'Broker discovery metadata is unavailable.',
+      'Broker discovery metadata is malformed.',
+    ].includes(error.message)
+  );
+}
+
 function observeLaunch(child) {
   if (child?.ready && typeof child.ready.then === 'function') return child.ready;
   if (!child || typeof child.once !== 'function') return Promise.resolve();
@@ -153,7 +166,8 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
   } catch (error) {
     // A Windows exclusive writer may still be publishing discovery. Wait for
     // that existing broker; never launch a second process for this condition.
-    if (error?.code === 'EBUSY') return connectUntilReady(connect, platform);
+    if (error?.code === 'EBUSY')
+      return connectUntilReady(connect, platform, discoveryPublicationPending);
     const launchable =
       ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_OWNED'].includes(error?.code) ||
       (error?.code === 'APR_BROKER_STALE' && missingDiscovery(project, platform));
@@ -189,8 +203,7 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
       platform,
       (error) =>
         error?.code === 'APR_BROKER_STALE' &&
-        (missingDiscovery(project, platform) ||
-          error.message === 'Broker discovery metadata is malformed.')
+        (missingDiscovery(project, platform) || discoveryPublicationPending(error))
     );
   } catch (error) {
     throw startFailure(error, { bootstrap });

@@ -234,6 +234,10 @@ test('freshly launched broker waits for complete discovery bytes before authenti
         attempts++;
         if (attempts === 1) throw Object.assign(new Error('missing'), { code: 'ENOENT' });
         if (attempts === 2)
+          throw Object.assign(new Error('Broker discovery metadata is unavailable.'), {
+            code: 'APR_BROKER_STALE',
+          });
+        if (attempts === 3)
           throw Object.assign(new Error('Broker discovery metadata is malformed.'), {
             code: 'APR_BROKER_STALE',
           });
@@ -246,7 +250,7 @@ test('freshly launched broker waits for complete discovery bytes before authenti
     },
   });
   assert.equal(result, client);
-  assert.equal(attempts, 3);
+  assert.equal(attempts, 4);
 });
 
 test('missing discovery launches once while contradictory stale evidence remains fenced', async () => {
@@ -314,6 +318,10 @@ for (const alreadyStarting of [false, true]) {
         attempts++;
         if (attempts === 1 && !alreadyStarting)
           throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+        if (attempts === (alreadyStarting ? 2 : 3))
+          throw Object.assign(new Error('Broker discovery metadata is unavailable.'), {
+            code: 'APR_BROKER_STALE',
+          });
         if (attempts < 4)
           throw Object.assign(new Error('Exclusive writer still owns discovery'), {
             code: 'EBUSY',
