@@ -455,6 +455,9 @@ test(
     secondDecoder.end();
     assert.equal(secondFrames.length, 1);
     validateHandshake(secondFrames[0], nativeHandshake, security.peerUser(accepted));
+    // Windows command reconciliation may outlast the 5-second handshake and
+    // partial-frame bound; the authenticated client must keep waiting.
+    if (process.platform === 'win32') await new Promise((resolve) => setTimeout(resolve, 6_000));
     accepted.write(encodeFrame(nativeHandshake));
     accepted.close();
     const [ipcStatus] = await ipcExit;

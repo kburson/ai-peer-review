@@ -13,10 +13,11 @@ namespace {
 struct Directory { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Lock { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Endpoint { HANDLE handle; std::wstring path; };
-struct Connection { HANDLE handle; bool server_side; bool fenced; };
+struct Connection { HANDLE handle; bool server_side; bool fenced; unsigned client_writes = 0; };
 struct PipeReadRequest { HANDLE handle; std::vector<unsigned char> bytes; LONG references; };
 struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
+constexpr DWORD kCommandReplyTimeoutMilliseconds = 30000;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const char* text) {
   *code = stable;
@@ -181,7 +182,9 @@ unsigned __stdcall ReadPipeThread(void* value) {
   return complete ? ERROR_SUCCESS : ERROR_READ_FAULT;
 }
 
-bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
+bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size, DWORD timeout,
+               bool* timed_out) {
+  *timed_out = false;
   HANDLE duplicate = INVALID_HANDLE_VALUE;
   if (!DuplicateHandle(
         GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
@@ -194,8 +197,9 @@ bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
     delete request;
     return false;
   }
-  DWORD wait = WaitForSingleObject(thread, kIpcTimeoutMilliseconds);
+  DWORD wait = WaitForSingleObject(thread, timeout);
   if (wait == WAIT_TIMEOUT) {
+    *timed_out = true;
     CancelSynchronousIo(thread);
     wait = WaitForSingleObject(thread, 1000);
   }
@@ -669,10 +673,16 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   if (connection->fenced) {
     return Fail(code, message, "APR_BROKER_STALE", "Broker connection is fenced.");
   }
+  // Keep handshake and incomplete-client deadlines short. Only an authenticated
+  // client's second write can wait for bounded worker/stop reconciliation.
+  const DWORD timeout = !connection->server_side && connection->client_writes >= 2
+    ? kCommandReplyTimeoutMilliseconds : kIpcTimeoutMilliseconds;
+  bool timed_out = false;
   unsigned char prefix[4];
-  if (!ReadExact(connection->handle, prefix, sizeof(prefix))) {
+  if (!ReadExact(connection->handle, prefix, sizeof(prefix), timeout, &timed_out)) {
     FenceConnection(connection);
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame prefix is truncated.");
+    return Fail(code, message, "APR_BROKER_PROTOCOL",
+                timed_out ? "Broker frame prefix timed out." : "Broker frame prefix is truncated.");
   }
   const size_t length = (static_cast<size_t>(prefix[0]) << 24) |
                         (static_cast<size_t>(prefix[1]) << 16) |
@@ -684,9 +694,11 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   }
   bytes->assign(prefix, prefix + sizeof(prefix));
   bytes->resize(sizeof(prefix) + length);
-  if (!ReadExact(connection->handle, bytes->data() + sizeof(prefix), length)) {
+  if (!ReadExact(connection->handle, bytes->data() + sizeof(prefix), length, timeout,
+                 &timed_out)) {
     FenceConnection(connection);
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame body is truncated.");
+    return Fail(code, message, "APR_BROKER_PROTOCOL",
+                timed_out ? "Broker frame body timed out." : "Broker frame body is truncated.");
   }
   return true;
 }
@@ -713,6 +725,7 @@ bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes, bool 
         ? "Broker frame delivery timed out."
         : "Broker frame cannot be written completely.");
   }
+  if (!connection->server_side) connection->client_writes++;
   return true;
 }
 

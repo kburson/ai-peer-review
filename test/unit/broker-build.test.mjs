@@ -100,7 +100,10 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.match(windows, /unsigned __stdcall ReadPipeThread\(void\* value\)/);
   assert.match(windowsRead, /DuplicateHandle\(/);
   assert.match(windowsRead, /_beginthreadex\(/);
-  assert.match(windowsRead, /WaitForSingleObject\(thread, kIpcTimeoutMilliseconds\)/);
+  assert.match(windowsRead, /WaitForSingleObject\(thread, timeout\)/);
+  assert.match(windowsConnectionRead, /client_writes >= 2/);
+  assert.match(windowsConnectionRead, /kCommandReplyTimeoutMilliseconds : kIpcTimeoutMilliseconds/);
+  assert.match(windowsWrite, /client_writes\+\+/);
   assert.match(windowsRead, /CancelSynchronousIo\(thread\)/);
   assert.match(windows, /struct PipeWriteRequest/);
   assert.match(windows, /unsigned __stdcall WritePipeThread\(void\* value\)/);
@@ -120,7 +123,10 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.match(windowsServerWrite, /CreateEventW\(/);
   assert.match(windowsServerWrite, /WaitForMultipleObjects\(/);
   assert.match(windowsServerWrite, /SupervisePipeWrite/);
-  assert.match(windows, /struct Connection \{ HANDLE handle; bool server_side; bool fenced; \};/);
+  assert.match(
+    windows,
+    /struct Connection \{ HANDLE handle; bool server_side; bool fenced; unsigned client_writes = 0; \};/
+  );
   assert.match(windowsFence, /connection->fenced = true/);
   assert.match(windowsFence, /DisconnectNamedPipe\(connection->handle\)/);
   assert.match(windowsConnectionRead, /connection->fenced/);
