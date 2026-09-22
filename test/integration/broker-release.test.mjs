@@ -295,11 +295,19 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     APR_CODEX_HOOK_TOKEN: 'parent-hook-must-not-leak',
     NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${preload}`,
     APR_FIXTURE_PACKAGE: installed,
-    APR_FIXTURE_IMAGE: JSON.stringify(image),
+    APR_FIXTURE_IMAGE: JSON.stringify({
+      root: image.root,
+      nodeExecutable: image.nodeExecutable,
+      digest: image.digest,
+    }),
     APR_FIXTURE_CALLS: path.join(scratch, 'provider-calls.txt'),
     APR_FIXTURE_BROKER_LOG: path.join(scratch, 'automatic-broker.log'),
     APR_PROVIDER_DEADLINE_MS: String(Date.now() + 90_000),
   };
+  assert.ok(
+    Buffer.byteLength(scenarioEnv.APR_FIXTURE_IMAGE) < 4096,
+    'subprocess environment carries only the compact runtime descriptor'
+  );
   try {
     const automatic = await promisify(execFile)(
       process.execPath,
