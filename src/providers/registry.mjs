@@ -137,7 +137,32 @@ export function createProviderAdapter({
     ) {
       identityConflict('Provider operation storage identity is invalid.');
     }
-    return path.join(scratchRoot, 'provider', selector, 'operations', `${operationId}.json`);
+    return path.join(
+      scratchRoot,
+      'provider',
+      selector,
+      'operations',
+      `${createHash('sha256').update(operationId).digest('hex')}.json`
+    );
+  };
+
+  const existingOperationFile = (scratchRoot, operationId) => {
+    const file = operationFile(scratchRoot, operationId);
+    try {
+      lstatSync(file);
+      return file;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    // Old POSIX records used raw IDs. Windows can only recover legacy names
+    // that are ordinary files, never alternate streams or device aliases.
+    const windowsSafe =
+      !operationId.includes(':') &&
+      !operationId.endsWith('.') &&
+      !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(operationId);
+    return process.platform !== 'win32' || windowsSafe
+      ? path.join(path.dirname(file), `${operationId}.json`)
+      : file;
   };
 
   const persistOperation = (scratchRoot, operationId, operation) => {
@@ -158,7 +183,7 @@ export function createProviderAdapter({
     const memory = operations.get(operationId);
     if (memory) return memory;
     if (scratchRoot === undefined) return null;
-    const file = operationFile(scratchRoot, operationId);
+    const file = existingOperationFile(scratchRoot, operationId);
     let value;
     try {
       const metadata = lstatSync(file);
@@ -383,7 +408,7 @@ export function createProviderAdapter({
           : undefined;
       operations.delete(input?.operationId);
       if (input?.scratchRoot !== undefined) {
-        const file = operationFile(input.scratchRoot, input.operationId);
+        const file = existingOperationFile(input.scratchRoot, input.operationId);
         if (existsSync(file)) unlinkSync(file);
       }
       return result;

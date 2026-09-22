@@ -2,7 +2,16 @@ import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -655,6 +664,49 @@ function observation(overrides = {}) {
   };
 }
 
+test('launch operation persistence uses portable filenames and validates legacy recovery', async (t) => {
+  mkdirSync(path.join(process.cwd(), '.scratch/test'), { recursive: true });
+  const scratchRoot = mkdtempSync(path.join(process.cwd(), '.scratch/test/88-portable-operation-'));
+  t.after(() => rmSync(scratchRoot, { recursive: true, force: true }));
+  const operationId = `launch:${'a'.repeat(64)}`;
+  const surface = {
+    launch: async () => ({
+      status: 'acknowledged',
+      handle: 'fixture-private-handle',
+      observation: observation(),
+    }),
+    observe: async () => observation(),
+    close: async () => {},
+  };
+  await createClaudeAdapter({ surface }).launchReviewer({
+    invitationPath: path.join(scratchRoot, 'invitation.md'),
+    expected,
+    effort: 'high',
+    operationId,
+    scratchRoot,
+  });
+  const directory = path.join(scratchRoot, 'provider/claude/operations');
+  const names = readdirSync(directory);
+  assert.equal(names.length, 1);
+  assert.match(names[0], /^[a-f0-9]{64}\.json$/);
+  const file = path.join(directory, names[0]);
+  assert.equal(JSON.parse(readFileSync(file)).operation_id, operationId);
+  await createClaudeAdapter({ surface }).observeSession({ operationId, expected, scratchRoot });
+  if (process.platform !== 'win32') {
+    const legacy = path.join(directory, `${operationId}.json`);
+    renameSync(file, legacy);
+    await createClaudeAdapter({ surface }).observeSession({ operationId, expected, scratchRoot });
+    // A corrupt canonical record must never fall back to an intact older one.
+    writeFileSync(file, '{}');
+    await assert.rejects(
+      createClaudeAdapter({ surface }).observeSession({ operationId, expected, scratchRoot })
+    );
+    unlinkSync(file);
+  }
+  await createClaudeAdapter({ surface }).close({ operationId, scratchRoot });
+  assert.deepEqual(readdirSync(directory), []);
+});
+
 test('launch sends only the invitation pointer and exact requested fields', async () => {
   const scratchRoot = mkdtempSync(path.join(tmpdir(), 'apr-provider-operation-'));
   const calls = [];
@@ -668,7 +720,7 @@ test('launch sends only the invitation pointer and exact requested fields', asyn
     },
   });
   const result = await adapter.launchReviewer({
-    invitationPath: '/repo/.scratch/reviewer-invitation.md',
+    invitationPath: path.resolve('provider-fixture', 'reviewer-invitation.md'),
     expected,
     effort: 'high',
     operationId: 'operation-1',
@@ -676,7 +728,7 @@ test('launch sends only the invitation pointer and exact requested fields', asyn
   });
   assert.deepEqual(calls, [
     {
-      invitationPath: '/repo/.scratch/reviewer-invitation.md',
+      invitationPath: path.resolve('provider-fixture', 'reviewer-invitation.md'),
       model: 'claude-opus-5',
       effort: 'high',
       operationId: 'operation-1',
@@ -688,7 +740,13 @@ test('launch sends only the invitation pointer and exact requested fields', asyn
   assert.equal(JSON.stringify(result).includes('raw-secret'), false);
   assert.equal(
     readFileSync(
-      path.join(scratchRoot, 'provider', 'claude', 'operations', 'operation-1.json'),
+      path.join(
+        scratchRoot,
+        'provider',
+        'claude',
+        'operations',
+        `${createHash('sha256').update('operation-1').digest('hex')}.json`
+      ),
       'utf8'
     ).includes('raw-secret'),
     true
@@ -716,19 +774,26 @@ test('persisted operation handles survive adapter recreation and close is operat
   const first = createClaudeAdapter({ surface });
   for (const operationId of ['one', 'two'])
     await first.launchReviewer({
-      invitationPath: '/repo/invitation.md',
+      invitationPath: path.resolve('provider-fixture', 'invitation.md'),
       expected,
       effort: 'high',
       operationId,
       scratchRoot,
     });
 
+  const directory = path.join(scratchRoot, 'provider/claude/operations');
+  renameSync(
+    path.join(directory, `${createHash('sha256').update('two').digest('hex')}.json`),
+    path.join(directory, 'two.json')
+  );
   const recovered = createClaudeAdapter({ surface });
   await recovered.observeSession({ operationId: 'one', expected, scratchRoot });
   await recovered.close({ operationId: 'one', scratchRoot });
   await recovered.observeSession({ operationId: 'two', expected, scratchRoot });
   assert.deepEqual(observedHandles, ['raw-one', 'raw-two']);
   assert.deepEqual(closedHandles, ['raw-one']);
+  await recovered.close({ operationId: 'two', scratchRoot });
+  assert.deepEqual(readdirSync(directory), []);
 });
 
 test('Claude official surface rejects launch state that conflicts with the exact request', async (t) => {
@@ -800,7 +865,7 @@ test('model mismatch and same-provider author session fail before claiming launc
     const fingerprint = fingerprintSession('anthropic', observed.session_id);
     await assert.rejects(
       adapter.launchReviewer({
-        invitationPath: '/repo/invitation.md',
+        invitationPath: path.resolve('provider-fixture', 'invitation.md'),
         expected,
         effort: 'high',
         operationId: 'op',
@@ -821,7 +886,7 @@ test('Task 8 startup launch bridge preserves the author-session exclusion', asyn
   const authorSessionFingerprint = fingerprintSession('anthropic', observed.session_id);
   await assert.rejects(
     adapter.launch({
-      invitation: '/repo/invitation.md',
+      invitation: path.resolve('provider-fixture', 'invitation.md'),
       selection: { model_id: expected.model_id, effort: expected.effort },
       requestDigest: 'startup-operation',
       authorSessionFingerprint,
@@ -842,7 +907,7 @@ test('provider outcome taxonomy is preserved without automatic retry', async () 
       },
     });
     const result = await adapter.launchReviewer({
-      invitationPath: '/repo/invitation.md',
+      invitationPath: path.resolve('provider-fixture', 'invitation.md'),
       expected,
       effort: 'high',
       operationId: status,
@@ -863,7 +928,7 @@ test('quota and provider-resource contention retain their stable errors', async 
     });
     await assert.rejects(
       adapter.launchReviewer({
-        invitationPath: '/repo/invitation.md',
+        invitationPath: path.resolve('provider-fixture', 'invitation.md'),
         expected,
         effort: 'high',
         operationId: code,
@@ -883,7 +948,7 @@ test('re-observation rejects changed sessions and incompatible adapter versions'
     },
   });
   await adapter.launchReviewer({
-    invitationPath: '/repo/invitation.md',
+    invitationPath: path.resolve('provider-fixture', 'invitation.md'),
     expected,
     effort: 'high',
     operationId: 'observe',
