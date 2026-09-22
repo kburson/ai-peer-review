@@ -234,12 +234,12 @@ unsigned __stdcall WritePipeThread(void* value) {
   return complete ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
 }
 
-bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes) {
+bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes, bool flush) {
   HANDLE duplicate = INVALID_HANDLE_VALUE;
   if (!DuplicateHandle(
         GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
         0, FALSE, DUPLICATE_SAME_ACCESS)) return false;
-  auto* request = new PipeWriteRequest{duplicate, bytes, nullptr, false};
+  auto* request = new PipeWriteRequest{duplicate, bytes, nullptr, flush};
   HANDLE thread = reinterpret_cast<HANDLE>(
     _beginthreadex(nullptr, 0, WritePipeThread, request, 0, nullptr));
   if (thread == nullptr) {
@@ -683,15 +683,18 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   return true;
 }
 
-bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
+bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes, bool drain,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
   if (connection->fenced) {
     return Fail(code, message, "APR_BROKER_STALE", "Broker connection is fenced.");
   }
+  // Stop must retain this process until the client consumes its final reply.
+  // Other server replies keep the non-blocking supervised flush path.
   const bool complete = connection->server_side
-    ? WriteServerReply(connection->handle, bytes)
-    : WritePipeBounded(connection->handle, bytes);
+    ? (drain ? WritePipeBounded(connection->handle, bytes, true)
+             : WriteServerReply(connection->handle, bytes))
+    : WritePipeBounded(connection->handle, bytes, false);
   if (!complete) {
     FenceConnection(connection);
     return Fail(

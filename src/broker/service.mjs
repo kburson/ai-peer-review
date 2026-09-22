@@ -78,6 +78,7 @@ export function createAuthenticatedBrokerServer(owner, platform, { schedule = se
   let dispatch = null;
   let stopped = false;
   let scheduled = false;
+  const active = new Set();
 
   const serve = async () => {
     scheduled = false;
@@ -92,7 +93,8 @@ export function createAuthenticatedBrokerServer(owner, platform, { schedule = se
       try {
         const result = await dispatch(command);
         connection.write(
-          encodeFrame({ id: command.id, ok: true, result: result ?? {}, error: null })
+          encodeFrame({ id: command.id, ok: true, result: result ?? {}, error: null }),
+          { drain: command.command === 'stop' }
         );
       } catch (error) {
         connection.write(
@@ -105,7 +107,8 @@ export function createAuthenticatedBrokerServer(owner, platform, { schedule = se
               message: error?.message ?? 'Broker command failed.',
               recovery: error?.recovery ?? 'Preserve broker evidence and inspect the failure.',
             },
-          })
+          }),
+          { drain: command.command === 'stop' }
         );
       }
     } catch {
@@ -119,7 +122,14 @@ export function createAuthenticatedBrokerServer(owner, platform, { schedule = se
   const queue = () => {
     if (stopped || scheduled) return;
     scheduled = true;
-    schedule(() => void serve());
+    schedule(() => {
+      const operation = serve();
+      active.add(operation);
+      operation.then(
+        () => active.delete(operation),
+        () => active.delete(operation)
+      );
+    });
   };
 
   return Object.freeze({
@@ -136,6 +146,7 @@ export function createAuthenticatedBrokerServer(owner, platform, { schedule = se
     },
     close() {
       stopped = true;
+      return Promise.all([...active]);
     },
   });
 }
@@ -343,7 +354,9 @@ export async function runBroker(input = {}) {
     workerSubscriptions.clear();
     workers.clear();
     try {
-      server.close();
+      // A stop dispatch can resolve before its authenticated reply is written.
+      // Keep the endpoint owned until that in-flight connection closes.
+      await server.close();
     } catch (error) {
       cleanupError ??= error;
     }

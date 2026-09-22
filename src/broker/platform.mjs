@@ -160,14 +160,14 @@ export function platformSecurity({
           throw error;
         }
       },
-      write(bytes) {
+      write(bytes, { drain = false } = {}) {
         if (closed) {
           throw new AprError('APR_BROKER_STALE', 'The broker connection is closed.', {
             recovery: 'Reconnect to the authenticated broker and retry the bounded request.',
           });
         }
         try {
-          native.connectionWrite(handle, Buffer.from(bytes));
+          native.connectionWrite(handle, Buffer.from(bytes), drain === true);
         } catch (error) {
           try {
             closeNative(connection);

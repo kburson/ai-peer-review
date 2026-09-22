@@ -484,7 +484,7 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   return true;
 }
 
-bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
+bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes, bool,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
   return SendAll(connection->descriptor, bytes)

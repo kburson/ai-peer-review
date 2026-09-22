@@ -25,7 +25,7 @@ void AbandonEndpoint(void*);
 void* AcceptPrivate(void*, std::string*, std::string*);
 void* ConnectPrivate(const std::string&, std::string*, std::string*);
 bool ConnectionRead(void*, size_t, std::vector<unsigned char>*, std::string*, std::string*);
-bool ConnectionWrite(void*, const std::vector<unsigned char>&, std::string*, std::string*);
+bool ConnectionWrite(void*, const std::vector<unsigned char>&, bool, std::string*, std::string*);
 void CloseConnection(void*);
 std::string PeerUser(void*, std::string*, std::string*);
 }  // namespace broker_security
@@ -331,15 +331,17 @@ napi_value ConnectionRead(napi_env env, napi_callback_info info) {
 }
 
 napi_value ConnectionWrite(napi_env env, napi_callback_info info) {
-  napi_value values[2];
-  if (!Args(env, info, 2, values)) return nullptr;
+  napi_value values[3];
+  if (!Args(env, info, 3, values)) return nullptr;
   auto* holder = Handle(env, values[0], Kind::connection);
   std::vector<unsigned char> bytes;
+  bool drain = false;
   std::string code, message;
-  if (!holder || !Bytes(env, values[1], &bytes) || bytes.empty() || bytes.size() > 65540) {
+  if (!holder || !Bytes(env, values[1], &bytes) || bytes.empty() || bytes.size() > 65540 ||
+      napi_get_value_bool(env, values[2], &drain) != napi_ok) {
     return Throw(env, "APR_BROKER_PROTOCOL", "Invalid broker frame write.");
   }
-  return broker_security::ConnectionWrite(holder->value, bytes, &code, &message)
+  return broker_security::ConnectionWrite(holder->value, bytes, drain, &code, &message)
     ? Undefined(env)
     : Throw(env, code, message);
 }

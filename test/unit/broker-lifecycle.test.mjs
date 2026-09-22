@@ -158,6 +158,34 @@ test('broker exits at exactly sixty seconds without runnable work', async () => 
   assert.equal(server.closed, true);
 });
 
+test('broker retains endpoint ownership until the stop response is drained', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  let resolveReply;
+  let resolveCloseCalled;
+  const reply = new Promise((resolve) => (resolveReply = resolve));
+  const closeCalled = new Promise((resolve) => (resolveCloseCalled = resolve));
+  const events = [];
+  server.close = () => {
+    resolveCloseCalled();
+    return reply;
+  };
+  const running = runBroker({
+    ...brokerInput({ clock, server }),
+    owner: { release: () => events.push('released') },
+  });
+  await server.ready;
+  assert.equal((await server.request({ id: 'stop-response', command: 'stop' })).status, 'stopping');
+  await closeCalled;
+  try {
+    assert.deepEqual(events, []);
+  } finally {
+    resolveReply();
+    await running;
+  }
+  assert.deepEqual(events, ['released']);
+});
+
 test('status inspection does not postpone an existing idle deadline', async () => {
   const clock = fakeClock();
   const server = fakeServer();
@@ -397,6 +425,61 @@ test('native server authenticates the peer before dispatching one closed command
     result: { echoed: 'status' },
     error: null,
   });
+});
+
+test('native server close waits for an in-flight authenticated reply', async () => {
+  const handshake = {
+    schema: 'ai-peer-review.broker-handshake/v1',
+    tuple: ['ai-peer-review.broker-root/v1', '/project', null, '501'],
+    versions: { package_version: '1.0.0', broker_protocol_version: 1, node_major: 24 },
+    instance_id: 'a'.repeat(64),
+    nonce: 'b'.repeat(64),
+  };
+  let resolveDispatch;
+  let resolveEntered;
+  let resolveClosed;
+  const gate = new Promise((resolve) => (resolveDispatch = resolve));
+  const entered = new Promise((resolve) => (resolveEntered = resolve));
+  const connectionClosed = new Promise((resolve) => (resolveClosed = resolve));
+  const writes = [];
+  const frames = [
+    encodeFrame(handshake),
+    encodeFrame({ id: 'stop-ack', command: 'stop', workspace: null }),
+  ];
+  const server = createAuthenticatedBrokerServer(
+    {
+      handshake,
+      endpoint: {
+        accept: () => ({
+          readFrame: () => frames.shift(),
+          write: (bytes, options) => writes.push({ bytes, options }),
+          close: () => resolveClosed(),
+        }),
+      },
+    },
+    { peerUser: () => '501' }
+  );
+  server.start(async () => {
+    resolveEntered();
+    await gate;
+    return { status: 'stopping' };
+  });
+  await entered;
+  const closing = server.close();
+  let settled = false;
+  Promise.resolve(closing).then(() => (settled = true));
+  try {
+    await Promise.resolve();
+    assert.equal(settled, false);
+    assert.equal(writes.length, 1);
+  } finally {
+    resolveDispatch();
+    await connectionClosed;
+  }
+  await closing;
+  assert.equal(writes.length, 2);
+  assert.deepEqual(writes[1].options, { drain: true });
+  assert.equal(JSON.parse(writes[1].bytes.subarray(4)).result.status, 'stopping');
 });
 
 test('native server fences a malformed peer and continues accepting valid clients', async () => {
