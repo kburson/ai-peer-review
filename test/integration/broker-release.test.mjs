@@ -264,13 +264,20 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
   const platform = {
     ...securityApi.platformSecurity(),
     repository: createGitRepository(),
-    spawn(...args) {
-      const process = spawn(...args);
+    spawn(file, args, options) {
+      const process = spawn(file, args, { ...options, stdio: ['ignore', 'ignore', 'pipe'] });
+      const diagnostics = { stderr: '', startedAt: Date.now() };
+      process.stderr.on('data', (bytes) => {
+        diagnostics.stderr = (diagnostics.stderr + bytes.toString()).slice(-8192);
+      });
       const exited = new Promise((resolve) => {
         process.once('exit', resolve);
-        process.once('error', resolve);
+        process.once('error', (error) => {
+          diagnostics.spawnError = error.code ?? error.message;
+          resolve();
+        });
       });
-      children.push({ process, exited });
+      children.push({ process, exited, diagnostics });
       return process;
     },
   };
@@ -408,12 +415,32 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
       env: process.env,
       home: os.homedir(),
     });
-    const client = await clientApi.ensureBroker({
-      project,
-      versions,
-      runtimeImage: image,
-      platform,
-    });
+    let client;
+    try {
+      client = await clientApi.ensureBroker({
+        project,
+        versions,
+        runtimeImage: image,
+        platform,
+      });
+    } catch (error) {
+      t.diagnostic(
+        `Isolated broker startup: ${JSON.stringify({
+          projectIndex: index,
+          bootstrapExists: Boolean(error.details?.bootstrap && existsSync(error.details.bootstrap)),
+          discoveryExists: existsSync(paths.metadata),
+          lockExists: existsSync(paths.lock),
+          children: children.map(({ process, diagnostics }) => ({
+            elapsedMs: Date.now() - diagnostics.startedAt,
+            exitCode: process.exitCode,
+            signal: process.signalCode,
+            stderr: diagnostics.stderr,
+            spawnError: diagnostics.spawnError ?? null,
+          })),
+        })}`
+      );
+      throw error;
+    }
     live.push({ project, paths });
     const status = await clientApi.requestBroker(client, 'status');
     assert.equal(status.package_version, '0.3.0');
