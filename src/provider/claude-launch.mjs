@@ -144,6 +144,64 @@ function encodeClaudeBashRule(argv) {
   return `Bash(${command})`;
 }
 
+export function buildClaudeWakePermissions({ workspace, role, state, status }) {
+  if (!['author', 'reviewer'].includes(role) || state?.protocol?.current_actor !== role)
+    fail(
+      'Claude wake has no current pending participant response.',
+      'Reconcile the current role before waking its exact session.'
+    );
+  const action = status?.next_action?.action;
+  if (
+    role === 'author' &&
+    ['finalize-acceptance', 'commit-acceptance', 'advance-phase-artifact'].includes(action)
+  ) {
+    // A phase's next artifact is not yet bound. Reading the pending instructions
+    // grants no permission to invent or advance to an arbitrary artifact.
+    return Object.freeze([
+      'Read',
+      'Glob',
+      'Grep',
+      encodeClaudeBashRule(['peer-review', 'resume', workspace]),
+      ...(action === 'advance-phase-artifact'
+        ? []
+        : [encodeClaudeBashRule(['peer-review', 'finalize', workspace])]),
+    ]);
+  }
+  if (!status?.paths?.response)
+    fail(
+      'Claude wake has no current pending participant response.',
+      'Reconcile the current role before waking its exact session.'
+    );
+  const root = state.protocol.startup.context.repository_root;
+  const response = contained(root, status.paths.response, 'response').absolute;
+  const rules = [
+    'Read',
+    'Glob',
+    'Grep',
+    encodeClaudeBashRule(['peer-review', 'resume', workspace]),
+    encodeClaudeBashRule(['peer-review', 'submit', workspace]),
+    encodeClaudeEditRule(response),
+  ];
+  if (role === 'author') {
+    rules.push(
+      encodeClaudeEditRule(
+        contained(root, path.resolve(root, state.protocol.artifact.path), 'artifact').absolute
+      )
+    );
+    rules.push(
+      encodeClaudeBashRule([
+        'peer-review',
+        'submit',
+        workspace,
+        '--no-artifact-change',
+        '--reason',
+        'No artifact change is required for this response.',
+      ])
+    );
+  }
+  return Object.freeze(rules);
+}
+
 function launchPrompt(invitation, joinCommand, submitCommand) {
   return [
     `Open the sealed reviewer invitation at ${invitation}.`,

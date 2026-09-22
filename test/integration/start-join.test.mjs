@@ -618,6 +618,28 @@ test('automatic start accepts a provider-observed author fingerprint only when i
   );
   const started = await startReview(input, fixtureStartupDeps);
   assert.equal(started.review.author_transport_capability, 'live-wait');
+  const reviewer = identity('reviewer', 'automatic-reviewer');
+  const join = {
+    cwd: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    runtimeObservation: fixtureObservation(),
+    transportCapability: 'live-wait',
+    transportObservation: { ...observation, session_fingerprint: reviewer.session_fingerprint },
+    authorTransportObservation: observation,
+    transportHealthCheck: async () => ({ healthy: true }),
+    now: NOW,
+  };
+  for (const field of ['transportObservation', 'authorTransportObservation']) {
+    await assert.rejects(
+      joinReview({
+        ...join,
+        [field]: { ...join[field], session_fingerprint: 'sha256:' + 'a'.repeat(64) },
+      }),
+      { code: 'APR_IDENTITY_CONFLICT' }
+    );
+  }
+  assert.equal((await joinReview(join)).state, 'reviewer-turn');
 });
 
 test('start verifies and consumes an exact prevention-grade pin-verifier grant', async (t) => {

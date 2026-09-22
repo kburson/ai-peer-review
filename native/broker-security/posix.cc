@@ -349,6 +349,8 @@ void AbandonEndpoint(void* value) {
   delete endpoint;
 }
 
+// Idle accept must yield promptly so provider streams and coordinator timers run.
+// Keep the full IPC timeout for reads/writes on an established connection.
 void* AcceptPrivate(void* value, std::string* code, std::string* message) {
   auto* endpoint = static_cast<Endpoint*>(value);
   if (!VerifyEndpoint(value)) {
@@ -356,7 +358,7 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
     return nullptr;
   }
   const auto deadline = std::chrono::steady_clock::now() +
-                        std::chrono::milliseconds(kIpcTimeoutMilliseconds);
+                        std::chrono::milliseconds(25);
   if (!WaitReady(endpoint->descriptor, POLLIN, deadline)) {
     Fail(code, message, "APR_BROKER_START_FAILED", "Broker connection accept timed out.");
     return nullptr;

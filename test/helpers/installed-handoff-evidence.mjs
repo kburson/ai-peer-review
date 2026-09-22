@@ -10,9 +10,9 @@ export async function inspectInstalledHandoff({ installed, workspace, head }) {
   if (authority.state.protocol.commit_mode !== 'normal') return null;
   const directory = path.join(workspace, 'wake', 'operations');
   const wakes = existsSync(directory)
-    ? readdirSync(directory).map((name) =>
-        readWakeOperation(workspace, `sha256:${name.slice(0, -5)}`)
-      )
+    ? readdirSync(directory)
+        .filter((name) => /^[a-f0-9]{64}\.json$/.test(name))
+        .map((name) => readWakeOperation(workspace, `sha256:${name.slice(0, -5)}`))
     : [];
   const acknowledged = wakes.filter((wake) => wake.status === 'acknowledged');
   const authorWake = acknowledged.find((wake) => wake.target_role === 'author');

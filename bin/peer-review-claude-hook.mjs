@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
+import { remainingProviderTime } from '../src/providers/process-lifetime.mjs';
 import { randomBytes } from 'node:crypto';
 
 import { captureClaudeStartHookWhenPresent } from '../src/providers/claude-hook.mjs';
@@ -17,7 +18,11 @@ if (
 )
   process.exit(0);
 try {
-  const version = execFileSync('claude', ['--version'], { encoding: 'utf8' })
+  const version = execFileSync('claude', ['--version'], {
+    encoding: 'utf8',
+    timeout: remainingProviderTime(),
+    killSignal: 'SIGKILL',
+  })
     .trim()
     .match(/^(\d+\.\d+\.\d+)(?:\s|$)/)?.[1];
   const output = await captureClaudeStartHookWhenPresent({

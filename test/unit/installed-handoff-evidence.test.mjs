@@ -94,6 +94,10 @@ test('live receipt requires two acknowledged role wakes and records normal commi
     );
     operations.push(operation.operation_id);
   }
+  writeFileSync(
+    path.join(workspace, 'wake/operations', '.in-progress.json.tmp'),
+    'incomplete atomic write'
+  );
   const receipt = await inspectInstalledHandoff(input);
   assert.equal(receipt.commit_mode, 'normal');
   assert.equal(receipt.outcome, 'two-way-acknowledged');

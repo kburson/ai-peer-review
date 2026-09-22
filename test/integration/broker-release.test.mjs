@@ -1,6 +1,6 @@
 // cspell:words nodedir DACL pwsh LiteralPath AccessRuleProtection
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
 import { fixtureStartupDeps, loadLegacyAuthority } from '../helpers/internal-api.mjs';
 import { identity, NOW } from '../helpers/intervention-fixture.mjs';
@@ -87,15 +88,67 @@ function projectFixture(scratch) {
 }
 
 test('installed release preserves legacy recovery, isolated brokers and pinned runtime closure', async (t) => {
-  mkdirSync(path.join(root, '.scratch/test'), { recursive: true });
-  const scratch = realpathSync(mkdtempSync(path.join(root, '.scratch/test/apr-release-')));
+  if (!process.env.APR_RELEASE_TEST_ROOT) {
+    mkdirSync(path.join(root, '.scratch/test'), { recursive: true });
+    const scratch = realpathSync(mkdtempSync(path.join(root, '.scratch/test/apr-release-')));
+    t.after(() =>
+      rmSync(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+    );
+    // A process cannot delete its own loaded native addon on Windows. Keep
+    // installation and all native imports in a child that exits before cleanup.
+    const env = { ...process.env, APR_RELEASE_TEST_ROOT: scratch };
+    delete env.NODE_TEST_CONTEXT;
+    try {
+      const result = await promisify(execFile)(
+        process.execPath,
+        ['--test', fileURLToPath(import.meta.url)],
+        {
+          cwd: root,
+          env,
+          timeout: 180_000,
+          maxBuffer: 4 * 1024 * 1024,
+        }
+      );
+      t.diagnostic(result.stdout);
+    } catch (error) {
+      t.diagnostic(error.stdout ?? 'Installed child produced no test output.');
+      t.diagnostic(error.stderr ?? '');
+      throw error;
+    }
+    return;
+  }
+  const scratch = realpathSync(process.env.APR_RELEASE_TEST_ROOT);
   const live = [];
   const projects = [];
+  const children = [];
   let stopBrokers = async () => {};
   t.after(async () => {
-    await stopBrokers();
-    for (const project of projects) project.cleanup();
-    rmSync(scratch, { recursive: true, force: true });
+    try {
+      await stopBrokers();
+      for (const child of children) {
+        let timer;
+        try {
+          await Promise.race([
+            child.exited,
+            new Promise((_, reject) => {
+              timer = setTimeout(
+                () => reject(new Error('Owned test broker did not exit after stop.')),
+                10_000
+              );
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+    } finally {
+      for (const child of children) {
+        if (child.process.exitCode === null && child.process.signalCode === null)
+          child.process.kill();
+      }
+      await Promise.all(children.map((child) => child.exited));
+      for (const project of projects) project.cleanup();
+    }
   });
   const host = path.join(scratch, 'host');
   mkdirSync(host);
@@ -174,10 +227,42 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     { cwd: host, stdio: 'pipe' }
   );
   assert.equal(securityApi.inspectPlatformSecurity().healthy, true);
-  const platform = { ...securityApi.platformSecurity(), repository: createGitRepository() };
+  const platform = {
+    ...securityApi.platformSecurity(),
+    repository: createGitRepository(),
+    spawn(...args) {
+      const process = spawn(...args);
+      const exited = new Promise((resolve) => {
+        process.once('exit', resolve);
+        process.once('error', resolve);
+      });
+      children.push({ process, exited });
+      return process;
+    },
+  };
   if (process.platform === 'win32') {
     const { readBrokerBootstrap } = await load('bin/peer-review-broker.mjs');
     verifyWindowsBootstrapSecurity(scratch, platform, readBrokerBootstrap);
+  }
+  const idleIdentity = canonicalProjectIdentity({ cwd: projects[0].root, platform });
+  const idlePaths = brokerPaths({
+    identity: idleIdentity,
+    platform,
+    env: process.env,
+    home: os.homedir(),
+  });
+  for (const directory of idlePaths.endpointDirectories)
+    platform.openPrivateDirectory(directory).close();
+  const idleEndpoint = platform.listenPrivate(idlePaths.endpoint);
+  try {
+    const before = performance.now();
+    assert.throws(() => idleEndpoint.accept(), { code: 'APR_BROKER_START_FAILED' });
+    assert.ok(
+      performance.now() - before < 500,
+      'idle native accept must yield for provider stream processing'
+    );
+  } finally {
+    idleEndpoint.close();
   }
   const image = pinRuntimeImage({
     packageRoot: installed,
@@ -189,6 +274,48 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     broker_protocol_version: 1,
     node_major: Number(process.versions.node.split('.')[0]),
   };
+  const fixtureHome = path.join(scratch, 'provider-home');
+  mkdirSync(path.join(fixtureHome, 'Library/Caches'), { recursive: true });
+  mkdirSync(path.join(fixtureHome, '.cache'), { recursive: true });
+  const preload = pathToFileURL(
+    path.join(root, 'test/helpers/installed-provider/preload.mjs')
+  ).href;
+  const scenarioEnv = {
+    ...process.env,
+    HOME: fixtureHome,
+    AI_PEER_REVIEW_ENDPOINT_ROOT: brokerPaths({
+      identity: { digest: 'a'.repeat(64) },
+      platform,
+      env: process.env,
+      home: os.homedir(),
+    }).endpointRoot,
+    USERPROFILE: fixtureHome,
+    CODEX_THREAD_ID: 'parent-session-must-not-leak',
+    CODEX_MODEL_ID: 'parent-model-must-not-leak',
+    APR_CODEX_HOOK_TOKEN: 'parent-hook-must-not-leak',
+    NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${preload}`,
+    APR_FIXTURE_PACKAGE: installed,
+    APR_FIXTURE_IMAGE: JSON.stringify(image),
+    APR_FIXTURE_CALLS: path.join(scratch, 'provider-calls.txt'),
+    APR_FIXTURE_BROKER_LOG: path.join(scratch, 'automatic-broker.log'),
+    APR_PROVIDER_DEADLINE_MS: String(Date.now() + 90_000),
+  };
+  try {
+    const automatic = await promisify(execFile)(
+      process.execPath,
+      [path.join(root, 'test/helpers/installed-provider/scenario.mjs')],
+      {
+        cwd: host,
+        env: scenarioEnv,
+        timeout: 100_000,
+        maxBuffer: 4 * 1024 * 1024,
+      }
+    );
+    t.diagnostic(automatic.stdout);
+  } catch (error) {
+    t.diagnostic(error.stderr ?? 'Installed automatic fixture failed without stderr.');
+    throw error;
+  }
   stopBrokers = async () => {
     for (const { project, paths, workspace } of live) {
       if (workspace) {

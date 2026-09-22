@@ -569,6 +569,8 @@ bool VerifyEndpoint(void* value) { return static_cast<Endpoint*>(value)->handle 
 bool CloseEndpoint(void* value) { auto* endpoint = static_cast<Endpoint*>(value); const bool valid = VerifyEndpoint(value); CloseHandle(endpoint->handle); delete endpoint; return valid; }
 void AbandonEndpoint(void* value) { auto* endpoint = static_cast<Endpoint*>(value); CloseHandle(endpoint->handle); delete endpoint; }
 
+// Idle accept must yield promptly so provider streams and coordinator timers run.
+// Keep the full IPC timeout for reads/writes on an established connection.
 void* AcceptPrivate(void* value, std::string* code, std::string* message) {
   auto* endpoint = static_cast<Endpoint*>(value);
   if (!VerifyEndpoint(value)) {
@@ -580,7 +582,7 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
     Fail(code, message, "APR_BROKER_START_FAILED", "Named-pipe accept cannot be bounded.");
     return nullptr;
   }
-  const ULONGLONG deadline = GetTickCount64() + kIpcTimeoutMilliseconds;
+  const ULONGLONG deadline = GetTickCount64() + 25;
   bool connected = false;
   while (!connected) {
     connected = ConnectNamedPipe(endpoint->handle, nullptr) != 0;

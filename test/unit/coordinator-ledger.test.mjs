@@ -112,3 +112,25 @@ test('rejects symlinked wake storage and malformed immutable bytes', (t) => {
     (error) => error.code === 'APR_WAKE_LEDGER_INVALID'
   );
 });
+
+test('readers ignore an unfinished atomic outcome write but still reject malformed committed names', (t) => {
+  const root = workspace(t);
+  const operation = reserveWakeOperation(root, decision(), NOW);
+  const directory = path.join(root, 'wake/outcomes', operation.operation_id.slice(7));
+  mkdirSync(directory, { recursive: true });
+  const temporary = path.join(directory, '.000001.json.11111111-1111-4111-8111-111111111111.tmp');
+  writeFileSync(temporary, 'unfinished');
+  assert.equal(readWakeOperation(root, operation.operation_id).status, 'reserved');
+  const acknowledged = appendWakeOutcome(
+    root,
+    operation.operation_id,
+    { status: 'acknowledged', reason: 'completed' },
+    NOW
+  );
+  assert.equal(acknowledged.outcomes.length, 1);
+  assert.equal(readFileSync(temporary, 'utf8'), 'unfinished');
+  writeFileSync(path.join(directory, '000003.json'), '{}');
+  assert.throws(() => readWakeOperation(root, operation.operation_id), {
+    code: 'APR_WAKE_LEDGER_INVALID',
+  });
+});

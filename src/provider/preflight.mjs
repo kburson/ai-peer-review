@@ -55,6 +55,17 @@ export const PROVIDER_IDENTITY_ENVIRONMENT_KEYS = Object.freeze([
   'GROK_MODEL_ID',
 ]);
 
+export function withoutProviderIdentity(env) {
+  const child = { ...env };
+  for (const key of [
+    ...PROVIDER_IDENTITY_ENVIRONMENT_KEYS,
+    'APR_CLAUDE_HOOK_TOKEN',
+    'APR_CODEX_HOOK_TOKEN',
+  ])
+    delete child[key];
+  return child;
+}
+
 function fail(code, message, recovery, details = {}, cause = null) {
   const error = new AprError(code, message, { recovery, details });
   if (cause) error.cause = cause;

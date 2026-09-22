@@ -118,7 +118,7 @@ test('Claude production adapter refuses an unpinned installed CLI version', asyn
     Array.from({ length: 2 }, () => ({
       file: 'claude',
       args: ['--version'],
-      options: { shell: false, encoding: 'utf8' },
+      options: { shell: false, encoding: 'utf8', timeout: 30_000, killSignal: 'SIGKILL' },
     }))
   );
 });

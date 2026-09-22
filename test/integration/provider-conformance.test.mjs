@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync, spawn } from 'node:child_process';
@@ -539,7 +540,15 @@ test('Claude stream observation is persisted before the provider process exits',
   ].join('');
   const child = spawn(
     process.execPath,
-    ['-e', script, path.join(workspace, 'provider/claude/observations/join:stream-process.json')],
+    [
+      '-e',
+      script,
+      path.join(
+        workspace,
+        'provider/claude/observations',
+        `${createHash('sha256').update('join:stream-process').digest('hex')}.json`
+      ),
+    ],
     {
       stdio: ['ignore', 'pipe', 'pipe'],
     }

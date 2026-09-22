@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { withoutProviderIdentity } from '../../src/provider/preflight.mjs';
 // Opt-in release gate. Provider output stays in a private disposable directory.
 import { createHash } from 'node:crypto';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -14,6 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { spawnProviderProcess } from '../../src/providers/process-lifetime.mjs';
 import { inspectInstalledHandoff } from '../helpers/installed-handoff-evidence.mjs';
 
 const args = process.argv.slice(2);
@@ -24,7 +26,11 @@ if (args.length !== 2 || args[0] !== '--provider' || selected !== 'claude') {
 const root = realpathSync(fileURLToPath(new URL('../..', import.meta.url)));
 execFileSync('git', ['diff', '--exit-code', '--quiet', 'HEAD', '--'], { cwd: root });
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
-const surface = execFileSync('claude', ['--version'], { encoding: 'utf8' }).trim();
+const surface = execFileSync('claude', ['--version'], {
+  encoding: 'utf8',
+  timeout: 30_000,
+  killSignal: 'SIGKILL',
+}).trim();
 if (!surface.startsWith('2.1.278 '))
   throw new Error('APR_LIVE_PROVIDER_UNAVAILABLE: installed Claude surface changed.');
 const scratch = mkdtempSync(path.join(os.tmpdir(), 'apr-installed-handoff-'));
@@ -89,14 +95,15 @@ writeFileSync(
 git('add', '.gitignore', '.claude/settings.json', 'docs/spec.md');
 git('commit', '-m', 'test: pin tiny broker handoff spec');
 
-const env = { ...process.env };
+const deadline = Date.now() + 12 * 60_000;
+const env = { ...withoutProviderIdentity(process.env), APR_PROVIDER_DEADLINE_MS: String(deadline) };
 for (const key of ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX'])
   delete env[key];
 const command =
   'npx peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort low --transport-mode automatic-required --max-turns 2';
 const prompt = `Run exactly this command once: ${command}. Then stop. This is a bounded review of a disposable tiny specification. Do not retry a provider or broker error.`;
 const providerLog = path.join(scratch, 'author-stream.jsonl');
-const child = spawn(
+const lifetime = spawnProviderProcess(
   'claude',
   [
     '-p',
@@ -118,6 +125,7 @@ const child = spawn(
   ],
   { cwd: host, env, stdio: ['ignore', 'pipe', 'pipe'] }
 );
+const { child } = lifetime;
 let providerBytes = 0;
 let providerErrorBytes = 0;
 child.stdout.on('data', (data) => {
@@ -131,13 +139,7 @@ child.stderr.on('data', (data) => {
   if (providerErrorBytes <= 1024 * 1024)
     writeFileSync(path.join(scratch, 'author-stderr.log'), data, { flag: 'a', mode: 0o600 });
 });
-const deadline = Date.now() + 12 * 60_000;
-const timer = setTimeout(() => child.kill(), Math.max(1, deadline - Date.now()));
-const exit = await new Promise((resolve, reject) => {
-  child.once('error', reject);
-  child.once('close', resolve);
-});
-clearTimeout(timer);
+const exit = await lifetime.wait();
 if (exit !== 0)
   throw new Error(`APR_LIVE_AUTHOR_FAILED: exit ${exit}; private evidence ${scratch}`);
 

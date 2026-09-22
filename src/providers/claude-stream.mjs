@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
+import { spawnProviderProcess } from './process-lifetime.mjs';
 
 export function createClaudeStreamingExec({ recorder, spawnProcess = spawn } = {}) {
   return async (file, args, options = {}) => {
@@ -12,20 +14,25 @@ export function createClaudeStreamingExec({ recorder, spawnProcess = spawn } = {
     const streamArgs = [...args];
     streamArgs[index + 1] = 'stream-json';
     if (!streamArgs.includes('--verbose')) streamArgs.push('--verbose');
-    const child = spawnProcess(file, streamArgs, {
-      cwd: options.cwd,
-      env: options.env,
-      shell: false,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return collectClaudeStream({ child, recorder });
+    const lifetime = spawnProviderProcess(
+      file,
+      streamArgs,
+      {
+        cwd: options.cwd,
+        env: options.env,
+        shell: false,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+      spawnProcess
+    );
+    return collectClaudeStream({ child: lifetime.child, recorder, lifetime });
   };
 }
 
 import { AprError } from '../errors.mjs';
 import { atomicWrite } from '../protocol/store.mjs';
 
-export async function collectClaudeStream({ child, recorder } = {}) {
+export async function collectClaudeStream({ child, recorder, lifetime } = {}) {
   if (!child?.stdout || !child?.stderr || typeof recorder?.accept !== 'function')
     invalid('Claude stream process is incomplete.');
   let stderr = '';
@@ -49,11 +56,13 @@ export async function collectClaudeStream({ child, recorder } = {}) {
       recorder.accept(event);
       if (event?.type === 'result') result = event;
     }
-    const exitCode = await new Promise((resolve, reject) => {
-      if (child.exitCode !== null) return resolve(child.exitCode);
-      child.once('error', reject);
-      child.once('close', resolve);
-    });
+    const exitCode = lifetime
+      ? await lifetime.wait()
+      : await new Promise((resolve, reject) => {
+          if (child.exitCode !== null) return resolve(child.exitCode);
+          child.once('error', reject);
+          child.once('close', resolve);
+        });
     if (!result) invalid('Claude stream has no terminal result.');
     return Object.freeze({
       stdout: JSON.stringify(result),
@@ -61,7 +70,8 @@ export async function collectClaudeStream({ child, recorder } = {}) {
       exit_code: Number.isInteger(exitCode) ? exitCode : 1,
     });
   } catch (cause) {
-    child.kill();
+    if (lifetime) await lifetime.stop();
+    else child.kill();
     throw cause;
   }
 }
@@ -79,7 +89,13 @@ function observationFile(workspace, operationId) {
     !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(operationId ?? '')
   )
     invalid('Claude stream observation location is invalid.');
-  return path.join(workspace, 'provider', 'claude', 'observations', `${operationId}.json`);
+  return path.join(
+    workspace,
+    'provider',
+    'claude',
+    'observations',
+    `${createHash('sha256').update(operationId).digest('hex')}.json`
+  );
 }
 
 export function createClaudeStreamRecorder({ workspace, operationId, expectedCommand } = {}) {
@@ -190,7 +206,15 @@ export function createClaudeWakeRecorder({ sessionId, expectedModel } = {}) {
 }
 
 export function readClaudeStreamObservation({ workspace, operationId, handleLocator } = {}) {
-  const file = observationFile(workspace, operationId);
+  let file = observationFile(workspace, operationId);
+  // Existing Unix observations retain their exact original bytes. Never use
+  // legacy colon paths on Windows (alternate streams), or bypass an unsafe new file.
+  try {
+    lstatSync(file);
+  } catch (error) {
+    if (error.code === 'ENOENT' && process.platform !== 'win32')
+      file = path.join(workspace, 'provider', 'claude', 'observations', `${operationId}.json`);
+  }
   let observed;
   try {
     const stat = lstatSync(file);
@@ -337,6 +361,7 @@ export function readClaudeWakeOutcome({
   let matchingPrompts = 0;
   let awaitingAssistant = false;
   let completed = false;
+  const pendingTools = new Set();
   for (const line of lines) {
     let entry;
     try {
@@ -349,6 +374,20 @@ export function readClaudeWakeOutcome({
       invalid('Claude wake transcript contains a mismatched session message.');
     if (entry.type === 'user') {
       const content = entry.message?.content;
+      // Claude records tool responses as user messages inside the same turn.
+      // Only results for this wake's pending calls can continue that turn.
+      if (
+        awaitingAssistant &&
+        Array.isArray(content) &&
+        content.length > 0 &&
+        content.every((part) => part?.type === 'tool_result')
+      ) {
+        const ids = content.map((part) => part.tool_use_id);
+        if (new Set(ids).size === ids.length && ids.every((id) => pendingTools.has(id))) {
+          for (const id of ids) pendingTools.delete(id);
+          continue;
+        }
+      }
       const prompt =
         typeof content === 'string'
           ? content
@@ -362,15 +401,23 @@ export function readClaudeWakeOutcome({
         matchingPrompts += 1;
         awaitingAssistant = true;
         completed = false;
+        pendingTools.clear();
       } else if (awaitingAssistant) {
         awaitingAssistant = false;
+        pendingTools.clear();
       }
       continue;
     }
     if (!awaitingAssistant) continue;
     if (entry.message?.model !== expectedModel) invalid('Claude wake model changed in transcript.');
+    for (const part of Array.isArray(entry.message?.content) ? entry.message.content : []) {
+      if (part?.type !== 'tool_use') continue;
+      if (typeof part.id !== 'string' || !part.id || pendingTools.has(part.id))
+        invalid('Claude wake tool call identity is missing or repeated.');
+      pendingTools.add(part.id);
+    }
     if (entry.message?.stop_reason === 'end_turn') {
-      completed = true;
+      completed = pendingTools.size === 0;
       awaitingAssistant = false;
     }
   }

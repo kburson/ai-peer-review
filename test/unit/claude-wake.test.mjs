@@ -41,6 +41,69 @@ function entry(type, content, at = '2026-09-21T18:00:00.000Z') {
   };
 }
 
+function toolCall(id) {
+  const value = entry('assistant', [
+    { type: 'tool_use', id, name: 'Bash', input: { command: 'peer-review resume /fixture' } },
+  ]);
+  value.message.stop_reason = 'tool_use';
+  return value;
+}
+
+function toolResult(id) {
+  return entry('user', [{ type: 'tool_result', tool_use_id: id, content: 'submitted' }]);
+}
+
+function outcome(location) {
+  return readClaudeWakeOutcome({
+    ...location,
+    sessionId: SESSION,
+    wakeOperationId: OPERATION,
+    capsuleDigest: DIGEST,
+    expectedModel: 'claude-opus-5',
+  });
+}
+
+test('Claude wake remains correlated across multiple tool-use and tool-result exchanges', (t) => {
+  const location = fixture(t, [
+    entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`),
+    toolCall('resume-call'),
+    toolResult('resume-call'),
+    toolCall('submit-call'),
+    toolResult('submit-call'),
+    entry('assistant', 'completed the requested role action'),
+  ]);
+  assert.deepEqual(outcome(location), { status: 'acknowledged', reason: 'provider-terminal-turn' });
+});
+
+test('Claude wake never attributes an unrelated or incomplete tool exchange to its operation', (t) => {
+  const prompt = entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`);
+  const terminal = entry('assistant', 'done');
+  for (const exchange of [
+    [toolResult('unknown-call'), terminal],
+    [toolCall('call'), toolResult('different-call'), terminal],
+    [toolCall('call'), terminal],
+    [toolCall('call'), toolResult('call'), toolResult('call'), terminal],
+    [toolCall('call'), entry('user', 'a different request'), toolResult('call'), terminal],
+  ]) {
+    assert.equal(outcome(fixture(t, [prompt, ...exchange])).status, 'outcome-unknown');
+  }
+});
+
+test('Claude wake rejects changed session/model and duplicate markers through tool exchanges', (t) => {
+  const prompt = entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`);
+  const terminal = entry('assistant', 'done');
+  for (const extra of [
+    { ...terminal, message: { ...terminal.message, model: 'claude-sonnet-5' } },
+    { ...terminal, sessionId: '22222222-2222-4222-8222-222222222222' },
+    prompt,
+  ]) {
+    assert.throws(
+      () => outcome(fixture(t, [prompt, toolCall('call'), toolResult('call'), extra])),
+      { code: 'APR_CLAUDE_SESSION_INVALID' }
+    );
+  }
+});
+
 test('Claude transcript acknowledges exactly one completed marked wake in the bound session', (t) => {
   const marker = `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`;
   const location = fixture(t, [
@@ -119,9 +182,19 @@ test('Claude wake requires live stream initialization and assistant model for on
 
 test('Claude surface resumes only the bound session and acknowledges its streamed terminal turn', async (t) => {
   const location = fixture(t, [entry('assistant', [{ type: 'text', text: 'ready' }])]);
+  mkdirSync(location.projectRoot);
   const surface = createClaudeProviderSurface({
     claudeHome: location.claudeHome,
     execFile: async () => ({ stdout: '2.1.278 (Claude Code)\n' }),
+    inspectWakeAuthority: () => ({
+      state: {
+        protocol: {
+          current_actor: 'reviewer',
+          startup: { context: { repository_root: location.projectRoot } },
+        },
+      },
+      status: { paths: { response: path.join(location.projectRoot, 'response.md') } },
+    }),
     runWake: async (args, { recorder }) => {
       assert.equal(args[args.indexOf('--resume') + 1], SESSION);
       assert.equal(args[args.indexOf('--model') + 1], 'claude-opus-5');
@@ -153,7 +226,7 @@ test('Claude surface resumes only the bound session and acknowledges its streame
       capsuleDigest: DIGEST,
       capsule: { review_id: 'review-01', next_command: 'peer-review resume /tmp/review-01' },
       projectRoot: location.projectRoot,
-      workspace: '/tmp/review-01',
+      workspace: location.projectRoot,
     }),
     { status: 'acknowledged', reason: 'provider-terminal-turn' }
   );

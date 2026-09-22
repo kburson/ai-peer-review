@@ -1,3 +1,5 @@
+import { withoutProviderIdentity } from '../provider/preflight.mjs';
+import { remainingProviderTime } from './process-lifetime.mjs';
 import { createProviderAdapter, registerProductionProviderAdapter } from './registry.mjs';
 import { execFile as execFileCallback } from 'node:child_process';
 import { lstatSync, readFileSync } from 'node:fs';
@@ -8,11 +10,12 @@ import { AprError } from '../errors.mjs';
 import { readClaudeStartHook, readClaudeStartHookForSession } from './claude-hook.mjs';
 import {
   buildClaudeReviewerLaunch,
+  buildClaudeWakePermissions,
   buildClaudeReviewerResume,
   claudeJoinCommand,
   runClaudeReviewerLaunch,
 } from '../provider/claude-launch.mjs';
-import { inspectReview } from '../protocol/service.mjs';
+import { inspectReview, statusReview } from '../protocol/service.mjs';
 import {
   createClaudeStreamRecorder,
   createClaudeWakeRecorder,
@@ -104,10 +107,19 @@ export function createClaudeProviderSurface(options = {}) {
     runWake,
     spawnProcess,
     claudeHome,
+    inspectWakeAuthority = (workspace) => ({
+      state: inspectReview(workspace),
+      status: statusReview(workspace),
+    }),
   } = options;
   let heartbeat = 0;
   const version = async () => {
-    const result = await execute('claude', ['--version'], { shell: false, encoding: 'utf8' });
+    const result = await execute('claude', ['--version'], {
+      shell: false,
+      encoding: 'utf8',
+      timeout: remainingProviderTime(),
+      killSignal: 'SIGKILL',
+    });
     const observed = String(result.stdout ?? '').match(/^(\d+\.\d+\.\d+)(?:\s|$)/)?.[1];
     if (!observed)
       throw new AprError('APR_CLAUDE_SESSION_INVALID', 'Claude version cannot be attested.', {
@@ -152,7 +164,7 @@ export function createClaudeProviderSurface(options = {}) {
     const contract = Object.freeze({
       ...base,
       environment: Object.freeze({
-        ...process.env,
+        ...withoutProviderIdentity(process.env),
         CLAUDE_MODEL_ID: base.model,
         CLAUDE_MODEL_DISPLAY: base.model,
       }),
@@ -228,7 +240,12 @@ export function createClaudeProviderSurface(options = {}) {
       });
     },
     async available() {
-      await execute('claude', ['--version'], { shell: false, encoding: 'utf8' });
+      await execute('claude', ['--version'], {
+        shell: false,
+        encoding: 'utf8',
+        timeout: remainingProviderTime(),
+        killSignal: 'SIGKILL',
+      });
       return true;
     },
     version,
@@ -378,11 +395,21 @@ export function createClaudeProviderSurface(options = {}) {
         sessionId: binding.handle_locator,
         expectedModel: binding.model_id,
       });
+      const permissions = buildClaudeWakePermissions({
+        workspace,
+        role: binding.role,
+        ...inspectWakeAuthority(workspace),
+      });
       const prompt = [
         `APR_WAKE_OPERATION ${wakeOperationId} ${capsuleDigest}`,
         `Resume your ${binding.role} role for review ${capsule.review_id}.`,
         `Run ${capsule.next_command} and complete the next documented action.`,
         'Use the review workspace as the authority; preserve its exact issue and participant identity.',
+        ...(binding.role === 'author'
+          ? [
+              'If no artifact edit is needed, submit with --no-artifact-change --reason \"No artifact change is required for this response.\".',
+            ]
+          : []),
       ].join('\n');
       const args = [
         '-p',
@@ -395,6 +422,8 @@ export function createClaudeProviderSurface(options = {}) {
         'dontAsk',
         '--model',
         binding.model_id,
+        '--allowedTools',
+        ...permissions,
       ];
       const execution = await (
         runWake ??
@@ -402,7 +431,7 @@ export function createClaudeProviderSurface(options = {}) {
           createClaudeStreamingExec({ recorder: context.recorder, spawnProcess })(
             'claude',
             values,
-            { cwd: context.projectRoot, env: process.env }
+            { cwd: context.projectRoot, env: withoutProviderIdentity(process.env) }
           ))
       )(args, { recorder, projectRoot, workspace });
       if (execution?.exit_code !== 0) return { status: 'outcome-unknown', reason: 'provider-exit' };
