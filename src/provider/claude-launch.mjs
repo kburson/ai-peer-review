@@ -12,6 +12,11 @@ import { atomicWrite } from '../protocol/store.mjs';
 const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
 const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
 const EFFORTS = new Set(['low', 'medium', 'high']);
+const PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
+
+function packageCommand(verb, target) {
+  return [process.execPath, PACKAGE_BIN, verb, target];
+}
 
 function fail(message, recovery, details = {}) {
   throw new AprError('APR_CLAUDE_PERMISSION_INVALID', message, { recovery, details });
@@ -131,7 +136,7 @@ function renderClaudeBashCommand(argv) {
 }
 
 export function claudeJoinCommand(contract) {
-  return renderClaudeBashCommand(['peer-review', 'join', contract?.invitation]);
+  return renderClaudeBashCommand(packageCommand('join', contract?.invitation));
 }
 
 function encodeClaudeBashRule(argv) {
@@ -434,12 +439,12 @@ export function buildClaudeReviewerLaunch({
     );
   }
   const rule = encodeClaudeEditRule(response.absolute);
-  const invitationCommandPath = portableCommandPath(resolvedInvitation.absolute, 'invitation');
-  const workspaceCommandPath = portableCommandPath(workspace.absolute, 'workspace');
-  const joinCommand = renderCommand(['peer-review', 'join', invitationCommandPath]);
-  const submitCommand = renderCommand(['peer-review', 'submit', workspaceCommandPath]);
-  const joinRule = encodeClaudeBashRule(['peer-review', 'join', invitationCommandPath]);
-  const submitRule = encodeClaudeBashRule(['peer-review', 'submit', workspaceCommandPath]);
+  const join = packageCommand('join', resolvedInvitation.absolute);
+  const submit = packageCommand('submit', workspace.absolute);
+  const joinCommand = renderClaudeBashCommand(join);
+  const submitCommand = renderClaudeBashCommand(submit);
+  const joinRule = encodeClaudeBashRule(join);
+  const submitRule = encodeClaudeBashRule(submit);
   const badRule = `Edit(${response.absolute})`;
   const neighbor = path.join(path.dirname(response.absolute), 'reviewer-response-2.md');
   const readiness = Object.freeze({

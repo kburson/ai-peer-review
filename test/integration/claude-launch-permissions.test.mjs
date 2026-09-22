@@ -11,6 +11,7 @@ import test from 'node:test';
 
 import {
   buildClaudeReviewerLaunch,
+  claudeJoinCommand,
   classifyClaudeReviewerOutcome,
   matchesClaudeEditRule,
 } from '../../src/provider/claude-launch.mjs';
@@ -171,14 +172,15 @@ test('reproduces single-slash denial then submits from the same corrected Claude
     model: 'claude-opus-5',
     effort: 'high',
   });
-  const invitationCommandPath = started.paths.reviewer_invitation.replaceAll('\\', '/');
   const workspaceCommandPath = started.paths.workspace.replaceAll('\\', '/');
+  assert.equal(contract.permissions.allow.includes(`Bash(${claudeJoinCommand(contract)})`), true);
   assert.equal(
-    contract.permissions.allow.includes(`Bash(peer-review join ${invitationCommandPath})`),
-    true
-  );
-  assert.equal(
-    contract.permissions.allow.includes(`Bash(peer-review submit ${workspaceCommandPath})`),
+    contract.permissions.allow.some(
+      (rule) =>
+        rule.startsWith('Bash(') &&
+        rule.includes('peer-review.mjs submit ') &&
+        rule.includes(workspaceCommandPath)
+    ),
     true
   );
   const reviewer = identity('reviewer', 'same-claude-session');

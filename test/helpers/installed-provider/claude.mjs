@@ -148,6 +148,18 @@ if (initial) {
   result('start-call');
 } else {
   const ws = workspace();
+  const { renderCommand } = await import(
+    pathToFileURL(path.join(installed, 'src/cli/help-data.mjs'))
+  );
+  const image = JSON.parse(process.env.APR_FIXTURE_IMAGE);
+  const pinned = [image.nodeExecutable, path.join(image.root, 'package/bin/peer-review.mjs')];
+  const runPinned = (argv) =>
+    execFileSync(pinned[0], [pinned[1], ...argv], {
+      cwd: root,
+      env,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
   if (!resume) {
     const { inspectReview } = await import(
       pathToFileURL(path.join(installed, 'src/protocol/service.mjs'))
@@ -158,11 +170,20 @@ if (initial) {
       destination,
       readdirSync(destination).find((name) => name.endsWith('-reviewer-invitation.md'))
     );
-    const { claudeJoinCommand } = await import(
-      pathToFileURL(path.join(installed, 'src/provider/claude-launch.mjs'))
+    const joinRules = args.filter(
+      (value) =>
+        value.startsWith('Bash(') && value.endsWith(')') && value.includes('peer-review.mjs join ')
     );
-    const joinCommand = claudeJoinCommand({ invitation });
-    assert.ok(args.includes(`Bash(${joinCommand})`));
+    assert.equal(joinRules.length, 1);
+    const joinCommand = joinRules[0].slice(5, -1);
+    assert.equal(
+      joinCommand,
+      renderCommand(
+        [...pinned, 'join', invitation].map((part) => part.replaceAll('\\', '/')),
+        { platform: 'linux' }
+      )
+    );
+    assert.ok(prompt.includes(joinCommand));
     tool('join-call', joinCommand);
     const { readClaudeStreamObservation } = await import(
       pathToFileURL(path.join(installed, 'src/providers/claude-stream.mjs'))
@@ -180,18 +201,13 @@ if (initial) {
       }
     }
     assert.ok(observed, 'real broker must record the join stream promptly');
-    cli(['join', invitation]);
+    runPinned(['join', invitation]);
     result('join-call');
   }
-  const { renderCommand } = await import(
-    pathToFileURL(path.join(installed, 'src/cli/help-data.mjs'))
-  );
   const allow = args.slice(args.indexOf('--allowedTools') + 1);
-  const image = JSON.parse(process.env.APR_FIXTURE_IMAGE);
-  const pinned = [image.nodeExecutable, path.join(image.root, 'package/bin/peer-review.mjs')];
   const commandFor = (argv) =>
     renderCommand(
-      [...(resume ? pinned : ['peer-review']), ...argv].map((part) => part.replaceAll('\\', '/')),
+      [...pinned, ...argv].map((part) => part.replaceAll('\\', '/')),
       { platform: 'linux' }
     );
   // This models exact grants, not Claude's real permission engine. Execute the
@@ -223,14 +239,7 @@ if (initial) {
         encoding: 'utf8',
         timeout: 30_000,
       });
-    else if (resume)
-      execFileSync(pinned[0], [pinned[1], ...argv], {
-        cwd: root,
-        env,
-        encoding: 'utf8',
-        timeout: 30_000,
-      });
-    else cli(argv);
+    else runPinned(argv);
     result(id);
   };
   if (resume) {
