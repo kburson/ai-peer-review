@@ -115,6 +115,8 @@ jobs:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
         run: npm test
       - run: npm run test:integration
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
       - run: npm run test:smoke
@@ -148,6 +150,8 @@ jobs:
       - *offline-broker
       - run: npm test
       - run: npm run test:integration
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
       - run: npm run test:smoke
@@ -202,6 +206,8 @@ jobs:
       - run: npm ls --omit=dev --json
       - run: npm test
       - run: npm run test:integration
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
       - run: npm run test:smoke

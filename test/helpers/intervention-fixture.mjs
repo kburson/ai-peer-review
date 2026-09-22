@@ -1,7 +1,7 @@
 import { fixtureSelection, fixtureStartupDeps, fixtureObservation } from './internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash, createPrivateKey, createPublicKey, sign } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -13,7 +13,7 @@ import { participantIdentity } from '../../src/identity/registry.mjs';
 export const NOW = '2026-09-09T02:00:00.000Z';
 
 export function fixture() {
-  const root = mkdtempSync(path.join(tmpdir(), 'apr-intervention-'));
+  const root = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'apr-intervention-')));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });

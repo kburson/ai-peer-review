@@ -298,7 +298,7 @@ test('offline broker status reads project-local startup evidence without a test 
   const projectRoot = mkdtempSync(path.join(tmpdir(), 'apr-broker-offline-'));
   t.after(() => rmSync(projectRoot, { recursive: true, force: true }));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: projectRoot, stdio: 'ignore' });
-  const physicalRoot = realpathSync(projectRoot);
+  const physicalRoot = realpathSync.native(projectRoot);
   const workspace = path.join(physicalRoot, '.scratch', 'peer-review', 'review-01');
   const registrations = path.join(
     physicalRoot,
@@ -331,7 +331,12 @@ test('offline broker status survives a real missing native security helper witho
   const projectRoot = mkdtempSync(path.join(tmpdir(), 'apr-broker-native-offline-'));
   t.after(() => rmSync(projectRoot, { recursive: true, force: true }));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: projectRoot, stdio: 'ignore' });
-  const workspace = path.join(realpathSync(projectRoot), '.scratch', 'peer-review', 'review-01');
+  const workspace = path.join(
+    realpathSync.native(projectRoot),
+    '.scratch',
+    'peer-review',
+    'review-01'
+  );
   const registrations = path.join(
     projectRoot,
     '.scratch',

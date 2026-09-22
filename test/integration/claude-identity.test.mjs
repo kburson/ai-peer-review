@@ -1,7 +1,15 @@
 import { fixtureStartupDeps, fixtureObservation } from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -11,7 +19,7 @@ import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { statusReview } from '../helpers/internal-api.mjs';
 
 function fixture({ configured = true } = {}) {
-  const root = mkdtempSync(path.join(os.tmpdir(), 'apr-claude-identity-'));
+  const root = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), 'apr-claude-identity-')));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });

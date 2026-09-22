@@ -312,6 +312,12 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.match(ci, /&warm-broker\s+name: Warm npm cache for packed release/);
   assert.ok(preferredNode.indexOf('*warm-broker') < preferredNode.indexOf('*offline-broker'));
   const offline = namedStep('Build and verify installed broker without network');
+  const integrationSteps = [
+    ...ci.matchAll(/- run: npm run test:integration\n([\s\S]*?)(?=\n      -)/g),
+  ];
+  assert.equal(integrationSteps.length, 3);
+  for (const step of integrationSteps)
+    assert.match(step[1], /APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp/);
   for (const gate of [
     'unshare --net',
     'sandbox-exec',
