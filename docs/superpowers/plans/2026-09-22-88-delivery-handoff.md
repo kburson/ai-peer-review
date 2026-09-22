@@ -61,7 +61,7 @@ The systemic gap is that earlier tests covered clean startup, graceful shutdown,
 - `src/broker/{launch,worker,worker-factory,provider-bridge}.mjs`, `src/providers/registry.mjs`: retain pre/post-join pending/unknown launches without wakes; independently reopen joined binding; reconcile only exact durable adapter acknowledgement; missing evidence stays unknown without relaunch; original settlement preserves concurrent exact acknowledgement.
 - `native/broker-security/{posix,windows}.cc`: preserve POSIX ENOENT/ECONNREFUSED, including asynchronous SO_ERROR; Windows maps only ERROR_FILE_NOT_FOUND to ENOENT. Other failures remain closed. Native patch independently reviewed, Mac compiled/missing-endpoint assertion passed; Windows not yet run.
 - `test/helpers/installed-provider/{claude,scenario,restart-scenario}.mjs`, `test/integration/broker-release.test.mjs`: stronger synthetic permission model, actual local npx, Skill metadata, repeated cold startup, and actual owned-broker termination followed by normal client restart. Pending the confirmed ownership blocker, the crash scenario has never fully passed.
-- New contract document: `docs/conformance/2026-09-21-88-managed-turn-contract.md`.
+- New contract document: `docs/superpowers/conformance/2026-09-21-88-managed-turn-contract.md`.
 
 ## Verification limits
 
