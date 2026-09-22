@@ -444,7 +444,10 @@ bool DirectoryRead(void* value, const std::string& name, std::vector<unsigned ch
   auto* directory = static_cast<Directory*>(value);
   const auto path = Join(directory->path, name);
   if (path.empty() || !VerifyDirectory(value)) return Fail(code, message, "APR_BROKER_STALE", "Broker resource path or directory identity is unsafe.");
-  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | READ_CONTROL, FILE_SHARE_READ,
+  // Discovery readers must not block the verified dead-owner takeover from
+  // removing metadata while a client polls for the replacement broker.
+  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | READ_CONTROL,
+                              FILE_SHARE_READ | FILE_SHARE_DELETE,
                               nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     const DWORD error = GetLastError();
@@ -494,7 +497,12 @@ bool DirectoryRemove(void* value, const std::string& name, const std::vector<uns
   if (!DirectoryRead(value, name, &observed, &found, code, message)) return false;
   const auto path = Join(directory->path, name);
   if (!found || observed != expected || !VerifyDirectory(value)) return false;
-  if (!DeleteFileW(path.c_str())) return Fail(code, message, "APR_BROKER_STALE", "Verified broker resource could not be removed.");
+  if (!DeleteFileW(path.c_str())) {
+    const DWORD error = GetLastError();
+    return Fail(code, message, "APR_BROKER_STALE",
+                ("Verified broker resource could not be removed (Win32 " +
+                 std::to_string(error) + ").").c_str());
+  }
   return true;
 }
 
