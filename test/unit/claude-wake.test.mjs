@@ -338,9 +338,12 @@ test('Claude surface resumes only the bound session and acknowledges its streame
       },
       status: { paths: { response: path.join(location.projectRoot, 'response.md') } },
     }),
-    runWake: async (args, { recorder }) => {
+    runWake: async (args, { recorder, env }) => {
       assert.equal(args[args.indexOf('--resume') + 1], SESSION);
       assert.equal(args[args.indexOf('--model') + 1], 'claude-opus-5');
+      assert.equal(env.CLAUDE_MODEL_ID, 'claude-opus-5');
+      assert.equal(env.CLAUDE_MODEL_DISPLAY, 'claude-opus-5');
+      assert.equal(env.CLAUDE_CODE_SESSION_ID, undefined);
       recorder.accept({
         type: 'system',
         subtype: 'init',

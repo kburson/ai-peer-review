@@ -77,7 +77,7 @@ const tool = (id, command) =>
   record('assistant', [{ type: 'tool_use', id, name: 'Bash', input: { command } }], 'tool_use');
 const result = (id) =>
   record('user', [{ type: 'tool_result', tool_use_id: id, content: 'completed' }]);
-const env = { ...process.env, CLAUDE_CODE_SESSION_ID: session, CLAUDE_MODEL_ID: 'claude-opus-5' };
+const env = { ...process.env, CLAUDE_CODE_SESSION_ID: session };
 const cli = (argv, extra = {}) => {
   const output = execFileSync(
     process.execPath,

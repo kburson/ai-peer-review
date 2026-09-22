@@ -390,7 +390,7 @@ export function createClaudeProviderSurface(options = {}) {
       workspace,
       projectRoot,
     }) => {
-      await currentSnapshot({ projectRoot, binding });
+      const boundSnapshot = await currentSnapshot({ projectRoot, binding });
       const recorder = createClaudeWakeRecorder({
         sessionId: binding.handle_locator,
         expectedModel: binding.model_id,
@@ -430,6 +430,13 @@ export function createClaudeProviderSurface(options = {}) {
         '--allowedTools',
         ...contract.permissions,
       ];
+      const wakeEnv = {
+        ...withoutProviderIdentity(process.env),
+        CLAUDE_MODEL_ID: boundSnapshot.model_id,
+        CLAUDE_MODEL_DISPLAY: boundSnapshot.model_id,
+        npm_config_offline: 'true',
+        npm_config_yes: 'false',
+      };
       const execution = await (
         runWake ??
         ((values, context) =>
@@ -438,14 +445,10 @@ export function createClaudeProviderSurface(options = {}) {
             values,
             {
               cwd: context.projectRoot,
-              env: {
-                ...withoutProviderIdentity(process.env),
-                npm_config_offline: 'true',
-                npm_config_yes: 'false',
-              },
+              env: context.env,
             }
           ))
-      )(args, { recorder, projectRoot, workspace });
+      )(args, { recorder, projectRoot, workspace, env: wakeEnv });
       if (execution?.exit_code !== 0) return { status: 'outcome-unknown', reason: 'provider-exit' };
       const observed = recorder.confirm();
       if (observed.source_version !== (await version()))
