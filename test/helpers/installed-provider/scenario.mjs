@@ -44,6 +44,8 @@ const platform = {
 };
 const project = canonicalProjectIdentity({ cwd: root, platform });
 let client;
+let stage = 'broker-startup';
+let progress = {};
 try {
   client = await ensureBroker({
     project,
@@ -56,6 +58,7 @@ try {
     },
   });
   await requestBroker(client, 'status');
+  stage = 'author-start';
   const { withoutProviderIdentity } = await load('src/provider/preflight.mjs');
   await promisify(execFile)('claude', ['--fixture-start'], {
     cwd: root,
@@ -64,6 +67,7 @@ try {
     encoding: 'utf8',
   });
   const { inspectReviewAuthority } = await load('src/protocol/service.mjs');
+  stage = 'automatic-handoff';
   const { readWakeOperation } = await load('src/coordinator/ledger.mjs');
   let receipt;
   let finalized = false;
@@ -86,6 +90,13 @@ try {
           .filter((name) => /^[a-f0-9]{64}\.json$/.test(name))
           .map((name) => readWakeOperation(ws[0], `sha256:${name.slice(0, -5)}`))
       : [];
+    progress = {
+      protocol: authority.state.protocol.state,
+      events: authority.events.map((event) => event.type),
+      wakes: wakes.map((wake) => ({ role: wake.target_role, status: wake.status })),
+    };
+    const startup = path.join(ws[0], 'startup-request.json');
+    if (existsSync(startup)) progress.startup = JSON.parse(readFileSync(startup)).stage;
     finalized =
       authority.state.protocol.state === 'accepted' &&
       wakes.filter((wake) => wake.target_role === 'author' && wake.status === 'acknowledged')
@@ -116,6 +127,20 @@ try {
     'Installed automatic handoff: one launch, one author wake, one reviewer return wake, and author finalization; normal commits.'
   );
 } catch (error) {
+  console.error(
+    'Synthetic installed fixture diagnostics:',
+    JSON.stringify({
+      stage,
+      ...progress,
+      calls: existsSync(process.env.APR_FIXTURE_CALLS)
+        ? readFileSync(process.env.APR_FIXTURE_CALLS, 'utf8').trim().split('\n')
+        : [],
+      brokers: children.map(({ child }) => ({
+        exitCode: child.exitCode,
+        signal: child.signalCode,
+      })),
+    })
+  );
   console.error(error);
   if (existsSync(process.env.APR_FIXTURE_BROKER_LOG))
     console.error(readFileSync(process.env.APR_FIXTURE_BROKER_LOG, 'utf8'));

@@ -315,12 +315,18 @@ test('workflows retain complete platform and release safety gates', () => {
   for (const gate of [
     'unshare --net',
     'sandbox-exec',
-    'New-NetFirewallRule',
-    'Remove-NetFirewallRule',
+    'windows-offline.ps1 -Mode start',
+    'windows-offline.ps1 -Mode stop',
+    'assert-network.mjs open',
+    'assert-network.mjs blocked',
     'build:broker-security',
     'test/integration/broker-release.test.mjs',
   ])
     assert.ok(offline.includes(gate), gate);
+  const firewall = readFileSync(path.join(root, 'test/helpers/windows-offline.ps1'), 'utf8');
+  assert.match(firewall, /New-NetFirewallRule[^\n]+-Program \$Resolved/);
+  assert.match(firewall, /Get-NetFirewallRule -Group \$Group[^\n]+Remove-NetFirewallRule/);
+  assert.doesNotMatch(offline, /New-NetFirewallRule/);
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [preferredNode, boundary]) {
     for (const gate of [

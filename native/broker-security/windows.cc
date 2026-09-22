@@ -446,7 +446,16 @@ bool DirectoryRead(void* value, const std::string& name, std::vector<unsigned ch
   if (path.empty() || !VerifyDirectory(value)) return Fail(code, message, "APR_BROKER_STALE", "Broker resource path or directory identity is unsafe.");
   HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | READ_CONTROL, FILE_SHARE_READ,
                               nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-  if (handle == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND) { *found = false; return true; }
+  if (handle == INVALID_HANDLE_VALUE) {
+    const DWORD error = GetLastError();
+    if (error == ERROR_FILE_NOT_FOUND) { *found = false; return true; }
+    // DirectoryCreate publishes through an exclusive handle. A sharing
+    // conflict is temporary, not evidence that the file passed ACL checks.
+    if (error == ERROR_SHARING_VIOLATION)
+      return Fail(code, message, "EBUSY", "Broker resource is being published (Win32 32).");
+    return Fail(code, message, "APR_BROKER_STALE",
+                ("Broker resource cannot be opened safely (Win32 " + std::to_string(error) + ").").c_str());
+  }
   BY_HANDLE_FILE_INFORMATION info {};
   if (handle == INVALID_HANDLE_VALUE || !Info(handle, &info) || !OwnerOnly(handle) ||
       (info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) != 0 ||

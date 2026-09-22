@@ -92,14 +92,20 @@ jobs:
             sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip "*:*"))(deny network-inbound (local ip "*:*"))' bash -c $build
           } else {
             $rule = 'APR-offline-release-' + [guid]::NewGuid().ToString()
+            node test/helpers/assert-network.mjs open
+            if ($LASTEXITCODE -ne 0) { throw 'Network baseline failed' }
+            $env:APR_OFFLINE_WINDOWS_GROUP = $rule
             try {
-              New-NetFirewallRule -DisplayName $rule -Direction Outbound -Action Block -Profile Any | Out-Null
+              ./test/helpers/windows-offline.ps1 -Mode start -Group $rule
+              node test/helpers/assert-network.mjs blocked
+              if ($LASTEXITCODE -ne 0) { throw 'Network isolation failed' }
               npm run build:broker-security -- --nodedir $developmentTree
               if ($LASTEXITCODE -ne 0) { throw 'Offline build failed' }
               node --test test/integration/broker-release.test.mjs
             } finally {
               $result = $LASTEXITCODE
-              Remove-NetFirewallRule -DisplayName $rule
+              ./test/helpers/windows-offline.ps1 -Mode stop -Group $rule
+              Remove-Item Env:APR_OFFLINE_WINDOWS_GROUP
               $LASTEXITCODE = $result
             }
           }

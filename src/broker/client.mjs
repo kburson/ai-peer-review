@@ -85,7 +85,7 @@ async function connectUntilReady(connect, platform, retryable = () => false) {
       return await connect();
     } catch (error) {
       if (
-        !['ENOENT', 'ECONNREFUSED', 'APR_BROKER_START_FAILED'].includes(error?.code) &&
+        !['ENOENT', 'ECONNREFUSED', 'EBUSY', 'APR_BROKER_START_FAILED'].includes(error?.code) &&
         !retryable(error)
       )
         throw error;
@@ -151,6 +151,9 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
   try {
     return await connect();
   } catch (error) {
+    // A Windows exclusive writer may still be publishing discovery. Wait for
+    // that existing broker; never launch a second process for this condition.
+    if (error?.code === 'EBUSY') return connectUntilReady(connect, platform);
     const launchable =
       ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_OWNED'].includes(error?.code) ||
       (error?.code === 'APR_BROKER_STALE' && missingDiscovery(project, platform));

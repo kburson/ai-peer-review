@@ -301,6 +301,56 @@ test('missing discovery launches once while contradictory stale evidence remains
   );
 });
 
+for (const alreadyStarting of [false, true]) {
+  test(`exclusive discovery publication waits without duplicate launch (already starting: ${alreadyStarting})`, async () => {
+    const project = identity('5'.repeat(64), '/projects/publishing');
+    const runtimeImage = { root: '/image', nodeExecutable: '/image/node' };
+    const client = { authenticated: true };
+    let attempts = 0;
+    let launches = 0;
+    const platform = {
+      verifyRuntimeImage: () => true,
+      connect: async () => {
+        attempts++;
+        if (attempts === 1 && !alreadyStarting)
+          throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+        if (attempts < 4)
+          throw Object.assign(new Error('Exclusive writer still owns discovery'), {
+            code: 'EBUSY',
+          });
+        return client;
+      },
+      createBootstrap: () => '/bootstrap',
+      spawn: () => {
+        launches++;
+        return { ready: Promise.resolve(), unref() {} };
+      },
+      async delay() {},
+    };
+    assert.equal(await ensureBroker({ project, runtimeImage, versions: {}, platform }), client);
+    assert.equal(launches, alreadyStarting ? 0 : 1);
+    // Access/ownership failures must never be turned into publication retries.
+    let unsafeReads = 0;
+    await assert.rejects(
+      ensureBroker({
+        project,
+        runtimeImage,
+        versions: {},
+        platform: {
+          ...platform,
+          connect: async () => {
+            unsafeReads++;
+            throw Object.assign(new Error('Unsafe ACL'), { code: 'APR_BROKER_STALE' });
+          },
+          discoveryState: () => 'present',
+        },
+      }),
+      { code: 'APR_BROKER_STALE' }
+    );
+    assert.equal(unsafeReads, 1);
+  });
+}
+
 test('spawn errors become APR_BROKER_START_FAILED instead of escaping asynchronously', async () => {
   const project = identity('3'.repeat(64), '/projects/spawn-failure');
   const runtimeImage = {

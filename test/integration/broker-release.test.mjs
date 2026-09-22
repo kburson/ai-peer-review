@@ -17,13 +17,15 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { once } from 'node:events';
+import { protectWindowsRuntime } from '../helpers/windows-offline.mjs';
 import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
 import { fixtureStartupDeps, loadLegacyAuthority } from '../helpers/internal-api.mjs';
 import { identity, NOW } from '../helpers/intervention-fixture.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 
-function verifyWindowsBootstrapSecurity(scratch, platform, readBootstrap) {
+async function verifyWindowsBootstrapSecurity(scratch, platform, readBootstrap) {
   const projectRoot = path.join(scratch, 'bootstrap-security');
   const parent = path.join(projectRoot, '.scratch/peer-review');
   mkdirSync(parent, { recursive: true });
@@ -52,6 +54,38 @@ function verifyWindowsBootstrapSecurity(scratch, platform, readBootstrap) {
     directory.create(path.basename(file), JSON.stringify(record));
   } finally {
     directory.close();
+  }
+  assert.deepEqual(readBootstrap(file), record);
+  const holderScript = path.join(scratch, 'hold-discovery.ps1');
+  writeFileSync(
+    holderScript,
+    `param([string]$Target)
+$stream = [System.IO.File]::Open($Target, 'Open', 'Read', 'None')
+try { [Console]::Out.WriteLine('held'); [Console]::Out.Flush(); [Console]::ReadLine() | Out-Null }
+finally { $stream.Dispose() }
+`
+  );
+  const holder = spawn('pwsh', ['-NoProfile', '-File', holderScript, '-Target', file], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const exited = once(holder, 'close');
+  try {
+    const [ready] = await Promise.race([
+      once(holder.stdout, 'data'),
+      exited.then(() => {
+        throw new Error('Exclusive file holder exited before readiness');
+      }),
+    ]);
+    assert.match(ready.toString(), /held/);
+    const heldDirectory = platform.openPrivateDirectory(directoryRoot);
+    try {
+      assert.throws(() => heldDirectory.read(path.basename(file)), { code: 'EBUSY' });
+    } finally {
+      heldDirectory.close();
+    }
+  } finally {
+    holder.stdin.end('\n');
+    await exited;
   }
   assert.deepEqual(readBootstrap(file), record);
   const link = path.join(directoryRoot, 'bootstrap-a2.json');
@@ -242,7 +276,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
   };
   if (process.platform === 'win32') {
     const { readBrokerBootstrap } = await load('bin/peer-review-broker.mjs');
-    verifyWindowsBootstrapSecurity(scratch, platform, readBrokerBootstrap);
+    await verifyWindowsBootstrapSecurity(scratch, platform, readBrokerBootstrap);
   }
   const idleIdentity = canonicalProjectIdentity({ cwd: projects[0].root, platform });
   const idlePaths = brokerPaths({
@@ -269,6 +303,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     nodeExecutable: realpathSync(process.execPath),
     destination: path.join(scratch, 'image'),
   });
+  protectWindowsRuntime(image.nodeExecutable);
   const versions = {
     package_version: manifest.version,
     broker_protocol_version: 1,
@@ -302,6 +337,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     }),
     APR_FIXTURE_CALLS: path.join(scratch, 'provider-calls.txt'),
     APR_FIXTURE_BROKER_LOG: path.join(scratch, 'automatic-broker.log'),
+    APR_OFFLINE_WINDOWS_NODES: JSON.stringify([process.execPath, image.nodeExecutable]),
     APR_PROVIDER_DEADLINE_MS: String(Date.now() + 90_000),
   };
   assert.ok(
