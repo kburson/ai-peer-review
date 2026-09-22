@@ -61,11 +61,11 @@ This is a decision plan, not an authorization for a redesigned architecture. Exe
 
 **Files:** `src/provider/claude-launch.mjs`, `src/providers/claude.mjs`, `src/providers/claude-stream.mjs`, `src/coordinator/decision.mjs`, `test/unit/claude-wake-permissions.test.mjs`, `test/unit/claude-wake.test.mjs`, `test/helpers/installed-provider/claude.mjs`.
 
-- [ ] Map every command for reviewer join, role resume, submit, no-artifact-change, and finalization to its prompt, launcher, permission rule, and expected protocol event.
-- [ ] Add failing permission regressions for the observed plain-command/npx mismatch, quoting and spaces, exact workspace boundaries, and forbidden unrelated commands. The chosen launcher must resolve the installed package; no network-fetching fallback.
-- [ ] Reconstruct synthetic transcript fixtures with the real observed message structure: wake marker, Skill call, matching result, correlated skill metadata, denied Bash result, and terminal assistant response. Use synthetic handles and paths, never raw logs.
-- [ ] Add negative cases for an unrelated user prompt, wrong tool reference, wrong session/model, repeated wake marker, missing terminal response, and truncated transcript.
-- [ ] Identify the supported settings/skills policy without silently narrowing the accepted normal-author behavior. Any required exclusion of ordinary author sessions is a scope decision.
+- [x] Map every command for reviewer join, role resume, submit, no-artifact-change, and finalization to its prompt, launcher, permission rule, and expected protocol event.
+- [x] Add failing permission regressions for the observed plain-command/npx mismatch, quoting and spaces, exact workspace boundaries, and forbidden unrelated commands. The chosen launcher must resolve the installed package; no network-fetching fallback.
+- [x] Reconstruct synthetic transcript fixtures with the real observed message structure: wake marker, Skill call, matching result, correlated skill metadata, denied Bash result, and terminal assistant response. Use synthetic handles and paths, never raw logs.
+- [x] Add negative cases for an unrelated user prompt, wrong tool reference, wrong session/model, repeated wake marker, missing terminal response, and truncated transcript.
+- [x] Identify the supported settings/skills policy without silently narrowing the accepted normal-author behavior. Any required exclusion of ordinary author sessions is a scope decision.
 
 **Exit evidence:** The observed defects fail deterministically offline. Every protocol operation has a documented permission and completion contract. If that contract cannot be stated without broad permissions or a scope waiver, stop this repair route.
 
@@ -75,12 +75,12 @@ This is a decision plan, not an authorization for a redesigned architecture. Exe
 
 **Files:** The files above, plus `test/live/installed-broker-handoff.mjs` and `test/integration/broker-release.test.mjs`.
 
-- [ ] Derive command instructions and exact permission grants from one shared command representation. If multiple installed aliases are retained, enumerate and test the finite set; do not allow arbitrary npx commands.
-- [ ] Correlate skill metadata only to a Skill invocation within the same wake. Preserve rejection of unrelated input and unknown transcript structures.
-- [ ] Make streaming observation and restart reconciliation agree on the same terminal-turn fixtures.
-- [ ] Keep provider terminal completion separate from protocol progress. A terminal refusal must not count as author submission or successful delivery.
-- [ ] Strengthen the synthetic installed helper to check the generated command against the modeled permission contract before executing it. Label this as a model of permissions, not proof of Claude's real permission engine.
-- [ ] Make the live harness stop promptly on terminal refusal or irreconcilable outcome and emit a sanitized stage/reason receipt. Retain the absolute time bound and cleanup only processes owned by that disposable run.
+- [x] Derive command instructions and exact permission grants from one shared command representation. If multiple installed aliases are retained, enumerate and test the finite set; do not allow arbitrary npx commands.
+- [x] Correlate skill metadata only to a Skill invocation within the same wake. Preserve rejection of unrelated input and unknown transcript structures.
+- [x] Make streaming observation and restart reconciliation agree on the same terminal-turn fixtures.
+- [x] Keep provider terminal completion separate from protocol progress. A terminal refusal must not count as author submission or successful delivery.
+- [x] Strengthen the synthetic installed helper to check the generated command against the modeled permission contract before executing it. Label this as a model of permissions, not proof of Claude's real permission engine.
+- [x] Make the live harness stop promptly on terminal refusal or irreconcilable outcome and emit a sanitized stage/reason receipt. Retain the absolute time bound and cleanup only processes owned by that disposable run.
 - [ ] Review the complete diff against launch, join, resume, submit, finalization, restart, and unknown-outcome boundaries before pushing.
 
 Focused regression command:
@@ -90,6 +90,8 @@ node --test test/unit/claude-wake-permissions.test.mjs test/unit/claude-wake.tes
 ```
 
 **Exit evidence:** All demonstrated failure cases are covered, safety negatives pass, and the synthetic installed two-way handoff passes. If a third chained defect appears or two fix rounds fail, stop under #88's checkpoint. Do not push a succession of speculative single-symptom fixes.
+
+The consolidated review also exposed a valid restart state that the factory rejected: a joined reviewer with a reserved or unknown launch. The repair retains that state without delivery, re-observes the joined participant, and recovers only an exact durable adapter acknowledgement. Missing acknowledgement remains unknown without relaunch. Hermetic installed crash-state coverage is written but blocked by the native reconnect defect below; it is not live-provider evidence.
 
 ### 3. Verify one release candidate
 
@@ -124,3 +126,16 @@ node --test test/unit/claude-wake-permissions.test.mjs test/unit/claude-wake.tes
 If the repaired adapter still cannot execute a complete authorized turn, stop the present approach. The next design decision is whether to move protocol actions behind a typed, package-owned tool surface instead of relying on free-form shell-command selection. That requires its own security/identity design and plan review within existing issue authority; it is not a promised quick fallback. A manual-only scope reduction would also require an explicit acceptance change and would not satisfy today's automatic-handoff criterion.
 
 This plan caps additional speculative implementation at two focused hours, followed by one CI candidate and one bounded real attempt. The cap is a decision deadline, not a promise that every remaining defect can be fixed within it.
+
+## Second recovery checkpoint — native crash reconnect
+
+The operator approved the two harness defects with option A. Their repairs and independent review are complete. During the subsequent restart audit, two additional defects were discovered:
+
+1. **Repaired and reviewed:** A joined reviewer with a reserved/unknown launch caused factory rejection or recovery-only eviction. The worker now retains that state without delivery, independently re-observes the binding, and reconciles only an exact durable adapter acknowledgement. Missing evidence never authorizes relaunch. The related worker/lifecycle/coordinator tests pass (48 tests).
+2. **Unresolved:** The packed installed regression kills its owned synthetic broker after reviewer join/submission, then calls ordinary `ensureBroker`. Native POSIX `ConnectPrivate` converts a stale endpoint connection refusal to `APR_BROKER_START_FAILED`; Windows maps missing named pipes to the same generic error. The client accepts specific missing/refused endpoint codes as replacement-start conditions and correctly refuses this ambiguous generic error. Consequently, replacement startup fails before worker reconstruction is reached.
+
+This is an error-contract mismatch between native transport and startup recovery, not evidence that exact-session handoff is impossible. The earlier installed tests did not kill and reconnect to the broker at this lifecycle boundary. The regression remains failing and must not be bypassed by manually spawning a replacement entrypoint.
+
+**Next bounded repair, pending checkpoint authorization:** Preserve specific absent/refused endpoint errors through the POSIX and Windows native adapters, including the asynchronous POSIX connect result. Keep permission, authentication, busy/live-owner, timeout, and other transport errors fail-closed. Verify dead-owner replacement and live-owner exclusion through the ordinary client, then require the existing packed crash/reconciliation test to pass. Windows behavior must be verified on Windows CI. Do not broaden the client's catch to treat every generic startup failure as permission to spawn.
+
+The existing two-hour focused repair ceiling is unchanged. Default tests currently pass (436 unit passes, one conditional skip, 19 golden passes), but the current candidate has no passing complete release suite, exact-head CI, or live receipt. Source repairs and the failing packed regression are saved in the authorized worktree. No provider call was made during this recovery. #88/#39 remain open and PR #89 remains draft. Stop here under the issue's two-new-defect checkpoint before additional implementation.
