@@ -13,6 +13,8 @@
 - **Phase:** 5 of 5
 - **Depends on:** Phase 2 [#31](https://github.com/kburson/ai-peer-review/issues/31)
   and Phase 3 [#32](https://github.com/kburson/ai-peer-review/issues/32)
+- **Concurrency update:** Experiment arms use the
+  [worktree-local reviewer boundary](2026-09-25-worktree-local-review-git-boundary-design.md).
 - **Does not depend on:** Phase 4 lesson generation, except when an experiment
   explicitly consumes already accepted knowledge or later emits observations
 - **Scope:** Design only; this document does not authorize implementation,
@@ -61,7 +63,7 @@ digest-verified, author-controlled successor review.
 - Requiring blind evaluation when infrastructure or policy cannot support it.
 - Exporting private project evidence to an undeclared service.
 - Copying complete arm artifacts into the coordinator's canonical tree.
-- Bypassing Phase 2 retained-ref coordination for experimental commits.
+- Bypassing Phase 2 worktree-local Git and protocol checks for experimental commits.
 
 ## Experiment definition
 
@@ -116,10 +118,10 @@ The coordinator verifies worktree registration, branch target, `HEAD`, index,
 artifact blob, knowledge snapshot, and configuration immediately before arm
 start. A mismatch aborts that arm and prevents comparison.
 
-Arms may run concurrently only after Phase 2 clone-wide coordination is active.
-Every arm commit acquires the retained-ref mutation lease and respects other
-sealed reviewer intervals. Provider calls and agent reasoning do not hold the
-lease or a database transaction.
+Arms run in separate worktrees under Phase 2's worktree-local reviewer
+boundary. An arm commit cannot mutate another arm's checked-out `HEAD`, index,
+or worktree, and an unrelated reviewer interval does not block it. Provider
+calls and agent reasoning do not hold a database transaction.
 
 An arm cannot read another arm's working tree, transient database rows, provider
 handles, responses, or identity mapping unless the manifest explicitly defines
@@ -252,7 +254,7 @@ The operation fails closed on:
 - attempted canonical approval, delivery, or coordinator FUR mutation;
 - invalid anonymization or premature identity reveal;
 - missing or conflicting arm evidence;
-- retained-ref coordination conflict; or
+- worktree-local Git boundary or protocol conflict; or
 - comparison claims unsupported by recorded data.
 
 Failures preserve arm worktrees, branches, evidence, and manifest state and
@@ -283,7 +285,7 @@ The Phase 5 plan must include:
 - exact equality of baseline commit, blob, digest, snapshot, context, and budgets;
 - undeclared-variable detection before and after arm execution;
 - isolated worktree, branch, session, participant, and evidence paths;
-- concurrent arms respecting Phase 2 retained-ref seals;
+- concurrent arms preserving their own Phase 2 worktree boundaries;
 - evidence collection without complete FUR copies;
 - arm acceptance that cannot alter canonical lifecycle or indexes;
 - digest-verified selection and synthesis into a normal proposed successor;

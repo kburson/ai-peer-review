@@ -12,6 +12,9 @@
 - **Related designs:**
   [standalone extraction](2026-09-07-ai-peer-review-extraction-design.md) and
   [provider-neutral runtime orchestration](2026-09-11-provider-neutral-runtime-orchestration-design.md)
+- **Concurrency update:** The
+  [worktree-local reviewer boundary](2026-09-25-worktree-local-review-git-boundary-design.md)
+  supersedes the former clone-wide ref seal.
 
 ## Summary
 
@@ -714,35 +717,20 @@ observed on many branches, but `snapshot_events` prevents cross-branch leakage:
 a review can query only event IDs that are members of its pinned committed
 knowledge snapshot.
 
-Shared-database concurrency does not authorize concurrent retained-ref
-mutation. The Git common directory owns a durable coordination lease distinct
-from SQLite's short write transactions. A sealed reviewer interval begins at
-the instant protocol authority installs its retained-ref boundary, not when the
-reviewer process later joins or resumes. Initial join captures the boundary and
-registers the interval atomically while holding the clone-wide mutation lease.
-Author submission performs its exact commit, captures the resulting reviewer
-boundary, and registers the next interval before releasing that same lease.
+The [worktree-local reviewer boundary](2026-09-25-worktree-local-review-git-boundary-design.md)
+supersedes the earlier clone-wide retained-ref seal. Each reviewer turn checks
+its own artifact, checked-out `HEAD`, branch, index, and physical worktree.
+Other worktrees may commit or fetch while that turn is active. `refs_digest`
+remains diagnostic; a changed shared ref alone does not invalidate submission.
 
-Intake, author submission, finalization, migration, and experiment-arm commits
-must acquire the clone-wide mutation lease and prove that no other sealed
-reviewer interval is active in any linked worktree before changing a retained
-ref. If one is active, the operation returns `APR_GIT_COORDINATION_BUSY` with
-the exact waiting or resume action and performs no Git mutation. A reviewer
-resume binds to the existing seal and never silently replaces its ref baseline.
+SQLite uses short transactions for protocol rows and never holds a transaction
+through agent reasoning or provider calls. Mutations to one worktree retain
+their exact-path Git and protocol checks. Phase 2 must preserve independent
+author commits across worktrees, including dormant reviewer turns and
+interrupted delivery. Phase 5 experiment arms follow the same rule.
 
-Agent reasoning and provider calls do not hold the SQLite write lock, and
-reviews may reason, edit isolated worktrees, and write row-isolated transient
-state concurrently. Only the short ref-changing transaction is serialized. Its
-receipt records the operation ID and exact before/after ref values. An
-unexpected retained-ref change still invalidates every affected reviewer
-boundary; no branch namespace beyond the existing package-defined private
-checkpoint exclusion is broadly exempted. Phase 2 must deliver this contract
-before advertising cross-worktree concurrency, and Phase 5 experiment arms
-depend on it.
-
-The sealed interval ends only when reviewer submission atomically validates the
-boundary and advances protocol authority away from that reviewer turn, or when
-a governed abandonment or participant-replacement intervention explicitly
+The sealed interval ends when reviewer submission validates its worktree
+boundary and advances protocol authority, or when a governed intervention
 invalidates the old seal and records its disposition. Pending delivery, a
 dormant or suspended reviewer session, process loss, and an interruption after
 author handoff all retain the interval. Recovery resumes against the same
@@ -1050,8 +1038,8 @@ change.
 - Materialize current protocol and completed review receipts.
 - Replace new-review scratch coordination with SQLite tables.
 - Add startup reconciliation, cross-worktree concurrency, and rebuild behavior.
-- Add the clone-wide retained-ref mutation lease before enabling concurrent
-  cross-worktree author commits.
+- Preserve independent author commits across worktrees while each reviewer
+  turn checks only its own worktree boundary.
 - Preserve no-commit behavior and current protocol parity.
 
 ### Phase 3: Project-local knowledge retrieval
@@ -1121,14 +1109,12 @@ phase's authority implicitly.
 - Rebuild after deletion or compatible corruption.
 - Preserve or safely interrupt active sessions during incompatible recovery.
 - Run simultaneous reviews from several worktrees without row collision.
-- While one reviewer interval is active, reject another worktree's author commit
-  without ref mutation; after the interval ends, serialize and receipt that
-  commit successfully.
-- After author A seals a handoff but before reviewer A resumes, reject author
-  B's retained-ref mutation; preserve the same seal across interrupted delivery
-  and reviewer process loss until submission or governed intervention.
-- Reject an unauthorized retained-ref transition as a reviewer boundary
-  violation even when the artifact, worktree, branch, `HEAD`, and index match.
+- While one reviewer interval is active, allow another worktree's author commit
+  and retain the first reviewer's artifact, `HEAD`, index, and worktree seal.
+- After author A seals a handoff but before reviewer A resumes, allow author
+  B's commit in a different worktree, including across interrupted delivery.
+- Reject a changed reviewed artifact, `HEAD`, branch, index, or local worktree,
+  even when all unrelated shared refs remain unchanged.
 - Prove branch-only events cannot appear in another snapshot's retrieval.
 
 ### Recovery and parity tests
@@ -1207,8 +1193,8 @@ The architecture is complete when:
 13. provider diversity is recommended and measurable but never mandatory;
 14. provider-comparison arms begin with identical controlled inputs and do not
     deliver a variant automatically; and
-15. concurrent linked-worktree reviews serialize retained-ref mutations without
-    weakening the reviewer boundary;
+15. concurrent linked-worktree reviews and author commits do not block each
+    other while each reviewer boundary remains worktree-local;
 16. approved and delivered bytes remain immutable, with later work represented
     by a digest-bound successor;
 17. no-commit test mode leaves `HEAD`, the index, lifecycle catalogs, indexes,
