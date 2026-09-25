@@ -123,7 +123,7 @@ jobs:
       - run: npm pack --dry-run
 
   preferred-node:
-    name: Node ${{ matrix.node }} / ${{ matrix.os }}
+    name: Node ${{ matrix.node }} / ${{ matrix.os == 'ubuntu-latest' && 'Ubuntu' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
