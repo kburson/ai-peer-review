@@ -14,6 +14,19 @@ const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
 const EFFORTS = new Set(['low', 'medium', 'high']);
 const PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
 
+export function buildClaudeLaunchEnvironment(parentEnvironment = process.env) {
+  const environment = { ...parentEnvironment };
+  for (const key of [
+    'CODEX_SESSION_ID',
+    'CODEX_THREAD_ID',
+    'CODEX_MODEL_ID',
+    'CODEX_MODEL_DISPLAY',
+  ]) {
+    delete environment[key];
+  }
+  return environment;
+}
+
 function packageCommand(verb, target) {
   return [process.execPath, PACKAGE_BIN, verb, target];
 }
@@ -751,13 +764,25 @@ export async function runClaudeReviewerLaunch({
   const args = resume
     ? Object.freeze(['--resume', priorState.session_handle, ...contract.command.args])
     : contract.command.args;
+  const hasEnvironment = Object.hasOwn(contract, 'environment');
+  if (
+    hasEnvironment &&
+    (contract.environment === null ||
+      typeof contract.environment !== 'object' ||
+      Array.isArray(contract.environment))
+  ) {
+    throw new AprError('APR_CLAUDE_RESULT_INVALID', 'Claude child environment is invalid.', {
+      recovery: 'Rebuild the launch contract from current deterministic preflight.',
+    });
+  }
+  const environment = hasEnvironment ? contract.environment : buildClaudeLaunchEnvironment();
   let execution;
   try {
     const executionOptions = {
       cwd: contract.repository_root,
       shell: false,
       encoding: 'utf8',
-      ...(contract.environment ? { env: contract.environment } : {}),
+      env: environment,
     };
     execution = await execFile(contract.command.file, args, executionOptions);
   } catch (cause) {
