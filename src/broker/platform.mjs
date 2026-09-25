@@ -121,6 +121,7 @@ export function platformSecurity({
     'releaseExclusive',
     'abandonExclusive',
     'listenPrivate',
+    'reclaimStaleEndpoint',
     'verifyEndpoint',
     'closeEndpoint',
     'acceptPrivate',
@@ -132,6 +133,7 @@ export function platformSecurity({
   ]);
   const maxEndpointLength = kind === 'darwin' ? 103 : kind === 'linux' ? 107 : 256;
   const connectionHandles = new WeakMap();
+  const lockHandles = new WeakMap();
   function wrapConnection(handle) {
     let closed = false;
     function closeNative(connection) {
@@ -158,14 +160,14 @@ export function platformSecurity({
           throw error;
         }
       },
-      write(bytes) {
+      write(bytes, { drain = false } = {}) {
         if (closed) {
           throw new AprError('APR_BROKER_STALE', 'The broker connection is closed.', {
             recovery: 'Reconnect to the authenticated broker and retry the bounded request.',
           });
         }
         try {
-          native.connectionWrite(handle, Buffer.from(bytes));
+          native.connectionWrite(handle, Buffer.from(bytes), drain === true);
         } catch (error) {
           try {
             closeNative(connection);
@@ -213,20 +215,24 @@ export function platformSecurity({
       const bytes = Buffer.from(JSON.stringify(proof), 'utf8');
       const handle = native.acquireExclusive(value, bytes);
       let released = false;
-      return Object.freeze({
+      const lock = Object.freeze({
         ...proof,
         verify: () => !released && native.verifyExclusive(handle),
         release() {
           if (released) return false;
           released = true;
+          lockHandles.delete(lock);
           return native.releaseExclusive(handle);
         },
         abandon() {
           if (released) return;
           released = true;
+          lockHandles.delete(lock);
           native.abandonExclusive(handle);
         },
       });
+      lockHandles.set(lock, handle);
+      return lock;
     },
     listenPrivate(value) {
       const handle = native.listenPrivate(value);
@@ -247,6 +253,19 @@ export function platformSecurity({
           return native.closeEndpoint(handle);
         },
       });
+    },
+    reclaimStaleEndpoint(value, lock) {
+      const handle = lockHandles.get(lock);
+      if (!handle) {
+        throw new AprError(
+          'APR_BROKER_STALE',
+          'Broker lock is unavailable for endpoint reconciliation.',
+          {
+            recovery: 'Reacquire the exact project broker lock before reconciling its endpoint.',
+          }
+        );
+      }
+      native.reclaimStaleEndpoint(handle, value);
     },
     connectPrivate(value) {
       return wrapConnection(native.connectPrivate(value));

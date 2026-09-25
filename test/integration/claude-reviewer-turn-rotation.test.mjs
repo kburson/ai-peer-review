@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -58,14 +63,18 @@ test('current authority rotates a registered Claude reviewer to response two wit
 
   const author = identity('author');
   const reviewer = identity('reviewer');
-  const started = await startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'review-turn-rotation',
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('claude', 'claude-opus-5', 'high'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'review-turn-rotation',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const first = buildReviewerExecutionContract({
     workspace: started.paths.workspace,
     host: 'claude',
@@ -76,6 +85,7 @@ test('current authority rotates a registered Claude reviewer to response two wit
   assert.match(first.response, /reviewer-response-1\.md$/u);
 
   const joined = await joinReview({
+    runtimeObservation: fixtureObservation('anthropic', 'claude-code', 'claude-opus-5', 'high'),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

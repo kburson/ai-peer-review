@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ai-peer-review.cli-result/v1",
+  "$comment": "Project broker operator commands use the separate ai-peer-review.broker-result/v1 envelope and never enter this review-result schema.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -54,6 +55,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "runtime": { "$ref": "runtime-v1.json" },
+        "recovery": { "$ref": "#/$defs/startupRecovery" },
         "max_turns": { "$ref": "#/$defs/positive" },
         "claim_ttl_ms": { "$ref": "#/$defs/positive" },
         "commit_mode": { "enum": ["normal", "no-commit"] },
@@ -153,6 +156,36 @@
     }
   ],
   "$defs": {
+    "startupRecovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_digest",
+        "stage",
+        "fenced",
+        "suspending",
+        "event_revision",
+        "reconciliation_command"
+      ],
+      "properties": {
+        "request_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "stage": {
+          "enum": [
+            "reserved",
+            "authority",
+            "registered",
+            "launch-pending",
+            "launched",
+            "manual",
+            "outcome-unknown"
+          ]
+        },
+        "fenced": { "type": "boolean" },
+        "suspending": { "type": "boolean" },
+        "event_revision": { "$ref": "#/$defs/positive" },
+        "reconciliation_command": { "type": "string", "minLength": 1 }
+      }
+    },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
     "positive": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
     "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },

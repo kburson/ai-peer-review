@@ -1,5 +1,6 @@
 import { AprError } from '../errors.mjs';
 import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './parse.mjs';
+import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
   setup: 'Install or remove reversible peer-review agent integration.',
@@ -19,7 +20,7 @@ const PURPOSE = Object.freeze({
   abandon: 'Terminate an intervention review while retaining evidence paths.',
   supersede: 'Terminate a replaced nonterminal attempt while retaining evidence paths.',
   consolidate: 'Consolidate terminal attempts into one verified review-of-record bundle.',
-  coordinator: 'Run, reconcile, inspect, or stop durable participant wake coordination.',
+  broker: 'Inspect and control the authenticated project-local review broker.',
   help: 'Query the complete offline command contract.',
   explain: 'Explain one stable APR error and its recovery.',
 });
@@ -43,7 +44,7 @@ const ROLES = Object.freeze({
   abandon: ['author', 'reviewer'],
   supersede: ['author', 'reviewer'],
   consolidate: ['author', 'reviewer', 'human'],
-  coordinator: ['host'],
+  broker: ['author', 'reviewer', 'human'],
   help: ['author', 'reviewer', 'human'],
   explain: ['author', 'reviewer', 'human'],
 });
@@ -72,7 +73,7 @@ const STATES = Object.freeze({
     'intervention-required',
   ],
   consolidate: ['terminal attempts'],
-  coordinator: ['any event-authoritative review state'],
+  broker: ['any registered broker review state'],
   help: ['any'],
   explain: ['any'],
 });
@@ -81,7 +82,9 @@ const PRECONDITIONS = Object.freeze({
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
+    'The invoking session must be the author participant; human sponsorship does not substitute for participant identity.',
     'An explicit supported reviewer provider and model; reviewer effort defaults to medium.',
+    'Native SPR requires a supported same-provider launch capability; new XPR requires the broker even for manual transport. No automatic fallback occurs.',
     'Optional --bootstrap-grant must authorize the exact protected pin-verifier action.',
   ],
   advance: ['A registered author claim and the exact event-derived next artifact.'],
@@ -107,9 +110,9 @@ const PRECONDITIONS = Object.freeze({
   consolidate: [
     'At least two terminal workspaces for one record and artifact, plus one contained destination.',
   ],
-  coordinator: [
-    'A readable event-authoritative workspace and an exact configured automatic participant.',
-    'Run and reconcile require a host-injected live-wait or official native-push wake adapter.',
+  broker: [
+    'The canonical current project identity and its authenticated broker instance and nonce.',
+    'Reconcile and suspend require one contained registered review workspace.',
   ],
   help: ['A readable installed package.'],
   explain: ['A known stable APR error code.'],
@@ -140,9 +143,9 @@ const EFFECTS = Object.freeze({
     'Dry-run reports source, destination, collision, and digest without mutation.',
     'Apply verifies every destination digest before source removal and writes a relocation receipt.',
   ],
-  coordinator: [
-    'Run observes durable hints in the foreground; reconcile performs one event-authority scan.',
-    'Status is bounded and read-only; stop writes only an exact-instance stop request.',
+  broker: [
+    'Status reports live or offline recovery evidence; suspend fences exactly one review.',
+    'Stop refuses runnable or unreconciled work and addresses only the authenticated instance.',
   ],
   help: ['Read-only offline rendering.'],
   explain: ['Read-only offline error rendering.'],
@@ -157,6 +160,7 @@ const ERRORS = Object.freeze({
   ],
   doctor: ['APR_CONFIG_INVALID', 'APR_REPOSITORY_NOT_FOUND', 'APR_TRANSPORT_UNAVAILABLE'],
   start: [
+    'APR_USAGE',
     'APR_REPOSITORY_NOT_FOUND',
     'APR_ARTIFACT_UNTRACKED',
     'APR_ARTIFACT_DIRTY',
@@ -167,6 +171,8 @@ const ERRORS = Object.freeze({
     'APR_TRANSPORT_UNAVAILABLE',
     'APR_AUTHORITY_REQUIRED',
     'APR_AUTHORITY_POLICY',
+    'APR_BROKER_REGISTRATION_CONFLICT',
+    'APR_BROKER_STOP_REFUSED',
     'APR_OUTPUT_COLLISION',
     'APR_GRANT_INVALID',
     'APR_STALE_REVIEW',
@@ -373,7 +379,14 @@ const ERRORS = Object.freeze({
     'APR_GIT_COMMIT_INVALID',
     'APR_USAGE',
   ],
-  coordinator: [
+  broker: [
+    'APR_BROKER_START_FAILED',
+    'APR_BROKER_INCOMPATIBLE',
+    'APR_BROKER_OWNED',
+    'APR_BROKER_STALE',
+    'APR_PROVIDER_RESOURCE_BUSY',
+    'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_BROKER_REGISTRATION_CONFLICT',
     'APR_WAKE_AUTHORITY_INVALID',
     'APR_WAKE_CAPABILITY_UNAVAILABLE',
     'APR_WAKE_CAPSULE_INVALID',
@@ -712,6 +725,41 @@ const ERROR_CATALOG = Object.freeze({
     message: 'A peer-review output path is occupied by conflicting content.',
     recovery: 'Preserve the bytes, inspect the collision, and use explicit recovery.',
   },
+  APR_BROKER_START_FAILED: {
+    message: 'The project-local broker could not establish authentic readiness.',
+    recovery:
+      'Run peer-review broker status --json from the canonical project root, preserve its evidence, and follow the reported recovery action.',
+  },
+  APR_BROKER_INCOMPATIBLE: {
+    message: 'The live project broker uses a different package, protocol, or Node major.',
+    recovery:
+      'Resume or finalize with the recorded compatible package until its broker drains, then retry with the current package.',
+  },
+  APR_BROKER_OWNED: {
+    message: 'Another authenticated broker instance owns this canonical project root.',
+    recovery:
+      'Run peer-review broker status --json from that project root and address only the reported authenticated instance.',
+  },
+  APR_BROKER_STALE: {
+    message: 'Broker ownership or discovery evidence is stale or indeterminate.',
+    recovery:
+      'Preserve the lock, discovery, registry, and provider evidence, then run peer-review broker status --json from the canonical project root.',
+  },
+  APR_PROVIDER_RESOURCE_BUSY: {
+    message: 'The exact provider control resource is owned by another operation.',
+    recovery:
+      'Wait for the recorded owner to release the resource or reconcile that exact operation before retrying.',
+  },
+  APR_BROKER_REGISTRATION_CONFLICT: {
+    message: 'A broker review ID is already bound to different immutable registration evidence.',
+    recovery:
+      'Preserve the existing registration, inspect its exact request digest, workspace, and runtime image, then use explicit recovery.',
+  },
+  APR_BROKER_STOP_REFUSED: {
+    message: 'The project broker still owns runnable or unreconciled work.',
+    recovery:
+      'Reconcile or suspend every workspace reported by peer-review broker status --json, then retry peer-review broker stop.',
+  },
   APR_EVENT_LOG_CORRUPT: {
     message: 'The authoritative event log cannot be reduced safely.',
     recovery: 'Restore the last complete newline-terminated event history.',
@@ -908,11 +956,11 @@ function topic(command) {
     wake:
       command === 'submit' || command === 'advance'
         ? 'Automatic mode writes one durable handoff for resident wait or official native push.'
-        : command === 'coordinator'
-          ? 'Durable event authority wakes only the exact configured participant for one actionable revision.'
+        : command === 'broker'
+          ? 'An ambiguous provider action is never replayed; reconcile preserves its durable receipts.'
           : 'No background polling or undocumented wake mechanism.',
     tokens:
-      command === 'coordinator'
+      command === 'broker'
         ? 'Zero provider calls, model turns, tool results, or transcript messages while idle.'
         : 'No background polling or model-token spending.',
     no_commit:
@@ -926,14 +974,19 @@ function topic(command) {
           : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [
       COMMAND_USAGE[command],
-      `npx --yes @kburson/ai-peer-review@0.2.2 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      `npx --yes @kburson/ai-peer-review@0.3.0 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      ...(command === 'start'
+        ? [
+            'peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
+          ]
+        : []),
     ],
     result: 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
       command === 'launch-reviewer'
         ? 'On permission-blocked, run the exact printed peer-review launch-reviewer invitation --host claude --resume command.'
-        : command === 'coordinator'
-          ? 'Use peer-review status <workspace> --next only as the bounded manual fallback.'
+        : command === 'broker'
+          ? 'Offline status reports the exact recovery evidence and next reconciliation action.'
           : command === 'status' || command === 'resume'
             ? 'Exactly one event-derived action and command.'
             : 'Read peer-review status for the next event-derived action.',
@@ -941,8 +994,8 @@ function topic(command) {
     json_schema:
       command === 'launch-reviewer'
         ? 'ai-peer-review.claude-launch-result/v1'
-        : command === 'coordinator'
-          ? 'ai-peer-review.coordinator-result/v1'
+        : command === 'broker'
+          ? 'ai-peer-review.broker-result/v1'
           : 'ai-peer-review.cli-result/v1',
   });
 }
@@ -988,6 +1041,10 @@ export function helpRequest(name = null, format = 'text', options = {}) {
     const term = String(name ?? '').toLowerCase();
     const matches = COMMANDS.filter((command) =>
       `${command} ${PURPOSE[command]} ${COMMAND_USAGE[command]}`.toLowerCase().includes(term)
+    ).concat(
+      CONCEPT_HELP_TOPICS.filter((concept) =>
+        `${concept} ${CONCEPT_HELP[concept].summary}`.toLowerCase().includes(term)
+      )
     );
     const result = Object.freeze({ schema: 'ai-peer-review.help-search/v1', term, matches });
     return format === 'json' ? result : `${matches.join('\n')}\n`;
@@ -995,18 +1052,29 @@ export function helpRequest(name = null, format = 'text', options = {}) {
   if (options.all) {
     const values = COMMANDS.map(topic);
     return format === 'json'
-      ? Object.freeze({ schema: 'ai-peer-review.help-all/v1', topics: values })
-      : values.map(render).join('\n');
+      ? Object.freeze({
+          schema: 'ai-peer-review.help-all/v1',
+          topics: values,
+          concepts: CONCEPT_HELP_TOPICS.map((name) => CONCEPT_HELP[name]),
+        })
+      : `${values.map(render).join('\n')}\nConcepts:\n${CONCEPT_HELP_TOPICS.map((name) => `  ${name.toUpperCase()}: ${CONCEPT_HELP[name].summary}`).join('\n')}\n`;
   }
   if (name === null || name === undefined || name === '') {
     const result = Object.freeze({
       schema: 'ai-peer-review.help-index/v1',
       commands: COMMANDS,
+      concepts: CONCEPT_HELP_TOPICS,
       usage: 'peer-review help [<command>] [--all] [--json]',
     });
     return format === 'json'
       ? result
-      : `${result.usage}\n\nCommands:\n${COMMANDS.map((command) => `  ${command}`).join('\n')}\n`;
+      : `${result.usage}\n\nCommands:\n${COMMANDS.map((command) => `  ${command}`).join('\n')}\n\nConcepts:\n${CONCEPT_HELP_TOPICS.map((name) => `  ${name}`).join('\n')}\n`;
+  }
+  if (CONCEPT_HELP_TOPICS.includes(name)) {
+    const concept = CONCEPT_HELP[name];
+    return format === 'json'
+      ? concept
+      : `${name.toUpperCase()}\n\n${concept.summary}\n\nExamples:\n${concept.examples.map((example) => `  ${example}`).join('\n')}\n\nRelated commands: ${concept.related_commands.join(', ')}\n`;
   }
   if (!COMMANDS.includes(name)) usage(`Unknown help topic: ${name}`);
   const result = topic(name);

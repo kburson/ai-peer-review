@@ -1,5 +1,6 @@
 import { AprError } from '../errors.mjs';
 import { GRANT_PARAMETER_FIELDS } from '../authority/canonicalize.mjs';
+import { CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 export { GRANT_PARAMETER_FIELDS } from '../authority/canonicalize.mjs';
 
@@ -72,7 +73,7 @@ export const COMMAND_FLAGS = Object.freeze({
   abandon: frozenList(['--reason']),
   supersede: frozenList(['--reason', '--by']),
   consolidate: frozenList(['--destination', '--dry-run', '--apply', '--json']),
-  coordinator: frozenList(['--json']),
+  broker: frozenList(['--json']),
   help: frozenList(['--all', '--json']),
   explain: frozenList(['--json']),
 });
@@ -106,7 +107,7 @@ export const COMMAND_USAGE = Object.freeze({
   supersede: 'peer-review supersede <workspace> --reason <text> --by <successor-review-id>',
   consolidate:
     'peer-review consolidate <workspace>... --destination <record-relative-path> (--dry-run | --apply) [--json]',
-  coordinator: 'peer-review coordinator <run|reconcile|status|stop> <workspace> [--json]',
+  broker: 'peer-review broker <status|reconcile <workspace>|suspend <workspace>|stop> [--json]',
   help: 'peer-review help [<command>] [--all] [--json] | peer-review help search <term>',
   explain: 'peer-review explain <error-code> [--json]',
 });
@@ -133,7 +134,7 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
   abandon: grammar(1),
   supersede: grammar(1),
   consolidate: grammar(2, Number.MAX_SAFE_INTEGER),
-  coordinator: grammar(2),
+  broker: grammar(1, 2),
   help: grammar(0, 2),
   explain: grammar(1),
 });
@@ -328,12 +329,15 @@ function validateConstraints(command, args, options) {
       usage('consolidate requires unique review workspaces');
     }
   }
-  if (command === 'coordinator') {
-    if (!['run', 'reconcile', 'status', 'stop'].includes(args[0])) {
-      usage('coordinator verb must be one of: run, reconcile, status, stop');
+  if (command === 'broker') {
+    if (!['status', 'reconcile', 'suspend', 'stop'].includes(args[0])) {
+      usage('broker verb must be one of: status, reconcile, suspend, stop');
     }
-    if (args[0] === 'run' && options.json) {
-      usage('--json is unavailable for coordinator run because run remains foreground');
+    if (['status', 'stop'].includes(args[0]) && args.length !== 1) {
+      usage(`broker ${args[0]} does not accept a workspace`);
+    }
+    if (['reconcile', 'suspend'].includes(args[0]) && args.length !== 2) {
+      usage(`broker ${args[0]} requires one workspace`);
     }
   }
   if (command === 'recover') {
@@ -348,7 +352,13 @@ function validateConstraints(command, args, options) {
       usage('--grant requires --replace-participant on recover');
     }
   }
-  if (command === 'help' && args[0] && args[0] !== 'search' && !COMMANDS.includes(args[0])) {
+  if (
+    command === 'help' &&
+    args[0] &&
+    args[0] !== 'search' &&
+    !COMMANDS.includes(args[0]) &&
+    !CONCEPT_HELP_TOPICS.includes(args[0])
+  ) {
     usage(`unknown help topic: ${args[0]}`);
   }
 }

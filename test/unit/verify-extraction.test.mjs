@@ -107,6 +107,7 @@ function validManifest(overrides = {}) {
         'NOTICE',
         'README.md',
         'cspell.json',
+        'docs/conformance/2026-09-21-88-installed-provider-surfaces.md',
         'docs/dependency-audit-broker-build.md',
         'docs/dependency-audit-mcp.md',
         'docs/manual-cross-provider-peer-review.md',
@@ -120,6 +121,8 @@ function validManifest(overrides = {}) {
         'native/broker-security/windows.cc',
         'scripts/build-broker-security.mjs',
         'scripts/run-secret-scan.mjs',
+        'scripts/task-tracker/verify-epic-trail.mjs',
+        'scripts/update-template-goldens.mjs',
         'scripts/verify-extraction.mjs',
         'scripts/verify-release.mjs',
         'vendors/kburson-ai-task-manager-0.1.0.tgz',
@@ -325,6 +328,39 @@ test('rejects a foreign path in standalone HEAD', async () => {
   );
 });
 
+test('accepts only the development template-golden updater in the closed standalone script inventory', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: 'LICENSE\nscripts/update-template-goldens.mjs' }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ current: 'LICENSE\nscripts/update-template-goldens-copy.mjs' }),
+    }),
+    /foreign standalone paths: scripts\/update-template-goldens-copy\.mjs/
+  );
+});
+
+test('admits only the declared epic-trail verifier adapter in the standalone script inventory', async () => {
+  const manifest = validManifest();
+  await verifyExtraction({
+    root: '/repo',
+    manifest,
+    runGit: fakeGit({ current: 'LICENSE\nscripts/task-tracker/verify-epic-trail.mjs' }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest,
+      runGit: fakeGit({ current: 'LICENSE\nscripts/task-tracker/other.mjs' }),
+    }),
+    /foreign standalone paths: scripts\/task-tracker\/other\.mjs/
+  );
+});
+
 test('accepts the bounded standalone white-paper documentation path', async () => {
   await verifyExtraction({
     root: '/repo',
@@ -336,6 +372,26 @@ test('accepts the bounded standalone white-paper documentation path', async () =
       ].join('\n'),
     }),
   });
+});
+
+test('accepts the exact #88 conformance record without admitting neighboring documents', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: ['LICENSE', 'docs/conformance/2026-09-21-88-installed-provider-surfaces.md'].join(
+        '\n'
+      ),
+    }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ current: ['LICENSE', 'docs/conformance/unrelated.md'].join('\n') }),
+    }),
+    /foreign standalone paths: docs\/conformance\/unrelated\.md/
+  );
 });
 
 test('accepts bounded governed implementation plans', async () => {

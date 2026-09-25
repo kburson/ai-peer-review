@@ -1,3 +1,4 @@
+import { fixtureSelection, fixtureStartupDeps } from '../helpers/internal-api.mjs';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -60,15 +61,19 @@ test('legacy placeholder supersession is surfaced on exact retry without rewriti
   const fx = fixture();
   t.after(fx.cleanup);
   const author = identity('author', 'lineage-author');
-  const predecessor = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'review-root',
-    recordId: 'record-lineage',
-    now: NOW,
-  });
+  const predecessor = await api.loadLegacyAuthority(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'review-root',
+      recordId: 'record-lineage',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const current = inspectReview(predecessor.paths.workspace).protocol;
   await appendEvent(predecessor.paths.events, {
     schema: 'ai-peer-review.event/v1',
@@ -106,24 +111,32 @@ test('standalone supersession refuses absent lineage without mutating predecesso
   const fx = fixture();
   t.after(fx.cleanup);
   const author = identity('author', 'lineage-author');
-  const predecessor = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'review-root',
-    recordId: 'record-lineage',
-    now: NOW,
-  });
-  await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'review-next',
-    recordId: 'record-lineage',
-    now: '2026-09-09T02:01:00.000Z',
-  });
+  const predecessor = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'review-root',
+      recordId: 'record-lineage',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
+  await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'review-next',
+      recordId: 'record-lineage',
+      now: '2026-09-09T02:01:00.000Z',
+    },
+    fixtureStartupDeps
+  );
   const before = readFileSync(predecessor.paths.events);
   await assert.rejects(
     api.supersedeReview({
@@ -142,24 +155,32 @@ test('standalone supersession accepts an existing same-record reciprocal success
   const fx = fixture();
   t.after(fx.cleanup);
   const author = identity('author', 'lineage-author');
-  const predecessor = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'review-root',
-    recordId: 'record-lineage',
-    now: NOW,
-  });
-  const successor = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'review-next',
-    recordId: 'record-lineage',
-    now: '2026-09-09T02:01:00.000Z',
-  });
+  const predecessor = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'review-root',
+      recordId: 'record-lineage',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
+  const successor = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'review-next',
+      recordId: 'record-lineage',
+      now: '2026-09-09T02:01:00.000Z',
+    },
+    fixtureStartupDeps
+  );
   const value = receipt(predecessor, successor);
   writeReciprocalReceipt(predecessor, value);
   writeReciprocalReceipt(successor, value);

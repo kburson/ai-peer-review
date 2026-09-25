@@ -82,8 +82,29 @@ export function acquireBrokerOwnership({ identity, paths, versions, reconcile },
     if (typeof reconcile !== 'function' || reconcile({ identity, paths, lock }) !== true) {
       throw brokerError('APR_BROKER_STALE', 'Registry and provider reconciliation is required.');
     }
-    if (directory.read(metadataName) !== null)
-      throw brokerError('APR_BROKER_STALE', 'Prior broker metadata requires reconciliation.');
+    const prior = directory.read(metadataName);
+    if (prior !== null) {
+      let discovery;
+      try {
+        discovery = JSON.parse(prior.toString('utf8'));
+      } catch {
+        throw brokerError('APR_BROKER_STALE', 'Prior broker metadata is malformed.');
+      }
+      // The OS lock excludes a live broker. Discovery must still identify this
+      // exact project/runtime before its evidence can be superseded.
+      validateHandshake(
+        discovery,
+        { ...discovery, tuple: identity.tuple, versions },
+        platform.userId()
+      );
+    }
+    if (typeof platform.reclaimStaleEndpoint === 'function') {
+      platform.reclaimStaleEndpoint(paths.endpoint, lock);
+    } else if (prior !== null) {
+      throw brokerError('APR_BROKER_STALE', 'Safe endpoint reconciliation is unavailable.');
+    }
+    if (prior !== null && directory.remove(metadataName, prior) !== true)
+      throw brokerError('APR_BROKER_STALE', 'Prior broker metadata changed during reconciliation.');
     endpoint = platform.listenPrivate(paths.endpoint);
     metadata = Buffer.from(JSON.stringify(handshake));
     directory.create(metadataName, metadata);

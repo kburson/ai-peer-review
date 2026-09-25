@@ -68,7 +68,8 @@ function fixture() {
     locked = false,
     metadata = null,
     released = 0,
-    abandoned = 0;
+    abandoned = 0,
+    reclaimed = 0;
   const opened = [];
   const platform = {
     userId: () => '501',
@@ -79,6 +80,11 @@ function fixture() {
         read: () => metadata,
         create: (_name, bytes) => {
           metadata = bytes;
+        },
+        remove: (_name, bytes) => {
+          if (!Buffer.from(metadata ?? '').equals(bytes)) return false;
+          metadata = null;
+          return true;
         },
         close() {},
       };
@@ -104,6 +110,10 @@ function fixture() {
     listenPrivate() {
       return { verify: () => valid, close() {} };
     },
+    reclaimStaleEndpoint(_path, lock) {
+      assert.equal(lock.verify(), true);
+      reclaimed++;
+    },
   };
   return {
     platform,
@@ -113,10 +123,67 @@ function fixture() {
     tamper: () => {
       metadata = Buffer.from('{}');
     },
+    prior: (value) => {
+      metadata = Buffer.from(JSON.stringify(value));
+    },
+    metadata: () => metadata,
+    reclaimed: () => reclaimed,
     released: () => released,
     abandoned: () => abandoned,
     opened: () => opened,
   };
+}
+
+function priorHandshake(overrides = {}) {
+  return {
+    schema: 'ai-peer-review.broker-handshake/v1',
+    tuple: identity.tuple,
+    versions,
+    instance_id: 'a'.repeat(64),
+    nonce: 'b'.repeat(64),
+    ...overrides,
+  };
+}
+
+test('dead owner is replaced only after exact discovery and durable reconciliation', () => {
+  const f = fixture();
+  f.prior(priorHandshake());
+  assert.throws(() => acquireBrokerOwnership({ identity, paths, versions }, f.platform), {
+    code: 'APR_BROKER_STALE',
+  });
+  assert.equal(f.reclaimed(), 0);
+  const owner = acquireBrokerOwnership(
+    { identity, paths, versions, reconcile: () => true },
+    f.platform
+  );
+  assert.equal(f.reclaimed(), 1);
+  assert.equal(owner.verify(), true);
+  assert.notEqual(JSON.parse(f.metadata()).instance_id, 'a'.repeat(64));
+  assert.equal(owner.release(), true);
+});
+
+for (const old of [
+  { name: 'malformed', value: { schema: 'untrusted' } },
+  {
+    name: 'foreign project',
+    value: priorHandshake({ tuple: [identity.tuple[0], '/other', null, '501'] }),
+  },
+  {
+    name: 'incompatible runtime',
+    value: priorHandshake({ versions: { ...versions, package_version: '0.1.0' } }),
+  },
+]) {
+  test(`refuses ${old.name} discovery before reclaiming any endpoint`, () => {
+    const f = fixture();
+    f.prior(old.value);
+    assert.throws(
+      () =>
+        acquireBrokerOwnership({ identity, paths, versions, reconcile: () => true }, f.platform),
+      { code: /APR_BROKER_(AUTH_FAILED|INCOMPATIBLE|STALE)/ }
+    );
+    assert.equal(f.reclaimed(), 0);
+    assert.deepEqual(JSON.parse(f.metadata()), old.value);
+  });
 }
 
 test('ownership provisions each private authority and endpoint directory in order', () => {
@@ -388,6 +455,9 @@ test(
     secondDecoder.end();
     assert.equal(secondFrames.length, 1);
     validateHandshake(secondFrames[0], nativeHandshake, security.peerUser(accepted));
+    // Windows command reconciliation may outlast the 5-second handshake and
+    // partial-frame bound; the authenticated client must keep waiting.
+    if (process.platform === 'win32') await new Promise((resolve) => setTimeout(resolve, 6_000));
     accepted.write(encodeFrame(nativeHandshake));
     accepted.close();
     const [ipcStatus] = await ipcExit;
@@ -428,6 +498,51 @@ test(
     endpoint.close();
 
     if (process.platform !== 'win32') {
+      const staleSource = `
+        import { platformSecurity } from ${JSON.stringify(new URL('../../src/broker/platform.mjs', import.meta.url).href)};
+        platformSecurity().listenPrivate(process.argv[1]);
+        process.stdout.write('READY\\n');
+        setInterval(() => {}, 1000);
+      `;
+      const staleChild = spawn(
+        process.execPath,
+        ['--input-type=module', '-e', staleSource, endpointPath],
+        {
+          shell: false,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }
+      );
+      t.after(() => staleChild.kill());
+      let staleStderr = '';
+      staleChild.stderr.on('data', (chunk) => {
+        staleStderr += chunk.toString();
+      });
+      await waitForChildOutput(staleChild, staleChild.stdout, 'READY\n', () => staleStderr);
+      const staleExit = once(staleChild, 'exit');
+      staleChild.kill('SIGKILL');
+      await staleExit;
+      assert.equal(existsSync(endpointPath), true);
+      security.reclaimStaleEndpoint(endpointPath, lock);
+      assert.equal(existsSync(endpointPath), false);
+      const recoveredEndpoint = security.listenPrivate(endpointPath);
+      assert.throws(() => security.reclaimStaleEndpoint(endpointPath, lock), {
+        code: 'APR_BROKER_STALE',
+      });
+      assert.equal(recoveredEndpoint.verify(), true);
+      recoveredEndpoint.close();
+      writeFileSync(endpointPath, 'foreign', { mode: 0o600 });
+      assert.throws(() => security.reclaimStaleEndpoint(endpointPath, lock), {
+        code: 'APR_BROKER_STALE',
+      });
+      assert.equal(existsSync(endpointPath), true);
+      rmSync(endpointPath);
+      symlinkSync(target, endpointPath);
+      assert.throws(() => security.reclaimStaleEndpoint(endpointPath, lock), {
+        code: 'APR_BROKER_STALE',
+      });
+      assert.equal(existsSync(endpointPath), true);
+      rmSync(endpointPath);
+
       renameSync(target, `${target}.held`);
       writeFileSync(target, 'foreign', { mode: 0o600 });
       assert.equal(lock.verify(), false);

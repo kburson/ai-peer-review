@@ -5,7 +5,10 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { manualTransport } from '../../src/transport/manual.mjs';
-import { createTransportRegistry } from '../../src/transport/registry.mjs';
+import {
+  createTransportRegistry,
+  providerTransportCapabilities,
+} from '../../src/transport/registry.mjs';
 import { createResumeTransport } from '../../src/transport/resume.mjs';
 import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
@@ -97,4 +100,19 @@ test('manual recovery shell-quotes hostile absolute paths', async () => {
 
   const native = process.platform === 'win32' ? powershell : posix;
   assert.equal(executeJoinCommand(native.manual.command), invitation);
+});
+
+test('provider capability evidence maps only proven transport modes', () => {
+  assert.deepEqual(
+    providerTransportCapabilities({
+      available: true,
+      transport: ['manual', 'resume-only', 'automatic-required'],
+      adapter_version: '1.0.0',
+    }),
+    ['automatic-required', 'manual', 'resume-only']
+  );
+  assert.throws(
+    () => providerTransportCapabilities({ available: false, transport: ['automatic-required'] }),
+    { code: 'APR_TRANSPORT_UNAVAILABLE' }
+  );
 });

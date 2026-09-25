@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -81,17 +86,22 @@ function replaceSection(file, heading, content) {
 async function acceptedReview(root, reviewId, { noCommit = false, phases } = {}) {
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId,
-    noCommit,
-    phases,
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId,
+      noCommit,
+      phases,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -155,17 +165,22 @@ async function normalIntervention(root, reviewId) {
   const fixtureId = `${reviewId}-authority`;
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId,
-    maxTurns: 1,
-    authority: fixtureAuthority(fixtureId),
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId,
+      maxTurns: 1,
+      authority: fixtureAuthority(fixtureId),
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -331,17 +346,22 @@ test('good-enough finalization rejects non-budget intervention authority', async
   t.after(fx.cleanup);
   const author = identity('author', 'stale-finalize-author');
   const reviewer = identity('reviewer', 'stale-finalize-reviewer');
-  const started = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'stale-finalize',
-    noCommit: true,
-    testHumanAuthority: 'stale-finalize-authority',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'stale-finalize',
+      noCommit: true,
+      testHumanAuthority: 'stale-finalize-authority',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

@@ -199,6 +199,50 @@ export function participantIdentity({
   });
 }
 
+export function participantIdentityFromProviderObservation({ role, observation, joinedAt } = {}) {
+  if (
+    observation?.assurance !== 'runtime' ||
+    !/^sha256:[0-9a-f]{64}$/.test(observation.session_fingerprint ?? '') ||
+    typeof observation.model_id !== 'string'
+  ) {
+    fail(
+      'APR_IDENTITY_INVALID',
+      'Provider runtime observation is incomplete.',
+      'Observe the exact provider session and model before registering the participant.'
+    );
+  }
+  if (!ROLES.has(role) || !HOSTS.has(observation.host) || !PROVIDERS.has(observation.provider)) {
+    fail(
+      'APR_IDENTITY_INVALID',
+      'Provider runtime observation identity is invalid.',
+      'Use a documented role, host, and provider.'
+    );
+  }
+  const joined = instant(
+    joinedAt ?? new Date(),
+    'identity join time',
+    'APR_IDENTITY_INVALID'
+  ).toISOString();
+  const modelId = text(observation.model_id, 'model_id');
+  const modelDisplay = text(observation.model_display ?? observation.model_id, 'model_display');
+  return Object.freeze({
+    role,
+    host: observation.host,
+    provider: observation.provider,
+    model_id: modelId,
+    model_display: modelDisplay,
+    session_fingerprint: observation.session_fingerprint,
+    identity_source: 'runtime',
+    joined_at: joined,
+    evidence: identityEvidence({
+      sessionFingerprint: observation.session_fingerprint,
+      sessionSource: 'provider-result',
+      modelId,
+      modelSource: 'provider-result',
+    }),
+  });
+}
+
 function selectedAdapter(context) {
   if (context.adapter !== undefined) {
     const adapter = ADAPTERS.get(context.adapter);

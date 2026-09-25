@@ -5,12 +5,47 @@ import assert from 'node:assert/strict';
 
 import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS } from '../../src/cli/parse.mjs';
 import { explainError, helpRequest } from '../../src/cli/help-data.mjs';
+import { parseCommand } from '../../src/cli/parse.mjs';
+
+test('concept topics remain separate from the closed command grammar', () => {
+  for (const name of ['spr', 'xpr']) {
+    assert.equal(COMMANDS.includes(name), false);
+    assert.equal(helpRequest(name, 'json').schema, 'ai-peer-review.help-concept/v1');
+    assert.equal(parseCommand(['help', name]).args[0], name);
+    assert.ok(helpRequest(name, 'text').includes(name.toUpperCase()));
+    assert.ok(helpRequest(name, 'json').examples.length);
+    assert.throws(() => parseCommand([name, 'docs/a.md']), { code: 'APR_USAGE' });
+  }
+  assert.deepEqual(helpRequest(null, 'json').concepts, ['spr', 'xpr']);
+  assert.deepEqual(
+    helpRequest(null, 'json', { all: true }).concepts.map((v) => v.topic),
+    ['spr', 'xpr']
+  );
+  assert.ok(helpRequest('cross-provider', 'json', { search: true }).matches.includes('xpr'));
+  assert.throws(() => parseCommand(['help', 'unknown-concept']), { code: 'APR_USAGE' });
+});
+
+test('start help gives complete intent-first selection and recovery guidance', () => {
+  const start = helpRequest('start', 'text');
+  assert.match(start, /--reviewer-provider/);
+  assert.match(start, /--reviewer-model/);
+  assert.match(start, /medium/);
+  assert.match(start, /invoking session.*author/i);
+  assert.match(start, /broker/i);
+  assert.match(
+    start,
+    /peer-review start docs\/spec\.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
+  );
+  assert.match(start, /APR_USAGE/);
+  assert.doesNotMatch(start, /--runtime/);
+});
 
 test('all offline help topics derive complete contracts from the frozen command catalog', () => {
   const resultSchema = JSON.parse(
     readFileSync(new URL('../../schemas/cli-result-v1.json', import.meta.url), 'utf8')
   );
   assert.equal(resultSchema.$id, 'ai-peer-review.cli-result/v1');
+  assert.match(resultSchema.$comment, /broker.*separate.*result/i);
   assert.equal(resultSchema.additionalProperties, false);
   assert.equal(resultSchema.properties.review.additionalProperties, false);
   assert.equal(resultSchema.properties.paths.additionalProperties, false);
@@ -51,7 +86,7 @@ test('all offline help topics derive complete contracts from the frozen command 
       topic.flags.map(({ flag }) => flag),
       COMMAND_FLAGS[command]
     );
-    assert.match(topic.examples[1], /^npx --yes @kburson\/ai-peer-review@0\.2\.2 /);
+    assert.match(topic.examples[1], /^npx --yes @kburson\/ai-peer-review@0\.3\.0 /);
     assert.doesNotMatch(topic.examples.join('\n'), /^npx --yes ai-peer-review@/m);
     for (const code of topic.errors) {
       const explanation = explainError(code);
@@ -91,12 +126,15 @@ test('the closed CLI result schema covers attempt supersession and record consol
   );
 });
 
-test('coordinator help declares durable wake and bounded manual fallback semantics', () => {
-  const coordinator = helpRequest('coordinator', 'json');
-  assert.match(coordinator.wake, /durable.*exact.*participant/i);
-  assert.match(coordinator.tokens, /zero.*idle/i);
-  assert.match(coordinator.next_action, /status.*--next.*manual/i);
-  assert.equal(coordinator.json_schema, 'ai-peer-review.coordinator-result/v1');
+test('broker help declares authenticated project-local recovery semantics', () => {
+  const broker = helpRequest('broker', 'json');
+  assert.match(broker.purpose, /project-local.*broker/i);
+  assert.match(broker.preconditions.join(' '), /canonical.*current.*project/i);
+  assert.match(broker.effects.join(' '), /suspend.*one review/i);
+  assert.match(broker.effects.join(' '), /stop.*refuse.*runnable.*unreconciled/i);
+  assert.match(broker.wake, /ambiguous.*never.*replay/i);
+  assert.match(broker.next_action, /offline.*recovery.*evidence/i);
+  assert.equal(broker.json_schema, 'ai-peer-review.broker-result/v1');
 });
 
 test('Claude launch help and result schema freeze bounded recovery', () => {
@@ -148,6 +186,20 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_POLICY'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_BROKER_REGISTRATION_CONFLICT'));
+  for (const code of [
+    'APR_BROKER_START_FAILED',
+    'APR_BROKER_INCOMPATIBLE',
+    'APR_BROKER_OWNED',
+    'APR_BROKER_STALE',
+    'APR_PROVIDER_RESOURCE_BUSY',
+    'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_BROKER_REGISTRATION_CONFLICT',
+  ]) {
+    assert.ok(helpRequest('broker', 'json').errors.includes(code), code);
+    assert.ok(explainError(code).recovery.length > 20, code);
+  }
+  assert.doesNotMatch(explainError('APR_BROKER_STALE').recovery, /(?:delete|deleting).*lock/i);
   assert.ok(helpRequest('join', 'json').errors.includes('APR_TRANSPORT_UNAVAILABLE'));
   const consolidate = helpRequest('consolidate', 'json');
   assert.match(consolidate.usage, /--destination.*--dry-run.*--apply/);
@@ -155,6 +207,10 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.equal(consolidate.commit, 'Exact relocation paths only in normal mode.');
   assert.equal(explainError('APR_STALE_REVIEW').code, 'APR_STALE_REVIEW');
   assert.equal(explainError('APR_TEMPLATE_INVALID').code, 'APR_TEMPLATE_INVALID');
+  assert.match(
+    explainError('APR_BROKER_REGISTRATION_CONFLICT').recovery,
+    /preserve.*registration.*inspect.*exact.*request/i
+  );
   assert.ok(helpRequest('review', 'json', { search: true }).matches.includes('submit'));
   assert.equal(explainError('APR_ARTIFACT_DIRTY').code, 'APR_ARTIFACT_DIRTY');
   assert.match(

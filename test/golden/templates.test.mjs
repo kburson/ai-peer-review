@@ -3,36 +3,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { TEMPLATE_NAMES, TEMPLATE_VARIABLES, hydrateTemplate } from '../../src/templates/index.mjs';
+import { renderCommand } from '../../src/cli/help-data.mjs';
+import { TEMPLATE_FIXTURE_VALUES as values } from '../helpers/template-values.mjs';
+import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
 
-const values = Object.freeze({
-  review_id: 'review-01',
-  mode_banner: 'Mode: `normal`',
-  artifact_absolute: '/repo/docs/example.md',
-  workspace_absolute: '/repo/.scratch/peer-review/review-01',
-  response_absolute: '/repo/docs/peer-reviews/spec/example/reviewer-response-1.md',
-  invitation_absolute: '/repo/docs/peer-reviews/spec/example/reviewer-invitation.md',
-  artifact_display: '`/repo/docs/example.md`',
-  workspace_display: '`/repo/.scratch/peer-review/review-01`',
-  response_display: '`/repo/docs/peer-reviews/spec/example/reviewer-response-1.md`',
-  invitation_display: '`/repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
-  invitation_payload: 'cGF5bG9hZA',
-  installed_join_display:
-    '`peer-review join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
-  zero_install_join_display:
-    '`npx --yes @kburson/ai-peer-review@0.2.2 join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`',
-  recovery_display: '`peer-review resume /repo/.scratch/peer-review/review-01`',
-  frontmatter: '---\nschema: "ai-peer-review.response/v1"\n---',
-  summary: 'Summary text.',
-  findings: 'None.',
-  required_changes: 'None.',
-  optional_suggestions: 'None.',
-  decision: 'accepted',
-  finding_dispositions: 'None.',
-  changes_made: 'No changes.',
-  declined_changes: 'None.',
-  verification: 'Tests passed.',
-  human_rationale: 'Accepted with documented rationale.',
-  manifest_body: 'Manifest evidence.',
+test('generated join commands round-trip spaces and Windows-style paths', () => {
+  for (const invitation of [
+    '/repo/Review Files/reviewer invitation.md',
+    "C:\\Review Files\\Owner's\\reviewer invitation.md",
+  ]) {
+    assert.equal(
+      executeJoinCommand(renderCommand(['peer-review', 'join', invitation])),
+      invitation
+    );
+  }
+  assert.equal(
+    renderCommand(['peer-review', 'join', "C:\\Review Files\\Owner's\\reviewer invitation.md"], {
+      platform: 'win32',
+    }),
+    "peer-review join 'C:\\Review Files\\Owner''s\\reviewer invitation.md'"
+  );
 });
 
 const COMMUNICATION_POLICY = `## Communication policy (v1)
@@ -77,8 +67,18 @@ test('startup templates use absolute paths and document installed and zero-insta
     assert.match(output, /\/repo\/docs\/example\.md/);
     assert.match(output, /\/repo\/\.scratch\/peer-review\/review-01/);
     assert.match(output, /`peer-review /);
-    assert.match(output, /`npx --yes @kburson\/ai-peer-review@0\.2\.2 (?:status|join) /);
-    assert.doesNotMatch(output, /`npx --yes ai-peer-review@0\.2\.2/);
+    const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url)));
+    const commands = [...output.matchAll(/`npx --yes @kburson\/ai-peer-review@([^ ]+) ([^`]+)`/g)];
+    assert.equal(commands.length, 1, name);
+    assert.equal(commands[0][1], manifest.version, name);
+    assert.equal(
+      commands[0][2],
+      name === 'author-startup'
+        ? 'status --help'
+        : 'join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md',
+      name
+    );
+    assert.doesNotMatch(output, /`npx --yes ai-peer-review@/);
   }
   const invitation = hydrateTemplate('reviewer-invitation', {
     ...Object.fromEntries(
@@ -90,13 +90,23 @@ test('startup templates use absolute paths and document installed and zero-insta
   assert.match(invitation, /peer-review resume \/repo\/\.scratch/);
 });
 
-test('startup templates suppress participant polling under durable coordination', () => {
+test('startup handoffs print the sealed reviewer selection and resolved effort', () => {
   for (const name of ['author-startup', 'reviewer-invitation']) {
     const variables = Object.fromEntries(TEMPLATE_VARIABLES[name].map((key) => [key, values[key]]));
     const output = hydrateTemplate(name, variables).toString();
-    assert.match(output, /durable coordinator/i);
-    assert.match(output, /do not poll or repeat wait calls/i);
-    assert.match(output, /peer-review status <workspace> --next/i);
+    assert.match(output, /Reviewer: Claude Opus 5 \(claude-opus-5\), effort: medium/);
+    assert.match(output, /Runtime: XPR, project-local broker/);
+  }
+});
+
+test('startup templates explain broker recovery without retired coordinator commands', () => {
+  for (const name of ['author-startup', 'reviewer-invitation']) {
+    const variables = Object.fromEntries(TEMPLATE_VARIABLES[name].map((key) => [key, values[key]]));
+    const output = hydrateTemplate(name, variables).toString();
+    assert.match(output, /project-local broker/i);
+    assert.match(output, /peer-review broker status/i);
+    assert.match(output, /peer-review broker reconcile/i);
+    assert.doesNotMatch(output, /peer-review coordinator/i);
   }
 });
 

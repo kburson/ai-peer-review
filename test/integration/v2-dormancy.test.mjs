@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -10,15 +15,20 @@ test('public participant registration activates v2 evidence while mixed logs sta
   t.after(fx.cleanup);
   const author = identity('author', 'v2-dormancy-author');
   const reviewer = identity('reviewer', 'v2-dormancy-reviewer');
-  const started = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'v2-dormancy',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'v2-dormancy',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

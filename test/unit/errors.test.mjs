@@ -10,7 +10,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   );
 
   assert.equal(packageJson.name, '@kburson/ai-peer-review');
-  assert.equal(packageJson.version, '0.2.2');
+  assert.equal(packageJson.version, '0.3.0');
   assert.equal(packageJson.type, 'module');
   assert.equal(packageJson.engines.node, '>=24');
   assert.equal(packageJson.bin['peer-review'], './bin/peer-review.mjs');
@@ -29,6 +29,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     'test:golden': 'node --test "test/golden/**/*.test.mjs"',
     'test:integration': 'node --test "test/integration/**/*.test.mjs"',
     'test:packaging': 'node --test "test/packaging/**/*.test.mjs"',
+    'test:live:broker-handoff': 'node test/live/installed-broker-handoff.mjs',
     'test:smoke': 'node --test "test/smoke/**/*.test.mjs"',
     'test:mcp': 'node --test "test/mcp/**/*.test.mjs"',
     'test:slow': 'npm run test:integration && npm run test:mcp && npm run test:smoke',

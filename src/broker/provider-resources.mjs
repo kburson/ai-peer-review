@@ -293,6 +293,12 @@ function concurrentLease(platform) {
       released = true;
       return true;
     },
+    releaseUnused() {
+      if (released || sessionHandle !== null)
+        throw failure('APR_PROVIDER_RESOURCE_STALE', 'Provider session lease was already used.');
+      released = true;
+      return true;
+    },
   });
 }
 
@@ -322,6 +328,7 @@ function exclusiveLease({ identity, descriptor, instanceId, nonce }, platform) {
   let recordBytes = null;
   let fenced = false;
   let released = false;
+  let used = false;
 
   function stale(message) {
     fenced = true;
@@ -460,7 +467,25 @@ function exclusiveLease({ identity, descriptor, instanceId, nonce }, platform) {
         heartbeat_at: valid.observed_at,
         diagnostic_at: valid.observed_at,
       });
+      used = true;
       return true;
+    },
+    releaseUnused() {
+      verifyOwned();
+      if (used)
+        throw failure('APR_PROVIDER_RESOURCE_STALE', 'Provider-resource lease was already used.');
+      const observed = validateProviderObservation(
+        platform.reconcileProviderResource({
+          resourceDigest: digest,
+          resourceId: descriptor.resource_id,
+          identity,
+          prior: record,
+        }),
+        'available',
+        descriptor.resource_id,
+        platform
+      );
+      return this.release({ ...observed, status: 'reconciled-recovery' });
     },
     release(reconciliation) {
       verifyOwned();

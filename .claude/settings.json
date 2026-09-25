@@ -57,6 +57,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node bin/peer-review-claude-hook.mjs"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
             "command": "node -e \"const {existsSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/bash-guard.mjs\\\",\\\"scripts/task-tracker/bash-guard.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){process.stderr.write('aitm bash-guard: guard entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}import(pathToFileURL(p).href);\""
           }
         ]

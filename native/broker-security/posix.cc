@@ -16,6 +16,7 @@
 #include <vector>
 
 namespace broker_security {
+void CloseConnection(void*);
 namespace {
 struct FileIdentity {
   dev_t device;
@@ -349,6 +350,8 @@ void AbandonEndpoint(void* value) {
   delete endpoint;
 }
 
+// Idle accept must yield promptly so provider streams and coordinator timers run.
+// Keep the full IPC timeout for reads/writes on an established connection.
 void* AcceptPrivate(void* value, std::string* code, std::string* message) {
   auto* endpoint = static_cast<Endpoint*>(value);
   if (!VerifyEndpoint(value)) {
@@ -356,7 +359,7 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
     return nullptr;
   }
   const auto deadline = std::chrono::steady_clock::now() +
-                        std::chrono::milliseconds(kIpcTimeoutMilliseconds);
+                        std::chrono::milliseconds(25);
   if (!WaitReady(endpoint->descriptor, POLLIN, deadline)) {
     Fail(code, message, "APR_BROKER_START_FAILED", "Broker connection accept timed out.");
     return nullptr;
@@ -394,21 +397,69 @@ void* ConnectPrivate(const std::string& path, std::string* code, std::string* me
   address.sun_family = AF_UNIX;
   std::memcpy(address.sun_path, path.c_str(), path.size() + 1);
   int result = connect(descriptor, reinterpret_cast<sockaddr*>(&address), sizeof(address));
-  if (result != 0 && errno == EINPROGRESS) {
+  int connectionError = result == 0 ? 0 : errno;
+  if (result != 0 && connectionError == EINPROGRESS) {
     const auto deadline = std::chrono::steady_clock::now() +
                           std::chrono::milliseconds(kIpcTimeoutMilliseconds);
+    const bool ready = WaitReady(descriptor, POLLOUT, deadline);
     int socketError = 0;
     socklen_t errorSize = sizeof(socketError);
-    result = WaitReady(descriptor, POLLOUT, deadline) &&
-             getsockopt(descriptor, SOL_SOCKET, SO_ERROR, &socketError, &errorSize) == 0 &&
-             socketError == 0 ? 0 : -1;
+    // SO_ERROR carries asynchronous refusal independently of poll's flags.
+    if (getsockopt(descriptor, SOL_SOCKET, SO_ERROR, &socketError, &errorSize) != 0)
+      connectionError = errno;
+    else
+      connectionError = socketError != 0 ? socketError : ready ? 0 : ETIMEDOUT;
+    result = connectionError == 0 ? 0 : -1;
   }
-  if (result != 0 || fcntl(descriptor, F_SETFL, originalFlags) != 0) {
+  if (result != 0) {
     close(descriptor);
-    Fail(code, message, "APR_BROKER_START_FAILED", "Broker endpoint cannot be connected.");
+    const char* stable = connectionError == ENOENT ? "ENOENT" :
+                         connectionError == ECONNREFUSED ? "ECONNREFUSED" :
+                         "APR_BROKER_START_FAILED";
+    Fail(code, message, stable, "Broker endpoint cannot be connected.");
+    return nullptr;
+  }
+  if (fcntl(descriptor, F_SETFL, originalFlags) != 0) {
+    close(descriptor);
+    Fail(code, message, "APR_BROKER_START_FAILED", "Broker connection mode cannot be restored.");
     return nullptr;
   }
   return new Connection{descriptor};
+}
+
+bool ReclaimStaleEndpoint(void* lock, const std::string& path, std::string* code, std::string* message) {
+  if (!VerifyExclusive(lock))
+    return Fail(code, message, "APR_BROKER_STALE", "Broker lock changed before endpoint reconciliation.");
+  const auto separator = path.find_last_of('/');
+  if (separator == std::string::npos || separator == 0 || separator + 1 == path.size())
+    return Fail(code, message, "APR_BROKER_STALE", "Broker endpoint path is not canonical.");
+  const std::string name = path.substr(separator + 1);
+  if (!Name(name)) return Fail(code, message, "APR_BROKER_STALE", "Broker endpoint name is unsafe.");
+  void* directoryValue = OpenPrivateDirectory(path.substr(0, separator), code, message);
+  if (!directoryValue) return false;
+  auto* directory = static_cast<Directory*>(directoryValue);
+  struct stat observed {};
+  bool safe = true;
+  if (fstatat(directory->descriptor, name.c_str(), &observed, AT_SYMLINK_NOFOLLOW) != 0) {
+    safe = errno == ENOENT;
+  } else if (!S_ISSOCK(observed.st_mode) || observed.st_uid != geteuid() ||
+             (observed.st_mode & 0777) != 0600) {
+    safe = false;
+  } else {
+    std::string connectCode, connectMessage;
+    void* connection = ConnectPrivate(path, &connectCode, &connectMessage);
+    if (connection) CloseConnection(connection);
+    struct stat current {};
+    safe = !connection && connectCode == "ECONNREFUSED" && VerifyDirectory(directoryValue) &&
+           VerifyExclusive(lock) &&
+           fstatat(directory->descriptor, name.c_str(), &current, AT_SYMLINK_NOFOLLOW) == 0 &&
+           S_ISSOCK(current.st_mode) && current.st_uid == geteuid() &&
+           (current.st_mode & 0777) == 0600 && Same(Identity(observed), current) &&
+           unlinkat(directory->descriptor, name.c_str(), 0) == 0;
+  }
+  safe = safe && VerifyDirectory(directoryValue) && VerifyExclusive(lock);
+  CloseDirectory(directoryValue);
+  return safe || Fail(code, message, "APR_BROKER_STALE", "Broker endpoint is live, changed, or unsafe to reclaim.");
 }
 
 bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* bytes,
@@ -433,7 +484,7 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   return true;
 }
 
-bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
+bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes, bool,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
   return SendAll(connection->descriptor, bytes)

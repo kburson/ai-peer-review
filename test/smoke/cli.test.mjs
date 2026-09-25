@@ -1,16 +1,17 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fixtureStartupDeps } from '../helpers/internal-api.mjs';
 
 import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('packed CLI installs into a non-Node host and starts a review', (t) => {
+test('packed CLI installs into a non-Node host and starts a review through injected offline adapters', async (t) => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'apr-installed-'));
   t.after(() => rmSync(fixture, { recursive: true, force: true }));
   const packDir = path.join(fixture, 'pack');
@@ -35,10 +36,15 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
   );
   assert.match(zeroInstallHelp, /Commands:/);
   writeFileSync(path.join(host, 'package.json'), '{"private":true}\n');
-  runNpm('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], {
+  runNpm('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', tarball], {
     cwd: host,
     stdio: 'pipe',
   });
+  assert.equal(
+    JSON.parse(readFileSync(path.join(host, 'node_modules/@kburson/ai-peer-review/package.json')))
+      .version,
+    '0.3.0'
+  );
   execFileSync(
     process.execPath,
     ['--input-type=module', '--eval', "await import('@kburson/ai-peer-review');"],
@@ -72,11 +78,13 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
   writeFileSync(path.join(host, '.git/info/exclude'), '.scratch/peer-review/\n');
   execFileSync('git', ['add', 'docs/spec.md'], { cwd: host });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: host, stdio: 'ignore' });
-  const started = runNpm(
-    'npx',
+  const { run } = await import(
+    pathToFileURL(path.join(host, 'node_modules/@kburson/ai-peer-review/src/cli/run.mjs'))
+  );
+  let started = '';
+  let errors = '';
+  const code = await run(
     [
-      '--no-install',
-      'peer-review',
       'start',
       'docs/spec.md',
       '--artifact-kind',
@@ -87,8 +95,21 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
       'claude-opus-5',
       '--reviewer-effort',
       'medium',
+      '--transport-mode',
+      'manual',
     ],
     {
+      ...fixtureStartupDeps,
+      stdout: {
+        write: (value) => {
+          started += value;
+        },
+      },
+      stderr: {
+        write: (value) => {
+          errors += value;
+        },
+      },
       cwd: host,
       encoding: 'utf8',
       env: {
@@ -99,6 +120,9 @@ test('packed CLI installs into a non-Node host and starts a review', (t) => {
       },
     }
   );
+  assert.equal(code, 0, errors);
   assert.match(started, /Review .*: awaiting-reviewer/);
   assert.match(started, /Next:/);
+  assert.match(started, /Runtime: XPR via project-local broker/);
+  assert.match(started, /Reviewer: claude-opus-5; effort: medium/);
 });
