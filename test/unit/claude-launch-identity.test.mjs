@@ -11,6 +11,13 @@ import {
   launchFixture,
   preflightLaunchFixture,
 } from '../helpers/claude-launch-fixture.mjs';
+import { exerciseClaudeLaunchCli } from '../helpers/claude-launch-cli-regression.mjs';
+
+for (const resume of [false, true]) {
+  test(`actual Claude CLI attribution, resume=${resume}`, { concurrency: false }, async (t) => {
+    await exerciseClaudeLaunchCli(t, { resume });
+  });
+}
 
 const identityKeys = [
   'CODEX_SESSION_ID',
@@ -37,6 +44,36 @@ test('fallback environment drops only Codex identity without mutating its input'
     assert.equal(child[key], parent[key]);
   }
   for (const key of identityKeys) assert.equal(parent[key], 'author-value');
+});
+
+test('clean parent launch environment preserves genuine Claude metadata', () => {
+  const parent = Object.freeze({
+    PATH: '/fixture/bin',
+    CLAUDE_CODE_SESSION_ID: 'genuine-child',
+    CLAUDE_MODEL_ID: 'claude-opus-5',
+    CLAUDE_MODEL_DISPLAY: 'Claude Opus 5',
+  });
+  assert.deepEqual(buildClaudeLaunchEnvironment(parent), parent);
+});
+
+test('runner refuses a wrong-provider reviewer before persisting launch state', async (t) => {
+  const fixture = launchFixture(t);
+  const after = launchAuthority();
+  after.state.participants.reviewer.provider = 'openai';
+  let observations = 0;
+  await assert.rejects(
+    runClaudeReviewerLaunch({
+      contract: fixture.contract,
+      inspectAuthority: () => (++observations === 1 ? launchAuthority({ joined: false }) : after),
+      execFile: async () => ({
+        exit_code: 0,
+        stdout: JSON.stringify({ session_id: 'fixture-claude-session' }),
+        stderr: '',
+      }),
+    }),
+    { code: 'APR_IDENTITY_CONFLICT' }
+  );
+  assert.equal(observations, 2);
 });
 
 test('normal launch and resume pass sanitized child environments without changing parent state', async (t) => {

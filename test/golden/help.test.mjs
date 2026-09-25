@@ -169,7 +169,23 @@ test('Claude launch help and result schema freeze bounded recovery', () => {
   assert.match(topic.effects.join(' '), /exact.*response.*permission/i);
   assert.match(topic.preconditions.join(' '), /private.*session.*state/i);
   assert.match(topic.next_action, /launch-reviewer.*--resume/i);
+  assert.match(topic.next_action, /permission-blocked with usable private session state/i);
+  assert.match(topic.next_action, /otherwise inspect review status before retrying/i);
+  assert.match(topic.result, /bounded diagnostics.*nullable pre-join session fingerprint/i);
+  assert.match(
+    topic.effects.join(' '),
+    /bounded diagnostics.*pre-join session fingerprint may be null/i
+  );
   assert.equal(topic.json_schema, 'ai-peer-review.claude-launch-result/v1');
+  const readme = readFileSync(new URL('../../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /\[Claude launch API migration\]\(docs\/claude-launch-api-migration\.md\)/);
+  const migration = readFileSync(
+    new URL('../../docs/claude-launch-api-migration.md', import.meta.url),
+    'utf8'
+  );
+  assert.match(migration, /expectedSessionFingerprint/);
+  assert.match(migration, /resumeAvailable/);
+  assert.match(migration, /older v1 validator/);
   assert.match(
     explainError('APR_CLAUDE_PERMISSION_INVALID').recovery,
     /\/\/.*filesystem.*\/.*project/i

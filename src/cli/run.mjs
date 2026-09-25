@@ -1405,7 +1405,11 @@ async function runtimeObservationForJoin(invitation, identity, io) {
     now: io.now ?? new Date(),
   });
   if (verified.session_fingerprint !== identity.session_fingerprint)
-    fail('APR_IDENTITY_CONFLICT', 'Joining identity differs from provider session evidence.');
+    fail(
+      'APR_IDENTITY_CONFLICT',
+      'Joining identity differs from provider session evidence.',
+      'Run join from the exact provider session that produced the current observation.'
+    );
   return {
     observation: Object.freeze({
       provider: verified.provider,
@@ -4396,6 +4400,13 @@ function writeClaudeLaunchResult(stream, value) {
     `Claude reviewer ${value.review_id}: ${value.status}`,
     `Response: ${value.response}`,
   ];
+  if (value.diagnostic) {
+    const diagnostic = value.diagnostic;
+    lines.push(`Diagnostic: ${diagnostic.category}`);
+    if (diagnostic.exit_code !== null) lines.push(`Exit code: ${diagnostic.exit_code}`);
+    if (diagnostic.code !== null) lines.push(`Code: ${diagnostic.code}`);
+    lines.push(diagnostic.message, `Action: ${diagnostic.next_action}`);
+  }
   if (value.recovery?.command) lines.push(`Next: ${value.recovery.command}`);
   stream.write(`${lines.join('\n')}\n`);
 }

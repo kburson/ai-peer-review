@@ -13,6 +13,54 @@ import { runClaudeReviewerLaunch } from '../../src/provider/claude-launch.mjs';
 import { classifyClaudeReviewerOutcome } from '../../src/provider/claude-launch.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { launchAuthority, launchFixture } from '../helpers/claude-launch-fixture.mjs';
+import { exerciseClaudeLaunchDiagnostics } from '../helpers/claude-launch-cli-regression.mjs';
+
+test(
+  'launch CLI text and JSON show safe bounded failure diagnostics without resume',
+  { concurrency: false },
+  async (t) => {
+    for (const json of [false, true]) {
+      await t.test(`json=${json}`, async (caseTest) => {
+        const output = await exerciseClaudeLaunchDiagnostics(caseTest, { json });
+        if (json) {
+          const value = JSON.parse(output);
+          assert.equal(value.status, 'failed');
+          assert.equal(value.session_fingerprint, null);
+          assert.equal(value.diagnostic.category, 'spawn-failed');
+          assert.equal(value.diagnostic.code, 'ENOENT');
+          assert.equal(value.recovery, null);
+        } else {
+          assert.match(output, /Diagnostic: spawn-failed/);
+          assert.match(output, /Code: ENOENT/);
+          assert.match(output, /Claude could not be started\./);
+          assert.match(output, /Action: Check the Claude installation/);
+        }
+      });
+    }
+  }
+);
+
+test(
+  'launch CLI does not print nested provider errors or large result prose',
+  { concurrency: false },
+  async (t) => {
+    for (const json of [false, true]) {
+      await t.test(`json=${json}`, async (caseTest) => {
+        const output = await exerciseClaudeLaunchDiagnostics(caseTest, { json, structured: true });
+        if (json) {
+          const value = JSON.parse(output);
+          assert.equal(value.status, 'failed');
+          assert.equal(value.diagnostic.category, 'provider-failed');
+          assert.equal(value.diagnostic.exit_code, 2);
+        } else {
+          assert.match(output, /Diagnostic: provider-failed/);
+          assert.match(output, /Exit code: 2/);
+        }
+        assert.doesNotMatch(output, /UNKNOWN/);
+      });
+    }
+  }
+);
 
 const schema = JSON.parse(
   readFileSync(new URL('../../schemas/claude-launch-result-v1.json', import.meta.url), 'utf8')

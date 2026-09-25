@@ -17,6 +17,40 @@ import test from 'node:test';
 import { run } from '../../src/cli/run.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { statusReview } from '../helpers/internal-api.mjs';
+import {
+  exerciseClaudeLaunchCli,
+  exerciseMissingChildModelCli,
+} from '../helpers/claude-launch-cli-regression.mjs';
+
+for (const resume of [false, true]) {
+  test(`actual Claude CLI attribution, resume=${resume}`, { concurrency: false }, async (t) => {
+    await exerciseClaudeLaunchCli(t, { resume });
+  });
+}
+
+test(
+  'clean parent reaches actual Claude CLI join and submit',
+  { concurrency: false },
+  async (t) => {
+    await exerciseClaudeLaunchCli(t, { cleanParent: true });
+  }
+);
+
+test(
+  'child join declares configured model fallback at the CLI boundary',
+  { concurrency: false },
+  async (t) => {
+    await exerciseClaudeLaunchCli(t, { modelSource: 'configured' });
+  }
+);
+
+test(
+  'child join refuses missing model and configuration at the CLI boundary',
+  { concurrency: false },
+  async (t) => {
+    await exerciseMissingChildModelCli(t);
+  }
+);
 
 function fixture({ configured = true } = {}) {
   const root = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), 'apr-claude-identity-')));
@@ -169,6 +203,25 @@ test('start, join, submit, and finalize share the configured Claude identity con
   const invitation = statusReview(workspace).paths.invitation;
   let participants = JSON.parse(readFileSync(path.join(workspace, 'participants.json'), 'utf8'));
   assert.equal(participants.author.identity_source, 'declared');
+
+  const sameSession = await runText(['join', invitation], fx.root, 'claude-author');
+  assert.equal(sameSession.code, 1);
+  assert.equal(sameSession.stderr.code, 'APR_IDENTITY_CONFLICT');
+
+  let missingSessionError = '';
+  const missingSessionCode = await run(['join', invitation], {
+    cwd: fx.root,
+    env: {},
+    now: new Date('2026-09-13T14:00:00.000Z'),
+    stdout: { write: () => {} },
+    stderr: {
+      write: (value) => {
+        missingSessionError += value;
+      },
+    },
+  });
+  assert.equal(missingSessionCode, 1);
+  assert.equal(JSON.parse(missingSessionError).code, 'APR_IDENTITY_REQUIRED');
 
   const joined = await runText(['join', invitation], fx.root, 'claude-reviewer');
   assert.equal(joined.code, 0, JSON.stringify(joined.stderr));
