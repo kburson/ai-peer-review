@@ -14,7 +14,9 @@ const OPERATION = `sha256:${'a'.repeat(64)}`;
 const DIGEST = `sha256:${'b'.repeat(64)}`;
 
 function fixture(t, entries) {
-  const root = mkdtempSync(path.join(process.cwd(), '.scratch', 'claude-wake-'));
+  const scratch = path.join(process.cwd(), '.scratch');
+  mkdirSync(scratch, { recursive: true });
+  const root = mkdtempSync(path.join(scratch, 'claude-wake-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const projectRoot = path.join(root, 'project');
   const claudeHome = path.join(root, '.claude');

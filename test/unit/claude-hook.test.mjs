@@ -16,7 +16,9 @@ const TOKEN = 'a'.repeat(32);
 const COMMAND = 'peer-review start --reviewer-provider claude';
 
 function fixture(t, { model = 'claude-opus-5', command = COMMAND } = {}) {
-  const root = mkdtempSync(path.join(process.cwd(), '.scratch', 'claude-hook-'));
+  const scratch = path.join(process.cwd(), '.scratch');
+  mkdirSync(scratch, { recursive: true });
+  const root = mkdtempSync(path.join(scratch, 'claude-hook-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const directory = path.join(root, '.claude', 'projects', 'project');
   mkdirSync(directory, { recursive: true });
