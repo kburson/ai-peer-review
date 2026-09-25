@@ -91,6 +91,8 @@ Keep normalization internal to the provider module family: do not add exports to
 - **Need:** the normal runner currently inherits the author's entire environment
 - **Value or failure prevented:** Claude join and submit can use their own provider session
 
+#### Execution
+
 **Files:** `src/provider/claude-launch.mjs`, new `test/helpers/claude-launch-fixture.mjs`, new `test/unit/claude-launch-identity.test.mjs`.
 
 **Interfaces:** Add module export `buildClaudeLaunchEnvironment(parentEnvironment = process.env) -> object` for direct unit import only. Runner keeps its existing argument signature. Test helper exports `launchFixture(t) -> { contract, workspace, stateFile }` and `launchAuthority({ joined = true, sequence = 3, revision = 2, events = [], state } = {}) -> authority`. Default an omitted `state` to `awaiting-reviewer` without a participant and `reviewer-turn` with one; decision fixtures explicitly set `acceptance-pending` or `author-revision` with an advanced sequence/revision. Keep `protocol.review_id` equal to the fixture contract ID.
@@ -165,6 +167,8 @@ const environment = Object.hasOwn(contract, 'environment')
 - **Capability:** receive useful diagnostic categories without exposing provider content
 - **Need:** provider errors contain arbitrary text and the v1 result cannot represent an absent reviewer
 - **Value or failure prevented:** actionable failures with bounded public output and honest identity absence
+
+#### Execution
 
 **Files:** new `src/provider/claude-launch-diagnostics.mjs`, new `test/unit/claude-launch-classifier.test.mjs`, `schemas/claude-launch-result-v1.json`, `test/golden/help.test.mjs`.
 
@@ -290,6 +294,8 @@ return diagnostic;
 - **Capability:** distinguish failure, uncertainty, denied response access, and proven submission
 - **Need:** parsing and mandatory reviewer/session assumptions hide startup failures
 - **Value or failure prevented:** truthful outcomes without false acceptance or unusable resume instructions
+
+#### Execution
 
 **Files:** `src/provider/claude-launch.mjs`, `test/unit/claude-launch-classifier.test.mjs`, `test/unit/claude-launch-permissions.test.mjs`, `test/integration/claude-launch-permissions.test.mjs`, new `docs/claude-launch-api-migration.md`.
 
@@ -440,6 +446,8 @@ Define `normalizedEvidence` as caller-owned bounded execution facts with the exa
 - **Capability:** get consistent Claude attribution and useful explanations in text and JSON
 - **Need:** helper-only tests miss join/submit resolution, and the text renderer currently drops diagnostics
 - **Value or failure prevented:** the reproduced bug is caught at the command boundary and failures are visible in normal use
+
+#### Execution
 
 **Files:** `src/cli/run.mjs`, `src/cli/help-data.mjs`, `test/unit/claude-launch-identity.test.mjs`, `test/unit/claude-launch-classifier.test.mjs`, `test/integration/claude-identity.test.mjs`, new `test/helpers/claude-launch-cli-regression.mjs`, `test/golden/help.test.mjs`, `README.md`.
 
