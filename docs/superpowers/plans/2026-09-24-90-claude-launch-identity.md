@@ -51,6 +51,7 @@ Implement the reviewed #90 spec only. Preserve command permissions, global ident
 - Diagnostic `message` and `next_action` are each at most 256 UTF-8 bytes; complete compact diagnostic JSON is at most 1024 UTF-8 bytes.
 - `failed` retains CLI exit 1; other governed statuses retain current behavior, without implying that exit zero means submitted.
 - Keep schema ID `ai-peer-review.claude-launch-result/v1`, accepting historical results without `diagnostic`; document that older strict schemas need updating for new results.
+- Treat `classifyClaudeReviewerOutcome` as a published API with a deliberate behavioral break: callers using the prior four-argument shape can receive `outcome-unknown` instead of `submitted`, and `recovery: null` instead of a generated resume command. Document the required normalized evidence, explicit expected session fingerprint, and verified private-state availability in new `docs/claude-launch-api-migration.md`, linked from `README.md`. Do not describe the unchanged export name as backward-compatible behavior or silently derive expected identity from post-launch reviewer authority.
 - Use offline execution doubles and disposable repositories. Never test by running a paid Claude session or mutating the live review workspace.
 - Before implementation, confirm governed #90 binding, timer, plan approval, branch, and deep-dive requirements in the owning session. Do not steal another session's binding. This document does not approve a lifecycle transition.
 - At each green checkpoint, stage only that task's files and use `[#90]` attribution. Do not publish, merge, or close the issue as part of generating this plan.
@@ -70,11 +71,14 @@ All paths below are relative to the exact worktree above. Tasks execute sequenti
 | `test/unit/claude-launch-identity.test.mjs` (new)     | Environment and identity invariants, including actual CLI regression entry            | 1, 4    |
 | `test/unit/claude-launch-classifier.test.mjs` (new)   | Normalization, runner outcomes, authority, state, diagnostic/schema/privacy checks    | 2, 3, 4 |
 | `test/unit/claude-launch-permissions.test.mjs`        | Retain permission/platform/resume regressions; complete identity fixtures             | 3       |
+| `test/integration/claude-launch-permissions.test.mjs` | Migrate both direct classifier callers and retain permission conformance              | 3       |
+| `docs/claude-launch-api-migration.md` (new)           | Consumer migration for the classifier behavior and widened result schema              | 3       |
+| `README.md`                                           | Link the consumer migration guide                                                     | 4       |
 | `test/integration/claude-identity.test.mjs`           | Actual join/submit integration using captured child environment                       | 4       |
 | `test/helpers/claude-launch-cli-regression.mjs` (new) | Reusable real-CLI disposable regression exercised by issue vc:1 and integration suite | 4       |
 | `test/golden/help.test.mjs`                           | Freeze widened schema and conditional help behavior                                   | 2, 4    |
 
-Keep normalization internal to the provider module family: do not add exports to `src/public-api.mjs`. Existing launch/classifier exports stay in place. Direct classifier callers must supply expected-session evidence for a submission; update in-repository call sites found by `rg 'classifyClaudeReviewerOutcome' src test`.
+Keep normalization internal to the provider module family: do not add exports to `src/public-api.mjs`. Existing launch/classifier exports stay in place. Direct classifier callers must supply expected-session evidence for a submission. Task 3 owns the unit and integration caller migrations and the external consumer contract; inventory callers with `rg 'classifyClaudeReviewerOutcome' src test`. The package export remains present, but its old call shape no longer guarantees its old outcomes. The migration guide must travel with the implementation, not remain only in this plan.
 
 ## Implementation Tasks
 
@@ -287,7 +291,7 @@ return diagnostic;
 - **Need:** parsing and mandatory reviewer/session assumptions hide startup failures
 - **Value or failure prevented:** truthful outcomes without false acceptance or unusable resume instructions
 
-**Files:** `src/provider/claude-launch.mjs`, `test/unit/claude-launch-classifier.test.mjs`, `test/unit/claude-launch-permissions.test.mjs`.
+**Files:** `src/provider/claude-launch.mjs`, `test/unit/claude-launch-classifier.test.mjs`, `test/unit/claude-launch-permissions.test.mjs`, `test/integration/claude-launch-permissions.test.mjs`, new `docs/claude-launch-api-migration.md`.
 
 **Interfaces:** Runner signature stays unchanged. Extend classifier arguments with `expectedSessionFingerprint = null` and `resumeAvailable = false`; retain `before`, `after`, `providerResult`, `contract`. `providerResult` is the normalized evidence from Task 2. A direct caller without expected session evidence cannot prove submission. The runner derives this fingerprint from valid returned session metadata or validated prior resume state, never from the newly registered reviewer alone.
 
@@ -315,8 +319,8 @@ assert.equal(existsSync(fx.stateFile), false);
 assert.doesNotMatch(JSON.stringify(result), /PRIVATE/);
 ```
 
-- [ ] **2. Run red:** `node --test test/unit/claude-launch-classifier.test.mjs`. Confirm the old JSON/session gate causes the failure.
-- [ ] **3. Reorder the runner and enforce output limits.** Set `maxBuffer: 1024 * 1024` in `execFile` options; preserve `cwd`, `shell: false`, encoding, and Task 1 environment choice. Capture the execution value or error without converting unknown failures into exit 1. Always inspect post-launch authority after execution settles, then normalize evidence and validate session information. Before invoking `execFile`, validate the pre-launch projection, nonnegative safe sequence/revision, contract review ID, and validated prior resume state; refuse invalid preconditions without dispatch. After execution, use the existing `authorityProjection` with reviewer optional only for a valid `awaiting-reviewer` state. Still validate review IDs, event arrays, safe sequence/revision, no regression, and expected reviewer presence for decisions. Missing reviewer in `reviewer-turn` or a decision-bearing state is malformed authority, not the new nullable pre-join case. Keep authoritative inspection failures outside the governed failure conversion.
+- [ ] **2. Run red:** `node --test test/unit/claude-launch-classifier.test.mjs test/integration/claude-launch-permissions.test.mjs`. Confirm the old JSON/session gate causes the new runner test to fail; retain the integration result as the baseline for the caller migration below.
+- [ ] **3. Reorder the runner and enforce output limits.** Set `maxBuffer: 1024 * 1024` in `execFile` options; preserve `cwd`, `shell: false`, encoding, and Task 1 environment choice. Capture the execution value or error without converting unknown failures into exit 1. Always inspect post-launch authority after execution settles, then normalize evidence and validate session information. Before invoking `execFile`, validate the pre-launch projection, nonnegative safe sequence/revision, contract review ID, and validated prior resume state; refuse invalid preconditions without dispatch. After execution, use the existing `authorityProjection` with reviewer optional only for a valid `awaiting-reviewer` state. Still validate review IDs, event arrays, safe sequence/revision, no regression, and expected reviewer presence for decisions. Missing reviewer in `reviewer-turn` or a decision-bearing state is malformed authority, not the new nullable pre-join case. Keep authoritative inspection failures outside the governed failure conversion. Remove the now-unused private `parseProviderResult` function after the runner switches to `normalizeClaudeExecution`; verify there are no remaining references and do not suppress `no-unused-vars` to keep dead parsing code.
 
 ```js
 let execution;
@@ -344,9 +348,50 @@ const providerResult = normalizeClaudeExecution({ execution, error: executionErr
 | absent usable session                                | outcome-unknown/session-unavailable                                                   |
 | otherwise                                            | outcome-unknown/no-submission                                                         |
 
-Use Task 2 diagnostic builder for every non-submitted result. Return the registered reviewer fingerprint or null, never the fingerprint of an unregistered provider handle. New submitted results may omit diagnostics. Direct-classifier tests pass explicit expected fingerprint; update existing permission tests to provide full Claude identity and explicit resume availability where recovery is expected.
+Use Task 2 diagnostic builder for every non-submitted result. Return the registered reviewer fingerprint or null, never the fingerprint of an unregistered provider handle. New submitted results may omit diagnostics. Direct-classifier tests pass explicit expected fingerprint. Update both `test/unit/claude-launch-permissions.test.mjs` and `test/integration/claude-launch-permissions.test.mjs` in this task. In the integration file, retain the raw `conformantClaude(...).turn(...)` results separately for the existing controls/analysis assertions, but pass normalized Task 2 evidence to both classifier calls. The denied call passes `resumeAvailable: true` to keep its exact-command assertion; this direct-classifier test models usable private state, while runner tests prove actual persistence. The corrected submission call passes `expectedSessionFingerprint: reviewer.session_fingerprint`, from the fixture reviewer identity established before execution, to retain its submitted assertion. Explicitly supply the expected fingerprint to the denial call too. Normalize each result as follows (use `deniedProviderResult` and `correctedProviderResult` respectively):
 
-- [ ] **6. Persist only validated recovery.** First classify with recovery unavailable to complete integrity validation; then write eligible private state using existing `atomicWrite` and validated contract paths. Eligible means valid structured output, valid handle (returned or validated prior), and successful authority/session checks. A valid failed provider session before join may be recorded. Unusable output, absent usable handle, and integrity errors preserve existing bytes and create nothing. After successful persistence, call the classifier again with the same immutable before/after observations and normalized evidence, setting `resumeAvailable: true`; only a permission-blocked result may gain the existing generated resume command. Do not mutate a frozen result or inspect authority a third time to construct recovery. Preserve the original classification and revision. If a valid prior state already exists and remains usable, it can support recovery without replacement. Propagate write failure; do not return a command that depends on the failed write. Do not append decisions or retry the provider.
+```js
+const normalizedDenied = normalizeClaudeExecution({
+  execution: {
+    exit_code: deniedProviderResult.exit_code,
+    stderr: '',
+    stdout: JSON.stringify({
+      session_id: 'same-claude-session',
+      permission_denials: deniedProviderResult.permission_denials,
+    }),
+  },
+});
+const denied = classifyClaudeReviewerOutcome({
+  before: beforeDenied,
+  after: afterDenied,
+  contract,
+  providerResult: normalizedDenied,
+  expectedSessionFingerprint: reviewer.session_fingerprint,
+  resumeAvailable: true,
+});
+const normalizedCorrected = normalizeClaudeExecution({
+  execution: {
+    exit_code: correctedProviderResult.exit_code,
+    stderr: '',
+    stdout: JSON.stringify({
+      session_id: 'same-claude-session',
+      permission_denials: correctedProviderResult.permission_denials,
+    }),
+  },
+});
+const corrected = classifyClaudeReviewerOutcome({
+  before: beforeCorrected,
+  after: afterCorrected,
+  contract,
+  providerResult: normalizedCorrected,
+  expectedSessionFingerprint: reviewer.session_fingerprint,
+  resumeAvailable: true,
+});
+```
+
+Import `normalizeClaudeExecution` from the new internal provider module in that integration test. Do not feed the raw `analysis`/`controls` object directly into the classifier. Preserve the integration file's second, real CLI route test, which already returns provider JSON with its raw fixture session ID.
+
+- [ ] **6. Persist only validated recovery.** First classify with recovery unavailable to complete integrity validation; then write eligible private state using existing `atomicWrite` and validated contract paths. Eligible means valid structured output, valid handle (returned or validated prior), and successful authority/session checks. A valid failed provider session before join may be recorded. Unusable output, absent usable handle, and integrity errors preserve existing bytes and create nothing. After the state step, set `resumeAvailable` to exactly whether usable private state exists for this validated session, whether newly written or preserved. If true, call the classifier again with the same immutable before/after observations and normalized evidence and `resumeAvailable: true`; only a permission-blocked result may gain the generated resume command. This condition is not whether a write happened: valid preserved prior state takes the same branch. If false, retain the first result with null recovery. Do not mutate a frozen result or inspect authority a third time to construct recovery. Preserve the original classification and revision. Propagate write failure; do not return a command that depends on the failed write. Do not append decisions or retry the provider.
 - [ ] **7. Add the complete runner matrix.** Use nested tests with independent disposable fixtures and real fingerprints; each case asserts public status, diagnostic category, fingerprint/null, inspection count, and state existence or unchanged bytes. Cover every Task 2 input plus: matching decision/nonzero exit; matching decision/denial; first decision/no handle; resume decision/no returned handle; invalid supplied handle; changed handle; wrong actor/provider; multiple/stale decisions; missing/corrupt/mismatched/regressed authority; exact versus neighbor denial; permission denial without handle/state; valid pre-join handle; byte-preserving failed resume; and private-state write failure. Include a malformed pre-launch case with an `execFile` call counter of zero and a valid unchanged pre-join case with two inspections. To inject an actual atomic-write failure portably on an initial launch, make the final `launch-state.json` destination a directory with a sentinel file, while its parent directories remain valid. The contained-path lookup can then succeed, but atomic rename of the temporary regular file onto that directory must fail with `APR_ATOMIC_WRITE_FAILED`. Assert the sentinel remains, no temporary file remains, and no result/recovery is returned. A regular file at the parent `provider` path instead tests a path-resolution refusal and does not reach the atomic writer. Keep that case separate if retained. Do not depend on permission bits, which can pass under privileged users.
 
 ```js
@@ -369,7 +414,23 @@ assert.equal(readFileSync(sentinel, 'utf8'), 'preserve');
 assert.deepEqual(readdirSync(path.dirname(fx.stateFile)), ['launch-state.json']);
 ```
 
-- [ ] **8. Run green:** `node --test test/unit/claude-launch-classifier.test.mjs test/unit/claude-launch-identity.test.mjs test/unit/claude-launch-permissions.test.mjs`. Stage only the three task files and commit `[#90] Preserve launch failures and enforce authoritative recovery`.
+- [ ] **8. Document the public API migration.** Create `docs/claude-launch-api-migration.md` with a before/after behavior table for prior four-argument callers, explaining the deliberate submitted-to-unknown and populated-to-null recovery changes. Include the exact normalized evidence fields from Task 2, their meanings, and a migrated public import example:
+
+```js
+import { classifyClaudeReviewerOutcome } from '@kburson/ai-peer-review';
+const outcome = classifyClaudeReviewerOutcome({
+  before,
+  after,
+  contract,
+  providerResult: normalizedEvidence,
+  expectedSessionFingerprint: verifiedSessionFingerprint,
+  resumeAvailable: privateStateUsable,
+});
+```
+
+Define `normalizedEvidence` as caller-owned bounded execution facts with the exact Task 2 shape; the package's normalization helper is internal and must not be advertised as a public import. Define `verifiedSessionFingerprint` as evidence of the launched provider session established independently of the current review participant projection. Define `privateStateUsable` as successful private-state validation/persistence, not provider exit or a denied write. Do not suggest blindly passing true or copying `after.state.participants.reviewer.session_fingerprint`. Include both public behavior migration and the v1 schema widening/older-validator caveat. Explain that ordinary CLI users receive runner-computed evidence and do not set these fields. Include compatibility assertions in the classifier unit tests: valid new decision with the old four-argument call remains unknown/session-unavailable; exact denial without explicit resume availability has null recovery; correctly evidenced calls retain submitted and recoverable-denial outcomes.
+
+- [ ] **9. Run green:** `node --test test/unit/claude-launch-classifier.test.mjs test/unit/claude-launch-identity.test.mjs test/unit/claude-launch-permissions.test.mjs test/integration/claude-launch-permissions.test.mjs`. Also run `./node_modules/.bin/eslint src/provider/claude-launch.mjs src/provider/claude-launch-diagnostics.mjs` and targeted Prettier/Markdown lint on the new migration guide. Stage only the five Task 3 files and commit `[#90] Preserve launch failures and enforce authoritative recovery`.
 
 ### Task 4: Verify the real CLI identity flow and expose safe diagnostics to operators
 
@@ -380,7 +441,7 @@ assert.deepEqual(readdirSync(path.dirname(fx.stateFile)), ['launch-state.json'])
 - **Need:** helper-only tests miss join/submit resolution, and the text renderer currently drops diagnostics
 - **Value or failure prevented:** the reproduced bug is caught at the command boundary and failures are visible in normal use
 
-**Files:** `src/cli/run.mjs`, `src/cli/help-data.mjs`, `test/unit/claude-launch-identity.test.mjs`, `test/unit/claude-launch-classifier.test.mjs`, `test/integration/claude-identity.test.mjs`, new `test/helpers/claude-launch-cli-regression.mjs`, `test/golden/help.test.mjs`.
+**Files:** `src/cli/run.mjs`, `src/cli/help-data.mjs`, `test/unit/claude-launch-identity.test.mjs`, `test/unit/claude-launch-classifier.test.mjs`, `test/integration/claude-identity.test.mjs`, new `test/helpers/claude-launch-cli-regression.mjs`, `test/golden/help.test.mjs`, `README.md`.
 
 **Interfaces:** Keep exported CLI `run(argv, io)` and all generated commands unchanged. New test-only helper exports `exerciseClaudeLaunchCli(t, { resume = false } = {}) -> Promise<void>`; it creates, runs, and cleans one disposable real CLI review. Import it in both the issue vc:1 unit file and integration file so vc:1 genuinely demonstrates join/submit behavior. No public identity-context export is needed. Use fresh collectors for each CLI call and a fixed fixture clock within the active claim interval. The helper accepts no live workspace path.
 
@@ -435,8 +496,8 @@ if (value.diagnostic) {
 // Retain the existing recovery.command line only when recovery is non-null.
 ```
 
-- [ ] **5. Update help copy and freeze it in golden tests.** Replace unconditional resume guidance with: `On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.` Explain bounded diagnostics and null pre-join fingerprint in the launch result description. Test the conditional wording, unchanged schema ID, four status values, and historical result compatibility. Do not edit previously sealed spec/review collateral to describe new behavior.
-- [ ] **6. Run green:** rerun the four files from Step 3 plus `node --test test/unit/identity.test.mjs test/unit/model-provenance.test.mjs test/unit/provider-preflight.test.mjs`. Confirm no test launches a real provider. Stage only the seven task files and commit `[#90] Verify Claude CLI attribution and surface safe launch diagnostics`.
+- [ ] **5. Update help copy and freeze it in golden tests.** Replace unconditional resume guidance with: `On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.` Explain bounded diagnostics and null pre-join fingerprint in the launch result description. Test the conditional wording, unchanged schema ID, four status values, and historical result compatibility. Add a `README.md` link labeled "Claude launch API migration" to `docs/claude-launch-api-migration.md` near the documented usage so consumers can find the Task 3 contract. Verify the target exists and describes both classifier behavior and schema validation changes. Do not edit previously sealed spec/review collateral to describe new behavior.
+- [ ] **6. Run green:** rerun the four files from Step 3 plus `node --test test/unit/identity.test.mjs test/unit/model-provenance.test.mjs test/unit/provider-preflight.test.mjs`. Confirm no test launches a real provider. Stage only the eight Task 4 files and commit `[#90] Verify Claude CLI attribution and surface safe launch diagnostics`.
 
 ## Acceptance and Traceability
 
@@ -462,9 +523,11 @@ Run in the exact worktree after all four tasks. These are execution gates, not r
 node --test test/unit/claude-launch-identity.test.mjs
 node --test test/unit/claude-launch-classifier.test.mjs
 node --test test/unit/claude-launch-permissions.test.mjs
+node --test test/integration/claude-launch-permissions.test.mjs
 node --test test/integration/claude-identity.test.mjs
 npm test
 npm run test:slow
+npm run test:packaging
 npm run lint
 npm run format:check
 git diff --check
@@ -472,7 +535,11 @@ git status --short
 git log --oneline -1
 ```
 
-`npm test` includes unit and golden tests; `test:slow` includes integration, MCP, and smoke. No paid-provider smoke check is required. Review the final diff for unintended adapter precedence, permission, schema-ID, public API export, or protocol mutations. Keep #90 attribution and existing governance gates; report remaining failures honestly instead of inferring acceptance from a green subset.
+`npm test` includes unit and golden tests; `test:slow` includes integration, MCP, and smoke. `test:packaging` is a separate required gate that checks the published export/package surface; it is included explicitly because neither other suite invokes it. No paid-provider smoke check is required. Review the final diff for unintended adapter precedence, permission, schema-ID, public API export, or protocol mutations. Keep #90 attribution and existing governance gates; report remaining failures honestly instead of inferring acceptance from a green subset.
+
+## XPR Revision Record
+
+Claude Opus 5 round 1 requested two required changes and offered two related suggestions. All four are incorporated: Task 3 now owns and tests the existing integration classifier callers, documents the published API behavior change for external consumers, removes the obsolete parser, and uses usable private state as the single recovery trigger. Task 4 links the migration guide; final verification includes packaging. No implementation was performed during this revision.
 
 ## Plan Self-Review
 
