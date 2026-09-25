@@ -1,11 +1,7 @@
 {
   "schema": "aitm.install-manifest/v1",
   "intent": {
-    "providers": [
-      "claude",
-      "codex",
-      "grok"
-    ],
+    "providers": ["claude", "codex", "grok"],
     "linkMode": "stub",
     "features": {
       "memoryIndex": false,
