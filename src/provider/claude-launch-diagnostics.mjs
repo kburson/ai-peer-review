@@ -60,7 +60,7 @@ export function normalizeClaudeExecution({ execution, error = null } = {}) {
     source.killed ||
     source.timedOut ||
     source.timeout ||
-    (error && !spawn_code && exit_code === null)
+    (error && !spawn_code && (exit_code === null || exit_code === 0))
   );
   const stdout = typeof source.stdout === 'string' ? source.stdout : '';
   const stderr = typeof source.stderr === 'string' ? source.stderr : '';

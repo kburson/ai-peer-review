@@ -55,6 +55,9 @@ test('distinguishes spawn, process, interruption, and unavailable output evidenc
     normalizeClaudeExecution({ error: { code: 'UNKNOWN', stdout: '{}' } }).interrupted,
     true
   );
+  const rejectedZero = normalizeClaudeExecution({ error: { code: 0, stdout: '{}' } });
+  assert.equal(rejectedZero.exit_code, 0);
+  assert.equal(rejectedZero.interrupted, true);
   assert.equal(
     normalizeClaudeExecution({ error: { signal: 'SIGTERM', stdout: '{}' } }).interrupted,
     true
