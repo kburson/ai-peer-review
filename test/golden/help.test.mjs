@@ -150,6 +150,19 @@ test('Claude launch help and result schema freeze bounded recovery', () => {
     'failed',
     'outcome-unknown',
   ]);
+  assert.equal(schema.properties.diagnostic.additionalProperties, false);
+  assert.deepEqual(schema.properties.diagnostic.required, [
+    'category',
+    'exit_code',
+    'code',
+    'message',
+    'next_action',
+  ]);
+  assert.equal(schema.properties.diagnostic.properties.category.enum.length, 8);
+  assert.equal(schema.properties.diagnostic.properties.message.maxLength, 256);
+  assert.equal(schema.properties.diagnostic.properties.next_action.maxLength, 256);
+  assert.equal(schema.then.properties.session_fingerprint.type, 'string');
+  assert.equal(schema.properties.session_fingerprint.oneOf[1].type, 'null');
   const topic = helpRequest('launch-reviewer', 'json');
   assert.match(topic.preconditions.join(' '), /sealed.*invitation.*exact.*response/i);
   assert.match(topic.effects.join(' '), /same.*session.*resume/i);
