@@ -5066,6 +5066,21 @@ export async function run(argv, io) {
         workspace: values.workspace,
         response: values.response,
       };
+      if (parsed.options.resume) {
+        const current = statusReview(values.workspace, { now: io.now ?? new Date() });
+        if (
+          current.state !== 'reviewer-turn' ||
+          current.paths.invitation !== invitation ||
+          typeof current.paths.response !== 'string'
+        ) {
+          throw new AprError(
+            'APR_CLAUDE_SESSION_INVALID',
+            'Claude resume has no current reviewer response authority.',
+            { recovery: 'Read peer-review status and resume only its pending reviewer turn.' }
+          );
+        }
+        routing.response = current.paths.response;
+      }
       const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
       const contract = parsed.options.resume
         ? buildClaudeReviewerResume({ repositoryRoot, invitation, routing })
@@ -5242,6 +5257,15 @@ export async function run(argv, io) {
           : null;
       const deliveryDeps = { transport, execFile: io.execFile };
       if (active === 'reviewer') {
+        const registeredReviewer = submitState.participants.reviewer;
+        const identityEnv = { ...(io.env ?? {}) };
+        if (
+          registeredReviewer?.host === 'claude-code' &&
+          registeredReviewer.identity_source === 'declared'
+        ) {
+          delete identityEnv.CLAUDE_MODEL_ID;
+          delete identityEnv.CLAUDE_MODEL_DISPLAY;
+        }
         const decision =
           parsed.options.decision ?? decisionFromResponse(statusReview(workspace).paths.response);
         response = await submitReviewTurn(
@@ -5250,7 +5274,7 @@ export async function run(argv, io) {
             workspace,
             identity: resolveIdentity({
               role: 'reviewer',
-              env: io.env,
+              env: identityEnv,
               ...configuredIdentityContext(io, loaded.config),
             }),
             decision,

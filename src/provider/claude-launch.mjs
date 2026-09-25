@@ -463,7 +463,11 @@ export function buildClaudeReviewerLaunch({
   const joinRule = encodeClaudeBashRule(join);
   const submitRule = encodeClaudeBashRule(submit);
   const badRule = `Edit(${response.absolute})`;
-  const neighbor = path.join(path.dirname(response.absolute), 'reviewer-response-2.md');
+  const responseName = path.basename(response.absolute).match(/^(.*reviewer-response-)(\d+)\.md$/u);
+  const neighbor = path.join(
+    path.dirname(response.absolute),
+    `${responseName?.[1]}${Number(responseName?.[2]) + 1}.md`
+  );
   const readiness = Object.freeze({
     exact_response: matchesClaudeEditRule(rule, response.absolute, {
       projectRoot: physicalRoot,
@@ -708,7 +712,11 @@ function sessionError(message, recovery) {
   return new AprError('APR_CLAUDE_SESSION_INVALID', message, { recovery });
 }
 
-function readLaunchState(contract, fingerprintSession = defaultFingerprintSession) {
+function readLaunchState(
+  contract,
+  fingerprintSession = defaultFingerprintSession,
+  { allowPriorResponse = false } = {}
+) {
   const file = launchStatePath(contract);
   let value;
   try {
@@ -726,7 +734,6 @@ function readLaunchState(contract, fingerprintSession = defaultFingerprintSessio
   const expected = {
     review_id: contract.review_id,
     invitation: contract.invitation,
-    response: contract.response,
     model: contract.model,
     effort: contract.effort,
   };
@@ -738,6 +745,9 @@ function readLaunchState(contract, fingerprintSession = defaultFingerprintSessio
     value.session_fingerprint !== fingerprintSession('anthropic', value.session_handle) ||
     !Number.isSafeInteger(value.protocol_revision) ||
     value.protocol_revision < 0 ||
+    (allowPriorResponse
+      ? typeof value.response !== 'string'
+      : value.response !== contract.response) ||
     Object.entries(expected).some(([key, selected]) => value[key] !== selected)
   ) {
     throw sessionError(
@@ -785,7 +795,7 @@ export function buildClaudeReviewerResume({ repositoryRoot, invitation, routing 
     model: state?.model,
     effort: state?.effort,
   });
-  readLaunchState(contract);
+  readLaunchState(contract, defaultFingerprintSession, { allowPriorResponse: true });
   return contract;
 }
 
@@ -810,7 +820,35 @@ export async function runClaudeReviewerLaunch({
   if (prior.protocol.review_id !== contract.review_id) {
     throw resultError('Claude pre-launch authority does not match the launch contract.');
   }
-  const priorState = resume ? readLaunchState(contract, fingerprintSession) : null;
+  const priorState = resume
+    ? readLaunchState(contract, fingerprintSession, { allowPriorResponse: true })
+    : null;
+  if (priorState && Number.isSafeInteger(prior.protocol.turns_used)) {
+    const turn = prior.protocol.turns_used + 1;
+    const current = path.basename(contract.response).match(/^(.*reviewer-response-)(\d+)\.md$/u);
+    const previous = path.basename(priorState.response).match(/^(.*reviewer-response-)(\d+)\.md$/u);
+    const expected = current
+      ? path.join(path.dirname(contract.response), `${current[1]}${turn}.md`)
+      : null;
+    if (
+      prior.protocol.state !== 'reviewer-turn' ||
+      !Number.isSafeInteger(turn) ||
+      turn < 1 ||
+      !current ||
+      contract.response !== expected ||
+      !previous ||
+      previous[1] !== current[1] ||
+      Number(previous[2]) < 1 ||
+      Number(previous[2]) > turn ||
+      priorState.response !==
+        path.join(path.dirname(contract.response), `${previous[1]}${previous[2]}.md`)
+    ) {
+      throw sessionError(
+        'Claude resume response does not match current reviewer authority.',
+        'Use the event-authorized pending reviewer response from peer-review status.'
+      );
+    }
+  }
   if (priorState && priorState.protocol_revision > prior.protocol.revision) {
     throw sessionError(
       'Claude resume state is newer than current review authority.',
