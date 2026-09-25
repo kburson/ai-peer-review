@@ -14,6 +14,20 @@ import {
   matchesClaudeEditRule,
   runClaudeReviewerLaunch,
 } from '../../src/provider/claude-launch.mjs';
+import { normalizeClaudeExecution } from '../../src/provider/claude-launch-diagnostics.mjs';
+import { fingerprintSession } from '../../src/identity/registry.mjs';
+
+const REVIEWER_FINGERPRINT = `sha256:${'a'.repeat(64)}`;
+
+function evidence({ exit_code = 0, permission_denials = [], error, result } = {}) {
+  return normalizeClaudeExecution({
+    execution: {
+      exit_code,
+      stderr: '',
+      stdout: JSON.stringify({ session_id: 'fixture-session', permission_denials, error, result }),
+    },
+  });
+}
 
 function fixture(prefix = 'claude launch ') {
   const scratch = path.join(process.cwd(), '.scratch', 'test');
@@ -281,7 +295,11 @@ function authority({ sequence = 3, revision = 2, state = 'reviewer-turn', events
     state: {
       protocol: { review_id: 'review-1', sequence, revision, state },
       participants: {
-        reviewer: { session_fingerprint: `sha256:${'a'.repeat(64)}` },
+        reviewer: {
+          host: 'claude-code',
+          provider: 'anthropic',
+          session_fingerprint: REVIEWER_FINGERPRINT,
+        },
       },
     },
     events,
@@ -299,6 +317,7 @@ function classificationContract() {
 test('classifies only a new expected reviewer decision as submitted', () => {
   const before = authority();
   const accepted = {
+    review_id: 'review-1',
     sequence: 4,
     revision: 3,
     type: 'reviewer-accepted',
@@ -313,8 +332,9 @@ test('classifies only a new expected reviewer decision as submitted', () => {
   const result = classifyClaudeReviewerOutcome({
     before,
     after,
-    providerResult: { exit_code: 1, permission_denials: [] },
+    providerResult: evidence({ exit_code: 1 }),
     contract: classificationContract(),
+    expectedSessionFingerprint: REVIEWER_FINGERPRINT,
   });
   assert.equal(result.status, 'submitted');
   assert.equal(result.protocol_revision, 3);
@@ -327,11 +347,13 @@ test('surfaces exact same-session recovery for a denied response write', () => {
   const result = classifyClaudeReviewerOutcome({
     before: unchanged,
     after: unchanged,
-    providerResult: {
+    providerResult: evidence({
       exit_code: 1,
       permission_denials: [{ tool: 'Edit', path: '/work/project/reviewer-response-1.md' }],
-    },
+    }),
     contract: classificationContract(),
+    expectedSessionFingerprint: REVIEWER_FINGERPRINT,
+    resumeAvailable: true,
   });
   assert.equal(result.status, 'permission-blocked');
   assert.equal(result.recovery.reason, 'response-permission-denied');
@@ -347,14 +369,15 @@ test('recognizes a Claude-normalized Windows response denial', () => {
   const result = classifyClaudeReviewerOutcome({
     before: unchanged,
     after: unchanged,
-    providerResult: {
+    providerResult: evidence({
       exit_code: 1,
       permission_denials: [{ tool: 'Edit', path: '/c/work/project/reviewer-response-1.md' }],
-    },
+    }),
     contract: {
       ...classificationContract(),
       response: String.raw`C:\work\project\reviewer-response-1.md`,
     },
+    expectedSessionFingerprint: REVIEWER_FINGERPRINT,
   });
   assert.equal(result.status, 'permission-blocked');
 });
@@ -365,8 +388,9 @@ test('keeps definite provider failure separate from ambiguous completion', () =>
     classifyClaudeReviewerOutcome({
       before: unchanged,
       after: unchanged,
-      providerResult: { exit_code: 2, permission_denials: [], error: 'provider unavailable' },
+      providerResult: evidence({ exit_code: 2, error: 'provider unavailable' }),
       contract: classificationContract(),
+      expectedSessionFingerprint: REVIEWER_FINGERPRINT,
     }).status,
     'failed'
   );
@@ -374,12 +398,12 @@ test('keeps definite provider failure separate from ambiguous completion', () =>
     classifyClaudeReviewerOutcome({
       before: unchanged,
       after: unchanged,
-      providerResult: {
+      providerResult: evidence({
         exit_code: 0,
-        permission_denials: [],
         result: 'analysis complete',
-      },
+      }),
       contract: classificationContract(),
+      expectedSessionFingerprint: REVIEWER_FINGERPRINT,
     }).status,
     'outcome-unknown'
   );
@@ -393,6 +417,7 @@ test('rejects a submission transition attributed to a different reviewer identit
     state: 'acceptance-pending',
     events: [
       {
+        review_id: 'review-1',
         sequence: 4,
         revision: 3,
         type: 'reviewer-accepted',
@@ -405,8 +430,9 @@ test('rejects a submission transition attributed to a different reviewer identit
       classifyClaudeReviewerOutcome({
         before,
         after,
-        providerResult: { exit_code: 0, permission_denials: [] },
+        providerResult: evidence(),
         contract: classificationContract(),
+        expectedSessionFingerprint: REVIEWER_FINGERPRINT,
       }),
     { code: 'APR_IDENTITY_CONFLICT' }
   );
@@ -422,17 +448,22 @@ test('keeps the Claude session handle private and injects it only into exact res
     model: 'claude-opus-5',
     effort: 'high',
   });
-  const reviewerFingerprint = `sha256:${'a'.repeat(64)}`;
-  const before = authority({ sequence: 1, revision: 0, events: [] });
+  const reviewerFingerprint = fingerprintSession('anthropic', 'raw-session-123');
+  const before = authority({ sequence: 1, revision: 0, state: 'awaiting-reviewer', events: [] });
   delete before.state.participants.reviewer;
   const joined = authority({ sequence: 3, revision: 1, events: [] });
-  joined.state.participants.reviewer = { session_fingerprint: reviewerFingerprint };
+  joined.state.participants.reviewer = {
+    host: 'claude-code',
+    provider: 'anthropic',
+    session_fingerprint: reviewerFingerprint,
+  };
   const accepted = authority({
     sequence: 4,
     revision: 2,
     state: 'acceptance-pending',
     events: [
       {
+        review_id: 'review-1',
         sequence: 4,
         revision: 2,
         type: 'reviewer-accepted',
@@ -440,13 +471,16 @@ test('keeps the Claude session handle private and injects it only into exact res
       },
     ],
   });
-  accepted.state.participants.reviewer = { session_fingerprint: reviewerFingerprint };
+  accepted.state.participants.reviewer = {
+    host: 'claude-code',
+    provider: 'anthropic',
+    session_fingerprint: reviewerFingerprint,
+  };
   const rawHandle = 'raw-session-123';
   const initialAuthorities = [before, joined];
   const initial = await runClaudeReviewerLaunch({
     contract,
     inspectAuthority: () => initialAuthorities.shift(),
-    fingerprintSession: () => reviewerFingerprint,
     execFile: async () => ({
       stdout: JSON.stringify({
         session_id: rawHandle,
@@ -477,7 +511,6 @@ test('keeps the Claude session handle private and injects it only into exact res
     contract: resumeContract,
     resume: true,
     inspectAuthority: () => resumeAuthorities.shift(),
-    fingerprintSession: () => reviewerFingerprint,
     execFile: async (_file, args) => {
       resumedArgs = args;
       return {
