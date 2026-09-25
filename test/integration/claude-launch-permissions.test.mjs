@@ -15,6 +15,7 @@ import {
   classifyClaudeReviewerOutcome,
   matchesClaudeEditRule,
 } from '../../src/provider/claude-launch.mjs';
+import { normalizeClaudeExecution } from '../../src/provider/claude-launch-diagnostics.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
 import { joinReview, startReview, submitReviewTurn } from '../helpers/internal-api.mjs';
@@ -192,11 +193,23 @@ test('reproduces single-slash denial then submits from the same corrected Claude
   const beforeDenied = inspectReviewAuthority(started.paths.workspace);
   const deniedProviderResult = await provider.turn(legacyContract(contract));
   const afterDenied = inspectReviewAuthority(started.paths.workspace);
+  const normalizedDenied = normalizeClaudeExecution({
+    execution: {
+      exit_code: deniedProviderResult.exit_code,
+      stderr: '',
+      stdout: JSON.stringify({
+        session_id: 'same-claude-session',
+        permission_denials: deniedProviderResult.permission_denials,
+      }),
+    },
+  });
   const denied = classifyClaudeReviewerOutcome({
     before: beforeDenied,
     after: afterDenied,
-    providerResult: deniedProviderResult,
+    providerResult: normalizedDenied,
     contract,
+    expectedSessionFingerprint: reviewer.session_fingerprint,
+    resumeAvailable: true,
   });
 
   assert.equal(denied.status, 'permission-blocked');
@@ -212,11 +225,23 @@ test('reproduces single-slash denial then submits from the same corrected Claude
   const beforeCorrected = inspectReviewAuthority(started.paths.workspace);
   const correctedProviderResult = await provider.turn(contract);
   const afterCorrected = inspectReviewAuthority(started.paths.workspace);
+  const normalizedCorrected = normalizeClaudeExecution({
+    execution: {
+      exit_code: correctedProviderResult.exit_code,
+      stderr: '',
+      stdout: JSON.stringify({
+        session_id: 'same-claude-session',
+        permission_denials: correctedProviderResult.permission_denials,
+      }),
+    },
+  });
   const corrected = classifyClaudeReviewerOutcome({
     before: beforeCorrected,
     after: afterCorrected,
-    providerResult: correctedProviderResult,
+    providerResult: normalizedCorrected,
     contract,
+    expectedSessionFingerprint: reviewer.session_fingerprint,
+    resumeAvailable: true,
   });
 
   assert.equal(corrected.status, 'submitted');

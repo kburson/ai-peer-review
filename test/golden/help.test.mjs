@@ -150,13 +150,42 @@ test('Claude launch help and result schema freeze bounded recovery', () => {
     'failed',
     'outcome-unknown',
   ]);
+  assert.equal(schema.properties.diagnostic.additionalProperties, false);
+  assert.deepEqual(schema.properties.diagnostic.required, [
+    'category',
+    'exit_code',
+    'code',
+    'message',
+    'next_action',
+  ]);
+  assert.equal(schema.properties.diagnostic.properties.category.enum.length, 8);
+  assert.equal(schema.properties.diagnostic.properties.message.maxLength, 256);
+  assert.equal(schema.properties.diagnostic.properties.next_action.maxLength, 256);
+  assert.equal(schema.then.properties.session_fingerprint.type, 'string');
+  assert.equal(schema.properties.session_fingerprint.oneOf[1].type, 'null');
   const topic = helpRequest('launch-reviewer', 'json');
   assert.match(topic.preconditions.join(' '), /sealed.*invitation.*exact.*response/i);
   assert.match(topic.effects.join(' '), /same.*session.*resume/i);
   assert.match(topic.effects.join(' '), /exact.*response.*permission/i);
   assert.match(topic.preconditions.join(' '), /private.*session.*state/i);
   assert.match(topic.next_action, /launch-reviewer.*--resume/i);
+  assert.match(topic.next_action, /permission-blocked with usable private session state/i);
+  assert.match(topic.next_action, /otherwise inspect review status before retrying/i);
+  assert.match(topic.result, /bounded diagnostics.*nullable pre-join session fingerprint/i);
+  assert.match(
+    topic.effects.join(' '),
+    /bounded diagnostics.*pre-join session fingerprint may be null/i
+  );
   assert.equal(topic.json_schema, 'ai-peer-review.claude-launch-result/v1');
+  const readme = readFileSync(new URL('../../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /\[Claude launch API migration\]\(docs\/claude-launch-api-migration\.md\)/);
+  const migration = readFileSync(
+    new URL('../../docs/claude-launch-api-migration.md', import.meta.url),
+    'utf8'
+  );
+  assert.match(migration, /expectedSessionFingerprint/);
+  assert.match(migration, /resumeAvailable/);
+  assert.match(migration, /older v1 validator/);
   assert.match(
     explainError('APR_CLAUDE_PERMISSION_INVALID').recovery,
     /\/\/.*filesystem.*\/.*project/i

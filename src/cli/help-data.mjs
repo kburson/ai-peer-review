@@ -128,7 +128,8 @@ const EFFECTS = Object.freeze({
   join: ['Appends reviewer identity and claim events and creates one reviewer draft.'],
   'launch-reviewer': [
     'Launches Claude under dontAsk with one exact response Edit permission.',
-    'A blocked write returns the exact same-session resume action without exposing the raw handle.',
+    'Bounded diagnostics distinguish failure from uncertainty; the pre-join session fingerprint may be null.',
+    'A blocked write returns an exact same-session resume action only with usable private session state.',
   ],
   status: ['Read-only event reduction; performs no repair, polling, wake, or Git operation.'],
   resume: ['Read-only instruction reconstruction; performs no polling, wake, or Git operation.'],
@@ -981,10 +982,13 @@ function topic(command) {
           ]
         : []),
     ],
-    result: 'A versioned JSON result envelope or deterministic offline text.',
+    result:
+      command === 'launch-reviewer'
+        ? 'A versioned JSON result with bounded diagnostics, nullable pre-join session fingerprint, or deterministic offline text.'
+        : 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
       command === 'launch-reviewer'
-        ? 'On permission-blocked, run the exact printed peer-review launch-reviewer invitation --host claude --resume command.'
+        ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
         : command === 'broker'
           ? 'Offline status reports the exact recovery evidence and next reconciliation action.'
           : command === 'status' || command === 'resume'

@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  renameSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
@@ -328,11 +329,10 @@ if (initial) {
 if (!initial && !resume && process.env.APR_FIXTURE_RESTART_SIMULATION === '1') {
   // The installed test owns this synthetic process and terminates it after
   // ordinary join/submit, before any launch acknowledgement can be persisted.
-  writeFileSync(
-    path.join(root, '.scratch/fixture-held-launch.json'),
-    JSON.stringify({ pid: process.pid, session }),
-    { mode: 0o600 }
-  );
+  const heldFile = path.join(root, '.scratch/fixture-held-launch.json');
+  const pendingFile = `${heldFile}.${process.pid}.tmp`;
+  writeFileSync(pendingFile, JSON.stringify({ pid: process.pid, session }), { mode: 0o600 });
+  renameSync(pendingFile, heldFile);
   await new Promise((resolve) => setTimeout(resolve, 60_000));
   throw new Error('Synthetic held launch was not terminated by its fixture.');
 }

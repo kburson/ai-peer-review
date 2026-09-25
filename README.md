@@ -192,6 +192,8 @@ From the author session, the equivalent explicit command is:
 peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
 ```
 
+Direct classifier callers can follow the [Claude launch API migration](docs/claude-launch-api-migration.md) guide for session evidence, conditional recovery, and the widened v1 result schema.
+
 The invoking session is the author participant; a sponsoring human is not a
 substitute for its identity. Normal mode creates the tracked review evidence
 and author-owned commits when required. `--no-commit` is an explicit
