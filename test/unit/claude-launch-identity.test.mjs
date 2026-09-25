@@ -116,10 +116,12 @@ test('normal launch and resume pass sanitized child environments without changin
   });
   assert.deepEqual(resumeArgs.slice(0, 2), ['--resume', 'fixture-claude-session']);
   assert.equal(childOptions.length, 2);
+  const pathKey = Object.keys(process.env).find((key) => key.toLowerCase() === 'path');
+  assert.ok(pathKey);
   for (const options of childOptions) {
     assert.equal(options.shell, false);
     for (const key of identityKeys) assert.equal(Object.hasOwn(options.env, key), false);
-    assert.equal(options.env.PATH, process.env.PATH);
+    assert.equal(options.env[pathKey], process.env[pathKey]);
   }
   for (const key of identityKeys) assert.equal(process.env[key], 'codex-parent-value');
 });
