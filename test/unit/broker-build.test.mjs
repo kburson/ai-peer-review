@@ -100,7 +100,10 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.match(windows, /unsigned __stdcall ReadPipeThread\(void\* value\)/);
   assert.match(windowsRead, /DuplicateHandle\(/);
   assert.match(windowsRead, /_beginthreadex\(/);
-  assert.match(windowsRead, /WaitForSingleObject\(thread, kIpcTimeoutMilliseconds\)/);
+  assert.match(windowsRead, /WaitForSingleObject\(thread, timeout\)/);
+  assert.match(windowsConnectionRead, /client_writes >= 2/);
+  assert.match(windowsConnectionRead, /kCommandReplyTimeoutMilliseconds : kIpcTimeoutMilliseconds/);
+  assert.match(windowsWrite, /client_writes\+\+/);
   assert.match(windowsRead, /CancelSynchronousIo\(thread\)/);
   assert.match(windows, /struct PipeWriteRequest/);
   assert.match(windows, /unsigned __stdcall WritePipeThread\(void\* value\)/);
@@ -109,6 +112,7 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.doesNotMatch(windowsBoundedWrite, /CreateThread\(/);
   assert.match(windowsBoundedWrite, /WaitForSingleObject\(thread, kIpcTimeoutMilliseconds\)/);
   assert.match(windowsBoundedWrite, /CancelSynchronousIo\(thread\)/);
+  assert.match(windowsBoundedWrite, /PipeWriteRequest\{duplicate, bytes, nullptr, flush\}/);
   assert.match(
     windows,
     /struct PipeWriteRequest \{ HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; \};/
@@ -119,15 +123,17 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.match(windowsServerWrite, /CreateEventW\(/);
   assert.match(windowsServerWrite, /WaitForMultipleObjects\(/);
   assert.match(windowsServerWrite, /SupervisePipeWrite/);
-  assert.match(windows, /struct Connection \{ HANDLE handle; bool server_side; bool fenced; \};/);
+  assert.match(
+    windows,
+    /struct Connection \{ HANDLE handle; bool server_side; bool fenced; unsigned client_writes = 0; \};/
+  );
   assert.match(windowsFence, /connection->fenced = true/);
   assert.match(windowsFence, /DisconnectNamedPipe\(connection->handle\)/);
   assert.match(windowsConnectionRead, /connection->fenced/);
   assert.match(windowsConnectionRead, /FenceConnection\(connection\)/);
-  assert.match(
-    windowsWrite,
-    /connection->server_side[\s\S]*WriteServerReply\(connection->handle, bytes\)[\s\S]*WritePipeBounded\(connection->handle, bytes\)/
-  );
+  assert.match(windowsWrite, /drain \? WritePipeBounded\(connection->handle, bytes, true\)/);
+  assert.match(windowsWrite, /WriteServerReply\(connection->handle, bytes\)/);
+  assert.match(windowsWrite, /WritePipeBounded\(connection->handle, bytes, false\)/);
   assert.match(windowsWrite, /connection->fenced/);
   assert.match(windowsWrite, /FenceConnection\(connection\)/);
   assert.doesNotMatch(windowsWrite, /PIPE_NOWAIT|SetNamedPipeHandleState|GetTickCount64/);
@@ -198,6 +204,9 @@ test('platform wrapper retains native handles and never reaches the builder impl
     abandonExclusive() {
       calls.push(['abandonExclusive']);
     },
+    reclaimStaleEndpoint(handle, value) {
+      calls.push(['reclaimStaleEndpoint', handle, value]);
+    },
     listenPrivate(value) {
       calls.push(['listenPrivate', value]);
       return 3;
@@ -222,8 +231,8 @@ test('platform wrapper retains native handles and never reaches the builder impl
       if (failedReads.has(handle)) throw new Error('native read failed');
       return Buffer.from('response');
     },
-    connectionWrite(handle, bytes) {
-      calls.push(['connectionWrite', handle, bytes.toString()]);
+    connectionWrite(handle, bytes, drain) {
+      calls.push(['connectionWrite', handle, bytes.toString(), drain]);
       if (failedWrites.has(handle)) throw new Error('native write failed');
     },
     closeConnection(handle) {
@@ -243,13 +252,19 @@ test('platform wrapper retains native handles and never reaches the builder impl
     nonce: 'b'.repeat(64),
   });
   assert.equal(lock.verify(), true);
+  platform.reclaimStaleEndpoint('/private/broker.sock', lock);
+  assert.ok(calls.some((call) => call[0] === 'reclaimStaleEndpoint' && call[1] === 2));
   assert.equal(lock.release(), true);
+  assert.throws(() => platform.reclaimStaleEndpoint('/private/broker.sock', lock), {
+    code: 'APR_BROKER_STALE',
+  });
   const endpoint = platform.listenPrivate('/private/broker.sock');
   assert.equal(endpoint.verify(), true);
   const accepted = endpoint.accept();
   assert.equal(platform.peerUser(accepted), '501');
   assert.equal(accepted.readFrame().toString(), 'response');
-  accepted.write(Buffer.from('reply'));
+  accepted.write(Buffer.from('reply'), { drain: true });
+  assert.ok(calls.some((call) => call[0] === 'connectionWrite' && call[3] === true));
   accepted.close();
   assert.throws(() => platform.peerUser(accepted), { code: 'APR_BROKER_AUTH_FAILED' });
   const client = platform.connectPrivate('/private/broker.sock');
@@ -281,6 +296,7 @@ test('platform wrapper retains native handles and never reaches the builder impl
       'openPrivateDirectory',
       'create',
       'acquireExclusive',
+      'reclaimStaleEndpoint',
       'listenPrivate',
       'acceptPrivate',
       'peerUser',

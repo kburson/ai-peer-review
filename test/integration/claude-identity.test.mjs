@@ -1,6 +1,15 @@
+import { fixtureStartupDeps, fixtureObservation } from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -10,7 +19,7 @@ import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { statusReview } from '../helpers/internal-api.mjs';
 
 function fixture({ configured = true } = {}) {
-  const root = mkdtempSync(path.join(os.tmpdir(), 'apr-claude-identity-'));
+  const root = realpathSync.native(mkdtempSync(path.join(os.tmpdir(), 'apr-claude-identity-')));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: root });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: root });
@@ -44,6 +53,15 @@ async function runJson(argv, root, sessionId) {
   let stdout = '';
   let stderr = '';
   const code = await run([...argv, '--json'], {
+    ...fixtureStartupDeps,
+    transportCapability: 'manual',
+    runtimeObservation: fixtureObservation(
+      'anthropic',
+      'claude-code',
+      'claude-opus-5',
+      'medium',
+      'declared'
+    ),
     cwd: root,
     env: { CLAUDE_CODE_SESSION_ID: sessionId },
     now: new Date('2026-09-13T14:00:00.000Z'),
@@ -62,6 +80,15 @@ async function runText(argv, root, sessionId) {
   let stdout = '';
   let stderr = '';
   const code = await run(argv, {
+    ...fixtureStartupDeps,
+    transportCapability: 'manual',
+    runtimeObservation: fixtureObservation(
+      'anthropic',
+      'claude-code',
+      'claude-opus-5',
+      'medium',
+      'declared'
+    ),
     cwd: root,
     env: { CLAUDE_CODE_SESSION_ID: sessionId },
     now: new Date('2026-09-13T14:00:00.000Z'),
@@ -126,9 +153,11 @@ test('start, join, submit, and finalize share the configured Claude identity con
       '--artifact-kind',
       'spec',
       '--reviewer-provider',
-      'codex',
+      'claude',
       '--reviewer-model',
-      'gpt-test',
+      'claude-opus-5',
+      '--transport-mode',
+      'manual',
       '--reviewer-effort',
       'medium',
     ],

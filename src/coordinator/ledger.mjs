@@ -207,7 +207,19 @@ function listOutcomes(workspace, operationId) {
   assertDirectoryNotSymlink(directory, 'Wake outcome directory');
   let entries;
   try {
-    entries = lstatSync(directory).isDirectory() ? readdirSync(directory).sort() : [];
+    // atomicCreate publishes with a hard link, then removes its UUID temporary.
+    // Readers may observe either phase; only that exact temporary naming shape
+    // is excluded. Every committed outcome still has to be contiguous and valid.
+    entries = lstatSync(directory).isDirectory()
+      ? readdirSync(directory)
+          .filter(
+            (file) =>
+              !/^\.\d{6}\.json\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/.test(
+                file
+              )
+          )
+          .sort()
+      : [];
   } catch (cause) {
     if (cause?.code === 'ENOENT') return [];
     throw cause;

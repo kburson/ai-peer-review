@@ -1,3 +1,10 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+  loadLegacyAuthority,
+} from '../helpers/internal-api.mjs';
+import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,6 +18,100 @@ import { participantIdentity } from '../../src/identity/registry.mjs';
 import { statusReview as publicStatusReview } from '../../src/public-api.mjs';
 
 const NOW = '2026-09-08T12:00:00.000Z';
+
+function cliValidator() {
+  // Resolve the SDK's declared Ajv dependency (2020-12), not ESLint's Ajv 6.
+  const sdkRequire = createRequire(
+    import.meta.resolve('@modelcontextprotocol/sdk/server/index.js')
+  );
+  const Ajv = sdkRequire('ajv/dist/2020.js').default;
+  const ajv = new Ajv({ strict: false, allErrors: true });
+  sdkRequire('ajv-formats')(ajv);
+  for (const name of ['cli-result-v1.json', 'runtime-v1.json', 'event-v1.json']) {
+    const url = new URL(`../../schemas/${name}`, import.meta.url);
+    const schema = JSON.parse(readFileSync(url));
+    // Canonical file bases resolve the published relative cross-schema refs.
+    ajv.addSchema({ ...schema, $id: url.href });
+  }
+  return ajv.getSchema(new URL('../../schemas/cli-result-v1.json', import.meta.url).href);
+}
+
+test('complete legacy and new CLI results obey nested closed JSON schemas', async (t) => {
+  const started = await joinedFixture(t);
+  const validate = cliValidator();
+  const status = statusReview(started.paths.workspace, { now: NOW });
+  const root = status.review.runtime ? path.resolve(started.paths.workspace, '../../..') : null;
+  const legacy = await loadLegacyAuthority({
+    cwd: root,
+    identity: identity('author', 'legacy-schema'),
+    reviewId: 'legacy-schema',
+    artifact: 'docs/example.md',
+    now: NOW,
+  });
+  for (const output of [
+    started,
+    status,
+    resumeReview(started.paths.workspace, { now: NOW }),
+    statusReview(legacy.paths.workspace, { now: NOW }),
+    resumeReview(legacy.paths.workspace, { now: NOW }),
+  ]) {
+    assert.equal(validate(output), true, JSON.stringify(validate.errors));
+  }
+  for (const mutate of [
+    (value) => {
+      value.review.runtime.reviewer.model_id = 7;
+    },
+    (value) => {
+      value.review.runtime.reviewer.extra = true;
+    },
+    (value) => {
+      value.review.runtime.ownership = 'untrusted';
+    },
+    (value) => {
+      value.review.recovery.event_revision = 0;
+    },
+    (value) => {
+      value.review.recovery.fenced = 'false';
+    },
+    (value) => {
+      value.review.recovery.extra = true;
+    },
+    (value) => {
+      value.review.extra = true;
+    },
+    (value) => {
+      value.extra = true;
+    },
+  ]) {
+    const invalid = structuredClone(status);
+    mutate(invalid);
+    assert.equal(
+      validate(invalid),
+      false,
+      'Invalid nested/extra data escaped the published schema'
+    );
+  }
+});
+
+test('closed CLI result schema accepts startup and offline recovery evidence', async (t) => {
+  const started = await joinedFixture(t);
+  const status = statusReview(started.paths.workspace, { now: NOW });
+  const schema = JSON.parse(
+    readFileSync(new URL('../../schemas/cli-result-v1.json', import.meta.url))
+  );
+  for (const output of [started, status]) {
+    assert.equal(output.review.runtime.reviewer.model_id, 'gpt-test');
+    assert.equal(output.review.recovery.fenced, false);
+    for (const field of Object.keys(output.review))
+      assert.ok(
+        Object.hasOwn(schema.properties.review.properties, field),
+        `Unspecified CLI result field: ${field}`
+      );
+    const definition = schema.$defs.startupRecovery;
+    assert.equal(definition.additionalProperties, false);
+    assert.deepEqual(Object.keys(output.review.recovery).sort(), [...definition.required].sort());
+  }
+});
 
 function identity(role, session) {
   return participantIdentity({
@@ -36,15 +137,20 @@ async function joinedFixture(t) {
   writeFileSync(path.join(root, '.git/info/exclude'), '.scratch/peer-review/\n');
   execFileSync('git', ['add', 'docs/example.md'], { cwd: root });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
-  const started = await startReview({
-    cwd: root,
-    artifact: 'docs/example.md',
-    artifactKind: 'spec',
-    identity: identity('author', 'author-session'),
-    reviewId: 'review-status',
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-session'),
+      reviewId: 'review-status',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   await joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: identity('reviewer', 'reviewer-session'),
@@ -64,14 +170,18 @@ test('status before join names the exact sealed invitation path', async (t) => {
   writeFileSync(path.join(root, '.git/info/exclude'), '.scratch/peer-review/\n');
   execFileSync('git', ['add', 'docs/example.md'], { cwd: root });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: root, stdio: 'ignore' });
-  const started = await startReview({
-    cwd: root,
-    artifact: 'docs/example.md',
-    artifactKind: 'spec',
-    identity: identity('author', 'author-session'),
-    reviewId: 'review-status-invite',
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-session'),
+      reviewId: 'review-status-invite',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const status = statusReview(started.paths.workspace, { now: NOW });
   const joinCommand = renderCommand(['peer-review', 'join', started.paths.reviewer_invitation]);
   assert.equal(status.next_action.command, joinCommand);

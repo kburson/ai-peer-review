@@ -1,5 +1,7 @@
 # Manual Cross-Provider Peer Review: What It Proves—and What the Tool Still Adds
 
+> Historical case study: its coordinator-era roadmap and commands below are superseded for new package operations by the [project-local SPR/XPR broker design](superpowers/specs/2026-09-14-project-local-spr-xpr-broker-design.md). Use offline `peer-review help start`, `peer-review help spr`, `peer-review help xpr`, and `peer-review help broker` for the current workflow. New XPR starts require the broker even when handoffs are manual; existing manual reviews retain their recorded recovery path.
+
 <!-- cspell:words Anthropic API's argv Codex decorrelate decorrelation dont etime headlessly inspectable JSONL OpenAI performatively pgrep reprioritize stderr stdin stdout tfvars toolchain worktree -->
 
 Two AI agents can conduct a serious, evidence-producing peer review without a

@@ -17,6 +17,7 @@ import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 import { nextActionCommand } from '../cli/help-data.mjs';
 import { AprError } from '../errors.mjs';
+import { startupEvidence } from '../broker/registry.mjs';
 import {
   assertReaderWriterCompatibility,
   compatibilityDeclared,
@@ -532,6 +533,7 @@ export function statusReview(workspace, { now = new Date() } = {}) {
   const absolute = path.resolve(workspace);
   const observedAt = statusInstant(now);
   const state = inspectReview(absolute);
+  const evidence = startupEvidence(absolute, state);
   const resolved = statusPaths(state);
   const role = ['author', 'reviewer'].includes(state.protocol.current_actor)
     ? state.protocol.current_actor
@@ -586,6 +588,7 @@ export function statusReview(workspace, { now = new Date() } = {}) {
       : [];
   return Object.freeze({
     ...statusResult(effectiveState, operationalPaths, {
+      ...(evidence ? { runtime: state.protocol.startup.runtime, recovery: evidence.recovery } : {}),
       ...(ownedPaths.length ? { owned_paths: Object.freeze(ownedPaths) } : {}),
     }),
     next_action: Object.freeze({

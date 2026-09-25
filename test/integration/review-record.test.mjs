@@ -1,6 +1,19 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,7 +45,20 @@ function fixture(t) {
     stdio: 'ignore',
     shell: false,
   });
-  t.after(() => rmSync(parent, { recursive: true, force: true }));
+  t.after(() => {
+    try {
+      rmSync(parent, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    } catch (error) {
+      try {
+        t.diagnostic(
+          `Remaining fixture entries: ${JSON.stringify(readdirSync(parent).slice(0, 20))}`
+        );
+      } catch {
+        // Preserve the original cleanup failure if the directory changes again.
+      }
+      throw error;
+    }
+  });
   return { root };
 }
 
@@ -76,17 +102,22 @@ async function startAndJoin(root, reviewId, minute) {
   const at = `2026-09-08T12:${String(minute).padStart(2, '0')}:00.000Z`;
   const author = identity('author', `${reviewId}-author`, at);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`, at);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId,
-    recordId: RECORD_ID,
-    reviewPathTemplate: TEMPLATE,
-    now: at,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId,
+      recordId: RECORD_ID,
+      reviewPathTemplate: TEMPLATE,
+      now: at,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

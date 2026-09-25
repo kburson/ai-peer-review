@@ -495,7 +495,17 @@ function currentTurn(review, role) {
     (role === 'reviewer' && protocol.state === 'reviewer-turn') ||
     (role === 'author' && protocol.state === 'author-revision');
   const turn = role === 'reviewer' ? protocol.turns_used + 1 : protocol.turns_used;
-  if (!validState || !Number.isSafeInteger(turn) || turn <= 0 || turn > protocol.max_turns) {
+  const budgetTurn = protocol.phases
+    ? protocol.phases.phase_turns_used + (role === 'reviewer' ? 1 : 0)
+    : turn;
+  if (
+    !validState ||
+    !Number.isSafeInteger(turn) ||
+    turn <= 0 ||
+    !Number.isSafeInteger(budgetTurn) ||
+    budgetTurn <= 0 ||
+    budgetTurn > protocol.max_turns
+  ) {
     fail(
       'APR_RESPONSE_INVALID',
       'Response role or turn is not current in event authority.',
@@ -516,7 +526,9 @@ function requireCurrentTurn(review, role, turn) {
 }
 
 function allCollateralPaths(review, paths = review.paths) {
-  const maximum = protocolOf(review).max_turns;
+  const protocol = protocolOf(review);
+  const phaseCount = protocol.phases?.kinds?.length ?? 1;
+  const maximum = protocol.max_turns * phaseCount;
   if (!Number.isSafeInteger(maximum) || maximum <= 0) {
     fail(
       'APR_RESPONSE_INVALID',

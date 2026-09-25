@@ -7,6 +7,7 @@ import {
   buildClaudeReviewerLaunch,
   buildClaudeReviewerLaunchFromExecution,
   buildClaudeReviewerResume,
+  claudeJoinCommand,
   classifyClaudeReviewerOutcome,
   encodeClaudeExecutionPermissions,
   encodeClaudeEditRule,
@@ -141,21 +142,21 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
     model: 'claude-opus-5',
     effort: 'high',
   });
-  const invitationCommandPath = fx.invitation.replaceAll('\\', '/');
   const workspaceCommandPath = fx.routing.workspace.replaceAll('\\', '/');
 
   assert.equal(contract.schema, 'ai-peer-review.claude-launch/v1');
   assert.equal(contract.command.file, 'claude');
   assert.equal(contract.command.shell, false);
   assert.equal(contract.command.args.includes('dontAsk'), true);
-  assert.deepEqual(contract.permissions.allow, [
-    'Read',
-    'Glob',
-    'Grep',
-    `Bash(peer-review join ${invitationCommandPath.includes(' ') ? `'${invitationCommandPath}'` : invitationCommandPath})`,
-    `Bash(peer-review submit ${workspaceCommandPath.includes(' ') ? `'${workspaceCommandPath}'` : workspaceCommandPath})`,
-    encodeClaudeEditRule(fx.routing.response),
-  ]);
+  const joinCommand = claudeJoinCommand(contract);
+  assert.match(joinCommand, /peer-review\.mjs join /);
+  assert.ok(joinCommand.includes(process.execPath.replaceAll('\\', '/')));
+  assert.ok(!joinCommand.startsWith('peer-review '));
+  assert.deepEqual(contract.permissions.allow.slice(0, 3), ['Read', 'Glob', 'Grep']);
+  assert.equal(contract.permissions.allow[3], `Bash(${joinCommand})`);
+  assert.match(contract.permissions.allow[4], /peer-review\.mjs submit /);
+  assert.ok(contract.permissions.allow[4].includes(workspaceCommandPath));
+  assert.equal(contract.permissions.allow[5], encodeClaudeEditRule(fx.routing.response));
   assert.equal(
     contract.permissions.allow.some((rule) => rule.includes('\\')),
     false

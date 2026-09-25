@@ -103,6 +103,40 @@ test('commitExactPaths commits only sealed paths and preserves unrelated index o
   );
 });
 
+test('phase-discriminated transaction journals coexist while legacy names and exact retry remain unchanged', (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const repository = api.createGitTransactionRepository(fx.root);
+  const { sealed, trailers } = transactionInput(fx.root);
+  const legacy = repository.readTransaction(trailers);
+  const specTrailers = { ...trailers, 'Peer-Review-Phase': '1' };
+  const planTrailers = { ...trailers, 'Peer-Review-Phase': '2' };
+  const spec = repository.readTransaction(specTrailers);
+  const plan = repository.readTransaction(planTrailers);
+  assert.equal(path.basename(legacy.file), 'review-transaction-1.json');
+  assert.equal(path.basename(spec.file), 'review-transaction-1-phase-1.json');
+  assert.equal(path.basename(plan.file), 'review-transaction-1-phase-2.json');
+  assert.equal(spec.record, null);
+  api.commitExactPaths(repository, sealed, 'Peer review revision 1', specTrailers);
+  assert.deepEqual(repository.readTransaction(specTrailers).record.trailers, specTrailers);
+  assert.equal(repository.readTransaction(planTrailers).record, null);
+  assert.equal(repository.readTransaction(trailers).record, null);
+  assert.equal(
+    api.commitExactPaths(repository, sealed, 'Peer review revision 1', specTrailers).recovered,
+    true
+  );
+  assert.throws(
+    () => api.commitExactPaths(repository, sealed, 'Different revision', specTrailers),
+    (error) => error.code === 'APR_GIT_RECOVERY_INVALID'
+  );
+  for (const invalid of ['', '0', '02', '1/2']) {
+    assert.throws(
+      () => repository.readTransaction({ ...trailers, 'Peer-Review-Phase': invalid }),
+      (error) => error.code === 'APR_GIT_TRANSACTION_INVALID'
+    );
+  }
+});
+
 test('every transaction checkpoint can retry without consuming unrelated staged state', (t) => {
   const checkpoints = [
     'index-snapshotted',

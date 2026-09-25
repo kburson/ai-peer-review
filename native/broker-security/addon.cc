@@ -17,6 +17,7 @@ void* AcquireExclusive(const std::string&, const std::vector<unsigned char>&, st
 bool VerifyExclusive(void*);
 bool ReleaseExclusive(void*);
 void AbandonExclusive(void*);
+bool ReclaimStaleEndpoint(void*, const std::string&, std::string*, std::string*);
 void* ListenPrivate(const std::string&, std::string*, std::string*);
 bool VerifyEndpoint(void*);
 bool CloseEndpoint(void*);
@@ -24,7 +25,7 @@ void AbandonEndpoint(void*);
 void* AcceptPrivate(void*, std::string*, std::string*);
 void* ConnectPrivate(const std::string&, std::string*, std::string*);
 bool ConnectionRead(void*, size_t, std::vector<unsigned char>*, std::string*, std::string*);
-bool ConnectionWrite(void*, const std::vector<unsigned char>&, std::string*, std::string*);
+bool ConnectionWrite(void*, const std::vector<unsigned char>&, bool, std::string*, std::string*);
 void CloseConnection(void*);
 std::string PeerUser(void*, std::string*, std::string*);
 }  // namespace broker_security
@@ -254,6 +255,18 @@ napi_value ListenPrivate(napi_env env, napi_callback_info info) {
   return value ? External(env, Kind::endpoint, value) : Throw(env, code, message);
 }
 
+napi_value ReclaimStaleEndpoint(napi_env env, napi_callback_info info) {
+  napi_value values[2];
+  if (!Args(env, info, 2, values)) return nullptr;
+  auto* lock = Handle(env, values[0], Kind::lock);
+  std::string path, code, message;
+  if (!lock) return nullptr;
+  if (!String(env, values[1], &path)) return Throw(env, "APR_BROKER_PATH_INVALID", "Endpoint must be a string.");
+  return broker_security::ReclaimStaleEndpoint(lock->value, path, &code, &message)
+    ? Undefined(env)
+    : Throw(env, code, message);
+}
+
 napi_value VerifyEndpoint(napi_env env, napi_callback_info info) {
   napi_value values[1];
   if (!Args(env, info, 1, values)) return nullptr;
@@ -318,15 +331,17 @@ napi_value ConnectionRead(napi_env env, napi_callback_info info) {
 }
 
 napi_value ConnectionWrite(napi_env env, napi_callback_info info) {
-  napi_value values[2];
-  if (!Args(env, info, 2, values)) return nullptr;
+  napi_value values[3];
+  if (!Args(env, info, 3, values)) return nullptr;
   auto* holder = Handle(env, values[0], Kind::connection);
   std::vector<unsigned char> bytes;
+  bool drain = false;
   std::string code, message;
-  if (!holder || !Bytes(env, values[1], &bytes) || bytes.empty() || bytes.size() > 65540) {
+  if (!holder || !Bytes(env, values[1], &bytes) || bytes.empty() || bytes.size() > 65540 ||
+      napi_get_value_bool(env, values[2], &drain) != napi_ok) {
     return Throw(env, "APR_BROKER_PROTOCOL", "Invalid broker frame write.");
   }
-  return broker_security::ConnectionWrite(holder->value, bytes, &code, &message)
+  return broker_security::ConnectionWrite(holder->value, bytes, drain, &code, &message)
     ? Undefined(env)
     : Throw(env, code, message);
 }
@@ -366,6 +381,7 @@ napi_value Init(napi_env env, napi_value exports) {
     {"releaseExclusive", nullptr, ReleaseExclusive},
     {"abandonExclusive", nullptr, AbandonExclusive},
     {"listenPrivate", nullptr, ListenPrivate},
+    {"reclaimStaleEndpoint", nullptr, ReclaimStaleEndpoint},
     {"verifyEndpoint", nullptr, VerifyEndpoint},
     {"closeEndpoint", nullptr, CloseEndpoint},
     {"acceptPrivate", nullptr, AcceptPrivate},

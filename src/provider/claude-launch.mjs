@@ -1,5 +1,6 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { renderCommand } from '../cli/help-data.mjs';
 import { resolveContainedPath } from '../collateral/paths.mjs';
@@ -11,6 +12,11 @@ import { atomicWrite } from '../protocol/store.mjs';
 const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
 const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
 const EFFORTS = new Set(['low', 'medium', 'high']);
+const PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
+
+function packageCommand(verb, target) {
+  return [process.execPath, PACKAGE_BIN, verb, target];
+}
 
 function fail(message, recovery, details = {}) {
   throw new AprError('APR_CLAUDE_PERMISSION_INVALID', message, { recovery, details });
@@ -129,6 +135,10 @@ function renderClaudeBashCommand(argv) {
   return renderCommand(portableArgv, { platform: 'linux' });
 }
 
+export function claudeJoinCommand(contract) {
+  return renderClaudeBashCommand(packageCommand('join', contract?.invitation));
+}
+
 function encodeClaudeBashRule(argv) {
   const command = renderClaudeBashCommand(argv);
   if (UNSUPPORTED_BASH_PATTERN.test(command)) {
@@ -138,6 +148,107 @@ function encodeClaudeBashRule(argv) {
     );
   }
   return `Bash(${command})`;
+}
+
+function localNpxBinMatches(root, entry) {
+  const directory = path.join(root, 'node_modules/.bin');
+  const bin = path.join(
+    directory,
+    process.platform === 'win32' ? 'peer-review.cmd' : 'peer-review'
+  );
+  if (process.platform !== 'win32') return realpathSync(bin) === realpathSync(entry);
+  // npm's Windows executable is a cmd-shim, not a symbolic link. Compare its
+  // destination using the same target form read-cmd-shim recognizes.
+  const targets = [...readFileSync(bin, 'utf8').matchAll(/"%(?:~dp0|dp0%)\\([^"\r\n]+)"\s+%[*]/g)];
+  return (
+    targets.length === 1 &&
+    realpathSync(path.resolve(directory, targets[0][1])) === realpathSync(entry)
+  );
+}
+
+// A managed turn uses the pinned package directly. Existing plain commands
+// remain supported; npx aliases are available only with a project-local install.
+// npm is forced offline by the provider environment, so aliases cannot fetch.
+function wakeLaunchers(root) {
+  const launchers = [
+    [process.execPath, fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url))],
+    ['peer-review'],
+  ];
+  if (root) {
+    try {
+      const directory = path.join(root, 'node_modules/@kburson/ai-peer-review');
+      const manifest = JSON.parse(readFileSync(path.join(directory, 'package.json'), 'utf8'));
+      if (
+        manifest.name === '@kburson/ai-peer-review' &&
+        manifest.version === '0.3.0' &&
+        manifest.bin?.['peer-review'] === './bin/peer-review.mjs' &&
+        lstatSync(path.join(directory, 'bin/peer-review.mjs')).isFile() &&
+        localNpxBinMatches(root, path.join(directory, 'bin/peer-review.mjs'))
+      )
+        launchers.push(['npx', 'peer-review'], ['npx', '--no-install', 'peer-review']);
+    } catch {
+      // No local package means no npm-resolution fallback is authorized.
+    }
+  }
+  return launchers;
+}
+
+export function buildClaudeWakeContract({ workspace, role, state, status }) {
+  exactPath(workspace, 'workspace');
+  if (!['author', 'reviewer'].includes(role) || state?.protocol?.current_actor !== role)
+    fail(
+      'Claude wake has no current pending participant response.',
+      'Reconcile the current role before waking its exact session.'
+    );
+  const root = state.protocol.startup?.context?.repository_root;
+  const action = status?.next_action?.action;
+  const commands = [];
+  const rules = ['Read', 'Glob', 'Grep'];
+  const launchers = wakeLaunchers(root);
+  const addCommand = (name, argv) => {
+    for (const launcher of launchers) {
+      const args = [...launcher, ...argv];
+      const command = renderClaudeBashCommand(args);
+      rules.push(encodeClaudeBashRule(args));
+      if (launcher === launchers[0]) commands.push(Object.freeze({ name, command }));
+    }
+  };
+  addCommand('resume', ['resume', workspace]);
+  if (
+    role === 'author' &&
+    ['finalize-acceptance', 'commit-acceptance', 'advance-phase-artifact'].includes(action)
+  ) {
+    // The next phase artifact is unbound: never invent an advance permission.
+    if (action !== 'advance-phase-artifact') addCommand('finalize', ['finalize', workspace]);
+  } else {
+    if (!status?.paths?.response)
+      fail(
+        'Claude wake has no current pending participant response.',
+        'Reconcile the current role before waking its exact session.'
+      );
+    const response = contained(root, status.paths.response, 'response').absolute;
+    addCommand('submit', ['submit', workspace]);
+    rules.push(encodeClaudeEditRule(response));
+    if (role === 'author') {
+      rules.push(
+        encodeClaudeEditRule(
+          contained(root, path.resolve(root, state.protocol.artifact.path), 'artifact').absolute
+        )
+      );
+      addCommand('submit-without-artifact-change', [
+        'submit',
+        workspace,
+        '--no-artifact-change',
+        '--reason',
+        'No artifact change is required for this response.',
+      ]);
+    }
+  }
+  return Object.freeze({ commands: Object.freeze(commands), permissions: Object.freeze(rules) });
+}
+
+export function buildClaudeWakePermissions(input) {
+  return buildClaudeWakeContract(input).permissions;
 }
 
 function launchPrompt(invitation, joinCommand, submitCommand) {
@@ -328,12 +439,12 @@ export function buildClaudeReviewerLaunch({
     );
   }
   const rule = encodeClaudeEditRule(response.absolute);
-  const invitationCommandPath = portableCommandPath(resolvedInvitation.absolute, 'invitation');
-  const workspaceCommandPath = portableCommandPath(workspace.absolute, 'workspace');
-  const joinCommand = renderCommand(['peer-review', 'join', invitationCommandPath]);
-  const submitCommand = renderCommand(['peer-review', 'submit', workspaceCommandPath]);
-  const joinRule = encodeClaudeBashRule(['peer-review', 'join', invitationCommandPath]);
-  const submitRule = encodeClaudeBashRule(['peer-review', 'submit', workspaceCommandPath]);
+  const join = packageCommand('join', resolvedInvitation.absolute);
+  const submit = packageCommand('submit', workspace.absolute);
+  const joinCommand = renderClaudeBashCommand(join);
+  const submitCommand = renderClaudeBashCommand(submit);
+  const joinRule = encodeClaudeBashRule(join);
+  const submitRule = encodeClaudeBashRule(submit);
   const badRule = `Edit(${response.absolute})`;
   const neighbor = path.join(path.dirname(response.absolute), 'reviewer-response-2.md');
   const readiness = Object.freeze({

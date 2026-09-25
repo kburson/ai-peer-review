@@ -1,5 +1,7 @@
 # Durable Co-Review Wakeups Design
 
+> Superseded for new operator workflows by the project-local SPR/XPR broker design (`2026-09-14-project-local-spr-xpr-broker-design.md`). The coordinator commands below are historical design evidence and are not the current public CLI. Use offline `peer-review help broker` for live status and recovery syntax.
+
 **Issue:** #9
 
 **Status:** Proposed for Full-Auto approval

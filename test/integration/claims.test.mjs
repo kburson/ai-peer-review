@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -328,16 +333,21 @@ test('recover inspection is read-only and same-session reclaim is idempotent', a
   t.after(fx.cleanup);
   const author = interventionIdentity('author', 'recover-author');
   const reviewer = interventionIdentity('reviewer', 'recover-reviewer');
-  const started = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'recover-review',
-    claimTtlMs: 60 * 60 * 1000,
-    now: '2026-09-09T02:00:00.000Z',
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'recover-review',
+      claimTtlMs: 60 * 60 * 1000,
+      now: '2026-09-09T02:00:00.000Z',
+    },
+    fixtureStartupDeps
+  );
   await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

@@ -23,7 +23,7 @@ const EXPECTED_COMMANDS = [
   'abandon',
   'supersede',
   'consolidate',
-  'coordinator',
+  'broker',
   'help',
   'explain',
 ];
@@ -47,6 +47,19 @@ test('command, flag, and positional catalogs are closed and frozen', () => {
   assert.ok(Object.values(COMMAND_FLAGS).every(Object.isFrozen));
   assert.deepEqual(POSITIONAL_GRAMMAR.supplement, { min: 2, max: 2 });
   assert.ok(Object.isFrozen(POSITIONAL_GRAMMAR));
+});
+
+test('SPR and XPR are named help concepts, never executable commands', () => {
+  for (const concept of ['spr', 'xpr']) {
+    assert.equal(COMMANDS.includes(concept), false);
+    assert.deepEqual(parseCommand(['help', concept]), {
+      command: 'help',
+      args: [concept],
+      options: {},
+    });
+    usage([concept, 'docs/example.md'], /unknown command/i);
+  }
+  usage(['help', 'unlisted-concept'], /unknown help topic/i);
 });
 
 test('start options have stable names, repeatability, and defaults', () => {
@@ -461,19 +474,32 @@ test('consolidate requires unique attempts, one destination, and exactly one mod
   );
 });
 
-test('coordinator accepts only the closed foreground command grammar', () => {
-  assert.deepEqual(parseCommand(['coordinator', 'reconcile', 'workspace', '--json']), {
-    command: 'coordinator',
+test('broker accepts only the project-local operator grammar', () => {
+  assert.deepEqual(parseCommand(['broker', 'reconcile', 'workspace', '--json']), {
+    command: 'broker',
     args: ['reconcile', 'workspace'],
     options: { json: true },
   });
-  for (const verb of ['run', 'reconcile', 'status', 'stop']) {
-    assert.equal(parseCommand(['coordinator', verb, 'workspace']).args[0], verb);
+  assert.deepEqual(parseCommand(['broker', 'suspend', 'workspace']), {
+    command: 'broker',
+    args: ['suspend', 'workspace'],
+    options: {},
+  });
+  for (const verb of ['status', 'stop']) {
+    assert.deepEqual(parseCommand(['broker', verb]), {
+      command: 'broker',
+      args: [verb],
+      options: {},
+    });
   }
-  usage(['coordinator', 'detach', 'workspace'], /run.*reconcile.*status.*stop/i);
-  usage(['coordinator', 'run', 'workspace', '--json'], /--json.*run/i);
-  usage(['coordinator', 'status', 'workspace', 'extra'], /positional/i);
-  usage(['coordinator', 'status', 'workspace', '--next'], /unknown flag/i);
+  usage(['coordinator', 'status', 'workspace'], /unknown command/i);
+  usage(['broker', 'detach'], /status.*reconcile.*suspend.*stop/i);
+  usage(['broker', 'status', 'workspace'], /does not accept.*workspace/i);
+  usage(['broker', 'stop', 'workspace'], /does not accept.*workspace/i);
+  usage(['broker', 'reconcile'], /requires.*workspace/i);
+  usage(['broker', 'suspend'], /requires.*workspace/i);
+  usage(['broker', 'reconcile', 'workspace', 'extra'], /positional/i);
+  usage(['broker', 'status', '--endpoint', '/tmp/broker.sock'], /unknown flag/i);
 });
 
 test('request-grant maps only action-owned fields to canonical snake case', () => {

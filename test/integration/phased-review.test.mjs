@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,7 +11,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
-import { reconcileWake } from '../../src/coordinator/service.mjs';
+import { createReviewWorker } from '../../src/broker/worker.mjs';
+import { latestWakeOperation } from '../../src/coordinator/ledger.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
 
@@ -84,20 +90,65 @@ async function accept(root, workspace, response, reviewer, now) {
   });
 }
 
-test('normal spec-plan session advances exactly once and finalizes terminally', async (t) => {
+// Replays the pre-phase-trailer transaction format against the real Git adapter.
+// The committed Git message and durable journal remain legacy-shaped on disk.
+function legacyTransactionRepository(root) {
+  const repository = api.createGitTransactionRepository(root);
+  const legacy = (trailers) => {
+    const result = { ...trailers };
+    delete result['Peer-Review-Phase'];
+    return result;
+  };
+  return {
+    ...repository,
+    readTransaction(trailers) {
+      const journal = repository.readTransaction(legacy(trailers));
+      return {
+        ...journal,
+        record: journal.record ? { ...journal.record, trailers: { ...trailers } } : null,
+      };
+    },
+    writeTransaction(file, record) {
+      repository.writeTransaction(file, { ...record, trailers: legacy(record.trailers) });
+    },
+    commitOnly(paths, message, trailers) {
+      return repository.commitOnly(paths, message, legacy(trailers));
+    },
+    assertCommit(commit, paths, message, trailers) {
+      return repository.assertCommit(commit, paths, message, legacy(trailers));
+    },
+  };
+}
+
+function assertLegacyFinalizationJournal(root, reviewId) {
+  const repository = api.createGitTransactionRepository(root);
+  const trailers = { 'Peer-Review-ID': reviewId, 'Peer-Review-Turn': '2' };
+  const legacy = repository.readTransaction(trailers);
+  assert.ok(legacy.record);
+  assert.equal(Object.hasOwn(legacy.record.trailers, 'Peer-Review-Phase'), false);
+  assert.equal(repository.readTransaction({ ...trailers, 'Peer-Review-Phase': '1' }).record, null);
+}
+
+async function acceptedPhasedReview(t, reviewId, phases) {
   const root = fixture(t);
   const author = identity('author');
   const reviewer = identity('reviewer');
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/spec.md',
-    artifactKind: 'spec',
-    phases: 'spec,plan',
-    identity: author,
-    reviewId: 'phased-normal',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      phases,
+      identity: author,
+      reviewId,
+      maxTurns: 1,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -110,6 +161,167 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
     reviewer,
     '2026-09-09T12:01:00.000Z'
   );
+  return { root, author, started };
+}
+
+test('legacy phased commit interrupted before event append recovers with original journal and trailers', async (t) => {
+  const { root, author, started } = await acceptedPhasedReview(
+    t,
+    'legacy-phase-crash',
+    'spec,plan'
+  );
+  const input = {
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:02:00.000Z',
+  };
+  await assert.rejects(
+    api.finalizeReview(input, {
+      transactionRepository: legacyTransactionRepository(root),
+      checkpoint(name) {
+        if (name === 'finalization-commit-created') throw new Error('legacy commit before event');
+      },
+    }),
+    /legacy commit before event/
+  );
+  assert.equal(
+    inspectReviewAuthority(started.paths.workspace).state.protocol.state,
+    'author-finalization'
+  );
+  assertLegacyFinalizationJournal(root, started.review_id);
+  assert.doesNotMatch(git(root, ['show', '-s', '--format=%B']), /Peer-Review-Phase:/);
+  const recovered = await api.finalizeReview(input);
+  assert.equal(recovered.state, 'awaiting-phase-artifact');
+});
+
+test('legacy phased terminal finalization retry retains original journal and trailers', async (t) => {
+  const { root, author, started } = await acceptedPhasedReview(t, 'legacy-terminal-retry', 'spec');
+  const input = {
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:02:00.000Z',
+  };
+  const first = await api.finalizeReview(input, {
+    transactionRepository: legacyTransactionRepository(root),
+  });
+  assert.equal(first.state, 'accepted');
+  assertLegacyFinalizationJournal(root, started.review_id);
+  assert.doesNotMatch(git(root, ['show', '-s', '--format=%B']), /Peer-Review-Phase:/);
+  const retried = await api.finalizeReview(input);
+  assert.equal(retried.state, 'accepted');
+});
+
+async function reconcileThroughWorker(workspace, participant, now, calls) {
+  const worker = createReviewWorker({
+    registration: { workspace },
+    adapter: {
+      automatic: true,
+      observation: wakeObservation(participant, now),
+      async deliver(input) {
+        calls.push(input);
+        return { status: 'acknowledged', reason: 'test-acknowledged' };
+      },
+      async reconcile() {
+        return { status: 'not-submitted', reason: 'test-not-submitted' };
+      },
+    },
+    clock: { now: () => Date.parse(now) },
+  });
+  await worker.start();
+  await worker.reconcile();
+  return latestWakeOperation(workspace);
+}
+
+test('normal spec-plan session advances exactly once and finalizes terminally', async (t) => {
+  const root = fixture(t);
+  const author = identity('author');
+  const reviewer = identity('reviewer');
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      phases: 'spec,plan',
+      identity: author,
+      reviewId: 'phased-normal',
+      maxTurns: 1,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
+  const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
+    cwd: root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: NOW,
+  });
+  await accept(
+    root,
+    started.paths.workspace,
+    joined.paths.response,
+    reviewer,
+    '2026-09-09T12:01:00.000Z'
+  );
+  const acceptedSpec = inspectReviewAuthority(started.paths.workspace).state;
+  assert.equal(acceptedSpec.protocol.state, 'acceptance-pending');
+  assert.equal(acceptedSpec.protocol.turns_used, 1);
+  assert.equal(acceptedSpec.protocol.phases.phase_turns_used, 1);
+  let commitCrash = true;
+  await assert.rejects(
+    api.finalizeReview(
+      {
+        cwd: root,
+        workspace: started.paths.workspace,
+        identity: author,
+        now: '2026-09-09T12:02:00.000Z',
+      },
+      {
+        checkpoint(name) {
+          if (commitCrash && name === 'finalization-commit-created') {
+            commitCrash = false;
+            throw new Error('injected after author commit before phase event');
+          }
+        },
+      }
+    ),
+    /injected after author commit before phase event/
+  );
+  const afterSpecAcceptance = inspectReviewAuthority(started.paths.workspace).state;
+  assert.equal(afterSpecAcceptance.protocol.state, 'author-finalization');
+  const phaseManifest = path.join(
+    path.dirname(started.paths.reviewer_invitation),
+    path
+      .basename(started.paths.reviewer_invitation)
+      .replace('reviewer-invitation.md', 'phase-01-spec-review-manifest.md')
+  );
+  const committedPhaseManifest = readFileSync(phaseManifest);
+  let deliveryCrash = true;
+  await assert.rejects(
+    api.finalizeReview(
+      {
+        cwd: root,
+        workspace: started.paths.workspace,
+        identity: author,
+        now: '2026-09-09T12:02:00.000Z',
+      },
+      {
+        checkpoint(name) {
+          if (deliveryCrash && name === 'terminal-event-appended') {
+            deliveryCrash = false;
+            throw new Error('injected after phase event before delivery append');
+          }
+        },
+      }
+    ),
+    /injected after phase event before delivery append/
+  );
+  const afterSpecFinalize = inspectReviewAuthority(started.paths.workspace).state;
+  assert.equal(afterSpecFinalize.protocol.state, 'awaiting-phase-artifact');
+  assert.deepEqual(readFileSync(phaseManifest), committedPhaseManifest);
   const phase = await api.finalizeReview({
     cwd: root,
     workspace: started.paths.workspace,
@@ -118,23 +330,22 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
   });
   assert.equal(phase.state, 'awaiting-phase-artifact');
   const wakes = [];
-  const authorWake = await reconcileWake({
-    workspace: started.paths.workspace,
-    observation: wakeObservation(author, '2026-09-09T12:02:01.000Z'),
-    adapter: {
-      async deliver(input) {
-        wakes.push(input);
-        return { status: 'acknowledged', reason: 'test-acknowledged' };
-      },
-      async reconcile() {
-        return { status: 'not-submitted', reason: 'test-not-submitted' };
-      },
-    },
-    now: Date.parse('2026-09-09T12:02:01.000Z'),
-  });
+  const authorWake = await reconcileThroughWorker(
+    started.paths.workspace,
+    author,
+    '2026-09-09T12:02:01.000Z',
+    wakes
+  );
   assert.equal(authorWake.status, 'acknowledged');
   assert.equal(wakes.length, 1);
   assert.equal(wakes[0].capsule.target_role, 'author');
+  assert.equal(authorWake.delivery_id, 'phase-0-to-author');
+  assert.equal(
+    JSON.parse(
+      readFileSync(path.join(started.paths.workspace, 'deliveries/phase-0-to-author.json'))
+    ).recipient,
+    'author'
+  );
   const authorDelivery = path.join(started.paths.workspace, 'deliveries/phase-0-to-author.json');
   const eventsBeforeFinalizeRetry = readFileSync(started.paths.events);
   rmSync(authorDelivery);
@@ -191,6 +402,24 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
     advancedEvents.filter((event) => event.type === 'phase-artifact-committed').length,
     1
   );
+  const afterPlanAdvance = inspectReviewAuthority(started.paths.workspace).state;
+  assert.equal(afterPlanAdvance.protocol.current_actor, 'reviewer');
+  assert.equal(
+    afterPlanAdvance.participants.reviewer.session_fingerprint,
+    reviewer.session_fingerprint
+  );
+  assert.equal(afterPlanAdvance.protocol.turns_used, 1);
+  assert.equal(afterPlanAdvance.protocol.phases.phase_turns_used, 0);
+  const reviewerWakes = [];
+  const reviewerWake = await reconcileThroughWorker(
+    started.paths.workspace,
+    reviewer,
+    '2026-09-09T12:03:01.000Z',
+    reviewerWakes
+  );
+  assert.equal(reviewerWake.status, 'acknowledged');
+  assert.equal(reviewerWake.delivery_id, 'phase-1-to-reviewer');
+  assert.equal(reviewerWakes[0].capsule.target_role, 'reviewer');
   assert.equal(
     advancedEvents.filter(
       (event) =>
@@ -227,24 +456,123 @@ test('normal spec-plan session advances exactly once and finalizes terminally', 
   assert.equal(terminal.state, 'accepted');
   assert.equal(terminal.phases.cursor, 1);
   assert.equal(terminal.phases.phase_turns_used, 1);
-  assert.equal(inspectReviewAuthority(started.paths.workspace).state.protocol.turns_used, 2);
+  const terminalAuthority = inspectReviewAuthority(started.paths.workspace);
+  assert.equal(terminalAuthority.state.protocol.turns_used, 2);
+  assert.equal(terminalAuthority.state.protocol.max_turns, 1);
+  assert.deepEqual(
+    terminalAuthority.events
+      .filter((event) => event.type === 'reviewer-accepted')
+      .map((event) => event.payload.turn),
+    [1, 2]
+  );
+  const terminalManifest = readFileSync(terminal.paths.manifest);
+  const finalRetry = await api.finalizeReview({
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:05:00.000Z',
+  });
+  assert.equal(finalRetry.state, 'accepted');
+  assert.deepEqual(readFileSync(phaseManifest), committedPhaseManifest);
+  assert.deepEqual(readFileSync(terminal.paths.manifest), terminalManifest);
 });
 
 test('legacy start result and projection omit phase authority', async (t) => {
   const root = fixture(t);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/spec.md',
-    artifactKind: 'spec',
-    identity: identity('author'),
-    reviewId: 'legacy-control',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      identity: identity('author'),
+      reviewId: 'legacy-control',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   assert.equal(Object.hasOwn(started, 'phases'), false);
   assert.equal(
     Object.hasOwn(inspectReviewAuthority(started.paths.workspace).state.protocol, 'phases'),
     false
   );
+});
+
+test('second-phase revision uses its own turn budget instead of global turn exhaustion', async (t) => {
+  const root = fixture(t);
+  const author = identity('author');
+  const reviewer = identity('reviewer');
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      phases: 'spec,plan',
+      identity: author,
+      reviewId: 'phased-budget',
+      maxTurns: 2,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
+  const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
+    cwd: root,
+    invitation: started.paths.reviewer_invitation,
+    identity: reviewer,
+    now: NOW,
+  });
+  await accept(
+    root,
+    started.paths.workspace,
+    joined.paths.response,
+    reviewer,
+    '2026-09-09T12:01:00.000Z'
+  );
+  await api.finalizeReview({
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:02:00.000Z',
+  });
+  writeFileSync(path.join(root, 'docs/plan.md'), '# Plan\n');
+  git(root, ['add', 'docs/plan.md']);
+  git(root, ['commit', '-m', 'plan draft']);
+  const advanced = await api.advanceReview({
+    cwd: root,
+    workspace: started.paths.workspace,
+    artifact: 'docs/plan.md',
+    identity: author,
+    now: '2026-09-09T12:03:00.000Z',
+  });
+  replaceSection(advanced.paths.response, 'Summary', 'One change remains.');
+  replaceSection(advanced.paths.response, 'Findings', '### R2-F001 — Repair\n\nFix the plan.');
+  replaceSection(advanced.paths.response, 'Required changes', '- Address R2-F001.');
+  replaceSection(advanced.paths.response, 'Optional suggestions', 'None.');
+  replaceSection(advanced.paths.response, 'Decision', 'revisions-requested');
+  const handoff = await api.submitReviewTurn({
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'revisions-requested',
+    now: '2026-09-09T12:04:00.000Z',
+  });
+  writeFileSync(path.join(root, 'docs/plan.md'), '# Plan repaired\n');
+  replaceSection(handoff.paths.response, 'Summary', 'Repaired the plan.');
+  replaceSection(handoff.paths.response, 'Finding dispositions', '- R2-F001: fixed');
+  replaceSection(handoff.paths.response, 'Changes made', 'Updated the plan.');
+  replaceSection(handoff.paths.response, 'Declined changes and rationale', 'None.');
+  replaceSection(handoff.paths.response, 'Verification', 'Checked the revised plan.');
+  const submitted = await api.submitAuthorTurn({
+    cwd: root,
+    workspace: started.paths.workspace,
+    identity: author,
+    now: '2026-09-09T12:05:00.000Z',
+  });
+  assert.equal(submitted.state, 'reviewer-turn');
+  assert.equal(submitted.phases.phase_turns_used, 1);
+  assert.equal(inspectReviewAuthority(started.paths.workspace).state.protocol.turns_used, 2);
 });
 
 test('no-commit phase advance seals next artifact bytes without Git mutation', async (t) => {
@@ -255,17 +583,22 @@ test('no-commit phase advance seals next artifact bytes without Git mutation', a
   const baseline = git(root, ['rev-parse', 'HEAD']);
   const author = identity('author');
   const reviewer = identity('reviewer');
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/spec.md',
-    artifactKind: 'spec',
-    phases: 'spec,plan',
-    noCommit: true,
-    identity: author,
-    reviewId: 'phased-no-commit',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/spec.md',
+      artifactKind: 'spec',
+      phases: 'spec,plan',
+      noCommit: true,
+      identity: author,
+      reviewId: 'phased-no-commit',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -305,15 +638,19 @@ test('invalid phase declarations fail before creating review authority', async (
   const root = fixture(t);
   for (const phases of ['', 'spec,spec', 'spec,report', 'plan,spec']) {
     await assert.rejects(
-      api.startReview({
-        cwd: root,
-        artifact: 'docs/spec.md',
-        artifactKind: 'spec',
-        phases,
-        identity: identity('author'),
-        reviewId: `invalid-${phases || 'empty'}`.replaceAll(',', '-'),
-        now: NOW,
-      }),
+      api.startReview(
+        {
+          ...fixtureSelection('codex', 'gpt-test'),
+          cwd: root,
+          artifact: 'docs/spec.md',
+          artifactKind: 'spec',
+          phases,
+          identity: identity('author'),
+          reviewId: `invalid-${phases || 'empty'}`.replaceAll(',', '-'),
+          now: NOW,
+        },
+        fixtureStartupDeps
+      ),
       { code: 'APR_PHASE_INVALID' }
     );
   }

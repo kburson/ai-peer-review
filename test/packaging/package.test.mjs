@@ -7,11 +7,39 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
+import { parseCommand } from '../../src/cli/parse.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SOURCE = '4b3bcd43cba141a611da4a2b861433b915462806';
 const FILTERED = 'bfc6f9ffabd8281a815c7bd0e0824f3bacb84d9d';
 const BOOTSTRAP = 'fd2e636356b6b8049930d5dc6bddf383c6d56c8d';
+
+test('active release pins and packaged build contract match the selected minor', () => {
+  const manifest = JSON.parse(readFileSync(path.join(root, 'package.json')));
+  assert.equal(manifest.version, '0.3.0');
+  for (const file of ['README.md', 'skills/peer-review/SKILL.md']) {
+    const pins = [
+      ...readFileSync(path.join(root, file), 'utf8').matchAll(
+        /npx --yes @kburson\/ai-peer-review@([^\s`]+)/g
+      ),
+    ];
+    assert.ok(pins.length > 0, file);
+    for (const [, version] of pins) assert.equal(version, manifest.version, file);
+  }
+  assert.equal(manifest.scripts['build:broker-security'], 'node scripts/build-broker-security.mjs');
+  for (const hook of ['install', 'preinstall', 'postinstall'])
+    assert.equal(manifest.scripts[hook], undefined);
+  assert.ok(
+    readFileSync(path.join(root, 'docs/releases/0.3.0.md'), 'utf8').includes('--reviewer-provider')
+  );
+});
+
+test('README zero-install start is a complete invocation for the released grammar', () => {
+  const readme = readFileSync(path.join(root, 'README.md'), 'utf8');
+  const command = readme.match(/^npx --yes @kburson\/ai-peer-review@\S+ (start .+)$/m)?.[1];
+  assert.ok(command);
+  assert.doesNotThrow(() => parseCommand(command.split(' ')));
+});
 
 function pack(t) {
   const destination = mkdtempSync(path.join(os.tmpdir(), 'apr-pack-'));
@@ -65,6 +93,10 @@ test('published tarball is closed and exact-pins its audited production dependen
     'README.md',
     'bin/peer-review-mcp.mjs',
     'bin/peer-review.mjs',
+    'bin/peer-review-broker.mjs',
+    'src/broker/worker.mjs',
+    'src/broker/runtime-image.mjs',
+    'docs/releases/0.3.0.md',
     'schemas/config-v1.json',
     'schemas/claude-launch-result-v1.json',
     'skills/peer-review/SKILL.md',
@@ -157,14 +189,6 @@ test('public exports and command guidance remain narrow and installation-aware',
       "export { inspectRecordLineage, validateSuccessor } from './protocol/record-lineage.mjs';\n" +
       "export { currentPhase, isFinalPhase, isPhased, parsePhaseKinds } from './protocol/phases.mjs';\n" +
       "export { buildPhaseManifest, sealPhaseManifest } from './manifest/render.mjs';\n" +
-      "export { decideWake, canonicalWakeCapsule, wakeOperationKey } from './coordinator/decision.mjs';\n" +
-      "export { inspectCoordinatorLease, requestCoordinatorStop } from './coordinator/lease.mjs';\n" +
-      'export {\n' +
-      '  appendWakeOutcome,\n' +
-      '  readWakeOperation,\n' +
-      '  reserveWakeOperation,\n' +
-      "} from './coordinator/ledger.mjs';\n" +
-      "export { coordinatorStatus, reconcileWake, runCoordinator } from './coordinator/service.mjs';\n" +
       'export {\n' +
       '  refreshResidentLease,\n' +
       '  residentHealth,\n' +
@@ -202,12 +226,12 @@ test('public exports and command guidance remain narrow and installation-aware',
   }
   const readme = sources.find(([file]) => file === 'README.md')[1];
   assert.match(readme, /npm install --save-dev @kburson\/ai-peer-review/);
-  assert.match(readme, /npx --yes @kburson\/ai-peer-review@0\.2\.2/);
+  assert.match(readme, /npx --yes @kburson\/ai-peer-review@0\.3\.0/);
   assert.match(readme, /from '@kburson\/ai-peer-review'/);
   assert.match(readme, /npm uninstall ai-peer-review/);
   const skill = sources.find(([file]) => file === 'skills/peer-review/SKILL.md')[1];
   assert.match(skill, /npm install --save-dev @kburson\/ai-peer-review/);
-  assert.match(skill, /npx --yes @kburson\/ai-peer-review@0\.2\.2/);
+  assert.match(skill, /npx --yes @kburson\/ai-peer-review@0\.3\.0/);
   assert.match(skill, /npm uninstall ai-peer-review/);
 });
 
@@ -255,7 +279,7 @@ test('workflows retain complete platform and release safety gates', () => {
     const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return (
       minimumNode.match(
-        new RegExp(`      - name: ${escapedName}\\n(?:(?!      - )[\\s\\S])*`)
+        new RegExp(`(?:      - name: |        name: )${escapedName}\\n(?:(?!      - )[\\s\\S])*`)
       )?.[0] ?? ''
     );
   };
@@ -274,6 +298,41 @@ test('workflows retain complete platform and release safety gates', () => {
     /env:\n          APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp\n        run: npm test/
   );
   const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';
+  assert.match(preferredNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
+  assert.match(preferredNode, /runs-on: \$\{\{ matrix\.os \}\}/);
+  for (const gate of [
+    '*python',
+    '*windows-compiler',
+    '*node-development',
+    '*windows-library',
+    '*warm-broker',
+    '*offline-broker',
+  ])
+    assert.ok(preferredNode.includes(gate), gate);
+  assert.match(ci, /&warm-broker\s+name: Warm npm cache for packed release/);
+  assert.ok(preferredNode.indexOf('*warm-broker') < preferredNode.indexOf('*offline-broker'));
+  const offline = namedStep('Build and verify installed broker without network');
+  const integrationSteps = [
+    ...ci.matchAll(/- run: npm run test:integration\n([\s\S]*?)(?=\n      -)/g),
+  ];
+  assert.equal(integrationSteps.length, 3);
+  for (const step of integrationSteps)
+    assert.match(step[1], /APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp/);
+  for (const gate of [
+    'unshare --net',
+    'sandbox-exec',
+    'windows-offline.ps1 -Mode start',
+    'windows-offline.ps1 -Mode stop',
+    'assert-network.mjs open',
+    'assert-network.mjs blocked',
+    'build:broker-security',
+    'test/integration/broker-release.test.mjs',
+  ])
+    assert.ok(offline.includes(gate), gate);
+  const firewall = readFileSync(path.join(root, 'test/helpers/windows-offline.ps1'), 'utf8');
+  assert.match(firewall, /New-NetFirewallRule[^\n]+-Program \$Resolved/);
+  assert.match(firewall, /Get-NetFirewallRule -Group \$Group[^\n]+Remove-NetFirewallRule/);
+  assert.doesNotMatch(offline, /New-NetFirewallRule/);
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [preferredNode, boundary]) {
     for (const gate of [

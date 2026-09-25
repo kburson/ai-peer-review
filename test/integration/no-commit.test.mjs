@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -145,6 +150,7 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
   const reviewer = identity('reviewer', 'no-commit-reviewer');
   const started = await api.startReview(
     {
+      ...fixtureSelection('codex', 'gpt-test'),
       cwd: fx.root,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
@@ -154,7 +160,7 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
       testHumanAuthority: 'no-commit-authority',
       now: NOW,
     },
-    { repository }
+    { ...fixtureStartupDeps, repository }
   );
   assert.match(readFileSync(started.paths.author_startup, 'utf8'), /NO-COMMIT TEST MODE/);
   assert.match(readFileSync(started.paths.author_startup, 'utf8'), /unverified-test/);
@@ -184,6 +190,7 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
 
   const joined = await api.joinReview(
     {
+      runtimeObservation: fixtureObservation(),
       cwd: fx.root,
       invitation: started.paths.reviewer_invitation,
       identity: reviewer,
@@ -331,15 +338,19 @@ test('no-commit mode is start-owned and test authority cannot escape it', async 
   const fx = fixture();
   t.after(fx.cleanup);
   await assert.rejects(
-    api.startReview({
-      cwd: fx.root,
-      artifact: 'docs/artifact.md',
-      artifactKind: 'spec',
-      identity: identity('author', 'normal-author'),
-      reviewId: 'normal-test-authority',
-      testHumanAuthority: 'forbidden-normal-authority',
-      now: NOW,
-    }),
+    api.startReview(
+      {
+        ...fixtureSelection('codex', 'gpt-test'),
+        cwd: fx.root,
+        artifact: 'docs/artifact.md',
+        artifactKind: 'spec',
+        identity: identity('author', 'normal-author'),
+        reviewId: 'normal-test-authority',
+        testHumanAuthority: 'forbidden-normal-authority',
+        now: NOW,
+      },
+      fixtureStartupDeps
+    ),
     (error) => error.code === 'APR_AUTHORITY_POLICY'
   );
 });
@@ -349,17 +360,22 @@ test('changed no-commit snapshot blocks exact handoff retry without changing eve
   t.after(fx.cleanup);
   const author = identity('author', 'snapshot-author');
   const reviewer = identity('reviewer', 'snapshot-reviewer');
-  const started = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'snapshot-tamper',
-    noCommit: true,
-    testHumanAuthority: 'snapshot-authority',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'snapshot-tamper',
+      noCommit: true,
+      testHumanAuthority: 'snapshot-authority',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

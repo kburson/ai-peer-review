@@ -1,5 +1,7 @@
 # Provider-Neutral Runtime Orchestration Design
 
+> Superseded for new operator workflows by the project-local SPR/XPR broker design (`2026-09-14-project-local-spr-xpr-broker-design.md`). Commands and coordinator behavior below remain historical design evidence, not current CLI guidance. Use `peer-review help start`, `peer-review help spr`, `peer-review help xpr`, and `peer-review help broker` for the active installed-package contract.
+
 <!-- cspell:words preauthorized wakeups -->
 
 ## Document status

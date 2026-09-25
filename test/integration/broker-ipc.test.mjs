@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { requestBroker } from '../../src/broker/client.mjs';
 import {
   connectBroker,
   createFrameDecoder,
@@ -16,6 +17,26 @@ const handshake = {
   instance_id: 'a'.repeat(64),
   nonce: 'b'.repeat(64),
 };
+
+test('an ambiguous command exchange is closed without reconnecting or replaying', async () => {
+  let exchanges = 0;
+  let closes = 0;
+  const failure = Object.assign(new Error('lost reply'), { code: 'APR_BROKER_PROTOCOL' });
+  const client = {
+    connection: {
+      exchange() {
+        exchanges += 1;
+        throw failure;
+      },
+      close() {
+        closes += 1;
+      },
+    },
+  };
+  await assert.rejects(requestBroker(client, 'launch', '/review'), (error) => error === failure);
+  assert.equal(exchanges, 1);
+  assert.equal(closes, 1);
+});
 
 test('length-prefixed JSON accepts fragmented and coalesced frames up to 64 KiB', () => {
   const decoder = createFrameDecoder();
@@ -62,7 +83,7 @@ test('handshake binds every tuple/version/instance/nonce field and kernel user',
 });
 
 test('commands admit only a closed local control vocabulary', () => {
-  for (const command of ['status', 'register', 'suspend', 'stop', 'reconcile']) {
+  for (const command of ['status', 'register', 'launch', 'suspend', 'stop', 'reconcile']) {
     assert.equal(
       validateCommand({
         id: '1',
@@ -151,6 +172,79 @@ test('authenticated connect preserves evidence and refuses peer, version and res
   await assert.rejects(connectBroker(input, fixture({ ...handshake, extra: true })), {
     code: 'APR_BROKER_AUTH_FAILED',
   });
+});
+
+test('handshake failure is a startup race only when exact discovery bytes changed', async () => {
+  const previous = Buffer.from(JSON.stringify(handshake));
+  const next = Buffer.from(JSON.stringify({ ...handshake, instance_id: 'c'.repeat(64) }));
+  const failure = Object.assign(new Error('Broker frame prefix is truncated.'), {
+    code: 'APR_BROKER_PROTOCOL',
+  });
+  const input = {
+    identity: { tuple: handshake.tuple },
+    paths: { directory: '/cache', metadata: '/cache/broker.json', endpoint: '/cache/broker.sock' },
+    versions: handshake.versions,
+  };
+  for (const after of [next, previous]) {
+    let reads = 0;
+    const platform = {
+      userId: () => '501',
+      openPrivateDirectory: () => ({
+        read: () => (reads++ === 0 ? previous : after),
+        close() {},
+      }),
+      connectPrivate: async () => ({
+        exchange: async () => {
+          throw failure;
+        },
+        close() {},
+      }),
+    };
+    await assert.rejects(connectBroker(input, platform), (error) => {
+      if (after === next) {
+        assert.equal(error.code, 'APR_BROKER_STALE');
+        assert.equal(error.message, 'Broker discovery changed during handshake.');
+      } else {
+        assert.equal(error, failure);
+      }
+      return true;
+    });
+    assert.equal(reads, 2);
+  }
+});
+
+test('successful handshake still refuses a changed discovery generation', async () => {
+  const previous = Buffer.from(JSON.stringify(handshake));
+  const next = Buffer.from(JSON.stringify({ ...handshake, instance_id: 'c'.repeat(64) }));
+  let reads = 0;
+  const platform = {
+    userId: () => '501',
+    openPrivateDirectory: () => ({
+      read: () => (reads++ === 0 ? previous : next),
+      close() {},
+    }),
+    connectPrivate: async () => ({
+      exchange: async () => encodeFrame(handshake),
+      close() {},
+    }),
+    peerUser: () => '501',
+  };
+  await assert.rejects(
+    connectBroker(
+      {
+        identity: { tuple: handshake.tuple },
+        paths: {
+          directory: '/cache',
+          metadata: '/cache/broker.json',
+          endpoint: '/cache/broker.sock',
+        },
+        versions: handshake.versions,
+      },
+      platform
+    ),
+    { code: 'APR_BROKER_STALE', message: 'Broker discovery changed during handshake.' }
+  );
+  assert.equal(reads, 2);
 });
 
 test('broker schema closes handshake, command and reply projections', () => {

@@ -13,10 +13,11 @@ namespace {
 struct Directory { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Lock { HANDLE handle; std::wstring path; BY_HANDLE_FILE_INFORMATION identity; };
 struct Endpoint { HANDLE handle; std::wstring path; };
-struct Connection { HANDLE handle; bool server_side; bool fenced; };
+struct Connection { HANDLE handle; bool server_side; bool fenced; unsigned client_writes = 0; };
 struct PipeReadRequest { HANDLE handle; std::vector<unsigned char> bytes; LONG references; };
 struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
+constexpr DWORD kCommandReplyTimeoutMilliseconds = 30000;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const char* text) {
   *code = stable;
@@ -181,7 +182,9 @@ unsigned __stdcall ReadPipeThread(void* value) {
   return complete ? ERROR_SUCCESS : ERROR_READ_FAULT;
 }
 
-bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
+bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size, DWORD timeout,
+               bool* timed_out) {
+  *timed_out = false;
   HANDLE duplicate = INVALID_HANDLE_VALUE;
   if (!DuplicateHandle(
         GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
@@ -194,8 +197,9 @@ bool ReadExact(HANDLE handle, unsigned char* bytes, size_t size) {
     delete request;
     return false;
   }
-  DWORD wait = WaitForSingleObject(thread, kIpcTimeoutMilliseconds);
+  DWORD wait = WaitForSingleObject(thread, timeout);
   if (wait == WAIT_TIMEOUT) {
+    *timed_out = true;
     CancelSynchronousIo(thread);
     wait = WaitForSingleObject(thread, 1000);
   }
@@ -234,12 +238,12 @@ unsigned __stdcall WritePipeThread(void* value) {
   return complete ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
 }
 
-bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes) {
+bool WritePipeBounded(HANDLE handle, const std::vector<unsigned char>& bytes, bool flush) {
   HANDLE duplicate = INVALID_HANDLE_VALUE;
   if (!DuplicateHandle(
         GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate,
         0, FALSE, DUPLICATE_SAME_ACCESS)) return false;
-  auto* request = new PipeWriteRequest{duplicate, bytes, nullptr, false};
+  auto* request = new PipeWriteRequest{duplicate, bytes, nullptr, flush};
   HANDLE thread = reinterpret_cast<HANDLE>(
     _beginthreadex(nullptr, 0, WritePipeThread, request, 0, nullptr));
   if (thread == nullptr) {
@@ -444,9 +448,21 @@ bool DirectoryRead(void* value, const std::string& name, std::vector<unsigned ch
   auto* directory = static_cast<Directory*>(value);
   const auto path = Join(directory->path, name);
   if (path.empty() || !VerifyDirectory(value)) return Fail(code, message, "APR_BROKER_STALE", "Broker resource path or directory identity is unsafe.");
-  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | READ_CONTROL, FILE_SHARE_READ,
+  // Discovery readers must not block the verified dead-owner takeover from
+  // removing metadata while a client polls for the replacement broker.
+  HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | READ_CONTROL,
+                              FILE_SHARE_READ | FILE_SHARE_DELETE,
                               nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-  if (handle == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND) { *found = false; return true; }
+  if (handle == INVALID_HANDLE_VALUE) {
+    const DWORD error = GetLastError();
+    if (error == ERROR_FILE_NOT_FOUND) { *found = false; return true; }
+    // DirectoryCreate publishes through an exclusive handle. A sharing
+    // conflict is temporary, not evidence that the file passed ACL checks.
+    if (error == ERROR_SHARING_VIOLATION)
+      return Fail(code, message, "EBUSY", "Broker resource is being published (Win32 32).");
+    return Fail(code, message, "APR_BROKER_STALE",
+                ("Broker resource cannot be opened safely (Win32 " + std::to_string(error) + ").").c_str());
+  }
   BY_HANDLE_FILE_INFORMATION info {};
   if (handle == INVALID_HANDLE_VALUE || !Info(handle, &info) || !OwnerOnly(handle) ||
       (info.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) != 0 ||
@@ -485,7 +501,12 @@ bool DirectoryRemove(void* value, const std::string& name, const std::vector<uns
   if (!DirectoryRead(value, name, &observed, &found, code, message)) return false;
   const auto path = Join(directory->path, name);
   if (!found || observed != expected || !VerifyDirectory(value)) return false;
-  if (!DeleteFileW(path.c_str())) return Fail(code, message, "APR_BROKER_STALE", "Verified broker resource could not be removed.");
+  if (!DeleteFileW(path.c_str())) {
+    const DWORD error = GetLastError();
+    return Fail(code, message, "APR_BROKER_STALE",
+                ("Verified broker resource could not be removed (Win32 " +
+                 std::to_string(error) + ").").c_str());
+  }
   return true;
 }
 
@@ -558,6 +579,15 @@ void AbandonExclusive(void* value) {
   delete lock;
 }
 
+bool ReclaimStaleEndpoint(void* lock, const std::string&, std::string* code, std::string* message) {
+  // Named pipes leave no filesystem socket after the owner exits. The next
+  // first-instance creation below remains the live-owner exclusion proof.
+  if (VerifyExclusive(lock)) return true;
+  *code = "APR_BROKER_STALE";
+  *message = "Broker lock changed before endpoint reconciliation.";
+  return false;
+}
+
 void* ListenPrivate(const std::string& input, std::string* code, std::string* message) {
   const auto path = Wide(input);
   HANDLE handle = CreateOwnerPipe(path, true, code, message);
@@ -569,6 +599,8 @@ bool VerifyEndpoint(void* value) { return static_cast<Endpoint*>(value)->handle 
 bool CloseEndpoint(void* value) { auto* endpoint = static_cast<Endpoint*>(value); const bool valid = VerifyEndpoint(value); CloseHandle(endpoint->handle); delete endpoint; return valid; }
 void AbandonEndpoint(void* value) { auto* endpoint = static_cast<Endpoint*>(value); CloseHandle(endpoint->handle); delete endpoint; }
 
+// Idle accept must yield promptly so provider streams and coordinator timers run.
+// Keep the full IPC timeout for reads/writes on an established connection.
 void* AcceptPrivate(void* value, std::string* code, std::string* message) {
   auto* endpoint = static_cast<Endpoint*>(value);
   if (!VerifyEndpoint(value)) {
@@ -580,7 +612,7 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
     Fail(code, message, "APR_BROKER_START_FAILED", "Named-pipe accept cannot be bounded.");
     return nullptr;
   }
-  const ULONGLONG deadline = GetTickCount64() + kIpcTimeoutMilliseconds;
+  const ULONGLONG deadline = GetTickCount64() + 25;
   bool connected = false;
   while (!connected) {
     connected = ConnectNamedPipe(endpoint->handle, nullptr) != 0;
@@ -610,14 +642,20 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
 
 void* ConnectPrivate(const std::string& input, std::string* code, std::string* message) {
   const auto path = Wide(input);
-  if (!WaitNamedPipeW(path.c_str(), 5000) && GetLastError() != ERROR_SEM_TIMEOUT) {
-    Fail(code, message, "APR_BROKER_START_FAILED", "Private named pipe is unavailable.");
-    return nullptr;
+  if (!WaitNamedPipeW(path.c_str(), 5000)) {
+    const DWORD error = GetLastError();
+    if (error != ERROR_SEM_TIMEOUT) {
+      Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" : "APR_BROKER_START_FAILED",
+           "Private named pipe is unavailable.");
+      return nullptr;
+    }
   }
   HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
-    Fail(code, message, "APR_BROKER_START_FAILED", "Private named pipe cannot be connected.");
+    const DWORD error = GetLastError();
+    Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" : "APR_BROKER_START_FAILED",
+         "Private named pipe cannot be connected.");
     return nullptr;
   }
   DWORD mode = PIPE_READMODE_BYTE;
@@ -635,10 +673,16 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   if (connection->fenced) {
     return Fail(code, message, "APR_BROKER_STALE", "Broker connection is fenced.");
   }
+  // Keep handshake and incomplete-client deadlines short. Only an authenticated
+  // client's second write can wait for bounded worker/stop reconciliation.
+  const DWORD timeout = !connection->server_side && connection->client_writes >= 2
+    ? kCommandReplyTimeoutMilliseconds : kIpcTimeoutMilliseconds;
+  bool timed_out = false;
   unsigned char prefix[4];
-  if (!ReadExact(connection->handle, prefix, sizeof(prefix))) {
+  if (!ReadExact(connection->handle, prefix, sizeof(prefix), timeout, &timed_out)) {
     FenceConnection(connection);
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame prefix is truncated.");
+    return Fail(code, message, "APR_BROKER_PROTOCOL",
+                timed_out ? "Broker frame prefix timed out." : "Broker frame prefix is truncated.");
   }
   const size_t length = (static_cast<size_t>(prefix[0]) << 24) |
                         (static_cast<size_t>(prefix[1]) << 16) |
@@ -650,22 +694,27 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   }
   bytes->assign(prefix, prefix + sizeof(prefix));
   bytes->resize(sizeof(prefix) + length);
-  if (!ReadExact(connection->handle, bytes->data() + sizeof(prefix), length)) {
+  if (!ReadExact(connection->handle, bytes->data() + sizeof(prefix), length, timeout,
+                 &timed_out)) {
     FenceConnection(connection);
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame body is truncated.");
+    return Fail(code, message, "APR_BROKER_PROTOCOL",
+                timed_out ? "Broker frame body timed out." : "Broker frame body is truncated.");
   }
   return true;
 }
 
-bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
+bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes, bool drain,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
   if (connection->fenced) {
     return Fail(code, message, "APR_BROKER_STALE", "Broker connection is fenced.");
   }
+  // Stop must retain this process until the client consumes its final reply.
+  // Other server replies keep the non-blocking supervised flush path.
   const bool complete = connection->server_side
-    ? WriteServerReply(connection->handle, bytes)
-    : WritePipeBounded(connection->handle, bytes);
+    ? (drain ? WritePipeBounded(connection->handle, bytes, true)
+             : WriteServerReply(connection->handle, bytes))
+    : WritePipeBounded(connection->handle, bytes, false);
   if (!complete) {
     FenceConnection(connection);
     return Fail(
@@ -676,6 +725,7 @@ bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes,
         ? "Broker frame delivery timed out."
         : "Broker frame cannot be written completely.");
   }
+  if (!connection->server_side) connection->client_writes++;
   return true;
 }
 

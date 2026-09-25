@@ -43,6 +43,19 @@ export function doctor(context = {}) {
     row('authority-policy', context.authority?.authority_policy ?? 'unavailable', false),
     row('transport', context.transport?.healthy ? context.transport.mode : 'unavailable', true),
     row('requested-mode', transportViable ? 'ok' : 'unavailable', true, requestedMode),
+    ...(context.providerAdapter
+      ? [
+          row(
+            'provider-adapter',
+            context.providerAdapter.available &&
+              (!brokerRequired || context.providerAdapter.automatic === true)
+              ? 'ok'
+              : 'unavailable',
+            context.providerRequired === true,
+            context.providerAdapter
+          ),
+        ]
+      : []),
     ...(context.brokerSecurity
       ? [
           row(

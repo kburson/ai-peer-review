@@ -297,6 +297,13 @@ assert.throws(() => registerReview({ ...request, requestDigest: 'different' }, s
 - [ ] Acquire/probe the stable endpoint before considering a new image active. On version mismatch print `APR_BROKER_INCOMPATIBLE`, observed versions, and the exact status/recovery command; never kill, repin, replace, or start a second broker. Preserve old image files until its verified lock release and operation reconciliation. Missing image files fence automatic work; manual recovery remains available.
 - [ ] Test old broker draining from its image while its original installation is replaced, all three independent version mismatches, and refusal to reclaim before release. Rerun focused suites and commit exact files with `feat(broker): preserve runtime and recovery registrations`.
 
+#### Story Intent
+
+- **Beneficiary:** peer-review operator running new reviews after package upgrades or interrupted starts
+- **Capability:** Reuse an immutable verified runtime and recover each project review from a durable registration
+- **Need:** Mutable installations and lost or conflicting scratch state can otherwise orphan, corrupt, or duplicate active review work
+- **Value or failure prevented:** In-flight reviews stay bound to exact executable and package bytes, while retries and recovery fail closed instead of launching conflicting work
+
 ### Task 7: Project service lifecycle and internal review workers
 
 **Files:** Create `src/broker/service.mjs`, `src/broker/worker.mjs`, `src/broker/client.mjs`, `bin/peer-review-broker.mjs`, `test/unit/broker-lifecycle.test.mjs`, `test/integration/broker-multiproject.test.mjs`; modify `src/coordinator/service.mjs`, `test/integration/coordinator-wake.test.mjs`.
@@ -317,6 +324,13 @@ assert.equal(exited, true);
 - [ ] Wrap `reconcileWake`, `runCoordinator`, and the existing decision/ledger/lease modules as internal review workers. Preserve each review's own coordinator lease, operation key, receipt validation, participant observation, and response state. Do not copy wake algorithms into `worker.mjs`. Refactor subscription lifetime out of `runCoordinator` only as needed to support broker-owned close/suspend.
 - [ ] Derive terminal status from `reduceEvents`/`statusReview`, including abandoned/superseded outcomes; no new protocol lifecycle states. A pending automatic handoff or author finalization is live work. Recovery suspension is runtime status only. Close watchers and provider adapters and persist recovery obligations before releasing owned locks. Do not spend model turns to wait.
 - [ ] Test two roots with different package versions run concurrently, multiple reviews share one broker, and linked worktrees remain separate. A foreign project registration is refused even when the workspace path exists. Rerun focused suites plus `node --test test/integration/coordinator-wake.test.mjs` and commit exact files with `feat(broker): supervise project-local review workers`.
+
+#### Story Intent
+
+- **Beneficiary:** peer-review operator supervising concurrent reviews in one project
+- **Capability:** Keep the project broker alive exactly while review work or automatic handoffs remain actionable
+- **Need:** Independent coordinator processes can otherwise duplicate ownership, lose recoverable work, or exit while a participant still needs service
+- **Value or failure prevented:** Reviews share one authenticated project service without cross-project interference, premature shutdown, or loss of durable recovery obligations
 
 ### Task 8: Transactional startup and fenced manual recovery
 
@@ -344,6 +358,13 @@ Define `startWithUnavailableBroker`, `createdEvents`, and `providerCalls` in thi
 - [ ] Preserve all legacy manual operations without a live broker. For registered new reviews, offline protocol submission remains available but automatic delivery must first be fenced: request authenticated suspension, wait for in-flight operation settlement, then record the fence; if broker is dead, verify OS ownership and reconcile provider outcome. Unknown outcome returns its existing error and exact reconciliation command, never a duplicate wake. A later worker revalidates event revision and the fence before delivery.
 - [ ] Test preserved `--phases`, reviews-root/template, record ID, issue, turn/claim limits, bootstrap grant, no-commit/test authority, and explicit transports end to end. `automatic-required` still requires every resident/capability/health row. Run `npm run test:integration`, `npm run test:smoke`, and `npm test` in addition to the focused suites so every migrated caller executes; commit exact task paths with `feat(startup): route new reviews through sealed runtime`.
 
+#### Story Intent
+
+- **Beneficiary:** ai-peer-review operators who initiate or recover cross-provider reviews
+- **Capability:** Start each new review through sealed transactional broker registration and enter manual recovery only behind a durable delivery fence
+- **Need:** New XPR startup must coordinate participant selection, runtime sealing, output reservation, authority creation, broker registration, and reviewer dispatch without exposing partial authority or ambiguous delivery
+- **Value or failure prevented:** Partial failures cannot launch provider work or duplicate a wake, while existing reviews retain exact offline recovery
+
 ### Task 9: Provider adapters, exact model launch, and native SPR
 
 **Files:** Create `src/providers/codex.mjs`, `src/providers/claude.mjs`, `src/providers/grok.mjs`, `test/unit/provider-capabilities.test.mjs`, `test/integration/provider-conformance.test.mjs`; modify `src/providers/registry.mjs`, `src/identity/registry.mjs`, `src/transport/registry.mjs`, `src/doctor.mjs`, `src/cli/run.mjs`.
@@ -367,11 +388,28 @@ assert.notEqual(observation.session_fingerprint, author.session_fingerprint);
 - [ ] Exercise acknowledgement, definitely-not-submitted, outcome-unknown, provider quota failure, expired lease, changed process instance, incompatible adapter versions, and native/automatic end-to-end gates. Use existing intervention and reconciliation semantics. Automate fixture suites offline; document optional live conformance commands and run only on the explicitly selected provider surface.
 - [ ] Rerun focused suites plus `node --test test/integration/automatic-required.test.mjs test/unit/transport.test.mjs` and commit exact paths with `feat(providers): launch exact requested reviewer sessions`.
 
+#### Story Intent
+
+- **Beneficiary:** ai-peer-review operators launching same-provider or cross-provider reviews
+- **Capability:** Select and launch an exact reviewer model, effort, and distinct session through a provider adapter with truthful transport and resource evidence
+- **Need:** Provider aliases, unavailable control surfaces, shared resources, and ambiguous dispatch outcomes can otherwise substitute a reviewer, collide across projects, or duplicate work
+- **Value or failure prevented:** Reviews use the requested independent reviewer session or fail closed without model substitution, false automation claims, leaked handles, or duplicate provider actions
+
 ### Task 10: Phase integration and retirement of public coordinator surface
 
-**Files:** Modify `src/public-api.mjs`, `src/cli/parse.mjs`, `src/cli/run.mjs`, `src/cli/help-data.mjs`, `src/broker/worker.mjs`, `test/integration/phased-review.test.mjs`, `test/unit/coordinator-decision.test.mjs`, `test/integration/coordinator-wake.test.mjs`, `test/packaging/package.test.mjs`, `test/mcp/server.test.mjs`; also modify `test/unit/cli-parse.test.mjs`, `test/golden/help.test.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `schemas/cli-result-v1.json`.
+**Files:** Modify `src/public-api.mjs`, `src/cli/parse.mjs`, `src/cli/run.mjs`, `src/cli/help-data.mjs`, `src/broker/worker.mjs`, `src/broker/service.mjs`, `src/collateral/responses.mjs`, `src/git/transaction.mjs`, `test/integration/phased-review.test.mjs`, `test/integration/git-transaction.test.mjs`, `test/integration/broker-startup.test.mjs`, `test/integration/broker-multiproject.test.mjs`, `test/unit/broker-lifecycle.test.mjs`, `test/unit/coordinator-decision.test.mjs`, `test/integration/coordinator-wake.test.mjs`, `test/unit/responses.test.mjs`, `test/packaging/package.test.mjs`, `test/mcp/server.test.mjs`; also modify `test/unit/cli-parse.test.mjs`, `test/golden/help.test.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `schemas/cli-result-v1.json`.
 
 **Interfaces:** New public broker CLI: `peer-review broker status`, `peer-review broker reconcile <workspace>`, `peer-review broker suspend <workspace>`, `peer-review broker stop`, with optional `--json`. All derive project identity from cwd; no endpoint override. Public root exports may expose `brokerStatus` and `reconcileBrokerReview` from `src/broker/client.mjs`; no coordinator/wake internals.
+
+**Plan Adjustment — per-phase response budgets:** Task 10's required per-phase-limit proof exposed that response collateral still compared the globally monotonic response turn with the per-phase `max_turns`, so phase two fails when the configured per-phase maximum is one. Task 10 therefore also owns the smallest load-bearing correction in `src/collateral/responses.mjs` and its direct regression coverage in `test/unit/responses.test.mjs`. Keep globally monotonic response identifiers and reserve enough contained paths for every declared phase; enforce exhaustion with `phase_turns_used` inside phased reviews. This clarifies the accepted per-phase-limit requirement and does not alter non-phased budgets or pull Task 11/12 work forward.
+
+**Plan Adjustment — phased transaction journals:** Exercising a revision in a later phase exposed that two distinct commits can legitimately share a review ID and global turn while belonging to different phase cursors, causing the legacy `<review>-<turn>.json` recovery journal to alias unrelated transactions. Task 10 also owns the smallest compatibility-preserving correction in `src/git/transaction.mjs` and `test/integration/git-transaction.test.mjs`: phased commits carry one validated phase discriminator in their exact trailers and journal key, while non-phased and existing reviews retain the legacy key and bytes. Unknown, malformed, or mismatched discriminators remain fail-closed.
+
+**Plan Adjustment — atomic stop refusal:** Task 10's required stop refusal cannot be enforced by a client-side `status` preflight followed by a second `stop` connection because a serialized registration can become runnable between those requests. Task 10 therefore also owns `src/broker/service.mjs` and direct coverage in `test/unit/broker-lifecycle.test.mjs`. The authenticated serialized `stop` dispatch must settle current worker state and refuse atomically whenever runnable work or unresolved recovery remains; only an idle, reconciled broker may enter stopping state. The CLI may still render the refusal, but it is not the authority for the decision.
+
+The atomic stop adjustment also owns the narrow expectation update in `test/integration/broker-multiproject.test.mjs`: each project broker must refuse stop while its own runnable work exists, then stop only after that work is suspended/reconciled and idle. Cross-project isolation remains unchanged.
+
+**Plan Adjustment — public suspend regression:** Independent Task 10 review found that broker `suspend` removed its worker without durable manual exclusion, permitting a later reconcile to recreate automatic delivery. The fix uses the existing nested-lock/fence authority and adds a public suspend→reconcile/restart regression in `test/integration/broker-startup.test.mjs`; this test file is included in Task 10's exact path boundary. No unrelated startup behavior is changed.
 
 - [ ] Add phase tests for spec acceptance → author finalize → author advance plan → same reviewer → final acceptance. Assert exact recipient, verified receipt, monotonically increasing turns, per-phase limits, and unchanged terminal manifests. Include crashes after author commit but before event/delivery append.
 
@@ -386,6 +424,13 @@ assert.equal(afterPlanAdvance.participants.reviewer.session_fingerprint, reviewe
 - [ ] Route #10 wake consumption through `createReviewWorker`; preserve the existing `decideWake` phase cases and delivery receipts. Update tests to import internal functions directly when testing internals. Remove all coordinator exports from `src/public-api.mjs` and coordinator command grammar/help/run dispatch in this same task. Keep source modules internally where reused; removal from the public API does not require deleting durable ledger code or historical schema readers.
 - [ ] Implement broker operations with authenticated instance/nonce verification. `suspend` fences one review, `stop` refuses runnable or unreconciled operations, and `reconcile` never replays an ambiguous provider action. Offline status explains recovery evidence even when broker is absent. Add exact error recoveries for all five design startup errors and verify the two distinct codes introduced in Tasks 1 and 6 (`APR_REVIEWER_SELECTION_UNSUPPORTED` and `APR_BROKER_REGISTRATION_CONFLICT`), for seven explained startup/registration errors total; `APR_BROKER_STALE` cannot suggest deleting a lock.
 - [ ] Replace coordinator grammar assertions with broker grammar/refusal assertions in `test/unit/cli-parse.test.mjs`; replace the coordinator help contract in `test/golden/help.test.mjs`, update the closed result schema, and refresh both help digests using the procedure above. Run `node --test test/unit/cli-parse.test.mjs test/golden/help.test.mjs test/integration/phased-review.test.mjs test/integration/coordinator-wake.test.mjs test/packaging/package.test.mjs test/mcp/server.test.mjs` and `npm test`; commit exact files with `refactor(broker): internalize coordinator and preserve phase routing`.
+
+#### Story Intent
+
+- **Beneficiary:** ai-peer-review operators continuing phased reviews through the project-local broker
+- **Capability:** Control broker status, reconciliation, suspension, and shutdown while phased wake handling remains internal and preserves the same reviewer across artifacts
+- **Need:** The public coordinator surface exposes implementation details and leaves broker-owned reviews without one authenticated operator boundary for phase continuation and recovery
+- **Value or failure prevented:** Operators get one recoverable project-local control surface without bypassing broker identity, replaying ambiguous provider actions, changing reviewer identity, or weakening phase and receipt authority
 
 ### Task 11: Offline help, generated handoffs, and migration documentation
 
@@ -439,9 +484,44 @@ Run `node scripts/update-template-goldens.mjs`; inspect every changed fixture an
 
 - [ ] Rerun golden tests and `node --test test/smoke/cli.test.mjs test/integration/communication-policy.test.mjs`; commit exact changed paths with `docs: publish intent-first broker workflow`.
 
+**Task 11 standalone-path inventory adjustment (2026-09-21):** The required new
+development-only `scripts/update-template-goldens.mjs` is a tracked path, while
+the default test suite verifies a closed inventory of standalone current-tree
+paths. Include `scripts/verify-extraction.mjs`, `provenance/extraction-manifest.json`,
+and `test/unit/verify-extraction.test.mjs` in this task's exact path boundary
+solely to admit that one new script in both current-tree exact lists and prove
+the admission. Preserve all frozen source-history inventories, relicensing
+evidence, signatures, and digests unchanged. This adjustment is necessary for
+Task 11's required script and default suite to coexist; it does not transfer
+Task 12's release compatibility work into Task 11.
+
+#### Story Intent
+
+- **Beneficiary:** An author or reviewer operating the installed peer-review package
+- **Capability:** Consult complete offline start and SPR/XPR conceptual help and use shell-safe generated handoffs and recovery instructions for the project-local broker
+- **Need:** Active guidance still describes retired coordinator operations or omits explicit reviewer selection, effort, and broker recovery requirements
+- **Value or failure prevented:** Operators can start and recover the intended review without treating obsolete historical commands as live guidance or silently falling back to a different runtime
+
 ### Task 12: Release compatibility, packaging, and full verification
 
 **Files:** Modify `package.json`, `package-lock.json`, `docs/releases/0.3.0.md`, `test/packaging/package.test.mjs`, `test/smoke/cli.test.mjs`, and `.github/workflows/ci.yml` (`node-24`, `preferred-node`, `npm-pack-compatibility`, and `phase-2-boundary` jobs). Add `test/integration/broker-release.test.mjs` for installed-package scenarios; also modify `templates/author-startup.md`, `README.md`, `src/mcp/server.mjs`, `test/mcp/server.test.mjs`, `test/unit/errors.test.mjs`, `src/cli/help-data.mjs`, `src/cli/run.mjs`, `test/golden/help.test.mjs`, `test/golden/templates.test.mjs`, `test/helpers/template-values.mjs`, `test/golden/help/all.sha256.txt`, `test/golden/help/submit.sha256.txt`, `test/golden/templates/author-startup.md`, `test/golden/templates/reviewer-invitation.md`.
+
+**Task 12 active-skill pin adjustment (2026-09-21):** Also modify
+`skills/peer-review/SKILL.md` only to reconcile its active scoped zero-install
+`0.2.2` command with the selected version. The Task 12 packaging test already
+asserts this skill command. Keep its historical `0.2.1` migration reference and
+all versioned protocol fixtures unchanged. Leaving the active pin stale would
+contradict this task's exact-version release contract.
+
+**Task 12 Windows bootstrap security adjustment (2026-09-21):** Also modify
+`src/broker/client.mjs` and `bin/peer-review-broker.mjs`, and add
+`test/unit/broker-bootstrap.test.mjs`. The installed-package Windows broker
+scenario exposes an earlier POSIX-mode-only bootstrap check that cannot attest
+Windows ownership. Create and read the bootstrap through the existing native
+private-directory operations so Windows verifies owner-only DACL and rejects
+reparse or unsafe files, while retaining strict POSIX mode and UID checks. The
+already named `test/integration/broker-release.test.mjs` proves this on the
+hosted Windows lane. Do not weaken or skip the bootstrap security boundary.
 
 **Interfaces:** One installable package containing the broker entrypoint, OS helper source and the explicit opt-in builder selected in Task 4, schemas, and internal workers. The package root exposes only intended public APIs. No global install or external broker package is required.
 
@@ -476,6 +556,13 @@ git diff --check
 The extraction/release verifiers validate historical provenance (the current release verifier pins 0.2.0); keep those records intact and run their regression tests above. Do not rewrite historical provenance to assert a new release. Any failure gets an exact reproduction and scoped correction, then rerun the affected suite.
 
 - [ ] Inspect final diff and commit the task's exact listed source/template/documentation/package/CI/test paths with `release: prepare project-local broker minor release`. Record local verification against this commit and require hosted CI on the exact delivery SHA. Publishing, merging, and issue lifecycle transitions remain separate authorized delivery actions; this plan does not execute them.
+
+#### Story Intent
+
+- **Beneficiary:** The ai-peer-review maintainer and installed-package operator
+- **Capability:** Prepare one versioned package and cross-platform verification contract that proves broker behavior after installation
+- **Need:** Source-tree tests alone do not establish installed native-helper prerequisites, independent project routing, exact version pins, and supported Node and operating-system behavior
+- **Value or failure prevented:** An operator can adopt a compatible release candidate without hidden dependencies, stale commands, or an unverified platform claim
 
 ## Acceptance coverage and review checkpoints
 

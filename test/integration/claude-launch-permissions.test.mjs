@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -6,6 +11,7 @@ import test from 'node:test';
 
 import {
   buildClaudeReviewerLaunch,
+  claudeJoinCommand,
   classifyClaudeReviewerOutcome,
   matchesClaudeEditRule,
 } from '../../src/provider/claude-launch.mjs';
@@ -85,7 +91,18 @@ function conformantClaude({ root, invitation, reviewer }) {
     analysis,
     async turn(contract) {
       if (!joined) {
-        joined = await joinReview({ cwd: root, invitation, identity: reviewer, now: NOW });
+        joined = await joinReview({
+          runtimeObservation: fixtureObservation(
+            'anthropic',
+            'claude-code',
+            'claude-opus-5',
+            'high'
+          ),
+          cwd: root,
+          invitation,
+          identity: reviewer,
+          now: NOW,
+        });
       }
       const rule = contract.permissions.allow.find((entry) => entry.startsWith('Edit('));
       const controls = {
@@ -135,14 +152,18 @@ function conformantClaude({ root, invitation, reviewer }) {
 test('reproduces single-slash denial then submits from the same corrected Claude session', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
-  const started = await startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: identity('author', 'author-session'),
-    reviewId: 'review-claude-permission',
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('claude', 'claude-opus-5', 'high'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-session'),
+      reviewId: 'review-claude-permission',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const routing = routingFromInvitation(started.paths.reviewer_invitation);
   const contract = buildClaudeReviewerLaunch({
     repositoryRoot: fx.root,
@@ -151,14 +172,15 @@ test('reproduces single-slash denial then submits from the same corrected Claude
     model: 'claude-opus-5',
     effort: 'high',
   });
-  const invitationCommandPath = started.paths.reviewer_invitation.replaceAll('\\', '/');
   const workspaceCommandPath = started.paths.workspace.replaceAll('\\', '/');
+  assert.equal(contract.permissions.allow.includes(`Bash(${claudeJoinCommand(contract)})`), true);
   assert.equal(
-    contract.permissions.allow.includes(`Bash(peer-review join ${invitationCommandPath})`),
-    true
-  );
-  assert.equal(
-    contract.permissions.allow.includes(`Bash(peer-review submit ${workspaceCommandPath})`),
+    contract.permissions.allow.some(
+      (rule) =>
+        rule.startsWith('Bash(') &&
+        rule.includes('peer-review.mjs submit ') &&
+        rule.includes(workspaceCommandPath)
+    ),
     true
   );
   const reviewer = identity('reviewer', 'same-claude-session');
@@ -210,14 +232,18 @@ test('reproduces single-slash denial then submits from the same corrected Claude
 test('launch-reviewer CLI emits the sanitized governed result', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
-  const started = await startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: identity('author', 'cli-author-session'),
-    reviewId: 'review-claude-cli',
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('claude', 'claude-opus-5', 'high'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'cli-author-session'),
+      reviewId: 'review-claude-cli',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const routing = routingFromInvitation(started.paths.reviewer_invitation);
   const contract = buildClaudeReviewerLaunch({
     repositoryRoot: fx.root,

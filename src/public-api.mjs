@@ -8,14 +8,6 @@ export { statusReview } from './protocol/service.mjs';
 export { inspectRecordLineage, validateSuccessor } from './protocol/record-lineage.mjs';
 export { currentPhase, isFinalPhase, isPhased, parsePhaseKinds } from './protocol/phases.mjs';
 export { buildPhaseManifest, sealPhaseManifest } from './manifest/render.mjs';
-export { decideWake, canonicalWakeCapsule, wakeOperationKey } from './coordinator/decision.mjs';
-export { inspectCoordinatorLease, requestCoordinatorStop } from './coordinator/lease.mjs';
-export {
-  appendWakeOutcome,
-  readWakeOperation,
-  reserveWakeOperation,
-} from './coordinator/ledger.mjs';
-export { coordinatorStatus, reconcileWake, runCoordinator } from './coordinator/service.mjs';
 export {
   refreshResidentLease,
   residentHealth,

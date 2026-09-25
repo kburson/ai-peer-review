@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -75,15 +80,20 @@ function replaceSection(file, heading, content) {
 
 async function prepare(root, reviewId) {
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: identity('author', `${reviewId}-author`),
-    reviewId,
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: identity('author', `${reviewId}-author`),
+      reviewId,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -140,14 +150,18 @@ test('reviewer submit tolerates Codex checkpoint refs created after join', async
 test('Claude permission recovery preserves reviewer and repository boundaries', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
-  const started = await startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: identity('author', 'claude-boundary-author'),
-    reviewId: 'claude-boundary-recovery',
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('claude', 'claude-opus-5', 'high'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'claude-boundary-author'),
+      reviewId: 'claude-boundary-recovery',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const contract = buildClaudeReviewerLaunch({
     repositoryRoot: fx.root,
     invitation: started.paths.reviewer_invitation,
@@ -174,6 +188,7 @@ test('Claude permission recovery preserves reviewer and repository boundaries', 
     contract,
     execFile: async () => {
       joined = await joinReview({
+        runtimeObservation: fixtureObservation('anthropic', 'claude-code', 'claude-opus-5', 'high'),
         cwd: fx.root,
         invitation: started.paths.reviewer_invitation,
         identity: reviewer,
