@@ -14,6 +14,9 @@
 - **Depends on:** Phase 1, [#30](https://github.com/kburson/ai-peer-review/issues/30)
 - **Scope:** Design only; this document does not authorize implementation or
   replacement of current protocol authority
+- **Concurrency update:** The
+  [worktree-local reviewer boundary](2026-09-25-worktree-local-review-git-boundary-design.md)
+  replaces the former clone-wide mutation lease.
 
 ## Source authority
 
@@ -21,7 +24,9 @@ This specification atomically extracts Phase 2 from the accepted
 [Project-Local Review Lifecycle and Learning Design](2026-09-12-project-local-review-lifecycle-and-learning-design.md),
 whose accepted digest is
 `sha256:0b65a538437dc2ef2bb86533e991c90b945dacb9fbc7cbe16ad277f8f709fd27`.
-The umbrella design and the accepted Phase 1 contract remain binding.
+The digest identifies the historical reviewed baseline. The umbrella design
+and accepted Phase 1 contract remain binding except where the later
+worktree-local boundary explicitly supersedes clone-wide ref coordination.
 
 ## Summary
 
@@ -31,9 +36,9 @@ provides efficient protocol coordination and materialized reads, but it remains
 disposable. Tracked Phase 1 manifests, responses, patches, agreements,
 amendments, and catalog events remain durable authority.
 
-The phase also introduces a clone-wide retained-ref mutation lease. It closes a
-cross-worktree hole that per-worktree locks cannot address: an author commit in
-one worktree must not invalidate a sealed reviewer boundary in another.
+The phase preserves the
+[worktree-local reviewer boundary](2026-09-25-worktree-local-review-git-boundary-design.md).
+An author commit in one worktree must not invalidate a reviewer turn in another.
 
 ## Goals
 
@@ -43,7 +48,7 @@ one worktree must not invalidate a sealed reviewer boundary in another.
 - Pin every review to branch-local committed evidence without cross-branch leakage.
 - Rebuild derived state safely after database deletion or compatible corruption.
 - Preserve active state or fail closed when rebuilding would discard it.
-- Serialize retained-ref mutations across all linked worktrees.
+- Permit independent author commits and reviewer turns across linked worktrees.
 - Prove current protocol semantics before new reviews omit scratch event authority.
 
 ## Non-goals
@@ -53,7 +58,7 @@ one worktree must not invalidate a sealed reviewer boundary in another.
 - Implementing knowledge retrieval; Phase 3 owns prompt context.
 - Implementing defect learning or experiments beyond required storage seams.
 - Migrating a live legacy review mid-protocol.
-- Holding a transaction or Git mutation lease during provider calls or reasoning.
+- Holding a transaction during provider calls or reasoning.
 
 ## Database location and permissions
 
@@ -149,38 +154,20 @@ Parity covers reviewer isolation, author commit ownership, claims, grants,
 supplements, budgets, acceptance, override, abandonment, participant
 replacement, recovery, and no-commit labeling. A mismatch blocks cutover.
 
-## Clone-wide retained-ref mutation lease
+## Worktree-local reviewer boundary
 
-SQLite write serialization is not enough. A durable lease under the Git common
-directory protects retained refs across worktrees. The package uses idempotent
-operation IDs and records exact before and after ref values.
+Protocol rows may use the clone-shared SQLite database, but reviewer Git
+authority remains scoped to the review's physical worktree. The package seals
+the artifact, checked-out `HEAD`, branch, index, and worktree content. A
+`refs_digest` may be retained for diagnosis and compatibility; its change
+alone cannot block submission. Other worktrees may commit, fetch, and create
+refs during a sealed reviewer turn, including while its provider is dormant or
+delivery is interrupted.
 
-A sealed reviewer interval starts atomically when protocol authority installs
-the retained-ref boundary. Initial reviewer join captures the boundary and
-registers the interval while holding the clone-wide lease. Author submission
-performs its exact commit, captures the next reviewer boundary, and registers
-the next interval before releasing the same lease.
-
-Intake, author submission, finalization, migration, and later experiment-arm
-commits must:
-
-1. acquire the clone-wide lease;
-2. reconcile stale ownership by explicit expiry and operation evidence;
-3. prove that no conflicting sealed reviewer interval is active;
-4. validate the expected retained-ref inventory;
-5. perform one exact-path Git transaction;
-6. record its ref receipt and successor seal; and
-7. release the lease.
-
-When a conflicting interval exists, the command returns
-`APR_GIT_COORDINATION_BUSY`, names the blocking review and recovery action, and
-performs no Git mutation. A dormant session, provider process loss, interrupted
-delivery, or pending reviewer resume does not clear the seal. It ends only on a
-validated reviewer submission or governed abandonment or replacement.
-
-Unexpected retained-ref changes invalidate every affected boundary. Existing
-package-defined private checkpoint exclusions remain narrow; the implementation
-must not exempt an entire namespace to make tests pass.
+Author submission still performs its exact-path Git transaction and records
+the next worktree boundary. SQLite transactions protect protocol rows and
+idempotent operation IDs; they do not form a clone-wide Git mutation lease.
+This rule also applies to experiment-arm commits in Phase 5.
 
 ## Transaction discipline
 
@@ -230,8 +217,8 @@ Phase 2 must provide stable errors for at least:
 - database permission, open, schema, or migration failure;
 - immutable evidence rewritten under the same identity;
 - projection membership or cross-branch leakage;
-- busy timeout and clone mutation lease contention;
-- unexpected retained-ref change;
+- database busy timeout or conflicting mutation in the same worktree;
+- unexpected artifact, `HEAD`, branch, index, or local worktree change;
 - rebuild blocked by unreconstructable active state; and
 - conflicting pending operation or durable receipt.
 
@@ -249,7 +236,7 @@ The plan should isolate:
 - worktree and snapshot membership;
 - SQLite-backed protocol store implementing the current store contract;
 - manifest-to-database reconciliation;
-- clone-wide mutation lease and retained-ref inventory; and
+- worktree-local reviewer boundary and diagnostic shared-ref inventory; and
 - cleanup, rebuild, and diagnostic CLI surfaces.
 
 `src/protocol/events.mjs`, `reducer.mjs`, `service.mjs`, and `store.mjs` define
@@ -268,9 +255,9 @@ The Phase 2 plan must include:
 - deletion, compatible corruption, and incompatible active-state recovery;
 - deterministic committed-only projection across divergent branches;
 - concurrent row-isolated reviews without ID collision;
-- rejection of a second worktree's commit during every sealed-interval state;
-- lease continuity across process loss and interrupted reviewer delivery;
-- exact ref receipts and unauthorized transition detection;
+- acceptance of a second worktree's commit during every sealed-interval state;
+- worktree boundary continuity across process loss and interrupted delivery;
+- rejection of artifact, `HEAD`, branch, index, and local worktree drift;
 - parity fixtures for every current reducer state and recovery result; and
 - no-commit isolation before and after SQLite loss.
 
@@ -288,8 +275,8 @@ Phase 2 is ready for implementation planning when peer review agrees that:
 4. deletion or compatible corruption rebuilds without durable evidence loss;
 5. incompatible active-state recovery fails closed with exact guidance;
 6. provider calls and reasoning hold neither database nor Git mutation locks;
-7. sealed reviewer intervals block conflicting retained-ref mutation clone-wide;
-8. interval lifetime survives dormant or interrupted provider processes;
+7. sealed reviewer intervals permit independent commits in other worktrees;
+8. worktree-local boundary protection survives dormant or interrupted providers;
 9. current protocol and no-commit semantics have golden parity; and
 10. active legacy reviews are never migrated mid-protocol.
 
@@ -297,5 +284,5 @@ Phase 2 is ready for implementation planning when peer review agrees that:
 
 Phase 2 makes SQLite the clone-local coordination and projection engine for new
 reviews only after parity proof. Tracked Phase 1 evidence remains durable
-authority. The clone-wide mutation lease, not a per-worktree lock or a long
-SQLite transaction, protects reviewer boundaries across linked worktrees.
+authority. Worktree-local Git boundaries and short SQLite transactions permit
+parallel development across linked worktrees.

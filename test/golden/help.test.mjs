@@ -244,7 +244,7 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.equal(explainError('APR_ARTIFACT_DIRTY').code, 'APR_ARTIFACT_DIRTY');
   assert.match(
     explainError('APR_REVIEWER_GIT_VIOLATION').recovery,
-    /0\.2\.1.*preserve.*workspace.*restart/i
+    /restore.*artifact.*HEAD.*index.*worktree/i
   );
   assert.throws(
     () => explainError('APR_UNKNOWN'),

@@ -249,29 +249,49 @@ test('Claude permission recovery preserves reviewer and repository boundaries', 
   );
 });
 
-test('reviewer submit rejects a retained ref and explains legacy restart without mutation', async (t) => {
+test('reviewer submit tolerates unrelated refs created during the review', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
   const { reviewer, started, joined } = await prepare(fx.root, 'reviewer-retained-ref-control');
-  const eventsBefore = readFileSync(started.paths.events);
-  const responseBefore = readFileSync(joined.paths.response);
+  const before = createGitRepository().reviewerBoundary(fx.root, joined.paths.response);
   git(fx.root, ['update-ref', 'refs/heads/reviewer-boundary-control', 'HEAD']);
+  git(fx.root, ['update-ref', 'refs/codex/snapshots/parallel-agent', 'HEAD']);
+  const after = createGitRepository().reviewerBoundary(fx.root, joined.paths.response);
+  assert.notEqual(after.refs_digest, before.refs_digest);
 
-  await assert.rejects(
-    submitReviewTurn({
-      cwd: fx.root,
-      workspace: started.paths.workspace,
-      identity: reviewer,
-      decision: 'accepted',
-      now: '2026-09-09T02:01:00.000Z',
-    }),
-    (error) =>
-      error.code === 'APR_REVIEWER_GIT_VIOLATION' &&
-      /retained ref changed|legacy all-ref policy/i.test(error.recovery) &&
-      /preserve.*workspace.*restart/i.test(error.recovery)
-  );
-  assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
-  assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
+  const result = await submitReviewTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'accepted',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+  assert.equal(result.state, 'acceptance-pending');
+});
+
+test('reviewer submit tolerates a sibling worktree commit during the review', async (t) => {
+  const fx = fixture();
+  const { reviewer, started } = await prepare(fx.root, 'reviewer-parallel-worktree');
+  const sibling = `${fx.root}-sibling`;
+  t.after(() => {
+    git(fx.root, ['worktree', 'remove', '--force', sibling]);
+    rmSync(sibling, { recursive: true, force: true });
+    fx.cleanup();
+  });
+  git(fx.root, ['worktree', 'add', '-b', 'parallel-story', sibling]);
+  writeFileSync(path.join(sibling, 'parallel.txt'), 'other story\n');
+  git(sibling, ['add', 'parallel.txt']);
+  git(sibling, ['commit', '-m', 'parallel story']);
+
+  const result = await submitReviewTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'accepted',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+  assert.equal(result.state, 'acceptance-pending');
+  assert.equal(git(fx.root, ['branch', '--show-current']), 'trunk');
 });
 
 test('reviewer submit rejects post-join index, branch, and protocol-path drift without mutation', async (t) => {
@@ -293,6 +313,12 @@ test('reviewer submit rejects post-join index, branch, and protocol-path drift w
       name: 'artifact',
       mutate(root) {
         writeFileSync(path.join(root, 'docs/artifact.md'), '# Reviewer changed artifact\n');
+      },
+    },
+    {
+      name: 'worktree file',
+      mutate(root) {
+        writeFileSync(path.join(root, 'outside-working.txt'), 'changed during review\n');
       },
     },
     {
@@ -359,30 +385,19 @@ test('reviewer submit rejects a different physical worktree', async (t) => {
   assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
 });
 
-test('reviewer submit rejects a push that changes observed remote refs', async (t) => {
+test('reviewer submit tolerates a remote-tracking ref changing during the review', async (t) => {
   const fx = fixture();
-  const remote = mkdtempSync(path.join(tmpdir(), 'apr-reviewer-remote-'));
   t.after(fx.cleanup);
-  t.after(() => rmSync(remote, { recursive: true, force: true }));
-  git(remote, ['init', '--bare']);
-  git(fx.root, ['remote', 'add', 'origin', remote]);
-  git(fx.root, ['push', '--set-upstream', 'origin', 'trunk']);
-  const { reviewer, started, joined } = await prepare(fx.root, 'reviewer-push');
-  const eventsBefore = readFileSync(started.paths.events);
-  const responseBefore = readFileSync(joined.paths.response);
-  git(fx.root, ['push', 'origin', 'HEAD:refs/heads/reviewer-push']);
-  await assert.rejects(
-    submitReviewTurn({
-      cwd: fx.root,
-      workspace: started.paths.workspace,
-      identity: reviewer,
-      decision: 'accepted',
-      now: '2026-09-09T02:01:00.000Z',
-    }),
-    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
-  );
-  assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
-  assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
+  const { reviewer, started } = await prepare(fx.root, 'reviewer-remote-update');
+  git(fx.root, ['update-ref', 'refs/remotes/origin/parallel-story', 'HEAD']);
+  const result = await submitReviewTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'accepted',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+  assert.equal(result.state, 'acceptance-pending');
 });
 
 test('refreshed reviewer identity does not mutate authority before repository preflight', async (t) => {
