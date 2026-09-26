@@ -192,6 +192,7 @@ export async function runBrokerEntrypoint(file) {
       identity,
       paths,
       versions: bootstrap.versions,
+      deferPublication: true,
       reconcile: () => registrationSnapshotCurrent(store, registrations),
     },
     platform

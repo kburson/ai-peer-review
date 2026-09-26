@@ -20,14 +20,18 @@ function provisionDirectories(values, platform, { keepLast = false } = {}) {
   }
 }
 
-export function acquireBrokerOwnership({ identity, paths, versions, reconcile }, platform) {
+export function acquireBrokerOwnership(
+  { identity, paths, versions, reconcile, deferPublication = false },
+  platform
+) {
   const authorityDirectories = paths.authorityDirectories ?? [paths.directory];
   const directory = provisionDirectories(authorityDirectories, platform, { keepLast: true });
   let lock,
     endpoint,
     metadata,
     fenced = false,
-    released = false;
+    released = false,
+    published = false;
   const handshake = Object.freeze({
     schema: 'ai-peer-review.broker-handshake/v1',
     tuple: identity.tuple,
@@ -47,7 +51,9 @@ export function acquireBrokerOwnership({ identity, paths, versions, reconcile },
           !directory.verify() ||
           !lock.verify() ||
           !endpoint.verify() ||
-          !Buffer.from(directory.read(metadataName) ?? '').equals(metadata)
+          !(published
+            ? Buffer.from(directory.read(metadataName) ?? '').equals(metadata)
+            : directory.read(metadataName) === null)
         )
           fenced = true;
       } catch {
@@ -55,11 +61,20 @@ export function acquireBrokerOwnership({ identity, paths, versions, reconcile },
       }
       return !fenced;
     },
+    publish() {
+      if (!owner.verify())
+        throw brokerError('APR_BROKER_STALE', 'Broker evidence changed before publication.');
+      if (published) return;
+      directory.create(metadataName, metadata);
+      published = true;
+      if (!owner.verify())
+        throw brokerError('APR_BROKER_STALE', 'Broker evidence changed during publication.');
+    },
     release() {
       const valid = owner.verify();
       released = true;
       endpoint.close();
-      if (valid) directory.remove?.(metadataName, metadata);
+      if (valid && published) directory.remove?.(metadataName, metadata);
       const lockReleased = lock.release();
       directory.close();
       return valid && lockReleased;
@@ -107,7 +122,7 @@ export function acquireBrokerOwnership({ identity, paths, versions, reconcile },
       throw brokerError('APR_BROKER_STALE', 'Prior broker metadata changed during reconciliation.');
     endpoint = platform.listenPrivate(paths.endpoint);
     metadata = Buffer.from(JSON.stringify(handshake));
-    directory.create(metadataName, metadata);
+    if (!deferPublication) owner.publish();
     if (!owner.verify())
       throw brokerError('APR_BROKER_STALE', 'Broker evidence changed during acquisition.');
     return Object.freeze(owner);
