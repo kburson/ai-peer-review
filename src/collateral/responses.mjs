@@ -674,18 +674,29 @@ export function createResponseDraft(review, role, turn) {
 
 function validateIdentity(review, role, identity) {
   const pinned = review.participants?.[role];
-  if (
-    !identity ||
-    identity.role !== role ||
-    identity.host !== pinned?.host ||
-    identity.provider !== pinned?.provider ||
-    identity.session_fingerprint !== pinned?.session_fingerprint ||
-    identity.identity_source !== pinned?.identity_source
-  ) {
+  const fields = [
+    ['role', role],
+    ['host', pinned?.host],
+    ['provider', pinned?.provider],
+    ['session_fingerprint', pinned?.session_fingerprint],
+    ['identity_source', pinned?.identity_source],
+  ];
+  const mismatched = fields.find(([field, expected]) => identity?.[field] !== expected)?.[0];
+  if (!identity || !pinned || mismatched) {
     fail(
       'APR_IDENTITY_CONFLICT',
-      'Response identity does not match the registered participant.',
-      'Submit from the registered participant session.'
+      `Response identity does not match the registered participant${mismatched ? ` (${mismatched})` : ''}.`,
+      mismatched === 'identity_source' && pinned?.host === 'claude-code'
+        ? 'For a declared Claude reviewer, use the registered session handle and configured model; unset CLAUDE_MODEL_ID and CLAUDE_MODEL_DISPLAY when retrying submit.'
+        : 'Submit from the registered participant session.',
+      {
+        mismatched_field: mismatched ?? (pinned ? 'identity' : 'participant'),
+        registered_identity_source: pinned?.identity_source ?? null,
+        resolved_identity_source: identity?.identity_source ?? null,
+        fingerprint_equal:
+          typeof identity?.session_fingerprint === 'string' &&
+          identity.session_fingerprint === pinned?.session_fingerprint,
+      }
     );
   }
 }
