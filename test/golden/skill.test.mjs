@@ -21,11 +21,10 @@ test('installable skill states the complete provider-neutral operating contract'
     'peer-review broker status',
     'peer-review broker reconcile',
     'resident lease',
-    'refs/codex/turn-diffs/checkpoints/',
-    'every other ref',
-    '0.2.1',
-    'preserve the existing review workspace',
-    'draft evidence',
+    'shared Git refs',
+    'diagnostic only',
+    'checked-out',
+    'parallel worktrees',
   ]) {
     assert.match(text, new RegExp(phrase, 'i'), phrase);
   }

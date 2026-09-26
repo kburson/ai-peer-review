@@ -453,3 +453,36 @@ test('broker resolves registrations dynamically after startup', async () => {
   );
   await running;
 });
+
+test('startup waits for slow recovery without connecting to an unpublished broker', async () => {
+  const project = identity('7'.repeat(64), '/projects/slow-recovery');
+  let elapsed = 0;
+  let launches = 0;
+  const client = { authenticated: true };
+  const result = await ensureBroker({
+    project,
+    versions: {},
+    runtimeImage: { root: '/image', nodeExecutable: '/image/node' },
+    platform: {
+      verifyRuntimeImage: () => true,
+      discoveryState: () => 'missing',
+      async connect() {
+        if (elapsed < 6_000)
+          throw Object.assign(new Error('Broker discovery metadata is unavailable.'), {
+            code: 'APR_BROKER_STALE',
+          });
+        return client;
+      },
+      createBootstrap: () => '/bootstrap',
+      spawn() {
+        launches++;
+        return { ready: Promise.resolve(), unref() {} };
+      },
+      async delay(ms) {
+        elapsed += ms;
+      },
+    },
+  });
+  assert.equal(result, client);
+  assert.equal(launches, 1);
+});
