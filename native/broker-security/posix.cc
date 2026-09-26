@@ -39,9 +39,12 @@ struct Endpoint {
 };
 struct Connection {
   int descriptor;
+  bool server_side;
+  unsigned client_writes = 0;
 };
 
 constexpr int kIpcTimeoutMilliseconds = 5000;
+constexpr int kCommandReplyTimeoutMilliseconds = 30000;
 using Deadline = std::chrono::steady_clock::time_point;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const std::string& text) {
@@ -102,9 +105,9 @@ bool WaitReady(int descriptor, short events, const Deadline& deadline) {
   }
 }
 
-bool ReadExact(int descriptor, unsigned char* bytes, size_t size) {
+bool ReadExact(int descriptor, unsigned char* bytes, size_t size, int timeout) {
   const auto deadline = std::chrono::steady_clock::now() +
-                        std::chrono::milliseconds(kIpcTimeoutMilliseconds);
+                        std::chrono::milliseconds(timeout);
   size_t offset = 0;
   while (offset < size) {
     if (!WaitReady(descriptor, POLLIN, deadline)) return false;
@@ -373,7 +376,7 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
     return nullptr;
   }
   ConfigureConnection(descriptor);
-  return new Connection{descriptor};
+  return new Connection{descriptor, true};
 }
 
 void* ConnectPrivate(const std::string& path, std::string* code, std::string* message) {
@@ -424,7 +427,7 @@ void* ConnectPrivate(const std::string& path, std::string* code, std::string* me
     Fail(code, message, "APR_BROKER_START_FAILED", "Broker connection mode cannot be restored.");
     return nullptr;
   }
-  return new Connection{descriptor};
+  return new Connection{descriptor, false};
 }
 
 bool ReclaimStaleEndpoint(void* lock, const std::string& path, std::string* code, std::string* message) {
@@ -465,8 +468,12 @@ bool ReclaimStaleEndpoint(void* lock, const std::string& path, std::string* code
 bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* bytes,
                     std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
+  // Match Windows: handshake and incomplete-client reads stay short. Only
+  // the client's command reply can wait for bounded worker/stop reconciliation.
+  const int timeout = !connection->server_side && connection->client_writes >= 2
+    ? kCommandReplyTimeoutMilliseconds : kIpcTimeoutMilliseconds;
   unsigned char prefix[4];
-  if (!ReadExact(connection->descriptor, prefix, sizeof(prefix))) {
+  if (!ReadExact(connection->descriptor, prefix, sizeof(prefix), timeout)) {
     return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame prefix is truncated.");
   }
   const size_t length = (static_cast<size_t>(prefix[0]) << 24) |
@@ -478,7 +485,7 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   }
   bytes->assign(prefix, prefix + sizeof(prefix));
   bytes->resize(sizeof(prefix) + length);
-  if (!ReadExact(connection->descriptor, bytes->data() + sizeof(prefix), length)) {
+  if (!ReadExact(connection->descriptor, bytes->data() + sizeof(prefix), length, timeout)) {
     return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame body is truncated.");
   }
   return true;
@@ -487,9 +494,11 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
 bool ConnectionWrite(void* value, const std::vector<unsigned char>& bytes, bool,
                      std::string* code, std::string* message) {
   auto* connection = static_cast<Connection*>(value);
-  return SendAll(connection->descriptor, bytes)
-    ? true
-    : Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame cannot be written completely.");
+  if (!SendAll(connection->descriptor, bytes)) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame cannot be written completely.");
+  }
+  if (!connection->server_side) connection->client_writes++;
+  return true;
 }
 
 void CloseConnection(void* value) {
