@@ -48,8 +48,14 @@ import { verifyProviderEvidence } from '../providers/evidence.mjs';
 import {
   buildClaudeReviewerLaunch,
   buildClaudeReviewerResume,
+  claudeJoinCommand,
   runClaudeReviewerLaunch,
 } from '../provider/claude-launch.mjs';
+import { withoutProviderIdentity } from '../provider/preflight.mjs';
+import {
+  createClaudeStreamRecorder,
+  createClaudeStreamingExec,
+} from '../providers/claude-stream.mjs';
 import { doctor } from '../doctor.mjs';
 import { inspectPlatformSecurity } from '../broker/platform.mjs';
 import { fenceManualRecovery } from '../broker/client.mjs';
@@ -5071,7 +5077,7 @@ export async function run(argv, io) {
         routing.response = current.paths.response;
       }
       const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
-      const contract = parsed.options.resume
+      const baseContract = parsed.options.resume
         ? buildClaudeReviewerResume({ repositoryRoot, invitation, routing })
         : buildClaudeReviewerLaunch({
             repositoryRoot,
@@ -5080,10 +5086,31 @@ export async function run(argv, io) {
             model: parsed.options.model,
             effort: parsed.options.effort,
           });
+      const registered = inspectReview(values.workspace).participants.reviewer;
+      const configured = loadConfig({ cwd: io.cwd, env: io.env }).config.hosts?.claude?.identity;
+      const declared = registered ? registered.identity_source === 'declared' : Boolean(configured);
+      const contract = Object.freeze({
+        ...baseContract,
+        environment: Object.freeze({
+          ...withoutProviderIdentity(io.env),
+          ...(!declared
+            ? {
+                CLAUDE_MODEL_ID: baseContract.model,
+                CLAUDE_MODEL_DISPLAY: baseContract.model,
+              }
+            : {}),
+        }),
+      });
+      const recorder = createClaudeStreamRecorder({
+        workspace: values.workspace,
+        operationId: `join:${values.reviewId}`,
+        expectedCommand: claudeJoinCommand(contract),
+      });
       const response = await runClaudeReviewerLaunch({
         contract,
         resume: parsed.options.resume,
-        execFile: io.execFile ?? execFile,
+        execFile:
+          io.execFile ?? createClaudeStreamingExec({ recorder, spawnProcess: io.spawnProcess }),
         inspectAuthority: io.inspectAuthority,
         fingerprintSession: io.fingerprintSession,
       });
@@ -5118,7 +5145,11 @@ export async function run(argv, io) {
       const transportCapability =
         io.transportCapability ??
         transportObservation?.capability ??
-        (resumable ? 'resume-only' : 'manual');
+        (parsed.options.transportMode === 'manual'
+          ? 'manual'
+          : resumable
+            ? 'resume-only'
+            : 'manual');
       const startupInput = {
         cwd: io.cwd,
         artifact: parsed.args[0],
@@ -5196,7 +5227,12 @@ export async function run(argv, io) {
       const transportCapability =
         io.transportCapability ??
         transportObservation?.capability ??
-        (resumable ? 'resume-only' : 'manual');
+        (inspectReview(invitationValues(invitation).workspace).protocol.startup.transport_mode ===
+        'manual'
+          ? 'manual'
+          : resumable
+            ? 'resume-only'
+            : 'manual');
       response = await joinReview(
         {
           cwd: io.cwd,

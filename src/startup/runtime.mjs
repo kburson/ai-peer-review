@@ -346,7 +346,10 @@ export async function activateStartup(prepared, deps = {}) {
       } else save('registered');
       await deps.afterStartupStage?.('registration', { workspace });
       if (prepared.runtime.ownership === 'broker') {
-        if (typeof request.adapter.launch !== 'function') {
+        if (
+          prepared.runtime.transport_mode === 'manual' ||
+          typeof request.adapter.launch !== 'function'
+        ) {
           save('manual');
           return enriched(result);
         }
