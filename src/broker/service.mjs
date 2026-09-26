@@ -337,6 +337,9 @@ export async function runBroker(input = {}) {
     for (const registration of await registry.list()) await addWorker(registration);
     await settleWorkers({ resetIdle: true });
     server.start(serializedDispatch);
+    // Recovery can exceed the short handshake deadline. Advertise only after
+    // workers are restored and the server can accept authenticated commands.
+    owner.publish?.();
     await untilStopped;
     await sequence;
   } finally {

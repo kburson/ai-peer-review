@@ -80,7 +80,9 @@ function defaultConnect(project, versions, platform) {
 
 async function connectUntilReady(connect, platform, retryable = () => false) {
   let last;
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  // Allow up to thirty seconds of readiness polling for recovery before
+  // discovery is published; established IPC keeps its short handshake bound.
+  for (let attempt = 0; attempt < 1_200; attempt += 1) {
     try {
       return await connect();
     } catch (error) {

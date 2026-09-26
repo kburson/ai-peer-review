@@ -59,7 +59,8 @@ test('broker stays alive until its detached provider deadline timer has stopped 
   const result = await cleanupHandoffBroker({
     broker,
     deadline,
-    graceMs: 1_000,
+    // Use the live helper's default grace: Windows process-tree termination
+    // alone may take two seconds after the provider deadline.
     settle: async () => {
       const next = once(broker.child, 'message');
       broker.child.send('settle');

@@ -145,6 +145,45 @@ function priorHandshake(overrides = {}) {
   };
 }
 
+test('recovery holds ownership without advertising a handshake until publication', () => {
+  const f = fixture();
+  f.prior(priorHandshake());
+  const owner = acquireBrokerOwnership(
+    { identity, paths, versions, reconcile: () => true, deferPublication: true },
+    f.platform
+  );
+  assert.equal(owner.verify(), true);
+  assert.equal(f.metadata(), null, 'clients must not connect while recovery is pending');
+  assert.throws(
+    () => acquireBrokerOwnership({ identity, paths, versions, reconcile: () => true }, f.platform),
+    { code: 'APR_BROKER_OWNED' }
+  );
+  owner.publish();
+  assert.deepEqual(JSON.parse(f.metadata()), owner.handshake);
+  assert.equal(owner.verify(), true);
+  owner.publish();
+  assert.equal(owner.release(), true);
+  assert.equal(f.metadata(), null);
+});
+
+for (const tamper of [false, true]) {
+  test(`unpublished ownership preserves competing discovery and releases safely: ${tamper}`, () => {
+    const f = fixture();
+    const owner = acquireBrokerOwnership(
+      { identity, paths, versions, reconcile: () => true, deferPublication: true },
+      f.platform
+    );
+    assert.equal(f.metadata(), null);
+    if (tamper) {
+      f.tamper();
+      assert.throws(() => owner.publish(), { code: 'APR_BROKER_STALE' });
+    }
+    assert.equal(owner.release(), !tamper);
+    assert.equal(f.metadata()?.toString() ?? null, tamper ? '{}' : null);
+    assert.throws(() => owner.publish(), { code: 'APR_BROKER_STALE' });
+  });
+}
+
 test('dead owner is replaced only after exact discovery and durable reconciliation', () => {
   const f = fixture();
   f.prior(priorHandshake());

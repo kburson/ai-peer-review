@@ -143,6 +143,116 @@ test('installed recovery-only broker worker refuses launch before provider actio
   assert.equal(worker.calls.includes('launchReviewer'), false);
 });
 
+test('broker publishes discovery only after recovery finishes and its server starts', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  const item = registration('slow-recovery');
+  const worker = fakeWorker('terminal');
+  let finishRecovery;
+  const recovery = new Promise((resolve) => (finishRecovery = resolve));
+  let startedRecovery;
+  const recovering = new Promise((resolve) => (startedRecovery = resolve));
+  worker.start = async () => {
+    startedRecovery();
+    await recovery;
+  };
+  let serving = false;
+  const start = server.start;
+  server.start = (handler) => {
+    serving = true;
+    start(handler);
+  };
+  let publications = 0;
+  const running = runBroker({
+    ...brokerInput({
+      clock,
+      server,
+      registrations: [item],
+      workers: new Map([[item.review_id, worker]]),
+    }),
+    owner: {
+      publish() {
+        assert.equal(serving, true);
+        publications++;
+      },
+      release() {},
+    },
+  });
+  await recovering;
+  assert.equal(publications, 0);
+  assert.equal(serving, false);
+  finishRecovery();
+  await server.ready;
+  try {
+    assert.equal(publications, 1);
+    assert.equal((await server.request({ id: 'ready', command: 'status' })).reviews, 0);
+  } finally {
+    await clock.advance(60_000);
+    await running;
+  }
+});
+
+test('failed recovery releases safe ownership without publishing discovery', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  const item = registration('failed-recovery');
+  const worker = fakeWorker('terminal');
+  worker.start = async () => {
+    throw new Error('recovery failed');
+  };
+  let published = false;
+  let released = false;
+  let started = false;
+  server.start = () => {
+    started = true;
+  };
+  await assert.rejects(
+    runBroker({
+      ...brokerInput({
+        clock,
+        server,
+        registrations: [item],
+        workers: new Map([[item.review_id, worker]]),
+      }),
+      owner: {
+        publish: () => {
+          published = true;
+        },
+        release: () => {
+          released = true;
+        },
+      },
+    }),
+    /recovery failed/
+  );
+  assert.equal(published, false);
+  assert.equal(started, false);
+  assert.equal(released, true);
+  assert.equal(server.closed, true);
+});
+
+test('publication failure closes the started server and releases safe ownership', async () => {
+  const server = fakeServer();
+  let released = false;
+  await assert.rejects(
+    runBroker({
+      ...brokerInput({ clock: fakeClock(), server }),
+      owner: {
+        publish() {
+          throw new Error('publication failed');
+        },
+        release() {
+          released = true;
+        },
+      },
+    }),
+    /publication failed/
+  );
+  await server.ready;
+  assert.equal(server.closed, true);
+  assert.equal(released, true);
+});
+
 test('broker exits at exactly sixty seconds without runnable work', async () => {
   const clock = fakeClock();
   const server = fakeServer();
