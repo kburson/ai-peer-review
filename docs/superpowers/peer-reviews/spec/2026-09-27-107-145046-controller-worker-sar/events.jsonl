@@ -1,0 +1,10 @@
+{"sequence":1,"at":"2026-09-27T14:52:50.534Z","type":"baseline-captured","initial_digest":"sha256:c262105281e099709d77a9595a4ba180b38eb391e6deac56e84013064f0edbed","prior_digest":"sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8"}
+{"sequence":2,"at":"2026-09-27T14:52:50.534Z","type":"round-review-recorded","round":1,"findings":["CWSAR-001","CWSAR-002","CWSAR-003"],"timing":"recorded-after-review"}
+{"sequence":3,"at":"2026-09-27T14:53:58.481Z","type":"round-revision-recorded","round":1,"digest":"sha256:3fb1047705cedd77c863799d6ed8ee7d60d4c46ddde6714c9999af04e7046280"}
+{"sequence":4,"at":"2026-09-27T14:53:58.481Z","type":"round-started","round":2,"reviewed_digest":"sha256:3fb1047705cedd77c863799d6ed8ee7d60d4c46ddde6714c9999af04e7046280"}
+{"sequence":5,"at":"2026-09-27T14:55:46.360Z","type":"round-review-recorded","round":2,"findings":["CWSAR-004"]}
+{"sequence":6,"at":"2026-09-27T14:55:46.360Z","type":"round-revision-recorded","round":2,"digest":"sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c"}
+{"sequence":7,"at":"2026-09-27T14:55:46.360Z","type":"round-started","round":3,"reviewed_digest":"sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c"}
+{"sequence":8,"at":"2026-09-27T14:59:13.501Z","type":"clean-review-recorded","round":3,"digest":"sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c","open_findings":0}
+{"sequence":9,"at":"2026-09-27T14:59:14.142Z","type":"validation-passed","checks":["markdownlint","embedded-json","git-diff-check","unrelated-files-and-index-preserved","patch-reconstruction"],"digest":"sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c"}
+{"sequence":10,"at":"2026-09-27T14:59:34.134Z","type":"manual-sar-finalized","verdict":"clean","rounds_used":3,"package_protocol_acceptance":false,"digest":"sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c","telemetry_cutoff":"2026-09-27T14:59:34.133Z"}

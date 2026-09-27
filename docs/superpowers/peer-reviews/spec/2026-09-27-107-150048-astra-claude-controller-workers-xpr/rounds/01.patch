@@ -1,0 +1,759 @@
+--- before.md
++++ after.md
+@@ -195,9 +195,26 @@
+ 
+ The client generates request_id before the first call. Its namespace is the
+ physical worktree. The runtime stores the submitted request's canonical digest:
+-validated JSON with recursively sorted object keys, preserved array order and
+-string values, and insignificant JSON whitespace removed. Canonicalization is
+-over the parsed value. Duplicate keys are rejected wherever raw JSON text is
++SHA-256 over the UTF-8 bytes of the following v1 canonical encoding of the
++validated parsed value, before defaults or configuration resolution:
++
++- Objects emit their members in lexicographic order of unsigned UTF-16 code
++  units, with a shorter prefix first, using comma separators and a colon
++  between each encoded key and value. Do not rely on object enumeration order.
++- Arrays retain element order and use comma separators. Emit no whitespace
++  outside strings. Booleans and null use their lowercase JSON literals.
++- The closed v1 request permits numbers only in positive-safe-integer fields.
++  Encode each validated number as ordinary base-10 digits without a sign,
++  leading zeros, fractional part or exponent. Thus 6, 6.0 and 6e0 have one
++  encoding. Other numeric values fail their field schema before hashing.
++- Strings and keys retain their parsed values without Unicode normalization.
++  Surround them with double quotes; escape quotation mark and backslash as
++  \" and \\, and backspace, tab, newline, form feed and carriage return as
++  \b, \t, \n, \f and \r. Encode other U+0000..U+001F characters as lowercase
++  \u00xx escapes. Emit all other Unicode scalar values directly as UTF-8,
++  including slash and non-ASCII characters. Reject lone UTF-16 surrogates.
++
++Duplicate keys are rejected wherever raw JSON text is
+ available, including CLI input and raw MCP frames exposed to an adapter. An
+ already-parsed MCP object cannot prove absence of duplicate keys; the receipt
+ records input_validation.duplicate_keys as checked or not-observable. Equivalent
+@@ -228,21 +245,56 @@
+ Later-stage capabilities are rechecked at activation without changing sealed
+ intent. Preflight cannot guarantee future quota or availability.
+ 
+-Pre-reservation observations are limited to the installed, versioned capability
+-matrix; configuration; local CLI presence/version checks; and adapter auth or
+-permission checks documented as read-only and session-free. Neither preview nor
+-preflight may start a broker, create a provider session, run conformance tests,
+-install software or refresh credentials. preview_review performs the same new
+-request checks as start_review without reservation, and reports unknowns.
++Pre-reservation observations are read-only, lock-free and session-free, limited
++to the installed versioned capability matrix and configuration; local CLI
++presence/version; documented adapter authentication, identity-capability and
++permission observations; host monitor/wait and controller-telemetry capability
++observations; physical worktree/path and FUR existence/type/byte reads;
++frontmatter parsing; canonical-tree series indexes, retained manifests,
++referenced reconstruction evidence and amendments; repository ignore rules and
++OS storage protections; and protected durable request/ownership records needed
++for replay and lease-conflict detection. These observations may inspect existing
++state but cannot create or update it. The derived authority/series-index.json
++cache is not consulted; portable lineage discovery follows Storage Layout.
++Recheck mutable observations under the appropriate locks at reservation; an
++unstable read reports retryable uncertainty rather than acquiring a preview lock.
++Neither preview nor preflight may start a broker, create a provider session,
++run conformance tests, install software, refresh credentials or write caches.
++preview_review performs the same new-request checks as start_review without
++reservation, and reports unknowns.
+ 
+-| Condition                                            | Preflight result                                         | If discovered after reservation                          |
+-| ---------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------- |
+-| Unsupported host/model/effort or missing enforcement | Reject with capability correction                        | Fence and intervene                                      |
+-| Missing telemetry support                            | Admit with unavailable coverage                          | Keep unavailable measurements explicit                   |
+-| Authentication known invalid locally                 | Reject with authentication remediation                   | Intervene; no automatic fallback                         |
+-| Authentication not observable locally                | Report unknown; launch must verify                       | Intervene on authentication failure                      |
+-| Quota or capacity                                    | Report known local evidence or unknown; no session probe | Positively classified exhaustion may use sealed fallback |
++| Condition                                                   | Preflight result                                                  | If discovered after reservation                          |
++| ----------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
++| Unsupported host/model/effort or missing enforcement        | Reject with capability correction                                 | Fence and intervene                                      |
++| Missing telemetry support                                   | Admit with unavailable coverage                                   | Keep unavailable measurements explicit                   |
++| Controller telemetry partial or not observable              | Admit; disclose per-measure gaps and incomplete combined coverage | Preserve gaps; never substitute worker totals            |
++| Visible monitor unavailable or unverified, unattended=false | Reject APR_MONITOR_SURFACE_REQUIRED without reservation           | Pause new dispatches; retain lease and reconcile         |
++| Authentication known invalid locally                        | Reject with authentication remediation                            | Intervene; no automatic fallback                         |
++| Authentication not observable locally                       | Report unknown; launch must verify                                | Intervene on authentication failure                      |
++| Quota or capacity                                           | Report known local evidence or unknown; no session probe          | Positively classified exhaustion may use sealed fallback |
+ 
++Monitor admission is checked before the reservation transaction. A rejection
++has mutation_occurred=false, no run_id, and no reserved request ID or artifact
++lease. unattended remains part of canonical request identity. The error
++correction requires explicit user authorization, then start_review with a fresh
++request_id, unattended=true and all other submitted fields unchanged. Its
++next_action describes that authorization requirement and exact request
++transformation; it cannot instruct automatic consent or immediate unattended
++execution. The client generates the fresh ID once and reuses the corrected
++request exactly on transport retries. An unchanged retry after a visible
++surface becomes available may retain the original ID. If an earlier request's
++delivery is uncertain, recover it by exact replay before changing intent.
++Although an unreserved rejected ID has no conflicting durable content, clients
++must not depend on that fact to reuse IDs for changed requests.
++
++After reservation, surface loss is an observer failure, not a new preflight
++rejection: retain the run/lease, report mutation_occurred=true when returning the
++error, and pause new dispatches until a visible observer reattaches. Already
++admitted work may finish and seal under normal supervision. A sealed
++unattended=true run needs no visible observer. Do not mutate unattended on an
++existing run; resume after restoring a surface, or cancel with verified cleanup
++before starting a separately authorized unattended run.
++
+ Known exhaustion excludes a new primary candidate during initial resolution;
+ another candidate may start only if it still satisfies the requested class.
+ If none is eligible, preflight rejects without reservation. Static conformance
+@@ -284,12 +336,19 @@
+ default remains the requested class. A request override is explicit intent
+ and is sealed. Changes that alter role count need a new user-requested stage.
+ 
+-fallback_kinds must be nonempty, include the requested class, and contain only
+-sar for SAR or only spr/xpr for a two-party stage. A role-count-changing set
+-fails with APR_FALLBACK_TOPOLOGY_INVALID before mutation. Its JSON Pointer names
+-the stages array index and fallback_kinds field, or the exact profile source
+-field; its correction advises a separate requested stage. Invalid profile
+-policy is never silently narrowed.
++Request fallback_kinds is an array; configuration uses the distinct map name
++fallback_kinds_by_class. Each resolved array must be nonempty, duplicate-free,
++include the requested class, and contain only sar for SAR or only spr/xpr for a
++two-party stage. SAR's only legal array is ["sar"]. A role-count-changing set
++fails with APR_FALLBACK_TOPOLOGY_INVALID before mutation; its correction advises
++a separate requested stage. Invalid profile policy is never silently narrowed.
++Array-level request errors point to /stages/I/fallback_kinds; an invalid member
++points to /stages/I/fallback_kinds/J. Profile errors identify the source config
++and /orchestration/profiles/P/fallback_kinds_by_class/K, adding /J for an invalid
++member. I and J are zero-based indexes, K is the requested class, and P uses
++JSON Pointer escaping (~ as ~0 and / as ~1). A wrong map type points to the map
++itself; missing requested-class membership or an empty array points to the
++class array rather than inventing an element index.
+ 
+ At sealing, resolve the initial roster to the requested class, then build a
+ finite eligibility table for each candidate against each reachable counterpart
+@@ -361,6 +420,21 @@
+ identity and assurance in the participant record. If launch-time exact-session
+ verification is unavailable, that candidate fails preflight.
+ 
++Before any participant grant is issued, the trusted adapters must prove worker
++session distinctness from the controller and from every other simultaneous
++worker. Compare verified identities in a common provider/session namespace,
++not display labels or differently salted fingerprints. When the host cannot
++expose controller session identity, a versioned provider guarantee of fresh
++session creation after the request, with inherited/default resume disabled and
++observed creation evidence, may prove separation from the pre-existing
++controller. Lack of controller usage telemetry alone does not block admission.
++If neither proof is available, admission fails closed. The manifest records the
++proof source/version and assurance. A controller/worker collision fences with
++APR_CONTROLLER_WORKER_SESSION_COLLISION; a worker/worker collision fences with
++APR_WORKER_SESSION_COLLISION; unproved separation uses
++APR_SESSION_DISTINCTNESS_UNPROVED. Issue no participant grants for the affected
++roster, and reconcile any launched processes before retry or replacement.
++
+ On worker resume, the adapter re-observes the session and proves possession of
+ its private transport binding; the runtime compares the sealed fingerprint and
+ identity, then issues a fresh grant. The same model in another session is not
+@@ -376,12 +450,30 @@
+ JSON and provider-readable files/environment. A wrapper supplies role-bound
+ submission tools and never hands its controller credential to a provider child.
+ 
++The v1 participant channel is a wrapper-hosted MCP stdio tool connection over
++private inherited pipes bound to exactly one launched child. It is separate
++from provider stdout/stderr and raw-output capture; ordinary provider output is
++never interpreted as tool authorization. A provider adapter must support this
++private tool connection or fail its capability check. Possession of the inherited
++channel is the child's capability to invoke its wrapper's role tools, not a
++broker credential. The wrapper binds the channel to the verified child/session,
++supplies its protected broker credential and current role grant, and validates
++run, phase and revision for every call. Revoke the binding when the grant,
++session or wrapper ownership expires; reconnect requires identity revalidation.
++No discoverable unauthenticated loopback tool listener is permitted in v1.
++Socket alternatives require a versioned, conformance-tested per-child capability
++contract before admission. Direct child calls to the broker without a valid
++trusted transport binding are rejected before dispatch and produce bounded,
++credential-free authentication diagnostics; an untrusted peer is not attributed
++to a particular child without evidence.
++
+ API grant validation and supported provider sandbox write denial are enforced
+ controls. Separation among unrestricted same-OS-user callers is accountability
+ and mistake prevention, not protection against an actor stealing local grants.
+ The manifest records role_authority=same-user-accountability, per-role
+ write_scope=enforced-provider-sandbox, and the SAR critique/revision compliance
+-claim separately. A controller grant cannot submit a participant turn; this
++claim separately. It also records submission_scope=role-isolated and
++shared_collateral=mutable-untrusted. A controller grant cannot submit a participant turn; this
+ does not claim immunity to malicious same-user software.
+ 
+ ## Round Contract and Caps
+@@ -423,6 +515,27 @@
+ there is no free post-admission failure allowance. A new dispatch needs remaining
+ budget or an explicitly authorized extend-cap within the configured limit.
+ 
++Each revision dispatch, including an interrupted or no-response attempt,
++consumes one of max_revision_attempts_per_round, including the initial attempt.
++At exhaustion, enter intervention-required with
++APR_REVISION_ATTEMPTS_EXHAUSTED, stop subsequent phases/stages, retain the FUR
++lease and fence the writer and unresolved operations. Seal all attempt receipts.
++Preserve partial bytes and pending effects in a checkpoint with checkpoint_id
++and expected_current_digest; require writer quiescence and resolve-checkpoint
++before those bytes can become the input to a fresh critique. If exact bytes
++remain at the sealed baseline and no effects are pending, record that verified
++no-change disposition instead of inventing a checkpoint.
++
++Exhaustion is not acceptance or an automatic failed verdict. Resume cannot
++reset the counter or authorize another revision in that round. Exhaustion
++alone never authorizes automatic replacement. Independently proved quota or
++capacity exhaustion may still select a sealed fallback after the same
++quiescence/checkpoint requirements; otherwise replacement requires explicit
++user authorization. Any replacement starts a new stage-attempt with a fresh
++critique consuming the next round from the existing requested-stage budget.
++No remaining round means intervention until authorized extend-cap or cancel;
++replacement never replenishes either the consumed round or its retry allowance.
++
+ Run states are starting, running, awaiting-participant, reconciling,
+ intervention-required, accepted, cancelled and failed. Each requested stage has
+ an ID; replacements have new stage-attempt IDs under it. Acceptance requires
+@@ -437,6 +550,28 @@
+ disposition and rationale, reviewer resolution, and split/duplicate/supersede
+ lineage.
+ 
++The participant allocates finding*id as an ASCII string matching
++^[A-Za-z]A-Za-z0-9.*-]{0,63}$. Its namespace is the requested-stage ledger,
++spanning every round and replacement stage-attempt. Its fully qualified identity
++is (run_id, requested_stage_id, finding_id); independent later stages have
++separate namespaces and explicit cross-stage links, never implicit ID joins.
++New findings must have IDs unused anywhere in that ledger, including resolved
++history, and be unique within the submission. Validate the entire submission
++atomically before ledger mutation. A collision returns APR_FINDING_ID_CONFLICT
++with the offending JSON Pointer/IDs and correction to choose fresh IDs and
++resubmit the same phase/revision. It consumes neither another round nor the
++submission grant. Exact action replay is recognized first and returns its
++existing receipt instead of being treated as a new finding.
++
++Every critique handoff supplies the stage's reserved IDs and permitted inherited
++finding context, including resolved IDs. Replacement reviewers may reference
++inherited IDs for explicit reviewer resolutions but cannot reallocate them,
++overwrite their originating evidence or resurrect them as new findings. New
++defects and split children need fresh IDs. target_ids must resolve to existing
++or atomically introduced IDs in the same ledger; reject missing/self/cyclic
++targets before sealing. Cross-stage informational links cannot resolve an open
++finding in this stage.
++
+ Narrative remains free-form inside the structured response. A disputed finding
+ may produce an empty patch. The next review must accept the rationale, refine
+ the finding, or maintain the objection. The cap bounds disagreement and dispatches.
+@@ -495,7 +630,8 @@
+ 
+ | Area                               | Relative path                                                   | Git policy                 | Write/read authority                                                                          |
+ | ---------------------------------- | --------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------- |
+-| Collaborative folder               | .scratch/peer-review/collaboration/R/                           | Ignored                    | Author, reviewer and supervisor write; exact path supplied to participants                    |
++| Shared collateral                  | .scratch/peer-review/collaboration/R/shared/                    | Ignored                    | Author, reviewer and supervisor write; never attributed submission staging                    |
++| Role submission staging            | .scratch/peer-review/collaboration/R/roles/ROLE/                | Ignored                    | Bound role writes its own partition; package reads/seals; cross-role writes denied            |
+ | Sealed authority                   | .scratch/peer-review/authority/runs/R/                          | Ignored, durable           | Package only; participants receive receipt IDs, never direct authority paths                  |
+ | Identity, leases and request index | .scratch/peer-review/authority/                                 | Ignored, durable           | Package only; outside every participant write scope                                           |
+ | Supplied context                   | .scratch/peer-review/context/R/                                 | Ignored                    | Package writes; scoped participant read-only projection, exact path supplied                  |
+@@ -514,7 +650,8 @@
+ from generic scratch/log cleanup. Immutable run records and amendments are
+ published exclusively after seal verification; only the derivative series index
+ is updated, transactionally, under a series lock. Index receipts bind its entries
+-to sealed run manifests. Sidecar lineage is published in the trackable series
++to sealed run manifests and the published amendment inventories below.
++Sidecar lineage is published in the trackable series
+ index, using the shared series-index/v1 contract. Each sidecar binding records
+ lineage_mode, series_id, the canonical repository-relative artifact_path and
+ record path, plus the selected terminal run ID and manifest SHA-256. The sealed
+@@ -524,6 +661,25 @@
+ its absence cannot imply that a FUR has no prior lineage. It is rebuilt from
+ validated portable records after reservation, never during read-only preview.
+ 
++Each run entry in series-index/v1 also carries an ordered amendments array.
++Each entry contains amendment_id, repository-relative manifest_path and
++manifest_sha256; [] explicitly means no amendments published at that index
++revision. Preserve the base run manifest digest unchanged. Seal and publish an
++amendment before atomically appending its index reference under the series lock,
++with a publication operation ID for idempotent recovery. A crash between these
++steps leaves a pending publication, not an unreferenced amendment silently
++included in current totals. Index receipts bind the entire run/amendment list,
++index revision and publication time. This applies to both lineage modes.
++
++Current aggregate views resolve the ordered amendment inventory for every
++included run and pin the index revision/as-of time. An absent, corrupt or
++unresolvable referenced amendment makes current telemetry coverage explicitly
++incomplete/unverifiable, with a null complete total and a bounded diagnostic.
++The original sealed verdict and reproducible base/as-of views remain available;
++do not label superseded base metrics current. An export advertised as complete
++must include and verify all referenced amendments. "Current" means current at
++the supplied index revision, not proof that no newer index exists elsewhere.
++
+ FUR, collaboration, authority, context, evidence and private roots must not alias
+ or overlap each other's write scopes. Permissions give repository context reads
+ with explicit exclusions for authority/private/raw logs, never unrestricted
+@@ -543,20 +699,35 @@
+       reviewer: read-only
+       supervisor: bounded initialization or authorized checkpoint resolution only
+ 
+-    review folder
+-      author:     read/write/create
+-      reviewer:   read/write/create
+-      supervisor: read/write/create
++    review folder/shared
++      author/reviewer/supervisor: read/write/create
++      attributed response submissions: forbidden
+ 
++    review folder/roles/ROLE
++      bound role: read/write/create within its own partition
++      other participant roles: no writes
++      supervisor: read/seal; writes only its own supervisor partition
++      cross-role reads: subject to visibility policy
++
+     repository context
+       author/reviewer: read
+       other writes: separately governed
+ 
+-The two-party reviewer may create or edit any file inside the active review folder,
+-including earlier in-progress collateral, but cannot edit the FUR.
+-Package-owned protocol authority therefore lives outside the collaborative
+-folder.
++ROLE is author, reviewer, solo or supervisor as applicable. A two-party
++reviewer may edit its own submission partition and shared collateral, including
++earlier shared in-progress collateral, but cannot edit FUR or another role's
++partition. The author has the symmetric staging restriction. SAR uses the solo
++partition for both phases. Enforce these boundaries through the provider sandbox
++and physical-path checks, including denial of symlink/hard-link aliases and
++parent-directory rename/delete escapes. The collaboration root itself is not
++a blanket participant write grant.
+ 
++Submitted response paths must lie inside the current grant's role partition;
++shared collateral and other roles' paths fail APR_SUBMISSION_SCOPE_INVALID.
++The supervisor never edits another role's staged payload and seals accepted
++bytes into package-owned authority outside the collaborative folder. Shared
++collateral is mutable, untrusted context, not evidence of response authorship.
++
+ During review turns only the registered author may change the FUR in its author
+ phase. The supervisor has two enumerated exceptions: the pre-round lineage merge
+ and an explicitly authorized resolve-checkpoint operation while all writers are
+@@ -577,8 +748,9 @@
+ an immutable input snapshot and is instructed not to edit until its findings
+ are sealed. The core detects premature FUR edits and enters conflict; it does
+ not claim a sandbox role switch between critique and revision. Headless SAR
+-must still enforce its combined scope (FUR plus review folder, no authority
+-writes). Two-party reviewers require enforced FUR denial. Record these distinct
++must still enforce its combined scope (FUR, solo staging and shared collateral,
++no authority or other-role writes). Two-party reviewers require enforced FUR
++denial and role-isolated staging. Record these distinct
+ assurance claims so SAR is never presented as independent peer enforcement.
+ 
+ ## Evidence
+@@ -633,6 +805,8 @@
+ Amendment A lives in the sibling amendments/R/A/ tree with its own manifest.json,
+ receipts/ and metrics.json, referencing the original manifest digest and prior
+ amendment IDs. It is not appended inside the already sealed run inventory.
++Its publication becomes discoverable through the series-index amendment
++inventory and receipt defined in Storage Layout.
+ 
+ Each patch records input/output digests. Reviewer responses bind to the digest
+ reviewed. Author responses bind to findings, revision, and patch. The manifest
+@@ -929,6 +1103,27 @@
+ chat work is excluded. A session total spanning unrelated work or multiple runs
+ without separable observations is ambiguous-scope, not an allocatable run cost.
+ Receipt replay and cumulative-counter rules apply equally to controller usage.
++
++Before reservation, the trusted host adapter advertises
++controller_telemetry_capability as observable, partially-observable or
++not-observable, together with its mapping version and per-measure availability,
++source and limitations. Preview and the pre-launch receipt carry this declaration
++and disclose which combined totals cannot be complete. Each controller accounting
++binding records evidence_source, evidence_version and assurance
++(verified-host-binding or not-observable). Observed controller identity fields
++are populated only from that verified binding; self-reported labels are not
++observed identity. Unknown model/effort remain null. This accounting binding
++does not substitute for the independent session-distinctness admission proof.
++
++CLI-only transport declares controller usage value=null,
++provenance=unavailable, reason=not-exposed and source=host-transport, with
++controller_telemetry_capability=not-observable. It does not block the run.
++CLI cannot infer controller tokens from subprocess duration, worker telemetry
++or caller-supplied model labels. If a separately verified host observer already
++exists for the run, CLI replay preserves its declaration/observations and may
++display them; CLI itself supplies no new controller-usage evidence. A CLI-only
++binding may later gain verified host observations through recorded binding
++evidence and the normal receipt/amendment path, never by rewriting provenance.
+ 
+ Persist separate worker and controller subtotals and coverage in metrics.json
+ and the manifest. A combined run cost/token total is complete only when both
+@@ -992,8 +1187,9 @@
+ references and supersession relationships. The original manifest, response
+ files and verdict stay unchanged. A current aggregate view resolves amendments
+ once and exposes its revision/as-of time; historical views remain reproducible.
+-Adapters must advertise telemetry capabilities and mapping versions separately
+-from review capabilities. Missing usage support does not block an otherwise
++Provider adapters and controller host adapters must advertise their respective
++telemetry capabilities and mapping versions separately from review capabilities.
++Missing usage support does not block an otherwise
+ eligible provider, but is visible before launch and in every affected receipt.
+ Adapter development may require provider-specific research into process exit
+ records, session APIs, host events, or billing/usage envelopes. The adapter
+@@ -1048,7 +1244,7 @@
+               { "selector": "grok", "model": "grok-5", "effort": "high" },
+               { "selector": "codex", "model": "gpt-6-astra", "effort": "high" }
+             ],
+-            "fallback_kinds": {
++            "fallback_kinds_by_class": {
+               "sar": ["sar"], "spr": ["spr"], "xpr": ["xpr"]
+             }
+           }
+@@ -1058,8 +1254,7 @@
+         "liveness_interval_ms": 15000,
+         "warn_after_ms": 60000,
+         "reconcile_after_ms": 120000,
+-        "hard_timeout_ms": 1800000,
+-        "on_missing_surface": "require-unattended-authorization"
++        "hard_timeout_ms": 1800000
+       },
+       "broker": { "idle_grace_ms": 60000 },
+       "telemetry": { "grace_period_ms": 30000 },
+@@ -1076,9 +1271,11 @@
+ availability claims or a bundled default profile. Package profiles default to
+ empty and default_profile to null; an unresolved required role fails with setup
+ guidance. Each candidate requires selector; model/effort omission follows the
+-resolution rule above. Profiles may omit unused roles and fallback_kinds; omitted
+-class policies default to that class alone. fallback_kinds is keyed by requested
+-class, not by role. Each supplied class entry must preserve its role count.
++resolution rule above. Profiles may omit unused roles and
++fallback_kinds_by_class; omitted class policies default to that class alone.
++fallback_kinds_by_class is keyed by requested class, not by role. Each supplied
++class entry must preserve its role count. Request stages retain the array field
++fallback_kinds; the map name is not a request-field alias.
+ 
+ Merge package, user and project in order: scalar leaves replace; round_caps and
+ ordinary policy objects merge by named key; profiles merge by profile name but
+@@ -1095,10 +1292,11 @@
+ Caps and max_rounds_limit are integers in 1..1000, caps cannot exceed the resolved
+ limit, and retry counts are in 1..10, including the initial attempt. Initial
+ max_rounds is part of the authorized start request; extend-cap is a later change
+-of intent and requires new user authorization. on_missing_surface has the single
+-v2 value shown; a start request may carry unattended=true as explicit authority
+-to proceed without a visible monitor. Otherwise the default is false. Config
+-cannot authorize unattended operation on the user's behalf. lineage_mode and
++of intent and requires new user authorization. A start request may carry
++unattended=true as explicit authority to proceed without a visible monitor.
++Otherwise the default is false. There is no monitoring.on_missing_surface key
++in v2; the closed schema rejects it. Config cannot authorize unattended
++operation on the user's behalf. lineage_mode and
+ unattended are the only additional top-level start options defined here.
+ 
+ hard_timeout_ms bounds active provider operations, including quiet reasoning,
+@@ -1146,8 +1344,10 @@
+ ## Permissions and Research
+ 
+ Headless role capabilities are sealed at startup. Authors and SAR workers may
+-edit FUR and review folder; two-party reviewers may edit review folder but not FUR. Both may read
+-repository context and run approved validation.
++edit FUR, their own role submission partition and shared collateral. Two-party
++reviewers may edit their own partition and shared collateral, but not FUR or
++another role's partition. Both may read repository context and run approved
++validation under the same scope restrictions.
+ 
+ Public web search, documentation lookup, and read-only APIs are allowed without
+ per-query intervention. External writes, uploads, issue creation, remote
+@@ -1230,6 +1430,18 @@
+ the conformance-tested containment contract after permanent broker loss. An
+ unproved descendant exit retains the fence even if the direct child is dead.
+ 
++Before each provider launch, its operation journal also records an opaque
++execution_host_id, verified boot_epoch, broker_instance_id and the containment
++scope covering that operation's potential writers. The host/boot observation
++has a source, version and assurance supplied by a read-only OS-specific adapter;
++raw machine identifiers stay private. A broker-instance change, PID absence,
++wall-clock estimate, os.uptime-derived timestamp or operator assertion is not
++a verified boot-epoch change. Conformance must prove that the source distinguishes
++full restarts from broker restarts, sleep/resume and host-identity changes.
++Supported OS adapters must provide this observation or another tested durable
++termination proof for host-restart recovery using the binary-free runtime
++constraints. Unknown launch epochs cannot be filled in retrospectively.
++
+ Project cleanup uses the same object through cleanup_brokers(request) or CLI:
+ 
+     peer-review broker cleanup '{"schema":"ai-peer-review.cleanup-request/v1",
+@@ -1304,7 +1516,8 @@
+ 
+ - reconcile-operation supplies operation_id and evidence receipt references.
+   The adapter re-observes exact process/session identity, descendants and side
+-  effects, appends a reconciliation result, and clears only proved fences.
++  effects, or supplies the verified host-restart proof defined below, appends
++  a reconciliation result, and clears only proved fences.
+   Unknown observations leave the run fenced with an exact next action. This
+   action remains available for a failed-but-fenced run solely to resolve its
+   obligations; it cannot reopen a terminal verdict.
+@@ -1322,6 +1535,26 @@
+   another run, launch replacements or claim cleanup succeeded. Later verified
+   reconcile-operation may discharge those obligations without changing verdict.
+ 
++For host-restart reconciliation, compare the journaled boot epoch with a fresh
++verified observation of the same execution host. A proved epoch change is
++positive termination evidence only for the process/descendant obligations whose
++sealed containment contract confines all writers to that host. Append
++terminated-by-host-restart with both evidence references and discharge those
++process fences; an absent old session handle is not required to become
++resolvable. Remote jobs, another execution host, migrated sessions, uncertain
++containment or unknown boot evidence retain their own obligations. Revoke old
++role bindings before any replacement; boot evidence never resumes a session.
++
++Filesystem effects are separate obligations. Compare current FUR bytes with the
++sealed baseline and recorded checkpoints, preserve unexplained partial bytes,
++and require resolve-checkpoint when a recovery write/disposition is needed.
++Only after all potential writers are proved quiescent and artifact effects
++reconciled may the artifact lease be released. Other retained diagnostic or
++telemetry obligations remain explicit and cannot authorize new writes. A
++failed-but-fenced run remains failed after this discharge; it is not relabeled
++cancelled or accepted. Recovery uses the existing authorization, journal and
++replay rules, never age-based takeover or deletion of state.
++
+ Pre-start series conflicts have no run_id, so they use a distinct closed request:
+ reconcile_review_series (CLI reconcile-series), schema
+ ai-peer-review.series-reconcile-request/v1. It requires action_id, filepath,
+@@ -1352,28 +1585,63 @@
+ surface or an equivalent out-of-band surface updates the user. Host progress
+ rendering and wait-duration limits are validated separately from provider
+ capabilities. If MCP cannot render progress, the receipt links a local read-only
+-monitor or CLI watch surface. If no visible surface can be established, report
+-the limitation before launch and require an explicit unattended choice.
++monitor or CLI watch surface. If no visible surface can be established, reject
++before reservation unless the submitted request explicitly authorizes unattended
++operation, following APR_MONITOR_SURFACE_REQUIRED and its retry contract.
+ Transport timeouts detach observers, not cancel reviews; adapters reattach with
+ the durable cursor outside inference when possible. Host-forced model re-entry
+ is disclosed and measured rather than called zero-token waiting. On capable
+ hosts the controller model wakes only for intervention or terminal state.
+ 
++host_wait_capability is single-wakeup, model-reentry-required or unknown.
++single-wakeup requires a tested out-of-band visible progress surface, durable
++cursor delivery, and either a run-lifetime wait or adapter renewal/reconnection
++across every wait ceiling and phase/stage boundary entirely outside inference.
++The guarantee spans the entire run, not just one hard_timeout_ms operation.
++A short wait ceiling is compatible only when renewal meets that condition.
++unattended authorization does not confer this capability.
++
++Preview and receipt record this capability, observed_wait_ceiling_ms (null with
++reason when unbounded or unknown), ceiling_kind (finite, unbounded or unknown),
++outside_inference_reattach, and evidence source/version. For a host requiring
++periodic model re-entry, disclose its observed re-entry cadence before launch.
++expected_reentry_count is null with reason unknown-duration unless a duration
++is actually known. For the deterministic fixed-ceiling fixture with duration D,
++ceiling W and terminal delivery taking precedence at an equal boundary, the
++count is max(0, ceil(D/W)-1), excluding the terminal wakeup. Do not turn that
++fixture formula into a fabricated prediction of provider runtime.
++
+ After the initial receipt, successful controller wakeups are bounded by
+ actionable interventions + host-forced re-entries + one terminal result.
+ Repeated delivery of the same cursor does not create another wakeup. In a
+ fault-free SAR, SPR, or XPR on a capable host, exactly one post-receipt model
+ wakeup delivers terminal status. Provider monitoring and participant handoffs
+ never create periodic controller model turns.
++Unexpected periodic re-entry on a host advertised as single-wakeup is a
++capability violation: record the diagnostic and observed degradation, and fail
++the corresponding conformance gate rather than exempting those wakeups.
+ 
+     XPR · stage 2/2 · round 2/12 · elapsed 04:12
+ 
+-    Controller  GPT-6 Sol / medium     supervising · 0 wait tokens
++    Controller  supervising           wait tokens unavailable (not-exposed)
+     Author      GPT-6 Astra / high     revising · 00:38 · event 3s ago
+     Reviewer    Claude Opus 5 / high   waiting  · response sealed
+ 
+-    Usage       controller 3.1k · author 21.4k · reviewer 16.8k reported
++    Usage       controller unavailable (not-exposed; host-transport)
++                author 21.4k reported · reviewer 16.8k reported
++                worker known subtotal 38.2k derived · combined total unavailable
+ 
++The registered structured fixture for this rendering has controller model and
++effort null, controller usage and wait-token values null with
++provenance=unavailable, reason=not-exposed and source=host-transport. Its author
++and reviewer observations are respectively 21400 and 16800 tokens, each with
++provenance=reported, its own provider-adapter source/version and observation ID.
++The fixture declares these two token measures disjoint and compatible; 38200
++is a derived known subtotal referencing both IDs, not another observation.
++Controller coverage is missing and the complete combined total is null.
++The schema-validated fixture generates this display; no zero or identity label
++is supplied by a display-only default.
++
+ SPR and XPR always show separate controller, author, and reviewer lines. SAR
+ shows separate controller and solo-worker lines, with critique/revision as the
+ worker phase. The monitor shows total and phase duration, stage/round/cap,
+@@ -1456,7 +1724,9 @@
+ 
+ submit_review_turn carries schema, run_id, stage_attempt_id, round, action_id,
+ expected_revision, phase (critique or revision), reviewed_digest and response
+-path/digest within the review folder. Critique responses contain verdict, stable
++path/digest within the bound role's submission partition in the review folder.
++Paths in shared collateral or another role's partition are rejected before
++sealing. Critique responses contain verdict, stable
+ findings and resolutions (an empty array if there are no prior open findings).
+ Each resolution names finding_id, state and rationale, plus target_ids for
+ duplicate/superseded/split lineage as applicable. Revision responses contain
+@@ -1707,8 +1977,9 @@
+   `broker-security` addon and `node-gyp`. The target uses portable loopback TCP,
+   ephemeral ports, credentials, and pure JavaScript lifecycle controls.
+ - Existing collateral assumes committed triads and narrowly allocated response
+-  files. The target permits reviewer writes throughout the review folder,
+-  keeps one mutable FUR, and lets the supervisor generate digest-bound patches.
++  files. The target permits role-owned submission staging and shared collateral
++  writes, keeps one mutable FUR, and lets the supervisor generate digest-bound
++  patches while denying cross-role staging writes.
+ - Current wait behavior is handoff-oriented. A zero-model-turn progress stream,
+   liveness policy, participant lines, usage provenance, and bounded terminal
+   summaries are new.
+@@ -1759,8 +2030,9 @@
+ 
+ Planning must cover all three normalized topologies; JSON input equivalence; detailed errors;
+ cross-transport idempotency; classification and fallback transitions; caps;
+-author responses and finding lineage; participant/session identity; reviewer
+-FUR denial with review-folder writes; dirty/new FUR snapshots and leases;
++author responses and finding lineage; participant/session identity and proved
++controller/worker and worker/worker distinctness; reviewer FUR denial and
++role-isolated submissions with shared collateral writes; dirty/new FUR snapshots and leases;
+ supervisor patch chains; automatic lineage; visibility; web research;
+ concurrent worktree brokers; ephemeral ports; authentication; restart;
+ reconnect; cleanup; binary-free production tarball; zero-turn monitoring;
+@@ -1771,6 +2043,11 @@
+ adoption. Those dependencies block release, rather than making gates optional:
+ 
+ 1. Equivalent CLI/MCP JSON returns one run despite whitespace/key order;
++   max_rounds forms 6, 6.0 and 6e0 and filepath strings "spec.md" versus
++   "\u0073pec.md" produce identical canonical bytes and no second launch.
++   Encoder unit fixtures cover escaping and UTF-16 ordering with non-BMP keys;
++   unknown request keys still fail the closed schema before reservation.
++   Lone surrogates and invalid numeric domains fail before hashing/reservation;
+    different content with the same ID conflicts. Concurrent retries and a crash
+    after each launch-journal write never cause an unobserved duplicate launch.
+    Raw duplicate keys fail where observable; parsed-only MCP records that limit.
+@@ -1781,6 +2058,14 @@
+    Clean verdicts with unresolved disputed IDs fail with APR_FINDINGS_UNRESOLVED.
+    Role-count-changing fallback policy fails before mutation; seal-time exclusions
+    consume no try, including each reachable-counterpart eligibility case.
++   A replacement reviewer reusing an inherited open or resolved ID for a new
++   finding receives APR_FINDING_ID_CONFLICT without ledger/grant advancement;
++   duplicate IDs within a submission and invalid lineage targets also fail.
++   Exact replay remains idempotent. Exhausted revision retries enter
++   intervention-required with receipts, lease and fences retained, without
++   advancing stages or resetting the retry counter. Partial-byte recovery
++   requires quiescence and checkpoint resolution before a replacement's fresh
++   critique; a replacement uses the remaining stage budget, never a reset cap.
+ 3. Mutating old collateral never changes sealed evidence or supplied next-turn
+    context; its divergence produces the documented diagnostic. Reconstruct every
+    round from final bytes and patches, including CRLF, no trailing newline,
+@@ -1805,8 +2090,12 @@
+    No-response evidence exists only at attempts/T/attempt-evidence.json, with
+    round.json references for admitted attempts and null-round owner references
+    for pre-admission attempts; no response filename is generated.
+-4. Two-party reviewer FUR writes, headless authority writes and path-alias escapes are denied while review
+-   folder writes and permitted web research succeed. A capability mismatch
++4. Two-party reviewer FUR writes, headless authority writes, cross-role
++   submission-partition writes and path-alias/parent-directory escapes are
++   denied. Own-role staging, shared collateral and permitted web research
++   succeed. Submitting another role's or shared-area path fails with
++   APR_SUBMISSION_SCOPE_INVALID before sealing. Overwriting shared collateral
++   cannot alter role-attributed staged or sealed payloads. A capability mismatch
+    fails preflight rather than weakening enforcement.
+ 5. Two simultaneous starts in one worktree acquire one broker; separate linked
+    worktrees get distinct endpoints. Wrong tokens, instances, browser indicators
+@@ -1818,12 +2107,22 @@
+    failure produce the status/liveness/fencing tuples specified above. Injected
+    monotonic time tests warning, reconciliation, stale-observer and hard-timeout
+    thresholds at their exact configured values, including clock-epoch recovery.
+-   A capable monitor refreshes elapsed time without inference. Fault-free
+-   SAR, SPR, and XPR wake the controller once for terminal status unless an
+-   actionable intervention or host-forced re-entry occurs.
+-   Unsupported host progress requires explicit unattended authority before launch.
++   A single-wakeup fixture host refreshes elapsed time and renews waits without
++   inference across multiple operations/stages. Fault-free SAR, SPR and XPR
++   each produce exactly one post-receipt terminal wakeup; periodic host re-entry
++   fails that gate. A model-reentry-required fixture with W=60000 and D=150000
++   discloses two expected re-entries before launch and observes two plus terminal
++   delivery; unknown-duration starts disclose cadence and a null predicted count.
++   Monitor fixtures validate unavailable controller usage, per-entry provenance
++   and the absence of fabricated zero/model labels against the registry.
++   Missing surfaces with unattended=false reject before reservation with
++   mutation_occurred=false and no run/lease. An explicitly authorized corrected
++   request uses a fresh ID and unattended=true; its retries create exactly one
++   run. No automatic consent occurs. Post-reservation surface loss retains
++   authority, pauses new dispatches and resumes only under the specified rule.
+ 7. An installed pure-JavaScript package passes OS-specific credential storage,
+-   role-write denial and child-containment tests. Untested combinations cannot
++   role-write denial, child-containment and durable host-restart termination
++   evidence tests. Untested combinations cannot
+    advertise those topologies. No required native build or download is hidden
+    in the production dependency tree.
+ 8. Legacy active work stays recoverable under its pinned installation; terminal
+@@ -1841,6 +2140,16 @@
+    different session fails. Expired or wrong-round grants fail, with assurance
+    labels preserved. Unrecoverable workers wait for fallback, explicit
+    replacement, or cancel without silent identity substitution.
++   A worker identity equal to the controller's fences with
++   APR_CONTROLLER_WORKER_SESSION_COLLISION before any participant grant;
++   an SPR with one session for both workers fences with
++   APR_WORKER_SESSION_COLLISION. Equal model labels with distinct proved
++   sessions succeed. Unproved separation fences with
++   APR_SESSION_DISTINCTNESS_UNPROVED. CLI-only missing controller telemetry
++   remains admissible when fresh-session creation independently proves separation.
++   Private stdio role tools attach credentials only inside the wrapper; provider
++   prompts, environment and readable files contain none. Direct unauthenticated
++   broker calls and stale/rebound pipe capabilities fail with bounded diagnostics.
+ 10. Successful, failed, timed-out, interrupted and no-response provider attempts
+     produce provenance-tagged metrics receipts. Fixtures cover provider totals,
+     per-model/auxiliary counters, cache and reasoning tokens, inconsistent
+@@ -1854,6 +2163,12 @@
+     events, and exclude unrelated chat usage. Complete worker usage with missing
+     controller usage must produce an incomplete combined run total; terminal
+     controller reporting is incorporated only by the late-amendment contract.
++    CLI-only fixtures declare controller telemetry not-observable before launch
++    and retain null/not-exposed/host-transport measurements; caller model labels
++    cannot become observed controller identity. Verified host bindings carry
++    source/version and assurance independently of telemetry availability.
++    The monitor fixture's reported worker values and derived subtotal validate
++    from their observation IDs while complete combined usage remains null.
+ 11. Byte-offset envelope extraction reproduces submitted response bytes despite
+     delimiter-like participant text. Tampered annotations cannot alter sealed
+     receipts. Late telemetry creates an amendment without changing terminal
+@@ -1869,17 +2184,36 @@
+     views verify every external input against its pinned digest.
+     Legacy telemetry gaps preserve incomplete coverage; solo-to-author reuse
+     preserves role history without duplicating the agent's observations.
++    Transfer an index and sealed runs while omitting a referenced amendments/
++    tree: current coverage becomes incomplete/unverifiable, never
++    superseded-as-current, and the original verdict stays unchanged. Replaying
++    amendment publication after a crash between bundle and index publication
++    produces one ordered reference and counts each correction once.
+ 13. Recovery fixtures cover every action and replay: unresolved acknowledgment
+     marks failed without releasing fences/leases; only verified reconciliation
+     clears obligations. Checkpoint resolution requires quiescence and produces
+     a patch, never acceptance. Pre-start series repair preserves pointer bytes
+     and refuses stale digests, live owners and fabricated target evidence.
++    A simulated verified boot-epoch change on the same execution host discharges
++    covered local process obligations as terminated-by-host-restart. Resolve
++    remaining filesystem checkpoints, then release the lease without changing
++    the failed verdict. Broker-only restart, sleep/resume, a different host,
++    unknown epochs and surviving remote writers cannot use that proof.
++    Crash/replay during discharge never clears an unproved obligation.
+ 14. Preflight and preview use only documented session-free checks, never start a
+     broker/provider or mutate credentials. Missing review capabilities reject;
+     missing telemetry remains admissible with explicit unavailable coverage.
++    Lineage/FUR/protection and host monitor/telemetry observations are read-only
++    and lock-free; neither preview nor pre-reservation start consults or writes
++    the derived authority series cache. Reservation revalidates mutable inputs.
+ 15. Config precedence and whole-profile/array replacement have golden fixtures.
+     Cap/limit and retry bounds, threshold ordering, omitted model/effort defaults
+     and unsupported explicit selections are validated before reservation.
++    Request fallback_kinds arrays and profile fallback_kinds_by_class maps
++    generate exact source/JSON Pointers, including escaped profile names and
++    invalid element indexes. SAR admits only ["sar"]. The removed
++    monitoring.on_missing_surface key fails closed-schema validation; no
++    configuration value can authorize unattended operation.
+ 
+ Fault-injection fixtures cover each persisted transition and replay path;
+ installed provider tests establish feasibility independently of mocked tests.
+@@ -1902,7 +2236,8 @@
+ - metrics.json and the manifest expose coverage-aware round, agent, stage, run,
+   and review-chain aggregates without converting unavailable values to zero.
+ - Evaluation is multidimensional across quality, cost, and time.
+-- Two-party reviewers can write the review folder and research the web, not FUR.
++- Two-party reviewers can write their own submission partition and shared
++  collateral and research the web, but cannot write FUR or another role's staging.
+ - Package authority is outside the collaborative review folder.
+ - Classification is explicit and validated.
+ - Named role-specific provider cascades live in user/project config.

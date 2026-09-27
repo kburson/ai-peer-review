@@ -1,0 +1,18 @@
+{
+  "round": 2,
+  "verdict": "changes-required",
+  "before_digest": "sha256:3fb1047705cedd77c863799d6ed8ee7d60d4c46ddde6714c9999af04e7046280",
+  "after_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c",
+  "ended_at": "2026-09-27T14:55:46.358Z",
+  "review": "rounds/02-review.md",
+  "author_response": "rounds/02-author-response.md",
+  "patch": "rounds/02.patch",
+  "finding_ids": [
+    "CWSAR-004"
+  ],
+  "resolved_ids": [
+    "CWSAR-001",
+    "CWSAR-002",
+    "CWSAR-003"
+  ]
+}

@@ -50,8 +50,8 @@ fallback and accepts the identical request and response schemas.
 The originating chat receives an immediate receipt and a continuously updated
 out-of-band monitor on a validated host surface. Runtime waiting consumes no
 controller model tokens; host-imposed model wakeups are accounted separately.
-On hosts with `host_wait_capability=single-wakeup`, the controller model wakes
-only for intervention or a terminal result. Participant work continues through originating-chat
+On capable hosts, the controller model wakes only for intervention or a
+terminal result. Participant work continues through originating-chat
 disconnects.
 
 Each round binds reviewer findings, the author response, and a
@@ -263,16 +263,15 @@ run conformance tests, install software, refresh credentials or write caches.
 preview_review performs the same new-request checks as start_review without
 reservation, and reports unknowns.
 
-| Condition                                                   | Preflight result                                                  | If discovered after reservation                                   |
-| ----------------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Unsupported host/model/effort or missing enforcement        | Reject with capability correction                                 | Fence and intervene                                               |
-| Missing telemetry support                                   | Admit with unavailable coverage                                   | Keep unavailable measurements explicit                            |
-| Controller telemetry partial or not observable              | Admit; disclose per-measure gaps and incomplete combined coverage | Preserve gaps; never substitute worker totals                     |
-| Visible monitor unavailable or unverified, unattended=false | Reject APR_MONITOR_SURFACE_REQUIRED without reservation           | Hold dispatch admission awaiting a visible observer; retain lease |
-| Unknown host wait behavior with a verified visible monitor  | Admit; disclose unknown behavior and no single-wakeup guarantee   | Record observed wakeups and capability evidence                   |
-| Authentication known invalid locally                        | Reject with authentication remediation                            | Intervene; no automatic fallback                                  |
-| Authentication not observable locally                       | Report unknown; launch must verify                                | Intervene on authentication failure                               |
-| Quota or capacity                                           | Report known local evidence or unknown; no session probe          | Positively classified exhaustion may use sealed fallback          |
+| Condition                                                   | Preflight result                                                  | If discovered after reservation                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| Unsupported host/model/effort or missing enforcement        | Reject with capability correction                                 | Fence and intervene                                      |
+| Missing telemetry support                                   | Admit with unavailable coverage                                   | Keep unavailable measurements explicit                   |
+| Controller telemetry partial or not observable              | Admit; disclose per-measure gaps and incomplete combined coverage | Preserve gaps; never substitute worker totals            |
+| Visible monitor unavailable or unverified, unattended=false | Reject APR_MONITOR_SURFACE_REQUIRED without reservation           | Pause new dispatches; retain lease and reconcile         |
+| Authentication known invalid locally                        | Reject with authentication remediation                            | Intervene; no automatic fallback                         |
+| Authentication not observable locally                       | Report unknown; launch must verify                                | Intervene on authentication failure                      |
+| Quota or capacity                                           | Report known local evidence or unknown; no session probe          | Positively classified exhaustion may use sealed fallback |
 
 Monitor admission is checked before the reservation transaction. A rejection
 has mutation_occurred=false, no run_id, and no reserved request ID or artifact
@@ -295,28 +294,6 @@ admitted work may finish and seal under normal supervision. A sealed
 unattended=true run needs no visible observer. Do not mutate unattended on an
 existing run; resume after restoring a surface, or cancel with verified cleanup
 before starting a separately authorized unattended run.
-
-Loss of the last verified visible surface on a nonterminal run with
-`unattended=false` sets `dispatch_admission.held=true`,
-`reason_code=awaiting-visible-observer` and
-`required_action=reattach-visible-observer`. If this is the only blocking
-condition, coarse `status` remains `starting` until startup completes and
-`running` thereafter, including when admitted work has finished and the next
-dispatch is held. Surface loss alone does not select `reconciling`,
-`awaiting-participant` or `intervention-required`, and does not create an
-integrity fence. Independent recovery, intervention or terminal conditions
-retain their normal status and obligations.
-
-Journal hold establishment and clearance with the run revision/cursor. The
-trusted host adapter clears this hold only after verifying an authorized visible
-surface has reattached; restoring transport or polling status alone is not that
-proof. `reattach-visible-observer` is a host-adapter requirement to restore the
-previously disclosed monitor surface and durable-cursor observation through
-`wait_for_review` or CLI watch, not a new `intervene_review` action. Clearing
-the hold does not clear other admission checks, grant authority or fences.
-Already admitted work may finish and seal, and control/recovery operations
-remain available while held. A terminal transition closes the observer hold
-without permitting further dispatches.
 
 Known exhaustion excludes a new primary candidate during initial resolution;
 another candidate may start only if it still satisfies the requested class.
@@ -557,28 +534,14 @@ quiescence/checkpoint requirements; otherwise replacement requires explicit
 user authorization. Any replacement starts a new stage-attempt with a fresh
 critique consuming the next round from the existing requested-stage budget.
 No remaining round means intervention until authorized extend-cap or cancel;
-replacement never restores a consumed round or that round's exhausted revision
-allowance. Revision-attempt counters are scoped to
-`(requested_stage_id, round)`, not to a participant or stage-attempt. Every
-newly admitted round, including a replacement's fresh round, receives the full
-sealed `max_revision_attempts_per_round` allowance if revision is needed,
-including its initial revision attempt.
-
-No v1 intervention grants additional revision attempts within an exhausted
-round. `extend-cap` authorizes additional rounds only; it neither resets a
-revision counter nor independently authorizes participant replacement. Continued
-review after revision exhaustion follows the replacement and reconciliation
-rules above, with an authorized cap extension also required when no round
-remains. Cancellation and unresolved-failure handling retain their existing
-recovery rules.
+replacement never replenishes either the consumed round or its retry allowance.
 
 Run states are starting, running, awaiting-participant, reconciling,
 intervention-required, accepted, cancelled and failed. Each requested stage has
 an ID; replacements have new stage-attempt IDs under it. Acceptance requires
 all requested stages accepted under the predicate below. Cancellation is never
-acceptance. Fencing, liveness and dispatch admission are orthogonal response
-fields, not extra run states; a failed run may retain fences and an unreleased
-artifact lease.
+acceptance. Fencing and liveness are orthogonal response fields, not extra run
+states; a failed run may retain fences and an unreleased artifact lease.
 
 ## Findings and Debate
 
@@ -587,18 +550,10 @@ category, severity, reviewed digest, reviewer rationale and evidence, author
 disposition and rationale, reviewer resolution, and split/duplicate/supersede
 lineage.
 
-The participant allocates `finding_id` as an ASCII string governed by registry
-grammar `ai-peer-review.finding-id/v1`. The registry entry owns the validation
-pattern; its sole published pattern in this document is
-`^[A-Za-z][A-Za-z0-9._-]{0,63}$` (ECMAScript regular expression, no flags).
-The total length is 1 through 64 characters inclusive. Require the matched
-span to consume the entire input without trimming. Without flags, ECMAScript
-`$` asserts end-of-input; trailing line terminators are rejected. Multiline
-mode is not permitted. Other documentation and verification gates reference
-the registry grammar identifier rather than transcribing the pattern again.
-Its namespace is the requested-stage ledger,
+The participant allocates finding*id as an ASCII string matching
+^[A-Za-z]A-Za-z0-9.*-]{0,63}$. Its namespace is the requested-stage ledger,
 spanning every round and replacement stage-attempt. Its fully qualified identity
-is `(run_id, requested_stage_id, finding_id)`; independent later stages have
+is (run_id, requested_stage_id, finding_id); independent later stages have
 separate namespaces and explicit cross-stage links, never implicit ID joins.
 New findings must have IDs unused anywhere in that ledger, including resolved
 history, and be unique within the submission. Validate the entire submission
@@ -608,15 +563,8 @@ resubmit the same phase/revision. It consumes neither another round nor the
 submission grant. Exact action replay is recognized first and returns its
 existing receipt instead of being treated as a new finding.
 
-Every critique handoff supplies the complete set of the stage's already-used
-finding IDs, including resolved IDs, which are unavailable for new findings.
-This is an exclusion set, not a runtime-reserved allocation pool. Materialize
-it as a sealed JSON string array in the participant's read-only context
-projection, and supply its exact path, entry count, SHA-256 and ledger revision
-in the handoff. Keep large sets file-backed rather than embedding them in a
-bounded tool response; never truncate the set or omit resolved history.
-The handoff also supplies permitted inherited finding context.
-Replacement reviewers may reference
+Every critique handoff supplies the stage's reserved IDs and permitted inherited
+finding context, including resolved IDs. Replacement reviewers may reference
 inherited IDs for explicit reviewer resolutions but cannot reallocate them,
 overwrite their originating evidence or resurrect them as new findings. New
 defects and split children need fresh IDs. target_ids must resolve to existing
@@ -639,7 +587,7 @@ close findings. Deferral of an actionable finding is not a terminal resolution.
 
 A clean response must enumerate resolutions for all currently open IDs, including
 disputed IDs and findings inherited across replacement attempts. Otherwise return
-`APR_FINDINGS_UNRESOLVED` with the missing IDs and `next_action=submit_review_turn`
+APR_FINDINGS_UNRESOLVED with the missing IDs and next_action submit_review_turn
 for the same phase/revision; do not advance or consume another round merely to
 correct an invalid submission. Resolved historical findings remain in the ledger.
 Earlier accepted stages have closed ledgers; later independent stages create
@@ -776,10 +724,6 @@ a blanket participant write grant.
 
 Submitted response paths must lie inside the current grant's role partition;
 shared collateral and other roles' paths fail APR_SUBMISSION_SCOPE_INVALID.
-This correctable scope rejection consumes neither another round nor the
-submission grant and does not advance the phase or revision. It returns
-`next_action=submit_review_turn` for the same phase/revision, naming the exact
-permitted role partition so the participant can correct its submission.
 The supervisor never edits another role's staged payload and seals accepted
 bytes into package-owned authority outside the collaborative folder. Shared
 collateral is mutable, untrusted context, not evidence of response authorship.
@@ -1646,9 +1590,8 @@ before reservation unless the submitted request explicitly authorizes unattended
 operation, following APR_MONITOR_SURFACE_REQUIRED and its retry contract.
 Transport timeouts detach observers, not cancel reviews; adapters reattach with
 the durable cursor outside inference when possible. Host-forced model re-entry
-is disclosed and measured rather than called zero-token waiting. With
-`host_wait_capability=single-wakeup`, the controller model wakes only for
-intervention or terminal state.
+is disclosed and measured rather than called zero-token waiting. On capable
+hosts the controller model wakes only for intervention or terminal state.
 
 host_wait_capability is single-wakeup, model-reentry-required or unknown.
 single-wakeup requires a tested out-of-band visible progress surface, durable
@@ -1668,30 +1611,11 @@ ceiling W and terminal delivery taking precedence at an equal boundary, the
 count is max(0, ceil(D/W)-1), excluding the terminal wakeup. Do not turn that
 fixture formula into a fabricated prediction of provider runtime.
 
-For `host_wait_capability=unknown`, preview and receipt explicitly disclose
-that wait/reattachment behavior is unverified and that no single-wakeup guarantee
-applies. If no wait ceiling is observable, report `ceiling_kind=unknown` and
-`observed_wait_ceiling_ms=null` with reason `not-observable`. Report an
-unobservable `outside_inference_reattach` as null with that reason, not false.
-`expected_reentry_count` is null with reason `unknown-capability`, even when a
-duration is supplied; this takes precedence over the known-capability
-duration formula above. Do not invent a re-entry cadence. Preserve any
-independently verified component observation, such as a finite ceiling, with
-its evidence without promoting the overall capability.
-
-Unknown wait capability alone does not reject a run or require unattended
-authorization: `unattended=false` is admissible when a visible monitor surface
-is verified and the other admission checks pass. An unavailable or unverified
-visible surface still follows `APR_MONITOR_SURFACE_REQUIRED`. Observe and
-account for actual host-forced re-entries; do not introduce periodic model
-polling as a substitute for unknown wait behavior. Later capability evidence
-is recorded explicitly rather than retroactively claiming a guarantee.
-
 After the initial receipt, successful controller wakeups are bounded by
 actionable interventions + host-forced re-entries + one terminal result.
 Repeated delivery of the same cursor does not create another wakeup. In a
-fault-free SAR, SPR, or XPR with `host_wait_capability=single-wakeup`, exactly
-one post-receipt model wakeup delivers terminal status. Provider monitoring and participant handoffs
+fault-free SAR, SPR, or XPR on a capable host, exactly one post-receipt model
+wakeup delivers terminal status. Provider monitoring and participant handoffs
 never create periodic controller model turns.
 Unexpected periodic re-entry on a host advertised as single-wakeup is a
 capability violation: record the diagnostic and observed degradation, and fail
@@ -1804,7 +1728,7 @@ path/digest within the bound role's submission partition in the review folder.
 Paths in shared collateral or another role's partition are rejected before
 sealing. Critique responses contain verdict, stable
 findings and resolutions (an empty array if there are no prior open findings).
-Each resolution names `finding_id`, state and rationale, plus target_ids for
+Each resolution names finding_id, state and rationale, plus target_ids for
 duplicate/superseded/split lineage as applicable. Revision responses contain
 dispositions and revised_digest.
 The runtime reads/seals response bytes itself, checks the active phase, verifies
@@ -1815,15 +1739,7 @@ digest/revision fails without advancing. Controller credentials cannot submit
 participant turns. Every headless wrapper uses the same transition contract
 under its role binding.
 Every handoff supplies an exact structured next_action naming this operation
-and its schema. Every critique/revision handoff, including resume and replacement,
-also supplies `submission_partition_path` and `shared_collateral_path` as exact
-absolute paths in the originating physical worktree, bound to the current role
-grant and checked against the enforced write scope. SAR receives the solo
-partition. Participants use these supplied paths rather than constructing them
-from run IDs, role names or storage templates. Critique handoffs also carry the
-already-used-ID context reference defined in Findings and Debate. These local
-handoff paths do not add absolute paths to portable evidence. The worker never
-edits package authority directly.
+and its schema. The worker never edits package authority directly.
 
 All responses carry schema, ok, mutation_occurred, retry_safe and bounded
 next_action. Run responses include run_id, status, revision, cursor, evidence
@@ -1843,33 +1759,19 @@ coarse. The response registry additionally requires these orthogonal dimensions:
   codes, outstanding obligations and the exact recovery action. A terminal
   failure can retain active fencing. Observer connection state and stale age
   are reported by each observer even when the broker cannot be reached.
-- `dispatch_admission`: `held` (boolean), `reason_code` and `required_action`.
-  The observer hold uses `held=true`,
-  `reason_code=awaiting-visible-observer` and
-  `required_action=reattach-visible-observer`; otherwise these last two fields
-  are null and `held=false`. This dimension describes the additional visibility
-  hold, not permission to bypass phase, cap, identity, fence or terminal checks.
-  Status, wait events and monitor projections expose the same journaled hold.
-  An unreachable observer reports its last-known value with the existing stale
-  observation marker, never an invented current clearance.
 
 Required observable tuples, under the named fixture conditions, are:
 
-Except where observer loss is specified, these fixtures retain a verified visible
-surface. The observer-only hold fixture has no independent failure or fence.
-
-| Fixture                                                                            | status                | Liveness/participant observation                                                     | Fencing                                                           | dispatch_admission                                                                          |
-| ---------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Observer disconnect during worker activity                                         | running, last known   | Observer monitor_stale=true after its threshold; remote health unknown until recheck | Last known fencing with stale marker, never invented remote proof | Last known value with stale marker                                                          |
-| Last visible surface lost during an active run, unattended=false; broker reachable | running               | Broker and admitted workers remain healthy; admitted work may finish and seal        | inactive                                                          | held=true; reason_code=awaiting-visible-observer; required_action=reattach-visible-observer |
-| Quiet reasoning with proved-live process                                           | running               | process_health=live, role_state=quiet after warning, increasing output age           | inactive                                                          | held=false                                                                                  |
-| Unexpected process death mid-turn                                                  | intervention-required | process_health=dead, role_state=stopped                                              | active: provider-process-dead and pending-effect obligations      | held=false                                                                                  |
-| Broker restart before reconciliation                                               | reconciling           | broker_health=recovering, participants unknown pending observation                   | active: broker-restart                                            | held=false                                                                                  |
-| Second participant launch failure                                                  | intervention-required | Failed role stopped/dead if proved; first role observed separately                   | active: partial-launch, first role and launch operation fenced    | held=false                                                                                  |
+| Fixture                                    | status                | Liveness/participant observation                                                     | Fencing                                                           |
+| ------------------------------------------ | --------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Observer disconnect during worker activity | running, last known   | Observer monitor_stale=true after its threshold; remote health unknown until recheck | Last known fencing with stale marker, never invented remote proof |
+| Quiet reasoning with proved-live process   | running               | process_health=live, role_state=quiet after warning, increasing output age           | inactive                                                          |
+| Unexpected process death mid-turn          | intervention-required | process_health=dead, role_state=stopped                                              | active: provider-process-dead and pending-effect obligations      |
+| Broker restart before reconciliation       | reconciling           | broker_health=recovering, participants unknown pending observation                   | active: broker-restart                                            |
+| Second participant launch failure          | intervention-required | Failed role stopped/dead if proved; first role observed separately                   | active: partial-launch, first role and launch operation fenced    |
 
 Current observations may refine these tuples only through recorded
-reconciliation or the journaled observer-hold transitions defined above; they
-do not redefine the coarse state enum.
+reconciliation; they do not redefine the coarse state enum.
 
 Error issues are bounded
 with a truncation count when necessary. The help registry provides exact
@@ -1932,25 +1834,6 @@ The registry supplies schemas for response
 bodies as well as tool inputs. Offline help
 covers commands, request schema, classes, sequences, fallbacks, permissions,
 monitoring, evidence, broker, errors, and all three normalized user journeys.
-
-Offline registry validation also checks literal and Markdown integrity.
-Registered error codes, schema/field identifiers and grammar literals must
-retain their exact registry spelling, including underscores. Emit technical
-literals as inline code in prose or as literal content inside code blocks;
-never obtain their canonical bytes by rendering and reparsing prose. Compare
-the source code-node contents and rendered code text against the registry.
-For `ai-peer-review.finding-id/v1`, assert that Findings and Debate contains
-exactly one published pattern matching the registry entry and that gate 2
-references that entry without a second pattern transcription.
-
-Parse the verification-gate Markdown and assert that gate 2's grammar and
-revision-allowance assertions remain within numbered item 2, with spaces
-separating inline code from adjacent prose words. Assert that the unresolved-
-findings gate names the same registered error code as the acceptance contract.
-Negative fixtures inject an underscore-to-asterisk substitution, a changed
-grammar character class, a de-indented continuation and a removed inline-code
-separator; each must fail the corresponding integrity assertion. These checks
-supplement schema/example validation and do not redefine protocol behavior.
 
 The registry also defines versioned attempt receipts, measurements, aggregate
 coverage, response-envelope framing, manifest receipt references and telemetry
@@ -2172,34 +2055,17 @@ adoption. Those dependencies block release, rather than making gates optional:
 2. Clean review on the last permitted round accepts; a last-round revision
    stops the sequence. Quota replacement shares the cap and exhausts a finite
    candidate list without overlapping writers.
-   Clean verdicts with unresolved disputed IDs fail with `APR_FINDINGS_UNRESOLVED`.
+   Clean verdicts with unresolved disputed IDs fail with APR_FINDINGS_UNRESOLVED.
    Role-count-changing fallback policy fails before mutation; seal-time exclusions
    consume no try, including each reachable-counterpart eligibility case.
    A replacement reviewer reusing an inherited open or resolved ID for a new
-   finding receives `APR_FINDING_ID_CONFLICT` without ledger/grant advancement;
+   finding receives APR_FINDING_ID_CONFLICT without ledger/grant advancement;
    duplicate IDs within a submission and invalid lineage targets also fail.
-   Registry fixtures resolve grammar `ai-peer-review.finding-id/v1`, assert
-   equality with its sole published pattern in Findings and Debate, compile
-   the registry value as ECMAScript without flags, and enforce whole-input
-   matching. Accept `A`, `XPR-001`, `a.b_c-9` and a 64-character ID consisting
-   of `A` plus 63 digits. Reject the empty string, a leading digit, a
-   65-character ID, non-ASCII characters and an otherwise valid ID followed
-   by a newline. Replacement handoffs expose the complete already-used-ID
-   context array, including resolved history, with matching count/digest/revision
-   and no allocation-pool interpretation.
    Exact replay remains idempotent. Exhausted revision retries enter
    intervention-required with receipts, lease and fences retained, without
    advancing stages or resetting the retry counter. Partial-byte recovery
    requires quiescence and checkpoint resolution before a replacement's fresh
    critique; a replacement uses the remaining stage budget, never a reset cap.
-   With `max_revision_attempts_per_round=3`, exhaust round N, reconcile and
-   authorize replacement, then require a fresh critique in round N+1. If that
-   round needs revision, its allowance is three attempts including the initial
-   attempt; a fourth is denied. Round N remains exhausted through replacement,
-   resume and extend-cap, and extend-cap alone does not authorize replacement.
-   Offline integrity fixtures verify the exact registered literals and rendered
-   list ownership required by Errors and Self-Discovery, including the negative
-   corruption cases; no second regex transcription is used as an expected value.
 3. Mutating old collateral never changes sealed evidence or supplied next-turn
    context; its divergence produces the documented diagnostic. Reconstruct every
    round from final bytes and patches, including CRLF, no trailing newline,
@@ -2231,11 +2097,6 @@ adoption. Those dependencies block release, rather than making gates optional:
    APR_SUBMISSION_SCOPE_INVALID before sealing. Overwriting shared collateral
    cannot alter role-attributed staged or sealed payloads. A capability mismatch
    fails preflight rather than weakening enforcement.
-   Every critique/revision, resume and replacement handoff supplies exact
-   absolute role-partition and shared-collateral paths, including solo paths
-   for SAR. A scope rejection leaves the round, phase, revision and grant
-   unchanged and names `submit_review_turn` plus the permitted partition;
-   a corrected submission succeeds without an additional round or dispatch.
 5. Two simultaneous starts in one worktree acquire one broker; separate linked
    worktrees get distinct endpoints. Wrong tokens, instances, browser indicators
    and rebinding-style Host mismatches fail, as do oversized/slow HTTP requests.
@@ -2252,28 +2113,13 @@ adoption. Those dependencies block release, rather than making gates optional:
    fails that gate. A model-reentry-required fixture with W=60000 and D=150000
    discloses two expected re-entries before launch and observes two plus terminal
    delivery; unknown-duration starts disclose cadence and a null predicted count.
-   An unknown-wait-capability fixture with a verified visible surface and
-   `unattended=false` is admitted. Preview and receipt disclose
-   `host_wait_capability=unknown`, `ceiling_kind=unknown`,
-   `observed_wait_ceiling_ms=null` and `outside_inference_reattach=null` with
-   reason `not-observable`, and `expected_reentry_count=null` with reason
-   `unknown-capability`. No single-wakeup claim or fabricated cadence is
-   rendered. Removing the verified surface invokes the separate monitor
-   admission rejection; unknown wait behavior cannot authorize unattended work.
    Monitor fixtures validate unavailable controller usage, per-entry provenance
    and the absence of fabricated zero/model labels against the registry.
    Missing surfaces with unattended=false reject before reservation with
    mutation_occurred=false and no run/lease. An explicitly authorized corrected
    request uses a fresh ID and unattended=true; its retries create exactly one
    run. No automatic consent occurs. Post-reservation surface loss retains
-   authority and reports `dispatch_admission.held=true` with
-   `reason_code=awaiting-visible-observer` and
-   `required_action=reattach-visible-observer`. In the observer-only active-run
-   fixture, status remains running and fencing inactive while admitted work
-   finishes and seals; no new critique/revision dispatch is admitted. A
-   verified visible reattachment clears the hold and its reason/action without
-   clearing unrelated gates. Transport-only reconnection or status polling
-   cannot clear it. A sealed unattended run does not acquire this observer hold.
+   authority, pauses new dispatches and resumes only under the specified rule.
 7. An installed pure-JavaScript package passes OS-specific credential storage,
    role-write denial, child-containment and durable host-restart termination
    evidence tests. Untested combinations cannot

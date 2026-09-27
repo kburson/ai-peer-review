@@ -1,0 +1,33 @@
+{
+  "started_at": "2026-09-27T14:49:17.167Z",
+  "start_source": "host-user-prompt-timestamp",
+  "captured_at": "2026-09-27T14:52:50.501Z",
+  "initial_digest": "sha256:c262105281e099709d77a9595a4ba180b38eb391e6deac56e84013064f0edbed",
+  "prior": {
+    "path": "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr",
+    "manifest_digest": "sha256:ef79a155bd8247492fc44481d6967f01f847b6b0a8f3551cd50ca720ad5602b5",
+    "final_digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8"
+  },
+  "surrounding": {
+    "tracked_delta": "sha256:6a942eb6ff849f5b9d62edb22624634ee9b7d986bc7fa727a8e09ebe81b6a31d",
+    "staged_delta": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untracked": [
+      {
+        "path": ".agents/config.json",
+        "digest": "sha256:a8cc9750aa1b13106d2d03df9ede2671ce3af20027b78fb2a8e32ba24a0fe7b4"
+      },
+      {
+        "path": ".agents/skills/peer-review/SKILL.md",
+        "digest": "sha256:9393537ca6ced44808b76be36af58e012997ff30c68fd6ef5482ad6807e9ae11"
+      },
+      {
+        "path": ".ai-peer-review.json.bak",
+        "digest": "sha256:9ddc7247c4501c3d5fd8a0e9f9c718c9cb5f4c8c57084e581d328ebbacb91ddd"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-27-107-agent-first-review-runtime.md",
+        "digest": "sha256:fa2561d7ffc05aafc5af49b7d260138acc5ad3df1f249e3ca4aead55b4b5e6eb"
+      }
+    ]
+  }
+}
