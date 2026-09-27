@@ -1,0 +1,33 @@
+{
+  "schema": "ai-peer-review.manual-xpr-evidence/v1",
+  "issue": 106,
+  "review_id": "review-b9a20b7ba40e0363b2cecb59a3293f6e",
+  "transport_mode": "manual",
+  "startup_stage": "manual",
+  "initial_launch_status": "submitted",
+  "same_session_resume_status": "submitted",
+  "same_reviewer_session": true,
+  "provider_version": "2.1.278",
+  "authority_assurance": "unavailable",
+  "manifest": {
+    "path": "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-106-manual-xpr-startup-design-review-b9a20b7ba40e0363b2cecb59a3293f6e/review-b9a20b7ba40e0363b2cecb59a3293f6e-review-manifest.md",
+    "digest": "sha256:0c221136f9f39fb026585cc43c760a3f029d768c32ce351f6dae392f685a96c2"
+  },
+  "artifact": {
+    "path": "docs/superpowers/specs/2026-09-26-106-manual-xpr-startup-design.md",
+    "digest": "sha256:ece3b291ac908fd44d25a82248e50ea8ff94323930aa9aeb087fe70bbc8557ff"
+  },
+  "accepted_response": {
+    "digest": "sha256:7ab3950b0282856ece658951a5338e32b1b3fb12478aa8a7d6a6eed6f9aa5a11",
+    "path": "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-106-manual-xpr-startup-design-review-b9a20b7ba40e0363b2cecb59a3293f6e/review-b9a20b7ba40e0363b2cecb59a3293f6e-reviewer-response-2.md"
+  },
+  "stream_observation": {
+    "source": "official-exact-session",
+    "source_version": "2.1.278",
+    "observed_at": "2026-09-27T00:13:54.312Z",
+    "provider": "anthropic",
+    "host": "claude-code",
+    "model_id": "claude-opus-5",
+    "session_fingerprint": "sha256:90eea9d89a947209c001ee7a09bda0560fdf35194b34d988ab207010d59d72c8"
+  }
+}

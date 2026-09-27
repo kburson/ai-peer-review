@@ -22,6 +22,7 @@ import {
   createClaudeStreamingExec,
   readClaudeSessionSnapshot,
   readClaudeStreamObservation,
+  waitForClaudeStreamObservation,
   readClaudeWakeOutcome,
 } from './claude-stream.mjs';
 
@@ -252,7 +253,7 @@ export function createClaudeProviderSurface(options = {}) {
     observeCurrentSession: ({ root, token, workspace, operationId, handleLocator }) =>
       operationId?.startsWith('start:')
         ? readClaudeStartHook({ root, token, sessionId: handleLocator, operationId })
-        : readClaudeStreamObservation({ workspace, operationId, handleLocator }),
+        : waitForClaudeStreamObservation({ workspace, operationId, handleLocator }),
     observeBoundSession: ({ projectRoot, workspace, handleLocator, expected, now }) => {
       try {
         return readClaudeSessionSnapshot({

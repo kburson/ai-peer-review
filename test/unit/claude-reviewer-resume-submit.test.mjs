@@ -221,7 +221,11 @@ test('launch-reviewer --resume reads the current pending response from protocol 
       now: new Date('2026-09-17T12:03:00.000Z'),
       stdout: { write: (value) => (stdout += value) },
       stderr: { write: (value) => (stderr += value) },
-      execFile: async () => {
+      execFile: async (_file, args) => {
+        const prompt = args[args.indexOf('-p') + 1];
+        assert.ok(prompt.includes(fx.pending));
+        assert.ok(!prompt.includes('Run exactly:'));
+        assert.ok(prompt.includes('Do not change the shell working directory'));
         fillSecondReviewerResponse(fx.pending);
         let submitError = '';
         const submitCode = await run(['submit', fx.workspace, '--decision', 'accepted'], {
