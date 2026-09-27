@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createInterface } from 'node:readline';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
+import { setTimeout as delay } from 'node:timers/promises';
 import { spawnProviderProcess } from './process-lifetime.mjs';
 
 export function createClaudeStreamingExec({ recorder, spawnProcess = spawn } = {}) {
@@ -76,10 +77,12 @@ export async function collectClaudeStream({ child, recorder, lifetime } = {}) {
   }
 }
 
-function invalid(message) {
-  throw new AprError('APR_CLAUDE_SESSION_INVALID', message, {
+function invalid(message, cause) {
+  const error = new AprError('APR_CLAUDE_SESSION_INVALID', message, {
     recovery: 'Preserve the exact Claude operation and re-observe its provider stream.',
   });
+  if (cause) error.cause = cause;
+  throw error;
 }
 
 function observationFile(workspace, operationId) {
@@ -227,7 +230,7 @@ export function readClaudeStreamObservation({ workspace, operationId, handleLoca
     observed = JSON.parse(readFileSync(file, 'utf8'));
   } catch (cause) {
     if (cause instanceof AprError) throw cause;
-    invalid('Claude stream observation cannot be read safely.');
+    invalid('Claude stream observation cannot be read safely.', cause);
   }
   if (
     observed?.source !== 'official-exact-session' ||
@@ -236,6 +239,29 @@ export function readClaudeStreamObservation({ workspace, operationId, handleLoca
   )
     invalid('Claude stream observation differs from the exact session locator.');
   return Object.freeze(observed);
+}
+
+// The provider can execute Bash before its parent has drained stdout. Only a
+// missing active-join observation is transient; unsafe or contradictory evidence
+// remains an immediate refusal. Use monotonic time and a fixed upper bound.
+export async function waitForClaudeStreamObservation(input, { timeoutMs = 2000 } = {}) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 0 || timeoutMs > 2000)
+    invalid('Claude observation wait must be bounded to two seconds.');
+  const deadline = performance.now() + timeoutMs;
+  for (;;) {
+    try {
+      return readClaudeStreamObservation(input);
+    } catch (error) {
+      const remaining = deadline - performance.now();
+      if (
+        !input.operationId?.startsWith('join:') ||
+        error.cause?.code !== 'ENOENT' ||
+        remaining <= 0
+      )
+        throw error;
+      await delay(Math.min(25, remaining));
+    }
+  }
 }
 
 export function readClaudeSessionSnapshot({

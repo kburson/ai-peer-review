@@ -1,8 +1,9 @@
+// cspell:words CLAUDECODE
 // @story #106
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { run, startReview, statusReview } from '../../src/cli/run.mjs';
@@ -105,6 +106,15 @@ test('manual declared join ignores an inherited official resume command', async 
 for (const malformed of [false, true]) {
   test(`CLI captures stream evidence before join (malformed=${malformed})`, async (t) => {
     const fx = isolateClaudeCliFixture(t, { configured: false });
+    Object.assign(fx.parentEnvironment, {
+      CLAUDE_CODE_MESSAGING_SOCKET: 'parent-socket',
+      CLAUDE_CODE_MESSAGING_TOKEN: 'parent-token',
+      CLAUDE_PID: 'parent-process',
+      CLAUDE_CODE_CHILD_SESSION: 'parent-child',
+      CLAUDE_CODE_SESSION_ATTENDED: '1',
+      CLAUDECODE: '1',
+      CLAUDE_EFFORT: 'high',
+    });
     const review = await start(fx),
       workspace = review.paths.workspace;
     const originalPath = process.env.PATH;
@@ -131,6 +141,16 @@ for (const malformed of [false, true]) {
         try {
           assert.equal(args[args.indexOf('--output-format') + 1], 'stream-json');
           assert.equal(options.env.CODEX_SESSION_ID, undefined);
+          for (const key of [
+            'CLAUDE_CODE_MESSAGING_SOCKET',
+            'CLAUDE_CODE_MESSAGING_TOKEN',
+            'CLAUDE_PID',
+            'CLAUDE_CODE_CHILD_SESSION',
+            'CLAUDE_CODE_SESSION_ATTENDED',
+            'CLAUDECODE',
+            'CLAUDE_EFFORT',
+          ])
+            assert.equal(options.env[key], undefined, key);
           const prompt = args[args.indexOf('-p') + 1];
           const command = prompt.match(/Run exactly: (.*?)\. Complete/s)?.[1];
           assert.ok(command);
@@ -209,5 +229,45 @@ for (const malformed of [false, true]) {
       assert.equal(JSON.parse(result.stdout).status, 'submitted');
       assert.equal(statusReview(workspace).state, 'acceptance-pending');
     }
+  });
+}
+
+for (const configured of [false, true]) {
+  test(`CLI effective manual startup ignores inherited resume (configured=${configured})`, async (t) => {
+    const fx = isolateClaudeCliFixture(t, { configured: false });
+    const config = {
+      schema: 'ai-peer-review.config/v1',
+      ...(configured ? { review: { transport_mode: 'manual' } } : {}),
+      hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
+    };
+    writeFileSync(path.join(fx.root, '.ai-peer-review.json'), JSON.stringify(config));
+    const env = { ...fx.parentEnvironment };
+    for (const key of Object.keys(env)) if (key.startsWith('CLAUDE_')) delete env[key];
+    const args = [
+      'start',
+      'docs/artifact.md',
+      '--artifact-kind',
+      'spec',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'claude-opus-5',
+    ];
+    const started = await cli(args, fx, { ...fixtureStartupDeps, env });
+    assert.equal(started.code, 0, started.stderr);
+    const base = path.join(fx.root, '.scratch/peer-review');
+    const workspace = path.join(
+      base,
+      readdirSync(base).find((entry) => entry.startsWith('review-'))
+    );
+    assert.equal(
+      readStartupJournal(workspace).request.startup.author_transport_capability,
+      'manual'
+    );
+    assert.equal(existsSync(path.join(workspace, 'handoffs/author-resume.json')), false);
+    delete config.hosts.codex.resume;
+    writeFileSync(path.join(fx.root, '.ai-peer-review.json'), JSON.stringify(config));
+    const retried = await cli(args, fx, { ...fixtureStartupDeps, env });
+    assert.equal(retried.code, 0, retried.stderr);
   });
 }

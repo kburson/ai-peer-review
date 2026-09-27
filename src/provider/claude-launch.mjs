@@ -273,6 +273,7 @@ function launchPrompt(invitation, joinCommand, submitCommand) {
     `Open the sealed reviewer invitation at ${invitation}.`,
     `Run exactly: ${joinCommand}. Complete the independent review and edit only its pending response.`,
     `Then run exactly: ${submitCommand}. Do not edit the artifact or use Git.`,
+    'Do not change the shell working directory; use absolute paths with Read, Glob, and Grep.',
   ].join(' ');
 }
 
@@ -864,8 +865,24 @@ export async function runClaudeReviewerLaunch({
       recovery: 'Restore the exact registered Claude reviewer session.',
     });
   }
+  const commandArgs = [...contract.command.args];
+  if (resume && prior.reviewer) {
+    // The sealed invitation routes to turn one. A registered participant must
+    // continue the event-authorized response instead of joining that turn again.
+    const promptIndex = commandArgs.indexOf('-p');
+    if (promptIndex < 0) throw resultError('Claude resume prompt is missing.');
+    commandArgs[promptIndex + 1] = [
+      executionPrompt(
+        { ...contract, join_required: false },
+        null,
+        renderClaudeBashCommand(packageCommand('submit', contract.workspace))
+      ),
+      `The current authorized response is ${contract.response}. The original invitation response is historical; do not rejoin.`,
+      'Do not change the shell working directory; use absolute paths with Read, Glob, and Grep.',
+    ].join(' ');
+  }
   const args = resume
-    ? Object.freeze(['--resume', priorState.session_handle, ...contract.command.args])
+    ? Object.freeze(['--resume', priorState.session_handle, ...commandArgs])
     : contract.command.args;
   const hasEnvironment = Object.hasOwn(contract, 'environment');
   if (
