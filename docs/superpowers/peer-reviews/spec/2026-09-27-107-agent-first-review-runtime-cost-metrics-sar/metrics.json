@@ -1,0 +1,467 @@
+{
+  "schema": "ai-peer-review.manual-sar-metrics/v1",
+  "run_id": "107-runtime-api-spec-cost-metrics-sar-91249388",
+  "status": "accepted",
+  "assurance": "worker-authored evidence; no independent supervisor or provider usage API",
+  "requested_worker": {
+    "model": "gpt-6-astra",
+    "effort": "high"
+  },
+  "observed_worker": {
+    "model": null,
+    "effort": null,
+    "provenance": "unavailable"
+  },
+  "provider_attempt_inventory_complete": false,
+  "provider_attempt_count": null,
+  "reason": "Provider invocation boundaries and exact usage are not exposed inside this worker.",
+  "worker_executions": [
+    {
+      "id": "worker-execution-01",
+      "roles": ["reviewer", "author"],
+      "rounds": [1, 2],
+      "provider_attempt_ids": null,
+      "invocation_started_at": null,
+      "invocation_ended_at": null,
+      "measurements": {
+        "input_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "output_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "reasoning_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "cache_read_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "cache_creation_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "api_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "queue_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "provider_wall_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "tool_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "web_search_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "web_fetch_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "reported_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "actual_incremental_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "list_price_equivalent_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "auxiliary_model_usage": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        }
+      }
+    }
+  ],
+  "rounds": [
+    {
+      "id": "round-01",
+      "rounds": [1],
+      "referenced_worker_executions": ["worker-execution-01"],
+      "accounting": "reference only; unknown session usage is never allocated or summed",
+      "complete": false,
+      "known_subtotal": null,
+      "total": null,
+      "measurements": {
+        "input_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "output_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "reasoning_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "cache_read_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "cache_creation_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "api_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "queue_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "provider_wall_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "tool_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "web_search_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "web_fetch_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "reported_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "actual_incremental_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "list_price_equivalent_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "auxiliary_model_usage": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        }
+      }
+    },
+    {
+      "id": "round-02",
+      "rounds": [2],
+      "referenced_worker_executions": ["worker-execution-01"],
+      "accounting": "reference only; unknown session usage is never allocated or summed",
+      "complete": false,
+      "known_subtotal": null,
+      "total": null,
+      "measurements": {
+        "input_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "output_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "reasoning_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "cache_read_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "cache_creation_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "api_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "queue_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "provider_wall_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "tool_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "web_search_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "web_fetch_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "reported_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "actual_incremental_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "list_price_equivalent_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "auxiliary_model_usage": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        }
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "stage-01",
+      "rounds": [1, 2],
+      "referenced_worker_executions": ["worker-execution-01"],
+      "accounting": "reference only; unknown session usage is never allocated or summed",
+      "complete": false,
+      "known_subtotal": null,
+      "total": null,
+      "measurements": {
+        "input_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "output_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "reasoning_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "cache_read_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "cache_creation_tokens": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "api_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "queue_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "provider_wall_duration_ms": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "tool_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "web_search_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "web_fetch_calls": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "reported_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "actual_incremental_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "list_price_equivalent_cost": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        },
+        "auxiliary_model_usage": {
+          "value": null,
+          "provenance": "unavailable",
+          "reason": "not exposed to worker"
+        }
+      }
+    }
+  ],
+  "run": {
+    "id": "107-runtime-api-spec-cost-metrics-sar-91249388",
+    "rounds": [1, 2],
+    "referenced_worker_executions": ["worker-execution-01"],
+    "accounting": "reference only; unknown session usage is never allocated or summed",
+    "complete": false,
+    "known_subtotal": null,
+    "total": null,
+    "measurements": {
+      "input_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "output_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "api_duration_ms": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "queue_duration_ms": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "provider_wall_duration_ms": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "tool_calls": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "web_search_calls": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "web_fetch_calls": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "reported_cost": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "actual_incremental_cost": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "list_price_equivalent_cost": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      },
+      "auxiliary_model_usage": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "not exposed to worker"
+      }
+    }
+  },
+  "evidence_interval": {
+    "from": "2026-09-27T08:04:01.811Z",
+    "through": "2026-09-27T08:10:52.102Z",
+    "duration_ms": 410291,
+    "provenance": "derived",
+    "basis": "difference between snapshot and ledger-write timestamps; excludes earlier work and later verification; not inference or full review duration"
+  },
+  "prior_xpr": {
+    "metrics_path": "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-xpr/metrics.json",
+    "digest": "sha256:17a5e598f69dd8bb43479899ce154c3bb387987d836f40e0fed632c6b5c8862d",
+    "included_in_this_run_totals": false,
+    "note": "Existing reported counters preserved by reference, not reclassified as verified billing or copied from raw output."
+  },
+  "raw_provider_logs_copied": false
+}
