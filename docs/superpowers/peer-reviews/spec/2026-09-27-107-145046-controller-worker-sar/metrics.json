@@ -1,0 +1,720 @@
+{
+  "schema": "manual-controller-worker-sar-metrics/v1",
+  "collection": "worker-recorded tool observations; no supervisor billing attestation",
+  "evidence_cutoff": "2026-09-27T14:59:34.133Z",
+  "identity": {
+    "requested_provider": "codex",
+    "requested_model": "gpt-6-astra",
+    "requested_effort": "high",
+    "requested_source": "controller-user-request",
+    "observed_provider": {
+      "value": "openai-codex",
+      "provenance": "reported",
+      "source": "agent-instruction-context",
+      "assurance": "not-provider-runtime-attestation"
+    },
+    "instruction_model_family": {
+      "value": "GPT-6",
+      "source": "agent-instruction-context",
+      "assurance": "not-exact-runtime-variant"
+    },
+    "observed_model": {
+      "value": null,
+      "unit": "model-id",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "observed_effort": {
+      "value": null,
+      "unit": "effort",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "process_termination": {
+      "value": null,
+      "unit": "status",
+      "provenance": "unavailable",
+      "reason": "not-observable-before-worker-return",
+      "source": "worker-facing-tool-interface"
+    }
+  },
+  "attempts": [
+    {
+      "id": "manual-worker-session-1",
+      "accounting_owner": "run",
+      "rounds": [
+        1,
+        2,
+        3
+      ],
+      "continuous_session": true,
+      "provider_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "api_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "input_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "output_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reported_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "estimated_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "no-token-counters-or-price-provenance",
+        "source": "worker-facing-tool-interface"
+      },
+      "actual_incremental_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "billing-not-exposed",
+        "source": "worker-facing-tool-interface"
+      }
+    }
+  ],
+  "rounds": [
+    {
+      "round": 1,
+      "participant_id": "sar-worker-1",
+      "source_attempt_id": "manual-worker-session-1",
+      "verdict": "changes-required",
+      "wall_duration": {
+        "value": 281313,
+        "unit": "ms",
+        "provenance": "derived",
+        "source": "host-prompt-time-and-local-tool-UTC-clock",
+        "formula": "end minus start",
+        "start": "2026-09-27T14:49:17.167Z",
+        "end": "2026-09-27T14:53:58.480Z",
+        "scope": "worker review/evidence interval; includes tools and waits; excludes final return",
+        "clock_assurance": "wall-clock difference; monotonic clock continuity not independently attested"
+      },
+      "provider_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "api_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "input_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "output_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reported_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "estimated_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "no-token-counters-or-price-provenance",
+        "source": "worker-facing-tool-interface"
+      },
+      "actual_incremental_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "billing-not-exposed",
+        "source": "worker-facing-tool-interface"
+      },
+      "identity": {
+        "requested_provider": "codex",
+        "requested_model": "gpt-6-astra",
+        "requested_effort": "high",
+        "requested_source": "controller-user-request",
+        "observed_provider": {
+          "value": "openai-codex",
+          "provenance": "reported",
+          "source": "agent-instruction-context",
+          "assurance": "not-provider-runtime-attestation"
+        },
+        "instruction_model_family": {
+          "value": "GPT-6",
+          "source": "agent-instruction-context",
+          "assurance": "not-exact-runtime-variant"
+        },
+        "observed_model": {
+          "value": null,
+          "unit": "model-id",
+          "provenance": "unavailable",
+          "reason": "not-exposed-to-worker",
+          "source": "worker-facing-tool-interface"
+        },
+        "observed_effort": {
+          "value": null,
+          "unit": "effort",
+          "provenance": "unavailable",
+          "reason": "not-exposed-to-worker",
+          "source": "worker-facing-tool-interface"
+        },
+        "process_termination": {
+          "value": null,
+          "unit": "status",
+          "provenance": "unavailable",
+          "reason": "not-observable-before-worker-return",
+          "source": "worker-facing-tool-interface"
+        }
+      }
+    },
+    {
+      "round": 2,
+      "participant_id": "sar-worker-1",
+      "source_attempt_id": "manual-worker-session-1",
+      "verdict": "changes-required",
+      "wall_duration": {
+        "value": 107878,
+        "unit": "ms",
+        "provenance": "derived",
+        "source": "host-prompt-time-and-local-tool-UTC-clock",
+        "formula": "end minus start",
+        "start": "2026-09-27T14:53:58.480Z",
+        "end": "2026-09-27T14:55:46.358Z",
+        "scope": "worker review/evidence interval; includes tools and waits; excludes final return",
+        "clock_assurance": "wall-clock difference; monotonic clock continuity not independently attested"
+      },
+      "provider_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "api_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "input_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "output_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reported_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "estimated_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "no-token-counters-or-price-provenance",
+        "source": "worker-facing-tool-interface"
+      },
+      "actual_incremental_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "billing-not-exposed",
+        "source": "worker-facing-tool-interface"
+      },
+      "identity": {
+        "requested_provider": "codex",
+        "requested_model": "gpt-6-astra",
+        "requested_effort": "high",
+        "requested_source": "controller-user-request",
+        "observed_provider": {
+          "value": "openai-codex",
+          "provenance": "reported",
+          "source": "agent-instruction-context",
+          "assurance": "not-provider-runtime-attestation"
+        },
+        "instruction_model_family": {
+          "value": "GPT-6",
+          "source": "agent-instruction-context",
+          "assurance": "not-exact-runtime-variant"
+        },
+        "observed_model": {
+          "value": null,
+          "unit": "model-id",
+          "provenance": "unavailable",
+          "reason": "not-exposed-to-worker",
+          "source": "worker-facing-tool-interface"
+        },
+        "observed_effort": {
+          "value": null,
+          "unit": "effort",
+          "provenance": "unavailable",
+          "reason": "not-exposed-to-worker",
+          "source": "worker-facing-tool-interface"
+        },
+        "process_termination": {
+          "value": null,
+          "unit": "status",
+          "provenance": "unavailable",
+          "reason": "not-observable-before-worker-return",
+          "source": "worker-facing-tool-interface"
+        }
+      }
+    },
+    {
+      "round": 3,
+      "participant_id": "sar-worker-1",
+      "source_attempt_id": "manual-worker-session-1",
+      "verdict": "clean",
+      "wall_duration": {
+        "value": 207142,
+        "unit": "ms",
+        "provenance": "derived",
+        "source": "host-prompt-time-and-local-tool-UTC-clock",
+        "formula": "end minus start",
+        "start": "2026-09-27T14:55:46.358Z",
+        "end": "2026-09-27T14:59:13.500Z",
+        "scope": "worker review/evidence interval; includes tools and waits; excludes final return",
+        "clock_assurance": "wall-clock difference; monotonic clock continuity not independently attested"
+      },
+      "provider_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "api_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "input_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "output_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reported_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "estimated_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "no-token-counters-or-price-provenance",
+        "source": "worker-facing-tool-interface"
+      },
+      "actual_incremental_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "billing-not-exposed",
+        "source": "worker-facing-tool-interface"
+      },
+      "identity": {
+        "requested_provider": "codex",
+        "requested_model": "gpt-6-astra",
+        "requested_effort": "high",
+        "requested_source": "controller-user-request",
+        "observed_provider": {
+          "value": "openai-codex",
+          "provenance": "reported",
+          "source": "agent-instruction-context",
+          "assurance": "not-provider-runtime-attestation"
+        },
+        "instruction_model_family": {
+          "value": "GPT-6",
+          "source": "agent-instruction-context",
+          "assurance": "not-exact-runtime-variant"
+        },
+        "observed_model": {
+          "value": null,
+          "unit": "model-id",
+          "provenance": "unavailable",
+          "reason": "not-exposed-to-worker",
+          "source": "worker-facing-tool-interface"
+        },
+        "observed_effort": {
+          "value": null,
+          "unit": "effort",
+          "provenance": "unavailable",
+          "reason": "not-exposed-to-worker",
+          "source": "worker-facing-tool-interface"
+        },
+        "process_termination": {
+          "value": null,
+          "unit": "status",
+          "provenance": "unavailable",
+          "reason": "not-observable-before-worker-return",
+          "source": "worker-facing-tool-interface"
+        }
+      }
+    }
+  ],
+  "agent": {
+    "id": "sar-worker-1",
+    "roles": [
+      "critique",
+      "revision"
+    ],
+    "wall_duration": {
+      "value": 616966,
+      "unit": "ms",
+      "provenance": "derived",
+      "source": "host-prompt-time-and-local-tool-UTC-clock",
+      "formula": "end minus start",
+      "start": "2026-09-27T14:49:17.167Z",
+      "end": "2026-09-27T14:59:34.133Z",
+      "scope": "worker review/evidence interval; includes tools and waits; excludes final return",
+      "clock_assurance": "wall-clock difference; monotonic clock continuity not independently attested"
+    },
+    "provider_duration": {
+      "value": null,
+      "unit": "ms",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "api_duration": {
+      "value": null,
+      "unit": "ms",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "input_tokens": {
+      "value": null,
+      "unit": "tokens",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "output_tokens": {
+      "value": null,
+      "unit": "tokens",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "reasoning_tokens": {
+      "value": null,
+      "unit": "tokens",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "cache_read_tokens": {
+      "value": null,
+      "unit": "tokens",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "cache_creation_tokens": {
+      "value": null,
+      "unit": "tokens",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "reported_cost": {
+      "value": null,
+      "unit": "USD",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "estimated_cost": {
+      "value": null,
+      "unit": "USD",
+      "provenance": "unavailable",
+      "reason": "no-token-counters-or-price-provenance",
+      "source": "worker-facing-tool-interface"
+    },
+    "actual_incremental_cost": {
+      "value": null,
+      "unit": "USD",
+      "provenance": "unavailable",
+      "reason": "billing-not-exposed",
+      "source": "worker-facing-tool-interface"
+    }
+  },
+  "run": {
+    "wall_duration": {
+      "value": 616966,
+      "unit": "ms",
+      "provenance": "derived",
+      "source": "host-prompt-time-and-local-tool-UTC-clock",
+      "formula": "end minus start",
+      "start": "2026-09-27T14:49:17.167Z",
+      "end": "2026-09-27T14:59:34.133Z",
+      "scope": "worker review/evidence interval; includes tools and waits; excludes final return",
+      "clock_assurance": "wall-clock difference; monotonic clock continuity not independently attested"
+    },
+    "evidence_finalization_wall_duration": {
+      "value": 20633,
+      "unit": "ms",
+      "provenance": "derived",
+      "source": "host-prompt-time-and-local-tool-UTC-clock",
+      "formula": "end minus start",
+      "start": "2026-09-27T14:59:13.500Z",
+      "end": "2026-09-27T14:59:34.133Z",
+      "scope": "worker review/evidence interval; includes tools and waits; excludes final return",
+      "clock_assurance": "wall-clock difference; monotonic clock continuity not independently attested"
+    },
+    "worker_usage": {
+      "provider_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "api_duration": {
+        "value": null,
+        "unit": "ms",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "input_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "output_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "unit": "tokens",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "reported_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "not-exposed-to-worker",
+        "source": "worker-facing-tool-interface"
+      },
+      "estimated_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "no-token-counters-or-price-provenance",
+        "source": "worker-facing-tool-interface"
+      },
+      "actual_incremental_cost": {
+        "value": null,
+        "unit": "USD",
+        "provenance": "unavailable",
+        "reason": "billing-not-exposed",
+        "source": "worker-facing-tool-interface"
+      }
+    },
+    "controller_usage": {
+      "value": null,
+      "provenance": "unavailable",
+      "reason": "outside-worker-observation-boundary",
+      "source": "controller-not-observed"
+    },
+    "complete_token_total": {
+      "value": null,
+      "unit": "tokens",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "complete_cost_total": {
+      "value": null,
+      "unit": "USD",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "coverage": "incomplete"
+  },
+  "review_chain": {
+    "included_current_run": "2026-09-27-107-145046-controller-worker-sar",
+    "predecessor": {
+      "path": "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr",
+      "manifest_digest": "sha256:ef79a155bd8247492fc44481d6967f01f847b6b0a8f3551cd50ca720ad5602b5",
+      "final_digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8"
+    },
+    "totals": null,
+    "reason": "historical-and-controller-usage-not-reconciled-by-this-worker",
+    "source": "manual-sar-scope",
+    "coverage": "incomplete"
+  },
+  "aggregation": "One continuous worker attempt; per-round unknown usage is coverage detail, not additive observations. Wall intervals are measured separately from provider usage."
+}

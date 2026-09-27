@@ -1,0 +1,207 @@
+{
+  "schema": "ai-peer-review.manual-xpr-evidence/v1",
+  "run_id": "107-runtime-api-spec-xpr-20260927-150048",
+  "issue": 107,
+  "kind": "xpr",
+  "status": "accepted",
+  "execution": "controller plus headless Astra author and Claude Opus 5 reviewer; manually orchestrated evidence, not package-protocol acceptance",
+  "filepath": "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+  "prior_review": "../2026-09-27-107-145046-controller-worker-sar/manifest.json",
+  "max_rounds": 12,
+  "rounds_used": 4,
+  "initial_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c",
+  "final_digest": "sha256:395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
+  "participants": {
+    "controller": {
+      "participant": false,
+      "telemetry": "unavailable; see metrics.json"
+    },
+    "author": {
+      "provider": "openai",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "telemetry": "unavailable; see metrics.json"
+    },
+    "reviewer": {
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "effort": "high",
+      "session_id": "dfee6861-8487-4897-9331-d7711f1420ec",
+      "telemetry": "controller-observed; see metrics.json"
+    }
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "before_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c",
+      "after_digest": "sha256:82fa213f49a0897af4cbac037f719ae8f084ac572edccf7b9d34b7c9508c7825",
+      "verdict": "changes-required",
+      "findings_open": 15
+    },
+    {
+      "round": 2,
+      "before_digest": "sha256:82fa213f49a0897af4cbac037f719ae8f084ac572edccf7b9d34b7c9508c7825",
+      "after_digest": "sha256:c1fcfdbb6b1e7d0bc231a5f99ffce52f1eeeaaf988435252faf9d4912a88445c",
+      "verdict": "changes-required",
+      "findings_open": 5
+    },
+    {
+      "round": 3,
+      "before_digest": "sha256:c1fcfdbb6b1e7d0bc231a5f99ffce52f1eeeaaf988435252faf9d4912a88445c",
+      "after_digest": "sha256:395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
+      "verdict": "changes-required",
+      "findings_open": 2
+    },
+    {
+      "round": 4,
+      "before_digest": "sha256:395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
+      "after_digest": "sha256:395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
+      "verdict": "accepted",
+      "findings_open": 0
+    }
+  ],
+  "findings": {
+    "allocated": 20,
+    "resolved": 20,
+    "open": 0
+  },
+  "telemetry_summary": {
+    "reviewer_known_cost_usd": 10.6466895,
+    "reviewer_input_tokens": 82,
+    "reviewer_output_tokens": 124361,
+    "reviewer_reasoning_tokens": 58948,
+    "reviewer_cache_read_tokens": 7980269,
+    "reviewer_cache_creation_tokens": 354712,
+    "reviewer_provider_api_duration_ms": 2075443,
+    "complete_run_cost": null,
+    "complete_run_cost_unavailable_reason": "author-and-controller-usage-not-exposed"
+  },
+  "author_attempt_notes": [
+    "Initial Astra author could not initialize the folder because AITM anchored its write scope outside the target worktree.",
+    "The first round-1 Astra author attempt was fenced as unresponsive after controller intervention.",
+    "A replacement Astra author returned byte-verified responses and patches through controller transport; the controller applied them mechanically."
+  ],
+  "verification": {
+    "prettier": "passed for spec and all Markdown collateral",
+    "markdownlint": "passed for 10 authored Markdown files; raw reviewer responses preserved",
+    "embedded_json_examples": "4 parsed",
+    "git_diff_check": "passed",
+    "round_patch_reconstruction": "rounds 1-3 byte-exact",
+    "lineage_patch_reconstruction": "byte-exact",
+    "final_fur_matches_worktree": true,
+    "plan_sha256_unchanged": "fa2561d7ffc05aafc5af49b7d260138acc5ad3df1f249e3ca4aead55b4b5e6eb"
+  },
+  "completed_at": "2026-09-27T11:27:57-05:00",
+  "inventory": [
+    {
+      "path": "events.jsonl",
+      "bytes": 2236,
+      "sha256": "dd0e69310c1ed5b825457702a97b5601137ddb52a2a312d3c193ef4eb39b238c"
+    },
+    {
+      "path": "final-fur.md",
+      "bytes": 157636,
+      "sha256": "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e"
+    },
+    {
+      "path": "initial-fur.md",
+      "bytes": 121935,
+      "sha256": "78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c"
+    },
+    {
+      "path": "lineage.patch",
+      "bytes": 72319,
+      "sha256": "661ca186f6a7658f1a88ac51adc18fbdc32ec338d2e1e3a4505e5cc1094d4519"
+    },
+    {
+      "path": "metrics.json",
+      "bytes": 20480,
+      "sha256": "68e3752f3edcc121febaa465a0c00b68b2500711fce85a65a2533ecc2c2cd381"
+    },
+    {
+      "path": "reviewer-brief.md",
+      "bytes": 1547,
+      "sha256": "ad6b364e55b28fc242b3bf0b1509e655fd3c33ff5610e120d55e6ddbf323990b"
+    },
+    {
+      "path": "rounds/01-after.md",
+      "bytes": 145713,
+      "sha256": "82fa213f49a0897af4cbac037f719ae8f084ac572edccf7b9d34b7c9508c7825"
+    },
+    {
+      "path": "rounds/01-author-proposed.patch",
+      "bytes": 37830,
+      "sha256": "3bfa72c2939b4fde746bf9797f9b9c115e4ca933e025c40c6148802f5fae2f20"
+    },
+    {
+      "path": "rounds/01-author-response.md",
+      "bytes": 12124,
+      "sha256": "389b189f8241d83f3db5f3b7ce341eafdd3c871c18092a997472c82e30d52a0b"
+    },
+    {
+      "path": "rounds/01-reviewer-response.md",
+      "bytes": 47484,
+      "sha256": "85007f1c4cabb64504ac0aab29cac099db002409178d00eac8b2a94c9016f0bc"
+    },
+    {
+      "path": "rounds/01.patch",
+      "bytes": 52904,
+      "sha256": "79251a102cab3210744e5b250148d420ba923ae5d9e84f49c898a492f32d9f1c"
+    },
+    {
+      "path": "rounds/02-after.md",
+      "bytes": 155746,
+      "sha256": "c1fcfdbb6b1e7d0bc231a5f99ffce52f1eeeaaf988435252faf9d4912a88445c"
+    },
+    {
+      "path": "rounds/02-author-proposed.patch",
+      "bytes": 32482,
+      "sha256": "8b8d55e2e81c3fe5d3f072b89472421c15606c695b783a6c7ff00f76d934dbd5"
+    },
+    {
+      "path": "rounds/02-author-response.md",
+      "bytes": 5475,
+      "sha256": "de6f059d6e1720840fe4b0599dc0b190e1cef015a5e1c5a7d681c269108b17d3"
+    },
+    {
+      "path": "rounds/02-reviewer-response.md",
+      "bytes": 43165,
+      "sha256": "09c1ac6c0975bfad8e94eeb0f10cd45cf1f0f209237e6d61c60b311843a9bc18"
+    },
+    {
+      "path": "rounds/02.patch",
+      "bytes": 27959,
+      "sha256": "49b336cf7fee26aa34ef91dc8e147d7eda31d9a7dc1a6628ae1afa95905f4e6e"
+    },
+    {
+      "path": "rounds/03-after.md",
+      "bytes": 157636,
+      "sha256": "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e"
+    },
+    {
+      "path": "rounds/03-author-proposed.patch",
+      "bytes": 8123,
+      "sha256": "efbd0971e88fb0cba71bf43a7b4dfdc632c6a99619043b521a2b709844754dc7"
+    },
+    {
+      "path": "rounds/03-author-response.md",
+      "bytes": 3423,
+      "sha256": "595bb6bf2ff7e70e3db528126862a9a1eb9b4998011a393c2ef3019cd7bf88c9"
+    },
+    {
+      "path": "rounds/03-reviewer-response.md",
+      "bytes": 30662,
+      "sha256": "f997d9735de10f268e9a99f2cd4cf18db1660c193dbd03ad7da4d051a48b6350"
+    },
+    {
+      "path": "rounds/03.patch",
+      "bytes": 7394,
+      "sha256": "93a6b6ef415620bac49eace976d665f73ce473872128dac98ad57a70dbc3dead"
+    },
+    {
+      "path": "rounds/04-reviewer-response.md",
+      "bytes": 24753,
+      "sha256": "5c82d0e1c77af7294b9d31ba7ef0a33c2bca6bb6c740947b44e883595bcd5bac"
+    }
+  ]
+}

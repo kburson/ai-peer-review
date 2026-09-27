@@ -1,0 +1,108 @@
+Before-SHA256: e36a1506a1f63c7ee29394005650e53a9a8a6d1e347e1b39a82d6ad9f4977ac7
+After-SHA256: 91249388adc0ac4cb8a253b764f06fd80c145e8437dbc626fce24af94412e63a
+--- a/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
++++ b/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
+@@ -445,6 +445,22 @@
+ environment dumps, and verbose logs remain ignored. Raw logs are deleted after
+ clean finalization. Relevant diagnostics are retained temporarily after crash,
+ ambiguity, or intervention. A debug option may preserve them deliberately.
++
++Every provider invocation produces a supervisor-owned execution-metrics
++receipt, whether it succeeds, fails, times out, is interrupted or produces no
++participant response. When a response exists, its evidence file contains the
++participant-authored content as sealed bytes plus a clearly separated
++supervisor-observed metrics section. The section is outside the participant
++content digest so adding trusted runtime measurements cannot impersonate or
++rewrite the participant. When no response exists, the round contains an
++attempt-evidence file instead; it is never mislabeled as a reviewer or author
++response.
++
++The manifest inventories every attempt receipt and its relationship to stage,
++round, role, participant/session, fallback and retry. An abandoned run therefore
++retains its consumed time, tokens and cost even when it completes zero rounds.
++Raw provider output is not required once bounded normalized metrics and
++diagnostics have been sealed.
+ 
+ ## Review Series and Follow-Ups
+ 
+@@ -478,6 +494,36 @@
+ fallback, quota, retry, disconnect, intervention, optional human quality, and
+ linked downstream outcomes.
+ 
++Usage is captured first at provider-attempt granularity and then aggregated
++without discarding the originals. When exposed, each attempt records:
++
++- requested and observed provider, canonical model, effort, service tier and
++  auxiliary models;
++- start/end timestamps, controller-observed wall duration, provider-reported
++  total/API duration and queue duration;
++- input, output, reasoning/thinking, cache-read and cache-creation tokens using
++  the provider's native categories;
++- tool, web-search and web-fetch counts, including per-model counters;
++- marginal cost, currency, cost basis and price provenance;
++- stop reason, terminal reason, response-created status, retry/fallback parent,
++  and completion/failure classification; and
++- a provenance of reported, derived, estimated or unavailable for every field
++  or coherent field group.
++
++Preserve the provider's raw normalized counters when aggregate and per-model
++reports disagree; record the inconsistency instead of silently reconciling it.
++Never infer ordinary input from cache counters, hidden reasoning from output,
++wall time from API time, or subscription value from list-price cost. Unknown
++values remain null/unavailable, not zero.
++
++Round metrics aggregate all attempts needed to obtain that reviewer or author
++turn, including failed attempts that produced no response. Stage and run totals
++then aggregate round metrics plus pre-round startup/fallback attempts. Avoid
++double counting cumulative provider reports by recording counter semantics and
++the exact attempts included in each aggregate. Reports can therefore compare
++successful-review cost, failed-attempt overhead, retry burden, stage marginal
++yield and total sequence cost.
++
+ Analysis distinguishes stage yield, marginal yield, residual defects, and
+ quality improvement per token, dollar, and minute. Results remain a
+ multidimensional scorecard. Analysis profiles may weight dimensions but never
+@@ -712,6 +758,14 @@
+ Normalize cumulative versus per-turn provider usage to prevent double counting.
+ Cost estimates require price provenance; subscription utilization remains
+ separate from marginal API cost and is never represented as a free review.
++
++The monitor displays provisional attempt metrics as they become available, but
++the sealed evidence remains authoritative. Some providers return usage only
++when a process exits or is interrupted; the wrapper captures that terminal
++result before deleting raw output. If termination yields a structured usage
++record but no response, the failed attempt still appears in the round and run
++totals. Metrics collection failure cannot turn a failed review into success or
++block evidence finalization when the affected values are honestly unavailable.
+ 
+ ## Agent-First MCP and CLI
+ 
+@@ -989,6 +1043,12 @@
+ 9. Attached SAR and attached-author handoffs can submit through MCP and CLI
+    without commits. Wrong-role, stale-digest and stale-revision submissions fail;
+    replay does not advance twice. Controller-only access cannot submit a verdict.
++10. Successful, failed, timed-out, interrupted and no-response provider attempts
++    produce provenance-tagged metrics receipts. Fixtures cover provider totals,
++    per-model/auxiliary counters, cache and reasoning tokens, inconsistent
++    counters, cumulative-versus-delta reports, unknown usage, retries and
++    fallback. Round/stage/run aggregates reconcile to their included attempts
++    without treating missing values as zero or allocating subscription spend.
+ 
+ Fault-injection fixtures cover each persisted transition and replay path;
+ installed provider tests establish feasibility independently of mocked tests.
+@@ -1003,6 +1063,8 @@
+ - Headless runs survive origin disconnect; attached roles wait for exact return.
+ - Dirty/new FURs need no per-round commit.
+ - Normalized evidence is tracked; raw runtime logs are ephemeral.
++- Every provider attempt contributes provenance-tagged token, duration, tool
++  and cost evidence, including attempts that never produce a response.
+ - Evaluation is multidimensional across quality, cost, and time.
+ - Two-party reviewers can write the review folder and research the web, not FUR.
+ - Package authority is outside the collaborative review folder.
+@@ -1024,4 +1086,5 @@
+ Implementation planning may settle exact idle/hard-timeout defaults, whether a
+ pure-JavaScript helper is warranted over Node built-ins, field names beneath
+ the documented nested contract, finding taxonomy, host-specific progress implementation,
+-and retention duration for failure-only diagnostics.
++retention duration for failure-only diagnostics, and provider-specific mappings
++from native usage counters into the normalized metrics schema.

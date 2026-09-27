@@ -1,0 +1,190 @@
+Before-SHA256: 91249388adc0ac4cb8a253b764f06fd80c145e8437dbc626fce24af94412e63a
+After-SHA256: ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89
+--- a/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
++++ b/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
+@@ -455,6 +455,23 @@
+ rewrite the participant. When no response exists, the round contains an
+ attempt-evidence file instead; it is never mislabeled as a reviewer or author
+ response.
++
++The submitted response path/digest names only the participant payload, before
++any runtime annotation. The runtime keeps that sealed payload separately and
++renders an evidence envelope containing the identical payload bytes and a
++supervisor section referencing sealed attempt receipts. The versioned envelope
++records the payload's byte offset, byte length and SHA-256; Markdown delimiters
++alone are not trusted framing. Its whole-file inventory digest is distinct
++from the payload digest. Exported envelopes are generated artifacts, not valid
++participant submissions. Empty or binary-invalid responses fail the registered
++response schema rather than being repaired by the metrics collector.
++
++Participants cannot assert supervisor provenance through response text or edit
++sealed metrics by changing collaborative files. The runtime validates both
++payload and receipt references against package-owned authority. Later telemetry
++does not mutate a sealed response or exported envelope; it uses the amendment
++contract below. The response envelope and manifest link the same receipt IDs,
++so metrics embedded for readability are never extra accounting entries.
+ 
+ The manifest inventories every attempt receipt and its relationship to stage,
+ round, role, participant/session, fallback and retry. An abandoned run therefore
+@@ -510,6 +527,13 @@
+ - a provenance of reported, derived, estimated or unavailable for every field
+   or coherent field group.
+ 
++Each measurement carries value, unit, provenance and source scope. Derived
++values identify their input observations and formula; estimates also identify
++assumptions and pricing/version dates where relevant. Unavailable values have
++a reason such as not-exposed, lost-on-crash, redacted or ambiguous-scope.
++Reported means supplied by the source, not independently verified or billed.
++Keep requested identity separate from observed identity and its assurance.
++
+ Preserve the provider's raw normalized counters when aggregate and per-model
+ reports disagree; record the inconsistency instead of silently reconciling it.
+ Never infer ordinary input from cache counters, hidden reasoning from output,
+@@ -523,7 +547,95 @@
+ the exact attempts included in each aggregate. Reports can therefore compare
+ successful-review cost, failed-attempt overhead, retry burden, stage marginal
+ yield and total sequence cost.
++
++### Accounting Identity and Aggregation
++
++Allocate an attempt ID durably before each provider invocation. Record its
++operation ID, requested stage, stage-attempt, round (nullable before dispatch),
++role/phase, local participant ID and retry/fallback parent. Provider-internal
++calls and auxiliary models are child accounting scopes, not additional review
++rounds. Attached and continuous SAR sessions may span phases or rounds; preserve
++session-scoped measurements when the source cannot attribute them more finely.
++Do not invent per-round allocations from a session total.
++
++Every observation has an idempotent identity, source scope, counter epoch and
++delta/cumulative semantics. Cumulative differences require an observed baseline
++in the same scope and epoch; resets or missing baselines make the attributable
++delta unavailable. Replayed final results and stream updates must not add the
++same usage twice. Corrections supersede observations explicitly, retaining both
++with their provenance. Persist observation IDs across broker recovery.
++
++Define a disjoint accounting partition per metric: use a parent's inclusive
++total or its exclusive children, never both. Child model breakdowns remain
++queryable even when the parent supplies the billed total. Record known
++inclusion relationships for reasoning/output, cache/input and tool/web counters.
++Never sum overlapping categories; ambiguous provider semantics remain native
++measurements with no fabricated normalized total. Inconsistent parent/child
++reports retain both and an inconsistency diagnostic; any selected reporting
++basis is explicit and deterministic, not a silent reconciliation.
++
++Each aggregate declares included and excluded observation/attempt IDs, units,
++accounting basis and coverage. It exposes a known subtotal plus missing or
++unattributed scopes; a complete total is null unless coverage is complete and
++semantics are compatible. Mixed provenance remains visible in the breakdown.
++Session usage not attributable to a round is counted once at its lowest known
++stage/run scope, with links to affected rounds. Do not distribute it by guess.
++Elapsed run time is measured from run boundaries; summed API/attempt durations
++are resource duration and can exceed wall time during concurrency. Never add
++queue/API/wall durations unless the source defines disjoint components.
++
++Each newly dispatched critique, including a retry or fallback critique,
++consumes a new round as specified by the cap contract. Transport reconnection
++to an existing operation is not a new dispatch. Launch attempts before critique
++admission have no round; revision retries retain the originating round and use
++the sealed finite retry policy. SAR critique and revision use one participant,
++but their usage is separately attributed only when exposed. All accounting
++rollups use the resulting disjoint assignments, not a second retry-round model.
++
++### Costs, Recovery and Privacy
+ 
++Preserve native provider-reported cost with its stated basis, even when that
++basis is unknown. Keep actual incremental/billed charges, list-price-equivalent
++estimates and subscription utilization as separate measures. A subscription
++provider's reported dollar figure is not evidence of marginal billing. Zero
++cost requires affirmative evidence for that particular measure. Subscription
++fees remain in a separate utilization ledger and are never allocated to runs.
++Keep currencies separate; optional conversion is a derived view with rate,
++source and effective time, not a replacement for original currency amounts.
++Versioned estimates record price source, model/tier, token category, effective
++date, cache/tool charges and assumptions. Unknown prices produce unavailable
++estimates; no current-price lookup is needed merely to retain reported costs.
++
++Metrics persistence is part of the launch/turn journal. Seal sanitized available
++observations before raw-output deletion; mark open attempts pending rather than
++zero after a crash. Reconciliation attaches recoverable terminal observations
++idempotently, without relaunching a provider to recover telemetry. A bounded,
++configured telemetry grace period ends in explicit unavailable fields if needed.
++Review verdict and telemetry completeness are separate status dimensions:
++acceptance requires review evidence integrity, not complete provider counters.
++Malformed telemetry is quarantined as a bounded diagnostic and cannot corrupt
++valid response authority. Failure to persist the required receipt/envelope is
++an evidence failure, not permission to finalize without it.
++
++Once a terminal bundle is sealed, late usage or billing corrections create a
++linked immutable telemetry amendment with its own inventory, prior receipt
++references and supersession relationships. The original manifest, response
++files and verdict stay unchanged. A current aggregate view resolves amendments
++once and exposes its revision/as-of time; historical views remain reproducible.
++Adapters must advertise telemetry capabilities and mapping versions separately
++from review capabilities. Missing usage support does not block an otherwise
++eligible provider, but is visible before launch and in every affected receipt.
++
++Normalize telemetry through an allowlist of numeric counters, units, documented
++enums, sanitized model labels and opaque local correlation IDs. Exclude prompt
++text, reasoning text, tool arguments/results, query URLs, credentials and private
++provider session handles. Keep category counts when available; expose redaction
++and completeness flags without retaining sensitive values or hashes of secrets.
++Capture failures preserve safe error codes and bounded sanitized explanations.
++Diagnostic/debug retention is explicit, access-restricted and finite; it does
++not override credential exclusion. Sealed normalized receipts, reconstruction
++anchors and amendments are durable evidence, not disposable raw runtime logs.
++
+ Analysis distinguishes stage yield, marginal yield, residual defects, and
+ quality improvement per token, dollar, and minute. Results remain a
+ multidimensional scorecard. Analysis profiles may weight dimensions but never
+@@ -748,7 +860,7 @@
+ disconnects. The read-only monitor cannot exercise controller actions.
+ 
+ Progress is not accumulated into model context. Terminal output is bounded and
+-links to evidence. Usage is reported, estimated, or unavailable. Hidden
++links to evidence. Usage is reported, derived, estimated, or unavailable. Hidden
+ reasoning and provider-internal usage are never represented as zero. Broker,
+ CLI, and MCP compute consume no model tokens.
+ 
+@@ -766,6 +878,10 @@
+ record but no response, the failed attempt still appears in the round and run
+ totals. Metrics collection failure cannot turn a failed review into success or
+ block evidence finalization when the affected values are honestly unavailable.
++The monitor labels incomplete coverage as a known subtotal and distinguishes
++reported dollar equivalents from actual charges. It uses the same accounting
++view and amendment revision as status/exports; it never independently sums
++embedded response metrics. Failure to persist evidence still blocks sealing.
+ 
+ ## Agent-First MCP and CLI
+ 
+@@ -864,6 +980,15 @@
+ covers commands, request schema, classes, sequences, fallbacks, permissions,
+ monitoring, evidence, broker, errors, and all six user journeys.
+ 
++The registry also defines versioned attempt receipts, measurements, aggregate
++coverage, response-envelope framing, manifest receipt references and telemetry
++amendments. They share operation/attempt/observation identities with protocol
++events. Provider adapter mappings validate into these schemas before persistence;
++unknown versions fail explicitly. Participant submissions contain participant
++content only, never writable supervisor fields. Status and error envelopes
++expose telemetry completeness and safe collection diagnostics separately from
++review status, with exact recovery actions for evidence-persistence failures.
++
+ The installed skill stays small: recognize intent, query help when uncertain,
+ construct request, prefer MCP, fall back to CLI, and follow structured next
+ actions. It does not duplicate runtime policy.
+@@ -1049,6 +1174,15 @@
+     counters, cumulative-versus-delta reports, unknown usage, retries and
+     fallback. Round/stage/run aggregates reconcile to their included attempts
+     without treating missing values as zero or allocating subscription spend.
++11. Byte-offset envelope extraction reproduces submitted response bytes despite
++    delimiter-like participant text. Tampered annotations cannot alter sealed
++    receipts. Late telemetry creates an amendment without changing terminal
++    files or verdict; replay and crash recovery count observations once.
++12. Accounting fixtures cover parent/auxiliary overlap, session resets, missing
++    cumulative baselines, partially known totals, unallocated session usage,
++    concurrent durations, currencies, subscription equivalents and billing
++    corrections. Privacy fixtures reject tool arguments, query URLs and secrets;
++    missing telemetry stays distinct from failed evidence persistence.
+ 
+ Fault-injection fixtures cover each persisted transition and replay path;
+ installed provider tests establish feasibility independently of mocked tests.

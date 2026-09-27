@@ -1,0 +1,106 @@
+diff --git a/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md b/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
+index 76cf11e..30fb437 100644
+--- a/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
++++ b/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
+@@ -361,7 +361,7 @@ the initial bytes and acquires an artifact-scoped write lease.
+       author/reviewer: read
+       other writes: separately governed
+ 
+-The reviewer may create or edit any file inside the active review folder,
++The two-party reviewer may create or edit any file inside the active review folder,
+ including earlier in-progress collateral, but cannot edit the FUR.
+ Package-owned protocol authority therefore lives outside the collaborative
+ folder.
+@@ -722,6 +722,7 @@ Preferred MCP tools are:
+     wait_for_review(run_id, after_cursor)
+     get_review_status(run_id)
+     intervene_review(run_id, action)
++    submit_review_turn(request)
+     get_peer_review_help(topic)
+     cleanup_brokers(request)
+ 
+@@ -733,7 +734,21 @@ Help has topic and format (structured by default). Authentication travels in
+ the local transport binding, never model-visible JSON. Read capabilities expose
+ only their authorized run/status data; monitor access is scoped separately from
+ controller mutation authority and excludes private handles and credentials.
+-CLI status, wait, intervene, help and cleanup use the same registry and envelopes.
++CLI status, wait, intervene, submit, help and cleanup use the same registry and envelopes.
++
++submit_review_turn carries schema, run_id, stage_attempt_id, round, action_id,
++expected_revision, phase (critique or revision), reviewed_digest and response
++path/digest within the review folder. Critique responses contain verdict and
++stable findings; revision responses contain dispositions and revised_digest.
++The runtime reads/seals response bytes itself, checks the active phase, verifies
++the participant's bound session and checks FUR bytes before advancing. It
++generates patches rather than trusting participant-supplied patches. Exact
++action replay returns the receipt; conflicting replay, wrong role/phase or stale
++digest/revision fails without advancing. Controller-only credentials cannot
++submit participant turns. Inline SAR invokes the same core through local tools;
++headless wrappers use the same transition contract under their role binding.
++Every handoff supplies an exact structured next_action naming this operation
++and its schema. The worker never edits package authority directly.
+ 
+ All responses carry schema, ok, mutation_occurred, retry_safe and bounded
+ next_action. Run responses include run_id, status, revision, cursor, evidence
+@@ -759,12 +774,21 @@ rule, received value when safe, expected shape, correction, mutation status,
+ retry safety, schema, help topic, and examples.
+ 
+     {
++      "schema": "ai-peer-review.response/v1",
+       "ok": false,
++      "mutation_occurred": false,
++      "retry_safe": true,
++      "next_action": {
++        "tool": "get_peer_review_help",
++        "arguments": {
++          "schema": "ai-peer-review.help-request/v1",
++          "topic": "start-request",
++          "format": "structured"
++        }
++      },
+       "error": {
+         "code": "APR_REQUEST_INVALID",
+         "message": "Review request is malformed.",
+-        "mutation_occurred": false,
+-        "retry_safe": true,
+         "issues": [{
+           "path": "/stages/0/kind",
+           "rule": "enum",
+@@ -780,6 +804,9 @@ retry safety, schema, help topic, and examples.
+ 
+ One machine-readable registry drives CLI help, MCP tool schemas/descriptions,
+ JSON Schemas, examples, error documentation, and golden tests. Offline help
++validates every emitted example against its registered schema, including error
++and participant-submission envelopes. The registry supplies schemas for response
++bodies as well as tool inputs. Offline help
+ covers commands, request schema, classes, sequences, fallbacks, permissions,
+ monitoring, evidence, broker, errors, and all six user journeys.
+ 
+@@ -942,7 +969,7 @@ Concrete release gates include:
+ 3. Mutating old collateral never changes sealed evidence. Reconstruct every
+    round from final bytes and patches, including CRLF, no trailing newline,
+    empty patches and dirty/new baselines; corrupt patches or receipts fail.
+-4. Reviewer FUR/authority writes and path-alias escapes are denied while review
++4. Two-party reviewer FUR writes, headless authority writes and path-alias escapes are denied while review
+    folder writes and permitted web research succeed. A capability mismatch
+    fails preflight rather than weakening enforcement.
+ 5. Two simultaneous starts in one worktree acquire one broker; separate linked
+@@ -959,6 +986,9 @@ Concrete release gates include:
+ 8. Legacy active work stays recoverable under its pinned installation; terminal
+    imports preserve original claims. All six journey examples validate against
+    the same registry used by offline CLI help and MCP schemas.
++9. Attached SAR and attached-author handoffs can submit through MCP and CLI
++   without commits. Wrong-role, stale-digest and stale-revision submissions fail;
++   replay does not advance twice. Controller-only access cannot submit a verdict.
+ 
+ Fault-injection fixtures cover each persisted transition and replay path;
+ installed provider tests establish feasibility independently of mocked tests.
+@@ -974,7 +1004,7 @@ installed provider tests establish feasibility independently of mocked tests.
+ - Dirty/new FURs need no per-round commit.
+ - Normalized evidence is tracked; raw runtime logs are ephemeral.
+ - Evaluation is multidimensional across quality, cost, and time.
+-- Reviewers can write the review folder and research the public web, not FUR.
++- Two-party reviewers can write the review folder and research the web, not FUR.
+ - Package authority is outside the collaborative review folder.
+ - Classification is explicit and validated.
+ - Named role-specific provider cascades live in user/project config.
