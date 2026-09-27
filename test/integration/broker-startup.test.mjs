@@ -347,7 +347,7 @@ test('authenticated join refuses a reviewer session changed from launch acknowle
       },
     },
   });
-  const started = await startReview(request(fx.root), deps);
+  const started = await startReview(automaticRequest(fx.root), deps);
   const reviewer = participantIdentity({
     role: 'reviewer',
     host: 'claude-code',
@@ -768,7 +768,7 @@ test('activation does not expose its sealed launch intent to later caller mutati
       },
     },
   };
-  const prepared = await prepareStartup(request(fx.root), brokerLaunchDeps(deps));
+  const prepared = await prepareStartup(automaticRequest(fx.root), brokerLaunchDeps(deps));
   const output = await activateStartup(
     prepared,
     brokerLaunchDeps({
@@ -840,7 +840,7 @@ test('startup dispatch cannot cross a manual fence published after registration'
   let launches = 0;
   await assert.rejects(
     startReview(
-      request(fx.root),
+      automaticRequest(fx.root),
       brokerLaunchDeps({
         ...fixtureStartupDeps,
         adapters: {
@@ -1100,10 +1100,12 @@ test('registration refusal cannot dispatch a reviewer and remains exactly recove
     },
     ensureBroker: async () => ({ request: async () => ({ status: 'not-registered' }) }),
   };
-  await assert.rejects(startReview(request(fx.root), deps), { code: 'APR_BROKER_START_FAILED' });
+  await assert.rejects(startReview(automaticRequest(fx.root), deps), {
+    code: 'APR_BROKER_START_FAILED',
+  });
   assert.equal(launches, 0);
   await startReview(
-    request(fx.root),
+    automaticRequest(fx.root),
     brokerLaunchDeps({ ...deps, ensureBroker: fixtureStartupDeps.ensureBroker })
   );
   assert.equal(launches, 1);
@@ -1134,6 +1136,7 @@ test('launch that joins before acknowledgement and its retry return the current 
             cwd: fx.root,
             invitation,
             identity: reviewer,
+            transportCapability: 'resume-only',
             now: NOW,
             runtimeObservation: {
               provider: 'anthropic',
@@ -1149,10 +1152,10 @@ test('launch that joins before acknowledgement and its retry return the current 
       },
     },
   };
-  const first = await startReview(request(fx.root), brokerLaunchDeps(deps));
+  const first = await startReview(automaticRequest(fx.root), brokerLaunchDeps(deps));
   assert.equal(first.state, 'reviewer-turn');
   assert.equal(first.next_action, 'reviewer-submit');
-  const retry = await startReview(request(fx.root), brokerLaunchDeps(deps));
+  const retry = await startReview(automaticRequest(fx.root), brokerLaunchDeps(deps));
   assert.equal(retry.state, 'reviewer-turn');
   assert.equal(launches, 1);
 });
@@ -1374,6 +1377,10 @@ test('recreated workers and immediate delivery recheck durable fence evidence', 
   assert.equal(deliveries, 0);
 });
 
+function automaticRequest(root) {
+  return { ...request(root), transportMode: 'resume-only', transportCapability: 'resume-only' };
+}
+
 function request(root) {
   return {
     ...selection,
@@ -1412,13 +1419,13 @@ test('startup durably reserves, creates authority, and registers before reviewer
       },
     },
   };
-  const result = await startReview(request(fx.root), brokerLaunchDeps(deps));
+  const result = await startReview(automaticRequest(fx.root), brokerLaunchDeps(deps));
   assert.equal(launches, 1);
   assert.equal(
     JSON.parse(readFileSync(path.join(result.paths.workspace, 'startup-request.json'))).stage,
     'launched'
   );
-  const retry = await startReview(request(fx.root), brokerLaunchDeps(deps));
+  const retry = await startReview(automaticRequest(fx.root), brokerLaunchDeps(deps));
   assert.equal(retry.review_id, result.review_id);
   assert.equal(launches, 1);
 });
@@ -1441,7 +1448,7 @@ test('ambiguous launch retains journal and refuses automatic retry', async (t) =
   };
   for (let i = 0; i < 2; i++)
     await assert.rejects(
-      startReview(request(fx.root), brokerLaunchDeps(deps)),
+      startReview(automaticRequest(fx.root), brokerLaunchDeps(deps)),
       (error) =>
         error.code === 'APR_WAKE_OUTCOME_UNKNOWN' && error.recovery.includes('transaction-review')
     );
@@ -1472,10 +1479,13 @@ test('reservation and registration failures preserve exact reconciliation eviden
         if (current === stage) throw new Error(`fault-${stage}`);
       },
     };
-    await assert.rejects(startReview(request(fx.root), deps), new RegExp(`fault-${stage}`));
+    await assert.rejects(
+      startReview(automaticRequest(fx.root), deps),
+      new RegExp(`fault-${stage}`)
+    );
     assert.equal(launches, 0);
     const resumed = await startReview(
-      request(fx.root),
+      automaticRequest(fx.root),
       brokerLaunchDeps({ ...deps, afterStartupStage: undefined })
     );
     assert.equal(resumed.review_id, 'transaction-review');

@@ -1,3 +1,4 @@
+// cspell:words CLAUDECODE
 import { createHash } from 'node:crypto';
 import { lstatSync } from 'node:fs';
 import path from 'node:path';
@@ -59,6 +60,14 @@ export function withoutProviderIdentity(env) {
   const child = { ...env };
   for (const key of [
     ...PROVIDER_IDENTITY_ENVIRONMENT_KEYS,
+    'CLAUDE_CODE_MESSAGING_SOCKET',
+    'CLAUDE_CODE_MESSAGING_TOKEN',
+    'CLAUDE_PID',
+    'CLAUDE_CODE_CHILD_SESSION',
+    'CLAUDE_CODE_SESSION_ATTENDED',
+    'CLAUDE_CODE_ENTRYPOINT',
+    'CLAUDECODE',
+    'CLAUDE_EFFORT',
     'APR_CLAUDE_HOOK_TOKEN',
     'APR_CODEX_HOOK_TOKEN',
   ])
