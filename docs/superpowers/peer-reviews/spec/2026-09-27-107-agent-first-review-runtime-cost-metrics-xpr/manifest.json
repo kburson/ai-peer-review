@@ -1,0 +1,474 @@
+{
+  "schema": "ai-peer-review.xpr-evidence/v1",
+  "run_id": "107-runtime-api-spec-cost-metrics-xpr-ee2dc309",
+  "issue": 107,
+  "kind": "xpr",
+  "execution": "manual orchestrated XPR; preimplementation evidence shaped to the approved design",
+  "filepath": "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+  "baseline_commit": "7d2902e",
+  "initial_digest": "sha256:ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89",
+  "final_digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8",
+  "max_rounds": 12,
+  "rounds_completed": 4,
+  "status": "accepted",
+  "intervention_required": false,
+  "participants": {
+    "author": {
+      "provider": "openai-codex",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "observed_model": null,
+      "identity_provenance": "requested subagent assignment; exact runtime model not independently exposed"
+    },
+    "reviewer": {
+      "provider": "anthropic",
+      "requested_model": "claude-opus-5",
+      "requested_effort": "high",
+      "observed_model": "claude-opus-5",
+      "identity_provenance": "provider result telemetry"
+    },
+    "orchestrator": {
+      "provider": "openai-codex",
+      "model": null,
+      "identity_provenance": "current originating chat; exact model telemetry unavailable"
+    }
+  },
+  "parent_accepted_sar": {
+    "path": "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar",
+    "manifest_digest": "sha256:eb7970a6405917e82ddc1f1335c85027df2f36e7395f4463e0ac94920dc2140b",
+    "final_digest": "sha256:ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89"
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "before_digest": "sha256:ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89",
+      "after_digest": "sha256:88cd3d9c13d37ae7ef23b5c5b95c41b5ee902e0133036216f7f8c7c5605e2048",
+      "verdict": "changes-required",
+      "finding_ids": [
+        "XPR-001",
+        "XPR-002",
+        "XPR-003",
+        "XPR-004",
+        "XPR-005",
+        "XPR-006",
+        "XPR-007",
+        "XPR-008",
+        "XPR-009",
+        "XPR-010",
+        "XPR-011",
+        "XPR-012",
+        "XPR-013",
+        "XPR-014",
+        "XPR-015",
+        "XPR-016",
+        "XPR-017",
+        "XPR-018",
+        "XPR-019",
+        "XPR-020",
+        "XPR-021",
+        "XPR-022",
+        "XPR-023",
+        "XPR-024",
+        "XPR-025",
+        "XPR-026",
+        "XPR-027",
+        "XPR-028"
+      ],
+      "reviewer_attempt_id": "claude-review-round-01",
+      "review_envelope": "rounds/01-review.md",
+      "review_envelope_digest": "sha256:cb81e685676aee4d03e89581438a91d6fc753e8cf7426c64a4de6d47b3781106",
+      "participant_payload": "payloads/01-review.md",
+      "participant_payload_digest": "sha256:3a42e03d96e96044b84714034db7beb43805d20024c79d27576d1999992026ba",
+      "participant_payload_bytes": 62641,
+      "author_response": "rounds/01-author-response.md",
+      "author_attempt_id": "astra-author-round-01",
+      "patch": "rounds/01.patch"
+    },
+    {
+      "round": 2,
+      "before_digest": "sha256:88cd3d9c13d37ae7ef23b5c5b95c41b5ee902e0133036216f7f8c7c5605e2048",
+      "after_digest": "sha256:0d28f135e5f640c653a15bd0706c2d3ea077043e3cb958e01f932b494d4c6106",
+      "verdict": "changes-required",
+      "finding_ids": [
+        "XPR-029",
+        "XPR-030"
+      ],
+      "reviewer_attempt_id": "claude-review-round-02",
+      "review_envelope": "rounds/02-review.md",
+      "review_envelope_digest": "sha256:dbfbc15efe3fe724bd78a357c6715fc422f9db6ff2062922cd9827c9449ac8fd",
+      "participant_payload": "payloads/02-review.md",
+      "participant_payload_digest": "sha256:a64e93a7225b4441d6c3b494abdfd10f1a66e2ad4ef85781488a671da4a2b5c4",
+      "participant_payload_bytes": 28141,
+      "author_response": "rounds/02-author-response.md",
+      "author_attempt_id": "astra-author-round-02",
+      "patch": "rounds/02.patch"
+    },
+    {
+      "round": 3,
+      "before_digest": "sha256:0d28f135e5f640c653a15bd0706c2d3ea077043e3cb958e01f932b494d4c6106",
+      "after_digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8",
+      "verdict": "changes-required",
+      "finding_ids": [
+        "XPR-031"
+      ],
+      "reviewer_attempt_id": "claude-review-round-03",
+      "review_envelope": "rounds/03-review.md",
+      "review_envelope_digest": "sha256:9b5876933aa6eda2b640d4af1b8fd4bec5ea4e8c6da83107e13c962d9f476d52",
+      "participant_payload": "payloads/03-review.md",
+      "participant_payload_digest": "sha256:b7e1e37165cbf97ae863691b8fe354ee07e6e270dc018a2b2900e476b22018cb",
+      "participant_payload_bytes": 19875,
+      "author_response": "rounds/03-author-response.md",
+      "author_attempt_id": "astra-author-round-03",
+      "patch": "rounds/03.patch"
+    },
+    {
+      "round": 4,
+      "before_digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8",
+      "after_digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8",
+      "verdict": "accepted",
+      "finding_ids": [],
+      "reviewer_attempt_id": "claude-review-round-04",
+      "review_envelope": "rounds/04-review.md",
+      "review_envelope_digest": "sha256:c2231776cde31df730175b4749ddb32e0507a332f280d27bfcb7c10b76c68d7f",
+      "participant_payload": "payloads/04-review.md",
+      "participant_payload_digest": "sha256:5e1953673847d7a47c419694a6f7f13ea70e0dc3d4fe0c6ce5d77cfc3f1148c9",
+      "participant_payload_bytes": 17981,
+      "author_response": null,
+      "author_attempt_id": null,
+      "patch": null
+    }
+  ],
+  "findings": [
+    {
+      "id": "XPR-001",
+      "originating_round": 1,
+      "severity": "critical",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-002",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-003",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-004",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-005",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-006",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-007",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-008",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-009",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-010",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-011",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-012",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-013",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-014",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-015",
+      "originating_round": 1,
+      "severity": "major",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-016",
+      "originating_round": 1,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-017",
+      "originating_round": 1,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-018",
+      "originating_round": 1,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-019",
+      "originating_round": 1,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-020",
+      "originating_round": 1,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-021",
+      "originating_round": 1,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-022",
+      "originating_round": 1,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-023",
+      "originating_round": 1,
+      "severity": "low",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-024",
+      "originating_round": 1,
+      "severity": "low",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-025",
+      "originating_round": 1,
+      "severity": "low",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-026",
+      "originating_round": 1,
+      "severity": "low",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-027",
+      "originating_round": 1,
+      "severity": "low",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-028",
+      "originating_round": 1,
+      "severity": "low",
+      "disposition": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "XPR-029",
+      "originating_round": 2,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 3
+    },
+    {
+      "id": "XPR-030",
+      "originating_round": 2,
+      "severity": "low",
+      "disposition": "resolved",
+      "resolved_in_round": 3
+    },
+    {
+      "id": "XPR-031",
+      "originating_round": 3,
+      "severity": "moderate",
+      "disposition": "resolved",
+      "resolved_in_round": 4
+    }
+  ],
+  "pre_admission_attempts": [
+    "claude-review-round-03-launch-01"
+  ],
+  "metrics": {
+    "path": "metrics.json",
+    "reviewer_usage_complete": true,
+    "author_usage_complete": false,
+    "orchestrator_usage_complete": false,
+    "known_reported_cost_usd": 7.5244115,
+    "complete_run_total": null
+  },
+  "lineage_patch": "lineage.patch",
+  "terminal_anchor": "final-fur.md",
+  "raw_logs_retained": false,
+  "inventory": [
+    {
+      "path": "events.jsonl",
+      "bytes": 4637,
+      "digest": "sha256:dfced3c593434a22aff0dbec43a396c4614f4fd1116172c248af53c049483f33"
+    },
+    {
+      "path": "final-fur.md",
+      "bytes": 116170,
+      "digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8"
+    },
+    {
+      "path": "lineage.patch",
+      "bytes": 82885,
+      "digest": "sha256:1c72223234674d013909fe1c52b8e432e0a035cfb128bf5acf576b8c7b5b6948"
+    },
+    {
+      "path": "metrics.json",
+      "bytes": 11119,
+      "digest": "sha256:4e262aa922ff8f60f21be75e23277bc0ce7c2dc5d6d8a6f1eb80a13784253c1b"
+    },
+    {
+      "path": "payloads/01-review.md",
+      "bytes": 62641,
+      "digest": "sha256:3a42e03d96e96044b84714034db7beb43805d20024c79d27576d1999992026ba"
+    },
+    {
+      "path": "payloads/02-review.md",
+      "bytes": 28141,
+      "digest": "sha256:a64e93a7225b4441d6c3b494abdfd10f1a66e2ad4ef85781488a671da4a2b5c4"
+    },
+    {
+      "path": "payloads/03-review.md",
+      "bytes": 19875,
+      "digest": "sha256:b7e1e37165cbf97ae863691b8fe354ee07e6e270dc018a2b2900e476b22018cb"
+    },
+    {
+      "path": "payloads/04-review.md",
+      "bytes": 17981,
+      "digest": "sha256:5e1953673847d7a47c419694a6f7f13ea70e0dc3d4fe0c6ce5d77cfc3f1148c9"
+    },
+    {
+      "path": "rounds/01-author-response.md",
+      "bytes": 16897,
+      "digest": "sha256:87798e14d874ac8e4005f910d4f44fce72d910a4690354fca9fa85310140c9a1"
+    },
+    {
+      "path": "rounds/01-review.md",
+      "bytes": 63948,
+      "digest": "sha256:cb81e685676aee4d03e89581438a91d6fc753e8cf7426c64a4de6d47b3781106"
+    },
+    {
+      "path": "rounds/01.patch",
+      "bytes": 75624,
+      "digest": "sha256:ea40390e45f8d305c145c7049d36b1f6152ee78657351831f584489e3fe32b53"
+    },
+    {
+      "path": "rounds/02-author-response.md",
+      "bytes": 4828,
+      "digest": "sha256:67a4421a98f4873fce7b42a06777854fa3618e9558fbd2e7de31e80068a12b46"
+    },
+    {
+      "path": "rounds/02-review.md",
+      "bytes": 29443,
+      "digest": "sha256:dbfbc15efe3fe724bd78a357c6715fc422f9db6ff2062922cd9827c9449ac8fd"
+    },
+    {
+      "path": "rounds/02.patch",
+      "bytes": 13389,
+      "digest": "sha256:6c1dfae36dbe05ae9555e2b0f113b10de33f467ec27db487fd4bb09a3c9af37a"
+    },
+    {
+      "path": "rounds/03-author-response.md",
+      "bytes": 3861,
+      "digest": "sha256:b85c76f7d3428550fd68695a5579d11e33a5bf117af3b537d0289f44bffd5c87"
+    },
+    {
+      "path": "rounds/03-review.md",
+      "bytes": 21175,
+      "digest": "sha256:9b5876933aa6eda2b640d4af1b8fd4bec5ea4e8c6da83107e13c962d9f476d52"
+    },
+    {
+      "path": "rounds/03.patch",
+      "bytes": 4630,
+      "digest": "sha256:200a40fa8635d0b7df562b873cfdffb1d0c0e91d55dfda5d2ba2291e7158ade9"
+    },
+    {
+      "path": "rounds/04-review.md",
+      "bytes": 19280,
+      "digest": "sha256:c2231776cde31df730175b4749ddb32e0507a332f280d27bfcb7c10b76c68d7f"
+    }
+  ],
+  "limitations": [
+    "This is manually orchestrated preimplementation evidence; the proposed runtime schemas are not yet implemented.",
+    "Claude reviewer usage is provider-reported and complete for four successful review attempts plus one zero-token failed launch.",
+    "GPT-6 Astra author usage and originating-orchestrator usage are unavailable and are never treated as zero.",
+    "Reported Claude cost uses provider list-price telemetry and is not asserted as actual incremental subscription spend.",
+    "Reviewer payloads were preserved before supervisor metrics were appended to generated response envelopes."
+  ],
+  "completed_at": "2026-09-27T09:38:21.757Z"
+}
