@@ -32,8 +32,10 @@ runtime binary download. MCP is the preferred host adapter. The CLI is the last
 fallback and accepts the identical request and response schemas.
 
 The originating chat receives an immediate receipt and a continuously updated
-out-of-band monitor. Waiting consumes no controller model tokens. The model
-wakes only for an attached participant turn, intervention, or terminal result.
+out-of-band monitor on a validated host surface. Runtime waiting consumes no
+controller model tokens; host-imposed model wakeups are accounted separately.
+On capable hosts, the model wakes only for an attached participant turn,
+intervention, or terminal result.
 Eligible headless work survives originating-chat disconnects.
 
 Each round binds reviewer findings, the author response, and a
@@ -81,7 +83,9 @@ duration, and token efficiency without preserving raw provider exhaust in Git.
 
 The class is explicit user intent and is validated against the resolved roster.
 A mismatch fails with a correction. A preauthorized fallback may change class
-only by beginning a new, explicitly recorded replacement stage.
+only by beginning a new, explicitly recorded replacement stage-attempt under
+the original requested-stage budget. SAR cannot automatically become a two-party
+class or vice versa; only SPR/XPR class changes retain the same role topology.
 
 ### Controller Role
 
@@ -131,7 +135,7 @@ Configuration supplies candidates and defaults; it never inserts a stage.
     Astra high as author and Claude Opus 5 as reviewer.”
       -> SAR[codex/gpt-6-astra/high]
       -> XPR[author=codex/gpt-6-astra/high,
-             reviewer=claude/claude-opus-5/medium]
+             reviewer=claude/claude-opus-5/<configured-supported-effort>]
 
 Every requested stage runs. Acceptance of an earlier stage does not cancel a
 later independent review. Conditional execution occurs only when the user
@@ -169,15 +173,33 @@ shorthand. Filepaths resolve relative to the invoking physical worktree for
 both input forms. Unknown fields fail. Credentials and raw handles are
 forbidden.
 
-The client generates request_id before the first call. The runtime stores the
-canonical request digest:
+The client generates request_id before the first call. Its namespace is the
+physical worktree. The runtime stores the submitted request's canonical digest:
+validated JSON with recursively sorted object keys, preserved array order and
+string values, and insignificant JSON whitespace removed. Duplicate JSON keys
+are invalid. MCP objects and CLI JSON must produce the same canonical bytes.
+Configuration resolution is sealed separately on first reservation; retries
+reuse it even if configuration or model catalogs have since changed.
 
 - exact replay through MCP or CLI returns the existing run;
-- reuse with different bytes returns APR_REQUEST_ID_CONFLICT; and
+- reuse with different canonical content returns APR_REQUEST_ID_CONFLICT; and
 - a lost MCP response can be retried through CLI without duplicate launch.
 
-start_review performs complete validation, capability resolution, and launch
-atomically. preview_review is optional and read-only.
+start_review validates syntax, then looks up the authenticated request ID before
+new capability/configuration resolution. An existing identical request returns
+its durable status even when providers are now unavailable. For a new request,
+policy and currently observable capabilities are validated before mutation.
+preview_review is optional and read-only, not a reservation.
+An exclusive transaction then reserves the request ID, artifact lease and run
+record. Provider launch is a journaled operation after that transaction, not an
+atomic external side effect. A receipt identifies the durable run and starting
+state before lengthy launch work. Each launch has an operation ID persisted
+before execution. Partial or unacknowledged launches enter reconciliation;
+retries observe the existing operation and never blindly relaunch it. Errors
+after reservation report mutation_occurred=true and the run ID. A failed second
+participant launch fences the first until recovery or verified cancellation.
+Later-stage capabilities are rechecked at activation without changing sealed
+intent. Preflight cannot guarantee future quota or availability.
 
 ## Stage and Participant Resolution
 
@@ -190,15 +212,74 @@ provider/model becomes primary and configured role fallbacks are appended after
 deduplication. An unspecified headless role uses the first eligible candidate
 from the selected/default profile.
 
-The runtime displays and seals the complete sequence, roster, fallback chain,
-caps, permissions, visibility, and supervision mode before launch.
+The runtime displays and seals the complete intended sequence, selections,
+fallback chain, caps, permissions, visibility, and supervision mode before
+launch. Actual session fingerprints are observed and bound after launch, before
+participant work is admitted. A mismatch fences the operation. Attached
+identity is verified before reservation; two-party roles cannot share a session.
+
+The v1 nested contract uses stages[].max_rounds (positive safe integer),
+stages[].participants, profile, prior_evidence, and fallback_kinds. SAR has only
+participants.solo; SPR/XPR have author and reviewer. Each selection has placement
+(attached or headless); headless selections may specify selector, model and
+effort, resolved together through the selected profile. Attached identity is
+runtime-derived, never supplied as a fingerprint by the caller. An omitted
+participant map means attached solo for SAR, or attached author and headless
+reviewer for SPR/XPR. Only solo or author may be attached; an attached reviewer
+or two attached roles are invalid for these six topologies. prior_evidence is independent
+or shared; fallback_kinds is an explicit allowed class set, defaulting to the
+requested class unless a profile explicitly authorizes a different allowed set.
+Candidate membership alone cannot expand that set.
+
+Resolve the initial roster to the requested class. If none is eligible, return
+the class/capability conflict before mutation. Cross-class fallback permission
+applies only to replacement after the requested stage starts. Profile fallback
+authorization supplies allowed classes when omitted from the request; the
+default remains the requested class. A request override is explicit intent
+and is sealed. Changes that alter role count need a new user-requested stage.
+
+Headless SAR followed by a two-headless XPR uses, for example:
+
+    {
+      "schema": "ai-peer-review.start-request/v1",
+      "request_id": "apr-request-example",
+      "filepath": "spec.md",
+      "stages": [
+        {
+          "kind": "sar",
+          "max_rounds": 6,
+          "participants": {
+            "solo": { "placement": "headless", "selector": "codex",
+              "model": "gpt-6-astra", "effort": "high" }
+          }
+        },
+        {
+          "kind": "xpr",
+          "participants": {
+            "author": { "placement": "headless", "selector": "codex",
+              "model": "gpt-6-astra", "effort": "high" },
+            "reviewer": { "placement": "headless", "selector": "claude",
+              "model": "claude-opus-5", "effort": "high" }
+          }
+        }
+      ]
+    }
+
+These model names express user intent, not verified provider availability.
+The registry distinguishes selector (for example claude), host (claude-code),
+and provider family (anthropic). Config candidate host keys are selector aliases
+in v2 and normalize through this registry. Model/effort mismatches fail with
+supported choices rather than silently substituting. Conditional stage rules
+and explicit ordered alternative rosters require a registered schema extension;
+v1 rejects them until that extension defines validation and transitions.
 
 ## Round Contract and Caps
 
 One round has the same structure in all classes:
 
 1. Reviewer evaluates the exact current FUR digest.
-2. If no actionable findings remain, the stage accepts.
+2. If no actionable findings remain, seal the clean reviewer response against
+   that digest, revalidate unchanged FUR bytes, then accept the stage.
 3. Otherwise reviewer submits a response with stable finding IDs.
 4. Author revises the FUR.
 5. Author writes a response explaining changes and identifying addressed,
@@ -217,9 +298,18 @@ Package defaults are:
     XPR: 12 rounds
 
 Precedence is stage request, project config, user config, then package default.
-Any stage reaching its cap stops the entire sequence with
-intervention-required. Later stages do not start. A final-round revision cannot
+Each dispatched review attempt consumes one round, including an interrupted
+attempt; revision and its author response belong to that same round. A clean
+review at the cap may accept. Otherwise exhaustion stops the entire sequence
+with intervention-required after the permitted final response/revision.
+Later stages do not start. A final-round revision cannot
 claim acceptance without a subsequent clean review pass.
+
+Run states are starting, running, awaiting-attached-participant, reconciling,
+intervention-required, accepted, cancelled and failed. Each requested stage has
+an ID; replacements have new stage-attempt IDs under it. Acceptance requires
+all requested stages accepted and all findings resolved, including reviewer
+agreement with disputed dispositions. Cancellation is never acceptance.
 
 ## Findings and Debate
 
@@ -238,6 +328,14 @@ Prior-stage evidence visibility is explicit and defaults to an independent
 first pass. A fresh reviewer initially sees current FUR and allowed repository
 context without prior responses. Earlier evidence may be revealed later or by
 request. The manifest records what was visible.
+
+Independent means prior responses are not supplied in the initial context;
+it is not experimental blinding when repository/history reads are available.
+Record supplied context digests and observed retrievals; unknown access remains
+unknown. Strictly blinded experiments belong to #34 and require an isolated
+view excluding historical collateral. Authors may retain earlier knowledge;
+only fresh reviewers get an independent first pass. SAR session reuse is not
+independent from itself.
 
 Author continuity is preserved by default. When provider, model, effort, and
 adapter capability match, an SAR worker may become author in a later stage
@@ -263,7 +361,7 @@ the initial bytes and acquires an artifact-scoped write lease.
       author/reviewer: read
       other writes: separately governed
 
-The reviewer may create or edit any file inside the active review folder,
+The two-party reviewer may create or edit any file inside the active review folder,
 including earlier in-progress collateral, but cannot edit the FUR.
 Package-owned protocol authority therefore lives outside the collaborative
 folder.
@@ -271,6 +369,22 @@ folder.
 Only the registered author may change the FUR during an author turn.
 Unexpected changes create conflict rather than being absorbed. The supervisor,
 not a participant, generates patches from exact snapshots.
+
+The lease coordinates AIPR writers; it does not stop editors or unrelated
+processes. Recheck exact bytes at each review/revision seal and acceptance.
+Resolve physical paths, reject symlinks and hard-linked FURs, directory aliases
+and review-folder overlap, and revalidate containment at write boundaries.
+Do not alter unrelated staged or working files. Local SAR uses the same
+deterministic core for snapshots and patches, with agent compliance rather than
+an independently enforced separation between its two roles.
+
+A SAR worker is one author-capable session throughout. Its critique evaluates
+an immutable input snapshot and is instructed not to edit until its findings
+are sealed. The core detects premature FUR edits and enters conflict; it does
+not claim a sandbox role switch between critique and revision. Headless SAR
+must still enforce its combined scope (FUR plus review folder, no authority
+writes). Two-party reviewers require enforced FUR denial. Record these distinct
+assurance claims so SAR is never presented as independent peer enforcement.
 
 ## Evidence
 
@@ -293,6 +407,35 @@ Each patch records input/output digests. Reviewer responses bind to the digest
 reviewed. Author responses bind to findings, revision, and patch. The manifest
 binds the chain root, final digest, participants, decisions, and inventory.
 
+Use SHA-256 of exact file bytes, without line-ending or Unicode normalization.
+Preserve submitted response bytes and snapshots in append-only package-owned
+storage outside the collaborative folder before acknowledging a submission.
+Later collateral edits are allowed but cannot rewrite those sealed facts.
+At export, verify against these seals; changed originals are exported under
+distinct receipt paths or reconciled explicitly, never silently overwritten.
+An accepted bundle must contain the exact sealed responses and all patch bytes.
+Its manifest inventories paths, sizes and digests, excluding its own digest;
+events and metrics must agree with sealed authority.
+
+The final FUR plus reversible per-round patches must reconstruct every prior
+byte version, including dirty/new initial content, with no dependency on an
+unretained Git object. Preserve any format-aware metadata change as a separate
+initialization patch. Empty revisions have an empty patch and equal digests.
+Clean acceptance has a review response and equal before/after digests but no
+author response or patch. Reconstruction and seal checks precede finalization.
+Local hashes provide consistency, not protection against a same-user actor
+rewriting the entire bundle; commits or external receipts may anchor it later.
+
+Retain terminal sealed FUR bytes in durable evidence storage, distinct from
+raw logs. A standalone portable export includes a verified terminal-byte anchor
+(deduplicated by digest if desired); a repository bundle may reference an exact
+retained Git blob after an ordinary commit. Never rely on a mutable path as the
+only long-term anchor. The user's worktree still has one working FUR, with no
+per-round working copies. Later edits do not change prior acceptance: status
+reports both the accepted digest and current drift. Follow-ups record the exact
+intervening delta before reviewing it. Retention must not remove the last
+reconstruction anchor for a retained run, including cancelled/intervened runs.
+
 After completion, normal project workflow may create one commit containing the
 final FUR and evidence. Peer-review does not commit. Later squashing preserves
 the sequence because authority lives in the digest-bound bundle.
@@ -305,7 +448,8 @@ ambiguity, or intervention. A debug option may preserve them deliberately.
 
 ## Review Series and Follow-Ups
 
-Before the first snapshot, the FUR receives a stable pointer:
+Capture the user's exact initial bytes before adding metadata. A Markdown FUR
+then receives a stable pointer through a format-aware frontmatter merge:
 
     ---
     ai_peer_review:
@@ -317,6 +461,13 @@ Complete history stays in the review folder. A new review validates the pointer,
 previous terminal record, prior final digest, current digest, and intervening
 delta, then links automatically. The user may explicitly start a new lineage
 when a file is repurposed.
+
+Preserve unrelated frontmatter. Non-Markdown files use a package-owned sidecar
+index instead of inserting YAML into code or data. The pointer addresses a
+stable series index; each terminal run has a separate immutable record below
+it. Malformed/conflicting pointers, ambiguous copied series IDs and missing
+records require reconciliation rather than silently starting a new chain.
+Never search outside the physical repository by trusting frontmatter paths.
 
 ## Metrics and Comparative Evaluation
 
@@ -380,10 +531,22 @@ quota or capacity exhaustion. Unknown exits, authentication, permission, and
 ambiguous delivery enter intervention.
 
 Fallback is participant replacement, not identity mutation. The runtime closes
-the incomplete stage, records the event, launches the next candidate, and
+the incomplete stage-attempt, records the event, launches the next candidate, and
 requires a fresh review of current FUR. Classification may change only when the
 resolved cascade preauthorized it. The replacement cannot claim predecessor
 acceptance.
+
+Replacement stage-attempts share the original requested-stage round budget;
+changing class never resets or expands it. Candidates are tried once per role
+per requested stage, in sealed order, without cycling. Exhaustion requires
+intervention. Failed launches have a separate finite retry limit in sealed
+runtime policy and cannot consume unbounded time or tokens.
+
+Fence the outgoing participant and reconcile pending operations before
+replacement. Require evidence that it can no longer write or submit. Preserve
+partial author bytes as a recovery checkpoint, but do not treat them as a sealed
+revision. Ambiguous edits require intervention; a new reviewer receives only a
+reconciled checkpoint. Fallback never switches an attached participant silently.
 
 An unavailable stage may use only an explicitly declared ordered alternative.
 Undeclared downgrade or silent skip is forbidden. Future hosts such as
@@ -392,8 +555,8 @@ cancellation, reconciliation, and recovery.
 
 ## Permissions and Research
 
-Headless role capabilities are sealed at startup. Authors may edit FUR and
-review folder; reviewers may edit review folder but not FUR. Both may read
+Headless role capabilities are sealed at startup. Authors and SAR workers may
+edit FUR and review folder; two-party reviewers may edit review folder but not FUR. Both may read
 repository context and run approved validation.
 
 Public web search, documentation lookup, and read-only APIs are allowed without
@@ -403,6 +566,16 @@ commands, and broader filesystem writes require explicit authority. Material
 sources are cited; credentials, cookies, and raw browser logs are excluded.
 
 ## Portable Project-Local Broker
+
+Binary-free distribution applies to AIPR and its production dependency closure.
+Already-installed Node and provider CLIs are external prerequisites; AIPR does
+not build, bundle or download their executables. All six journeys are required
+product goals, not claims of existing adapter support. Admission requires a
+versioned capability matrix for the exact host/model/effort, participant role,
+launch, identity, output, permissions, cancellation and recovery. Unsupported
+combinations fail preflight with an actionable capability report. Installed
+conformance tests, not selector presence or model-name examples, establish
+support. Generalized headless authors and SAR workers are new adapter work.
 
 The broker starts only for headless or durable cross-session work. Local
 attached SAR remains inline.
@@ -423,15 +596,43 @@ authority and package versions. The portable same-user boundary protects
 against accidental cross-project access and unauthenticated clients, not
 malicious same-user software.
 
+Use cryptographically random per-instance credentials, restrictive storage and
+verified OS-user access protections. If those protections cannot be established
+with the supported environment, refuse startup with remediation; POSIX mode
+bits alone are not a Windows ACL guarantee. Do not expose credentials to
+participant prompts, collateral, URLs or logs. Reject unauthenticated traffic
+before dispatch, browser-origin requests, wrong-instance requests and oversized
+frames. No CORS-enabled public browser control endpoint is provided. Atomically
+publish endpoint records only after exclusive worktree ownership is established;
+stale ownership needs reconciliation, never age-only takeover.
+
+Pure JavaScript IPC is not a filesystem sandbox. A headless provider must expose
+a tested permission surface enforcing the role's write scope, including denial
+of package-authority writes; prompts alone do not qualify. If unavailable, fail
+that topology's capability check. Read-only research remains allowed. Validation
+commands are separately scoped because test tools may write caches or artifacts.
+Broker-loss handling requires a tested provider cancellation/containment
+contract for descendants, not just a direct-child PID signal. When safe
+termination cannot be proved, fence the run and preserve recovery state instead
+of launching a replacement or claiming cleanup succeeded. This boundary must be
+tested separately on each supported OS, without introducing custom binaries.
+
 The broker starts on first managed run, remains while work is active or
 recoverable, and exits after a configurable idle grace. Participant wrappers
 monitor its lease and terminate only the exact provider child they launched
 after permanent broker loss.
 
-Project cleanup is:
+Project cleanup uses the same object through cleanup_brokers(request) or CLI:
 
-    peer-review broker cleanup --project <any-project-worktree> --dry-run
-    peer-review broker cleanup --project <any-project-worktree> --apply
+    peer-review broker cleanup '{"schema":"ai-peer-review.cleanup-request/v1",
+      "project":"/path/to/any-project-worktree","mode":"dry-run"}'
+
+    peer-review broker cleanup --request cleanup.json
+
+mode is dry-run or apply. Apply additionally requires action_id for replay
+safety and revalidates ownership/activity at execution; a preview is no authority
+to stop a broker that became active afterward. Any legacy flag facade must
+normalize to this object and is not the agent-facing contract.
 
 It resolves the Git common directory and enumerates all linked worktrees,
 including those under provider directories such as ~/.claude. A derivative
@@ -451,12 +652,30 @@ separate projects.
 - Unknown side effects remain fenced until reconciliation.
 - CLI never bypasses broker, protocol, identity, or integrity failures.
 
+intervene_review accepts a closed action union: cancel, resume, replace-participant
+or extend-cap. Each carries action_id, expected_revision and validated
+action-specific parameters. Mutations require authenticated controller authority;
+reconnecting by run ID alone grants neither authority nor an attached role.
+An exact replay returns its receipt, a stale revision fails, and unknown provider
+effects block resume/replacement. Cancel fences new work, reconciles and stops
+owned processes, and reports cancelled only after that is confirmed. Extending
+a cap or replacing an attached identity requires explicit user authorization
+recorded in the event stream; automatic fallbacks use only the sealed policy.
+No intervention may turn unresolved findings into normal acceptance.
+
 ## Out-of-Band Monitor and Usage
 
 start_review returns a receipt, then the controller calls wait_for_review once.
-The call blocks outside model inference while MCP progress or an equivalent
-host surface updates the user. The model wakes only for attached work,
-intervention, or terminal state.
+The call blocks outside model inference while a capability-tested MCP progress
+surface or an equivalent out-of-band surface updates the user. Host progress
+rendering and wait-duration limits are validated separately from provider
+capabilities. If MCP cannot render progress, the receipt links a local read-only
+monitor or CLI watch surface. If no visible surface can be established, report
+the limitation before launch and require an explicit unattended choice.
+Transport timeouts detach observers, not cancel reviews; adapters reattach with
+the durable cursor outside inference when possible. Host-forced model re-entry
+is disclosed and measured rather than called zero-token waiting. On capable
+hosts the model wakes only for attached work, intervention, or terminal state.
 
     XPR · stage 2/2 · round 2/12 · elapsed 04:12
 
@@ -467,18 +686,32 @@ intervention, or terminal state.
     Usage       controller 3.1k · author 21.4k · reviewer 16.8k reported
 
 Overlapping controller/author roles combine into one line. The monitor shows
+one combined critique/revision line for a SAR worker. It shows
 total and phase duration, stage/round/cap, liveness, last provider event,
 protocol progress, and usage provenance.
 
 It returns an immediate receipt, updates elapsed time locally, checks liveness
 about every 15 seconds, warns after about 60 seconds without provider events,
-and reconciles/report known state after about 120 seconds without killing a
+and reconciles/reports known state after about 120 seconds without killing a
 legitimate long reasoning turn. A configurable hard timeout intervenes.
+
+These are target intervals measured by runtime timers, not model wakeups.
+Distinguish broker heartbeat, provider-process health, provider output and
+protocol progress. No output is a quiet/stalled indication, not proof of death.
+Show the last successful observation and stale status when monitoring itself
+disconnects. The read-only monitor cannot exercise controller actions.
 
 Progress is not accumulated into model context. Terminal output is bounded and
 links to evidence. Usage is reported, estimated, or unavailable. Hidden
 reasoning and provider-internal usage are never represented as zero. Broker,
 CLI, and MCP compute consume no model tokens.
+
+Request construction, attached-role work, interventions, returned tool text and
+terminal summaries may consume controller tokens. Show these separately from
+idle wait compute; controller usage is unavailable if the host cannot report it.
+Normalize cumulative versus per-turn provider usage to prevent double counting.
+Cost estimates require price provenance; subscription utilization remains
+separate from marginal API cost and is never represented as a free review.
 
 ## Agent-First MCP and CLI
 
@@ -489,7 +722,40 @@ Preferred MCP tools are:
     wait_for_review(run_id, after_cursor)
     get_review_status(run_id)
     intervene_review(run_id, action)
+    submit_review_turn(request)
     get_peer_review_help(topic)
+    cleanup_brokers(request)
+
+These signatures describe logical arguments. Each concrete tool takes one
+versioned closed JSON object, identical to its CLI inline/--request input.
+Status and wait requests carry run_id; wait also has after_cursor. Intervention
+adds action_id, expected_revision and a discriminated action with parameters.
+Help has topic and format (structured by default). Authentication travels in
+the local transport binding, never model-visible JSON. Read capabilities expose
+only their authorized run/status data; monitor access is scoped separately from
+controller mutation authority and excludes private handles and credentials.
+CLI status, wait, intervene, submit, help and cleanup use the same registry and envelopes.
+
+submit_review_turn carries schema, run_id, stage_attempt_id, round, action_id,
+expected_revision, phase (critique or revision), reviewed_digest and response
+path/digest within the review folder. Critique responses contain verdict and
+stable findings; revision responses contain dispositions and revised_digest.
+The runtime reads/seals response bytes itself, checks the active phase, verifies
+the participant's bound session and checks FUR bytes before advancing. It
+generates patches rather than trusting participant-supplied patches. Exact
+action replay returns the receipt; conflicting replay, wrong role/phase or stale
+digest/revision fails without advancing. Controller-only credentials cannot
+submit participant turns. Inline SAR invokes the same core through local tools;
+headless wrappers use the same transition contract under their role binding.
+Every handoff supplies an exact structured next_action naming this operation
+and its schema. The worker never edits package authority directly.
+
+All responses carry schema, ok, mutation_occurred, retry_safe and bounded
+next_action. Run responses include run_id, status, revision, cursor, evidence
+paths and the applicable capability/usage provenance. Error issues are bounded
+with a truncation count when necessary. The help registry provides exact
+schema IDs and every action variant; consumers do not infer state transitions
+from prose summaries. Read-only tools never silently create a run or broker.
 
 CLI is the last fallback when MCP is unsupported, unconfigured, stale, failed,
 disconnected, or blocked by a host sandbox. It uses identical schemas.
@@ -508,12 +774,21 @@ rule, received value when safe, expected shape, correction, mutation status,
 retry safety, schema, help topic, and examples.
 
     {
+      "schema": "ai-peer-review.response/v1",
       "ok": false,
+      "mutation_occurred": false,
+      "retry_safe": true,
+      "next_action": {
+        "tool": "get_peer_review_help",
+        "arguments": {
+          "schema": "ai-peer-review.help-request/v1",
+          "topic": "start-request",
+          "format": "structured"
+        }
+      },
       "error": {
         "code": "APR_REQUEST_INVALID",
         "message": "Review request is malformed.",
-        "mutation_occurred": false,
-        "retry_safe": true,
         "issues": [{
           "path": "/stages/0/kind",
           "rule": "enum",
@@ -529,6 +804,9 @@ retry safety, schema, help topic, and examples.
 
 One machine-readable registry drives CLI help, MCP tool schemas/descriptions,
 JSON Schemas, examples, error documentation, and golden tests. Offline help
+validates every emitted example against its registered schema, including error
+and participant-submission envelopes. The registry supplies schemas for response
+bodies as well as tool inputs. Offline help
 covers commands, request schema, classes, sequences, fallbacks, permissions,
 monitoring, evidence, broker, errors, and all six user journeys.
 
@@ -563,6 +841,16 @@ mode, and startup should be numerous CLI flags.
   authentication, concurrency, stale recovery, reconciliation, and installed
   cross-platform behavior.
 - Keep #102 version policy independent.
+
+Active legacy reviews remain pinned to their compatible installed runtime and
+authority format until drained or explicitly exported at a reconciled terminal
+boundary. The new package neither rewrites live journals nor ships the retired
+native helper to resume them. Upgrade preflight reports these dependencies and
+requires retaining the old installation when needed. Imported terminal records
+retain original schema and assurance labels. The v1 config reader remains
+available for legacy use; v2 migration is explicit and never maps max_turns to
+max_rounds as if they counted the same events. Unknown schema versions fail
+with version/help guidance, not permissive parsing.
 
 ## Current-State Gap Assessment
 
@@ -624,7 +912,10 @@ incrementally stretched until their old assumptions become hidden policy.
 
 ## Backlog Ownership and Overlap
 
-This assessment reflects the live backlog on 2026-09-27.
+This assessment records backlog observations from the design session on
+2026-09-27 against source baseline fa78855. It is provisional planning input,
+not live issue authority. Revalidate bodies, dependencies and status before
+implementation planning or issue mutation; this design does not change them.
 
 | Issue                | Status             | Relationship to this design           | Ownership boundary                                                                                                                                                                                                       |
 | -------------------- | ------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -641,10 +932,11 @@ This assessment reflects the live backlog on 2026-09-27.
 | #10                  | Done               | Adjacent, not equivalent              | Multi-artifact phases are artifact sequencing inside one review; SAR/SPR/XPR stages are review-pattern sequencing. Keep both concepts explicit.                                                                          |
 | #70                  | Backlog            | No product overlap                    | AITM estimation-rubric configuration only.                                                                                                                                                                               |
 
-The principal collision is #107 versus #30/#34. Implementation planning should
-first rewrite #107 around the six topologies, structured API, portable broker,
-and monitoring, then declare schema contracts with #30 and telemetry contracts
-with #34. This avoids two evidence layouts and two analytics vocabularies.
+The principal collision is #107 versus #30/#34. Build the implementation plan
+from the reviewed specification first, then supersede or rewrite backlog #107
+around that approved plan. Declare schema contracts with #30 and telemetry
+contracts with #34. These ownership assignments are proposals to reconcile with
+their current plans, avoiding two evidence layouts or analytics vocabularies.
 
 The likely delivery shape is an epic rather than the current single code story:
 
@@ -666,22 +958,57 @@ concurrent worktree brokers; ephemeral ports; authentication; restart;
 reconnect; cleanup; binary-free production tarball; zero-turn monitoring;
 usage provenance; evidence reconstruction; CLI fallback; and one-source help.
 
+Concrete release gates include:
+
+1. Equivalent CLI/MCP JSON returns one run despite whitespace/key order;
+   different content with the same ID conflicts. Concurrent retries and a crash
+   after each launch-journal write never cause an unobserved duplicate launch.
+2. Clean review on the last permitted round accepts; a last-round revision
+   stops the sequence. Quota replacement shares the cap and exhausts a finite
+   candidate list without overlapping writers.
+3. Mutating old collateral never changes sealed evidence. Reconstruct every
+   round from final bytes and patches, including CRLF, no trailing newline,
+   empty patches and dirty/new baselines; corrupt patches or receipts fail.
+4. Two-party reviewer FUR writes, headless authority writes and path-alias escapes are denied while review
+   folder writes and permitted web research succeed. A capability mismatch
+   fails preflight rather than weakening enforcement.
+5. Two simultaneous starts in one worktree acquire one broker; separate linked
+   worktrees get distinct endpoints. Wrong tokens, instances and browser
+   origins fail. Cleanup refuses active/recoverable runs and stale PID reuse.
+6. Disconnect, quiet reasoning, process death, broker restart and second-launch
+   failure produce distinct observable states. A capable monitor refreshes
+   elapsed time without model inference and reports the 60/120-second stale
+   observations. Unsupported host progress is disclosed before launch.
+7. An installed pure-JavaScript package passes OS-specific credential storage,
+   role-write denial and child-containment tests. Untested combinations cannot
+   advertise those topologies. No required native build or download is hidden
+   in the production dependency tree.
+8. Legacy active work stays recoverable under its pinned installation; terminal
+   imports preserve original claims. All six journey examples validate against
+   the same registry used by offline CLI help and MCP schemas.
+9. Attached SAR and attached-author handoffs can submit through MCP and CLI
+   without commits. Wrong-role, stale-digest and stale-revision submissions fail;
+   replay does not advance twice. Controller-only access cannot submit a verdict.
+
+Fault-injection fixtures cover each persisted transition and replay path;
+installed provider tests establish feasibility independently of mocked tests.
+
 ## Resolved Decisions
 
 - Headless SAR uses one participant for critique and revision.
 - Acceptance requires a fresh no-findings pass.
 - Caps are SAR 6, SPR 10, XPR 12 and are configurable/overridable.
-- Any cap stops the full sequence for intervention.
+- A non-accepting exhausted cap stops the full sequence for intervention.
 - Monitoring is out of band and includes controller/author/reviewer lines.
 - Headless runs survive origin disconnect; attached roles wait for exact return.
 - Dirty/new FURs need no per-round commit.
 - Normalized evidence is tracked; raw runtime logs are ephemeral.
 - Evaluation is multidimensional across quality, cost, and time.
-- Reviewers can write the review folder and research the public web, not FUR.
+- Two-party reviewers can write the review folder and research the web, not FUR.
 - Package authority is outside the collaborative review folder.
 - Classification is explicit and validated.
 - Named role-specific provider cascades live in user/project config.
-- Fallback is a new participant stage and may change class when preauthorized.
+- Fallback is a new stage-attempt with the same budget and preauthorized class.
 - Only user-requested stages run.
 - Prior evidence visibility is configurable; independent first pass is default.
 - Compatible SAR worker-to-author continuity is default; reviewers start fresh.
@@ -689,12 +1016,12 @@ usage provenance; evidence reconstruction; CLI fallback; and one-source help.
 - Cleanup covers every linked worktree in the Git project.
 - MCP is primary; CLI is always the final fallback.
 - Starts use one versioned JSON request with request_id and filepath.
-- Start validates and launches atomically; preview is optional.
+- Start validates before atomic reservation; launch is journaled and reconciled.
 - Follow-ups automatically link through FUR frontmatter and digest continuity.
 
 ## Deferred Low-Level Choices
 
 Implementation planning may settle exact idle/hard-timeout defaults, whether a
 pure-JavaScript helper is warranted over Node built-ins, field names beneath
-the canonical top level, finding taxonomy, host-specific progress fallback,
+the documented nested contract, finding taxonomy, host-specific progress implementation,
 and retention duration for failure-only diagnostics.
