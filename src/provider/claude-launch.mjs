@@ -382,6 +382,7 @@ export function buildClaudeReviewerLaunchFromExecution({ contract, preflight } =
     model: contract.model,
     effort: contract.effort,
     mode: 'launch',
+    submit_command: submitCommand,
     permissions: Object.freeze({ allow }),
     command: Object.freeze({ file: preflight.executable.path, args, shell: false }),
     readiness: Object.freeze({
@@ -515,6 +516,7 @@ export function buildClaudeReviewerLaunch({
     model: selectedModel,
     effort,
     mode: 'launch',
+    submit_command: submitCommand,
     permissions: Object.freeze({ allow }),
     command: Object.freeze({ file: 'claude', args, shell: false }),
     readiness,
@@ -871,11 +873,15 @@ export async function runClaudeReviewerLaunch({
     // continue the event-authorized response instead of joining that turn again.
     const promptIndex = commandArgs.indexOf('-p');
     if (promptIndex < 0) throw resultError('Claude resume prompt is missing.');
+    if (!contract.submit_command && contract.preflight_digest) {
+      throw resultError('Claude preflight resume submit command is missing.');
+    }
     commandArgs[promptIndex + 1] = [
       executionPrompt(
         { ...contract, join_required: false },
         null,
-        renderClaudeBashCommand(packageCommand('submit', contract.workspace))
+        contract.submit_command ??
+          renderClaudeBashCommand(packageCommand('submit', contract.workspace))
       ),
       `The current authorized response is ${contract.response}. The original invitation response is historical; do not rejoin.`,
       'Do not change the shell working directory; use absolute paths with Read, Glob, and Grep.',

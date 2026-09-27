@@ -203,7 +203,7 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
   );
 });
 
-test('builds the preflight-bound launch from absolute current-turn commands and a closed environment', (t) => {
+test('builds and resumes the preflight-bound launch with its exact approved submit command', async (t) => {
   const fx = fixture('claude preflight launch ');
   t.after(fx.cleanup);
   const packageBin = path.join(fx.repositoryRoot, 'bin', 'peer-review.mjs');
@@ -251,6 +251,51 @@ test('builds the preflight-bound launch from absolute current-turn commands and 
   assert.deepEqual(contract.environment, preflight.child_environment);
   assert.equal(JSON.stringify(contract).includes('secret'), false);
   assert.equal(contract.preflight_digest, preflight.digest);
+  const before = authority({ sequence: 1, revision: 0, state: 'awaiting-reviewer' });
+  delete before.state.participants.reviewer;
+  const joined = authority();
+  joined.state.participants.reviewer.session_fingerprint = fingerprintSession(
+    'anthropic',
+    'preflight-resume-session'
+  );
+  const observations = [before, joined];
+  const executionResult = {
+    stdout: JSON.stringify({ session_id: 'preflight-resume-session' }),
+    stderr: '',
+  };
+  await runClaudeReviewerLaunch({
+    contract,
+    inspectAuthority: () => observations.shift(),
+    execFile: async () => executionResult,
+  });
+  const { submit_command: omitted, ...incomplete } = contract;
+  assert.ok(omitted);
+  await assert.rejects(
+    runClaudeReviewerLaunch({
+      contract: incomplete,
+      resume: true,
+      inspectAuthority: () => joined,
+      execFile: async () => assert.fail('Incomplete preflight must not dispatch'),
+    }),
+    /preflight resume submit command is missing/
+  );
+  let resumedArgs;
+  await runClaudeReviewerLaunch({
+    contract,
+    resume: true,
+    inspectAuthority: () => joined,
+    execFile: async (_file, args) => {
+      resumedArgs = args;
+      return executionResult;
+    },
+  });
+  const originalSubmitInstruction = contract.command.args[1].split('Then run exactly: ')[1];
+  const resumedPrompt = resumedArgs[resumedArgs.indexOf('-p') + 1];
+  assert.ok(resumedPrompt.includes(originalSubmitInstruction));
+  assert.deepEqual(
+    resumedArgs.slice(resumedArgs.indexOf('--allowedTools')),
+    contract.command.args.slice(contract.command.args.indexOf('--allowedTools'))
+  );
 });
 
 test('fails closed for path escape, routing drift, symlinks, and incomplete launch identity', (t) => {
