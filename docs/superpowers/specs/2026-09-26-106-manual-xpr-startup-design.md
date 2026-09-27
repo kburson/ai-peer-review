@@ -19,15 +19,22 @@ or automatic delivery requirements.
    automatic launch. Resume-only and automatic-required retain validated dispatch.
 2. The explicit Claude launcher and same-session resume use the existing stream
    recorder and streaming executor. The exact generated join command binds an
-   observed Claude tool-use event to its actual provider session and model before
-   join. A successful process exit alone never counts as reviewer submission.
+   observed Claude tool-use event to its actual provider session and model.
+   The joining process waits at most two seconds for a missing active-join
+   observation, using a monotonic deadline. Unsafe, malformed, and contradictory
+   observations refuse immediately; a still-missing observation refuses at the
+   deadline. This bounds the race between stdout consumption and Bash execution. A successful process exit alone never counts as reviewer submission.
 3. Child environment removes inherited provider identity, preserves ordinary
-   authentication environment, and supplies the selected Claude model metadata
+   authentication environment, drops inherited Claude messaging socket/token,
+   process/child-session/attendance/entrypoint markers and effort, and supplies the selected Claude model metadata
    when no declared identity is configured. Runtime observation still validates
    the actual provider model. Existing declared reviewer identity is preserved
    when resuming; an explicit configured identity remains labeled declared.
-4. CLI startup and join honor explicit/sealed manual transport even when an
-   official resume command is inherited. Non-manual modes retain their identity
+4. CLI startup and join honor effective/sealed manual transport even when an
+   official resume command is inherited. Startup resolves the flag, then review
+   configuration, then the manual default before selecting capability. It stores
+   no resume handle for manual mode and exact retry is stable across resume-config
+   changes. Non-manual modes retain their identity
    and transport capability gates.
 5. Exact generated Bash and response-edit permissions, independent author and
    reviewer sessions, malformed-stream refusal, and same-session resume remain
@@ -38,7 +45,11 @@ or automatic delivery requirements.
 The implementation is in `src/startup/runtime.mjs` and `src/cli/run.mjs`.
 Production stream machinery lives in `src/providers/claude-stream.mjs`.
 `test/integration/manual-xpr-startup.test.mjs` exercises the startup and actual
-CLI paths using a controlled external process boundary. Existing launch identity,
+CLI paths using a controlled external process boundary: no broker launch in manual mode,
+declared manual join despite inherited resume, well-formed/malformed streams,
+control-channel removal, and default/configured manual CLI startup plus exact retry.
+`test/unit/claude-observation-wait.test.mjs` covers delayed publication, bounded
+missing-file refusal, and immediate contradictory-session refusal. Existing launch identity,
 permissions, provider, and broker integration tests retain wider regression coverage.
 Broker tests that intentionally launch now explicitly select resume transport.
 
@@ -53,3 +64,8 @@ The reviewer should inspect this contract and the referenced implementation for
 correctness and missing cases, recording concrete findings in the generated
 reviewer response. This live run proves manual startup through authoritative
 submission; deterministic suites provide the broader behavioral coverage.
+
+The launcher exit code remains compatible: callers must inspect the structured
+status and event authority. An exit code of zero alone is not submission. Native
+manual dispatch and generic broker declared-identity launch are outside this
+broker-owned manual repair; production capabilities do not expose those pairings.
