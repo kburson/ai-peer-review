@@ -197,6 +197,32 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
   return result;
 }
 
+export function updateSetup(options = {}) {
+  if (options.remove || options.agents?.length)
+    fail(
+      'APR_SETUP_INVALID',
+      'Update cannot be combined with removal or explicit agents.',
+      'Use setup --update alone, or use setup --remove for teardown.'
+    );
+  const scope = options.scope ?? 'project';
+  if (!['user', 'project'].includes(scope))
+    fail('APR_SETUP_INVALID', 'Setup update scope is invalid.', 'Select user or project scope.');
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  const home = path.resolve(options.home ?? os.homedir());
+  const configFile = configPaths({ cwd, home, env: options.env ?? {}, platform: options.platform })[
+    scope
+  ];
+  const current = readJson(configFile, { schema: 'ai-peer-review.config/v1' });
+  validateConfig(current);
+  if (current.setup?.owner !== 'ai-peer-review' || !current.setup.agents?.length)
+    fail(
+      'APR_SETUP_INVALID',
+      'No prior package-owned setup exists in this scope.',
+      'Run peer-review setup with an explicit --agent and --scope first.'
+    );
+  return setup({ ...options, scope, agents: current.setup.agents });
+}
+
 export function setup(options = {}) {
   const scope = options.scope;
   const cwd = path.resolve(options.cwd ?? process.cwd());

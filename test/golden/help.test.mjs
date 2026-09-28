@@ -33,6 +33,9 @@ test('setup help and explain make package upgrades and teardown discoverable', (
   assert.match(setup.effects.join(' '), /idempotent teardown/i);
   assert.match(setup.examples.join(' '), /--remove/);
   assert.match(setup.examples.join(' '), /--dry-run/);
+  assert.match(setup.examples.join(' '), /setup --update/);
+  assert.match(setup.defaults.join(' '), /project scope.*recorded hosts/i);
+  assert.match(setup.flags.find(({ flag }) => flag === '--update').description, /recorded.*host/i);
   assert.match(setup.next_action, /doctor/i);
   assert.ok(helpRequest('upgrade', 'json', { search: true }).matches.includes('setup'));
   assert.match(explainError('APR_SETUP_CONFLICT').recovery, /foreign/i);

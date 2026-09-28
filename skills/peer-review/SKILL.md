@@ -7,7 +7,9 @@ description: Run a provider-neutral, integrity-bound AI peer review for a tracke
 
 Run `peer-review setup` with an explicit user or project scope, then run
 `peer-review doctor` before starting or joining a review. After a package
-upgrade, rerun setup in the same scope to replace its prior package-owned skill;
+upgrade, run `peer-review setup --update --dry-run` then `peer-review setup
+--update` in the affected project, or add `--scope user` for a user-scope
+installation. Update discovers all hosts recorded by the prior setup;
 setup backs up the prior bytes. `setup --remove` is an idempotent teardown. If a
 review command reports `APR_SETUP_VERSION_MISMATCH`, run `peer-review explain
 APR_SETUP_VERSION_MISMATCH` and `peer-review help setup`, then refresh each

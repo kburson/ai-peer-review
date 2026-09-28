@@ -32,7 +32,7 @@ import { platformSecurity } from '../broker/platform.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { applyReviewRecord, planReviewRecord } from '../collateral/review-record.mjs';
 import { loadConfig } from '../config/load.mjs';
-import { setup } from '../config/setup.mjs';
+import { setup, updateSetup } from '../config/setup.mjs';
 import { assertProjectSetupCompatible } from '../config/installation-identity.mjs';
 import {
   createResponseDraft,
@@ -4980,7 +4980,7 @@ export async function run(argv, io) {
       return 0;
     }
     if (parsed.command === 'setup') {
-      const response = setup({
+      const response = (parsed.options.update ? updateSetup : setup)({
         scope: parsed.options.scope,
         agents: parsed.options.agent,
         dryRun: parsed.options.dryRun,

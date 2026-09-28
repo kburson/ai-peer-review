@@ -9,7 +9,14 @@ function frozenList(values) {
 }
 
 export const COMMAND_FLAGS = Object.freeze({
-  setup: frozenList(['--agent', '--scope', '--dry-run', '--remove', '--confirm-scratch-exclude']),
+  setup: frozenList([
+    '--agent',
+    '--scope',
+    '--dry-run',
+    '--remove',
+    '--update',
+    '--confirm-scratch-exclude',
+  ]),
   doctor: frozenList(['--mode', '--json']),
   start: frozenList([
     '--artifact-kind',
@@ -82,7 +89,7 @@ export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 
 export const COMMAND_USAGE = Object.freeze({
   setup:
-    'peer-review setup --agent <codex|claude|grok|generic> --scope <user|project> [--dry-run] [--remove] [--confirm-scratch-exclude]',
+    'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude]',
   doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
   start:
     'peer-review start <artifact> --artifact-kind <spec|plan> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
@@ -144,6 +151,7 @@ const BOOLEAN_FLAGS = new Set([
   '--dry-run',
   '--apply',
   '--remove',
+  '--update',
   '--confirm-scratch-exclude',
   '--json',
   '--next',
@@ -229,6 +237,8 @@ function validateEnum(options, key, flag, values) {
 
 function validateConstraints(command, args, options) {
   if (command === 'setup') {
+    if (options.update && (options.remove || options.agent?.length))
+      usage('--update cannot be combined with --remove or --agent');
     validateEnum(options, 'scope', '--scope', ['user', 'project']);
     for (const agent of options.agent ?? []) {
       if (!['codex', 'claude', 'grok', 'generic'].includes(agent)) {

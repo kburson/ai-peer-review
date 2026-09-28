@@ -549,6 +549,10 @@ test('request-grant maps only action-owned fields to canonical snake case', () =
   usage(['request-grant', 'workspace', '--action', 'unknown'], /unknown protected action/i);
 });
 
+test('setup --update parses as a project upgrade request', () => {
+  assert.equal(parseCommand(['setup', '--update']).options.update, true);
+});
+
 test('top-level and command help normalize to the help command', () => {
   assert.deepEqual(parseCommand(['--help']), { command: 'help', args: [], options: {} });
   assert.deepEqual(parseCommand(['submit', '--help']), {

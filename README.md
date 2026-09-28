@@ -99,8 +99,10 @@ your agent knows the commands, the role boundaries, and what it is not allowed
 to do — so you can talk about reviews in plain language instead of quoting
 flags at it.
 
-After installing a newer package, rerun `peer-review setup --agent <host>
---scope <user|project>` in the same scope. Setup automatically replaces a
+After installing a newer package, run `peer-review setup --update --dry-run`
+then `peer-review setup --update` in each affected project. `--update` defaults
+to project scope and refreshes every host recorded by the prior package-owned
+setup. For a prior user-scope installation, add `--scope user`. Setup automatically replaces a
 previous package-owned skill and backs up its bytes as `SKILL.md.bak`; a repeat
 run is a no-op. `peer-review setup --agent <host> --scope <user|project>
 --remove` is the idempotent teardown for that scope. A pre-existing or foreign

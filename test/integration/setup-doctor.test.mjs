@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { configPaths, loadConfig, validateConfig } from '../../src/config/load.mjs';
-import { planSetup, setup } from '../../src/config/setup.mjs';
+import { planSetup, setup, updateSetup } from '../../src/config/setup.mjs';
 import { doctor } from '../../src/doctor.mjs';
 import { run, startReview } from '../../src/cli/run.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
@@ -299,6 +299,55 @@ test('setup refuses a foreign differing skill without ownership evidence', (t) =
   };
   assert.throws(() => setup(options), { code: 'APR_SETUP_CONFLICT' });
   assert.equal(readFileSync(skillFile, 'utf8'), 'foreign skill\n');
+});
+
+test('setup --update refreshes every recorded project host and is idempotent', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex', 'claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const changed = [];
+  for (const host of ['codex', 'claude']) {
+    const file = path.join(files.project, `.${host}`, 'skills', 'peer-review', 'SKILL.md');
+    const oldBytes = `${readFileSync(file, 'utf8')}\nprevious package\n`;
+    writeFileSync(file, oldBytes);
+    changed.push({ file, oldBytes });
+  }
+  const updateOptions = { cwd: files.project, home: files.home, gitExcludePath: files.exclude };
+  const preview = updateSetup({ ...updateOptions, dryRun: true });
+  assert.equal(preview.changed, true);
+  assert.deepEqual(preview.agents, ['claude', 'codex']);
+  assert.equal(
+    changed.every(({ file, oldBytes }) => readFileSync(file, 'utf8') === oldBytes),
+    true
+  );
+  updateSetup(updateOptions);
+  for (const { file, oldBytes } of changed) {
+    assert.notEqual(readFileSync(file, 'utf8'), oldBytes);
+    assert.equal(readFileSync(`${file}.bak`, 'utf8'), oldBytes);
+  }
+  assert.equal(updateSetup(updateOptions).changed, false);
+  assert.throws(() => updateSetup({ ...updateOptions, remove: true }), {
+    code: 'APR_SETUP_INVALID',
+  });
+  assert.throws(() => updateSetup({ ...updateOptions, agents: ['codex'] }), {
+    code: 'APR_SETUP_INVALID',
+  });
+});
+
+test('setup --update refuses a project with no prior package-owned setup', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  assert.throws(() => updateSetup({ cwd: files.project, home: files.home }), {
+    code: 'APR_SETUP_INVALID',
+  });
 });
 
 test('installed CLI refuses stale setup package identity before review work', async (t) => {

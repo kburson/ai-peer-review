@@ -25,6 +25,17 @@ const PURPOSE = Object.freeze({
   explain: 'Explain one stable APR error and its recovery.',
 });
 
+const SETUP_FLAG_HELP = Object.freeze({
+  '--agent': 'Choose one host for initial setup or teardown; repeat to select several hosts.',
+  '--scope': 'Choose user or project configuration. Setup --update defaults to project scope.',
+  '--dry-run': 'Preview exact operations and backup requirements without changing files.',
+  '--remove': 'Idempotently tear down package-owned setup for the selected host and scope.',
+  '--update':
+    'Refresh every recorded host in the existing package-owned setup; defaults to project scope.',
+  '--confirm-scratch-exclude':
+    'Authorize a missing project-local scratch exclusion after reviewing the dry run.',
+});
+
 const HUMAN_GATED = new Set(['supplement', 'continue']);
 const ROLES = Object.freeze({
   setup: ['human'],
@@ -80,7 +91,7 @@ const STATES = Object.freeze({
 const PRECONDITIONS = Object.freeze({
   setup: [
     'Choose the same scope (user or project) and host agent used by the previous installation.',
-    'After a global npm upgrade, rerun setup in every scope that previously received a copied skill.',
+    'After a global npm upgrade, run setup --update in each prior scope; it discovers recorded hosts without --agent.',
   ],
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
@@ -951,7 +962,10 @@ function topic(command) {
     arguments: { minimum: grammar.min, maximum: grammar.max },
     flags: COMMAND_FLAGS[command].map((flag) => ({
       flag,
-      description: `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
+      description:
+        command === 'setup'
+          ? SETUP_FLAG_HELP[flag]
+          : `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
     })),
     defaults:
       command === 'start'
@@ -962,7 +976,9 @@ function topic(command) {
             'medium reviewer effort',
             'normal commit mode',
           ]
-        : ['stored review authority'],
+        : command === 'setup'
+          ? ['--update uses project scope and all recorded hosts']
+          : ['stored review authority'],
     environment: [
       'Official provider session metadata when available; declared identity is explicit.',
       'Claude partial-runtime recovery requires a genuine runtime session plus hosts.claude.identity model_id and model_display; the result is labeled declared.',
@@ -1006,6 +1022,8 @@ function topic(command) {
             'peer-review setup --agent codex --scope project --dry-run',
             'peer-review setup --agent codex --scope project --confirm-scratch-exclude',
             'peer-review setup --agent codex --scope project --remove',
+            'peer-review setup --update --dry-run',
+            'peer-review setup --update',
           ]
         : []),
       ...(command === 'start'
@@ -1020,7 +1038,7 @@ function topic(command) {
         : 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
       command === 'setup'
-        ? 'After setup, run peer-review doctor --json; after a package upgrade, rerun setup for each previously installed host and scope.'
+        ? 'After initial setup, run peer-review doctor --json. After a package upgrade, run peer-review setup --update --dry-run and then peer-review setup --update in each prior scope, followed by doctor.'
         : command === 'launch-reviewer'
           ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
           : command === 'broker'
