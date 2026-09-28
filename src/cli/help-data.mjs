@@ -804,7 +804,7 @@ const ERROR_CATALOG = Object.freeze({
     message:
       'The project setup package version or copied skill digest differs from the installed CLI.',
     recovery:
-      'Run peer-review help setup, then peer-review setup --agent <host> --scope project --dry-run and apply setup for every previously installed host. Run peer-review doctor afterward.',
+      'Run peer-review help setup, then peer-review setup --update --dry-run and peer-review setup --update in the affected project. Run peer-review doctor afterward.',
   },
   APR_SETUP_CONFIRMATION_REQUIRED: {
     message: 'Applying the repository-local scratch exclusion requires explicit confirmation.',

@@ -40,7 +40,7 @@ test('setup help and explain make package upgrades and teardown discoverable', (
   assert.ok(helpRequest('upgrade', 'json', { search: true }).matches.includes('setup'));
   assert.match(explainError('APR_SETUP_CONFLICT').recovery, /foreign/i);
   assert.match(explainError('APR_SETUP_CONFIRMATION_REQUIRED').recovery, /dry-run/i);
-  assert.match(explainError('APR_SETUP_VERSION_MISMATCH').recovery, /help setup/i);
+  assert.match(explainError('APR_SETUP_VERSION_MISMATCH').recovery, /setup --update --dry-run/i);
 });
 
 test('start help gives complete intent-first selection and recovery guidance', () => {
