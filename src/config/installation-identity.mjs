@@ -54,7 +54,7 @@ export function assertProjectSetupCompatible({ cwd = process.cwd(), env = proces
       'The project peer-review setup does not match the installed CLI and skill.',
       {
         recovery:
-          'Run peer-review setup --agent <host> --scope project --dry-run, then rerun without --dry-run for each previously installed host; run peer-review doctor afterward.',
+          'Run peer-review setup --update --dry-run, then peer-review setup --update in the affected project. Run peer-review doctor afterward.',
         details: {
           expected,
           configured: {

@@ -385,7 +385,7 @@ test('installed CLI refuses stale setup package identity before review work', as
   writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
   assert.equal(await run(['status', 'missing-review'], io), 1);
   assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
-  assert.match(JSON.parse(output.stderr).recovery, /setup.*dry-run/i);
+  assert.match(JSON.parse(output.stderr).recovery, /setup --update --dry-run/i);
   output.stderr = '';
   assert.equal(await run(['help', 'setup'], io), 0);
   assert.match(output.stdout, /--remove/);
