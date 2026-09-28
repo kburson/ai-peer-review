@@ -65,7 +65,7 @@ artifacts of the same kind remain distinguishable by full artifact identity in
 metadata. Titles and dates never determine identity.
 
 A turn denotes a logical review/revision round within the human review record.
-The unsuffixed response is retry ordinal 1. Further attempts use `.02`, `.03`,
+The response without a suffix is retry ordinal 1. Further attempts use `.02`, `.03`,
 and so on, allocated independently for reviewer and author within that turn.
 There is no attempt directory. Missing author responses are valid for interrupted
 or unfinished turns; migration must not synthesize them.
@@ -75,14 +75,22 @@ a replacement response attempt allocates a new path and preserves the previous
 file. Successful submissions are immutable. An author retry can reference an
 already submitted reviewer response without forcing that reviewer to repeat work.
 
+A retry path is not a new protocol turn and cannot reset a turn budget. Reuse of
+a reviewer submission requires current event authority to permit that author
+response. Replacement executions retain distinct authority: a mapping alone must
+not import a prior execution's submission or findings into a new execution.
+Draft registration, submission recovery, and reservations must bind the complete
+role/retry/path identity instead of allowing two attempts to share a mutable
+role-and-turn registry entry.
+
 Startup, invitation, manifest, and human-decision collateral must also be retained.
 Their exact placement is a written-review decision described below; changing the
 response layout must not silently discard these execution-wide records.
 
 ## Identity, concurrency, and agent access
 
-`review.json` is a versioned, rebuildable projection. It maps the human review
-number to `record_id`, repository and issue identity, artifact references, protocol
+`review.json` is a versioned projection that can be rebuilt from retained evidence.
+It maps the human review number to `record_id`, repository and issue identity, artifact references, protocol
 executions, logical turns, role retry ordinals, relative paths, digests, and source
 evidence references. It identifies the authoritative submitted response for each
 role and turn only when protocol evidence supports that selection.
@@ -97,16 +105,32 @@ identities on historical records. Existing execution-local turn numbers must not
 be silently interpreted as the new logical turn counter. Ambiguous historical
 continuity is a migration exception, not grounds to guess.
 
+Phased reviews preserve one protocol execution across spec and plan phases. The
+current reducer retains the execution-wide turn counter while resetting the phase
+budget. Preserve phase cursor, artifact kind, artifact revision, and both counters
+in mappings; do not split the execution or duplicate acceptance when projecting
+it into kind-scoped directories. The exact routing and ownership of shared
+execution collateral across those directories remains a written-review decision.
+
 Allocation must reserve paths exclusively, retain an operation identity for
 idempotent retries, and serialize competing local worktrees through shared
 repository coordination. Independent clones cannot rely on that local lock:
 integration must detect conflicting number-to-ID mappings and refuse silent
 merging. Resolve conflicts through an explicit mapping repair before acceptance.
+Allocation and retirement records must remain durable outside the replaceable
+index. Rebuilding or deleting a projection must not free previously allocated
+numbers, including abandoned reservations. Recovery must prove the same allocation
+identity; directory scans alone cannot establish the next available number.
 
 Agents receive the exact current response path from protocol status and launch
 contracts. They do not scan for the highest suffix. The reviewer can write only
 its assigned draft response; it cannot modify the artifact, author response,
 another retry, or the record index. Tests cover Codex and Claude access boundaries.
+Claude launch currently also requires the invitation and response to share a
+directory. Replace this location heuristic with verified sealed ownership linking
+the invitation, execution, current turn, and exact response path. An invitation
+from another execution or an edited routing projection must remain invalid, even
+when all paths are inside the same repository.
 
 For learning and data mining, preserve distinctions between drafts, submitted
 responses, superseded executions, ordinary acceptance, and human overrides.
@@ -133,10 +157,13 @@ and searches below comments for frontmatter; update parsing and validation
 explicitly rather than assuming arbitrary formatter output remains compatible.
 Reject duplicate keys, conflicting identities, and unsupported schema versions.
 
-Generate and finalize compliant response bytes before submission and hashing.
-Submission must validate the final bytes. An automatic formatting step may not
-alter already sealed output. Template metadata and generated fixtures must be
-covered by appropriate lint, format, parser, and idempotence checks.
+Submission finalization must populate timestamps, finding IDs, and other computed
+metadata before the final formatting and validation pass. Hash and seal exactly
+those final bytes, and verify that a further formatter pass makes no change.
+Validate protected metadata against authority again after formatting, including
+parser interpretation and recovery from interruption during finalization. An
+automatic formatting step may not alter already sealed output. Template metadata
+and generated fixtures must be covered by appropriate lint, format, parser, and idempotence checks.
 
 ## Migration scope and evidence model
 
@@ -150,7 +177,11 @@ Preserve original reviewed bytes at a retained, retrievable Git commit with thei
 original evidence. Record repository, commit, path, and digest. If a required
 source or authority exists only in unavailable scratch state, report missing
 evidence and stop application until resolved. Git content proves original bytes,
-not the existence of a submission or approval.
+not the existence of a submission or approval. The retained commit and required
+evidence objects must remain reachable through durable retained history or an
+explicit retention reference published with the migration. A local object ID or
+local reference log alone does not establish durable retrieval. Preflight verifies retrieval
+and identifies the retained location for every required evidence dependency.
 
 Use distinct transformation classes:
 
@@ -165,6 +196,14 @@ Use distinct transformation classes:
    parser interpretation, and retained protection semantics.
 4. Substantive or unproven changes require fresh review; never refresh a historical
    approval merely by calculating a new digest.
+
+For every moved document, compare resolved link targets and fragments before and
+after relocation; identical relative link text can resolve to different content.
+Link rewrites are an explicit relocation transformation, not a formatting-only
+exception. Record each old/new target mapping and verify the same document identity
+and intended section, including links into other transformed documents. Changed
+or unproven targets require fresh review or block application. Sealed original
+links remain in the retained source; only derived representations may be rewritten.
 
 For each transformed file, an additive migration manifest records old and new
 paths and digests, immutable source location, transformation and schema versions,
@@ -190,7 +229,16 @@ Apply revalidates the source revision, digests, allocation reservations, and pla
 evidence. Active reviews in scope must be quiescent; concurrent source changes
 invalidate the plan. Publish destinations exclusively, reread and verify them,
 write and verify additive mappings, then remove the mapped legacy working-tree
-files. Never remove the retained historical Git source or unrelated files.
+files. Revalidate source identity and bytes immediately before removal under the
+same mutation coordination; a changed source must remain untouched. Never remove
+the retained historical Git source or unrelated files.
+
+Readers must distinguish prepared destinations from a completely verified local
+publication. They must not resolve authority through partially published mappings.
+The journal records the full destination set and verified mapping state before
+source removal is allowed. Recovery either completes that same verified operation
+or preserves available sources and destinations for reconciliation; it must never
+promote an incomplete operation merely because a destination exists.
 
 Use an operation journal so interruption is recoverable and retry is idempotent.
 A retry accepts only the same mapping and identical planned bytes. Git publication
@@ -226,18 +274,25 @@ artifacts in other repositories.
 - Canonical output has no dates, titles, or repeated full IDs in response filenames.
 - Review, turn, and per-role retry allocation is collision-safe and idempotent;
   independent-clone conflicts are detected instead of silently merged.
-- Recovery preserves submitted reviewer findings when only the author retries.
+- Recovery preserves submitted reviewer findings when only the author retries,
+  without granting authority across executions or resetting turn budgets.
+- Rebuilding indexes preserves durable allocations, including abandoned numbers.
+- Phased fixtures preserve execution identity, phase identity, turn counters, and
+  acceptance provenance across spec and plan routing.
 - Agents resolve exact authorized paths; neighboring and foreign response writes
-  remain denied after filename changes.
+  remain denied after filename changes. Sealed invitation ownership remains
+  verified when invitations and responses reside in different directories.
 - Frontmatter starts at byte zero, survives supported formatting unchanged in
   meaning, and is understood by both conventional YAML tooling and protocol readers.
 - Rebuilding `review.json` produces the same evidence-backed selections; tampering,
   missing evidence, and a newer unsubmitted retry cannot create acceptance.
 - Dry-run performs no mutation. Failure before publication preserves originals;
   interrupted application recovers without duplicate files or lost evidence.
+  Readers reject incomplete publication, and changed sources are never deleted.
 - Equivalence checks reject changed code, links, significant whitespace, unsupported
   syntax, substantive prose, and metadata changes outside the explicit verified
-  frontmatter field mapping.
+  frontmatter field mapping. Explicit link relocation mappings prove unchanged
+  resolved targets and fragments rather than assuming unchanged text is sufficient.
 - Every migrated item has a verified source-to-destination evidence mapping and
   all required references resolve, including those associated with closed issues.
 - Workspace and CI lint/format checks cover the migrated tree. Legacy evidence
@@ -254,6 +309,12 @@ One additional supporting-file placement is proposed for written review:
 `executions/<review-id>/` within the review directory, containing short startup,
 invitation, and manifest filenames. This retains execution-wide scope without
 expanding the response paths. It is not an already approved chat decision.
+
+A second decision concerns a single phased execution that spans both spec and plan
+namespaces: choose how their numbered review directories refer to that execution
+and where shared startup, invitation, and terminal collateral live. A concrete
+mapping must preserve the invariants above and receive written approval before
+implementation. This SAR does not choose or approve that placement implicitly.
 
 Detailed planning must specify exact schema fields, allocation mechanics,
 transformation comparisons, and historical turn mapping based on the inventory.
