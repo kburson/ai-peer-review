@@ -3,7 +3,7 @@ import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './pa
 import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
-  setup: 'Install or remove reversible peer-review agent integration.',
+  setup: 'Install, upgrade, or remove reversible peer-review agent integration.',
   doctor: 'Inspect local peer-review readiness without mutation.',
   start: 'Start a new event-authoritative review after complete preflight.',
   advance: 'Bind the exact next phased artifact and resume the registered reviewer.',
@@ -23,6 +23,17 @@ const PURPOSE = Object.freeze({
   broker: 'Inspect and control the authenticated project-local review broker.',
   help: 'Query the complete offline command contract.',
   explain: 'Explain one stable APR error and its recovery.',
+});
+
+const SETUP_FLAG_HELP = Object.freeze({
+  '--agent': 'Choose one host for initial setup or teardown; repeat to select several hosts.',
+  '--scope': 'Choose user or project configuration. Setup --update defaults to project scope.',
+  '--dry-run': 'Preview exact operations and backup requirements without changing files.',
+  '--remove': 'Idempotently tear down package-owned setup for the selected host and scope.',
+  '--update':
+    'Refresh every recorded host in the existing package-owned setup; defaults to project scope.',
+  '--confirm-scratch-exclude':
+    'Authorize a missing project-local scratch exclusion after reviewing the dry run.',
 });
 
 const HUMAN_GATED = new Set(['supplement', 'continue']);
@@ -78,7 +89,10 @@ const STATES = Object.freeze({
   explain: ['any'],
 });
 const PRECONDITIONS = Object.freeze({
-  setup: ['Explicit scope and a readable host configuration surface.'],
+  setup: [
+    'Choose the same scope (user or project) and host agent used by the previous installation.',
+    'After a global npm upgrade, run setup --update in each prior scope; it discovers recorded hosts without --agent.',
+  ],
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
@@ -118,7 +132,11 @@ const PRECONDITIONS = Object.freeze({
   explain: ['A known stable APR error code.'],
 });
 const EFFECTS = Object.freeze({
-  setup: ['Previews or applies reversible owned configuration changes; never pushes.'],
+  setup: [
+    'Dry-run previews exact owned changes without mutation; apply automatically replaces a prior package-owned skill and backs up its previous bytes as SKILL.md.bak.',
+    'Setup --remove is an idempotent teardown for the selected host and scope; foreign skills remain untouched.',
+    'Global npm installation updates the command but does not refresh copied skills until setup runs again.',
+  ],
   doctor: ['Read-only inspection; changes no files, Git, configuration, or transport.'],
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
@@ -127,8 +145,9 @@ const EFFECTS = Object.freeze({
   'request-grant': ['Appends or reuses one challenge event; performs no Git operation.'],
   join: ['Appends reviewer identity and claim events and creates one reviewer draft.'],
   'launch-reviewer': [
-    'Launches Claude under dontAsk with one exact response Edit permission.',
+    'Launches Claude under dontAsk with one exact response Edit permission and literal model and effort identifiers.',
     'Bounded diagnostics distinguish failure from uncertainty; the pre-join session fingerprint may be null.',
+    'A provider-coded model or effort refusal is reported distinctly; other uncertain outcomes require reconciliation.',
     'A blocked write returns an exact same-session resume action only with usable private session state.',
   ],
   status: ['Read-only event reduction; performs no repair, polling, wake, or Git operation.'],
@@ -169,6 +188,7 @@ const ERRORS = Object.freeze({
     'APR_SCRATCH_NOT_IGNORED',
     'APR_IDENTITY_REQUIRED',
     'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_TRANSPORT_UNAVAILABLE',
     'APR_AUTHORITY_REQUIRED',
     'APR_AUTHORITY_POLICY',
@@ -202,6 +222,7 @@ const ERRORS = Object.freeze({
     'APR_OUTPUT_COLLISION',
   ],
   'launch-reviewer': [
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_CLAUDE_PERMISSION_INVALID',
     'APR_CLAUDE_SESSION_INVALID',
     'APR_CLAUDE_LAUNCH_FAILED',
@@ -387,6 +408,7 @@ const ERRORS = Object.freeze({
     'APR_BROKER_STALE',
     'APR_PROVIDER_RESOURCE_BUSY',
     'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_BROKER_REGISTRATION_CONFLICT',
     'APR_WAKE_AUTHORITY_INVALID',
     'APR_WAKE_CAPABILITY_UNAVAILABLE',
@@ -775,7 +797,14 @@ const ERROR_CATALOG = Object.freeze({
   },
   APR_SETUP_CONFLICT: {
     message: 'Setup encountered an existing integration it does not own.',
-    recovery: 'Preserve or relocate the foreign integration before setup.',
+    recovery:
+      'The skill or provider key is foreign to this package. Preserve or relocate it, then rerun peer-review setup --dry-run for the same host and scope; package-owned earlier skills upgrade automatically.',
+  },
+  APR_SETUP_VERSION_MISMATCH: {
+    message:
+      'The project setup package version or copied skill digest differs from the installed CLI.',
+    recovery:
+      'Run peer-review help setup, then peer-review setup --update --dry-run and peer-review setup --update in the affected project. Run peer-review doctor afterward.',
   },
   APR_SETUP_CONFIRMATION_REQUIRED: {
     message: 'Applying the repository-local scratch exclusion requires explicit confirmation.',
@@ -807,8 +836,15 @@ const ERROR_CATALOG = Object.freeze({
       'Use official runtime identity. For a Claude session without model metadata, set hosts.claude.identity.model_id and model_display in .ai-peer-review.json; configuration cannot supply the session.',
   },
   APR_REVIEWER_SELECTION_UNSUPPORTED: {
-    message: 'The requested reviewer provider, model, or effort is unsupported.',
-    recovery: 'Select codex, claude, or grok with an adapter-supported exact model and effort.',
+    message:
+      'The reviewer selection could not be formed locally: unknown or unavailable provider, invalid identifier syntax, incomplete author identity, or an adapter that did not preserve the exact request.',
+    recovery:
+      'Choose codex, claude, or grok with safe exact model and effort identifiers; repair the local identity or adapter if it cannot preserve the request.',
+  },
+  APR_REVIEWER_SELECTION_REFUSED: {
+    message: 'The provider explicitly rejected the requested reviewer model or effort.',
+    recovery:
+      'Check available choices in the installed provider app, then start a new review with an exact supported model and effort.',
   },
   APR_TRANSPORT_UNAVAILABLE: {
     message: 'The requested transport is not supported by the current participant.',
@@ -926,7 +962,10 @@ function topic(command) {
     arguments: { minimum: grammar.min, maximum: grammar.max },
     flags: COMMAND_FLAGS[command].map((flag) => ({
       flag,
-      description: `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
+      description:
+        command === 'setup'
+          ? SETUP_FLAG_HELP[flag]
+          : `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
     })),
     defaults:
       command === 'start'
@@ -937,7 +976,9 @@ function topic(command) {
             'medium reviewer effort',
             'normal commit mode',
           ]
-        : ['stored review authority'],
+        : command === 'setup'
+          ? ['--update uses project scope and all recorded hosts']
+          : ['stored review authority'],
     environment: [
       'Official provider session metadata when available; declared identity is explicit.',
       'Claude partial-runtime recovery requires a genuine runtime session plus hosts.claude.identity model_id and model_display; the result is labeled declared.',
@@ -976,6 +1017,15 @@ function topic(command) {
     examples: [
       COMMAND_USAGE[command],
       `npx --yes @kburson/ai-peer-review@0.3.0 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      ...(command === 'setup'
+        ? [
+            'peer-review setup --agent codex --scope project --dry-run',
+            'peer-review setup --agent codex --scope project --confirm-scratch-exclude',
+            'peer-review setup --agent codex --scope project --remove',
+            'peer-review setup --update --dry-run',
+            'peer-review setup --update',
+          ]
+        : []),
       ...(command === 'start'
         ? [
             'peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
@@ -987,14 +1037,19 @@ function topic(command) {
         ? 'A versioned JSON result with bounded diagnostics, nullable pre-join session fingerprint, or deterministic offline text.'
         : 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
-      command === 'launch-reviewer'
-        ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
-        : command === 'broker'
-          ? 'Offline status reports the exact recovery evidence and next reconciliation action.'
-          : command === 'status' || command === 'resume'
-            ? 'Exactly one event-derived action and command.'
-            : 'Read peer-review status for the next event-derived action.',
-    errors: ERRORS[command],
+      command === 'setup'
+        ? 'After initial setup, run peer-review doctor --json. After a package upgrade, run peer-review setup --update --dry-run and then peer-review setup --update in each prior scope, followed by doctor.'
+        : command === 'launch-reviewer'
+          ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
+          : command === 'broker'
+            ? 'Offline status reports the exact recovery evidence and next reconciliation action.'
+            : command === 'status' || command === 'resume'
+              ? 'Exactly one event-derived action and command.'
+              : 'Read peer-review status for the next event-derived action.',
+    errors:
+      command === 'setup' || command === 'help' || command === 'explain'
+        ? ERRORS[command]
+        : [...ERRORS[command], 'APR_SETUP_VERSION_MISMATCH'],
     json_schema:
       command === 'launch-reviewer'
         ? 'ai-peer-review.claude-launch-result/v1'

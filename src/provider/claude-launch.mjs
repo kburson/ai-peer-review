@@ -8,6 +8,7 @@ import { AprError } from '../errors.mjs';
 import { fingerprintSession as defaultFingerprintSession } from '../identity/registry.mjs';
 import { inspectReviewAuthority as defaultInspectAuthority } from '../protocol/service.mjs';
 import { atomicWrite } from '../protocol/store.mjs';
+import { safeSelectionIdentifier } from '../providers/registry.mjs';
 import {
   buildClaudeLaunchDiagnostic,
   normalizeClaudeExecution,
@@ -15,7 +16,6 @@ import {
 
 const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
 const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
-const EFFORTS = new Set(['low', 'medium', 'high']);
 const PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
 
 export function buildClaudeLaunchEnvironment(parentEnvironment = process.env) {
@@ -70,7 +70,7 @@ function portableCommandPath(value, label) {
 }
 
 function safeIdentifier(value, label) {
-  if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)) {
+  if (!safeSelectionIdentifier(value)) {
     fail(
       `Claude ${label} is invalid.`,
       `Use the exact non-empty ${label} selected for this reviewer launch.`,
@@ -451,12 +451,7 @@ export function buildClaudeReviewerLaunch({
     );
   }
   const selectedModel = safeIdentifier(model, 'model');
-  if (!EFFORTS.has(effort)) {
-    fail(
-      'Claude effort is invalid.',
-      'Use one of the supported Claude effort levels: low, medium, or high.'
-    );
-  }
+  const selectedEffort = safeIdentifier(effort, 'effort');
   const rule = encodeClaudeEditRule(response.absolute);
   const join = packageCommand('join', resolvedInvitation.absolute);
   const submit = packageCommand('submit', workspace.absolute);
@@ -501,7 +496,7 @@ export function buildClaudeReviewerLaunch({
     '--model',
     selectedModel,
     '--effort',
-    effort,
+    selectedEffort,
     '--allowedTools',
     ...allow,
   ]);
@@ -514,7 +509,7 @@ export function buildClaudeReviewerLaunch({
     response: response.absolute,
     artifact: artifact.absolute,
     model: selectedModel,
-    effort,
+    effort: selectedEffort,
     mode: 'launch',
     submit_command: submitCommand,
     permissions: Object.freeze({ allow }),
@@ -642,6 +637,32 @@ export function classifyClaudeReviewerOutcome({
     decision && expectedSessionFingerprint === current.reviewer.session_fingerprint
   );
   const denied = deniedExactResponse(providerResult, contract.response);
+  if (
+    !decision &&
+    !denied &&
+    !prior.reviewer &&
+    !current.reviewer &&
+    prior.protocol.sequence === current.protocol.sequence &&
+    prior.protocol.revision === current.protocol.revision &&
+    providerResult?.selection_refusal &&
+    !providerResult.session_id_present &&
+    !providerResult.interrupted
+  ) {
+    throw new AprError(
+      'APR_REVIEWER_SELECTION_REFUSED',
+      `Claude explicitly rejected the requested ${providerResult.selection_refusal}.`,
+      {
+        recovery:
+          'Open the installed Claude app and inspect /model and /effort, then start a new review with their exact supported identifiers.',
+        details: {
+          provider: 'claude',
+          model: contract.model,
+          effort: contract.effort,
+          provider_code: providerResult.selection_refusal_code,
+        },
+      }
+    );
+  }
   let status = 'outcome-unknown';
   let category = 'no-submission';
   if (submitted) status = 'submitted';

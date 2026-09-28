@@ -1,4 +1,9 @@
-import { PROVIDERS, selectedAdapter, selectionUnsupported } from '../providers/registry.mjs';
+import {
+  PROVIDERS,
+  safeSelectionIdentifier,
+  selectedAdapter,
+  selectionUnsupported,
+} from '../providers/registry.mjs';
 
 const IDENTITY_SOURCES = new Set(['runtime', 'declared']);
 
@@ -19,11 +24,12 @@ function authorIdentity(author) {
   return author;
 }
 
-function resolvedModel(value, requestedEffort) {
+function resolvedModel(value, requestedModel, requestedEffort) {
   if (
     !value ||
     !text(value.model_id) ||
     !text(value.model_display) ||
+    value.model_id !== requestedModel ||
     !text(value.effort) ||
     value.effort !== requestedEffort
   ) {
@@ -39,22 +45,25 @@ export async function resolveSelection(
   adapters
 ) {
   const resolvedAuthor = authorIdentity(author);
-  if (!text(model) || !text(effort)) {
-    selectionUnsupported('Reviewer model and effort must be explicit non-empty values.');
+  if (!safeSelectionIdentifier(model) || !safeSelectionIdentifier(effort)) {
+    selectionUnsupported('Reviewer model and effort must have safe identifier syntax.');
   }
   const selected = selectedAdapter(selector, adapters);
   let modelResult;
   try {
     modelResult = await selected.adapter.resolveModel({ model, effort });
   } catch (cause) {
-    if (cause?.code === 'APR_REVIEWER_SELECTION_UNSUPPORTED') throw cause;
-    selectionUnsupported('Reviewer adapter does not support the requested model or effort.', {
+    if (
+      ['APR_REVIEWER_SELECTION_UNSUPPORTED', 'APR_REVIEWER_SELECTION_REFUSED'].includes(cause?.code)
+    )
+      throw cause;
+    selectionUnsupported('Reviewer adapter could not resolve the requested selection.', {
       selector,
       model,
       effort,
     });
   }
-  const resolved = resolvedModel(modelResult, effort);
+  const resolved = resolvedModel(modelResult, model, effort);
   return Object.freeze({
     selector,
     provider: selected.provider,

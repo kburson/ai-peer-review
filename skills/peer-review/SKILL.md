@@ -6,7 +6,15 @@ description: Run a provider-neutral, integrity-bound AI peer review for a tracke
 # AI Peer Review
 
 Run `peer-review setup` with an explicit user or project scope, then run
-`peer-review doctor` before starting or joining a review. Query
+`peer-review doctor` before starting or joining a review. After a package
+upgrade, run `peer-review setup --update --dry-run` then `peer-review setup
+--update` in the affected project, or add `--scope user` for a user-scope
+installation. Update discovers all hosts recorded by the prior setup;
+setup backs up the prior bytes. `setup --remove` is an idempotent teardown. If a
+review command reports `APR_SETUP_VERSION_MISMATCH`, run `peer-review explain
+APR_SETUP_VERSION_MISMATCH` and `peer-review help setup`, then refresh each
+previously installed host in the same scope.
+Query
 `peer-review help <command>` whenever syntax is uncertain; never guess flags or
 state transitions.
 
@@ -110,7 +118,21 @@ the recorded participant-loss intervention. If any automatic delivery remains
 pending, use the exact printed manual recovery command.
 
 Start from the invoking author session with an explicit reviewer provider and
-model; print the resolved effort even when it defaults to medium. Human
+model; print the resolved effort even when it defaults to medium. Preserve the
+user's exact model and effort identifiers instead of choosing from a
+package-owned availability list. If the provider explicitly rejects either
+selection, report `APR_REVIEWER_SELECTION_REFUSED` and its provider code.
+For conversational requests, identify which named app is the reviewer; the
+invoking session is the author. Treat names such as a model family or a version
+nickname as hints, not exact IDs. Use the installed provider app's current
+model and effort choices when available, and ask for the exact reviewer model
+ID if the hint has more than one plausible match. An omitted effort means
+`medium`; never infer a model or effort from a nickname suffix. Show the
+resolved provider, exact model ID, and effort before starting, then pass those
+values unchanged into the sealed review intent. Do not add a package-owned
+alias or availability table.
+Treat generic process failures and missing output as uncertain launch outcomes
+that require reconciliation. Human
 sponsorship is not participant identity. Use `peer-review help start`,
 `peer-review help spr`, and `peer-review help xpr` for offline guidance. Native
 SPR needs a same-provider second-session capability. New XPR, including manual

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { validateConfig } from '../../src/config/load.mjs';
+import { AprError } from '../../src/errors.mjs';
 import { resolveSelection } from '../../src/startup/selection.mjs';
 import { selectRuntime } from '../../src/startup/runtime.mjs';
 
@@ -105,6 +106,41 @@ test('selection refuses unsupported families, unsupported model resolution, inco
       })
     ),
     (error) => error.code === 'APR_REVIEWER_SELECTION_UNSUPPORTED'
+  );
+});
+
+test('selection preserves an explicit provider refusal and its recovery', async () => {
+  const refusal = new AprError(
+    'APR_REVIEWER_SELECTION_REFUSED',
+    'The provider rejected this model.',
+    { recovery: 'Inspect the installed provider model choices.' }
+  );
+  await assert.rejects(
+    resolveSelection(
+      { author: author('codex'), selector: 'claude', model: 'claude-opus-5-5', effort: 'high' },
+      adapters({
+        resolveModel: async () => {
+          throw refusal;
+        },
+      })
+    ),
+    (error) => error === refusal && error.recovery === refusal.recovery
+  );
+});
+
+test('selection refuses adapter substitution of a future model ID', async () => {
+  await assert.rejects(
+    resolveSelection(
+      { author: author('codex'), selector: 'claude', model: 'claude-opus-5-5', effort: 'max' },
+      adapters({
+        resolveModel: async () => ({
+          model_id: 'claude-opus-5',
+          model_display: 'Claude Opus 5',
+          effort: 'max',
+        }),
+      })
+    ),
+    { code: 'APR_REVIEWER_SELECTION_UNSUPPORTED' }
   );
 });
 

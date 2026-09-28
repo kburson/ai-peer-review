@@ -6,7 +6,11 @@ import { inspectReview } from '../protocol/service.mjs';
 import { atomicWrite, withReviewLock } from '../protocol/store.mjs';
 import { readStartupJournal, startupEvidence } from './registry.mjs';
 
-const NOT_SUBMITTED = new Set(['APR_PROVIDER_QUOTA', 'APR_PROVIDER_RESOURCE_BUSY']);
+const NOT_SUBMITTED = new Set([
+  'APR_PROVIDER_QUOTA',
+  'APR_PROVIDER_RESOURCE_BUSY',
+  'APR_REVIEWER_SELECTION_REFUSED',
+]);
 
 function digest(value) {
   return createHash('sha256').update(value).digest('hex');

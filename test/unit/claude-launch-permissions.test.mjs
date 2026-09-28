@@ -569,3 +569,21 @@ test('keeps the Claude session handle private and injects it only into exact res
   assert.deepEqual(resumedArgs.slice(0, 2), ['--resume', rawHandle]);
   assert.doesNotMatch(JSON.stringify(resumed), new RegExp(rawHandle));
 });
+
+test('Claude launch passes a future model and effort as exact argv values', (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5-5',
+    effort: 'max',
+  });
+  assert.equal(
+    contract.command.args[contract.command.args.indexOf('--model') + 1],
+    'claude-opus-5-5'
+  );
+  assert.equal(contract.command.args[contract.command.args.indexOf('--effort') + 1], 'max');
+  assert.equal(contract.effort, 'max');
+});

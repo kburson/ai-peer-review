@@ -3,10 +3,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AprError } from '../errors.mjs';
+import { safeSelectionIdentifier } from '../providers/registry.mjs';
 import { inspectReviewerExecutionAuthority as defaultInspectAuthority } from '../protocol/service.mjs';
 
 const DEFAULT_PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
-const EFFORTS = new Set(['low', 'medium', 'high']);
 
 function invalid(message, details = {}) {
   throw new AprError('APR_EXECUTION_CONTRACT_INVALID', message, {
@@ -44,8 +44,8 @@ export function buildReviewerExecutionContract({
   packageBin = DEFAULT_PACKAGE_BIN,
   nodeExecutable = process.execPath,
 } = {}) {
-  if (host !== 'claude' || typeof model !== 'string' || !model.trim() || !EFFORTS.has(effort)) {
-    invalid('Reviewer host, model, or effort is unsupported.');
+  if (host !== 'claude' || !safeSelectionIdentifier(model) || !safeSelectionIdentifier(effort)) {
+    invalid('Reviewer host, model, or effort identifier is invalid.');
   }
   let physicalWorkspace;
   try {
@@ -105,7 +105,7 @@ export function buildReviewerExecutionContract({
     response,
     artifact,
     host,
-    model: model.trim(),
+    model,
     effort,
     join_required: joinRequired,
     authority: Object.freeze({

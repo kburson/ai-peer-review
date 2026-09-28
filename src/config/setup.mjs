@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import { AprError } from '../errors.mjs';
 import { configPaths, validateConfig } from './load.mjs';
+import { installedPackageIdentity } from './installation-identity.mjs';
 
 const HOST_DIR = Object.freeze({
   codex: '.codex',
@@ -185,6 +186,7 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
     result.setup = {
       owner: 'ai-peer-review',
       version: 2,
+      ...installedPackageIdentity(),
       agents: nextAgents,
       config_created: current.setup?.config_created ?? !configExists,
       scratch_exclude_added:
@@ -193,6 +195,32 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
       automatic_adapters_added: [...ownedAutomatic].sort(),
     };
   return result;
+}
+
+export function updateSetup(options = {}) {
+  if (options.remove || options.agents?.length)
+    fail(
+      'APR_SETUP_INVALID',
+      'Update cannot be combined with removal or explicit agents.',
+      'Use setup --update alone, or use setup --remove for teardown.'
+    );
+  const scope = options.scope ?? 'project';
+  if (!['user', 'project'].includes(scope))
+    fail('APR_SETUP_INVALID', 'Setup update scope is invalid.', 'Select user or project scope.');
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  const home = path.resolve(options.home ?? os.homedir());
+  const configFile = configPaths({ cwd, home, env: options.env ?? {}, platform: options.platform })[
+    scope
+  ];
+  const current = readJson(configFile, { schema: 'ai-peer-review.config/v1' });
+  validateConfig(current);
+  if (current.setup?.owner !== 'ai-peer-review' || !current.setup.agents?.length)
+    fail(
+      'APR_SETUP_INVALID',
+      'No prior package-owned setup exists in this scope.',
+      'Run peer-review setup with an explicit --agent and --scope first.'
+    );
+  return setup({ ...options, scope, agents: current.setup.agents });
 }
 
 export function setup(options = {}) {
@@ -305,7 +333,12 @@ export function setup(options = {}) {
     const skillFile = path.join(root, 'skills', 'peer-review', 'SKILL.md');
     const existingSkill = existsSync(skillFile) ? readFileSync(skillFile, 'utf8') : null;
     const nextSkill = remove ? null : skillBytes;
-    if (!remove && existingSkill !== null && existingSkill !== skillBytes) {
+    const packageOwnedSkill =
+      current.ai_peer_review?.owner === 'ai-peer-review' &&
+      current.ai_peer_review.skill_created === true &&
+      currentConfig.setup?.owner === 'ai-peer-review' &&
+      currentConfig.setup.agents?.includes(host);
+    if (!remove && existingSkill !== null && existingSkill !== skillBytes && !packageOwnedSkill) {
       fail(
         'APR_SETUP_CONFLICT',
         'An existing peer-review skill is not package-owned.',
@@ -314,10 +347,7 @@ export function setup(options = {}) {
       );
     }
     if (!remove && adapterOperation) operations.push(adapterOperation);
-    const preserveSkillOnRemoval =
-      remove &&
-      (!current.ai_peer_review?.skill_created ||
-        (existingSkill !== null && existingSkill !== skillBytes));
+    const preserveSkillOnRemoval = remove && !packageOwnedSkill;
     if (
       !preserveSkillOnRemoval &&
       existingSkill !== nextSkill &&
@@ -368,13 +398,16 @@ export function setup(options = {}) {
       return `${entry.kind} ${entry.file}\n- ${entry.before ?? '<absent>'}\n+ ${entry.after ?? '<absent>'}`;
     })
     .join('\n');
+  const backupRequired = (entry) =>
+    entry.kind === 'modify' ||
+    (entry.kind === 'remove' && entry.owner.endsWith('-skill') && entry.before !== skillBytes);
   const publicOperations = Object.freeze(
     operations.map((entry) =>
       Object.freeze({
         file: entry.file,
         owner: entry.owner,
         kind: entry.kind,
-        backup_required: entry.kind === 'modify',
+        backup_required: backupRequired(entry),
       })
     )
   );
@@ -383,7 +416,7 @@ export function setup(options = {}) {
     scope,
     agents,
     changed: operations.length > 0,
-    backup_required: operations.some((entry) => entry.kind === 'modify'),
+    backup_required: operations.some(backupRequired),
     operations: publicOperations,
     diff,
     input,
@@ -396,7 +429,7 @@ export function setup(options = {}) {
         ]
       : operations;
     for (const entry of applicationOrder) {
-      if (entry.kind === 'modify') {
+      if (backupRequired(entry)) {
         mkdirSync(path.dirname(`${entry.file}.bak`), { recursive: true });
         copyFileSync(entry.file, `${entry.file}.bak`);
       }

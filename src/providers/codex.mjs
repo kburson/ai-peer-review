@@ -8,13 +8,6 @@ import { readCodexSessionSnapshot } from './codex-session.mjs';
 
 const execFile = promisify(execFileCallback);
 
-const MODELS = Object.freeze({
-  astra: Object.freeze({ model_id: 'gpt-6-astra', model_display: 'GPT-6 Astra' }),
-  'gpt-6-astra': Object.freeze({ model_id: 'gpt-6-astra', model_display: 'GPT-6 Astra' }),
-  sol: Object.freeze({ model_id: 'gpt-5.6-sol', model_display: 'GPT-5.6 Sol' }),
-  'gpt-5.6-sol': Object.freeze({ model_id: 'gpt-5.6-sol', model_display: 'GPT-5.6 Sol' }),
-});
-
 export function createCodexProviderSurface({
   executeVersion = async () => {
     const result = await execFile('codex', ['--version'], { shell: false, encoding: 'utf8' });
@@ -55,7 +48,6 @@ export function createCodexAdapter(options = {}) {
     selector: 'codex',
     provider: 'openai',
     host: 'codex',
-    models: MODELS,
     surface,
     resource: { concurrent: true, resource_id: null },
   });

@@ -99,6 +99,21 @@ your agent knows the commands, the role boundaries, and what it is not allowed
 to do — so you can talk about reviews in plain language instead of quoting
 flags at it.
 
+After installing a newer package, run `peer-review setup --update --dry-run`
+then `peer-review setup --update` in each affected project. `--update` defaults
+to project scope and refreshes every host recorded by the prior package-owned
+setup. For a prior user-scope installation, add `--scope user`. Setup automatically replaces a
+previous package-owned skill and backs up its bytes as `SKILL.md.bak`; a repeat
+run is a no-op. `peer-review setup --agent <host> --scope <user|project>
+--remove` is the idempotent teardown for that scope. A pre-existing or foreign
+skill is preserved and still causes a conflict instead of being overwritten.
+Global npm installation updates the binary but does not refresh copied project
+or user skills until setup runs again. The project setup records the package version and
+SHA-256 of the installed skill; review commands compare those values and the
+copied skill against the running CLI. A mismatch returns
+`APR_SETUP_VERSION_MISMATCH` with setup recovery. Run `peer-review help setup`
+and `peer-review explain APR_SETUP_VERSION_MISMATCH` for the exact procedure.
+
 Worth doing once before you rely on it:
 
 > Run the peer-review doctor and tell me whether anything needs fixing.
@@ -191,6 +206,23 @@ From the author session, the equivalent explicit command is:
 ```bash
 peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
 ```
+
+Model and effort identifiers are passed through exactly after syntax validation.
+The package does not maintain an availability catalog. Inspect the installed
+provider app for choices: Claude has interactive `/model` and `/effort`
+selectors, while Grok offers `grok models`. These are selection aids, not
+authority for launch; a provider-coded rejection returns
+`APR_REVIEWER_SELECTION_REFUSED`. An uncertain provider result remains
+subject to reconciliation.
+
+In a conversational request, name the reviewer app and, where possible, its
+exact model ID: “Review `docs/spec.md` with Claude as reviewer, model
+`<exact ID from Claude>`, effort `high`.” The invoking session is the author.
+Shorthand such as “opus 5.5” or “astra 6” is a hint, not a sealed model ID;
+the agent should consult the installed app's choices or ask when more than one
+model fits. An omitted effort uses `medium`. The agent should show the resolved
+provider, model ID, and effort before calling `start`. The CLI itself accepts
+exact identifiers and does not resolve aliases.
 
 Direct classifier callers can follow the [Claude launch API migration](docs/claude-launch-api-migration.md) guide for session evidence, conditional recovery, and the widened v1 result schema.
 

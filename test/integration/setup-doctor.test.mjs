@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { configPaths, loadConfig, validateConfig } from '../../src/config/load.mjs';
-import { planSetup, setup } from '../../src/config/setup.mjs';
+import { planSetup, setup, updateSetup } from '../../src/config/setup.mjs';
 import { doctor } from '../../src/doctor.mjs';
 import { run, startReview } from '../../src/cli/run.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
@@ -228,6 +228,180 @@ test('removal preserves a pre-existing exact skill while removing provider owner
   setup({ ...options, remove: true });
   assert.equal(existsSync(skillFile), true);
   assert.equal(existsSync(adapterFile), false);
+});
+
+test('setup automatically replaces an older package-owned skill and keeps the previous bytes', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  const installed = readFileSync(skillFile, 'utf8');
+  const previous = `${installed}\n<!-- previous installed package -->\n`;
+  writeFileSync(skillFile, previous);
+  const preview = setup({ ...options, dryRun: true });
+  assert.equal(preview.changed, true);
+  assert.ok(
+    preview.operations.some((item) => item.owner === 'codex-skill' && item.backup_required)
+  );
+  assert.equal(readFileSync(skillFile, 'utf8'), previous);
+  setup(options);
+  assert.equal(readFileSync(skillFile, 'utf8'), installed);
+  assert.equal(readFileSync(`${skillFile}.bak`, 'utf8'), previous);
+  assert.equal(setup(options).changed, false);
+});
+
+test('teardown removes an older package-owned skill idempotently with a backup', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  const previous = `${readFileSync(skillFile, 'utf8')}\n<!-- previous installed package -->\n`;
+  writeFileSync(skillFile, previous);
+  const preview = setup({ ...options, remove: true, dryRun: true });
+  assert.ok(
+    preview.operations.some((item) => item.owner === 'codex-skill' && item.backup_required)
+  );
+  setup({ ...options, remove: true });
+  assert.equal(existsSync(skillFile), false);
+  assert.equal(readFileSync(`${skillFile}.bak`, 'utf8'), previous);
+  assert.equal(setup({ ...options, remove: true }).changed, false);
+});
+
+test('setup refuses a foreign differing skill without ownership evidence', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  mkdirSync(path.dirname(skillFile), { recursive: true });
+  writeFileSync(skillFile, 'foreign skill\n');
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  assert.throws(() => setup(options), { code: 'APR_SETUP_CONFLICT' });
+  assert.equal(readFileSync(skillFile, 'utf8'), 'foreign skill\n');
+});
+
+test('setup --update refreshes every recorded project host and is idempotent', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex', 'claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const changed = [];
+  for (const host of ['codex', 'claude']) {
+    const file = path.join(files.project, `.${host}`, 'skills', 'peer-review', 'SKILL.md');
+    const oldBytes = `${readFileSync(file, 'utf8')}\nprevious package\n`;
+    writeFileSync(file, oldBytes);
+    changed.push({ file, oldBytes });
+  }
+  const updateOptions = { cwd: files.project, home: files.home, gitExcludePath: files.exclude };
+  const preview = updateSetup({ ...updateOptions, dryRun: true });
+  assert.equal(preview.changed, true);
+  assert.deepEqual(preview.agents, ['claude', 'codex']);
+  assert.equal(
+    changed.every(({ file, oldBytes }) => readFileSync(file, 'utf8') === oldBytes),
+    true
+  );
+  updateSetup(updateOptions);
+  for (const { file, oldBytes } of changed) {
+    assert.notEqual(readFileSync(file, 'utf8'), oldBytes);
+    assert.equal(readFileSync(`${file}.bak`, 'utf8'), oldBytes);
+  }
+  assert.equal(updateSetup(updateOptions).changed, false);
+  assert.throws(() => updateSetup({ ...updateOptions, remove: true }), {
+    code: 'APR_SETUP_INVALID',
+  });
+  assert.throws(() => updateSetup({ ...updateOptions, agents: ['codex'] }), {
+    code: 'APR_SETUP_INVALID',
+  });
+});
+
+test('setup --update refuses a project with no prior package-owned setup', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  assert.throws(() => updateSetup({ cwd: files.project, home: files.home }), {
+    code: 'APR_SETUP_INVALID',
+  });
+});
+
+test('installed CLI refuses stale setup package identity before review work', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const configFile = path.join(files.project, '.ai-peer-review.json');
+  const config = JSON.parse(readFileSync(configFile, 'utf8'));
+  assert.match(config.setup.package_version, /^\d+\.\d+\.\d+$/);
+  assert.match(config.setup.skill_sha256, /^[0-9a-f]{64}$/);
+  const output = { stdout: '', stderr: '' };
+  const io = {
+    cwd: files.project,
+    env: {},
+    stdout: {
+      write: (value) => {
+        output.stdout += value;
+      },
+    },
+    stderr: {
+      write: (value) => {
+        output.stderr += value;
+      },
+    },
+  };
+  config.setup.package_version = '0.0.0';
+  writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+  assert.equal(await run(['status', 'missing-review'], io), 1);
+  assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
+  assert.match(JSON.parse(output.stderr).recovery, /setup --update --dry-run/i);
+  output.stderr = '';
+  assert.equal(await run(['help', 'setup'], io), 0);
+  assert.match(output.stdout, /--remove/);
+  delete config.setup.package_version;
+  writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+  output.stderr = '';
+  assert.equal(await run(['doctor'], io), 1);
+  assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
+  setup(options);
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  writeFileSync(skillFile, `${readFileSync(skillFile, 'utf8')}\nchanged\n`);
+  output.stderr = '';
+  assert.equal(await run(['status', 'missing-review'], io), 1);
+  assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
+  setup(options);
+  assert.equal(setup(options).changed, false);
 });
 
 test('runtime and published schema share authority and setup invariants', () => {

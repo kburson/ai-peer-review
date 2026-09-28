@@ -118,6 +118,11 @@
       "properties": {
         "owner": { "const": "ai-peer-review" },
         "version": { "enum": [1, 2] },
+        "package_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$"
+        },
+        "skill_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "agents": {
           "type": "array",
           "items": { "enum": ["codex", "claude", "grok", "generic"] },

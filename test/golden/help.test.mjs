@@ -25,6 +25,24 @@ test('concept topics remain separate from the closed command grammar', () => {
   assert.throws(() => parseCommand(['help', 'unknown-concept']), { code: 'APR_USAGE' });
 });
 
+test('setup help and explain make package upgrades and teardown discoverable', () => {
+  const setup = helpRequest('setup', 'json');
+  assert.match(setup.purpose, /upgrade/i);
+  assert.match(setup.preconditions.join(' '), /same scope/i);
+  assert.match(setup.effects.join(' '), /package-owned skill.*backs up/i);
+  assert.match(setup.effects.join(' '), /idempotent teardown/i);
+  assert.match(setup.examples.join(' '), /--remove/);
+  assert.match(setup.examples.join(' '), /--dry-run/);
+  assert.match(setup.examples.join(' '), /setup --update/);
+  assert.match(setup.defaults.join(' '), /project scope.*recorded hosts/i);
+  assert.match(setup.flags.find(({ flag }) => flag === '--update').description, /recorded.*host/i);
+  assert.match(setup.next_action, /doctor/i);
+  assert.ok(helpRequest('upgrade', 'json', { search: true }).matches.includes('setup'));
+  assert.match(explainError('APR_SETUP_CONFLICT').recovery, /foreign/i);
+  assert.match(explainError('APR_SETUP_CONFIRMATION_REQUIRED').recovery, /dry-run/i);
+  assert.match(explainError('APR_SETUP_VERSION_MISMATCH').recovery, /setup --update --dry-run/i);
+});
+
 test('start help gives complete intent-first selection and recovery guidance', () => {
   const start = helpRequest('start', 'text');
   assert.match(start, /--reviewer-provider/);
@@ -212,6 +230,12 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   );
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_REQUIRED'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_UNSUPPORTED'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_REFUSED'));
+  assert.match(explainError('APR_REVIEWER_SELECTION_UNSUPPORTED').message, /locally/i);
+  assert.match(explainError('APR_REVIEWER_SELECTION_REFUSED').message, /provider explicitly/i);
+  assert.ok(
+    helpRequest('launch-reviewer', 'json').errors.includes('APR_REVIEWER_SELECTION_REFUSED')
+  );
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_POLICY'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));
@@ -223,6 +247,7 @@ test('help --all, search, JSON, and stable error explanations have deterministic
     'APR_BROKER_STALE',
     'APR_PROVIDER_RESOURCE_BUSY',
     'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_BROKER_REGISTRATION_CONFLICT',
   ]) {
     assert.ok(helpRequest('broker', 'json').errors.includes(code), code);

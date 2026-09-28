@@ -176,6 +176,19 @@ test('launch-reviewer has a closed fresh and resume grammar', () => {
     ]).options,
     { host: 'claude', resume: true }
   );
+  assert.equal(
+    parseCommand([
+      'launch-reviewer',
+      'invitation',
+      '--host',
+      'claude',
+      '--model',
+      'claude-opus-5-5',
+      '--effort',
+      'max',
+    ]).options.effort,
+    'max'
+  );
   usage(
     ['launch-reviewer', 'invitation', '--host', 'codex', '--model', 'm', '--effort', 'high'],
     /host.*claude/i
@@ -534,6 +547,10 @@ test('request-grant maps only action-owned fields to canonical snake case', () =
   );
   usage(['request-grant', 'workspace', '--artifact-path', 'x'], /requires --action/i);
   usage(['request-grant', 'workspace', '--action', 'unknown'], /unknown protected action/i);
+});
+
+test('setup --update parses as a project upgrade request', () => {
+  assert.equal(parseCommand(['setup', '--update']).options.update, true);
 });
 
 test('top-level and command help normalize to the help command', () => {

@@ -42,6 +42,8 @@ const REVIEW = new Set([
 const SETUP = new Set([
   'owner',
   'version',
+  'package_version',
+  'skill_sha256',
   'agents',
   'config_created',
   'scratch_exclude_added',
@@ -243,6 +245,13 @@ export function validateConfig(value) {
       (value.setup.version === 2 && !Object.hasOwn(value.setup, 'automatic_adapters_added'))
     )
       invalid('setup ownership metadata is invalid.');
+    if (
+      value.setup.package_version !== undefined &&
+      !/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(value.setup.package_version)
+    )
+      invalid('setup.package_version is invalid.');
+    if (value.setup.skill_sha256 !== undefined && !/^[0-9a-f]{64}$/.test(value.setup.skill_sha256))
+      invalid('setup.skill_sha256 is invalid.');
     strings(value.setup.agents, 'setup.agents');
     if (value.setup.agents.some((agent) => !HOSTS.has(agent)))
       invalid('setup.agents contains an unknown host.');

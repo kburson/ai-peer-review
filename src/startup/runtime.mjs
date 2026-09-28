@@ -23,6 +23,7 @@ const preparedRequests = new WeakMap();
 const DEFINITELY_NOT_SUBMITTED_ERRORS = new Set([
   'APR_PROVIDER_QUOTA',
   'APR_PROVIDER_RESOURCE_BUSY',
+  'APR_REVIEWER_SELECTION_REFUSED',
 ]);
 
 export async function prepareStartup(input, deps = {}) {
