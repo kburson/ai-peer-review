@@ -6,7 +6,13 @@ description: Run a provider-neutral, integrity-bound AI peer review for a tracke
 # AI Peer Review
 
 Run `peer-review setup` with an explicit user or project scope, then run
-`peer-review doctor` before starting or joining a review. Query
+`peer-review doctor` before starting or joining a review. After a package
+upgrade, rerun setup in the same scope to replace its prior package-owned skill;
+setup backs up the prior bytes. `setup --remove` is an idempotent teardown. If a
+review command reports `APR_SETUP_VERSION_MISMATCH`, run `peer-review explain
+APR_SETUP_VERSION_MISMATCH` and `peer-review help setup`, then refresh each
+previously installed host in the same scope.
+Query
 `peer-review help <command>` whenever syntax is uncertain; never guess flags or
 state transitions.
 

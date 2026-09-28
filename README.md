@@ -99,6 +99,19 @@ your agent knows the commands, the role boundaries, and what it is not allowed
 to do — so you can talk about reviews in plain language instead of quoting
 flags at it.
 
+After installing a newer package, rerun `peer-review setup --agent <host>
+--scope <user|project>` in the same scope. Setup automatically replaces a
+previous package-owned skill and backs up its bytes as `SKILL.md.bak`; a repeat
+run is a no-op. `peer-review setup --agent <host> --scope <user|project>
+--remove` is the idempotent teardown for that scope. A pre-existing or foreign
+skill is preserved and still causes a conflict instead of being overwritten.
+Global npm installation updates the binary but does not refresh copied project
+or user skills until setup runs again. The project setup records the package version and
+SHA-256 of the installed skill; review commands compare those values and the
+copied skill against the running CLI. A mismatch returns
+`APR_SETUP_VERSION_MISMATCH` with setup recovery. Run `peer-review help setup`
+and `peer-review explain APR_SETUP_VERSION_MISMATCH` for the exact procedure.
+
 Worth doing once before you rely on it:
 
 > Run the peer-review doctor and tell me whether anything needs fixing.

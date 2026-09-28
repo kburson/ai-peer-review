@@ -3,7 +3,7 @@ import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './pa
 import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
-  setup: 'Install or remove reversible peer-review agent integration.',
+  setup: 'Install, upgrade, or remove reversible peer-review agent integration.',
   doctor: 'Inspect local peer-review readiness without mutation.',
   start: 'Start a new event-authoritative review after complete preflight.',
   advance: 'Bind the exact next phased artifact and resume the registered reviewer.',
@@ -78,7 +78,10 @@ const STATES = Object.freeze({
   explain: ['any'],
 });
 const PRECONDITIONS = Object.freeze({
-  setup: ['Explicit scope and a readable host configuration surface.'],
+  setup: [
+    'Choose the same scope (user or project) and host agent used by the previous installation.',
+    'After a global npm upgrade, rerun setup in every scope that previously received a copied skill.',
+  ],
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
@@ -118,7 +121,11 @@ const PRECONDITIONS = Object.freeze({
   explain: ['A known stable APR error code.'],
 });
 const EFFECTS = Object.freeze({
-  setup: ['Previews or applies reversible owned configuration changes; never pushes.'],
+  setup: [
+    'Dry-run previews exact owned changes without mutation; apply automatically replaces a prior package-owned skill and backs up its previous bytes as SKILL.md.bak.',
+    'Setup --remove is an idempotent teardown for the selected host and scope; foreign skills remain untouched.',
+    'Global npm installation updates the command but does not refresh copied skills until setup runs again.',
+  ],
   doctor: ['Read-only inspection; changes no files, Git, configuration, or transport.'],
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
@@ -779,7 +786,14 @@ const ERROR_CATALOG = Object.freeze({
   },
   APR_SETUP_CONFLICT: {
     message: 'Setup encountered an existing integration it does not own.',
-    recovery: 'Preserve or relocate the foreign integration before setup.',
+    recovery:
+      'The skill or provider key is foreign to this package. Preserve or relocate it, then rerun peer-review setup --dry-run for the same host and scope; package-owned earlier skills upgrade automatically.',
+  },
+  APR_SETUP_VERSION_MISMATCH: {
+    message:
+      'The project setup package version or copied skill digest differs from the installed CLI.',
+    recovery:
+      'Run peer-review help setup, then peer-review setup --agent <host> --scope project --dry-run and apply setup for every previously installed host. Run peer-review doctor afterward.',
   },
   APR_SETUP_CONFIRMATION_REQUIRED: {
     message: 'Applying the repository-local scratch exclusion requires explicit confirmation.',
@@ -987,6 +1001,13 @@ function topic(command) {
     examples: [
       COMMAND_USAGE[command],
       `npx --yes @kburson/ai-peer-review@0.3.0 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      ...(command === 'setup'
+        ? [
+            'peer-review setup --agent codex --scope project --dry-run',
+            'peer-review setup --agent codex --scope project --confirm-scratch-exclude',
+            'peer-review setup --agent codex --scope project --remove',
+          ]
+        : []),
       ...(command === 'start'
         ? [
             'peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
@@ -998,14 +1019,19 @@ function topic(command) {
         ? 'A versioned JSON result with bounded diagnostics, nullable pre-join session fingerprint, or deterministic offline text.'
         : 'A versioned JSON result envelope or deterministic offline text.',
     next_action:
-      command === 'launch-reviewer'
-        ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
-        : command === 'broker'
-          ? 'Offline status reports the exact recovery evidence and next reconciliation action.'
-          : command === 'status' || command === 'resume'
-            ? 'Exactly one event-derived action and command.'
-            : 'Read peer-review status for the next event-derived action.',
-    errors: ERRORS[command],
+      command === 'setup'
+        ? 'After setup, run peer-review doctor --json; after a package upgrade, rerun setup for each previously installed host and scope.'
+        : command === 'launch-reviewer'
+          ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
+          : command === 'broker'
+            ? 'Offline status reports the exact recovery evidence and next reconciliation action.'
+            : command === 'status' || command === 'resume'
+              ? 'Exactly one event-derived action and command.'
+              : 'Read peer-review status for the next event-derived action.',
+    errors:
+      command === 'setup' || command === 'help' || command === 'explain'
+        ? ERRORS[command]
+        : [...ERRORS[command], 'APR_SETUP_VERSION_MISMATCH'],
     json_schema:
       command === 'launch-reviewer'
         ? 'ai-peer-review.claude-launch-result/v1'

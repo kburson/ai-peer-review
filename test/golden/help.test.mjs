@@ -25,6 +25,21 @@ test('concept topics remain separate from the closed command grammar', () => {
   assert.throws(() => parseCommand(['help', 'unknown-concept']), { code: 'APR_USAGE' });
 });
 
+test('setup help and explain make package upgrades and teardown discoverable', () => {
+  const setup = helpRequest('setup', 'json');
+  assert.match(setup.purpose, /upgrade/i);
+  assert.match(setup.preconditions.join(' '), /same scope/i);
+  assert.match(setup.effects.join(' '), /package-owned skill.*backs up/i);
+  assert.match(setup.effects.join(' '), /idempotent teardown/i);
+  assert.match(setup.examples.join(' '), /--remove/);
+  assert.match(setup.examples.join(' '), /--dry-run/);
+  assert.match(setup.next_action, /doctor/i);
+  assert.ok(helpRequest('upgrade', 'json', { search: true }).matches.includes('setup'));
+  assert.match(explainError('APR_SETUP_CONFLICT').recovery, /foreign/i);
+  assert.match(explainError('APR_SETUP_CONFIRMATION_REQUIRED').recovery, /dry-run/i);
+  assert.match(explainError('APR_SETUP_VERSION_MISMATCH').recovery, /help setup/i);
+});
+
 test('start help gives complete intent-first selection and recovery guidance', () => {
   const start = helpRequest('start', 'text');
   assert.match(start, /--reviewer-provider/);
