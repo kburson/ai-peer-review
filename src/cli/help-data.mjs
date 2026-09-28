@@ -811,9 +811,10 @@ const ERROR_CATALOG = Object.freeze({
       'Use official runtime identity. For a Claude session without model metadata, set hosts.claude.identity.model_id and model_display in .ai-peer-review.json; configuration cannot supply the session.',
   },
   APR_REVIEWER_SELECTION_UNSUPPORTED: {
-    message: 'The reviewer provider or model and effort identifier syntax is invalid.',
+    message:
+      'The reviewer selection could not be formed locally: unknown or unavailable provider, invalid identifier syntax, incomplete author identity, or an adapter that did not preserve the exact request.',
     recovery:
-      'Select codex, claude, or grok with exact provider model and effort identifiers using safe syntax.',
+      'Choose codex, claude, or grok with safe exact model and effort identifiers; repair the local identity or adapter if it cannot preserve the request.',
   },
   APR_REVIEWER_SELECTION_REFUSED: {
     message: 'The provider explicitly rejected the requested reviewer model or effort.',

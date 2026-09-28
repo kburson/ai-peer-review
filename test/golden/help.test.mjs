@@ -213,6 +213,8 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_REQUIRED'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_UNSUPPORTED'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_REFUSED'));
+  assert.match(explainError('APR_REVIEWER_SELECTION_UNSUPPORTED').message, /locally/i);
+  assert.match(explainError('APR_REVIEWER_SELECTION_REFUSED').message, /provider explicitly/i);
   assert.ok(
     helpRequest('launch-reviewer', 'json').errors.includes('APR_REVIEWER_SELECTION_REFUSED')
   );

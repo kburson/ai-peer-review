@@ -53,8 +53,11 @@ export async function resolveSelection(
   try {
     modelResult = await selected.adapter.resolveModel({ model, effort });
   } catch (cause) {
-    if (cause?.code === 'APR_REVIEWER_SELECTION_UNSUPPORTED') throw cause;
-    selectionUnsupported('Reviewer adapter does not support the requested model or effort.', {
+    if (
+      ['APR_REVIEWER_SELECTION_UNSUPPORTED', 'APR_REVIEWER_SELECTION_REFUSED'].includes(cause?.code)
+    )
+      throw cause;
+    selectionUnsupported('Reviewer adapter could not resolve the requested selection.', {
       selector,
       model,
       effort,
