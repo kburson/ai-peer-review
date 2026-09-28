@@ -176,6 +176,19 @@ test('launch-reviewer has a closed fresh and resume grammar', () => {
     ]).options,
     { host: 'claude', resume: true }
   );
+  assert.equal(
+    parseCommand([
+      'launch-reviewer',
+      'invitation',
+      '--host',
+      'claude',
+      '--model',
+      'claude-opus-5-5',
+      '--effort',
+      'max',
+    ]).options.effort,
+    'max'
+  );
   usage(
     ['launch-reviewer', 'invitation', '--host', 'codex', '--model', 'm', '--effort', 'high'],
     /host.*claude/i

@@ -1430,6 +1430,32 @@ test('startup durably reserves, creates authority, and registers before reviewer
   assert.equal(launches, 1);
 });
 
+test('explicit provider selection refusal retains a retryable registered startup', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const deps = {
+    ...fixtureStartupDeps,
+    adapters: {
+      claude: {
+        ...fixtureStartupDeps.adapters.claude,
+        launch: async () => {
+          throw new AprError('APR_REVIEWER_SELECTION_REFUSED', 'Claude rejected the model.', {
+            recovery: 'Choose a model available in Claude.',
+          });
+        },
+      },
+    },
+  };
+  await assert.rejects(startReview(automaticRequest(fx.root), brokerLaunchDeps(deps)), {
+    code: 'APR_REVIEWER_SELECTION_REFUSED',
+  });
+  const journal = JSON.parse(
+    readFileSync(path.join(fx.root, '.scratch/peer-review/transaction-review/startup-request.json'))
+  );
+  assert.equal(journal.stage, 'registered');
+  assert.equal(journal.provider_operation.status, 'not-submitted');
+});
+
 test('ambiguous launch retains journal and refuses automatic retry', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);

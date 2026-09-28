@@ -90,7 +90,7 @@ export const COMMAND_USAGE = Object.freeze({
     'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
   join: 'peer-review join <reviewer-invitation.md>',
   'launch-reviewer':
-    'peer-review launch-reviewer <reviewer-invitation.md> --host claude [--model <id> --effort <low|medium|high> | --resume] [--json]',
+    'peer-review launch-reviewer <reviewer-invitation.md> --host claude [--model <id> --effort <id> | --resume] [--json]',
   status: 'peer-review status <workspace> [--json] [--next]',
   resume: 'peer-review resume <workspace>',
   submit:
@@ -281,7 +281,6 @@ function validateConstraints(command, args, options) {
   }
   if (command === 'launch-reviewer') {
     validateEnum(options, 'host', '--host', ['claude']);
-    validateEnum(options, 'effort', '--effort', ['low', 'medium', 'high']);
     if (!options.host) usage('launch-reviewer requires --host claude');
     if (options.resume) {
       if (options.model !== undefined || options.effort !== undefined) {

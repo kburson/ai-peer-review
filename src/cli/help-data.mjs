@@ -127,8 +127,9 @@ const EFFECTS = Object.freeze({
   'request-grant': ['Appends or reuses one challenge event; performs no Git operation.'],
   join: ['Appends reviewer identity and claim events and creates one reviewer draft.'],
   'launch-reviewer': [
-    'Launches Claude under dontAsk with one exact response Edit permission.',
+    'Launches Claude under dontAsk with one exact response Edit permission and literal model and effort identifiers.',
     'Bounded diagnostics distinguish failure from uncertainty; the pre-join session fingerprint may be null.',
+    'A provider-coded model or effort refusal is reported distinctly; other uncertain outcomes require reconciliation.',
     'A blocked write returns an exact same-session resume action only with usable private session state.',
   ],
   status: ['Read-only event reduction; performs no repair, polling, wake, or Git operation.'],
@@ -169,6 +170,7 @@ const ERRORS = Object.freeze({
     'APR_SCRATCH_NOT_IGNORED',
     'APR_IDENTITY_REQUIRED',
     'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_TRANSPORT_UNAVAILABLE',
     'APR_AUTHORITY_REQUIRED',
     'APR_AUTHORITY_POLICY',
@@ -202,6 +204,7 @@ const ERRORS = Object.freeze({
     'APR_OUTPUT_COLLISION',
   ],
   'launch-reviewer': [
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_CLAUDE_PERMISSION_INVALID',
     'APR_CLAUDE_SESSION_INVALID',
     'APR_CLAUDE_LAUNCH_FAILED',
@@ -387,6 +390,7 @@ const ERRORS = Object.freeze({
     'APR_BROKER_STALE',
     'APR_PROVIDER_RESOURCE_BUSY',
     'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_BROKER_REGISTRATION_CONFLICT',
     'APR_WAKE_AUTHORITY_INVALID',
     'APR_WAKE_CAPABILITY_UNAVAILABLE',
@@ -807,8 +811,14 @@ const ERROR_CATALOG = Object.freeze({
       'Use official runtime identity. For a Claude session without model metadata, set hosts.claude.identity.model_id and model_display in .ai-peer-review.json; configuration cannot supply the session.',
   },
   APR_REVIEWER_SELECTION_UNSUPPORTED: {
-    message: 'The requested reviewer provider, model, or effort is unsupported.',
-    recovery: 'Select codex, claude, or grok with an adapter-supported exact model and effort.',
+    message: 'The reviewer provider or model and effort identifier syntax is invalid.',
+    recovery:
+      'Select codex, claude, or grok with exact provider model and effort identifiers using safe syntax.',
+  },
+  APR_REVIEWER_SELECTION_REFUSED: {
+    message: 'The provider explicitly rejected the requested reviewer model or effort.',
+    recovery:
+      'Check available choices in the installed provider app, then start a new review with an exact supported model and effort.',
   },
   APR_TRANSPORT_UNAVAILABLE: {
     message: 'The requested transport is not supported by the current participant.',

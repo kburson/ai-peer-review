@@ -108,6 +108,22 @@ test('selection refuses unsupported families, unsupported model resolution, inco
   );
 });
 
+test('selection refuses adapter substitution of a future model ID', async () => {
+  await assert.rejects(
+    resolveSelection(
+      { author: author('codex'), selector: 'claude', model: 'claude-opus-5-5', effort: 'max' },
+      adapters({
+        resolveModel: async () => ({
+          model_id: 'claude-opus-5',
+          model_display: 'Claude Opus 5',
+          effort: 'max',
+        }),
+      })
+    ),
+    { code: 'APR_REVIEWER_SELECTION_UNSUPPORTED' }
+  );
+});
+
 test('runtime refuses XPR native ownership and unproven same-family native ownership', () => {
   const nativeCapability = {
     provider: 'openai',

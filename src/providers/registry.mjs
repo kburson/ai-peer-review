@@ -33,7 +33,8 @@ export function registerProductionProviderAdapter(adapter) {
 
 export function selectionUnsupported(message, details = {}) {
   throw new AprError('APR_REVIEWER_SELECTION_UNSUPPORTED', message, {
-    recovery: 'Select codex, claude, or grok with an adapter-supported exact model and effort.',
+    recovery:
+      'Select codex, claude, or grok and provide exact provider model and effort identifiers using safe syntax.',
     details,
   });
 }
@@ -48,7 +49,11 @@ export function selectedAdapter(selector, adapters) {
   return Object.freeze({ ...selected, adapter });
 }
 
-const EFFORTS = new Set(['low', 'medium', 'high']);
+const SELECTION_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/u;
+
+export function safeSelectionIdentifier(value) {
+  return typeof value === 'string' && value.length <= 128 && SELECTION_IDENTIFIER.test(value);
+}
 
 function text(value) {
   return typeof value === 'string' && value.trim() === value && value.length > 0;
@@ -76,7 +81,6 @@ export function createProviderAdapter({
   selector,
   provider,
   host,
-  models,
   surface = null,
   adapterVersion = '1.0.0',
   resource = { concurrent: true, resource_id: null },
@@ -90,7 +94,6 @@ export function createProviderAdapter({
   ) {
     throw new TypeError('provider-adapter: invalid closed identity');
   }
-  const catalog = new Map(Object.entries(models ?? {}));
   const operations = new Map();
   const exactNative =
     typeof surface?.observeBoundSession === 'function' &&
@@ -247,23 +250,14 @@ export function createProviderAdapter({
     host,
     adapter_version: adapterVersion,
     async resolveModel({ model, effort = 'medium' } = {}) {
-      const resolved = catalog.get(model);
-      if (
-        !resolved ||
-        !EFFORTS.has(effort) ||
-        (resolved.efforts && !resolved.efforts.includes(effort))
-      ) {
-        selectionUnsupported('Reviewer model or effort is unsupported.', {
+      if (!safeSelectionIdentifier(model) || !safeSelectionIdentifier(effort)) {
+        selectionUnsupported('Reviewer model or effort identifier has invalid syntax.', {
           selector,
           model,
           effort,
         });
       }
-      return Object.freeze({
-        model_id: resolved.model_id,
-        model_display: resolved.model_display,
-        effort,
-      });
+      return Object.freeze({ model_id: model, model_display: model, effort });
     },
     async observeCapabilities() {
       const available = await surfaceAvailable();

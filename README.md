@@ -192,6 +192,23 @@ From the author session, the equivalent explicit command is:
 peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
 ```
 
+Model and effort identifiers are passed through exactly after syntax validation.
+The package does not maintain an availability catalog. Inspect the installed
+provider app for choices: Claude has interactive `/model` and `/effort`
+selectors, while Grok offers `grok models`. These are selection aids, not
+authority for launch; a provider-coded rejection returns
+`APR_REVIEWER_SELECTION_REFUSED`. An uncertain provider result remains
+subject to reconciliation.
+
+In a conversational request, name the reviewer app and, where possible, its
+exact model ID: “Review `docs/spec.md` with Claude as reviewer, model
+`<exact ID from Claude>`, effort `high`.” The invoking session is the author.
+Shorthand such as “opus 5.5” or “astra 6” is a hint, not a sealed model ID;
+the agent should consult the installed app's choices or ask when more than one
+model fits. An omitted effort uses `medium`. The agent should show the resolved
+provider, model ID, and effort before calling `start`. The CLI itself accepts
+exact identifiers and does not resolve aliases.
+
 Direct classifier callers can follow the [Claude launch API migration](docs/claude-launch-api-migration.md) guide for session evidence, conditional recovery, and the widened v1 result schema.
 
 The invoking session is the author participant; a sponsoring human is not a

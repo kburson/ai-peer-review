@@ -775,3 +775,50 @@ test('v1 result schema accepts historical and new failures but requires identity
     false
   );
 });
+
+test('explicit provider selection code refuses only before a session exists', async (t) => {
+  const fixture = launchFixture(t);
+  const unchanged = launchAuthority({ joined: false });
+  const refusal = execution({ error: { code: 'model_not_found', message: 'PRIVATE' } }, 1);
+  const result = normalizeClaudeExecution({ execution: refusal });
+  assert.equal(result.selection_refusal, 'model');
+  const effortRefusal = normalizeClaudeExecution({
+    execution: execution({ error: { code: 'invalid_effort', message: 'PRIVATE' } }, 1),
+  });
+  assert.equal(effortRefusal.selection_refusal, 'effort');
+  assert.equal(
+    normalizeClaudeExecution({
+      execution: execution({ error: { code: 'invalid_request_error', param: 'effort' } }, 1),
+    }).selection_refusal,
+    'effort'
+  );
+  await assert.rejects(
+    runClaudeReviewerLaunch({
+      contract: fixture.contract,
+      inspectAuthority: () => unchanged,
+      execFile: async () => refusal,
+    }),
+    (error) =>
+      error.code === 'APR_REVIEWER_SELECTION_REFUSED' &&
+      error.details.provider_code === 'model_not_found' &&
+      error.recovery.includes('/model') &&
+      !JSON.stringify(error.toJSON()).includes('PRIVATE')
+  );
+  assert.equal(existsSync(fixture.stateFile), false);
+  const ambiguous = classifyClaudeReviewerOutcome({
+    before: unchanged,
+    after: unchanged,
+    contract: fixture.contract,
+    providerResult: normalizeClaudeExecution({
+      execution: execution(
+        { session_id: 'fixture-claude-session', error: { code: 'model_not_found' } },
+        1
+      ),
+    }),
+    expectedSessionFingerprint: sessionFingerprint,
+  });
+  assert.equal(ambiguous.status, 'failed');
+  assert.equal(ambiguous.diagnostic.category, 'provider-failed');
+  const generic = normalizeClaudeExecution({ execution: execution({}, 2) });
+  assert.equal(generic.selection_refusal, null);
+});

@@ -212,6 +212,10 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   );
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_REQUIRED'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_UNSUPPORTED'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_REFUSED'));
+  assert.ok(
+    helpRequest('launch-reviewer', 'json').errors.includes('APR_REVIEWER_SELECTION_REFUSED')
+  );
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_POLICY'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));
@@ -223,6 +227,7 @@ test('help --all, search, JSON, and stable error explanations have deterministic
     'APR_BROKER_STALE',
     'APR_PROVIDER_RESOURCE_BUSY',
     'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_BROKER_REGISTRATION_CONFLICT',
   ]) {
     assert.ok(helpRequest('broker', 'json').errors.includes(code), code);
