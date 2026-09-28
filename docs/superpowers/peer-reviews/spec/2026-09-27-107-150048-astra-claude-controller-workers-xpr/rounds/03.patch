@@ -1,0 +1,107 @@
+--- before.md
++++ after.md
+@@ -587,11 +587,15 @@
+ disposition and rationale, reviewer resolution, and split/duplicate/supersede
+ lineage.
+ 
+-The participant allocates `finding_id` as an ASCII string matching
++The participant allocates `finding_id` as an ASCII string governed by registry
++grammar `ai-peer-review.finding-id/v1`. The registry entry owns the validation
++pattern; its sole published pattern in this document is
+ `^[A-Za-z][A-Za-z0-9._-]{0,63}$` (ECMAScript regular expression, no flags).
+ The total length is 1 through 64 characters inclusive. Require the matched
+-span to consume the entire input without trimming; ECMAScript `$` can also
+-match before a final line terminator, which is not a valid identifier character.
++span to consume the entire input without trimming. Without flags, ECMAScript
++`$` asserts end-of-input; trailing line terminators are rejected. Multiline
++mode is not permitted. Other documentation and verification gates reference
++the registry grammar identifier rather than transcribing the pattern again.
+ Its namespace is the requested-stage ledger,
+ spanning every round and replacement stage-attempt. Its fully qualified identity
+ is `(run_id, requested_stage_id, finding_id)`; independent later stages have
+@@ -635,7 +639,7 @@
+ 
+ A clean response must enumerate resolutions for all currently open IDs, including
+ disputed IDs and findings inherited across replacement attempts. Otherwise return
+-APR_FINDINGS_UNRESOLVED with the missing IDs and next_action submit_review_turn
++`APR_FINDINGS_UNRESOLVED` with the missing IDs and `next_action=submit_review_turn`
+ for the same phase/revision; do not advance or consume another round merely to
+ correct an invalid submission. Resolved historical findings remain in the ledger.
+ Earlier accepted stages have closed ledgers; later independent stages create
+@@ -1929,6 +1933,25 @@
+ covers commands, request schema, classes, sequences, fallbacks, permissions,
+ monitoring, evidence, broker, errors, and all three normalized user journeys.
+ 
++Offline registry validation also checks literal and Markdown integrity.
++Registered error codes, schema/field identifiers and grammar literals must
++retain their exact registry spelling, including underscores. Emit technical
++literals as inline code in prose or as literal content inside code blocks;
++never obtain their canonical bytes by rendering and reparsing prose. Compare
++the source code-node contents and rendered code text against the registry.
++For `ai-peer-review.finding-id/v1`, assert that Findings and Debate contains
++exactly one published pattern matching the registry entry and that gate 2
++references that entry without a second pattern transcription.
++
++Parse the verification-gate Markdown and assert that gate 2's grammar and
++revision-allowance assertions remain within numbered item 2, with spaces
++separating inline code from adjacent prose words. Assert that the unresolved-
++findings gate names the same registered error code as the acceptance contract.
++Negative fixtures inject an underscore-to-asterisk substitution, a changed
++grammar character class, a de-indented continuation and a removed inline-code
++separator; each must fail the corresponding integrity assertion. These checks
++supplement schema/example validation and do not redefine protocol behavior.
++
+ The registry also defines versioned attempt receipts, measurements, aggregate
+ coverage, response-envelope framing, manifest receipt references and telemetry
+ amendments. They share operation/attempt/observation identities with protocol
+@@ -2149,30 +2172,34 @@
+ 2. Clean review on the last permitted round accepts; a last-round revision
+    stops the sequence. Quota replacement shares the cap and exhausts a finite
+    candidate list without overlapping writers.
+-   Clean verdicts with unresolved disputed IDs fail with APR*FINDINGS_UNRESOLVED.
++   Clean verdicts with unresolved disputed IDs fail with `APR_FINDINGS_UNRESOLVED`.
+    Role-count-changing fallback policy fails before mutation; seal-time exclusions
+    consume no try, including each reachable-counterpart eligibility case.
+    A replacement reviewer reusing an inherited open or resolved ID for a new
+-   finding receives APR_FINDING_ID_CONFLICT without ledger/grant advancement;
++   finding receives `APR_FINDING_ID_CONFLICT` without ledger/grant advancement;
+    duplicate IDs within a submission and invalid lineage targets also fail.
+-   Registry fixtures compare the published code-formatted `finding_id` grammar
+-   byte-for-byte with `^[A-Za-z]A-Za-z0-9.*-]{0,63}$`, compile it as ECMAScript
+-without flags, and enforce whole-input matching. Accept `A`, `XPR-001`,
+-`a.b_c-9`and a 64-character ID consisting of`A`plus 63 digits. Reject
+-the empty string, a leading digit, a 65-character ID, non-ASCII characters
+-and an otherwise valid ID followed by a newline. Replacement handoffs expose
+-the complete already-used-ID context array, including resolved history,
+-with matching count/digest/revision and no allocation-pool interpretation.
+-Exact replay remains idempotent. Exhausted revision retries enter
+-intervention-required with receipts, lease and fences retained, without
+-advancing stages or resetting the retry counter. Partial-byte recovery
+-requires quiescence and checkpoint resolution before a replacement's fresh
+-critique; a replacement uses the remaining stage budget, never a reset cap.
+-With`max_revision_attempts_per_round=3`, exhaust round N, reconcile and
++   Registry fixtures resolve grammar `ai-peer-review.finding-id/v1`, assert
++   equality with its sole published pattern in Findings and Debate, compile
++   the registry value as ECMAScript without flags, and enforce whole-input
++   matching. Accept `A`, `XPR-001`, `a.b_c-9` and a 64-character ID consisting
++   of `A` plus 63 digits. Reject the empty string, a leading digit, a
++   65-character ID, non-ASCII characters and an otherwise valid ID followed
++   by a newline. Replacement handoffs expose the complete already-used-ID
++   context array, including resolved history, with matching count/digest/revision
++   and no allocation-pool interpretation.
++   Exact replay remains idempotent. Exhausted revision retries enter
++   intervention-required with receipts, lease and fences retained, without
++   advancing stages or resetting the retry counter. Partial-byte recovery
++   requires quiescence and checkpoint resolution before a replacement's fresh
++   critique; a replacement uses the remaining stage budget, never a reset cap.
++   With `max_revision_attempts_per_round=3`, exhaust round N, reconcile and
+    authorize replacement, then require a fresh critique in round N+1. If that
+    round needs revision, its allowance is three attempts including the initial
+    attempt; a fourth is denied. Round N remains exhausted through replacement,
+    resume and extend-cap, and extend-cap alone does not authorize replacement.
++   Offline integrity fixtures verify the exact registered literals and rendered
++   list ownership required by Errors and Self-Discovery, including the negative
++   corruption cases; no second regex transcription is used as an expected value.
+ 3. Mutating old collateral never changes sealed evidence or supplied next-turn
+    context; its divergence produces the documented diagnostic. Reconstruct every
+    round from final bytes and patches, including CRLF, no trailing newline,

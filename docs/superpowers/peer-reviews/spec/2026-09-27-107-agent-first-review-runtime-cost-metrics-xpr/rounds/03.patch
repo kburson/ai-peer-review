@@ -1,0 +1,65 @@
+--- a/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
++++ b/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
+@@ -732,16 +732,20 @@
+ records require reconciliation rather than silently starting a new chain.
+ Never search outside the physical repository by trusting frontmatter paths.
+ 
+-For sidecar mode, discover candidate bindings from series indexes and retained
+-run manifests only under the canonical docs/superpowers/peer-reviews/ tree in
++For either lineage mode, discover candidate bindings from series indexes and
++retained run manifests only under the canonical docs/superpowers/peer-reviews/ tree in
+ the current physical repository. Resolve artifact_path relative to that
+ repository, with normalized path separators and the existing physical-path,
+ alias and containment checks. This is repository-local discovery, not permission
+ to follow arbitrary external paths. Ignore cached absolute paths from another
+ checkout; the portable repository-relative binding is the lookup source.
+ 
+-Before allocating a new series, start and preview perform this discovery even
+-when local authority/cache is absent. A unique valid binding links automatically
++Before allocating any new series, start and preview must perform this discovery
++regardless of the requested or resolved lineage_mode, including a default
++frontmatter-mode start whose Markdown FUR has no valid pointer. Absence of a
++pointer or local authority/cache is never evidence that prior lineage is absent.
++Malformed or conflicting pointers still require reconciliation; discovery cannot
++bypass that rule. A unique valid binding links automatically
+ after validating its selected terminal manifest, reconstruction anchor and digest
+ chain, then capturing any intervening FUR delta under the existing rules. Current
+ FUR drift does not alone break lineage or require a matching final digest. Path
+@@ -749,7 +753,21 @@
+ confer participant or controller authority. A content digest alone never joins
+ two differently named artifacts to one series.
+ 
+-If a retained manifest identifies the artifact path but its sidecar binding is
++A binding recorded with lineage_mode=sidecar is a valid link target for a
++frontmatter-mode start, and a frontmatter binding is valid for a sidecar-mode
++start. The mode selects the current run's pointer representation, not a separate
++series namespace. A frontmatter-mode start with no pointer and a unique validated
++prior binding must reuse that series and predecessor; after reservation, its
++bounded initialization merge writes the existing series_id and record pointer,
++never a freshly allocated series. Preview and receipt disclose both the reused
++lineage and planned merge. A sidecar-mode follow-up reuses the same lineage
++without writing the FUR; a consistent existing frontmatter pointer may remain.
++Revalidate the selected binding under the artifact/series locks at reservation.
++Record the resolved mode in the new run and its published index binding; retain
++the prior manifests' original modes and bytes unchanged. Ambiguity still returns
++APR_LINEAGE_UNRESOLVED rather than using a mode change to start another chain.
++
++If a retained manifest identifies the artifact path but its published binding is
+ missing, malformed or inconsistent, return APR_LINEAGE_UNRESOLVED before new
+ reservation. Conflicting candidate series or predecessor tips and missing
+ referenced records return the same condition, naming reconcile_review_series
+@@ -1700,6 +1718,14 @@
+    delta. Missing bindings with discoverable history, conflicting series/tips,
+    corrupt anchors and escaping paths fail without a silent new chain. Neither
+    lookup nor cache reconstruction mutates the FUR or imports old role authority.
++   Cross-mode fixtures perform start and preview with lineage_mode omitted against
++   a pointerless Markdown FUR with prior sidecar lineage, in a checkout without
++   local authority/cache. The default frontmatter start reuses the existing series
++   and predecessor; preview is read-only, and only the authorized initialization
++   merge writes that existing pointer. No new series is silently allocated and
++   historical manifests remain unchanged. Also test explicit frontmatter mode,
++   the reverse frontmatter-to-sidecar follow-up without FUR mutation, and
++   ambiguous cross-mode candidates returning APR_LINEAGE_UNRESOLVED.
+    No-response evidence exists only at attempts/T/attempt-evidence.json, with
+    round.json references for admitted attempts and null-round owner references
+    for pre-admission attempts; no response filename is generated.

@@ -1,0 +1,147 @@
+--- a/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
++++ b/docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md
+@@ -476,18 +476,18 @@
+ ID. The following templates are normative for the new format; paths are relative
+ to W. IDs are validated single path components, never caller-supplied paths.
+ 
+-| Area                               | Relative path                                                   | Git policy                 | Write/read authority                                                         |
+-| ---------------------------------- | --------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------- |
+-| Collaborative folder               | .scratch/peer-review/collaboration/R/                           | Ignored                    | Author, reviewer and supervisor write; exact path supplied to participants   |
+-| Sealed authority                   | .scratch/peer-review/authority/runs/R/                          | Ignored, durable           | Package only; participants receive receipt IDs, never direct authority paths |
+-| Identity, leases and request index | .scratch/peer-review/authority/                                 | Ignored, durable           | Package only; outside every participant write scope                          |
+-| Supplied context                   | .scratch/peer-review/context/R/                                 | Ignored                    | Package writes; scoped participant read-only projection, exact path supplied |
+-| Series index                       | docs/superpowers/peer-reviews/S/index.json                      | Trackable                  | Package publishes; participants read subject to visibility                   |
+-| Portable run record                | docs/superpowers/peer-reviews/S/runs/R/                         | Trackable                  | Package publishes immutable files; participants never write                  |
+-| Telemetry amendments               | docs/superpowers/peer-reviews/S/amendments/R/A/                 | Trackable                  | Package publishes immutable amendment A; separate from sealed run            |
+-| Broker endpoint                    | .scratch/peer-review/runtime/endpoint.json                      | Ignored                    | Package only, safe metadata exposed selectively                              |
+-| Credentials and bindings           | .scratch/peer-review/private/                                   | Ignored, access-restricted | Trusted bridges/wrappers only; provider read and write denied                |
+-| Requests and raw logs              | .scratch/peer-review/requests/ and .scratch/peer-review/logs/R/ | Ignored                    | Controller prepares requests; package owns logs; no credential content       |
++| Area                               | Relative path                                                   | Git policy                 | Write/read authority                                                                          |
++| ---------------------------------- | --------------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------- |
++| Collaborative folder               | .scratch/peer-review/collaboration/R/                           | Ignored                    | Author, reviewer and supervisor write; exact path supplied to participants                    |
++| Sealed authority                   | .scratch/peer-review/authority/runs/R/                          | Ignored, durable           | Package only; participants receive receipt IDs, never direct authority paths                  |
++| Identity, leases and request index | .scratch/peer-review/authority/                                 | Ignored, durable           | Package only; outside every participant write scope                                           |
++| Supplied context                   | .scratch/peer-review/context/R/                                 | Ignored                    | Package writes; scoped participant read-only projection, exact path supplied                  |
++| Series index and portable sidecar  | docs/superpowers/peer-reviews/S/index.json                      | Trackable                  | Package publishes under the series lock; participants read subject to visibility, never write |
++| Portable run record                | docs/superpowers/peer-reviews/S/runs/R/                         | Trackable                  | Package publishes immutable files; participants never write                                   |
++| Telemetry amendments               | docs/superpowers/peer-reviews/S/amendments/R/A/                 | Trackable                  | Package publishes immutable amendment A; separate from sealed run                             |
++| Broker endpoint                    | .scratch/peer-review/runtime/endpoint.json                      | Ignored                    | Package only, safe metadata exposed selectively                                               |
++| Credentials and bindings           | .scratch/peer-review/private/                                   | Ignored, access-restricted | Trusted bridges/wrappers only; provider read and write denied                                 |
++| Requests and raw logs              | .scratch/peer-review/requests/ and .scratch/peer-review/logs/R/ | Ignored                    | Controller prepares requests; package owns logs; no credential content                        |
+ 
+ Trackable means intended for the eventual ordinary project commit; the runtime
+ never stages or commits. Ignore rules and OS protections are installation
+@@ -497,7 +497,15 @@
+ from generic scratch/log cleanup. Immutable run records and amendments are
+ published exclusively after seal verification; only the derivative series index
+ is updated, transactionally, under a series lock. Index receipts bind its entries
+-to sealed run manifests. Sidecar lineage lives in authority/series-index.json.
++to sealed run manifests. Sidecar lineage is published in the trackable series
++index, using the shared series-index/v1 contract. Each sidecar binding records
++lineage_mode, series_id, the canonical repository-relative artifact_path and
++record path, plus the selected terminal run ID and manifest SHA-256. The sealed
++run manifest records the same artifact/series binding, making the published
++index entry verifiable. No absolute worktree path, credential or private handle
++is exported. authority/series-index.json is only a derived local lookup cache;
++its absence cannot imply that a FUR has no prior lineage. It is rebuilt from
++validated portable records after reservation, never during read-only preview.
+ 
+ FUR, collaboration, authority, context, evidence and private roots must not alias
+ or overlap each other's write scopes. Permissions give repository context reads
+@@ -657,9 +665,11 @@
+ participant-authored content as sealed bytes plus a clearly separated
+ supervisor-observed metrics section. The section is outside the participant
+ content digest so adding trusted runtime measurements cannot impersonate or
+-rewrite the participant. When no response exists, the round contains an
+-attempt-evidence file instead; it is never mislabeled as a reviewer or author
+-response.
++rewrite the participant. When no response exists, the attempt is represented by
++attempts/T/attempt-evidence.json at run scope, never by a reviewer or author
++response filename. A round references it through round.json's attempt IDs rather
++than containing the file. Pre-round attempts have null round and are referenced
++by their stage/run accounting owner in the manifest.
+ 
+ The submitted response path/digest names only the participant payload, before
+ any runtime annotation. The runtime keeps that sealed payload separately and
+@@ -714,14 +724,51 @@
+ delta, then links automatically. The user may explicitly start a new lineage
+ when a file is repurposed.
+ 
+-Preserve unrelated frontmatter. Sidecar mode uses the package-owned sidecar
+-index instead of inserting YAML; an existing conflicting frontmatter pointer
++Preserve unrelated frontmatter. Sidecar mode uses the package-published binding
++in the trackable series index instead of inserting YAML; an existing conflicting frontmatter pointer
+ still requires explicit reconciliation and is not silently ignored. The pointer addresses a
+ stable series index; each terminal run has a separate immutable record below
+ it. Malformed/conflicting pointers, ambiguous copied series IDs and missing
+ records require reconciliation rather than silently starting a new chain.
+ Never search outside the physical repository by trusting frontmatter paths.
+ 
++For sidecar mode, discover candidate bindings from series indexes and retained
++run manifests only under the canonical docs/superpowers/peer-reviews/ tree in
++the current physical repository. Resolve artifact_path relative to that
++repository, with normalized path separators and the existing physical-path,
++alias and containment checks. This is repository-local discovery, not permission
++to follow arbitrary external paths. Ignore cached absolute paths from another
++checkout; the portable repository-relative binding is the lookup source.
++
++Before allocating a new series, start and preview perform this discovery even
++when local authority/cache is absent. A unique valid binding links automatically
++after validating its selected terminal manifest, reconstruction anchor and digest
++chain, then capturing any intervening FUR delta under the existing rules. Current
++FUR drift does not alone break lineage or require a matching final digest. Path
++matching locates a candidate; it does not replace manifest/chain validation or
++confer participant or controller authority. A content digest alone never joins
++two differently named artifacts to one series.
++
++If a retained manifest identifies the artifact path but its sidecar binding is
++missing, malformed or inconsistent, return APR_LINEAGE_UNRESOLVED before new
++reservation. Conflicting candidate series or predecessor tips and missing
++referenced records return the same condition, naming reconcile_review_series
++with repair-pointer, repoint or new-lineage as applicable. Do not silently
++allocate a new chain or select the newest timestamp. Explicitly recorded
++superseded bindings remain history, not competing active candidates. With no
++discoverable prior binding or record, a first review may allocate a new series.
++
++Publish a sidecar binding only after its referenced terminal run record has
++been sealed and published; update the derivative series index atomically under
++its lock. Publication or reconciliation never edits the sidecar-mode FUR.
++Portable follow-up needs the FUR, series index and referenced evidence to travel
++together through an ordinary commit/checkout or verified export/import. It does
++not require ignored authority, credentials, old sessions or the originating
++absolute directory, and it cannot resume an active run merely from exported
++history. Evidence not yet exported or transferred remains local. This qualifies
++automatic linking without weakening it for complete path-preserving clones or
++linked worktrees; renamed artifacts require explicit lineage reconciliation.
++
+ ## Metrics and Comparative Evaluation
+ 
+ Contract ownership: #107 emits neutral ai-peer-review.attempt-metrics/v1,
+@@ -1647,6 +1694,15 @@
+    SAR -> XPR and replacement attempts produce collision-free paths and one
+    ordered patch chain. Frontmatter initialization is authorized, reversible and
+    included in round 1's digest; sidecar mode does not edit the FUR.
++   Sidecar fixtures cover non-Markdown and opted-out Markdown FURs in a fresh
++   clone and a linked worktree with no pre-existing authority/cache: transferred
++   index/records link to the original series, including a verified intervening
++   delta. Missing bindings with discoverable history, conflicting series/tips,
++   corrupt anchors and escaping paths fail without a silent new chain. Neither
++   lookup nor cache reconstruction mutates the FUR or imports old role authority.
++   No-response evidence exists only at attempts/T/attempt-evidence.json, with
++   round.json references for admitted attempts and null-round owner references
++   for pre-admission attempts; no response filename is generated.
+ 4. Two-party reviewer FUR writes, headless authority writes and path-alias escapes are denied while review
+    folder writes and permitted web research succeed. A capability mismatch
+    fails preflight rather than weakening enforcement.
+@@ -1741,8 +1797,9 @@
+ - MCP is primary; CLI is always the final fallback.
+ - Starts use one versioned JSON request with request_id and filepath.
+ - Start validates before atomic reservation; launch is journaled and reconciled.
+-- Follow-ups automatically link through FUR frontmatter or explicit sidecar mode
+-  and verified digest continuity.
++- Follow-ups automatically link through FUR frontmatter or trackable sidecar
++  bindings and verified digest continuity when the pointer/index and referenced
++  evidence are present in the checkout; ignored lookup caches are not required.
+ 
+ ## Deferred Low-Level Choices
+ 
