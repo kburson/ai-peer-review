@@ -16,7 +16,7 @@ const BOOTSTRAP = 'fd2e636356b6b8049930d5dc6bddf383c6d56c8d';
 
 test('active release pins and packaged build contract match the selected minor', () => {
   const manifest = JSON.parse(readFileSync(path.join(root, 'package.json')));
-  assert.equal(manifest.version, '0.3.2');
+  assert.equal(manifest.version, '0.3.3');
   for (const file of ['README.md', 'skills/peer-review/SKILL.md']) {
     const instructions = readFileSync(path.join(root, file), 'utf8');
     assert.match(instructions, /npx --no-install ai-peer-review/);

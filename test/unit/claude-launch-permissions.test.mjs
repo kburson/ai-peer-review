@@ -203,7 +203,7 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
   );
 });
 
-test('installed exact peer-review alias avoids an absolute Node path denied by project hooks', (t) => {
+test('unsealed PATH aliases never replace the package command', (t) => {
   if (process.platform === 'win32') return t.skip('POSIX symlink command resolution');
   const fx = fixture('claude exact alias ');
   t.after(fx.cleanup);
@@ -221,9 +221,9 @@ test('installed exact peer-review alias avoids an absolute Node path denied by p
     effort: 'high',
     pathEnvironment: bin,
   });
-  assert.match(claudeJoinCommand(contract), /^peer-review join /);
+  assert.match(claudeJoinCommand(contract), /peer-review\.mjs join /);
   assert.equal(contract.permissions.allow[3], `Bash(${claudeJoinCommand(contract)})`);
-  assert.match(contract.submit_command, /^peer-review submit /);
+  assert.match(contract.submit_command, /peer-review\.mjs submit /);
   assert.ok(contract.command.args.includes('claude-opus-5-5'));
   rmSync(path.join(bin, 'peer-review'));
   writeFileSync(path.join(bin, 'peer-review'), 'foreign');
@@ -236,6 +236,47 @@ test('installed exact peer-review alias avoids an absolute Node path denied by p
     pathEnvironment: bin,
   });
   assert.match(claudeJoinCommand(unsafe), /peer-review\.mjs join /);
+});
+
+test('broker review launches through its verified pinned image inside the project', (t) => {
+  const fx = fixture('claude pinned image ');
+  t.after(fx.cleanup);
+  const root = path.join(fx.repositoryRoot, '.scratch', 'peer-review', 'runtimes', 'image');
+  const nodeExecutable = path.join(root, 'node', 'node');
+  const entrypoint = path.join(root, 'package', 'bin', 'peer-review.mjs');
+  mkdirSync(path.dirname(nodeExecutable), { recursive: true });
+  mkdirSync(path.dirname(entrypoint), { recursive: true });
+  writeFileSync(nodeExecutable, 'node');
+  writeFileSync(entrypoint, 'cli');
+  const runtimeImage = { root, nodeExecutable, entrypoint, digest: `sha256:${'a'.repeat(64)}` };
+  const input = {
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5-5',
+    effort: 'high',
+    runtimeImage,
+    verifyImage: () => true,
+  };
+  const contract = buildClaudeReviewerLaunch(input);
+  assert.ok(claudeJoinCommand(contract).includes(nodeExecutable));
+  assert.ok(claudeJoinCommand(contract).includes(entrypoint));
+  assert.ok(claudeJoinCommand(contract).includes(' join '));
+  assert.ok(contract.submit_command.includes(nodeExecutable));
+  assert.ok(contract.submit_command.includes(entrypoint));
+  assert.ok(contract.submit_command.includes(' submit '));
+  assert.equal(contract.permissions.allow[3], `Bash(${claudeJoinCommand(contract)})`);
+  assert.throws(() => buildClaudeReviewerLaunch({ ...input, verifyImage: () => false }), {
+    code: 'APR_BROKER_RUNTIME_MISSING',
+  });
+  assert.throws(
+    () =>
+      buildClaudeReviewerLaunch({
+        ...input,
+        runtimeImage: { ...runtimeImage, root: fx.root },
+      }),
+    { code: 'APR_BROKER_RUNTIME_MISSING' }
+  );
 });
 
 test('builds and resumes the preflight-bound launch with its exact approved submit command', async (t) => {

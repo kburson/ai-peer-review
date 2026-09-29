@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { renderCommand } from '../cli/help-data.mjs';
+import { verifyRuntimeImage as defaultVerifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
 import { fingerprintSession as defaultFingerprintSession } from '../identity/registry.mjs';
@@ -34,26 +35,29 @@ export function buildClaudeLaunchEnvironment(parentEnvironment = process.env) {
   return environment;
 }
 
-function exactPackageAlias(pathEnvironment) {
-  if (process.platform === 'win32' || typeof pathEnvironment !== 'string') return false;
-  for (const directory of pathEnvironment.split(path.delimiter)) {
-    if (!directory || !path.isAbsolute(directory)) continue;
-    const candidate = path.join(directory, 'peer-review');
-    try {
-      const metadata = lstatSync(candidate);
-      if (metadata.isSymbolicLink() && realpathSync(candidate) === realpathSync(PACKAGE_BIN))
-        return true;
-      return false;
-    } catch (error) {
-      if (error?.code !== 'ENOENT') return false;
-    }
-  }
-  return false;
+function pinnedPackagePrefix(repositoryRoot, image, verifyImage) {
+  const directory = path.join(repositoryRoot, '.scratch', 'peer-review', 'runtimes');
+  const valid =
+    typeof image?.root === 'string' &&
+    path.isAbsolute(image.root) &&
+    path.dirname(image.root) === directory &&
+    typeof image.nodeExecutable === 'string' &&
+    typeof image.entrypoint === 'string' &&
+    verifyImage(image);
+  if (!valid)
+    throw new AprError(
+      'APR_BROKER_RUNTIME_MISSING',
+      'The sealed reviewer runtime is unavailable.',
+      {
+        recovery: 'Preserve the review and restore its exact verified pinned runtime image.',
+      }
+    );
+  return [image.nodeExecutable, image.entrypoint];
 }
 
-function packageCommand(verb, target, pathEnvironment) {
-  return exactPackageAlias(pathEnvironment)
-    ? ['peer-review', verb, target]
+function packageCommand(verb, target, pinnedPrefix = null) {
+  return pinnedPrefix
+    ? [...pinnedPrefix, verb, target]
     : [process.execPath, PACKAGE_BIN, verb, target];
 }
 
@@ -440,7 +444,8 @@ export function buildClaudeReviewerLaunch({
   routing,
   model,
   effort,
-  pathEnvironment = process.env.PATH,
+  runtimeImage = null,
+  verifyImage = defaultVerifyRuntimeImage,
 } = {}) {
   let physicalRoot;
   try {
@@ -478,8 +483,11 @@ export function buildClaudeReviewerLaunch({
   const selectedModel = safeIdentifier(model, 'model');
   const selectedEffort = safeIdentifier(effort, 'effort');
   const rule = encodeClaudeEditRule(response.absolute);
-  const join = packageCommand('join', resolvedInvitation.absolute, pathEnvironment);
-  const submit = packageCommand('submit', workspace.absolute, pathEnvironment);
+  const pinnedPrefix = runtimeImage
+    ? pinnedPackagePrefix(physicalRoot, runtimeImage, verifyImage)
+    : null;
+  const join = packageCommand('join', resolvedInvitation.absolute, pinnedPrefix);
+  const submit = packageCommand('submit', workspace.absolute, pinnedPrefix);
   const joinCommand = renderClaudeBashCommand(join);
   const submitCommand = renderClaudeBashCommand(submit);
   const joinRule = encodeClaudeBashRule(join);
@@ -808,7 +816,12 @@ function readLaunchState(
   return Object.freeze({ ...value });
 }
 
-export function buildClaudeReviewerResume({ repositoryRoot, invitation, routing } = {}) {
+export function buildClaudeReviewerResume({
+  repositoryRoot,
+  invitation,
+  routing,
+  runtimeImage,
+} = {}) {
   let physicalRoot;
   try {
     physicalRoot = realpathSync(exactPath(repositoryRoot, 'repository'));
@@ -844,6 +857,7 @@ export function buildClaudeReviewerResume({ repositoryRoot, invitation, routing 
     routing,
     model: state?.model,
     effort: state?.effort,
+    runtimeImage,
   });
   readLaunchState(contract, defaultFingerprintSession, { allowPriorResponse: true });
   return contract;

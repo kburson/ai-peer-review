@@ -21,7 +21,7 @@
   "setup": {
     "owner": "ai-peer-review",
     "version": 2,
-    "package_version": "0.3.2",
+    "package_version": "0.3.3",
     "skill_sha256": "922cefb6d085ec235924b3c0176d88039cf0bfa4b20369528814ee227fc13c3e",
     "agents": ["codex"],
     "config_created": true,

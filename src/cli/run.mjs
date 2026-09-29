@@ -5166,15 +5166,25 @@ export async function run(argv, io) {
         routing.response = current.paths.response;
       }
       const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
+      const current = inspectReviewAuthority(values.workspace).state;
+      const evidence =
+        current.protocol.startup.runtime?.ownership === 'broker'
+          ? startupEvidence(values.workspace, current)
+          : null;
       const baseContract = parsed.options.resume
-        ? buildClaudeReviewerResume({ repositoryRoot, invitation, routing })
+        ? buildClaudeReviewerResume({
+            repositoryRoot,
+            invitation,
+            routing,
+            runtimeImage: evidence?.journal.runtime,
+          })
         : buildClaudeReviewerLaunch({
             repositoryRoot,
             invitation,
             routing,
             model: parsed.options.model,
             effort: parsed.options.effort,
-            pathEnvironment: io.env.PATH,
+            runtimeImage: evidence?.journal.runtime,
           });
       const registered = inspectReview(values.workspace).participants.reviewer;
       const configured = loadConfig({ cwd: io.cwd, env: io.env }).config.hosts?.claude?.identity;
@@ -5196,11 +5206,6 @@ export async function run(argv, io) {
         operationId: `join:${values.reviewId}`,
         expectedCommand: claudeJoinCommand(contract),
       });
-      const current = inspectReviewAuthority(values.workspace).state;
-      const evidence =
-        current.protocol.startup.runtime?.ownership === 'broker'
-          ? startupEvidence(values.workspace, current)
-          : null;
       const launchDetails = evidence && {
         reviewId: values.reviewId,
         requestDigest: evidence.journal.request_digest,
