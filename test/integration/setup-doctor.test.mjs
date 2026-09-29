@@ -342,7 +342,9 @@ test('setup --update refreshes every recorded project host and is idempotent', a
   assert.equal(unchanged.changed, false);
   assert.equal(unchanged.status, 'no-changes');
   execFileSync('git', ['init', '-q'], { cwd: files.project });
-  const codexSkill = changed.find(({ file }) => file.includes('/.codex/')).file;
+  const codexSkill = changed.find(
+    ({ file }) => path.basename(path.dirname(path.dirname(path.dirname(file)))) === '.codex'
+  ).file;
   writeFileSync(codexSkill, `${readFileSync(codexSkill, 'utf8')}\nprevious package\n`);
   const cliOutput = [];
   const cliErrors = [];
