@@ -892,7 +892,7 @@ const ERROR_CATALOG = Object.freeze({
   APR_IDENTITY_REQUIRED: {
     message: 'The command could not establish its required participant identity.',
     recovery:
-      'Run the command from the actual Codex or Claude agent session with its provider hook installed by setup --update. Run doctor --mode installation to check package health without a current agent model; do not pin a model in project config.',
+      'Run the command from the actual Codex or Claude agent session. For a linked worktree, check the host’s active hook source, run setup --update there if needed, and trust or reload the provider hook before retrying. doctor --mode installation checks package files, not live hook activation; do not pin a model in project config.',
   },
   APR_REVIEWER_SELECTION_UNSUPPORTED: {
     message:

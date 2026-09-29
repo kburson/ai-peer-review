@@ -838,6 +838,8 @@ test('doctor text distinguishes installation health from missing current-session
   assert.match(session.stdout, /session readiness: unhealthy/i);
   assert.match(session.stdout, /identity-source: unavailable/i);
   assert.match(session.stdout, /recovery: .*model/i);
+  assert.match(session.stdout, /linked worktree/i);
+  assert.match(session.stdout, /active hook source/i);
   assert.doesNotMatch(session.stdout, /recovery: ai-peer-review build broker-security/i);
   const installed = await invoke(['doctor', '--mode', 'installation']);
   assert.equal(installed.code, 0, installed.stderr);

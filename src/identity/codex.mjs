@@ -25,6 +25,13 @@ function resolveRuntime({ runtime = {}, env = {} } = {}) {
   };
 }
 
+function identityRecovery({ runtime = {}, env = {} } = {}) {
+  const sessionId = runtime.sessionId ?? env.CODEX_THREAD_ID ?? env.CODEX_SESSION_ID;
+  if (typeof sessionId !== 'string' || !sessionId)
+    return 'Run from a supported Codex session that exposes CODEX_THREAD_ID, then retry.';
+  return 'The Codex hook did not supply the current model for this command. In a linked worktree, check the host’s active hook source, run peer-review setup --update in that source if needed, and trust or reload the hook before retrying. peer-review doctor --mode installation checks package files but cannot prove this session’s hook is active.';
+}
+
 export const codexAdapter = Object.freeze({
   name: 'codex',
   host: 'codex',
@@ -32,6 +39,7 @@ export const codexAdapter = Object.freeze({
   sessionIdEnvKeys: frozen(['CODEX_THREAD_ID', 'CODEX_SESSION_ID']),
   capabilities: frozen(['manual', 'staleness-only']),
   resolveRuntime,
+  identityRecovery,
 });
 
 export default codexAdapter;

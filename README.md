@@ -135,6 +135,13 @@ checks current-session review readiness and may be unhealthy when its invoking
 shell lacks current model metadata. Review startup captures the provider's
 current operation instead of pinning a model or effort to the worktree; either
 may change before a later review start in the same provider session.
+For Codex linked worktrees, check the host's active hook source: it may be the
+primary clone's `.codex/hooks.json` rather than the physical review worktree's
+copy. A healthy installation check confirms package files, while plain `doctor`
+must also see the current model from the active hook. If it reports
+`APR_IDENTITY_REQUIRED`, run `peer-review explain APR_IDENTITY_REQUIRED`, update
+the active hook source, trust or reload that hook, and rerun plain `doctor` from
+the same agent session. Keep an in-progress review intact while resolving this.
 
 Broker-dependent startup additionally requires the package-owned native
 security helper. Building it is always explicit: provide a writable package
@@ -176,6 +183,11 @@ can change between invocations without changing project configuration. Legacy
 `hosts.<provider>.identity` model fields remain readable for old configuration
 files but no longer select the current model. Rerun `peer-review setup --update`
 after upgrading so the host hooks and skill match the installed CLI.
+Codex subagent hook events identify their parent session; for start and join,
+the hook must also observe the child's runtime session ID. A private per-command
+token binds those observations to the executing command, and a parent-only
+record is refused. Both direct `peer-review` and documented
+`npx --no-install peer-review` invocations are recognized by that hook.
 
 The session fingerprint derives from the genuine current provider session.
 Legacy reviews with a declared Claude identity retain that sealed identity for

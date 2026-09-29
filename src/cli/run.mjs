@@ -5100,7 +5100,7 @@ export async function run(argv, io) {
             entry.id === 'broker-security' && entry.status !== 'ok' && entry.details?.build_command
               ? `\n  recovery: ${entry.details.build_command}`
               : entry.id === 'identity-source' && entry.status === 'unavailable'
-                ? '\n  recovery: Use --mode installation for package health; review startup needs current-operation provider model evidence.'
+                ? `\n  recovery: ${entry.details?.recovery ?? 'Use --mode installation for package health; review startup needs current-operation provider model evidence.'}`
                 : '';
           return `${entry.id}: ${entry.status}${recovery}`;
         });

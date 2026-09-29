@@ -69,6 +69,9 @@ test('doctor help distinguishes installation from current-operation readiness', 
     explainError('APR_IDENTITY_REQUIRED').recovery,
     /do not pin a model in project config/i
   );
+  assert.match(explainError('APR_IDENTITY_REQUIRED').recovery, /linked worktree/i);
+  assert.match(explainError('APR_IDENTITY_REQUIRED').recovery, /active hook source/i);
+  assert.match(explainError('APR_IDENTITY_REQUIRED').recovery, /trust or reload/i);
 });
 
 test('start help gives complete intent-first selection and recovery guidance', () => {

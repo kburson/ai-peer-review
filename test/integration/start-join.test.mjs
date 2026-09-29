@@ -122,7 +122,7 @@ test('CLI start resolves explicit reviewer intent through the sealed startup run
   assert.match(stdout, /awaiting-reviewer/);
 });
 
-test('CLI start derives its author model from the active Codex hook record', async (t) => {
+test('CLI headless start binds the active Codex hook model to its child author session', async (t) => {
   const fx = repositoryFixture('apr-codex-author-start-');
   t.after(fx.cleanup);
   captureCodexStartHook({
@@ -132,10 +132,11 @@ test('CLI start derives its author model from the active Codex hook record', asy
       tool_input: { command: 'peer-review start docs/example.md --artifact-kind spec' },
       tool_use_id: 'call-author-start',
       turn_id: 'turn-author',
-      session_id: 'author-hook-session',
+      session_id: 'parent-hook-session',
       model: 'gpt-5.6-sol',
       cwd: fx.root,
     },
+    hookRuntimeSessionId: 'author-hook-session',
     sourceVersion: '0.155.0-alpha.9.2',
     token: 'c'.repeat(32),
     observedAt: NOW,

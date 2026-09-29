@@ -5,13 +5,22 @@ import { AprError } from '../errors.mjs';
 import { atomicWrite } from '../protocol/store.mjs';
 
 const TOKEN = /^[0-9a-f]{32}$/;
-const START = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) start(?:\s|$)/;
-const JOIN = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) join(?:\s|$)/;
-const COMMAND = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs)(?:\s|$)/;
+const CLI =
+  '(?:(?:npx (?:--no-install )?)?(?:ai-)?peer-review|node (?:\\./)?bin/peer-review\\.mjs)';
+const START = new RegExp(`^${CLI} start(?:\\s|$)`);
+const JOIN = new RegExp(`^${CLI} join(?:\\s|$)`);
+const COMMAND = new RegExp(`^${CLI}(?:\\s|$)`);
 
-function invalid(message) {
+export function isCodexPeerReviewCommand(command) {
+  return COMMAND.test(command ?? '');
+}
+
+function invalid(
+  message,
+  recovery = 'Run the exact command from a Codex session with the trusted provider hook.'
+) {
   throw new AprError('APR_CODEX_HOOK_INVALID', message, {
-    recovery: 'Run the exact command from a Codex session with the trusted provider hook.',
+    recovery,
   });
 }
 
@@ -23,12 +32,13 @@ function recordFile(root, token) {
 
 export function captureCodexStartHook({
   event,
+  hookRuntimeSessionId = null,
   sourceVersion,
   token,
   observedAt = new Date(),
 } = {}) {
   const command = event?.tool_input?.command;
-  if (!COMMAND.test(command ?? '')) return null;
+  if (!isCodexPeerReviewCommand(command)) return null;
   if (
     event?.hook_event_name !== 'PreToolUse' ||
     event.tool_name !== 'Bash' ||
@@ -42,6 +52,8 @@ export function captureCodexStartHook({
     !event.turn_id ||
     typeof sourceVersion !== 'string' ||
     !sourceVersion ||
+    (hookRuntimeSessionId !== null &&
+      (typeof hookRuntimeSessionId !== 'string' || !hookRuntimeSessionId)) ||
     !Number.isFinite(new Date(observedAt).valueOf())
   )
     invalid('Codex hook event lacks active exact-session evidence.');
@@ -54,6 +66,10 @@ export function captureCodexStartHook({
     host: 'codex',
     model_id: event.model,
     session_id: event.session_id,
+    runtime_session_id:
+      hookRuntimeSessionId && hookRuntimeSessionId !== event.session_id
+        ? hookRuntimeSessionId
+        : null,
     turn_id: event.turn_id,
     phase: 'tool-use',
     tool_use_id: event.tool_use_id,
@@ -91,12 +107,18 @@ export function readCodexStartHook({ root, token, sessionId, operationId } = {})
     if (cause instanceof AprError) throw cause;
     invalid('Codex hook record cannot be read safely.');
   }
+  // Codex reports the parent session in subagent hook events. A child binding
+  // also requires the hook process to observe that child's runtime session ID;
+  // the private token carries both observations to the exact rewritten call.
   if (
     record?.schema !== 'ai-peer-review.codex-hook/v1' ||
     record.source !== 'official-exact-session' ||
     record.provider !== 'openai' ||
     record.host !== 'codex' ||
-    record.session_id !== sessionId ||
+    typeof record.session_id !== 'string' ||
+    !record.session_id ||
+    typeof sessionId !== 'string' ||
+    !sessionId ||
     !(
       (operationId?.startsWith('start:') && START.test(record.command ?? '')) ||
       (operationId?.startsWith('join:') && JOIN.test(record.command ?? ''))
@@ -105,6 +127,14 @@ export function readCodexStartHook({ root, token, sessionId, operationId } = {})
     !/^(?:start|join):/.test(operationId)
   )
     invalid('Codex hook record does not bind the exact start session.');
+  if (record.session_id !== sessionId && record.runtime_session_id !== sessionId) {
+    if (!record.runtime_session_id)
+      invalid(
+        'Codex hook observed a parent session without the child runtime session.',
+        'The Codex hook needs the child session ID in CODEX_THREAD_ID to bind this headless start or join. Check the active host hook and retry from that child session; do not reuse a parent-only token.'
+      );
+    invalid('Codex hook record does not bind the exact start session.');
+  }
   return Object.freeze({
     source: record.source,
     source_version: record.source_version,
@@ -113,7 +143,8 @@ export function readCodexStartHook({ root, token, sessionId, operationId } = {})
     provider: record.provider,
     host: record.host,
     model_id: record.model_id,
-    session_id: record.session_id,
+    session_id: sessionId,
+    hook_session_id: record.session_id,
     phase: record.phase,
     tool_use_id: record.tool_use_id,
   });
