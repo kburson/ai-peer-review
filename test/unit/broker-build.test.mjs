@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -90,6 +91,10 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.doesNotMatch(windowsRelease, /DeleteFileW|FileDisposition/);
   assert.match(posix, /kIpcTimeoutMilliseconds/);
   assert.match(posix, /poll\(/);
+  assert.match(
+    windows.match(/void\* ConnectPrivate[\s\S]*?\n}/)?.[0] ?? '',
+    /ERROR_ACCESS_DENIED[\s\S]*APR_BROKER_ACCESS_DENIED/
+  );
   assert.match(posixWrite, /MSG_DONTWAIT/);
   assert.match(windows, /kIpcTimeoutMilliseconds/);
   assert.doesNotMatch(
@@ -157,6 +162,34 @@ test('missing or mismatched native helper fails with the installation-specific o
     code: 'APR_BROKER_START_FAILED',
   });
 });
+
+test(
+  'native broker connection distinguishes denied socket access from a stale endpoint',
+  { skip: process.platform === 'win32' || process.getuid?.() === 0 },
+  async (t) => {
+    const scratch = path.join(root, '.scratch', 'test');
+    mkdirSync(scratch, { recursive: true });
+    const privateRoot = mkdtempSync(path.join(scratch, 'bd-'));
+    const socketPath = path.join(privateRoot, 's');
+    const server = createServer((connection) => connection.end());
+    t.after(async () => {
+      chmodSync(privateRoot, 0o700);
+      await new Promise((resolve) => server.close(resolve));
+      rmSync(privateRoot, { recursive: true, force: true });
+    });
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(socketPath, resolve);
+    });
+    const security = platformSecurity();
+    security.connectPrivate(socketPath).close();
+    chmodSync(privateRoot, 0o000);
+    assert.throws(() => security.connectPrivate(socketPath), {
+      code: 'APR_BROKER_ACCESS_DENIED',
+      recovery: /approved host execution.*broker socket/i,
+    });
+  }
+);
 
 test('platform wrapper retains native handles and never reaches the builder implicitly', () => {
   const calls = [];

@@ -262,7 +262,23 @@ export function platformSecurity({
       native.reclaimStaleEndpoint(handle, value);
     },
     connectPrivate(value) {
-      return wrapConnection(native.connectPrivate(value));
+      try {
+        return wrapConnection(native.connectPrivate(value));
+      } catch (cause) {
+        if (cause?.code === 'APR_BROKER_ACCESS_DENIED') {
+          const error = new AprError(
+            'APR_BROKER_ACCESS_DENIED',
+            'Broker socket access is denied to this process.',
+            {
+              recovery:
+                'Use approved host execution with access to this project broker socket from the same participant session; preserve broker evidence and do not bypass the sandbox.',
+            }
+          );
+          error.cause = cause;
+          throw error;
+        }
+        throw cause;
+      }
     },
     peerUser(connection) {
       const handle = connectionHandles.get(connection);

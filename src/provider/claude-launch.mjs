@@ -17,6 +17,9 @@ import {
 const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
 const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
 const PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
+const PACKAGE_VERSION = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+).version;
 
 export function buildClaudeLaunchEnvironment(parentEnvironment = process.env) {
   const environment = { ...parentEnvironment };
@@ -197,7 +200,7 @@ function wakeLaunchers(root) {
       const manifest = JSON.parse(readFileSync(path.join(directory, 'package.json'), 'utf8'));
       if (
         manifest.name === '@kburson/ai-peer-review' &&
-        manifest.version === '0.3.0' &&
+        manifest.version === PACKAGE_VERSION &&
         manifest.bin?.['peer-review'] === './bin/peer-review.mjs' &&
         lstatSync(path.join(directory, 'bin/peer-review.mjs')).isFile() &&
         localNpxBinMatches(root, path.join(directory, 'bin/peer-review.mjs'))

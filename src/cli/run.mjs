@@ -21,7 +21,13 @@ import {
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { ensureBroker, requestBroker } from '../broker/client.mjs';
-import { startupEvidence } from '../broker/registry.mjs';
+import { inspectOfflineRecoveryCandidates, startupEvidence } from '../broker/registry.mjs';
+import {
+  manualLaunchProvesNonSubmission,
+  reserveManualLaunch,
+  settleManualLaunch,
+} from '../provider/manual-launch-ledger.mjs';
+import { allWakeOperations } from '../coordinator/ledger.mjs';
 import {
   openParticipantSession,
   recordParticipantBinding,
@@ -110,7 +116,7 @@ import {
   sealNoCommitHandoff,
   statusReview as protocolStatusReview,
 } from '../protocol/service.mjs';
-import { atomicCreate, atomicWrite } from '../protocol/store.mjs';
+import { atomicCreate, atomicWrite, withReviewLock } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
 import { manualTransport } from '../transport/manual.mjs';
 import {
@@ -816,7 +822,7 @@ function startupVariables(
         renderCommand(['peer-review', 'join', invitationAbsolute])
       ),
       zero_install_join_display: markdownCodeSpan(
-        renderCommand(['npx', '--yes', '@kburson/ai-peer-review@0.3.0', 'join', invitationAbsolute])
+        renderCommand(['npx', '--no-install', 'ai-peer-review', 'join', invitationAbsolute])
       ),
       recovery_display: markdownCodeSpan(
         renderCommand(['peer-review', 'resume', workspaceAbsolute])
@@ -2033,6 +2039,7 @@ function retainedWorkspacePaths(workspace, { includeReservation = false } = {}) 
 function releaseReservation(workspace, reviewId) {
   const file = path.join(workspace, 'collateral-reservation.json');
   if (!entryExists(file)) return;
+  if (!lstatSync(file).isFile()) collision(file);
   let record;
   try {
     record = JSON.parse(readFileSync(file, 'utf8'));
@@ -2048,8 +2055,7 @@ function releaseReservation(workspace, reviewId) {
   unlinkSync(file);
 }
 
-export async function abandonReview(input) {
-  const absolute = path.resolve(input.workspace);
+async function abandonLocked(input, absolute) {
   const authority = inspectReviewAuthority(absolute);
   const state = authority.state;
   const reason = String(input.reason ?? '').trim();
@@ -2077,9 +2083,16 @@ export async function abandonReview(input) {
   const unjoinedEvidence = unjoined ? startupEvidence(absolute, state) : null;
   const unjoinedSafe =
     unjoinedEvidence?.recovery.fenced === true &&
-    unjoinedEvidence.journal.stage === 'registered' &&
+    ['authority', 'manual', 'registered'].includes(unjoinedEvidence.journal.stage) &&
     (!unjoinedEvidence.journal.provider_operation ||
       unjoinedEvidence.journal.provider_operation.status === 'not-submitted') &&
+    allWakeOperations(absolute).every((operation) =>
+      ['not-submitted', 'refused'].includes(operation.status)
+    ) &&
+    manualLaunchProvesNonSubmission(absolute, {
+      reviewId: state.protocol.review_id,
+      requestDigest: unjoinedEvidence.journal.request_digest,
+    }) &&
     state.participants.author?.session_fingerprint === input.identity?.session_fingerprint;
   const interventionSafe =
     state.protocol.state === 'intervention-required' &&
@@ -2091,12 +2104,42 @@ export async function abandonReview(input) {
     fail(
       'APR_INVALID_TRANSITION',
       'Abandonment requires registered participant authority and safe terminal evidence.',
-      'For an unjoined review, first fence the exact registered and definitely unsubmitted broker launch; otherwise resume during intervention.'
+      'For an unjoined review, fence exact broker delivery and prove every manual and wake operation was not submitted; legacy or uncertain launch history remains blocked. Otherwise resume during intervention.'
     );
   }
+  const reservation = path.join(absolute, 'collateral-reservation.json');
+  if (entryExists(reservation)) {
+    const paths = pathsForContext(state.protocol.startup.context);
+    if (paths.scratch.absolute !== absolute) collision(reservation);
+    reserveCollateral({ ...state, paths }, { write: false });
+  }
   const retainedPaths = retainedWorkspacePaths(absolute);
-  const abandoned = await mutateReview(absolute, expected(state), (current) =>
-    eventFor(
+  const abandoned = await mutateReview(absolute, expected(state), (current) => {
+    if (unjoinedSafe) {
+      const fresh = startupEvidence(absolute, current);
+      if (
+        current.protocol.state !== 'awaiting-reviewer' ||
+        current.participants.reviewer ||
+        !fresh.recovery.fenced ||
+        !['authority', 'manual', 'registered'].includes(fresh.journal.stage) ||
+        (fresh.journal.provider_operation &&
+          fresh.journal.provider_operation.status !== 'not-submitted') ||
+        !allWakeOperations(absolute).every((operation) =>
+          ['not-submitted', 'refused'].includes(operation.status)
+        ) ||
+        !manualLaunchProvesNonSubmission(absolute, {
+          reviewId: current.protocol.review_id,
+          requestDigest: fresh.journal.request_digest,
+        })
+      ) {
+        fail(
+          'APR_WAKE_OUTCOME_UNKNOWN',
+          'Unjoined retirement evidence changed.',
+          'Preserve the review and reconcile every exact provider operation.'
+        );
+      }
+    }
+    return eventFor(
       current,
       'abandoned',
       input.identity.session_fingerprint,
@@ -2106,8 +2149,8 @@ export async function abandonReview(input) {
         retained_paths: retainedPaths,
       },
       input.now ?? new Date()
-    )
-  );
+    );
+  });
   releaseReservation(absolute, abandoned.protocol.review_id);
   return result(
     'abandon',
@@ -2119,6 +2162,11 @@ export async function abandonReview(input) {
       retained_paths: retainedPaths,
     }
   );
+}
+
+export async function abandonReview(input) {
+  const absolute = path.resolve(input.workspace);
+  return withReviewLock(path.join(absolute, 'dispatch'), () => abandonLocked(input, absolute));
 }
 
 function requireSuccessorAuthority(
@@ -4458,6 +4506,7 @@ function inspectBrokerEvidence(project) {
   const registrations = listRegularJson(path.join(root, 'registrations'));
   const recoveryRecords = listRegularJson(path.join(root, 'recovery'));
   const unreconciled = new Set();
+  const inspected = inspectOfflineRecoveryCandidates(project);
   for (const file of registrations) {
     try {
       const record = JSON.parse(readFileSync(file, 'utf8'));
@@ -4483,11 +4532,15 @@ function inspectBrokerEvidence(project) {
     registrations: Object.freeze(registrations),
     recovery_records: Object.freeze(recoveryRecords),
     unreconciled_workspaces: Object.freeze([...unreconciled].sort()),
+    candidates: inspected.candidates,
+    unverifiable: inspected.unverifiable,
   });
 }
 
 function offlineBrokerStatus(project, evidence, error = null) {
-  const workspace = evidence.unreconciled_workspaces[0] ?? null;
+  const workspace = evidence.candidates
+    ? (evidence.candidates[0]?.workspace ?? null)
+    : (evidence.unreconciled_workspaces[0] ?? null);
   return brokerProjection('status', {
     status: 'offline',
     project_digest: project.digest,
@@ -5142,14 +5195,84 @@ export async function run(argv, io) {
         operationId: `join:${values.reviewId}`,
         expectedCommand: claudeJoinCommand(contract),
       });
-      const response = await runClaudeReviewerLaunch({
-        contract,
-        resume: parsed.options.resume,
-        execFile:
-          io.execFile ?? createClaudeStreamingExec({ recorder, spawnProcess: io.spawnProcess }),
-        inspectAuthority: io.inspectAuthority,
-        fingerprintSession: io.fingerprintSession,
-      });
+      const current = inspectReviewAuthority(values.workspace).state;
+      const evidence =
+        current.protocol.startup.runtime?.ownership === 'broker'
+          ? startupEvidence(values.workspace, current)
+          : null;
+      const launchDetails = evidence && {
+        reviewId: values.reviewId,
+        requestDigest: evidence.journal.request_digest,
+        intentDigest: sha256(
+          canonicalProjection({
+            invitation,
+            response: contract.response,
+            model: contract.model,
+            effort: contract.effort,
+            resume: Boolean(parsed.options.resume),
+          })
+        ),
+      };
+      const operation =
+        evidence &&
+        (await reserveManualLaunch(values.workspace, launchDetails, {
+          verifyAuthority() {
+            const fresh = inspectReviewAuthority(values.workspace).state;
+            const observed = startupEvidence(values.workspace, fresh);
+            if (
+              fresh.protocol.review_id !== values.reviewId ||
+              observed.journal.request_digest !== launchDetails.requestDigest ||
+              observed.recovery.fenced ||
+              observed.recovery.suspending ||
+              !['awaiting-reviewer', 'reviewer-turn'].includes(fresh.protocol.state)
+            ) {
+              fail(
+                'APR_WAKE_OUTCOME_UNKNOWN',
+                'Manual launch authority changed or is fenced.',
+                'Read the exact review status and reconcile its launch evidence before retrying.'
+              );
+            }
+          },
+        }));
+      let response;
+      try {
+        response = await runClaudeReviewerLaunch({
+          contract,
+          resume: parsed.options.resume,
+          execFile:
+            io.execFile ?? createClaudeStreamingExec({ recorder, spawnProcess: io.spawnProcess }),
+          inspectAuthority: io.inspectAuthority,
+          fingerprintSession: io.fingerprintSession,
+        });
+        if (operation)
+          await settleManualLaunch(
+            values.workspace,
+            launchDetails,
+            operation.id,
+            ['submitted', 'permission-blocked'].includes(response.status)
+              ? 'submitted'
+              : 'outcome-unknown'
+          );
+      } catch (error) {
+        if (operation && error?.code === 'APR_REVIEWER_SELECTION_REFUSED') {
+          const observationBase = path.join(values.workspace, 'provider', 'claude', 'observations');
+          const observed = [
+            path.join(
+              observationBase,
+              `${createHash('sha256').update(`join:${values.reviewId}`).digest('hex')}.json`
+            ),
+            path.join(observationBase, `join:${values.reviewId}.json`),
+          ].some(existsSync);
+          if (!observed)
+            await settleManualLaunch(
+              values.workspace,
+              launchDetails,
+              operation.id,
+              'not-submitted'
+            );
+        }
+        throw error;
+      }
       if (parsed.options.json) writeJson(io.stdout, response);
       else writeClaudeLaunchResult(io.stdout, response);
       return response.status === 'failed' ? 1 : 0;

@@ -39,7 +39,7 @@ Role: reviewer. Join from a distinct session in the same physical worktree.
 
 Installed join: {{installed_join_display}}
 
-Zero-install join: {{zero_install_join_display}}
+Installed-package join: {{zero_install_join_display}}
 
 Rules of engagement:
 

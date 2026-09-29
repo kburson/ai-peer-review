@@ -18,13 +18,39 @@ Query
 `peer-review help <command>` whenever syntax is uncertain; never guess flags or
 state transitions.
 
+If `start` or `broker` reports `APR_BROKER_ACCESS_DENIED`, invoke
+`peer-review explain APR_BROKER_ACCESS_DENIED` and use an approved host tool
+execution path that can reach the authenticated project broker socket. Run the
+command from the actual author or reviewer session so its identity is genuine.
+Do not copy a child agent's session ID into a parent shell, loosen sandbox
+isolation, relocate the broker socket, or replay an uncertain reviewer launch.
+Read `peer-review broker status --json` before the exact reported recovery
+action; status alone never starts the broker.
+Offline status lists verified pinned-runtime candidates in advisory order and
+retains unverifiable records. `peer-review broker reconcile <workspace>` starts
+the selected pinned image and authenticates its broker; a different image may
+inspect an older review only in recovery mode. Preserve the old review and
+its provider evidence if a candidate fails, then check broker ownership before
+trying another candidate.
+
+For an unjoined review, `peer-review abandon <workspace> --reason <text>`
+requires a durable fence and complete evidence that no broker, wake, or manual
+Claude launch reached the provider. An absent reviewer join, a hook denial,
+missing legacy launch history, or a generic provider failure is insufficient.
+An independent fresh XPR can use a distinct `--reviews-root` or
+`--review-path-template`; verify its new review ID, invitation, and outputs.
+Changing only `--record-id` does not guarantee a new review ID, and the old
+uncertain attempt remains unresolved. `peer-review supersede` needs exact
+lineage authority and cannot replace abandonment when a lineage receipt is
+missing.
+
 ## Package installation and migration
 
 Install the scoped registry package while continuing to invoke the local `peer-review` binary:
 
 ```bash
 npm install --save-dev @kburson/ai-peer-review
-npx --yes @kburson/ai-peer-review@0.3.0 --help
+npx --no-install ai-peer-review --help
 ```
 
 Existing consumers migrate without changing binary, configuration, or runtime paths:

@@ -17,6 +17,7 @@ import { atomicCreate, atomicWrite, withReviewLock } from '../protocol/store.mjs
 import { startReview } from '../cli/run.mjs';
 import { productionProviderAdapters } from '../providers/registry.mjs';
 import { resolveSelection } from './selection.mjs';
+import { initializeManualLaunchHistory } from '../provider/manual-launch-ledger.mjs';
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
 const preparedRequests = new WeakMap();
@@ -237,6 +238,10 @@ export async function activateStartup(prepared, deps = {}) {
           stage: 'reserved',
         };
         atomicCreate(file, `${JSON.stringify(journal)}\n`);
+        initializeManualLaunchHistory(workspace, {
+          reviewId: journal.review_id,
+          requestDigest: journal.request_digest,
+        });
       }
       const save = (stage, extra = {}) => {
         journal = { ...journal, ...extra, stage };
