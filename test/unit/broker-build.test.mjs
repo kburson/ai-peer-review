@@ -167,6 +167,8 @@ test(
   'native broker connection distinguishes denied socket access from a stale endpoint',
   { skip: process.platform === 'win32' || process.getuid?.() === 0 },
   async (t) => {
+    if (!inspectPlatformSecurity().healthy)
+      return t.skip('native helper is not built in this isolated checkout');
     const privateRoot = mkdtempSync(path.join(os.tmpdir(), 'bd-'));
     const socketPath = path.join(privateRoot, 's');
     const server = createServer((connection) => connection.end());
@@ -318,6 +320,13 @@ test('platform wrapper retains native handles and never reaches the builder impl
     calls.filter(([name, handle]) => name === 'closeConnection' && handle === 7).length,
     1
   );
+  binding.connectPrivate = () => {
+    throw Object.assign(new Error('sandbox denied'), { code: 'APR_BROKER_ACCESS_DENIED' });
+  };
+  assert.throws(() => platform.connectPrivate('/private/broker.sock'), {
+    code: 'APR_BROKER_ACCESS_DENIED',
+    recovery: /approved host execution.*broker socket/i,
+  });
   endpoint.close();
   directory.close();
   assert.deepEqual(
