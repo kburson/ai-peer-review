@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -167,9 +167,7 @@ test(
   'native broker connection distinguishes denied socket access from a stale endpoint',
   { skip: process.platform === 'win32' || process.getuid?.() === 0 },
   async (t) => {
-    const scratch = path.join(root, '.scratch', 'test');
-    mkdirSync(scratch, { recursive: true });
-    const privateRoot = mkdtempSync(path.join(scratch, 'bd-'));
+    const privateRoot = mkdtempSync(path.join(os.tmpdir(), 'bd-'));
     const socketPath = path.join(privateRoot, 's');
     const server = createServer((connection) => connection.end());
     t.after(async () => {
