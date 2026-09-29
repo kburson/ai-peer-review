@@ -65,6 +65,12 @@ A documented model or effort rejection remains `APR_REVIEWER_SELECTION_REFUSED` 
 
 ## CLI and agent guidance
 
+### Required issue attribution for new reviews
+
+Every new SPR and XPR must receive an explicit positive, safe integer issue ID through `start --issue <N>` or the equivalent programmatic start input. Validate it before provider selection, broker creation, reservation, or protocol writes. Do not infer an ID from a filename, branch, project configuration, or current task, and do not change an existing sealed review's ID. Keep existing v1 records with `issue: null` readable for inspection and recovery; this requirement governs new starts.
+
+Seal the accepted ID in the existing startup context and derive every package-generated normal-mode author revision and finalization commit subject from that sealed value as `[#N] ...`. Preserve the existing peer-review trailers and exact-path retry behavior. Legacy records without an ID retain their original transaction messages so recovery does not rewrite historical authority. CLI usage, SPR/XPR concept help, and the installed skill must teach agents to provide `--issue` and explain the refusal when it is missing. Tests must cover CLI and programmatic startup refusal before provider/broker effects, valid SPR and XPR startup, revision and finalization subjects, and unchanged legacy record readability.
+
 `help broker`, `help abandon`, and `explain` must distinguish offline status from the reconciliation command that starts a pinned broker. Status output shows the full candidate list; help explains ranking, recovery-only workers, retained evidence, and failed-candidate ownership checks. Retirement guidance names the package-managed proof scope, inability to rule out unobserved external provider contact, and terminal late-join/submit protections. Refused retirement reports the precise missing authority/proof, the quoted reconciliation command where supported, and an explicit unsupported/unknown result where it cannot be resolved automatically. Include the independent fresh-output route and its retained-ambiguity limitation.
 
 Add the missing `APR_LINEAGE_UNAVAILABLE` explanation. `supersede` still requires valid lineage and cannot replace abandonment when no lineage receipt exists. Help must avoid saying that an unjoined review was never launched merely because the broker journal lacks a provider operation.

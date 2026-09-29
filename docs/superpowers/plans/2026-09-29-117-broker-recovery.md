@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Recover mixed-runtime XPR brokers safely, retire only eligible unjoined attempts with exact package-managed non-submission proof, and preserve uncertain provider evidence.
+**Goal:** Recover mixed-runtime XPR brokers safely, retire only eligible unjoined attempts with exact package-managed non-submission proof, preserve uncertain provider evidence, and require issue attribution for every new SPR/XPR.
 
 **Architecture:** Keep the project broker's owner-only cache, lock, authenticated socket, and per-review pinned runtime authoritative. Read-only discovery ranks authenticated review chronology without claiming image compatibility. Mutation requires complete attempt evidence, exact actor authority, and the full broker/dispatch/review lock order. Package-generated reviewer commands use verified pinned execution paths; a successful review alone does not prove execution-time integrity.
 
@@ -114,6 +114,14 @@ The same baseline already pins manual Claude launch/resume commands through `pin
 - [ ] Build a local tarball, inspect packaged contents, install in a disposable prefix, verify native helper/runtime and SHA-256, and retain evidence. Only after separate user authorization perform global uninstall/install of that exact tarball and rebuild its native helper with its exact installed CLI; verify version and doctor. Do not publish or alter AITM. This task does not grant reinstall permission by itself.
 - [ ] Run a fresh, separately scoped live manual XPR against a committed #117 artifact using a genuine distinct headless `gpt-6-astra` high author and package-launched `claude-opus-5-5` high reviewer. Inspect exact sealed pinned commands before dispatch. Record actual model/session assurance, runtime digest, and protocol reviewer decision; process exit is insufficient.
 - [ ] Preserve every ambiguous attempt. Observe/reconcile exact evidence without replay; an independent review requires distinct output scope and verified new identity, and does not resolve the old uncertainty. Complete ordinary author response/finalization through the package-owned protocol. Keep model/session handles private and durable response/manifest evidence self-contained.
+
+## Task 8: Require and carry issue attribution
+
+- [ ] Add failing CLI and direct startup tests: omitting `--issue` or a positive programmatic issue refuses before adapter capability, broker, or protocol effects; valid IDs start SPR and XPR and remain in sealed startup context.
+- [ ] Add failing normal-mode author revision and finalization tests for `[#N]` subjects, unchanged peer-review trailers, and exact retry behavior. Keep a legacy null-issue fixture readable without resealing it.
+- [ ] Require the issue in `src/cli/parse.mjs` and `src/startup/runtime.mjs` before provider selection; validate direct `startReview` calls before preflight. Construct commit subjects in `src/cli/run.mjs` and `src/manifest/render.mjs` from the sealed context issue, with legacy recovery retaining its original message.
+- [ ] Update `src/cli/help-data.mjs`, `src/cli/help-topics.mjs`, both package-owned peer-review skill sources, and startup examples to show `--issue <N>` and the missing-issue recovery action. Refresh existing test fixtures with explicit issue IDs, then run parser, startup, submit, finalization, help, full package, and packaging suites.
+- [ ] Rebuild and inspect the local tarball, globally reinstall the user-authorized package, prove a live headless XPR with explicit issue ID, and record its revision/finalization commit subjects. Refresh #117 exact-head AITM evidence and PR CI after the final source commits.
 
 ## Self-Review and traceability
 
