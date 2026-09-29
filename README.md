@@ -188,6 +188,9 @@ the hook must also observe the child's runtime session ID. A private per-command
 token binds those observations to the executing command, and a parent-only
 record is refused. Both direct `peer-review` and documented
 `npx --no-install peer-review` invocations are recognized by that hook.
+Codex also observes `functions.exec` calls containing nested `tools.exec_command`
+invocations, preserving the code tool's `// @exec:` options while supplying the
+current model to the nested peer-review command.
 
 The session fingerprint derives from the genuine current provider session.
 Legacy reviews with a declared Claude identity retain that sealed identity for

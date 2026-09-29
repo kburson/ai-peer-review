@@ -140,7 +140,11 @@ function startHookOperation({ root, host, remove, ownership }) {
   const fileExists = existsSync(file);
   const before = readJson(file, {});
   const after = clone(before);
-  const hook = { matcher: 'Bash', hooks: [{ type: 'command', command: START_HOOK[host] }] };
+  const hook = {
+    matcher: host === 'codex' ? '^(?:Bash|functions\\.exec|exec)$' : 'Bash',
+    hooks: [{ type: 'command', command: START_HOOK[host] }],
+  };
+  const previousHook = host === 'codex' ? { ...hook, matcher: 'Bash' } : null;
   const groups = before.hooks?.PreToolUse ?? [];
   if (!Array.isArray(groups))
     fail(
@@ -150,6 +154,9 @@ function startHookOperation({ root, host, remove, ownership }) {
       { file }
     );
   const matching = groups.filter((group) => stable(group) === stable(hook));
+  const previousMatching = previousHook
+    ? groups.filter((group) => stable(group) === stable(previousHook))
+    : [];
   const localHook = groups.some(
     (group) =>
       group?.matcher === 'Bash' &&
@@ -157,7 +164,7 @@ function startHookOperation({ root, host, remove, ownership }) {
       group.hooks[0]?.type === 'command' &&
       group.hooks[0].command === `node bin/${START_HOOK[host]}.mjs`
   );
-  if (matching.length > 1)
+  if (matching.length > 1 || (ownership?.hook_added && previousMatching.length > 1))
     fail(
       'APR_SETUP_CONFLICT',
       'Duplicate package start hooks exist.',
@@ -167,14 +174,17 @@ function startHookOperation({ root, host, remove, ownership }) {
   if (remove) {
     if (!ownership?.hook_added)
       return { operation: null, hookAdded: false, hookFileCreated: false };
-    if (!matching.length)
+    if (!matching.length && !previousMatching.length)
       fail(
         'APR_SETUP_CONFLICT',
         'Package start hook changed since setup.',
         'Restore the hook before teardown.',
         { file }
       );
-    after.hooks.PreToolUse = groups.filter((group) => stable(group) !== stable(hook));
+    after.hooks.PreToolUse = groups.filter(
+      (group) =>
+        stable(group) !== stable(hook) && (!previousHook || stable(group) !== stable(previousHook))
+    );
     if (!after.hooks.PreToolUse.length) delete after.hooks.PreToolUse;
     if (!Object.keys(after.hooks).length) delete after.hooks;
     const removeFile = ownership.hook_file_created && !Object.keys(after).length;
@@ -184,12 +194,30 @@ function startHookOperation({ root, host, remove, ownership }) {
       hookFileCreated: false,
     };
   }
+  if (matching.length && ownership?.hook_added && previousMatching.length) {
+    after.hooks.PreToolUse = groups.filter((group) => stable(group) !== stable(previousHook));
+    return {
+      operation: operation(file, before, after, `${host}-start-hook`),
+      hookAdded: true,
+      hookFileCreated: Boolean(ownership?.hook_file_created),
+    };
+  }
   if (matching.length)
     return {
       operation: null,
       hookAdded: Boolean(ownership?.hook_added),
       hookFileCreated: Boolean(ownership?.hook_file_created),
     };
+  if (ownership?.hook_added && previousMatching.length) {
+    after.hooks.PreToolUse = groups.map((group) =>
+      stable(group) === stable(previousHook) ? hook : group
+    );
+    return {
+      operation: operation(file, before, after, `${host}-start-hook`),
+      hookAdded: true,
+      hookFileCreated: Boolean(ownership?.hook_file_created),
+    };
+  }
   if (localHook) return { operation: null, hookAdded: false, hookFileCreated: false };
   after.hooks ??= {};
   after.hooks.PreToolUse = [...groups, hook];

@@ -727,6 +727,7 @@ test('setup installs and removes only its exact start hook beside foreign host h
   const claudeSettings = path.join(files.project, '.claude', 'settings.json');
   const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
   assert.equal(codex.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
+  assert.equal(codex.hooks.PreToolUse.at(-1).matcher, '^(?:Bash|functions\\.exec|exec)$');
   assert.equal(codex.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-codex-hook');
   assert.equal(claude.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-claude-hook');
   assert.ok(first.backups.includes(`${codexHooks}.bak`));
@@ -737,6 +738,86 @@ test('setup installs and removes only its exact start hook beside foreign host h
   assert.equal(restored.hooks.PreToolUse, undefined);
   assert.equal(existsSync(claudeSettings), false);
   assert.equal(setup({ ...options, remove: true }).changed, false);
+});
+
+test('setup upgrades its owned Bash-only Codex hook and teardown removes the upgraded hook', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const hooksFile = path.join(files.project, '.codex', 'hooks.json');
+  const original = JSON.parse(readFileSync(hooksFile, 'utf8'));
+  original.hooks.PreToolUse[0].matcher = 'Bash';
+  original.hooks.PreToolUse.push({
+    matcher: 'Bash',
+    hooks: [{ type: 'command', command: 'foreign-hook' }],
+  });
+  writeFileSync(hooksFile, `${JSON.stringify(original, null, 2)}\n`);
+
+  assert.equal(setup({ ...options, update: true }).changed, true);
+  const upgraded = JSON.parse(readFileSync(hooksFile, 'utf8'));
+  assert.deepEqual(
+    upgraded.hooks.PreToolUse.map((group) => group.matcher),
+    ['^(?:Bash|functions\\.exec|exec)$', 'Bash']
+  );
+  assert.equal(setup({ ...options, update: true }).changed, false);
+  setup({ ...options, remove: true });
+  const restored = JSON.parse(readFileSync(hooksFile, 'utf8'));
+  assert.deepEqual(restored.hooks.PreToolUse, [
+    { matcher: 'Bash', hooks: [{ type: 'command', command: 'foreign-hook' }] },
+  ]);
+});
+
+test('teardown removes an owned Bash-only Codex hook before setup migration', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const hooksFile = path.join(files.project, '.codex', 'hooks.json');
+  const original = JSON.parse(readFileSync(hooksFile, 'utf8'));
+  original.hooks.PreToolUse[0].matcher = 'Bash';
+  writeFileSync(hooksFile, `${JSON.stringify(original, null, 2)}\n`);
+  assert.equal(setup({ ...options, remove: true }).changed, true);
+  assert.equal(existsSync(hooksFile), false);
+});
+
+test('setup removes a leftover owned Bash-only hook when the new Codex matcher already exists', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const hooksFile = path.join(files.project, '.codex', 'hooks.json');
+  const original = JSON.parse(readFileSync(hooksFile, 'utf8'));
+  original.hooks.PreToolUse.push({
+    matcher: 'Bash',
+    hooks: [{ type: 'command', command: 'peer-review-codex-hook' }],
+  });
+  writeFileSync(hooksFile, `${JSON.stringify(original, null, 2)}\n`);
+  assert.equal(setup({ ...options, update: true }).changed, true);
+  assert.deepEqual(JSON.parse(readFileSync(hooksFile, 'utf8')).hooks.PreToolUse, [
+    original.hooks.PreToolUse[0],
+  ]);
 });
 
 test('setup preserves a pre-existing local Claude start hook without adding a duplicate', (t) => {

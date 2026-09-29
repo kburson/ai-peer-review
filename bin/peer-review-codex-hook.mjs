@@ -2,7 +2,11 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 
-import { captureCodexStartHook, isCodexPeerReviewCommand } from '../src/providers/codex-hook.mjs';
+import {
+  captureCodexStartHook,
+  isCodexPeerReviewCodeModeEvent,
+  isCodexPeerReviewCommand,
+} from '../src/providers/codex-hook.mjs';
 
 let input = '';
 for await (const chunk of process.stdin) {
@@ -10,7 +14,8 @@ for await (const chunk of process.stdin) {
   if (input.length > 1024 * 1024) process.exit(2);
 }
 const event = JSON.parse(input);
-if (!isCodexPeerReviewCommand(event?.tool_input?.command)) process.exit(0);
+if (!isCodexPeerReviewCommand(event?.tool_input?.command) && !isCodexPeerReviewCodeModeEvent(event))
+  process.exit(0);
 const version = execFileSync('codex', ['--version'], { encoding: 'utf8' })
   .trim()
   .match(/^codex-cli (.+)$/)?.[1];
