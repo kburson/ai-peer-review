@@ -152,8 +152,7 @@ test('missing or mismatched native helper fails with the installation-specific o
   t.after(() => rmSync(installationRoot, { recursive: true, force: true }));
   const missing = inspectPlatformSecurity({ root: installationRoot });
   assert.equal(missing.healthy, false);
-  assert.match(missing.build_command, /^npm --prefix /);
-  assert.match(missing.build_command, /run build:broker-security -- --nodedir/);
+  assert.equal(missing.build_command, 'ai-peer-review build broker-security');
   assert.throws(() => platformSecurity({ root: installationRoot }), {
     code: 'APR_BROKER_START_FAILED',
   });

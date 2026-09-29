@@ -104,7 +104,9 @@ then `peer-review setup --update` in each affected project. `--update` defaults
 to project scope and refreshes every host recorded by the prior package-owned
 setup. For a prior user-scope installation, add `--scope user`. Setup automatically replaces a
 previous package-owned skill and backs up its bytes as `SKILL.md.bak`; a repeat
-run is a no-op. `peer-review setup --agent <host> --scope <user|project>
+run is a no-op. The dry run prints a plan and diff; an applied update returns
+`setup-result/v1` with `applied` or `no-changes`, affected operations, and
+backup paths. `peer-review setup --agent <host> --scope <user|project>
 --remove` is the idempotent teardown for that scope. A pre-existing or foreign
 skill is preserved and still causes a conflict instead of being overwritten.
 Global npm installation updates the binary but does not refresh copied project
@@ -131,20 +133,25 @@ running Node version and architecture. The builder never downloads headers,
 never runs as an install lifecycle hook, and fails if the compiler, Python,
 headers, or Windows import library is unavailable.
 
-From a source checkout:
+From the package installation (including a global installation):
 
 ```bash
-npm run build:broker-security -- --nodedir /absolute/local/node-development-tree
+ai-peer-review build broker-security
 ```
 
-From a consumer project root:
-
-```bash
-npm --prefix ./node_modules/@kburson/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree
-```
+The command derives the matching Node development root from the Node executable
+that runs the CLI. The existing `npm run build:broker-security -- --nodedir`
+script remains available for package maintainers who need an explicit root.
 
 For a read-only installation, build the same installed package in a writable
 location first. `doctor` reports the command for the installation it inspected.
+An unjoined broker review whose launch is explicitly refused or otherwise
+proven not submitted can be retired with `peer-review broker suspend <workspace>`
+followed by `peer-review abandon <workspace> --reason <text>`. The fence and
+terminal event preserve the workspace and broker evidence. If launch outcome is
+unknown, keep the attempt for exact provider reconciliation; lack of a reviewer
+join or lineage receipt does not prove the provider was never contacted.
+
 A missing or incompatible helper keeps the broker-security row unhealthy and
 broker-dependent startup fails with `APR_BROKER_START_FAILED`; legacy manual
 review operations remain available and never trigger a build.

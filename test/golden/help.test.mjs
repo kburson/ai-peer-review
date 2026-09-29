@@ -43,6 +43,15 @@ test('setup help and explain make package upgrades and teardown discoverable', (
   assert.match(explainError('APR_SETUP_VERSION_MISMATCH').recovery, /setup --update --dry-run/i);
 });
 
+test('build and setup help explain explicit execution and applied output', () => {
+  const build = helpRequest('build', 'json');
+  assert.equal(build.usage, 'peer-review build broker-security');
+  assert.match(build.preconditions.join(' '), /matching local Node development headers/i);
+  assert.match(build.effects.join(' '), /derives the Node development root/i);
+  assert.match(explainError('APR_BROKER_BUILD_FAILED').recovery, /build broker-security/);
+  assert.match(helpRequest('setup', 'json').effects.join(' '), /setup-result\/v1/);
+});
+
 test('start help gives complete intent-first selection and recovery guidance', () => {
   const start = helpRequest('start', 'text');
   assert.match(start, /--reviewer-provider/);

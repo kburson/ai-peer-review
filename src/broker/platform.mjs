@@ -22,14 +22,8 @@ const identityRelative = path.join(
 );
 const maxNativeFrame = 65540;
 
-function quote(value) {
-  return `'${String(value).replaceAll("'", "'\\''")}'`;
-}
-
-function buildCommand(root) {
-  const sourceCheckout = existsSync(path.join(root, '.git'));
-  const prefix = sourceCheckout ? 'npm' : `npm --prefix ${quote(root)}`;
-  return `${prefix} run build:broker-security -- --nodedir /absolute/local/node-development-tree`;
+function buildCommand() {
+  return 'ai-peer-review build broker-security';
 }
 
 function startFailure(observation) {
@@ -70,7 +64,7 @@ export function inspectPlatformSecurity({ root = packageRoot } = {}) {
     identity_file: identityFile,
     expected,
     observed,
-    build_command: buildCommand(absoluteRoot),
+    build_command: buildCommand(),
   });
 }
 

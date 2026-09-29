@@ -4,6 +4,7 @@ import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
   setup: 'Install, upgrade, or remove reversible peer-review agent integration.',
+  build: 'Compile the package-owned broker security helper for the current Node installation.',
   doctor: 'Inspect local peer-review readiness without mutation.',
   start: 'Start a new event-authoritative review after complete preflight.',
   advance: 'Bind the exact next phased artifact and resume the registered reviewer.',
@@ -17,7 +18,8 @@ const PURPOSE = Object.freeze({
   continue: 'Extend an exhausted review budget under a signed grant.',
   finalize: 'Commit ordinary consensus or human-authorized good-enough acceptance.',
   recover: 'Inspect and perform an explicitly authorized recovery.',
-  abandon: 'Terminate an intervention review while retaining evidence paths.',
+  abandon:
+    'Terminate an intervention or safely fenced unjoined review while retaining evidence paths.',
   supersede: 'Terminate a replaced nonterminal attempt while retaining evidence paths.',
   consolidate: 'Consolidate terminal attempts into one verified review-of-record bundle.',
   broker: 'Inspect and control the authenticated project-local review broker.',
@@ -39,6 +41,7 @@ const SETUP_FLAG_HELP = Object.freeze({
 const HUMAN_GATED = new Set(['supplement', 'continue']);
 const ROLES = Object.freeze({
   setup: ['human'],
+  build: ['human'],
   doctor: ['author', 'reviewer', 'human'],
   start: ['author'],
   advance: ['author'],
@@ -61,6 +64,7 @@ const ROLES = Object.freeze({
 });
 const STATES = Object.freeze({
   setup: ['outside-review'],
+  build: ['outside-review'],
   doctor: ['any'],
   start: ['outside-review'],
   advance: ['awaiting-phase-artifact'],
@@ -74,7 +78,7 @@ const STATES = Object.freeze({
   continue: ['intervention-required'],
   finalize: ['acceptance-pending', 'author-finalization', 'intervention-required'],
   recover: ['reviewer-turn', 'author-revision', 'intervention-required'],
-  abandon: ['intervention-required'],
+  abandon: ['intervention-required', 'awaiting-reviewer after proven non-submission and fence'],
   supersede: [
     'awaiting-reviewer',
     'reviewer-turn',
@@ -92,6 +96,9 @@ const PRECONDITIONS = Object.freeze({
   setup: [
     'Choose the same scope (user or project) and host agent used by the previous installation.',
     'After a global npm upgrade, run setup --update in each prior scope; it discovers recorded hosts without --agent.',
+  ],
+  build: [
+    'Matching local Node development headers, a C++ compiler, Python, and package-local node-gyp.',
   ],
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
@@ -117,7 +124,10 @@ const PRECONDITIONS = Object.freeze({
     'Reviewer acceptance, or a turn-budget closing round plus exact accept-over-objections grant and signed rationale file.',
   ],
   recover: ['A stale or missing participant condition authorized by event state.'],
-  abandon: ['An active intervention and a non-empty retained-evidence reason.'],
+  abandon: [
+    'An active intervention, or an unjoined broker review with a durable manual fence and a registered launch proven not submitted.',
+    'The registered author or reviewer supplies a non-empty retained-evidence reason; missing lineage alone is never proof.',
+  ],
   supersede: [
     'A nonterminal attempt, one registered participant, a reason, and a distinct successor review ID.',
   ],
@@ -135,7 +145,11 @@ const EFFECTS = Object.freeze({
   setup: [
     'Dry-run previews exact owned changes without mutation; apply automatically replaces a prior package-owned skill and backs up its previous bytes as SKILL.md.bak.',
     'Setup --remove is an idempotent teardown for the selected host and scope; foreign skills remain untouched.',
+    'Applying setup returns an explicit setup-result/v1 with status applied or no-changes, operations, and backup paths; dry-run shows the diff.',
     'Global npm installation updates the command but does not refresh copied skills until setup runs again.',
+  ],
+  build: [
+    'Compiles only the installed package native helper; derives the Node development root from the executing Node binary.',
   ],
   doctor: ['Read-only inspection; changes no files, Git, configuration, or transport.'],
   start: [
@@ -157,14 +171,18 @@ const EFFECTS = Object.freeze({
   continue: ['Consumes one signed grant and resumes exactly one interrupted role.'],
   finalize: ['Produces terminal manifest evidence and author-only Git work in normal mode.'],
   recover: ['Performs only the selected event-authorized reclaim or replacement.'],
-  abandon: ['Appends terminal abandonment while preserving listed evidence paths.'],
+  abandon: [
+    'Appends terminal abandonment while preserving listed evidence paths and broker records; ambiguous launch outcomes remain blocked.',
+  ],
   supersede: ['Appends terminal supersession while preserving listed evidence paths.'],
   consolidate: [
     'Dry-run reports source, destination, collision, and digest without mutation.',
     'Apply verifies every destination digest before source removal and writes a relocation receipt.',
   ],
   broker: [
-    'Status reports live or offline recovery evidence; suspend fences exactly one review.',
+    'Status reports live or offline recovery evidence; reconcile can restart the exact pinned broker when discovery is missing.',
+    'Ambiguous launch outcomes remain unresolved until exact provider observation; reconcile never replays the launch.',
+    'A prior review pinned to another runtime remains recovery-only under the current broker; suspend fences exactly one review.',
     'Stop refuses runnable or unreconciled work and addresses only the authenticated instance.',
   ],
   help: ['Read-only offline rendering.'],
@@ -178,6 +196,7 @@ const ERRORS = Object.freeze({
     'APR_SETUP_CONFIRMATION_REQUIRED',
     'APR_CONFIG_INVALID',
   ],
+  build: ['APR_USAGE', 'APR_BROKER_BUILD_FAILED'],
   doctor: ['APR_CONFIG_INVALID', 'APR_REPOSITORY_NOT_FOUND', 'APR_TRANSPORT_UNAVAILABLE'],
   start: [
     'APR_USAGE',
@@ -748,6 +767,11 @@ const ERROR_CATALOG = Object.freeze({
     message: 'A peer-review output path is occupied by conflicting content.',
     recovery: 'Preserve the bytes, inspect the collision, and use explicit recovery.',
   },
+  APR_BROKER_BUILD_FAILED: {
+    message: 'The explicit local broker security build failed.',
+    recovery:
+      'Install matching Node development headers and a C++ toolchain, then rerun peer-review build broker-security.',
+  },
   APR_BROKER_START_FAILED: {
     message: 'The project-local broker could not establish authentic readiness.',
     recovery:
@@ -1033,29 +1057,37 @@ function topic(command) {
         : []),
     ],
     result:
-      command === 'launch-reviewer'
-        ? 'A versioned JSON result with bounded diagnostics, nullable pre-join session fingerprint, or deterministic offline text.'
-        : 'A versioned JSON result envelope or deterministic offline text.',
-    next_action:
-      command === 'setup'
-        ? 'After initial setup, run peer-review doctor --json. After a package upgrade, run peer-review setup --update --dry-run and then peer-review setup --update in each prior scope, followed by doctor.'
+      command === 'build'
+        ? 'A successful local build prints its Node version; failures return APR_BROKER_BUILD_FAILED.'
         : command === 'launch-reviewer'
-          ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
-          : command === 'broker'
-            ? 'Offline status reports the exact recovery evidence and next reconciliation action.'
-            : command === 'status' || command === 'resume'
-              ? 'Exactly one event-derived action and command.'
-              : 'Read peer-review status for the next event-derived action.',
+          ? 'A versioned JSON result with bounded diagnostics, nullable pre-join session fingerprint, or deterministic offline text.'
+          : 'A versioned JSON result envelope or deterministic offline text.',
+    next_action:
+      command === 'build'
+        ? 'Run peer-review doctor --mode automatic-required --json to verify the native helper.'
+        : command === 'setup'
+          ? 'After initial setup, run peer-review doctor --json. After a package upgrade, run peer-review setup --update --dry-run and then peer-review setup --update in each prior scope, followed by doctor.'
+          : command === 'launch-reviewer'
+            ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
+            : command === 'broker'
+              ? 'Offline status reports the exact recovery evidence and next reconciliation action.'
+              : command === 'status' || command === 'resume'
+                ? 'Exactly one event-derived action and command.'
+                : 'Read peer-review status for the next event-derived action.',
     errors:
       command === 'setup' || command === 'help' || command === 'explain'
         ? ERRORS[command]
         : [...ERRORS[command], 'APR_SETUP_VERSION_MISMATCH'],
     json_schema:
-      command === 'launch-reviewer'
-        ? 'ai-peer-review.claude-launch-result/v1'
-        : command === 'broker'
-          ? 'ai-peer-review.broker-result/v1'
-          : 'ai-peer-review.cli-result/v1',
+      command === 'build'
+        ? 'none (text result)'
+        : command === 'setup'
+          ? 'ai-peer-review.setup-result/v1 (apply); dry-run is text'
+          : command === 'launch-reviewer'
+            ? 'ai-peer-review.claude-launch-result/v1'
+            : command === 'broker'
+              ? 'ai-peer-review.broker-result/v1'
+              : 'ai-peer-review.cli-result/v1',
   });
 }
 

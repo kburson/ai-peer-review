@@ -689,6 +689,14 @@ for (const stage of ['launch-pending', 'outcome-unknown']) {
   });
 }
 
+test('a prior pinned runtime becomes recovery-only under a newer broker image', async () => {
+  const f = restartFactoryFixture('outcome-unknown');
+  f.input.runtimeImage = { digest: 'sha256:new-image' };
+  const worker = await createProductionReviewWorker(f.input);
+  assert.equal(await worker.start(), 'recovery-only');
+  assert.deepEqual([f.stats.openedReviewer, f.stats.starts, f.stats.providerCalls], [0, 0, 0]);
+});
+
 test('production restart rejects a joined binding mismatch while launch is unknown', async () => {
   const f = restartFactoryFixture('outcome-unknown');
   f.setFingerprint(AUTHOR);

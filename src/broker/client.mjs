@@ -323,7 +323,12 @@ export async function fenceManualRecovery(workspace, deps = {}) {
     return await withReviewLock(path.join(workspace, 'dispatch'), async () => {
       const observed = startupEvidence(workspace, inspectReviewAuthority(workspace).state);
       const operation = latestWakeOperation(workspace);
-      if (ownership) {
+      const definitelyNotSubmitted =
+        observed.journal.stage === 'registered' &&
+        (!observed.journal.provider_operation ||
+          observed.journal.provider_operation.status === 'not-submitted') &&
+        (!operation || ['not-submitted', 'refused'].includes(operation.status));
+      if (ownership && !definitelyNotSubmitted) {
         const outcome = await deps.reconcileProvider?.({
           workspace,
           journal: observed.journal,
