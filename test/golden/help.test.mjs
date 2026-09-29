@@ -71,7 +71,11 @@ test('doctor help distinguishes installation from current-operation readiness', 
   );
   assert.match(explainError('APR_IDENTITY_REQUIRED').recovery, /linked worktree/i);
   assert.match(explainError('APR_IDENTITY_REQUIRED').recovery, /active hook source/i);
-  assert.match(explainError('APR_IDENTITY_REQUIRED').recovery, /trust or reload/i);
+  assert.match(
+    explainError('APR_IDENTITY_REQUIRED').recovery,
+    /trust the hook or start a new session/i
+  );
+  assert.match(explainError('APR_IDENTITY_REQUIRED').recovery, /\/hooks/);
 });
 
 test('start help gives complete intent-first selection and recovery guidance', () => {

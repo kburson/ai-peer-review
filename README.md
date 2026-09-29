@@ -139,9 +139,12 @@ For Codex linked worktrees, check the host's active hook source: it may be the
 primary clone's `.codex/hooks.json` rather than the physical review worktree's
 copy. A healthy installation check confirms package files, while plain `doctor`
 must also see the current model from the active hook. If it reports
-`APR_IDENTITY_REQUIRED`, run `peer-review explain APR_IDENTITY_REQUIRED`, update
-the active hook source, trust or reload that hook, and rerun plain `doctor` from
-the same agent session. Keep an in-progress review intact while resolving this.
+`APR_IDENTITY_REQUIRED`, run `peer-review explain APR_IDENTITY_REQUIRED`, then
+use `/hooks` in a Codex CLI opened in the affected worktree to inspect the
+active source and trust state. Update that source if needed, review and trust
+the hook, and rerun plain `doctor` from the agent session. Start a new session
+if the running host did not load the updated hook. Keep an in-progress review
+intact while resolving this.
 
 Broker-dependent startup additionally requires the package-owned native
 security helper. Building it is always explicit: provide a writable package

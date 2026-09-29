@@ -18,8 +18,10 @@ In a Codex linked worktree, the host may load project hooks from the primary
 clone rather than this physical worktree. If `doctor` or a current review command
 reports `APR_IDENTITY_REQUIRED` while `doctor --mode installation` is healthy,
 the active host hook did not supply current-operation model evidence. Inspect
-the host's active hook source, update that source with `setup --update` if
-needed, trust or reload the hook, and rerun `doctor` in the actual agent session.
+the host's active hook source with `/hooks` in a Codex CLI opened in the
+affected worktree. Update that source with `setup --update` if needed, review
+and trust the hook, and rerun `doctor` in the actual agent session. Start a new
+session if the running host did not load the updated hook.
 Do not fill the gap with a model declaration or a prior-turn model. Existing
 review records remain intact while this is repaired.
 After a package upgrade, run `peer-review setup --update --dry-run` then `peer-review setup
