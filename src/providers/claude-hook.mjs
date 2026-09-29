@@ -6,11 +6,13 @@ import { atomicWrite } from '../protocol/store.mjs';
 
 const TOKEN = /^[0-9a-f]{32}$/;
 const SESSION = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const START = /^(?:peer-review|npx peer-review|node (?:\.\/)?bin\/peer-review\.mjs) start(?:\s|$)/;
+const START = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) start(?:\s|$)/;
+const JOIN = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) join(?:\s|$)/;
+const COMMAND = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs)(?:\s|$)/;
 
 function invalid(message) {
   throw new AprError('APR_CLAUDE_HOOK_INVALID', message, {
-    recovery: 'Run the exact start command from a Claude session with the trusted provider hook.',
+    recovery: 'Run the exact command from a Claude session with the trusted provider hook.',
   });
 }
 
@@ -92,7 +94,7 @@ export function captureClaudeStartHook({
   observedAt = new Date(),
 } = {}) {
   const command = event?.tool_input?.command;
-  if (!START.test(command ?? '')) return null;
+  if (!COMMAND.test(command ?? '')) return null;
   const model = toolObservation(event, sourceVersion, observedAt);
   const record = {
     schema: 'ai-peer-review.claude-hook/v1',
@@ -107,16 +109,20 @@ export function captureClaudeStartHook({
     tool_use_id: event.tool_use_id,
     command,
   };
-  const file = recordFile(event.cwd, token);
-  mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  atomicWrite(file, `${JSON.stringify(record)}\n`);
+  if (START.test(command) || JOIN.test(command)) {
+    const file = recordFile(event.cwd, token);
+    mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    atomicWrite(file, `${JSON.stringify(record)}\n`);
+  }
   return Object.freeze({
     hookSpecificOutput: Object.freeze({
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
       updatedInput: Object.freeze({
         ...event.tool_input,
-        command: `APR_CLAUDE_HOOK_TOKEN=${token} CLAUDE_CODE_SESSION_ID=${event.session_id} CLAUDE_MODEL_ID=${model} ${command}`,
+        command: START.test(command)
+          ? `APR_CLAUDE_HOOK_TOKEN=${token} CLAUDE_CODE_SESSION_ID=${event.session_id} CLAUDE_MODEL_ID=${model} ${command}`
+          : `${JOIN.test(command) ? `APR_CLAUDE_HOOK_TOKEN=${token} ` : ''}CLAUDE_CODE_SESSION_ID=${event.session_id} CLAUDE_MODEL_ID=${model} CLAUDE_MODEL_DISPLAY=${model} ${command}`,
       }),
     }),
   });
@@ -163,9 +169,12 @@ export function readClaudeStartHook({ root, token, sessionId, operationId } = {}
     record.provider !== 'anthropic' ||
     record.host !== 'claude-code' ||
     record.session_id !== sessionId ||
-    !START.test(record.command ?? '') ||
+    !(
+      (operationId?.startsWith('start:') && START.test(record.command ?? '')) ||
+      (operationId?.startsWith('join:') && JOIN.test(record.command ?? ''))
+    ) ||
     typeof operationId !== 'string' ||
-    !operationId.startsWith('start:')
+    !/^(?:start|join):/.test(operationId)
   )
     invalid('Claude hook record does not bind the exact start session.');
   return Object.freeze({
@@ -182,7 +191,7 @@ export function readClaudeStartHook({ root, token, sessionId, operationId } = {}
   });
 }
 
-export function readClaudeStartHookForSession({ root, sessionId, operationId } = {}) {
+export function readClaudeStartHookForSession({ root, sessionId, operationId, toolUseId } = {}) {
   if (
     !path.isAbsolute(root ?? '') ||
     path.normalize(root) !== root ||
@@ -225,7 +234,7 @@ export function readClaudeStartHookForSession({ root, sessionId, operationId } =
       if (cause instanceof AprError) throw cause;
       invalid('Claude start hook directory contains invalid evidence.');
     }
-    if (record?.session_id === sessionId)
+    if (record?.session_id === sessionId && (!toolUseId || record.tool_use_id === toolUseId))
       matches.push(readClaudeStartHook({ root, token, sessionId, operationId }));
   }
   if (matches.length !== 1) invalid('Claude start hook session evidence is missing or ambiguous.');

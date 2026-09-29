@@ -687,7 +687,7 @@ function validateIdentity(review, role, identity) {
       'APR_IDENTITY_CONFLICT',
       `Response identity does not match the registered participant${mismatched ? ` (${mismatched})` : ''}.`,
       mismatched === 'identity_source' && pinned?.host === 'claude-code'
-        ? 'For a declared Claude reviewer, use the registered session handle and configured model; unset CLAUDE_MODEL_ID and CLAUDE_MODEL_DISPLAY when retrying submit.'
+        ? 'For a legacy declared Claude reviewer, use the registered session and the model sealed in that review.'
         : 'Submit from the registered participant session.',
       {
         mismatched_field: mismatched ?? (pinned ? 'identity' : 'participant'),

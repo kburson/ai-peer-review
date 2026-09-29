@@ -24,6 +24,11 @@ const HOST_DIR = Object.freeze({
 });
 const SKILL_SOURCE = fileURLToPath(new URL('../../skills/peer-review/SKILL.md', import.meta.url));
 const SCRATCH_RULE = '.scratch/peer-review/';
+const START_HOOK = Object.freeze({
+  codex: 'peer-review-codex-hook',
+  claude: 'peer-review-claude-hook',
+});
+const HOOK_FILE = Object.freeze({ codex: 'hooks.json', claude: 'settings.json' });
 const OFFICIAL_RESUME = Object.freeze({
   codex: ['codex', 'resume'],
   claude: ['claude', '--resume'],
@@ -127,6 +132,72 @@ function operation(file, before, after, owner) {
 
 function providerRoot({ scope, host, cwd, home }) {
   return path.join(scope === 'project' ? cwd : home, HOST_DIR[host]);
+}
+
+function startHookOperation({ root, host, remove, ownership }) {
+  if (!START_HOOK[host]) return { operation: null, hookAdded: false, hookFileCreated: false };
+  const file = path.join(root, HOOK_FILE[host]);
+  const fileExists = existsSync(file);
+  const before = readJson(file, {});
+  const after = clone(before);
+  const hook = { matcher: 'Bash', hooks: [{ type: 'command', command: START_HOOK[host] }] };
+  const groups = before.hooks?.PreToolUse ?? [];
+  if (!Array.isArray(groups))
+    fail(
+      'APR_SETUP_INVALID',
+      'PreToolUse hooks must be an array.',
+      'Repair the host hook settings.',
+      { file }
+    );
+  const matching = groups.filter((group) => stable(group) === stable(hook));
+  const localHook = groups.some(
+    (group) =>
+      group?.matcher === 'Bash' &&
+      group.hooks?.length === 1 &&
+      group.hooks[0]?.type === 'command' &&
+      group.hooks[0].command === `node bin/${START_HOOK[host]}.mjs`
+  );
+  if (matching.length > 1)
+    fail(
+      'APR_SETUP_CONFLICT',
+      'Duplicate package start hooks exist.',
+      'Remove the duplicate hook.',
+      { file }
+    );
+  if (remove) {
+    if (!ownership?.hook_added)
+      return { operation: null, hookAdded: false, hookFileCreated: false };
+    if (!matching.length)
+      fail(
+        'APR_SETUP_CONFLICT',
+        'Package start hook changed since setup.',
+        'Restore the hook before teardown.',
+        { file }
+      );
+    after.hooks.PreToolUse = groups.filter((group) => stable(group) !== stable(hook));
+    if (!after.hooks.PreToolUse.length) delete after.hooks.PreToolUse;
+    if (!Object.keys(after.hooks).length) delete after.hooks;
+    const removeFile = ownership.hook_file_created && !Object.keys(after).length;
+    return {
+      operation: operation(file, before, removeFile ? null : after, `${host}-start-hook`),
+      hookAdded: false,
+      hookFileCreated: false,
+    };
+  }
+  if (matching.length)
+    return {
+      operation: null,
+      hookAdded: Boolean(ownership?.hook_added),
+      hookFileCreated: Boolean(ownership?.hook_file_created),
+    };
+  if (localHook) return { operation: null, hookAdded: false, hookFileCreated: false };
+  after.hooks ??= {};
+  after.hooks.PreToolUse = [...groups, hook];
+  return {
+    operation: operation(file, fileExists ? before : null, after, `${host}-start-hook`),
+    hookAdded: true,
+    hookFileCreated: !fileExists,
+  };
 }
 
 function defaultExclude(cwd) {
@@ -290,6 +361,12 @@ export function setup(options = {}) {
     const adapterFile = path.join(root, 'config.json');
     const adapterExists = existsSync(adapterFile);
     const current = readJson(adapterFile, {});
+    const hookResult = startHookOperation({
+      root,
+      host,
+      remove,
+      ownership: current.ai_peer_review,
+    });
     if (current.ai_peer_review && current.ai_peer_review.owner !== 'ai-peer-review') {
       fail(
         'APR_SETUP_CONFLICT',
@@ -316,6 +393,12 @@ export function setup(options = {}) {
           skill_created:
             current.ai_peer_review?.skill_created ??
             !existsSync(path.join(root, 'skills', 'peer-review', 'SKILL.md')),
+          ...(START_HOOK[host]
+            ? {
+                hook_added: hookResult.hookAdded,
+                hook_file_created: hookResult.hookFileCreated,
+              }
+            : {}),
         };
     const planned = planSetup({ scope, host, current, desired });
     let adapterOperation = null;
@@ -347,6 +430,7 @@ export function setup(options = {}) {
       );
     }
     if (!remove && adapterOperation) operations.push(adapterOperation);
+    if (!remove && hookResult.operation) operations.push(hookResult.operation);
     const preserveSkillOnRemoval = remove && !packageOwnedSkill;
     if (
       !preserveSkillOnRemoval &&
@@ -355,6 +439,7 @@ export function setup(options = {}) {
     )
       operations.push(operation(skillFile, existingSkill, nextSkill, `${host}-skill`));
     if (remove && adapterOperation) operations.push(adapterOperation);
+    if (remove && hookResult.operation) operations.push(hookResult.operation);
   }
 
   if (scope === 'project') {

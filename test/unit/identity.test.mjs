@@ -108,8 +108,8 @@ test('Claude mixed identity fails closed without a runtime session or declared m
       }),
     (error) =>
       error.code === 'APR_IDENTITY_REQUIRED' &&
-      error.recovery.includes('hosts.claude.identity.model_id') &&
-      error.recovery.includes('hosts.claude.identity.model_display')
+      error.recovery.includes('provider hook') &&
+      error.recovery.includes('current model')
   );
 });
 

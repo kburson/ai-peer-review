@@ -241,7 +241,7 @@ export function createClaudeProviderSurface(options = {}) {
     },
     version,
     observeCurrentSession: ({ root, token, workspace, operationId, handleLocator }) =>
-      operationId?.startsWith('start:')
+      token && /^(?:start|join):/.test(operationId ?? '')
         ? readClaudeStartHook({ root, token, sessionId: handleLocator, operationId })
         : waitForClaudeStreamObservation({ workspace, operationId, handleLocator }),
     observeBoundSession: ({ projectRoot, workspace, handleLocator, expected, now }) => {
@@ -259,6 +259,7 @@ export function createClaudeProviderSurface(options = {}) {
             root: projectRoot,
             sessionId: handleLocator,
             operationId: expected.operation_id,
+            toolUseId: expected.tool_use_id,
           });
         }
         return readClaudeStreamObservation({

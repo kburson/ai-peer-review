@@ -50,7 +50,7 @@ function identityRecovery({ runtime = {}, env = {} } = {}) {
   if (typeof sessionId !== 'string' || !sessionId) {
     return 'Run from a supported Claude Code session that exposes CLAUDE_CODE_SESSION_ID, then retry.';
   }
-  return 'Set hosts.claude.identity.model_id and hosts.claude.identity.model_display in .ai-peer-review.json, then retry.';
+  return 'Run the command through the Claude provider hook installed by peer-review setup --update so the current model is observed for this invocation.';
 }
 
 export const claudeAdapter = Object.freeze({

@@ -5,7 +5,7 @@ import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 const PURPOSE = Object.freeze({
   setup: 'Install, upgrade, or remove reversible peer-review agent integration.',
   build: 'Compile the package-owned broker security helper for the current Node installation.',
-  doctor: 'Inspect local peer-review readiness without mutation.',
+  doctor: 'Inspect installation or current-operation peer-review readiness without mutation.',
   start: 'Start a new event-authoritative review after complete preflight.',
   advance: 'Bind the exact next phased artifact and resume the registered reviewer.',
   'request-grant': 'Create a canonical Human Authority challenge.',
@@ -153,12 +153,16 @@ const EFFECTS = Object.freeze({
     'Dry-run previews exact owned changes without mutation; apply automatically replaces a prior package-owned skill and backs up its previous bytes as SKILL.md.bak.',
     'Setup --remove is an idempotent teardown for the selected host and scope; foreign skills remain untouched.',
     'Applying setup prints a human-readable applied or already-up-to-date result with changed files and backup paths. Add --json for the setup-result/v1 machine result; --dry-run previews without applying changes.',
+    'Codex and Claude setup install provider hooks that observe the active model for each CLI invocation; teardown removes only package-owned hooks and preserves foreign host hooks.',
     'Global npm installation updates the command but does not refresh copied skills until setup runs again.',
   ],
   build: [
     'Compiles only the installed package native helper; derives the Node development root from the executing Node binary.',
   ],
-  doctor: ['Read-only inspection; changes no files, Git, configuration, or transport.'],
+  doctor: [
+    'Read-only inspection; changes no files, Git, configuration, or transport.',
+    'Use --mode installation from a terminal without agent identity. Review readiness remains strict; model and effort may change between operations in one session.',
+  ],
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
     'Seals the requested issue ID; author revisions and finalization use [#N] commit subjects in normal mode.',
@@ -888,7 +892,7 @@ const ERROR_CATALOG = Object.freeze({
   APR_IDENTITY_REQUIRED: {
     message: 'The command could not establish its required participant identity.',
     recovery:
-      'Use official runtime identity. For a Claude session without model metadata, set hosts.claude.identity.model_id and model_display in .ai-peer-review.json; configuration cannot supply the session.',
+      'Run the command from the actual Codex or Claude agent session with its provider hook installed by setup --update. Run doctor --mode installation to check package health without a current agent model; do not pin a model in project config.',
   },
   APR_REVIEWER_SELECTION_UNSUPPORTED: {
     message:
@@ -1038,7 +1042,7 @@ function topic(command) {
           : ['stored review authority'],
     environment: [
       'Official provider session metadata when available; declared identity is explicit.',
-      'Claude partial-runtime recovery requires a genuine runtime session plus hosts.claude.identity model_id and model_display; the result is labeled declared.',
+      'Codex and Claude provider hooks supply the current model for each CLI invocation; project identity model fields are ignored for new operations.',
     ],
     preconditions: PRECONDITIONS[command],
     effects: EFFECTS[command],
@@ -1084,6 +1088,7 @@ function topic(command) {
             'peer-review setup --update --json',
           ]
         : []),
+      ...(command === 'doctor' ? ['peer-review doctor --mode installation --json'] : []),
       ...(command === 'start'
         ? [
             'peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',

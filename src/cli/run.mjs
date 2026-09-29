@@ -1411,6 +1411,11 @@ async function runtimeObservationForJoin(invitation, identity, io) {
     operationId: expected.operation_id,
     expected,
     workspace: values.workspace,
+    root: state.protocol.startup.context.repository_root,
+    token:
+      runtime.reviewer.selector === 'codex'
+        ? io.env?.APR_CODEX_HOOK_TOKEN
+        : io.env?.APR_CLAUDE_HOOK_TOKEN,
     handleLocator: rawSession(io, runtime.reviewer.selector),
   });
   const adapterAttestation = await adapter.attestVersion({ runtimeImage: runtime });
@@ -4844,7 +4849,7 @@ async function detectedDoctorContext(io, loaded, requestedMode) {
   };
 }
 
-function configuredIdentityContext(io, config) {
+function configuredIdentityContext(io) {
   const base = io.identityContext ?? {};
   if (base.declared) return base;
   const env = io.env ?? {};
@@ -4857,28 +4862,7 @@ function configuredIdentityContext(io, config) {
         : env.GROK_SESSION_ID
           ? 'grok'
           : null);
-  if (!adapter) return base;
-  const identity = config.hosts?.[adapter]?.identity ?? {};
-  if (adapter === 'claude') {
-    return {
-      ...base,
-      adapter,
-      declaredModel: {
-        ...(identity.model_id ? { modelId: identity.model_id } : {}),
-        ...(identity.model_display ? { modelDisplay: identity.model_display } : {}),
-        ...(base.declaredModel ?? {}),
-      },
-    };
-  }
-  return {
-    ...base,
-    adapter,
-    runtime: {
-      ...(identity.model_id ? { modelId: identity.model_id } : {}),
-      ...(identity.model_display ? { modelDisplay: identity.model_display } : {}),
-      ...(base.runtime ?? {}),
-    },
-  };
+  return adapter ? { ...base, adapter } : base;
 }
 
 function transportHost(identity) {
@@ -5113,12 +5097,18 @@ export async function run(argv, io) {
       else {
         const rows = response.rows.map((entry) => {
           const recovery =
-            entry.id === 'broker-security' && entry.details?.build_command
+            entry.id === 'broker-security' && entry.status !== 'ok' && entry.details?.build_command
               ? `\n  recovery: ${entry.details.build_command}`
-              : '';
+              : entry.id === 'identity-source' && entry.status === 'unavailable'
+                ? '\n  recovery: Use --mode installation for package health; review startup needs current-operation provider model evidence.'
+                : '';
           return `${entry.id}: ${entry.status}${recovery}`;
         });
-        io.stdout.write(`${response.healthy ? 'healthy' : 'unhealthy'}\n${rows.join('\n')}\n`);
+        const scope =
+          response.requested_mode === 'installation' ? 'installation' : 'session readiness';
+        io.stdout.write(
+          `${scope}: ${response.healthy ? 'healthy' : 'unhealthy'}\n${rows.join('\n')}\n`
+        );
       }
       return response.healthy ? 0 : 1;
     }
@@ -5466,11 +5456,11 @@ export async function run(argv, io) {
       const deliveryDeps = { transport, execFile: io.execFile };
       if (active === 'reviewer') {
         const registeredReviewer = submitState.participants.reviewer;
-        const identityEnv = { ...(io.env ?? {}) };
-        if (
+        const legacyDeclaredClaude =
           registeredReviewer?.host === 'claude-code' &&
-          registeredReviewer.identity_source === 'declared'
-        ) {
+          registeredReviewer.identity_source === 'declared';
+        const identityEnv = { ...(io.env ?? {}) };
+        if (legacyDeclaredClaude) {
           delete identityEnv.CLAUDE_MODEL_ID;
           delete identityEnv.CLAUDE_MODEL_DISPLAY;
         }
@@ -5484,6 +5474,14 @@ export async function run(argv, io) {
               role: 'reviewer',
               env: identityEnv,
               ...configuredIdentityContext(io, loaded.config),
+              ...(legacyDeclaredClaude
+                ? {
+                    declaredModel: {
+                      modelId: registeredReviewer.model_id,
+                      modelDisplay: registeredReviewer.model_display,
+                    },
+                  }
+                : {}),
             }),
             decision,
             now: io.now ?? new Date(),

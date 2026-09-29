@@ -191,6 +191,55 @@ test('CLI start derives its author model from the active Codex hook record', asy
   assert.equal(existsSync(path.join(workspace, 'provider/bindings/reviewer.json')), false);
 });
 
+test('separate starts in one provider session seal the model and reviewer effort for each run', async (t) => {
+  const fx = repositoryFixture('apr-same-session-selection-');
+  t.after(fx.cleanup);
+  writeFileSync(path.join(fx.root, 'docs/second.md'), '# Second\n');
+  execFileSync('git', ['add', 'docs/second.md'], { cwd: fx.root });
+  execFileSync('git', ['commit', '-m', 'second fixture'], { cwd: fx.root, stdio: 'ignore' });
+  const starts = [];
+  for (const [artifact, authorModel, reviewerModel, effort] of [
+    ['docs/example.md', 'gpt-6-astra', 'claude-opus-5', 'medium'],
+    ['docs/second.md', 'gpt-6-sol', 'claude-opus-5-5', 'high'],
+  ]) {
+    const author = participantIdentity({
+      role: 'author',
+      host: 'codex',
+      provider: 'openai',
+      modelId: authorModel,
+      modelDisplay: authorModel,
+      sessionId: 'same-provider-session',
+      source: 'runtime',
+      joinedAt: NOW,
+    });
+    const started = await startReview(
+      {
+        ...fixtureSelection('claude', reviewerModel, effort),
+        cwd: fx.root,
+        artifact,
+        artifactKind: 'spec',
+        identity: author,
+        now: NOW,
+      },
+      fixtureStartupDeps
+    );
+    const request = JSON.parse(
+      readFileSync(path.join(started.paths.workspace, 'startup-request.json'), 'utf8')
+    );
+    starts.push({ started, request, authorModel, reviewerModel, effort });
+  }
+  assert.notEqual(starts[0].started.paths.workspace, starts[1].started.paths.workspace);
+  for (const { started, request, authorModel, reviewerModel, effort } of starts) {
+    assert.equal(request.request.author.model_id, authorModel);
+    assert.equal(request.request.startup.runtime.reviewer.model_id, reviewerModel);
+    assert.equal(request.request.startup.runtime.reviewer.effort, effort);
+    assert.equal(
+      inspectReview(started.paths.workspace).protocol.startup.runtime.reviewer.effort,
+      effort
+    );
+  }
+});
+
 test('CLI start binds a Claude author from exact PreToolUse transcript evidence', async (t) => {
   const fx = repositoryFixture('apr-claude-author-start-');
   t.after(fx.cleanup);

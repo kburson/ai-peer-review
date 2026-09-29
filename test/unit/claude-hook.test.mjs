@@ -152,3 +152,81 @@ test('running broker reopens exactly one owner-only Claude start hook without in
     readClaudeStartHookForSession({ root, sessionId: SESSION, operationId: 'start:review-01' })
   );
 });
+
+test('Claude recovery selects the exact tool use when a session changes model between starts', (t) => {
+  const command = 'ai-peer-review start docs/spec.md --artifact-kind spec';
+  const { root, event } = fixture(t, { command, model: 'claude-opus-5' });
+  event.tool_input.command = command;
+  captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  const second = { ...event, tool_use_id: 'call-start-02' };
+  writeFileSync(
+    event.transcript_path,
+    `${readFileSync(event.transcript_path, 'utf8')}${JSON.stringify({
+      type: 'assistant',
+      sessionId: SESSION,
+      version: '2.1.278',
+      timestamp: new Date().toISOString(),
+      message: {
+        role: 'assistant',
+        model: 'claude-opus-5-5',
+        content: [{ type: 'tool_use', id: second.tool_use_id, name: 'Bash', input: { command } }],
+      },
+    })}\n`,
+    { mode: 0o600 }
+  );
+  captureClaudeStartHook({ event: second, sourceVersion: '2.1.278', token: 'b'.repeat(32) });
+  assert.equal(
+    readClaudeStartHookForSession({
+      root,
+      sessionId: SESSION,
+      operationId: 'start:pending',
+      toolUseId: event.tool_use_id,
+    }).model_id,
+    'claude-opus-5'
+  );
+  assert.equal(
+    readClaudeStartHookForSession({
+      root,
+      sessionId: SESSION,
+      operationId: 'start:pending',
+      toolUseId: second.tool_use_id,
+    }).model_id,
+    'claude-opus-5-5'
+  );
+});
+
+test('Claude hook supplies the current transcript model to a later command', (t) => {
+  const command = 'ai-peer-review doctor';
+  const { event } = fixture(t, { command, model: 'claude-opus-5-5' });
+  event.tool_input.command = command;
+  const result = captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  assert.equal(
+    result.hookSpecificOutput.updatedInput.command,
+    `CLAUDE_CODE_SESSION_ID=${SESSION} CLAUDE_MODEL_ID=claude-opus-5-5 CLAUDE_MODEL_DISPLAY=claude-opus-5-5 ${command}`
+  );
+});
+
+test('Claude join reads the exact current tool use through its private hook token', (t) => {
+  const command = 'ai-peer-review join /absolute/invitation.md';
+  const { root, event } = fixture(t, { command, model: 'claude-opus-5-5' });
+  event.tool_input.command = command;
+  const output = captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  assert.match(output.hookSpecificOutput.updatedInput.command, /APR_CLAUDE_HOOK_TOKEN=/);
+  assert.equal(
+    readClaudeStartHook({ root, token: TOKEN, sessionId: SESSION, operationId: 'join:review-01' })
+      .model_id,
+    'claude-opus-5-5'
+  );
+  assert.equal(
+    createClaudeProviderSurface().observeCurrentSession({
+      root,
+      token: TOKEN,
+      handleLocator: SESSION,
+      operationId: 'join:review-01',
+    }).model_id,
+    'claude-opus-5-5'
+  );
+  assert.throws(() =>
+    readClaudeStartHook({ root, token: TOKEN, sessionId: SESSION, operationId: 'start:pending' })
+  );
+});
