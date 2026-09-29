@@ -74,6 +74,7 @@ import {
   buildPhaseManifest,
   finalMessage,
   finalTrailers,
+  reviewCommitMessage,
   pathsToSeals,
   sealHumanDecision,
   sealManifest,
@@ -101,6 +102,7 @@ import {
 import {
   activateStartup,
   prepareStartup,
+  requireStartupIssue,
   assertRequestedReviewer,
   validateRuntimeDescriptor,
 } from '../startup/runtime.mjs';
@@ -866,6 +868,7 @@ function startResult(state, paths, startup) {
 }
 
 export async function startReview(input, deps = {}) {
+  requireStartupIssue(input.issue);
   if (!deps.validatedStartup) {
     const startupDeps = {
       ...deps,
@@ -3614,7 +3617,7 @@ export async function submitAuthorTurn(input, deps = {}) {
     },
     transactionRepository
   );
-  const message = `Peer review revision ${turn}`;
+  const message = reviewCommitMessage(state.protocol, `Peer review revision ${turn}`);
   const commit = commitExactPaths(transactionRepository, transaction, message, trailers);
   checkpoint(deps, 'transaction-completed');
   const nextReviewerPath = paths.reviewerResponse(turn + 1);

@@ -94,7 +94,7 @@ export const COMMAND_USAGE = Object.freeze({
   build: 'peer-review build broker-security',
   doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
   start:
-    'peer-review start <artifact> --artifact-kind <spec|plan> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
+    'peer-review start <artifact> --artifact-kind <spec|plan> --issue <N> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
   advance: 'peer-review advance <workspace> <artifact>',
   'request-grant':
     'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
@@ -283,6 +283,12 @@ function validateConstraints(command, args, options) {
       }
     }
     if (options.claimTtlMs === undefined) options.claimTtlMs = 8 * 60 * 60 * 1000;
+    if (options.issue === undefined) {
+      throw new AprError('APR_ISSUE_REQUIRED', 'New reviews require --issue <positive issue ID>.', {
+        recovery: 'Supply the tracked issue number with peer-review start --issue <N>.',
+        exitCode: 2,
+      });
+    }
   }
   if (command === 'submit') {
     validateEnum(options, 'decision', '--decision', ['revisions-requested', 'accepted']);

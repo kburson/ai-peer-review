@@ -55,6 +55,7 @@ export async function loadLegacyAuthority({
 
 export function fixtureSelection(selector, model, effort = 'medium') {
   return {
+    issue: 117,
     reviewerProvider: selector,
     reviewerModel: model,
     reviewerEffort: effort,

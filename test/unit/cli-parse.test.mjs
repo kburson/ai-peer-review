@@ -122,6 +122,8 @@ test('start options have stable names, repeatability, and defaults', () => {
       'x',
       '--artifact-kind',
       'plan',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'codex',
       '--reviewer-model',
@@ -135,6 +137,8 @@ test('start options have stable names, repeatability, and defaults', () => {
       'x',
       '--artifact-kind',
       'plan',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',
@@ -146,6 +150,25 @@ test('start options have stable names, repeatability, and defaults', () => {
     'codex',
     'claude',
   ]);
+});
+
+test('new reviews require an explicit issue before SPR or XPR startup', () => {
+  for (const provider of ['codex', 'claude']) {
+    assert.throws(
+      () =>
+        parseCommand([
+          'start',
+          'docs/spec.md',
+          '--artifact-kind',
+          'spec',
+          '--reviewer-provider',
+          provider,
+          '--reviewer-model',
+          'model-id',
+        ]),
+      (error) => error.code === 'APR_ISSUE_REQUIRED' && /--issue/.test(error.message)
+    );
+  }
 });
 
 test('advance accepts exactly one workspace and one artifact with no flags', () => {
@@ -371,6 +394,8 @@ test('rejects invalid positive integers and accepts Phase 2 automatic-required m
       'x',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'codex',
       '--reviewer-model',

@@ -29,6 +29,7 @@ const DEFINITELY_NOT_SUBMITTED_ERRORS = new Set([
 
 export async function prepareStartup(input, deps = {}) {
   input = structuredClone({ ...input, now: input.now ?? new Date() });
+  requireStartupIssue(input.issue);
   if (!text(input.reviewerProvider) || !text(input.reviewerModel)) {
     usage('New reviews require explicit reviewer provider and model selection.');
   }
@@ -193,6 +194,16 @@ export async function prepareStartup(input, deps = {}) {
     preparedSnapshot: canonicalProjection(prepared),
   });
   return prepared;
+}
+
+export function requireStartupIssue(issue) {
+  if (!Number.isSafeInteger(issue) || issue <= 0) {
+    throw new AprError('APR_ISSUE_REQUIRED', 'New reviews require --issue <positive issue ID>.', {
+      recovery: 'Supply the tracked issue number with peer-review start --issue <N>.',
+      exitCode: 2,
+    });
+  }
+  return issue;
 }
 
 export async function activateStartup(prepared, deps = {}) {

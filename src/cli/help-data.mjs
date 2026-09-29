@@ -38,6 +38,11 @@ const SETUP_FLAG_HELP = Object.freeze({
     'Authorize a missing project-local scratch exclusion after reviewing the dry run.',
 });
 
+const START_FLAG_HELP = Object.freeze({
+  '--issue':
+    'Required positive issue ID for every new SPR or XPR; sealed into startup authority and used in package-generated commit subjects.',
+});
+
 const HUMAN_GATED = new Set(['supplement', 'continue']);
 const ROLES = Object.freeze({
   setup: ['human'],
@@ -103,6 +108,7 @@ const PRECONDITIONS = Object.freeze({
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
+    'An explicit positive issue ID via --issue <N> before provider selection or broker startup.',
     'The invoking session must be the author participant; human sponsorship does not substitute for participant identity.',
     'An explicit supported reviewer provider and model; reviewer effort defaults to medium.',
     'Native SPR requires a supported same-provider launch capability; new XPR requires the broker even for manual transport. No automatic fallback occurs.',
@@ -154,6 +160,7 @@ const EFFECTS = Object.freeze({
   doctor: ['Read-only inspection; changes no files, Git, configuration, or transport.'],
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
+    'Seals the requested issue ID; author revisions and finalization use [#N] commit subjects in normal mode.',
     'A fresh --reviews-root or --review-path-template can create an independent review when an older attempt remains uncertain; verify the new review ID, invitation, and output paths. --record-id alone is insufficient.',
   ],
   advance: ['Appends one next-artifact event, reviewer draft, and durable delivery.'],
@@ -204,6 +211,7 @@ const ERRORS = Object.freeze({
   doctor: ['APR_CONFIG_INVALID', 'APR_REPOSITORY_NOT_FOUND', 'APR_TRANSPORT_UNAVAILABLE'],
   start: [
     'APR_USAGE',
+    'APR_ISSUE_REQUIRED',
     'APR_REPOSITORY_NOT_FOUND',
     'APR_ARTIFACT_UNTRACKED',
     'APR_ARTIFACT_DIRTY',
@@ -832,6 +840,11 @@ const ERROR_CATALOG = Object.freeze({
     message: 'Command syntax is outside the closed grammar.',
     recovery: 'Run peer-review help --all.',
   },
+  APR_ISSUE_REQUIRED: {
+    message: 'New SPR and XPR reviews require a positive issue ID before provider or broker work.',
+    recovery:
+      'Use peer-review start --issue <N> with the tracked issue number; run peer-review help start for the complete command.',
+  },
   APR_SETUP_INVALID: {
     message: 'Setup scope, host selection, or existing provider configuration is invalid.',
     recovery: 'Repair the named input or configuration and preview setup again.',
@@ -1006,7 +1019,9 @@ function topic(command) {
       description:
         command === 'setup'
           ? SETUP_FLAG_HELP[flag]
-          : `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
+          : command === 'start' && START_FLAG_HELP[flag]
+            ? START_FLAG_HELP[flag]
+            : `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
     })),
     defaults:
       command === 'start'
@@ -1069,7 +1084,7 @@ function topic(command) {
         : []),
       ...(command === 'start'
         ? [
-            'peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
+            'peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
           ]
         : []),
     ],

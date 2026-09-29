@@ -54,6 +54,18 @@ test('build and setup help explain explicit execution and applied output', () =>
 
 test('start help gives complete intent-first selection and recovery guidance', () => {
   const start = helpRequest('start', 'text');
+  const startContract = helpRequest('start', 'json');
+  assert.match(startContract.usage, /--issue <N>/);
+  assert.match(
+    startContract.flags.find(({ flag }) => flag === '--issue').description,
+    /required.*issue/i
+  );
+  assert.match(startContract.preconditions.join(' '), /positive issue ID/i);
+  assert.ok(startContract.errors.includes('APR_ISSUE_REQUIRED'));
+  assert.match(explainError('APR_ISSUE_REQUIRED').recovery, /start --issue <N>/);
+  for (const concept of ['spr', 'xpr']) {
+    assert.match(helpRequest(concept, 'json').examples[0], /--issue [0-9]+/);
+  }
   assert.match(start, /--reviewer-provider/);
   assert.match(start, /--reviewer-model/);
   assert.match(start, /medium/);
@@ -61,7 +73,7 @@ test('start help gives complete intent-first selection and recovery guidance', (
   assert.match(start, /broker/i);
   assert.match(
     start,
-    /peer-review start docs\/spec\.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
+    /peer-review start docs\/spec\.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
   );
   assert.match(start, /APR_USAGE/);
   assert.doesNotMatch(start, /--runtime/);

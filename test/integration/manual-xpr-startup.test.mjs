@@ -32,6 +32,7 @@ async function start(fx) {
   const result = await startReview(
     {
       cwd: fx.root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: identity('author', '106-author', NOW.toISOString()),
@@ -58,6 +59,7 @@ test('manual XPR registers without asking a recovery-only broker worker to launc
   const result = await startReview(
     {
       cwd: fx.root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: identity('author', '106-manual-author'),
@@ -248,6 +250,8 @@ for (const configured of [false, true]) {
       'docs/artifact.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',

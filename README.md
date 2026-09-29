@@ -211,8 +211,12 @@ exact blob, so a dirty file is refused rather than quietly reviewed.
 From the author session, the equivalent explicit command is:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
+peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
 ```
+
+Replace `117` with the tracked issue number. Every new SPR or XPR requires
+`--issue`; the sealed ID prefixes package-generated review commits as `[#N]`.
+`peer-review explain APR_ISSUE_REQUIRED` describes the missing-issue refusal.
 
 Model and effort identifiers are passed through exactly after syntax validation.
 The package does not maintain an availability catalog. Inspect the installed
@@ -318,7 +322,7 @@ One review can govern an immutable ordered artifact sequence. Phase authority
 comes only from `events.jsonl`; provider transcripts are never consulted:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --phases spec,plan
+peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --phases spec,plan
 # review and finalize the specification, then follow status --next:
 peer-review advance .scratch/peer-review/<review-id> docs/plan.md
 # review and finalize the plan normally
@@ -336,7 +340,7 @@ If an attempt cannot finish, preserve it and start the replacement under the
 same record identity:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --record-id record-554e80ec
+peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --record-id record-554e80ec
 peer-review supersede .scratch/peer-review/review-old \
   --reason "Replacement attempt started" --by review-new
 ```
@@ -470,7 +474,7 @@ by its full registry name:
 ```bash
 npx --no-install ai-peer-review --help
 npx --no-install ai-peer-review setup --scope project --agent claude --dry-run
-npx --no-install ai-peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
+npx --no-install ai-peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
 npx --no-install ai-peer-review status .scratch/peer-review/<review-id> --next
 ```
 

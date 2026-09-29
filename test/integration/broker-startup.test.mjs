@@ -1703,6 +1703,7 @@ test('reservation and registration failures preserve exact reconciliation eviden
 });
 
 const selection = {
+  issue: 117,
   reviewerProvider: 'claude',
   reviewerModel: 'claude-opus-5',
   reviewerEffort: 'medium',
@@ -1875,6 +1876,7 @@ test('direct new start requires explicit reviewer selection before filesystem ch
   await assert.rejects(
     startReview({
       cwd: fx.root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: identity('author', 'missing-selection'),

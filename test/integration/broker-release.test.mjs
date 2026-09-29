@@ -459,7 +459,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     assert.equal(repeated.project_digest, project.digest);
     client.connection?.close();
     for (const mismatch of [
-      { ...versions, package_version: '0.4.0' },
+      { ...versions, package_version: '99.99.99' },
       { ...versions, node_major: versions.node_major + 1 },
     ]) {
       await assert.rejects(
@@ -473,6 +473,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
   const started = await api.startReview(
     {
       cwd: projects[0].root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: identity('author', 'release-xpr'),

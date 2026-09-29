@@ -89,6 +89,8 @@ test('packed CLI installs into a non-Node host and starts a review through injec
       'docs/spec.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',

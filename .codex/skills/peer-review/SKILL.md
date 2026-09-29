@@ -17,6 +17,11 @@ previously installed host in the same scope.
 Query
 `peer-review help <command>` whenever syntax is uncertain; never guess flags or
 state transitions.
+Before starting any new SPR or XPR, identify the tracked issue number and pass
+`--issue <N>` to `peer-review start`. The CLI refuses a missing issue with
+`APR_ISSUE_REQUIRED`; run `peer-review explain APR_ISSUE_REQUIRED` for recovery.
+The issue ID is sealed at startup and prefixes package-generated revision and
+finalization commits as `[#N]`. Do not infer it from the branch or artifact name.
 
 If `start` or `broker` reports `APR_BROKER_ACCESS_DENIED`, invoke
 `peer-review explain APR_BROKER_ACCESS_DENIED` and use an approved host tool
