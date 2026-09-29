@@ -97,7 +97,18 @@ test('manual declared join ignores an inherited official resume command', async 
     })
   );
   const review = await start(fx);
-  const joined = await cli(['join', review.paths.invitation], fx, { env: reviewerEnv(fx) });
+  const joined = await cli(['join', review.paths.invitation], fx, {
+    env: reviewerEnv(fx),
+    identityContext: {
+      declared: {
+        host: 'claude-code',
+        provider: 'anthropic',
+        sessionId: SESSION,
+        modelId: 'claude-opus-5',
+        modelDisplay: 'Claude Opus 5',
+      },
+    },
+  });
   assert.equal(joined.code, 0, joined.stderr);
   const participants = JSON.parse(
     readFileSync(path.join(review.paths.workspace, 'participants.json'))

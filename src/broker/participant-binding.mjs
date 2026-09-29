@@ -120,6 +120,7 @@ export function recordParticipantBinding({
     operation_id: authority.operation_id,
     session_fingerprint: verified.session_fingerprint,
     evidence_digest: verified.evidence_digest,
+    tool_use_id: providerEvidence.tool_use_id,
     handle_locator: handleLocator,
   };
   atomicWrite(bindingFile(workspace, role), `${JSON.stringify(record)}\n`);
@@ -144,7 +145,7 @@ async function verifyParticipantSession({
   )
     conflict('Participant adapter cannot re-observe the exact session.');
   const providerSnapshot = await adapter.observeBoundSession({
-    expected: authority,
+    expected: { ...authority, tool_use_id: record.tool_use_id },
     workspace,
     projectRoot,
     handleLocator: record.handle_locator,
@@ -167,6 +168,13 @@ async function verifyParticipantSession({
         });
   if (verified.session_fingerprint !== record.session_fingerprint)
     conflict('Re-observed participant session differs from its binding.');
+  if (
+    record.tool_use_id &&
+    providerSnapshot?.source === 'official-exact-session' &&
+    (providerSnapshot.tool_use_id !== record.tool_use_id ||
+      verified.evidence_digest !== record.evidence_digest)
+  )
+    conflict('Re-observed provider tool use differs from its binding.');
   return Object.freeze({ ...record, evidence_digest: verified.evidence_digest });
 }
 

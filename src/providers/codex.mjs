@@ -28,7 +28,7 @@ export function createCodexProviderSurface({
     available: async () => Boolean(await version()),
     version,
     observeCurrentSession: ({ root, token, handleLocator, operationId }) => {
-      if (!operationId?.startsWith('start:'))
+      if (!/^(?:start|join):/.test(operationId ?? ''))
         throw new AprError(
           'APR_IDENTITY_CONFLICT',
           'Codex has no exact reviewer-join observation for this operation.',

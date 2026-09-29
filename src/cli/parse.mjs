@@ -93,7 +93,8 @@ export const COMMAND_USAGE = Object.freeze({
   setup:
     'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--json]',
   build: 'peer-review build broker-security',
-  doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
+  doctor:
+    'peer-review doctor [--mode <installation|manual|resume-only|automatic-required>] [--json]',
   start:
     'peer-review start <artifact> --artifact-kind <spec|plan> --issue <N> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
   advance: 'peer-review advance <workspace> <artifact>',
@@ -254,7 +255,12 @@ function validateConstraints(command, args, options) {
     usage('build target must be broker-security');
   }
   if (command === 'doctor') {
-    validateEnum(options, 'mode', '--mode', ['manual', 'resume-only', 'automatic-required']);
+    validateEnum(options, 'mode', '--mode', [
+      'installation',
+      'manual',
+      'resume-only',
+      'automatic-required',
+    ]);
   }
   if (command === 'start') {
     if (!options.artifactKind) usage('start requires --artifact-kind');

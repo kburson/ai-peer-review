@@ -31,6 +31,7 @@ test('setup help and explain make package upgrades and teardown discoverable', (
   assert.match(setup.preconditions.join(' '), /same scope/i);
   assert.match(setup.effects.join(' '), /package-owned skill.*backs up/i);
   assert.match(setup.effects.join(' '), /idempotent teardown/i);
+  assert.match(setup.effects.join(' '), /provider hooks.*active model/i);
   assert.match(setup.examples.join(' '), /--remove/);
   assert.match(setup.examples.join(' '), /--dry-run/);
   assert.match(setup.examples.join(' '), /setup --update/);
@@ -57,6 +58,17 @@ test('build and setup help explain explicit execution and applied output', () =>
   assert.match(build.effects.join(' '), /derives the Node development root/i);
   assert.match(explainError('APR_BROKER_BUILD_FAILED').recovery, /build broker-security/);
   assert.match(helpRequest('setup', 'json').effects.join(' '), /setup-result\/v1/);
+});
+
+test('doctor help distinguishes installation from current-operation readiness', () => {
+  const doctor = helpRequest('doctor', 'json');
+  assert.match(doctor.usage, /installation/);
+  assert.match(doctor.effects.join(' '), /model and effort may change/i);
+  assert.match(doctor.examples.join(' '), /doctor --mode installation/);
+  assert.match(
+    explainError('APR_IDENTITY_REQUIRED').recovery,
+    /do not pin a model in project config/i
+  );
 });
 
 test('start help gives complete intent-first selection and recovery guidance', () => {

@@ -128,6 +128,14 @@ you asked for is actually available. For `automatic-required`, it also checks
 MCP connectivity, a current resident lease, the configured long timeout, and an
 end-to-end transport probe. Anything it calls out, it also tells you how to fix.
 
+From an ordinary terminal, run `peer-review doctor --mode installation` to
+check the installed package, skill, repository, scratch setup, and native broker
+helper without declaring a provider or model for the project. Plain `doctor`
+checks current-session review readiness and may be unhealthy when its invoking
+shell lacks current model metadata. Review startup captures the provider's
+current operation instead of pinning a model or effort to the worktree; either
+may change before a later review start in the same provider session.
+
 Broker-dependent startup additionally requires the package-owned native
 security helper. Building it is always explicit: provide a writable package
 installation and a local Node development tree that exactly matches the
@@ -159,32 +167,19 @@ broker-dependent startup fails with `APR_BROKER_START_FAILED`; legacy manual
 review operations remain available and never trigger a build.
 
 Claude Code must expose a genuine current session through
-`CLAUDE_CODE_SESSION_ID` (or `CLAUDE_SESSION_ID`). When the host does not expose
-model metadata, declare only the model fields in the project or user
-`.ai-peer-review.json`:
+`CLAUDE_CODE_SESSION_ID` (or `CLAUDE_SESSION_ID`). Project setup installs a
+provider hook that reads the model from the exact active Claude tool use and
+supplies it to each CLI invocation. Codex setup does the same from its hook
+event. Start and join also write private, token-named evidence for that exact
+operation. The provider is fixed by the active session; its model and effort
+can change between invocations without changing project configuration. Legacy
+`hosts.<provider>.identity` model fields remain readable for old configuration
+files but no longer select the current model. Rerun `peer-review setup --update`
+after upgrading so the host hooks and skill match the installed CLI.
 
-```json
-{
-  "schema": "ai-peer-review.config/v1",
-  "hosts": {
-    "claude": {
-      "identity": {
-        "provider": "anthropic",
-        "host": "claude-code",
-        "model_id": "claude-opus-5",
-        "model_display": "Claude Opus 5"
-      }
-    }
-  }
-}
-```
-
-The session fingerprint still derives only from the genuine current Claude
-session. Configuration cannot supply a session ID, and the package never
-guesses the active model. A runtime session combined with configured model
-metadata is labeled `identity_source: declared`; complete runtime session and
-model metadata remains `runtime`. Doctor, start, join, submit, finalize, grant,
-recovery, and abandonment all use this same resolution contract.
+The session fingerprint derives from the genuine current provider session.
+Legacy reviews with a declared Claude identity retain that sealed identity for
+their own pending manual submission; new reviews use current provider evidence.
 
 The compatibility `identity_source` field remains for legacy readers; it is not
 an independent model-verification claim. Current manifests expose separate

@@ -591,6 +591,10 @@ test('setup --update parses as a project upgrade request', () => {
   assert.equal(parseCommand(['setup', '--update', '--json']).options.json, true);
 });
 
+test('doctor accepts installation mode for a session-independent package check', () => {
+  assert.equal(parseCommand(['doctor', '--mode', 'installation']).options.mode, 'installation');
+});
+
 test('top-level and command help normalize to the help command', () => {
   assert.deepEqual(parseCommand(['--help']), { command: 'help', args: [], options: {} });
   assert.deepEqual(parseCommand(['submit', '--help']), {

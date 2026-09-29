@@ -116,9 +116,12 @@ test('Claude setup preview, apply, and removal preserve foreign hooks and status
   setup({ ...options, dryRun: true });
   assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
   setup(options);
-  assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
+  const installed = JSON.parse(readFileSync(settingsFile, 'utf8'));
+  assert.deepEqual(installed.hooks.SessionStart, [{ command: 'user-owned-session-hook' }]);
+  assert.equal(installed.statusLine.command, 'user-owned-status-line');
+  assert.equal(installed.hooks.PreToolUse[0].hooks[0].command, 'peer-review-claude-hook');
   setup({ ...options, remove: true, dryRun: true });
-  assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile, 'utf8')), installed);
   setup({ ...options, remove: true });
   assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
 });
@@ -680,6 +683,92 @@ test('doctor runs active Phase 2 checks without making them mandatory for permis
   );
 });
 
+test('installation doctor does not require a session model or transport but requires the broker helper', () => {
+  const base = {
+    requestedMode: 'installation',
+    packageResolved: true,
+    skillAvailable: true,
+    identity: null,
+    git: { repository: true, worktreeSafe: true, scratchIgnored: true },
+    transport: { mode: 'manual', healthy: true },
+    brokerSecurity: { healthy: true, build_command: 'ai-peer-review build broker-security' },
+  };
+  const report = doctor(base);
+  assert.equal(report.healthy, true);
+  assert.equal(report.rows.find((row) => row.id === 'identity-source').required, false);
+  assert.equal(report.rows.find((row) => row.id === 'session-fingerprint').required, false);
+  assert.equal(report.rows.find((row) => row.id === 'broker-security').required, true);
+  assert.equal(doctor({ ...base, requestedMode: 'manual' }).healthy, false);
+  assert.equal(
+    doctor({ ...base, brokerSecurity: { ...base.brokerSecurity, healthy: false } }).healthy,
+    false
+  );
+});
+
+test('setup installs and removes only its exact start hook beside foreign host hooks', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const codexHooks = path.join(files.project, '.codex', 'hooks.json');
+  mkdirSync(path.dirname(codexHooks), { recursive: true });
+  writeFileSync(
+    codexHooks,
+    `${JSON.stringify({ hooks: { SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: 'foreign-hook' }] }] } }, null, 2)}\n`
+  );
+  const options = {
+    scope: 'project',
+    agents: ['codex', 'claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  const first = setup(options);
+  const codex = JSON.parse(readFileSync(codexHooks, 'utf8'));
+  const claudeSettings = path.join(files.project, '.claude', 'settings.json');
+  const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
+  assert.equal(codex.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
+  assert.equal(codex.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-codex-hook');
+  assert.equal(claude.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-claude-hook');
+  assert.ok(first.backups.includes(`${codexHooks}.bak`));
+  assert.equal(setup(options).changed, false);
+  setup({ ...options, remove: true });
+  const restored = JSON.parse(readFileSync(codexHooks, 'utf8'));
+  assert.equal(restored.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
+  assert.equal(restored.hooks.PreToolUse, undefined);
+  assert.equal(existsSync(claudeSettings), false);
+  assert.equal(setup({ ...options, remove: true }).changed, false);
+});
+
+test('setup preserves a pre-existing local Claude start hook without adding a duplicate', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const settingsFile = path.join(files.project, '.claude', 'settings.json');
+  mkdirSync(path.dirname(settingsFile), { recursive: true });
+  const existing = {
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: 'Bash',
+          hooks: [{ type: 'command', command: 'node bin/peer-review-claude-hook.mjs' }],
+        },
+      ],
+    },
+  };
+  writeFileSync(settingsFile, `${JSON.stringify(existing)}\n`);
+  const options = {
+    scope: 'project',
+    agents: ['claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile, 'utf8')), existing);
+  setup({ ...options, remove: true });
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile, 'utf8')), existing);
+});
+
 test('doctor reports the explicit broker helper build command without blocking legacy manual rows', () => {
   const base = {
     requestedMode: 'manual',
@@ -709,6 +798,51 @@ test('doctor reports the explicit broker helper build command without blocking l
     true
   );
   assert.equal(doctor({ ...base, requestedMode: 'automatic-required' }).healthy, false);
+});
+
+test('doctor text distinguishes installation health from missing current-session identity', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-q'], { cwd: files.project });
+  setup({
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  });
+  const configFile = path.join(files.project, '.ai-peer-review.json');
+  const legacyConfig = JSON.parse(readFileSync(configFile, 'utf8'));
+  legacyConfig.hosts.codex.identity = {
+    provider: 'openai',
+    host: 'codex',
+    model_id: 'gpt-older-model',
+    model_display: 'Old Model',
+  };
+  writeFileSync(configFile, `${JSON.stringify(legacyConfig)}\n`);
+  const invoke = async (args) => {
+    let stdout = '';
+    let stderr = '';
+    const code = await run(args, {
+      cwd: files.project,
+      env: { CODEX_THREAD_ID: 'session-with-changing-model' },
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: (value) => (stderr += value) },
+      brokerSecurity: { healthy: true, build_command: 'ai-peer-review build broker-security' },
+    });
+    return { code, stdout, stderr };
+  };
+  const session = await invoke(['doctor']);
+  assert.equal(session.code, 1);
+  assert.match(session.stdout, /session readiness: unhealthy/i);
+  assert.match(session.stdout, /identity-source: unavailable/i);
+  assert.match(session.stdout, /recovery: .*model/i);
+  assert.doesNotMatch(session.stdout, /recovery: ai-peer-review build broker-security/i);
+  const installed = await invoke(['doctor', '--mode', 'installation']);
+  assert.equal(installed.code, 0, installed.stderr);
+  assert.match(installed.stdout, /installation: healthy/i);
+  assert.doesNotMatch(installed.stdout, /recovery: ai-peer-review build broker-security/i);
 });
 
 test('setup-only project configuration keeps consensus startup and resume diagnostics available', async (t) => {

@@ -119,6 +119,128 @@ test('Codex start hook binds the exact pending tool use to provider model and se
   assert.equal(JSON.stringify(captured).includes('session-private'), false);
 });
 
+test('Codex hook keeps changing models in one session in separate start records', (t) => {
+  const fixture = repositoryFixture('apr-codex-model-switch-');
+  t.after(fixture.cleanup);
+  const sessionId = 'same-provider-session';
+  const command = 'peer-review start docs/example.md --artifact-kind spec';
+  for (const [token, turn, model] of [
+    ['c'.repeat(32), 'turn-one', 'gpt-6-astra'],
+    ['d'.repeat(32), 'turn-two', 'gpt-6-sol'],
+  ]) {
+    captureCodexStartHook({
+      event: {
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Bash',
+        tool_input: { command },
+        tool_use_id: `call-${turn}`,
+        turn_id: turn,
+        session_id: sessionId,
+        model,
+        cwd: fixture.root,
+      },
+      sourceVersion: '0.155.0-alpha.9.2',
+      token,
+      observedAt: '2026-09-21T14:35:00.000Z',
+    });
+    assert.equal(
+      readCodexStartHook({ root: fixture.root, token, sessionId, operationId: `start:${turn}` })
+        .model_id,
+      model
+    );
+  }
+  assert.equal(
+    readCodexStartHook({
+      root: fixture.root,
+      token: 'c'.repeat(32),
+      sessionId,
+      operationId: 'start:turn-one',
+    }).model_id,
+    'gpt-6-astra'
+  );
+});
+
+test('Codex hook observes the installed ai-peer-review CLI spelling', (t) => {
+  const fixture = repositoryFixture('apr-codex-installed-hook-');
+  t.after(fixture.cleanup);
+  const result = captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'ai-peer-review start docs/example.md --artifact-kind spec' },
+      tool_use_id: 'call-installed',
+      turn_id: 'turn-installed',
+      session_id: 'session-installed',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    sourceVersion: '0.155.0-alpha.9.2',
+    token: 'e'.repeat(32),
+    observedAt: '2026-09-21T14:35:00.000Z',
+  });
+  assert.ok(result);
+});
+
+test('Codex hook supplies the current model to a later command in the same session', (t) => {
+  const fixture = repositoryFixture('apr-codex-current-command-');
+  t.after(fixture.cleanup);
+  const result = captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'ai-peer-review doctor' },
+      tool_use_id: 'call-later',
+      turn_id: 'turn-later',
+      session_id: 'session-installed',
+      model: 'gpt-6-sol',
+      cwd: fixture.root,
+    },
+    sourceVersion: '0.155.0-alpha.9.2',
+    token: 'f'.repeat(32),
+  });
+  assert.equal(
+    result.hookSpecificOutput.updatedInput.command,
+    'CODEX_MODEL_ID=gpt-6-sol CODEX_MODEL_DISPLAY=gpt-6-sol ai-peer-review doctor'
+  );
+});
+
+test('Codex join reads the exact current model from its private hook token', (t) => {
+  const fixture = repositoryFixture('apr-codex-join-hook-');
+  t.after(fixture.cleanup);
+  captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'peer-review join /absolute/invitation.md' },
+      tool_use_id: 'call-join',
+      turn_id: 'turn-join',
+      session_id: 'session-installed',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    sourceVersion: '0.155.0-alpha.9.2',
+    token: 'b'.repeat(32),
+  });
+  assert.equal(
+    readCodexStartHook({
+      root: fixture.root,
+      token: 'b'.repeat(32),
+      sessionId: 'session-installed',
+      operationId: 'join:review-01',
+    }).model_id,
+    'gpt-6-astra'
+  );
+  assert.equal(
+    createCodexProviderSurface().observeCurrentSession({
+      root: fixture.root,
+      token: 'b'.repeat(32),
+      handleLocator: 'session-installed',
+      operationId: 'join:review-01',
+    }).model_id,
+    'gpt-6-astra'
+  );
+});
+
 test('Codex surface refuses an absent exact start hook and reads a matching one', async (t) => {
   const fixture = repositoryFixture('apr-codex-surface-');
   t.after(fixture.cleanup);
@@ -1073,7 +1195,7 @@ test('CLI join refuses runtime identity derived only from sealed request values'
     stderr: { write: (value) => (stderr += value) },
   });
   assert.equal(code, 1, stdout);
-  assert.match(stderr, /APR_IDENTITY_CONFLICT/);
+  assert.match(stderr, /APR_CODEX_HOOK_INVALID/);
 });
 
 test('CLI join binds provider stream observation with the executing Claude adapter', async (t) => {
