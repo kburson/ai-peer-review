@@ -251,10 +251,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     'provision matching full Node development files before the offline test'
   );
   const reported = securityApi.inspectPlatformSecurity().build_command;
-  assert.equal(
-    reported,
-    `npm --prefix '${installed}' run build:broker-security -- --nodedir /absolute/local/node-development-tree`
-  );
+  assert.equal(reported, 'ai-peer-review build broker-security');
   runNpm(
     'npm',
     ['--prefix', installed, 'run', 'build:broker-security', '--', '--nodedir', developmentRoot],

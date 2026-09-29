@@ -301,7 +301,7 @@ test('setup refuses a foreign differing skill without ownership evidence', (t) =
   assert.equal(readFileSync(skillFile, 'utf8'), 'foreign skill\n');
 });
 
-test('setup --update refreshes every recorded project host and is idempotent', (t) => {
+test('setup --update refreshes every recorded project host and is idempotent', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const options = {
@@ -322,18 +322,47 @@ test('setup --update refreshes every recorded project host and is idempotent', (
   }
   const updateOptions = { cwd: files.project, home: files.home, gitExcludePath: files.exclude };
   const preview = updateSetup({ ...updateOptions, dryRun: true });
+  assert.equal(preview.schema, 'ai-peer-review.setup-plan/v1');
   assert.equal(preview.changed, true);
   assert.deepEqual(preview.agents, ['claude', 'codex']);
   assert.equal(
     changed.every(({ file, oldBytes }) => readFileSync(file, 'utf8') === oldBytes),
     true
   );
-  updateSetup(updateOptions);
+  const applied = updateSetup(updateOptions);
+  assert.equal(applied.schema, 'ai-peer-review.setup-result/v1');
+  assert.equal(applied.status, 'applied');
+  assert.equal(applied.diff, undefined);
+  assert.deepEqual(applied.backups.sort(), changed.map(({ file }) => `${file}.bak`).sort());
   for (const { file, oldBytes } of changed) {
     assert.notEqual(readFileSync(file, 'utf8'), oldBytes);
     assert.equal(readFileSync(`${file}.bak`, 'utf8'), oldBytes);
   }
-  assert.equal(updateSetup(updateOptions).changed, false);
+  const unchanged = updateSetup(updateOptions);
+  assert.equal(unchanged.changed, false);
+  assert.equal(unchanged.status, 'no-changes');
+  execFileSync('git', ['init', '-q'], { cwd: files.project });
+  const codexSkill = changed.find(
+    ({ file }) => path.basename(path.dirname(path.dirname(path.dirname(file)))) === '.codex'
+  ).file;
+  writeFileSync(codexSkill, `${readFileSync(codexSkill, 'utf8')}\nprevious package\n`);
+  const cliOutput = [];
+  const cliErrors = [];
+  assert.equal(
+    await run(['setup', '--update'], {
+      cwd: files.project,
+      env: {},
+      stdout: { write: (value) => cliOutput.push(String(value)) },
+      stderr: { write: (value) => cliErrors.push(String(value)) },
+    }),
+    0,
+    cliErrors.join('')
+  );
+  const cliResult = JSON.parse(cliOutput.at(-1));
+  assert.equal(cliResult.schema, 'ai-peer-review.setup-result/v1');
+  assert.equal(cliResult.status, 'applied');
+  assert.equal(cliResult.diff, undefined);
+
   assert.throws(() => updateSetup({ ...updateOptions, remove: true }), {
     code: 'APR_SETUP_INVALID',
   });

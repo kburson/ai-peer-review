@@ -1298,6 +1298,71 @@ test('ordinary reviewer submission preserves registered automatic delivery witho
   assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
 });
 
+test('dead broker can fence a registered unjoined review after explicit provider refusal', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const deps = {
+    ...fixtureStartupDeps,
+    adapters: {
+      claude: {
+        ...fixtureStartupDeps.adapters.claude,
+        launch: async () => {
+          throw new AprError('APR_REVIEWER_SELECTION_REFUSED', 'Claude rejected the model.', {
+            recovery: 'Choose a model available in Claude.',
+          });
+        },
+      },
+    },
+  };
+  await assert.rejects(startReview(automaticRequest(fx.root), brokerLaunchDeps(deps)), {
+    code: 'APR_REVIEWER_SELECTION_REFUSED',
+  });
+  const workspace = path.join(fx.root, '.scratch/peer-review/transaction-review');
+  const journal = registry.readStartupJournal(workspace);
+  assert.equal(journal.stage, 'registered');
+  assert.equal(journal.provider_operation.status, 'not-submitted');
+  await assert.rejects(
+    abandonReview({
+      workspace,
+      identity: automaticRequest(fx.root).identity,
+      reason: 'Premature retirement.',
+      now: NOW,
+    }),
+    { code: 'APR_INVALID_TRANSITION' }
+  );
+  const fenced = await brokerClient.fenceManualRecovery(workspace, {
+    connect: async () => {
+      throw Object.assign(new Error('dead'), { code: 'ENOENT' });
+    },
+    acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
+  });
+  assert.equal(fenced.fenced, true);
+  assert.equal(existsSync(path.join(workspace, 'manual-fence.json')), true);
+  assert.equal(existsSync(path.join(workspace, 'lineage-receipt.json')), false);
+  const abandoned = await abandonReview({
+    workspace,
+    identity: automaticRequest(fx.root).identity,
+    reason: 'Provider refused the requested reviewer.',
+    now: NOW,
+  });
+  assert.equal(abandoned.state, 'abandoned');
+  assert.equal(registry.inspectStartupAuthority({ workspace }).status, 'terminal');
+  assert.equal(existsSync(path.join(workspace, 'lineage-receipt.json')), false);
+  const successor = await startReview(
+    {
+      ...automaticRequest(fx.root),
+      reviewId: 'replacement-review',
+      reviewerModel: 'claude-opus-5-5',
+      reviewerEffort: 'high',
+    },
+    fixtureStartupDeps
+  );
+  const nextJournal = registry.readStartupJournal(successor.paths.workspace);
+  assert.equal(nextJournal.descriptor.reviewer.model_id, 'claude-opus-5-5');
+  assert.equal(nextJournal.descriptor.reviewer.effort, 'high');
+  assert.equal(existsSync(path.join(workspace, 'events.jsonl')), true);
+});
+
 test('dead broker recovery requires OS ownership proof and refuses unknown provider outcome', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
@@ -1483,6 +1548,26 @@ test('ambiguous launch retains journal and refuses automatic retry', async (t) =
     readFileSync(path.join(fx.root, '.scratch/peer-review/transaction-review/startup-request.json'))
   );
   assert.equal(journal.stage, 'outcome-unknown');
+  const workspace = path.join(fx.root, '.scratch/peer-review/transaction-review');
+  await assert.rejects(
+    brokerClient.fenceManualRecovery(workspace, {
+      connect: async () => {
+        throw Object.assign(new Error('dead'), { code: 'ENOENT' });
+      },
+      acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
+    }),
+    { code: 'APR_WAKE_OUTCOME_UNKNOWN' }
+  );
+  await assert.rejects(
+    abandonReview({
+      workspace,
+      identity: automaticRequest(fx.root).identity,
+      reason: 'No reviewer joined.',
+      now: NOW,
+    }),
+    { code: 'APR_INVALID_TRANSITION' }
+  );
+  assert.equal(existsSync(path.join(workspace, 'manual-fence.json')), false);
 });
 
 test('reservation and registration failures preserve exact reconciliation evidence without dispatch', async (t) => {

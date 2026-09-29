@@ -11,6 +11,7 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
 import {
   canonicalChallengeBytes,
@@ -19,7 +20,7 @@ import {
 } from '../authority/canonicalize.mjs';
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
-import { requestBroker } from '../broker/client.mjs';
+import { ensureBroker, requestBroker } from '../broker/client.mjs';
 import { startupEvidence } from '../broker/registry.mjs';
 import {
   openParticipantSession,
@@ -2069,18 +2070,28 @@ export async function abandonReview(input) {
       }
     );
   }
-  if (
-    state.protocol.state !== 'intervention-required' ||
-    !reason ||
-    !['author', 'reviewer'].some(
+  const unjoined =
+    state.protocol.state === 'awaiting-reviewer' &&
+    !state.participants.reviewer &&
+    state.protocol.startup.runtime?.ownership === 'broker';
+  const unjoinedEvidence = unjoined ? startupEvidence(absolute, state) : null;
+  const unjoinedSafe =
+    unjoinedEvidence?.recovery.fenced === true &&
+    unjoinedEvidence.journal.stage === 'registered' &&
+    (!unjoinedEvidence.journal.provider_operation ||
+      unjoinedEvidence.journal.provider_operation.status === 'not-submitted') &&
+    state.participants.author?.session_fingerprint === input.identity?.session_fingerprint;
+  const interventionSafe =
+    state.protocol.state === 'intervention-required' &&
+    ['author', 'reviewer'].some(
       (role) =>
         state.participants[role]?.session_fingerprint === input.identity?.session_fingerprint
-    )
-  ) {
+    );
+  if (!reason || (!unjoinedSafe && !interventionSafe)) {
     fail(
       'APR_INVALID_TRANSITION',
-      'Abandonment requires one registered participant during intervention.',
-      'Resume from the registered author or reviewer session and provide a reason.'
+      'Abandonment requires registered participant authority and safe terminal evidence.',
+      'For an unjoined review, first fence the exact registered and definitely unsubmitted broker launch; otherwise resume during intervention.'
     );
   }
   const retainedPaths = retainedWorkspacePaths(absolute);
@@ -2090,7 +2101,7 @@ export async function abandonReview(input) {
       'abandoned',
       input.identity.session_fingerprint,
       {
-        intervention_id: current.protocol.intervention.intervention_id,
+        intervention_id: unjoinedSafe ? 'unjoined' : current.protocol.intervention.intervention_id,
         reason,
         retained_paths: retainedPaths,
       },
@@ -4475,17 +4486,6 @@ function inspectBrokerEvidence(project) {
   });
 }
 
-function inspectBrokerWorkspaceEvidence(workspace) {
-  try {
-    const journal = JSON.parse(readFileSync(path.join(workspace, 'startup-request.json'), 'utf8'));
-    return Object.freeze({
-      ambiguous: ['launch-pending', 'outcome-unknown'].includes(journal.stage),
-    });
-  } catch {
-    return Object.freeze({ ambiguous: false });
-  }
-}
-
 function offlineBrokerStatus(project, evidence, error = null) {
   const workspace = evidence.unreconciled_workspaces[0] ?? null;
   return brokerProjection('status', {
@@ -4544,17 +4544,6 @@ async function brokerCommand(verb, workspace, io) {
         env: io.env,
         home: os.homedir(),
       });
-  if (verb === 'reconcile') {
-    const inspectWorkspace = io.brokerInspectWorkspaceEvidence ?? inspectBrokerWorkspaceEvidence;
-    if (inspectWorkspace(workspace).ambiguous) {
-      fail(
-        'APR_WAKE_OUTCOME_UNKNOWN',
-        'Ambiguous provider action cannot be replayed by broker reconciliation.',
-        'Preserve provider and startup evidence and reconcile the exact provider operation manually.',
-        { workspace }
-      );
-    }
-  }
   const connect = io.brokerConnect ?? ((input) => connectBroker(input, security));
   if (verb === 'suspend') {
     const authority = inspectReviewAuthority(workspace);
@@ -4585,10 +4574,26 @@ async function brokerCommand(verb, workspace, io) {
   try {
     client = await connect({ identity: project, paths, versions });
   } catch (error) {
-    if (verb === 'status' && ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code)) {
-      return offlineBrokerStatus(project, evidence, error);
-    }
-    throw error;
+    const absent = ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code);
+    if (verb === 'status' && absent) return offlineBrokerStatus(project, evidence, error);
+    if (verb !== 'reconcile' || !absent) throw error;
+    // Startup authority and the pinned image identify the only runtime allowed
+    // to inspect this review. Broker startup may recover old registrations but
+    // reconciliation never submits or retries a provider launch.
+    const runtime = (
+      io.brokerReconcileRuntime ??
+      ((target) => {
+        const authority = inspectReviewAuthority(target);
+        const observed = startupEvidence(target, authority.state);
+        return { versions: observed.journal.versions, runtimeImage: observed.journal.runtime };
+      })
+    )(workspace);
+    client = await (io.brokerEnsure ?? ensureBroker)({
+      project,
+      versions: runtime.versions,
+      runtimeImage: runtime.runtimeImage,
+      platform: security,
+    });
   }
   let value;
   try {
@@ -4993,6 +4998,35 @@ export async function run(argv, io) {
         io.stdout.write(response.diff ? `${response.diff}\n` : 'No changes.\n');
       else writeJson(io.stdout, response);
       return 0;
+    }
+    if (parsed.command === 'build') {
+      const nodeRoot = path.dirname(path.dirname(realpathSync(process.execPath)));
+      const script = fileURLToPath(
+        new URL('../../scripts/build-broker-security.mjs', import.meta.url)
+      );
+      try {
+        const output = io.buildBrokerSecurity
+          ? await io.buildBrokerSecurity({ script, nodeRoot, nodeExecutable: process.execPath })
+          : await execFile(process.execPath, [script, '--nodedir', nodeRoot], {
+              cwd: path.dirname(path.dirname(script)),
+              maxBuffer: 1024 * 1024,
+            });
+        io.stdout.write(
+          output?.stdout ?? `Built broker security for Node ${process.versions.node}.\n`
+        );
+        return 0;
+      } catch (cause) {
+        fail(
+          'APR_BROKER_BUILD_FAILED',
+          'Broker security helper build failed.',
+          'Install matching local Node development files and a C++ build toolchain, then rerun peer-review build broker-security.',
+          {
+            reason: String(cause?.stderr ?? cause?.message ?? cause)
+              .trim()
+              .slice(0, 1000),
+          }
+        );
+      }
     }
     assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
     if (parsed.command === 'doctor') {

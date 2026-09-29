@@ -17,6 +17,7 @@ export const COMMAND_FLAGS = Object.freeze({
     '--update',
     '--confirm-scratch-exclude',
   ]),
+  build: frozenList([]),
   doctor: frozenList(['--mode', '--json']),
   start: frozenList([
     '--artifact-kind',
@@ -90,6 +91,7 @@ export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 export const COMMAND_USAGE = Object.freeze({
   setup:
     'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude]',
+  build: 'peer-review build broker-security',
   doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
   start:
     'peer-review start <artifact> --artifact-kind <spec|plan> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
@@ -126,6 +128,7 @@ function grammar(min, max = min) {
 
 export const POSITIONAL_GRAMMAR = Object.freeze({
   setup: grammar(0),
+  build: grammar(1),
   doctor: grammar(0),
   start: grammar(1),
   advance: grammar(2),
@@ -245,6 +248,9 @@ function validateConstraints(command, args, options) {
         usage('--agent must be one of: codex, claude, grok, generic');
       }
     }
+  }
+  if (command === 'build' && args[0] !== 'broker-security') {
+    usage('build target must be broker-security');
   }
   if (command === 'doctor') {
     validateEnum(options, 'mode', '--mode', ['manual', 'resume-only', 'automatic-required']);

@@ -161,7 +161,6 @@ export async function createProductionReviewWorker({
     !platform ||
     registration.project_root !== project.physicalRoot ||
     registration.project_digest !== project.digest ||
-    registration.runtime?.digest !== runtimeImage.digest ||
     !verifyImage(runtimeImage)
   )
     throw failure('Production worker registration or pinned image is invalid.');
@@ -188,6 +187,9 @@ export async function createProductionReviewWorker({
       clock,
       inspectStatus,
     });
+  // A newer broker may inspect an older registered review, but it must never
+  // execute that review under a different pinned runtime image.
+  if (registration.runtime.digest !== runtimeImage.digest) return makeRecoveryWorker();
   if (
     runtime.transport_mode !== 'automatic-required' ||
     evidence.recovery?.fenced ||

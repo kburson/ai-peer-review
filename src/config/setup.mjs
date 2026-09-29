@@ -437,5 +437,14 @@ export function setup(options = {}) {
       else atomicWrite(entry.file, entry.after);
     }
   }
-  return Object.freeze(plan);
+  if (options.dryRun) return Object.freeze(plan);
+  return Object.freeze({
+    schema: 'ai-peer-review.setup-result/v1',
+    status: operations.length ? 'applied' : 'no-changes',
+    scope,
+    agents,
+    changed: operations.length > 0,
+    operations: publicOperations,
+    backups: operations.filter(backupRequired).map((entry) => `${entry.file}.bak`),
+  });
 }

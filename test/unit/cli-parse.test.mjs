@@ -7,6 +7,7 @@ import { run } from '../../src/cli/run.mjs';
 
 const EXPECTED_COMMANDS = [
   'setup',
+  'build',
   'doctor',
   'start',
   'advance',
@@ -27,6 +28,17 @@ const EXPECTED_COMMANDS = [
   'help',
   'explain',
 ];
+
+test('build accepts only the package-owned broker-security target', () => {
+  assert.deepEqual(parseCommand(['build', 'broker-security']), {
+    command: 'build',
+    args: ['broker-security'],
+    options: {},
+  });
+  usage(['build'], /positional/i);
+  usage(['build', 'broker'], /broker-security/i);
+  usage(['build', 'broker-security', 'extra'], /positional/i);
+});
 
 function usage(argv, pattern) {
   assert.throws(
