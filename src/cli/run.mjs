@@ -5050,9 +5050,25 @@ export async function run(argv, io) {
         cwd: io.cwd,
         env: io.env,
       });
-      if (parsed.options.dryRun)
-        io.stdout.write(response.diff ? `${response.diff}\n` : 'No changes.\n');
-      else writeJson(io.stdout, response);
+      if (parsed.options.json) writeJson(io.stdout, response);
+      else if (parsed.options.dryRun)
+        io.stdout.write(`Preview only; no files changed.\n${response.diff || 'No changes.\n'}`);
+      else if (response.status === 'no-changes')
+        io.stdout.write(
+          `Setup already up to date (${response.scope}; ${response.agents.join(', ')}). No files changed.\n`
+        );
+      else {
+        io.stdout.write(
+          `Setup applied (${response.scope}; ${response.agents.join(', ')}). Changed ${response.operations.length} file${response.operations.length === 1 ? '' : 's'}:\n`
+        );
+        for (const operation of response.operations)
+          io.stdout.write(`  ${operation.kind} ${path.relative(io.cwd, operation.file)}\n`);
+        if (response.backups.length) {
+          io.stdout.write(`Backups created:\n`);
+          for (const backup of response.backups)
+            io.stdout.write(`  ${path.relative(io.cwd, backup)}\n`);
+        }
+      }
       return 0;
     }
     if (parsed.command === 'build') {

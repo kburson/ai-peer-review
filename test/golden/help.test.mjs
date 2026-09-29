@@ -34,6 +34,13 @@ test('setup help and explain make package upgrades and teardown discoverable', (
   assert.match(setup.examples.join(' '), /--remove/);
   assert.match(setup.examples.join(' '), /--dry-run/);
   assert.match(setup.examples.join(' '), /setup --update/);
+  assert.match(setup.examples.join(' '), /setup --update --json/);
+  assert.match(setup.usage, /--json/);
+  assert.match(setup.effects.join(' '), /human-readable/i);
+  assert.match(
+    setup.flags.find(({ flag }) => flag === '--json').description,
+    /agents and scripts/i
+  );
   assert.match(setup.defaults.join(' '), /project scope.*recorded hosts/i);
   assert.match(setup.flags.find(({ flag }) => flag === '--update').description, /recorded.*host/i);
   assert.match(setup.next_action, /doctor/i);

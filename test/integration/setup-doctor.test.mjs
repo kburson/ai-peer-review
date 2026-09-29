@@ -358,10 +358,51 @@ test('setup --update refreshes every recorded project host and is idempotent', a
     0,
     cliErrors.join('')
   );
-  const cliResult = JSON.parse(cliOutput.at(-1));
+  assert.match(cliOutput.join(''), /Setup applied/i);
+  assert.match(cliOutput.join(''), /SKILL\.md/);
+  assert.match(cliOutput.join(''), /\.bak/);
+  assert.doesNotMatch(cliOutput.join(''), /"schema"/);
+  const jsonOutput = [];
+  assert.equal(
+    await run(['setup', '--update', '--json'], {
+      cwd: files.project,
+      env: {},
+      stdout: { write: (value) => jsonOutput.push(String(value)) },
+      stderr: { write: (value) => cliErrors.push(String(value)) },
+    }),
+    0,
+    cliErrors.join('')
+  );
+  const cliResult = JSON.parse(jsonOutput.at(-1));
   assert.equal(cliResult.schema, 'ai-peer-review.setup-result/v1');
-  assert.equal(cliResult.status, 'applied');
-  assert.equal(cliResult.diff, undefined);
+  assert.equal(cliResult.status, 'no-changes');
+  const noChangesOutput = [];
+  await run(['setup', '--update'], {
+    cwd: files.project,
+    env: {},
+    stdout: { write: (value) => noChangesOutput.push(String(value)) },
+    stderr: { write: (value) => cliErrors.push(String(value)) },
+  });
+  assert.match(noChangesOutput.join(''), /already up to date/i);
+  writeFileSync(codexSkill, `${readFileSync(codexSkill, 'utf8')}\nprevious package again\n`);
+  const appliedJsonOutput = [];
+  await run(['setup', '--update', '--json'], {
+    cwd: files.project,
+    env: {},
+    stdout: { write: (value) => appliedJsonOutput.push(String(value)) },
+    stderr: { write: (value) => cliErrors.push(String(value)) },
+  });
+  const appliedJson = JSON.parse(appliedJsonOutput.at(-1));
+  assert.equal(appliedJson.status, 'applied');
+  assert.deepEqual(appliedJson.backups, [`${codexSkill}.bak`]);
+  const previewOutput = [];
+  await run(['setup', '--update', '--dry-run'], {
+    cwd: files.project,
+    env: {},
+    stdout: { write: (value) => previewOutput.push(String(value)) },
+    stderr: { write: (value) => cliErrors.push(String(value)) },
+  });
+  assert.match(previewOutput.join(''), /Preview only/i);
 
   assert.throws(() => updateSetup({ ...updateOptions, remove: true }), {
     code: 'APR_SETUP_INVALID',
