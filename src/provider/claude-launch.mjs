@@ -34,8 +34,27 @@ export function buildClaudeLaunchEnvironment(parentEnvironment = process.env) {
   return environment;
 }
 
-function packageCommand(verb, target) {
-  return [process.execPath, PACKAGE_BIN, verb, target];
+function exactPackageAlias(pathEnvironment) {
+  if (process.platform === 'win32' || typeof pathEnvironment !== 'string') return false;
+  for (const directory of pathEnvironment.split(path.delimiter)) {
+    if (!directory || !path.isAbsolute(directory)) continue;
+    const candidate = path.join(directory, 'peer-review');
+    try {
+      const metadata = lstatSync(candidate);
+      if (metadata.isSymbolicLink() && realpathSync(candidate) === realpathSync(PACKAGE_BIN))
+        return true;
+      return false;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') return false;
+    }
+  }
+  return false;
+}
+
+function packageCommand(verb, target, pathEnvironment) {
+  return exactPackageAlias(pathEnvironment)
+    ? ['peer-review', verb, target]
+    : [process.execPath, PACKAGE_BIN, verb, target];
 }
 
 function fail(message, recovery, details = {}) {
@@ -156,7 +175,9 @@ function renderClaudeBashCommand(argv) {
 }
 
 export function claudeJoinCommand(contract) {
-  return renderClaudeBashCommand(packageCommand('join', contract?.invitation));
+  return (
+    contract?.join_command ?? renderClaudeBashCommand(packageCommand('join', contract?.invitation))
+  );
 }
 
 function encodeClaudeBashRule(argv) {
@@ -419,6 +440,7 @@ export function buildClaudeReviewerLaunch({
   routing,
   model,
   effort,
+  pathEnvironment = process.env.PATH,
 } = {}) {
   let physicalRoot;
   try {
@@ -456,8 +478,8 @@ export function buildClaudeReviewerLaunch({
   const selectedModel = safeIdentifier(model, 'model');
   const selectedEffort = safeIdentifier(effort, 'effort');
   const rule = encodeClaudeEditRule(response.absolute);
-  const join = packageCommand('join', resolvedInvitation.absolute);
-  const submit = packageCommand('submit', workspace.absolute);
+  const join = packageCommand('join', resolvedInvitation.absolute, pathEnvironment);
+  const submit = packageCommand('submit', workspace.absolute, pathEnvironment);
   const joinCommand = renderClaudeBashCommand(join);
   const submitCommand = renderClaudeBashCommand(submit);
   const joinRule = encodeClaudeBashRule(join);
@@ -514,6 +536,7 @@ export function buildClaudeReviewerLaunch({
     model: selectedModel,
     effort: selectedEffort,
     mode: 'launch',
+    join_command: joinCommand,
     submit_command: submitCommand,
     permissions: Object.freeze({ allow }),
     command: Object.freeze({ file: 'claude', args, shell: false }),

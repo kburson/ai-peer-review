@@ -5174,6 +5174,7 @@ export async function run(argv, io) {
             routing,
             model: parsed.options.model,
             effort: parsed.options.effort,
+            pathEnvironment: io.env.PATH,
           });
       const registered = inspectReview(values.workspace).participants.reviewer;
       const configured = loadConfig({ cwd: io.cwd, env: io.env }).config.hosts?.claude?.identity;

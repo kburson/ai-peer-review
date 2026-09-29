@@ -203,6 +203,41 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
   );
 });
 
+test('installed exact peer-review alias avoids an absolute Node path denied by project hooks', (t) => {
+  if (process.platform === 'win32') return t.skip('POSIX symlink command resolution');
+  const fx = fixture('claude exact alias ');
+  t.after(fx.cleanup);
+  const bin = path.join(fx.root, 'bin');
+  mkdirSync(bin);
+  symlinkSync(
+    new URL('../../bin/peer-review.mjs', import.meta.url).pathname,
+    path.join(bin, 'peer-review')
+  );
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5-5',
+    effort: 'high',
+    pathEnvironment: bin,
+  });
+  assert.match(claudeJoinCommand(contract), /^peer-review join /);
+  assert.equal(contract.permissions.allow[3], `Bash(${claudeJoinCommand(contract)})`);
+  assert.match(contract.submit_command, /^peer-review submit /);
+  assert.ok(contract.command.args.includes('claude-opus-5-5'));
+  rmSync(path.join(bin, 'peer-review'));
+  writeFileSync(path.join(bin, 'peer-review'), 'foreign');
+  const unsafe = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5-5',
+    effort: 'high',
+    pathEnvironment: bin,
+  });
+  assert.match(claudeJoinCommand(unsafe), /peer-review\.mjs join /);
+});
+
 test('builds and resumes the preflight-bound launch with its exact approved submit command', async (t) => {
   const fx = fixture('claude preflight launch ');
   t.after(fx.cleanup);
