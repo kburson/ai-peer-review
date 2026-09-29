@@ -27,7 +27,8 @@ test('build broker-security derives the Node root and runs before project setup 
   assert.equal(await run(['build', 'broker-security'], output), 0, output.stderrBytes.join(''));
   assert.equal(invocation.nodeExecutable, process.execPath);
   assert.equal(invocation.nodeRoot, path.dirname(path.dirname(process.execPath)));
-  assert.match(invocation.script, /scripts\/build-broker-security\.mjs$/);
+  assert.equal(path.basename(invocation.script), 'build-broker-security.mjs');
+  assert.equal(path.basename(path.dirname(invocation.script)), 'scripts');
   assert.equal(output.stdoutBytes.join(''), 'Built broker security.\n');
 });
 
