@@ -16,15 +16,11 @@ const BOOTSTRAP = 'fd2e636356b6b8049930d5dc6bddf383c6d56c8d';
 
 test('active release pins and packaged build contract match the selected minor', () => {
   const manifest = JSON.parse(readFileSync(path.join(root, 'package.json')));
-  assert.equal(manifest.version, '0.3.0');
+  assert.equal(manifest.version, '0.4.0');
   for (const file of ['README.md', 'skills/peer-review/SKILL.md']) {
-    const pins = [
-      ...readFileSync(path.join(root, file), 'utf8').matchAll(
-        /npx --yes @kburson\/ai-peer-review@([^\s`]+)/g
-      ),
-    ];
-    assert.ok(pins.length > 0, file);
-    for (const [, version] of pins) assert.equal(version, manifest.version, file);
+    const instructions = readFileSync(path.join(root, file), 'utf8');
+    assert.match(instructions, /npx --no-install ai-peer-review/);
+    assert.doesNotMatch(instructions, /npx --yes @kburson\/ai-peer-review@0\.3\.0/);
   }
   assert.equal(manifest.scripts['build:broker-security'], 'node scripts/build-broker-security.mjs');
   for (const hook of ['install', 'preinstall', 'postinstall'])
@@ -34,9 +30,9 @@ test('active release pins and packaged build contract match the selected minor',
   );
 });
 
-test('README zero-install start is a complete invocation for the released grammar', () => {
+test('README installed-package start is a complete invocation for the current grammar', () => {
   const readme = readFileSync(path.join(root, 'README.md'), 'utf8');
-  const command = readme.match(/^npx --yes @kburson\/ai-peer-review@\S+ (start .+)$/m)?.[1];
+  const command = readme.match(/^npx --no-install ai-peer-review (start .+)$/m)?.[1];
   assert.ok(command);
   assert.doesNotThrow(() => parseCommand(command.split(' ')));
 });
@@ -226,12 +222,12 @@ test('public exports and command guidance remain narrow and installation-aware',
   }
   const readme = sources.find(([file]) => file === 'README.md')[1];
   assert.match(readme, /npm install --save-dev @kburson\/ai-peer-review/);
-  assert.match(readme, /npx --yes @kburson\/ai-peer-review@0\.3\.0/);
+  assert.match(readme, /npx --no-install ai-peer-review/);
   assert.match(readme, /from '@kburson\/ai-peer-review'/);
   assert.match(readme, /npm uninstall ai-peer-review/);
   const skill = sources.find(([file]) => file === 'skills/peer-review/SKILL.md')[1];
   assert.match(skill, /npm install --save-dev @kburson\/ai-peer-review/);
-  assert.match(skill, /npx --yes @kburson\/ai-peer-review@0\.3\.0/);
+  assert.match(skill, /npx --no-install ai-peer-review/);
   assert.match(skill, /npm uninstall ai-peer-review/);
 });
 

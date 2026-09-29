@@ -38,6 +38,11 @@ const SETUP_FLAG_HELP = Object.freeze({
     'Authorize a missing project-local scratch exclusion after reviewing the dry run.',
 });
 
+const START_FLAG_HELP = Object.freeze({
+  '--issue':
+    'Required positive issue ID for every new SPR or XPR; sealed into startup authority and used in package-generated commit subjects.',
+});
+
 const HUMAN_GATED = new Set(['supplement', 'continue']);
 const ROLES = Object.freeze({
   setup: ['human'],
@@ -103,6 +108,7 @@ const PRECONDITIONS = Object.freeze({
   doctor: ['A readable local package; named repository checks require a Git worktree.'],
   start: [
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
+    'An explicit positive issue ID via --issue <N> before provider selection or broker startup.',
     'The invoking session must be the author participant; human sponsorship does not substitute for participant identity.',
     'An explicit supported reviewer provider and model; reviewer effort defaults to medium.',
     'Native SPR requires a supported same-provider launch capability; new XPR requires the broker even for manual transport. No automatic fallback occurs.',
@@ -125,7 +131,7 @@ const PRECONDITIONS = Object.freeze({
   ],
   recover: ['A stale or missing participant condition authorized by event state.'],
   abandon: [
-    'An active intervention, or an unjoined broker review with a durable manual fence and a registered launch proven not submitted.',
+    'An active intervention, or an unjoined broker review with a durable fence, complete manual launch history, and every broker and wake operation proven not submitted.',
     'The registered author or reviewer supplies a non-empty retained-evidence reason; missing lineage alone is never proof.',
   ],
   supersede: [
@@ -154,6 +160,8 @@ const EFFECTS = Object.freeze({
   doctor: ['Read-only inspection; changes no files, Git, configuration, or transport.'],
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
+    'Seals the requested issue ID; author revisions and finalization use [#N] commit subjects in normal mode.',
+    'A fresh --reviews-root or --review-path-template can create an independent review when an older attempt remains uncertain; verify the new review ID, invitation, and output paths. --record-id alone is insufficient.',
   ],
   advance: ['Appends one next-artifact event, reviewer draft, and durable delivery.'],
   'request-grant': ['Appends or reuses one challenge event; performs no Git operation.'],
@@ -173,6 +181,7 @@ const EFFECTS = Object.freeze({
   recover: ['Performs only the selected event-authorized reclaim or replacement.'],
   abandon: [
     'Appends terminal abandonment while preserving listed evidence paths and broker records; ambiguous launch outcomes remain blocked.',
+    'Legacy manual launch history, Claude session or tool observations, reserved operations, and earlier unknown wake outcomes refuse unjoined retirement until exact non-submission proof exists.',
   ],
   supersede: ['Appends terminal supersession while preserving listed evidence paths.'],
   consolidate: [
@@ -181,9 +190,11 @@ const EFFECTS = Object.freeze({
   ],
   broker: [
     'Status reports live or offline recovery evidence; reconcile can restart the exact pinned broker when discovery is missing.',
+    'Offline candidate ranking uses verified authority and authenticated chronology; each candidate carries its own exact reconcile command, while unverifiable records are retained without a command.',
     'Ambiguous launch outcomes remain unresolved until exact provider observation; reconcile never replays the launch.',
     'A prior review pinned to another runtime remains recovery-only under the current broker; suspend fences exactly one review.',
     'Stop refuses runnable or unreconciled work and addresses only the authenticated instance.',
+    'Socket access denied requires approved host execution by the same participant session; copying another session ID into a parent process does not establish identity.',
   ],
   help: ['Read-only offline rendering.'],
   explain: ['Read-only offline error rendering.'],
@@ -200,6 +211,7 @@ const ERRORS = Object.freeze({
   doctor: ['APR_CONFIG_INVALID', 'APR_REPOSITORY_NOT_FOUND', 'APR_TRANSPORT_UNAVAILABLE'],
   start: [
     'APR_USAGE',
+    'APR_ISSUE_REQUIRED',
     'APR_REPOSITORY_NOT_FOUND',
     'APR_ARTIFACT_UNTRACKED',
     'APR_ARTIFACT_DIRTY',
@@ -208,6 +220,7 @@ const ERRORS = Object.freeze({
     'APR_IDENTITY_REQUIRED',
     'APR_REVIEWER_SELECTION_UNSUPPORTED',
     'APR_REVIEWER_SELECTION_REFUSED',
+    'APR_BROKER_ACCESS_DENIED',
     'APR_TRANSPORT_UNAVAILABLE',
     'APR_AUTHORITY_REQUIRED',
     'APR_AUTHORITY_POLICY',
@@ -394,6 +407,7 @@ const ERRORS = Object.freeze({
     'APR_USAGE',
   ],
   supersede: [
+    'APR_LINEAGE_UNAVAILABLE',
     'APR_INVALID_TRANSITION',
     'APR_IDEMPOTENCY_CONFLICT',
     'APR_OUTPUT_COLLISION',
@@ -422,6 +436,7 @@ const ERRORS = Object.freeze({
   ],
   broker: [
     'APR_BROKER_START_FAILED',
+    'APR_BROKER_ACCESS_DENIED',
     'APR_BROKER_INCOMPATIBLE',
     'APR_BROKER_OWNED',
     'APR_BROKER_STALE',
@@ -767,6 +782,11 @@ const ERROR_CATALOG = Object.freeze({
     message: 'A peer-review output path is occupied by conflicting content.',
     recovery: 'Preserve the bytes, inspect the collision, and use explicit recovery.',
   },
+  APR_LINEAGE_UNAVAILABLE: {
+    message: 'The exact lineage receipt required for supersession is unavailable.',
+    recovery:
+      'Preserve the unresolved attempt. For an independent fresh review, choose a fresh --reviews-root or --review-path-template and verify that its review ID and invitation differ; --record-id alone is insufficient.',
+  },
   APR_BROKER_BUILD_FAILED: {
     message: 'The explicit local broker security build failed.',
     recovery:
@@ -776,6 +796,11 @@ const ERROR_CATALOG = Object.freeze({
     message: 'The project-local broker could not establish authentic readiness.',
     recovery:
       'Run peer-review broker status --json from the canonical project root, preserve its evidence, and follow the reported recovery action.',
+  },
+  APR_BROKER_ACCESS_DENIED: {
+    message: 'The current process cannot connect to the authenticated project broker socket.',
+    recovery:
+      'Use approved host execution with access to this project broker socket from the same participant session; keep its sealed identity and do not bypass the sandbox or replay an uncertain provider launch.',
   },
   APR_BROKER_INCOMPATIBLE: {
     message: 'The live project broker uses a different package, protocol, or Node major.',
@@ -814,6 +839,11 @@ const ERROR_CATALOG = Object.freeze({
   APR_USAGE: {
     message: 'Command syntax is outside the closed grammar.',
     recovery: 'Run peer-review help --all.',
+  },
+  APR_ISSUE_REQUIRED: {
+    message: 'New SPR and XPR reviews require a positive issue ID before provider or broker work.',
+    recovery:
+      'Use peer-review start --issue <N> with the tracked issue number; run peer-review help start for the complete command.',
   },
   APR_SETUP_INVALID: {
     message: 'Setup scope, host selection, or existing provider configuration is invalid.',
@@ -989,7 +1019,9 @@ function topic(command) {
       description:
         command === 'setup'
           ? SETUP_FLAG_HELP[flag]
-          : `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
+          : command === 'start' && START_FLAG_HELP[flag]
+            ? START_FLAG_HELP[flag]
+            : `${flag} is owned only by ${command} and is parsed by its closed grammar.`,
     })),
     defaults:
       command === 'start'
@@ -1040,7 +1072,7 @@ function topic(command) {
           : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [
       COMMAND_USAGE[command],
-      `npx --yes @kburson/ai-peer-review@0.3.0 ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
+      `npx --no-install ai-peer-review ${COMMAND_USAGE[command].replace(/^peer-review /, '')}`,
       ...(command === 'setup'
         ? [
             'peer-review setup --agent codex --scope project --dry-run',
@@ -1052,7 +1084,7 @@ function topic(command) {
         : []),
       ...(command === 'start'
         ? [
-            'peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
+            'peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
           ]
         : []),
     ],

@@ -3,7 +3,7 @@ import { withoutProviderIdentity } from '../../src/provider/preflight.mjs';
 // Opt-in release gate. Provider output stays in a private disposable directory.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -172,7 +172,8 @@ async function run() {
     platform,
     runtimeImage,
     versions: {
-      package_version: '0.3.0',
+      package_version: JSON.parse(readFileSync(path.join(installed, 'package.json'), 'utf8'))
+        .version,
       broker_protocol_version: 1,
       node_major: Number(process.versions.node.split('.')[0]),
     },

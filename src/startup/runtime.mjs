@@ -17,6 +17,7 @@ import { atomicCreate, atomicWrite, withReviewLock } from '../protocol/store.mjs
 import { startReview } from '../cli/run.mjs';
 import { productionProviderAdapters } from '../providers/registry.mjs';
 import { resolveSelection } from './selection.mjs';
+import { initializeManualLaunchHistory } from '../provider/manual-launch-ledger.mjs';
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
 const preparedRequests = new WeakMap();
@@ -28,6 +29,7 @@ const DEFINITELY_NOT_SUBMITTED_ERRORS = new Set([
 
 export async function prepareStartup(input, deps = {}) {
   input = structuredClone({ ...input, now: input.now ?? new Date() });
+  requireStartupIssue(input.issue);
   if (!text(input.reviewerProvider) || !text(input.reviewerModel)) {
     usage('New reviews require explicit reviewer provider and model selection.');
   }
@@ -194,6 +196,16 @@ export async function prepareStartup(input, deps = {}) {
   return prepared;
 }
 
+export function requireStartupIssue(issue) {
+  if (!Number.isSafeInteger(issue) || issue <= 0) {
+    throw new AprError('APR_ISSUE_REQUIRED', 'New reviews require --issue <positive issue ID>.', {
+      recovery: 'Supply the tracked issue number with peer-review start --issue <N>.',
+      exitCode: 2,
+    });
+  }
+  return issue;
+}
+
 export async function activateStartup(prepared, deps = {}) {
   const request = preparedRequests.get(prepared);
   if (!request) usage('Startup requires a validated preparation from this process.');
@@ -237,6 +249,10 @@ export async function activateStartup(prepared, deps = {}) {
           stage: 'reserved',
         };
         atomicCreate(file, `${JSON.stringify(journal)}\n`);
+        initializeManualLaunchHistory(workspace, {
+          reviewId: journal.review_id,
+          requestDigest: journal.request_digest,
+        });
       }
       const save = (stage, extra = {}) => {
         journal = { ...journal, ...extra, stage };

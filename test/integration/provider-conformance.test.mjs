@@ -801,6 +801,7 @@ test('Claude official surface rejects launch state that conflicts with the exact
   t.after(fx.cleanup);
   const started = await startReview(
     {
+      issue: 117,
       reviewerProvider: 'claude',
       reviewerModel: 'claude-opus-5',
       reviewerEffort: 'medium',
@@ -975,6 +976,8 @@ test('CLI start uses production adapters when no test registry is injected', asy
       'docs/example.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'codex',
       '--reviewer-model',
@@ -1042,6 +1045,7 @@ test('CLI join refuses runtime identity derived only from sealed request values'
   const fx = repositoryFixture('apr-provider-cli-join-');
   t.after(fx.cleanup);
   const input = {
+    issue: 117,
     reviewerProvider: 'codex',
     reviewerModel: 'gpt-6-astra',
     reviewerEffort: 'medium',
@@ -1085,6 +1089,7 @@ test('CLI join binds provider stream observation with the executing Claude adapt
   const reviewId = 'provider-cli-verified-join';
   const prepared = await prepareStartup(
     {
+      issue: 117,
       reviewerProvider: 'claude',
       reviewerModel: 'claude-opus-5',
       reviewerEffort: 'medium',
@@ -1181,6 +1186,7 @@ test('startup preserves definitely-not-submitted and stable provider failures', 
     const fx = repositoryFixture(`apr-provider-outcome-${failure.code}-`);
     t.after(fx.cleanup);
     const input = {
+      issue: 117,
       reviewerProvider: 'codex',
       reviewerModel: 'gpt-test',
       reviewerEffort: 'medium',

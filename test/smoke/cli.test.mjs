@@ -43,7 +43,7 @@ test('packed CLI installs into a non-Node host and starts a review through injec
   assert.equal(
     JSON.parse(readFileSync(path.join(host, 'node_modules/@kburson/ai-peer-review/package.json')))
       .version,
-    '0.3.0'
+    JSON.parse(readFileSync(path.join(root, 'package.json'))).version
   );
   execFileSync(
     process.execPath,
@@ -89,6 +89,8 @@ test('packed CLI installs into a non-Node host and starts a review through injec
       'docs/spec.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',

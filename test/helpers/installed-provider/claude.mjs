@@ -112,6 +112,8 @@ if (initial) {
     'docs/artifact.md',
     '--artifact-kind',
     'spec',
+    '--issue',
+    '117',
     '--reviewer-provider',
     'claude',
     '--reviewer-model',

@@ -24,6 +24,9 @@ import { fixtureStartupDeps, loadLegacyAuthority } from '../helpers/internal-api
 import { identity, NOW } from '../helpers/intervention-fixture.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+const currentPackageVersion = JSON.parse(
+  readFileSync(path.join(root, 'package.json'), 'utf8')
+).version;
 
 async function verifyWindowsBootstrapSecurity(scratch, platform, readBootstrap) {
   const projectRoot = path.join(scratch, 'bootstrap-security');
@@ -209,7 +212,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
   );
   const installed = path.join(host, 'node_modules/@kburson/ai-peer-review');
   const manifest = JSON.parse(readFileSync(path.join(installed, 'package.json')));
-  assert.equal(manifest.version, '0.3.0');
+  assert.equal(manifest.version, currentPackageVersion);
   assert.equal(existsSync(path.join(host, 'node_modules/eslint')), false);
   const load = (file) => import(pathToFileURL(path.join(installed, file)));
   const api = await load('src/cli/run.mjs');
@@ -449,14 +452,14 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     }
     live.push({ project, paths });
     const status = await clientApi.requestBroker(client, 'status');
-    assert.equal(status.package_version, '0.3.0');
+    assert.equal(status.package_version, currentPackageVersion);
     // Startup sends register then launch through one client. Each command
     // needs a fresh authenticated native connection after the previous closes.
     const repeated = await clientApi.requestBroker(client, 'status');
     assert.equal(repeated.project_digest, project.digest);
     client.connection?.close();
     for (const mismatch of [
-      { ...versions, package_version: '0.4.0' },
+      { ...versions, package_version: '99.99.99' },
       { ...versions, node_major: versions.node_major + 1 },
     ]) {
       await assert.rejects(
@@ -470,6 +473,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
   const started = await api.startReview(
     {
       cwd: projects[0].root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: identity('author', 'release-xpr'),
@@ -564,6 +568,9 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     { identity: live[1].project, paths: live[1].paths, versions },
     platform
   );
-  assert.equal((await clientApi.requestBroker(stillLive, 'status')).package_version, '0.3.0');
+  assert.equal(
+    (await clientApi.requestBroker(stillLive, 'status')).package_version,
+    currentPackageVersion
+  );
   stillLive.connection?.close();
 });

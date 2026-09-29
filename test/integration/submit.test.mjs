@@ -73,6 +73,7 @@ async function joinedReview(root, reviewId, options = {}) {
     {
       ...fixtureSelection('codex', 'gpt-test'),
       cwd: root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: author,
@@ -847,7 +848,7 @@ test('author submission resumes every interrupted commit handoff checkpoint exac
       checkpoint
     );
     assert.equal(
-      execFileSync('git', ['log', '--format=%s', '--grep=^Peer review revision 1$'], {
+      execFileSync('git', ['log', '--format=%s', '--grep=^\\[#117\\] Peer review revision 1$'], {
         cwd: fx.root,
         encoding: 'utf8',
       })

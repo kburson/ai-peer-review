@@ -123,7 +123,8 @@ export async function inspectInstalledHandoff({ installed, workspace, head }) {
     return {
       schema: 'ai-peer-review.installed-broker-handoff/v1',
       package_head: head,
-      package_version: '0.3.0',
+      package_version: JSON.parse(readFileSync(path.join(installed, 'package.json'), 'utf8'))
+        .version,
       provider: 'anthropic',
       host: 'claude-code',
       surface_version: '2.1.278',

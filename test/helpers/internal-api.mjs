@@ -55,6 +55,7 @@ export async function loadLegacyAuthority({
 
 export function fixtureSelection(selector, model, effort = 'medium') {
   return {
+    issue: 117,
     reviewerProvider: selector,
     reviewerModel: model,
     reviewerEffort: effort,
@@ -72,35 +73,32 @@ export function fixtureObservation(
   return { provider, host, model_id: model, effort, adapter_version: 'fixture-v1', assurance };
 }
 
-let fixtureImage;
-function fixtureRuntimeImage() {
-  if (fixtureImage) return fixtureImage;
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'apr-startup-image-')));
-  process.once('exit', () => rmSync(root, { recursive: true, force: true }));
-  const packageRoot = path.join(root, 'source');
-  const native = path.join(packageRoot, 'native/broker-security/build/Release');
-  mkdirSync(native, { recursive: true });
-  writeFileSync(
-    path.join(packageRoot, 'package.json'),
-    JSON.stringify({
-      name: 'fixture-runtime',
-      version: '9.8.7-fixture',
-      bin: { 'peer-review': './cli.mjs' },
-      files: ['cli.mjs'],
-    })
-  );
-  writeFileSync(path.join(packageRoot, 'cli.mjs'), '// inert fixture runtime\n');
-  writeFileSync(path.join(native, 'broker_security.node'), 'fixture');
-  writeFileSync(path.join(native, 'build-identity.json'), '{}');
-  const nodeExecutable = path.join(root, 'node-fixture');
-  writeFileSync(nodeExecutable, 'fixture executable');
-  chmodSync(nodeExecutable, 0o755);
-  fixtureImage = pinRuntimeImage({
-    packageRoot,
-    nodeExecutable,
-    destination: path.join(root, 'image'),
-  });
-  return fixtureImage;
+let fixtureSource;
+function fixtureRuntimeImage({ destination } = {}) {
+  if (!fixtureSource) {
+    const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'apr-startup-image-')));
+    process.once('exit', () => rmSync(root, { recursive: true, force: true }));
+    const packageRoot = path.join(root, 'source');
+    const native = path.join(packageRoot, 'native/broker-security/build/Release');
+    mkdirSync(native, { recursive: true });
+    writeFileSync(
+      path.join(packageRoot, 'package.json'),
+      JSON.stringify({
+        name: 'fixture-runtime',
+        version: '9.8.7-fixture',
+        bin: { 'peer-review': './cli.mjs' },
+        files: ['cli.mjs'],
+      })
+    );
+    writeFileSync(path.join(packageRoot, 'cli.mjs'), '// inert fixture runtime\n');
+    writeFileSync(path.join(native, 'broker_security.node'), 'fixture');
+    writeFileSync(path.join(native, 'build-identity.json'), '{}');
+    const nodeExecutable = path.join(root, 'node-fixture');
+    writeFileSync(nodeExecutable, 'fixture executable');
+    chmodSync(nodeExecutable, 0o755);
+    fixtureSource = { packageRoot, nodeExecutable };
+  }
+  return pinRuntimeImage({ ...fixtureSource, destination });
 }
 
 export const fixtureStartupDeps = {

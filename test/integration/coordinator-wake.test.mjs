@@ -324,7 +324,9 @@ test('offline broker status reads project-local startup evidence without a test 
   const status = JSON.parse(io.stdoutBytes.at(-1));
   assert.deepEqual(status.recovery.registrations, [path.join(registrations, 'review-01.json')]);
   assert.deepEqual(status.recovery.unreconciled_workspaces, [workspace]);
-  assert.match(status.recovery.action, /broker reconcile/);
+  assert.equal(status.recovery.candidates.length, 0);
+  assert.equal(status.recovery.unverifiable[0].workspace, workspace);
+  assert.doesNotMatch(status.recovery.action, /broker reconcile/);
 });
 
 test('offline broker status survives a real missing native security helper without connector injection', async (t) => {

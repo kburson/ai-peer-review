@@ -54,6 +54,18 @@ test('build and setup help explain explicit execution and applied output', () =>
 
 test('start help gives complete intent-first selection and recovery guidance', () => {
   const start = helpRequest('start', 'text');
+  const startContract = helpRequest('start', 'json');
+  assert.match(startContract.usage, /--issue <N>/);
+  assert.match(
+    startContract.flags.find(({ flag }) => flag === '--issue').description,
+    /required.*issue/i
+  );
+  assert.match(startContract.preconditions.join(' '), /positive issue ID/i);
+  assert.ok(startContract.errors.includes('APR_ISSUE_REQUIRED'));
+  assert.match(explainError('APR_ISSUE_REQUIRED').recovery, /start --issue <N>/);
+  for (const concept of ['spr', 'xpr']) {
+    assert.match(helpRequest(concept, 'json').examples[0], /--issue [0-9]+/);
+  }
   assert.match(start, /--reviewer-provider/);
   assert.match(start, /--reviewer-model/);
   assert.match(start, /medium/);
@@ -61,7 +73,7 @@ test('start help gives complete intent-first selection and recovery guidance', (
   assert.match(start, /broker/i);
   assert.match(
     start,
-    /peer-review start docs\/spec\.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
+    /peer-review start docs\/spec\.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
   );
   assert.match(start, /APR_USAGE/);
   assert.doesNotMatch(start, /--runtime/);
@@ -113,8 +125,8 @@ test('all offline help topics derive complete contracts from the frozen command 
       topic.flags.map(({ flag }) => flag),
       COMMAND_FLAGS[command]
     );
-    assert.match(topic.examples[1], /^npx --yes @kburson\/ai-peer-review@0\.3\.0 /);
-    assert.doesNotMatch(topic.examples.join('\n'), /^npx --yes ai-peer-review@/m);
+    assert.match(topic.examples[1], /^npx --no-install ai-peer-review /);
+    assert.doesNotMatch(topic.examples.join('\n'), /^npx --yes /m);
     for (const code of topic.errors) {
       const explanation = explainError(code);
       assert.equal(explanation.code, code);
@@ -162,6 +174,11 @@ test('broker help declares authenticated project-local recovery semantics', () =
   assert.match(broker.wake, /ambiguous.*never.*replay/i);
   assert.match(broker.next_action, /offline.*recovery.*evidence/i);
   assert.equal(broker.json_schema, 'ai-peer-review.broker-result/v1');
+  assert.ok(broker.errors.includes('APR_BROKER_ACCESS_DENIED'));
+  assert.match(explainError('APR_BROKER_ACCESS_DENIED').recovery, /approved host execution/i);
+  assert.match(broker.effects.join(' '), /candidate.*ranking.*reconcile/i);
+  assert.match(helpRequest('abandon', 'json').preconditions.join(' '), /manual.*history/i);
+  assert.match(explainError('APR_LINEAGE_UNAVAILABLE').recovery, /fresh.*reviews-root/i);
 });
 
 test('Claude launch help and result schema freeze bounded recovery', () => {

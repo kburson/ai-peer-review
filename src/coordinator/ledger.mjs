@@ -331,7 +331,7 @@ export function wakeOperationExists(workspace, operationId) {
   return existsSync(operationPath(workspace, operationId));
 }
 
-export function latestWakeOperation(workspace) {
+export function allWakeOperations(workspace) {
   const directory = path.join(wakeRoot(workspace), 'operations');
   let entries;
   try {
@@ -341,14 +341,14 @@ export function latestWakeOperation(workspace) {
     }
     entries = readdirSync(directory).sort();
   } catch (cause) {
-    if (cause?.code === 'ENOENT') return null;
+    if (cause?.code === 'ENOENT') return Object.freeze([]);
     fail(
       'APR_WAKE_LEDGER_INVALID',
       'Wake operation directory is unsafe.',
       'Preserve the review workspace and restore its physical wake ledger.'
     );
   }
-  let latest = null;
+  const operations = [];
   for (const entry of entries) {
     if (!/^[0-9a-f]{64}\.json$/.test(entry)) {
       fail(
@@ -357,10 +357,18 @@ export function latestWakeOperation(workspace) {
         'Preserve the review workspace and restore exact digest-named operation records.'
       );
     }
-    const operation = readWakeOperation(workspace, `sha256:${entry.slice(0, -5)}`);
-    if (!latest || operation.reserved_at > latest.reserved_at) latest = operation;
+    operations.push(readWakeOperation(workspace, `sha256:${entry.slice(0, -5)}`));
   }
-  return latest;
+  return Object.freeze(operations);
+}
+
+export function latestWakeOperation(workspace) {
+  const operations = allWakeOperations(workspace);
+  return operations.reduce(
+    (latest, operation) =>
+      !latest || operation.reserved_at > latest.reserved_at ? operation : latest,
+    null
+  );
 }
 
 export function appendWakeOutcome(workspace, operationId, outcome, now = new Date()) {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import {
@@ -89,7 +89,8 @@ test('installed npx wake commands have exact grants without permitting other wor
     path.join(packageRoot, 'package.json'),
     JSON.stringify({
       name: '@kburson/ai-peer-review',
-      version: '0.3.0',
+      version: JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'))
+        .version,
       bin: { 'peer-review': './bin/peer-review.mjs' },
     })
   );

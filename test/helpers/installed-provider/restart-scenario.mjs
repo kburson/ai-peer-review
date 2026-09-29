@@ -89,7 +89,9 @@ export async function verifyInstalledLaunchRestart({
       platform,
       runtimeImage: JSON.parse(process.env.APR_FIXTURE_IMAGE),
       versions: {
-        package_version: '0.3.0',
+        package_version: JSON.parse(
+          readFileSync(path.join(process.env.APR_FIXTURE_PACKAGE, 'package.json'), 'utf8')
+        ).version,
         broker_protocol_version: 1,
         node_major: Number(process.versions.node.split('.')[0]),
       },

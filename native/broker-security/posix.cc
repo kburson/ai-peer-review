@@ -418,7 +418,9 @@ void* ConnectPrivate(const std::string& path, std::string* code, std::string* me
     close(descriptor);
     const char* stable = connectionError == ENOENT ? "ENOENT" :
                          connectionError == ECONNREFUSED ? "ECONNREFUSED" :
-                         "APR_BROKER_START_FAILED";
+                         (connectionError == EACCES || connectionError == EPERM) ?
+                             "APR_BROKER_ACCESS_DENIED" :
+                             "APR_BROKER_START_FAILED";
     Fail(code, message, stable, "Broker endpoint cannot be connected.");
     return nullptr;
   }
