@@ -16,6 +16,7 @@ export const COMMAND_FLAGS = Object.freeze({
     '--remove',
     '--update',
     '--confirm-scratch-exclude',
+    '--json',
   ]),
   build: frozenList([]),
   doctor: frozenList(['--mode', '--json']),
@@ -90,7 +91,7 @@ export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 
 export const COMMAND_USAGE = Object.freeze({
   setup:
-    'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude]',
+    'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--json]',
   build: 'peer-review build broker-security',
   doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
   start:

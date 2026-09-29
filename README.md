@@ -104,9 +104,11 @@ then `peer-review setup --update` in each affected project. `--update` defaults
 to project scope and refreshes every host recorded by the prior package-owned
 setup. For a prior user-scope installation, add `--scope user`. Setup automatically replaces a
 previous package-owned skill and backs up its bytes as `SKILL.md.bak`; a repeat
-run is a no-op. The dry run prints a plan and diff; an applied update returns
-`setup-result/v1` with `applied` or `no-changes`, affected operations, and
-backup paths. `peer-review setup --agent <host> --scope <user|project>
+run is a no-op. The dry run clearly labels a preview and prints the diff; an
+applied update prints a readable summary with changed files and backup paths.
+For an agent or script, add `--json` to get the `setup-result/v1` result with
+`applied` or `no-changes`, affected operations, and backup paths. A dry run with
+`--json` returns the `setup-plan/v1` object. `peer-review setup --agent <host> --scope <user|project>
 --remove` is the idempotent teardown for that scope. A pre-existing or foreign
 skill is preserved and still causes a conflict instead of being overwritten.
 Global npm installation updates the binary but does not refresh copied project

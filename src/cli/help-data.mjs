@@ -36,6 +36,7 @@ const SETUP_FLAG_HELP = Object.freeze({
     'Refresh every recorded host in the existing package-owned setup; defaults to project scope.',
   '--confirm-scratch-exclude':
     'Authorize a missing project-local scratch exclusion after reviewing the dry run.',
+  '--json': 'Print the versioned setup result or preview plan for agents and scripts.',
 });
 
 const START_FLAG_HELP = Object.freeze({
@@ -151,7 +152,7 @@ const EFFECTS = Object.freeze({
   setup: [
     'Dry-run previews exact owned changes without mutation; apply automatically replaces a prior package-owned skill and backs up its previous bytes as SKILL.md.bak.',
     'Setup --remove is an idempotent teardown for the selected host and scope; foreign skills remain untouched.',
-    'Applying setup returns an explicit setup-result/v1 with status applied or no-changes, operations, and backup paths; dry-run shows the diff.',
+    'Applying setup prints a human-readable applied or already-up-to-date result with changed files and backup paths. Add --json for the setup-result/v1 machine result; --dry-run previews without applying changes.',
     'Global npm installation updates the command but does not refresh copied skills until setup runs again.',
   ],
   build: [
@@ -1080,6 +1081,7 @@ function topic(command) {
             'peer-review setup --agent codex --scope project --remove',
             'peer-review setup --update --dry-run',
             'peer-review setup --update',
+            'peer-review setup --update --json',
           ]
         : []),
       ...(command === 'start'
@@ -1114,7 +1116,7 @@ function topic(command) {
       command === 'build'
         ? 'none (text result)'
         : command === 'setup'
-          ? 'ai-peer-review.setup-result/v1 (apply); dry-run is text'
+          ? 'ai-peer-review.setup-result/v1 (apply with --json); ai-peer-review.setup-plan/v1 (dry-run with --json)'
           : command === 'launch-reviewer'
             ? 'ai-peer-review.claude-launch-result/v1'
             : command === 'broker'

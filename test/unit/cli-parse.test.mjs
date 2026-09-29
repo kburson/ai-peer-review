@@ -588,6 +588,7 @@ test('request-grant maps only action-owned fields to canonical snake case', () =
 
 test('setup --update parses as a project upgrade request', () => {
   assert.equal(parseCommand(['setup', '--update']).options.update, true);
+  assert.equal(parseCommand(['setup', '--update', '--json']).options.json, true);
 });
 
 test('top-level and command help normalize to the help command', () => {
