@@ -259,11 +259,13 @@ test('broker review launches through its verified pinned image inside the projec
     verifyImage: () => true,
   };
   const contract = buildClaudeReviewerLaunch(input);
-  assert.ok(claudeJoinCommand(contract).includes(nodeExecutable));
-  assert.ok(claudeJoinCommand(contract).includes(entrypoint));
+  const commandNode = nodeExecutable.replaceAll('\\', '/');
+  const commandEntrypoint = entrypoint.replaceAll('\\', '/');
+  assert.ok(claudeJoinCommand(contract).includes(commandNode));
+  assert.ok(claudeJoinCommand(contract).includes(commandEntrypoint));
   assert.ok(claudeJoinCommand(contract).includes(' join '));
-  assert.ok(contract.submit_command.includes(nodeExecutable));
-  assert.ok(contract.submit_command.includes(entrypoint));
+  assert.ok(contract.submit_command.includes(commandNode));
+  assert.ok(contract.submit_command.includes(commandEntrypoint));
   assert.ok(contract.submit_command.includes(' submit '));
   assert.equal(contract.permissions.allow[3], `Bash(${claudeJoinCommand(contract)})`);
   assert.throws(() => buildClaudeReviewerLaunch({ ...input, verifyImage: () => false }), {
