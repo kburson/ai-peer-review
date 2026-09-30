@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
+import cliResultSchema from '../../schemas/cli-result-v1.json' with { type: 'json' };
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 import { productionProviderAdapters } from '../providers/registry.mjs';
 import { inspectReviewAuthority, statusReview } from '../protocol/service.mjs';
@@ -47,7 +48,7 @@ function recoveryAdapter(registration) {
       );
       mkdirSync(root, { recursive: true, mode: 0o700 });
       const file = path.join(root, `${registration.review_id}.json`);
-      const value = `${JSON.stringify({
+      const observation = {
         schema: 'ai-peer-review.broker-recovery/v1',
         review_id: registration.review_id,
         project_digest: registration.project_digest,
@@ -55,12 +56,34 @@ function recoveryAdapter(registration) {
         request_digest: registration.request_digest,
         runtime_digest: registration.runtime.digest,
         protocol_state: status?.state ?? null,
-      })}\n`;
+      };
       if (existsSync(file)) {
-        if (readFileSync(file, 'utf8') !== value) throw failure('Recovery evidence conflicts.');
+        let prior;
+        let bytes;
+        try {
+          bytes = readFileSync(file, 'utf8');
+          prior = JSON.parse(bytes);
+        } catch {
+          throw failure('Recovery evidence conflicts.');
+        }
+        if (
+          !prior ||
+          typeof prior !== 'object' ||
+          Array.isArray(prior) ||
+          `${JSON.stringify(prior)}\n` !== bytes ||
+          Object.keys(prior).sort().join('\n') !== Object.keys(observation).sort().join('\n') ||
+          (prior.protocol_state !== null &&
+            !cliResultSchema.$defs.state.enum.includes(prior.protocol_state)) ||
+          Object.entries(observation).some(
+            ([key, value]) => key !== 'protocol_state' && prior[key] !== value
+          )
+        )
+          throw failure('Recovery evidence conflicts.');
+        // The first protocol state is historical. Event authority may progress
+        // while recovery identity and these original bytes stay fixed.
         return;
       }
-      writeFileSync(file, value, { flag: 'wx', mode: 0o600 });
+      writeFileSync(file, `${JSON.stringify(observation)}\n`, { flag: 'wx', mode: 0o600 });
     },
     async close() {},
   });

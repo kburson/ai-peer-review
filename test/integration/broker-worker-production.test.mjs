@@ -6,6 +6,7 @@ import { createProviderBridge } from '../../src/broker/provider-bridge.mjs';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
 import { createProductionReviewWorker } from '../../src/broker/worker-factory.mjs';
 import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { recoveryWorkerFixture } from '../helpers/recovery-worker-fixture.mjs';
 
 const AUTHOR = `sha256:${'a'.repeat(64)}`;
 const REVIEWER = `sha256:${'b'.repeat(64)}`;
@@ -760,4 +761,85 @@ test('suspension during read-only launch reconciliation cannot start a coordinat
   complete();
   assert.equal(await starting, 'recovery-only');
   assert.equal(starts, 0);
+});
+
+for (const state of [
+  'reviewer-turn',
+  'author-revision',
+  'intervention-required',
+  'awaiting-phase-artifact',
+]) {
+  test(`recovery snapshot preserves historical bytes after progression to ${state}`, async (t) => {
+    const f = recoveryWorkerFixture(t);
+    const first = await f.makeWorker();
+    await first.start();
+    await first.suspend();
+    await first.close();
+    const original = f.bytes();
+    f.setState(state);
+    const restored = await f.makeWorker();
+    assert.equal(await restored.start(), 'recovery-only');
+    await restored.suspend();
+    await restored.close();
+    assert.equal(f.bytes(), original);
+  });
+}
+
+for (const field of [
+  'review_id',
+  'project_digest',
+  'workspace',
+  'request_digest',
+  'runtime_digest',
+]) {
+  test(`recovery snapshot refuses conflicting immutable ${field}`, async (t) => {
+    const f = recoveryWorkerFixture(t);
+    const first = await f.makeWorker();
+    await first.start();
+    await first.suspend();
+    await first.close();
+    const corrupted = JSON.parse(f.bytes());
+    corrupted[field] += '-conflict';
+    const original = JSON.stringify(corrupted) + '\n';
+    f.write(original);
+    const restored = await f.makeWorker();
+    await restored.start();
+    await assert.rejects(restored.suspend(), { code: 'APR_BROKER_START_FAILED' });
+    assert.equal(f.bytes(), original);
+  });
+}
+
+for (const corrupt of [
+  () => '{',
+  (v) => JSON.stringify({ ...v, unknown: true }) + '\n',
+  (v) => JSON.stringify({ ...v, protocol_state: 42 }) + '\n',
+  (v) => JSON.stringify({ ...v, schema: 'unknown' }) + '\n',
+]) {
+  test('recovery snapshot refuses malformed historical evidence without rewriting it', async (t) => {
+    const f = recoveryWorkerFixture(t);
+    const first = await f.makeWorker();
+    await first.start();
+    await first.suspend();
+    await first.close();
+    const original = corrupt(JSON.parse(f.bytes()));
+    f.write(original);
+    const restored = await f.makeWorker();
+    await restored.start();
+    await assert.rejects(restored.suspend(), { code: 'APR_BROKER_START_FAILED' });
+    assert.equal(f.bytes(), original);
+  });
+}
+
+test('recovery snapshot rejects duplicate identity fields even when the last value matches', async (t) => {
+  const f = recoveryWorkerFixture(t);
+  const first = await f.makeWorker();
+  await first.start();
+  await first.suspend();
+  await first.close();
+  const original = '{"review_id":"conflicting-review",' + f.bytes().slice(1);
+  f.write(original);
+  const restored = await f.makeWorker();
+  await restored.start();
+  await assert.rejects(restored.suspend(), { code: 'APR_BROKER_START_FAILED' });
+  assert.equal(f.bytes(), original);
 });

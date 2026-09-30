@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createAuthenticatedBrokerServer, runBroker } from '../../src/broker/service.mjs';
 import { encodeFrame } from '../../src/broker/ipc.mjs';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
+import { recoveryWorkerFixture } from '../helpers/recovery-worker-fixture.mjs';
 
 function fakeClock() {
   let now = 0;
@@ -825,4 +826,41 @@ test('autonomous worker terminal progress starts the broker idle deadline', asyn
   await clock.advance(1);
   await running;
   assert.equal(exited, true);
+});
+
+test('recovery snapshot progression does not block broker readiness or launch providers', async (t) => {
+  const f = recoveryWorkerFixture(t);
+  const first = await f.makeWorker();
+  await first.start();
+  await first.suspend();
+  await first.close();
+  const original = f.bytes();
+  f.setState('reviewer-turn');
+  const clock = fakeClock();
+  const server = fakeServer();
+  let published = false;
+  const worker = await f.makeWorker(clock);
+  const input = brokerInput({
+    clock,
+    server,
+    registrations: [f.registration],
+    workers: new Map([[f.registration.review_id, worker]]),
+  });
+  input.identity = {
+    digest: f.registration.project_digest,
+    physicalRoot: f.registration.project_root,
+  };
+  input.owner = {
+    publish() {
+      published = true;
+    },
+    release() {},
+  };
+  const running = runBroker(input);
+  await Promise.race([server.ready, running]);
+  assert.equal(published, true);
+  assert.equal((await server.request({ id: 'status', command: 'status' })).reviews, 0);
+  assert.equal(f.bytes(), original);
+  await clock.advance(60_000);
+  await running;
 });
