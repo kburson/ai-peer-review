@@ -956,13 +956,16 @@ export async function runClaudeReviewerLaunch({
       !Number.isSafeInteger(turn) ||
       turn < 1 ||
       !current ||
-      contract.response !== expected ||
+      !sameResolvedPath(contract.repository_root, contract.response, expected) ||
       !previous ||
       previous[1] !== current[1] ||
       Number(previous[2]) < 1 ||
       Number(previous[2]) > turn ||
-      priorState.response !==
+      !sameResolvedPath(
+        contract.repository_root,
+        priorState.response,
         path.join(path.dirname(contract.response), `${previous[1]}${previous[2]}.md`)
+      )
     ) {
       throw sessionError(
         'Claude resume response does not match current reviewer authority.',

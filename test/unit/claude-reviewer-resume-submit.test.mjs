@@ -46,7 +46,9 @@ function replaceSection(file, heading, content) {
 }
 
 async function preparedTurnTwo(t) {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'apr-claude-turn-two-')));
+  const rootInput = mkdtempSync(path.join(tmpdir(), 'apr-claude-turn-two-'));
+  const root = realpathSync.native(rootInput);
+  const recordedRoot = realpathSync(rootInput);
   t.after(() => rmSync(root, { recursive: true, force: true }));
   git(root, ['init', '-b', 'trunk']);
   git(root, ['config', 'user.email', 'test@example.com']);
@@ -141,7 +143,15 @@ async function preparedTurnTwo(t) {
   });
   const pending = statusReview(workspace).paths.response;
   assert.match(pending, /reviewer-response-2\.md$/u);
-  return { root, workspace, invitation, firstResponse: joined.paths.response, pending, reviewer };
+  return {
+    root,
+    recordedRoot,
+    workspace,
+    invitation,
+    firstResponse: joined.paths.response,
+    pending,
+    reviewer,
+  };
 }
 
 function fillSecondReviewerResponse(file) {
@@ -170,6 +180,21 @@ test('resumed Claude launch targets only the event-authorized second reviewer re
     }),
   });
 
+  const alias = path.join(path.dirname(fx.contract.repository_root), 'response-root-alias');
+  symlinkSync(
+    fx.contract.repository_root,
+    alias,
+    process.platform === 'win32' ? 'junction' : 'dir'
+  );
+  const priorState = JSON.parse(readFileSync(fx.stateFile, 'utf8'));
+  writeFileSync(
+    fx.stateFile,
+    JSON.stringify({
+      ...priorState,
+      response: path.join(alias, path.relative(fx.contract.repository_root, priorState.response)),
+    })
+  );
+
   const pending = path.join(path.dirname(fx.contract.response), 'reviewer-response-2.md');
   const resumed = buildClaudeReviewerResume({
     repositoryRoot: fx.contract.repository_root,
@@ -192,6 +217,23 @@ test('resumed Claude launch targets only the event-authorized second reviewer re
 
   const turnTwo = launchAuthority({ sequence: 7, revision: 4 });
   turnTwo.state.protocol.turns_used = 1;
+  const aliasedState = readFileSync(fx.stateFile, 'utf8');
+  for (const response of [
+    path.join(fx.contract.repository_root, 'other', path.basename(priorState.response)),
+    path.join(path.dirname(fx.contract.repository_root), path.basename(priorState.response)),
+  ]) {
+    writeFileSync(fx.stateFile, JSON.stringify({ ...priorState, response }));
+    await assert.rejects(
+      runClaudeReviewerLaunch({
+        contract: resumed,
+        resume: true,
+        inspectAuthority: () => turnTwo,
+        execFile: async () => assert.fail('Invalid response must be refused before dispatch'),
+      }),
+      { code: 'APR_CLAUDE_SESSION_INVALID' }
+    );
+  }
+  writeFileSync(fx.stateFile, aliasedState);
   const authorities = [turnTwo, turnTwo];
   const outcome = await runClaudeReviewerLaunch({
     contract: resumed,
@@ -284,8 +326,8 @@ test('launch-reviewer --resume reads the current pending response from protocol 
     `${JSON.stringify({
       schema: 'ai-peer-review.claude-launch-state/v1',
       review_id: originalContract.review_id,
-      invitation: originalContract.invitation,
-      response: path.join(path.dirname(originalContract.response), path.basename(fx.firstResponse)),
+      invitation: path.join(fx.recordedRoot, path.relative(fx.root, originalContract.invitation)),
+      response: path.join(fx.recordedRoot, path.relative(fx.root, fx.firstResponse)),
       model: 'claude-opus-5',
       effort: 'high',
       session_handle: 'turn-two-reviewer',
