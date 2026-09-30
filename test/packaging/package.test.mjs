@@ -120,6 +120,7 @@ test('published tarball is closed and exact-pins its audited production dependen
   assert.deepEqual(packageJson.dependencies ?? {}, {
     '@modelcontextprotocol/sdk': '1.30.0',
     'node-gyp': '12.4.0',
+    prettier: '3.8.3',
     zod: '4.6.2',
   });
   const dependencyTree = JSON.parse(
@@ -135,10 +136,12 @@ test('published tarball is closed and exact-pins its audited production dependen
   assert.deepEqual(installedProductionDependencies, [
     '@modelcontextprotocol/sdk',
     'node-gyp',
+    'prettier',
     'zod',
   ]);
   assert.equal(dependencyTree.dependencies['@modelcontextprotocol/sdk'].version, '1.30.0');
   assert.equal(dependencyTree.dependencies['node-gyp'].version, '12.4.0');
+  assert.equal(dependencyTree.dependencies.prettier.version, '3.8.3');
   assert.equal(dependencyTree.dependencies.zod.version, '4.6.2');
 });
 
