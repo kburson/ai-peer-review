@@ -37,7 +37,7 @@ test(
 );
 
 test(
-  'a configured model cannot substitute for current provider evidence',
+  'manual Claude join takes its requested model from sealed intent, not project config',
   { concurrency: false },
   async (t) => {
     await exerciseMissingChildModelCli(t, { configured: true });
@@ -45,7 +45,7 @@ test(
 );
 
 test(
-  'child join refuses missing model and configuration at the CLI boundary',
+  'manual Claude child joins with a session handle and sealed requested model',
   { concurrency: false },
   async (t) => {
     await exerciseMissingChildModelCli(t);
@@ -169,7 +169,7 @@ function replaceSection(file, heading, content) {
   writeFileSync(file, source.replace(pattern, `$1${content}`));
 }
 
-test('doctor uses the current Claude model even when project config names another model', async (t) => {
+test('doctor reports Claude session readiness without relying on project model config', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
 
@@ -182,25 +182,24 @@ test('doctor uses the current Claude model even when project config names anothe
 
   assert.equal(result.code, 0, JSON.stringify(result.stderr));
   const source = result.stdout.rows.find((row) => row.id === 'identity-source');
-  assert.equal(source.status, 'runtime');
-  assert.equal(result.stdout.input.identity.model_id, 'claude-opus-5-5');
+  assert.equal(source.status, 'session-handle');
+  assert.equal(result.stdout.input.identity.model_id, undefined);
   assert.equal(
     result.stdout.input.identity.session_fingerprint,
     fingerprintSession('anthropic', 'claude-session')
   );
 });
 
-test('doctor gives exact recovery when Claude runtime model metadata is absent', async (t) => {
+test('doctor remains ready when Claude runtime model metadata is absent', async (t) => {
   const fx = fixture({ configured: false });
   t.after(fx.cleanup);
 
   const result = await runJson(['doctor', '--mode', 'manual'], fx.root, 'claude-session');
 
-  assert.equal(result.code, 1);
+  assert.equal(result.code, 0);
   const source = result.stdout.rows.find((row) => row.id === 'identity-source');
-  assert.equal(source.status, 'unavailable');
-  assert.match(source.details.recovery, /provider hook/);
-  assert.match(source.details.recovery, /current model/);
+  assert.equal(source.status, 'session-handle');
+  assert.equal(source.details, null);
 });
 
 test('workflow uses runtime author and invocation-scoped manual reviewer identity', async (t) => {

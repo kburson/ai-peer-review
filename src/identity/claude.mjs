@@ -10,7 +10,8 @@ function resolveRuntime({ runtime = {}, env = {}, declaredModel = {} } = {}) {
   const modelDisplay = runtime.modelDisplay ?? env.CLAUDE_MODEL_DISPLAY ?? modelId;
   if ([sessionId, modelId, modelDisplay].every((value) => typeof value === 'string' && value)) {
     const sessionSource = runtimeSession ? 'official-runtime' : 'environment-declaration';
-    const modelSource = runtimeModel ? 'official-runtime' : 'environment-declaration';
+    const modelSource =
+      runtime.modelSource ?? (runtimeModel ? 'official-runtime' : 'environment-declaration');
     return {
       host: 'claude-code',
       provider: 'anthropic',
@@ -50,7 +51,7 @@ function identityRecovery({ runtime = {}, env = {} } = {}) {
   if (typeof sessionId !== 'string' || !sessionId) {
     return 'Run from a supported Claude Code session that exposes CLAUDE_CODE_SESSION_ID, then retry.';
   }
-  return 'Run the command through the Claude provider hook installed by peer-review setup --update so the current model is observed for this invocation.';
+  return 'For a new review, pass the run-scoped --author-model and --author-effort selection. For an existing review, resume its registered Claude session; a model hook is not required.';
 }
 
 export const claudeAdapter = Object.freeze({

@@ -418,14 +418,16 @@ export async function exerciseMissingChildModelCli(t, { configured = false } = {
     env: childEnv,
     adapters: fx.adapters,
   });
-  assert.equal(joined.code, 1);
-  assert.match(joined.stderr, /APR_IDENTITY_REQUIRED/);
-  assert.match(joined.stderr, /provider hook/);
-  assert.equal(statusReview(workspace).state, 'awaiting-reviewer');
+  assert.equal(joined.code, 0, joined.stderr);
   assert.equal(
-    JSON.parse(readFileSync(path.join(workspace, 'participants.json'), 'utf8')).reviewer,
-    null
+    statusReview(workspace, { now: new Date('2026-09-13T14:00:00.000Z') }).state,
+    'reviewer-turn'
   );
+  const reviewer = JSON.parse(
+    readFileSync(path.join(workspace, 'participants.json'), 'utf8')
+  ).reviewer;
+  assert.equal(reviewer.model_id, 'claude-opus-5');
+  assert.equal(reviewer.identity_source, 'declared');
 }
 
 export async function exerciseClaudeLaunchDiagnostics(

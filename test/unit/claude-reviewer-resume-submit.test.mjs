@@ -165,6 +165,8 @@ test('resumed Claude launch targets only the event-authorized second reviewer re
   const resumed = buildClaudeReviewerResume({
     repositoryRoot: fx.contract.repository_root,
     invitation: fx.contract.invitation,
+    model: 'claude-opus-5-5',
+    effort: 'medium',
     routing: {
       schema: 'ai-peer-review.invitation-routing/v1',
       review_id: fx.contract.review_id,
@@ -174,6 +176,8 @@ test('resumed Claude launch targets only the event-authorized second reviewer re
     },
   });
   assert.equal(resumed.response, pending);
+  assert.equal(resumed.model, 'claude-opus-5-5');
+  assert.equal(resumed.effort, 'medium');
   assert.ok(resumed.permissions.allow.some((rule) => rule.includes('reviewer-response-2.md')));
   assert.ok(resumed.permissions.allow.every((rule) => !rule.includes('reviewer-response-1.md')));
 
@@ -191,6 +195,7 @@ test('resumed Claude launch targets only the event-authorized second reviewer re
   });
   assert.equal(outcome.response, pending);
   assert.equal(JSON.parse(readFileSync(fx.stateFile, 'utf8')).response, pending);
+  assert.equal(JSON.parse(readFileSync(fx.stateFile, 'utf8')).model, 'claude-opus-5-5');
 });
 
 test('launch-reviewer --resume reads the current pending response from protocol authority', async (t) => {
@@ -211,10 +216,83 @@ test('launch-reviewer --resume reads the current pending response from protocol 
       protocol_revision: 2,
     })}\n`
   );
+  const observations = path.join(fx.workspace, 'provider', 'claude', 'observations');
+  mkdirSync(observations, { recursive: true });
+  writeFileSync(path.join(observations, 'join:review-turn-two.json'), '{}\n');
+  const stateBeforeRefusal = readFileSync(stateFile, 'utf8');
+  const ambiguousContract = buildClaudeReviewerResume({
+    repositoryRoot: fx.root,
+    invitation: fx.invitation,
+    routing: {
+      schema: 'ai-peer-review.invitation-routing/v1',
+      review_id: 'review-turn-two',
+      artifact: path.join(fx.root, 'docs', 'artifact.md'),
+      workspace: fx.workspace,
+      response: fx.pending,
+    },
+    model: 'claude-unavailable',
+    effort: 'high',
+  });
+  const ambiguous = await runClaudeReviewerLaunch({
+    contract: ambiguousContract,
+    resume: true,
+    execFile: async () => ({
+      exit_code: 1,
+      stdout: JSON.stringify({ session_id: 'turn-two-reviewer' }),
+      stderr: '',
+    }),
+  });
+  assert.equal(ambiguous.status, 'failed');
+  assert.equal(readFileSync(stateFile, 'utf8'), stateBeforeRefusal);
+  let refusalError = '';
+  const refused = await run(
+    [
+      'launch-reviewer',
+      fx.invitation,
+      '--host',
+      'claude',
+      '--resume',
+      '--model',
+      'claude-unavailable',
+      '--json',
+    ],
+    {
+      cwd: fx.root,
+      env: {},
+      now: new Date('2026-09-17T12:03:00.000Z'),
+      stdout: { write: () => {} },
+      stderr: { write: (value) => (refusalError += value) },
+      execFile: async () => ({
+        exit_code: 1,
+        stdout: JSON.stringify({ error: { code: 'model_not_found' } }),
+        stderr: '',
+      }),
+    }
+  );
+  assert.equal(refused, 1);
+  assert.equal(JSON.parse(refusalError).code, 'APR_REVIEWER_SELECTION_REFUSED');
+  assert.equal(readFileSync(stateFile, 'utf8'), stateBeforeRefusal);
+  assert.equal(
+    JSON.parse(
+      readFileSync(path.join(fx.workspace, 'manual-launch-history.json'), 'utf8')
+    ).operations.at(-1).status,
+    'not-submitted'
+  );
   let stdout = '';
   let stderr = '';
   const code = await run(
-    ['launch-reviewer', fx.invitation, '--host', 'claude', '--resume', '--json'],
+    [
+      'launch-reviewer',
+      fx.invitation,
+      '--host',
+      'claude',
+      '--resume',
+      '--model',
+      'claude-opus-5-5',
+      '--effort',
+      'medium',
+      '--json',
+    ],
     {
       cwd: fx.root,
       env: {},
@@ -222,6 +300,8 @@ test('launch-reviewer --resume reads the current pending response from protocol 
       stdout: { write: (value) => (stdout += value) },
       stderr: { write: (value) => (stderr += value) },
       execFile: async (_file, args) => {
+        assert.equal(args[args.indexOf('--model') + 1], 'claude-opus-5-5');
+        assert.equal(args[args.indexOf('--effort') + 1], 'medium');
         const prompt = args[args.indexOf('-p') + 1];
         assert.ok(prompt.includes(fx.pending));
         assert.ok(!prompt.includes('Run exactly:'));
@@ -232,8 +312,8 @@ test('launch-reviewer --resume reads the current pending response from protocol 
           cwd: fx.root,
           env: {
             CLAUDE_CODE_SESSION_ID: 'turn-two-reviewer',
-            CLAUDE_MODEL_ID: 'claude-opus-5',
-            CLAUDE_MODEL_DISPLAY: 'Claude Opus 5',
+            CLAUDE_MODEL_ID: 'claude-opus-5-5',
+            CLAUDE_MODEL_DISPLAY: 'Claude Opus 5.5',
           },
           now: new Date('2026-09-17T12:03:00.000Z'),
           stdout: { write: () => {} },
@@ -248,6 +328,8 @@ test('launch-reviewer --resume reads the current pending response from protocol 
   assert.equal(JSON.parse(stdout).response, fx.pending);
   assert.equal(JSON.parse(stdout).status, 'submitted');
   assert.equal(JSON.parse(readFileSync(stateFile, 'utf8')).response, fx.pending);
+  assert.equal(JSON.parse(readFileSync(stateFile, 'utf8')).model, 'claude-opus-5-5');
+  assert.equal(JSON.parse(readFileSync(stateFile, 'utf8')).effort, 'medium');
 });
 
 for (const ambientModels of [true, false]) {

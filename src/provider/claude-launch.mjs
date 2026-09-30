@@ -671,11 +671,17 @@ export function classifyClaudeReviewerOutcome({
     decision && expectedSessionFingerprint === current.reviewer.session_fingerprint
   );
   const denied = deniedExactResponse(providerResult, contract.response);
+  const unchangedRegisteredResume = Boolean(
+    resumeAvailable &&
+    prior.reviewer &&
+    current.reviewer &&
+    prior.reviewer.session_fingerprint === current.reviewer.session_fingerprint &&
+    expectedSessionFingerprint === current.reviewer.session_fingerprint
+  );
   if (
     !decision &&
     !denied &&
-    !prior.reviewer &&
-    !current.reviewer &&
+    ((!prior.reviewer && !current.reviewer) || unchangedRegisteredResume) &&
     prior.protocol.sequence === current.protocol.sequence &&
     prior.protocol.revision === current.protocol.revision &&
     providerResult?.selection_refusal &&
@@ -686,8 +692,9 @@ export function classifyClaudeReviewerOutcome({
       'APR_REVIEWER_SELECTION_REFUSED',
       `Claude explicitly rejected the requested ${providerResult.selection_refusal}.`,
       {
-        recovery:
-          'Open the installed Claude app and inspect /model and /effort, then start a new review with their exact supported identifiers.',
+        recovery: unchangedRegisteredResume
+          ? 'Open the installed Claude app and inspect /model and /effort, then retry this same reviewer session with supported identifiers.'
+          : 'Open the installed Claude app and inspect /model and /effort, then start a new review with their exact supported identifiers.',
         details: {
           provider: 'claude',
           model: contract.model,
@@ -773,7 +780,7 @@ function sessionError(message, recovery) {
 function readLaunchState(
   contract,
   fingerprintSession = defaultFingerprintSession,
-  { allowPriorResponse = false } = {}
+  { allowPriorResponse = false, allowSelectionChange = false } = {}
 ) {
   const file = launchStatePath(contract);
   let value;
@@ -792,8 +799,7 @@ function readLaunchState(
   const expected = {
     review_id: contract.review_id,
     invitation: contract.invitation,
-    model: contract.model,
-    effort: contract.effort,
+    ...(allowSelectionChange ? {} : { model: contract.model, effort: contract.effort }),
   };
   if (
     value?.schema !== 'ai-peer-review.claude-launch-state/v1' ||
@@ -821,6 +827,8 @@ export function buildClaudeReviewerResume({
   invitation,
   routing,
   runtimeImage,
+  model,
+  effort,
 } = {}) {
   let physicalRoot;
   try {
@@ -855,11 +863,14 @@ export function buildClaudeReviewerResume({
     repositoryRoot: physicalRoot,
     invitation,
     routing,
-    model: state?.model,
-    effort: state?.effort,
+    model: model ?? state?.model,
+    effort: effort ?? state?.effort,
     runtimeImage,
   });
-  readLaunchState(contract, defaultFingerprintSession, { allowPriorResponse: true });
+  readLaunchState(contract, defaultFingerprintSession, {
+    allowPriorResponse: true,
+    allowSelectionChange: true,
+  });
   return contract;
 }
 
@@ -885,7 +896,10 @@ export async function runClaudeReviewerLaunch({
     throw resultError('Claude pre-launch authority does not match the launch contract.');
   }
   const priorState = resume
-    ? readLaunchState(contract, fingerprintSession, { allowPriorResponse: true })
+    ? readLaunchState(contract, fingerprintSession, {
+        allowPriorResponse: true,
+        allowSelectionChange: true,
+      })
     : null;
   if (priorState && Number.isSafeInteger(prior.protocol.turns_used)) {
     const turn = prior.protocol.turns_used + 1;
@@ -1008,7 +1022,14 @@ export async function runClaudeReviewerLaunch({
   };
   const first = classifyClaudeReviewerOutcome(outcomeInput);
   let resumeAvailable = Boolean(priorState);
-  if (providerResult.output_valid && sessionHandle) {
+  if (
+    providerResult.output_valid &&
+    providerResult.session_id_present &&
+    !providerResult.provider_failed &&
+    !providerResult.interrupted &&
+    ([null, 0].includes(providerResult.exit_code) || first.status === 'permission-blocked') &&
+    sessionHandle
+  ) {
     atomicWrite(
       launchStatePath(contract),
       `${JSON.stringify(

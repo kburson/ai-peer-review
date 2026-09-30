@@ -34,25 +34,6 @@ const OFFICIAL_RESUME = Object.freeze({
   claude: ['claude', '--resume'],
   grok: ['grok', 'resume'],
 });
-const AUTOMATIC_ADAPTER = Object.freeze({
-  codex: Object.freeze({
-    adapter_version: '2.0.0',
-    capability: 'live-wait',
-    server_command: Object.freeze(['peer-review-mcp']),
-    tool_timeout_ms: 28_800_000,
-    heartbeat_interval_ms: 15_000,
-    lease_ttl_ms: 60_000,
-  }),
-  claude: Object.freeze({
-    adapter_version: '2.0.0',
-    capability: 'live-wait',
-    server_command: Object.freeze(['peer-review-mcp']),
-    tool_timeout_ms: 28_800_000,
-    heartbeat_interval_ms: 15_000,
-    lease_ttl_ms: 60_000,
-  }),
-});
-
 function fail(code, message, recovery, details = {}) {
   throw new AprError(code, message, { recovery, details });
 }
@@ -270,10 +251,9 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
       ownedResume.add(agent);
     }
     for (const agent of agents) {
-      if (!AUTOMATIC_ADAPTER[agent] || result.hosts[agent]?.automatic) continue;
-      result.hosts[agent] ??= {};
-      result.hosts[agent].automatic = clone(AUTOMATIC_ADAPTER[agent]);
-      ownedAutomatic.add(agent);
+      if (!ownedAutomatic.has(agent)) continue;
+      if (result.hosts[agent]?.automatic) delete result.hosts[agent].automatic;
+      ownedAutomatic.delete(agent);
     }
   }
   if (Object.keys(result.hosts).length === 0) delete result.hosts;
@@ -392,7 +372,9 @@ export function setup(options = {}) {
     const hookResult = startHookOperation({
       root,
       host,
-      remove,
+      // Selection is negotiated at session startup; upgrade removes old
+      // package-owned model hooks and never installs new ones.
+      remove: true,
       ownership: current.ai_peer_review,
     });
     if (current.ai_peer_review && current.ai_peer_review.owner !== 'ai-peer-review') {
@@ -411,12 +393,8 @@ export function setup(options = {}) {
           adapter_version: '2.0.0',
           reviewer_guard: { installed: false, enforcement: 'advisory' },
           resume_adapter: host !== 'generic',
-          transport: nextConfig.setup?.automatic_adapters_added.includes(host)
-            ? 'live-wait'
-            : 'manual',
-          mcp: nextConfig.setup?.automatic_adapters_added.includes(host)
-            ? clone(AUTOMATIC_ADAPTER[host])
-            : null,
+          transport: nextConfig.hosts?.[host]?.automatic?.capability ?? 'manual',
+          mcp: clone(nextConfig.hosts?.[host]?.automatic ?? null),
           config_created: current.ai_peer_review?.config_created ?? !adapterExists,
           skill_created:
             current.ai_peer_review?.skill_created ??

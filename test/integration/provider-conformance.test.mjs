@@ -507,7 +507,7 @@ test('Codex code-mode hook binds the documented local CLI script start spelling'
   );
 });
 
-test('Codex missing current-model evidence names host hook activation recovery', () => {
+test('Codex missing startup model evidence names run-scoped author selection recovery', () => {
   assert.throws(
     () =>
       resolveIdentity({
@@ -517,9 +517,8 @@ test('Codex missing current-model evidence names host hook activation recovery',
       }),
     (error) =>
       error.code === 'APR_IDENTITY_REQUIRED' &&
-      /Codex.*hook.*active/i.test(error.recovery) &&
-      /linked worktree/i.test(error.recovery) &&
-      /doctor --mode installation/i.test(error.recovery)
+      /--author-model/.test(error.recovery) &&
+      /model hook is not required/i.test(error.recovery)
   );
 });
 
