@@ -836,7 +836,7 @@ test('recovery snapshot rejects duplicate identity fields even when the last val
   await first.start();
   await first.suspend();
   await first.close();
-  const original = f.bytes().replace('{', '{"review_id":"conflicting-review",');
+  const original = '{"review_id":"conflicting-review",' + f.bytes().slice(1);
   f.write(original);
   const restored = await f.makeWorker();
   await restored.start();
