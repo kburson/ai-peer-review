@@ -8,6 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { AprError } from '../errors.mjs';
 import { configPaths, validateConfig } from './load.mjs';
 import { installedPackageIdentity } from './installation-identity.mjs';
+
+const PRETTIER_CLI = createRequire(import.meta.url).resolve('prettier/bin/prettier.cjs');
 
 const HOST_DIR = Object.freeze({
   codex: '.codex',
@@ -59,6 +62,29 @@ function fail(code, message, recovery, details = {}) {
 
 function stable(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function formatJson(value, file) {
+  try {
+    return execFileSync(
+      process.execPath,
+      [PRETTIER_CLI, '--parser', 'json', '--stdin-filepath', file, '--ignore-path', os.devNull],
+      {
+        input: stable(value),
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        maxBuffer: 4 * 1024 * 1024,
+        timeout: 30_000,
+      }
+    );
+  } catch (cause) {
+    fail(
+      'APR_SETUP_INVALID',
+      'Setup JSON formatting failed.',
+      'Repair the destination Prettier configuration, then retry setup.',
+      { file, reason: String(cause.stderr ?? cause.message).trim() }
+    );
+  }
 }
 
 function clone(value) {
@@ -119,8 +145,10 @@ function atomicWrite(file, contents) {
 }
 
 function operation(file, before, after, owner) {
-  const beforeText = before === null ? null : typeof before === 'string' ? before : stable(before);
-  const afterText = after === null ? null : typeof after === 'string' ? after : stable(after);
+  const beforeText =
+    before === null ? null : typeof before === 'string' ? before : readFileSync(file, 'utf8');
+  const afterText =
+    after === null ? null : typeof after === 'string' ? after : formatJson(after, file);
   return Object.freeze({
     file,
     owner,
@@ -342,17 +370,16 @@ export function setup(options = {}) {
     scratchRuleExists
   );
   validateConfig(nextConfig);
-  if (stable(currentConfig) !== stable(nextConfig)) {
-    const removeCreatedConfig =
-      remove && currentConfig.setup?.config_created && Object.keys(nextConfig).length === 1;
-    operations.push(
-      operation(
-        configFile,
-        configExists ? currentConfig : null,
-        removeCreatedConfig ? null : nextConfig,
-        'package-config'
-      )
-    );
+  const removeCreatedConfig =
+    remove && currentConfig.setup?.config_created && Object.keys(nextConfig).length === 1;
+  const configChanged = stable(currentConfig) !== stable(nextConfig);
+  const nextConfigText =
+    removeCreatedConfig || (!configExists && !configChanged)
+      ? null
+      : formatJson(nextConfig, configFile);
+  const currentConfigText = configExists ? readFileSync(configFile, 'utf8') : null;
+  if (configChanged || (configExists && currentConfigText !== nextConfigText)) {
+    operations.push(operation(configFile, currentConfigText, nextConfigText, 'package-config'));
   }
 
   const skillBytes = readFileSync(SKILL_SOURCE, 'utf8');

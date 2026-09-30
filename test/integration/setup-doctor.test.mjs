@@ -5,6 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { format, resolveConfig } from 'prettier';
 
 import { configPaths, loadConfig, validateConfig } from '../../src/config/load.mjs';
 import { planSetup, setup, updateSetup } from '../../src/config/setup.mjs';
@@ -913,4 +914,101 @@ test('setup-only project configuration keeps consensus startup and resume diagno
   assert.equal(started.review.authority.authority_policy, 'unavailable');
   assert.equal(started.review.max_turns, 4);
   assert.match(started.paths.reviewer_invitation, /docs[\\/]custom-reviews/);
+});
+
+function formattingOptions(files) {
+  return {
+    scope: 'project',
+    agents: ['codex', 'claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+}
+
+async function expectedJson(file, contents) {
+  return format(contents, { ...(await resolveConfig(file)), parser: 'json', filepath: file });
+}
+
+test('setup JSON formatting matches Prettier for every generated JSON file', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = formattingOptions(files);
+  const preview = setup({ ...options, dryRun: true });
+  setup(options);
+  for (const entry of preview.operations.filter((entry) => entry.file.endsWith('.json'))) {
+    const contents = readFileSync(entry.file, 'utf8');
+    assert.equal(contents, await expectedJson(entry.file, contents));
+    if (entry.owner === 'package-config') assert.ok(preview.diff.includes(contents));
+  }
+  assert.match(
+    readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8'),
+    /"command": \["claude", "--resume"\]/
+  );
+  assert.equal(setup(options).changed, false);
+});
+
+test('setup JSON formatting repairs existing bytes once with exact backup and project style', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = formattingOptions(files);
+  setup(options);
+  const file = path.join(files.project, '.ai-peer-review.json');
+  const config = JSON.parse(readFileSync(file, 'utf8'));
+  config.hosts.claude.resume.command.push('argument with "quotes" and \\ paths', 'x'.repeat(140));
+  writeFileSync(
+    path.join(files.project, '.prettierrc.json'),
+    JSON.stringify({ tabWidth: 4, printWidth: 60 })
+  );
+  const original = JSON.stringify(config, null, 2) + '\n';
+  writeFileSync(file, original);
+  const updateOptions = { ...options };
+  delete updateOptions.agents;
+  const preview = updateSetup({ ...updateOptions, dryRun: true });
+  assert.equal(preview.changed, true);
+  assert.equal(readFileSync(file, 'utf8'), original);
+  updateSetup(updateOptions);
+  const actual = readFileSync(file, 'utf8');
+  assert.equal(actual, await expectedJson(file, original));
+  assert.deepEqual(JSON.parse(actual), config);
+  assert.equal(readFileSync(file + '.bak', 'utf8'), original);
+  assert.equal(updateSetup(updateOptions).changed, false);
+});
+
+test('setup JSON formatting errors refuse before any setup mutation', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  writeFileSync(path.join(files.project, '.prettierrc.json'), '{');
+  assert.throws(() => setup(formattingOptions(files)), { code: 'APR_SETUP_INVALID' });
+  assert.equal(existsSync(path.join(files.project, '.ai-peer-review.json')), false);
+  assert.equal(existsSync(path.join(files.project, '.codex')), false);
+  assert.equal(existsSync(path.join(files.project, '.claude')), false);
+  assert.equal(readFileSync(files.exclude, 'utf8'), '# local excludes\n');
+});
+
+test('setup JSON formatting ignores caller ignore rules for explicitly authored JSON', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  writeFileSync(path.join(files.project, '.prettierignore'), '**/*.json\n');
+  writeFileSync(path.join(files.project, '.prettierrc.json'), JSON.stringify({ tabWidth: 4 }));
+  execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `import { setup } from ${JSON.stringify(new URL('../../src/config/setup.mjs', import.meta.url).href)}; setup(${JSON.stringify(formattingOptions(files))});`,
+    ],
+    { cwd: files.project }
+  );
+  const file = path.join(files.project, '.ai-peer-review.json');
+  const contents = readFileSync(file, 'utf8');
+  assert.equal(contents, await expectedJson(file, contents));
+});
+
+test('setup JSON formatting does not consult formatter for absent installation removal', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  writeFileSync(path.join(files.project, '.prettierrc.json'), '{');
+  assert.equal(setup({ ...formattingOptions(files), remove: true }).changed, false);
 });
