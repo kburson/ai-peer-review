@@ -1490,6 +1490,7 @@ test('CLI doctor reports the current provider adapter observation', async (t) =>
       ],
     ]),
     brokerSecurity: { healthy: true },
+    doctorContext: { skillAvailable: true },
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: () => {} },
   });
