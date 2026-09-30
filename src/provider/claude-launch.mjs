@@ -773,8 +773,16 @@ function launchStatePath(contract) {
   ).absolute;
 }
 
-function sessionError(message, recovery) {
-  return new AprError('APR_CLAUDE_SESSION_INVALID', message, { recovery });
+function sessionError(message, recovery, details = {}) {
+  return new AprError('APR_CLAUDE_SESSION_INVALID', message, { recovery, details });
+}
+
+function sameResolvedPath(left, right) {
+  return (
+    typeof left === 'string' &&
+    typeof right === 'string' &&
+    path.relative(path.resolve(left), path.resolve(right)) === ''
+  );
 }
 
 function readLaunchState(
@@ -796,27 +804,48 @@ function readLaunchState(
     error.cause = cause;
     throw error;
   }
-  const expected = {
-    review_id: contract.review_id,
-    invitation: contract.invitation,
-    ...(allowSelectionChange ? {} : { model: contract.model, effort: contract.effort }),
-  };
-  if (
-    value?.schema !== 'ai-peer-review.claude-launch-state/v1' ||
-    typeof value.session_handle !== 'string' ||
-    !/^[A-Za-z0-9._:-]+$/.test(value.session_handle) ||
-    !/^sha256:[0-9a-f]{64}$/.test(value.session_fingerprint ?? '') ||
-    value.session_fingerprint !== fingerprintSession('anthropic', value.session_handle) ||
-    !Number.isSafeInteger(value.protocol_revision) ||
-    value.protocol_revision < 0 ||
-    (allowPriorResponse
-      ? typeof value.response !== 'string'
-      : value.response !== contract.response) ||
-    Object.entries(expected).some(([key, selected]) => value[key] !== selected)
-  ) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw sessionError(
       'Claude resume state conflicts with the current launch contract.',
-      'Use the exact recorded invitation, model, effort, and reviewer session.'
+      'Use the exact recorded invitation, model, effort, and reviewer session.',
+      { mismatched_fields: ['schema'] }
+    );
+  }
+  const expected = {
+    review_id: contract.review_id,
+    ...(allowSelectionChange ? {} : { model: contract.model, effort: contract.effort }),
+  };
+  const mismatchedFields = [
+    [value?.schema !== 'ai-peer-review.claude-launch-state/v1', 'schema'],
+    [
+      typeof value.session_handle !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(value.session_handle),
+      'session_handle',
+    ],
+    [
+      !/^sha256:[0-9a-f]{64}$/.test(value.session_fingerprint ?? '') ||
+        value.session_fingerprint !== fingerprintSession('anthropic', value.session_handle),
+      'session_fingerprint',
+    ],
+    [
+      !Number.isSafeInteger(value.protocol_revision) || value.protocol_revision < 0,
+      'protocol_revision',
+    ],
+    [!sameResolvedPath(value.invitation, contract.invitation), 'invitation'],
+    [
+      allowPriorResponse
+        ? typeof value.response !== 'string'
+        : !sameResolvedPath(value.response, contract.response),
+      'response',
+    ],
+    ...Object.entries(expected).map(([key, selected]) => [value[key] !== selected, key]),
+  ]
+    .filter(([invalid]) => invalid)
+    .map(([, field]) => field);
+  if (mismatchedFields.length > 0) {
+    throw sessionError(
+      'Claude resume state conflicts with the current launch contract.',
+      'Use the exact recorded invitation, model, effort, and reviewer session.',
+      { mismatched_fields: mismatchedFields }
     );
   }
   return Object.freeze({ ...value });
