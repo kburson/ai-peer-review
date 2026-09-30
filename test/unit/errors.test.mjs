@@ -18,6 +18,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   assert.deepEqual(packageJson.dependencies, {
     '@modelcontextprotocol/sdk': '1.30.0',
     'node-gyp': '12.4.0',
+    prettier: '3.8.3',
     zod: '4.6.2',
   });
   assert.deepEqual(packageJson.scripts, {
