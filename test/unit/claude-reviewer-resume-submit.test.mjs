@@ -223,7 +223,7 @@ test('launch-reviewer --resume reads the current pending response from protocol 
       schema: 'ai-peer-review.claude-launch-state/v1',
       review_id: originalContract.review_id,
       invitation: originalContract.invitation,
-      response: fx.firstResponse,
+      response: path.join(path.dirname(originalContract.response), path.basename(fx.firstResponse)),
       model: 'claude-opus-5',
       effort: 'high',
       session_handle: 'turn-two-reviewer',
