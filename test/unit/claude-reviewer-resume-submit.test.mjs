@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -197,6 +205,60 @@ test('resumed Claude launch targets only the event-authorized second reviewer re
   assert.equal(outcome.response, pending);
   assert.equal(JSON.parse(readFileSync(fx.stateFile, 'utf8')).response, pending);
   assert.equal(JSON.parse(readFileSync(fx.stateFile, 'utf8')).model, 'claude-opus-5-5');
+});
+
+test('Claude resume compares invitation aliases inside the physical repository and rejects another file', (t) => {
+  const fx = launchFixture(t);
+  const alias = path.join(path.dirname(fx.contract.repository_root), 'repository-alias');
+  symlinkSync(
+    fx.contract.repository_root,
+    alias,
+    process.platform === 'win32' ? 'junction' : 'dir'
+  );
+  mkdirSync(path.dirname(fx.stateFile), { recursive: true });
+  const state = {
+    schema: 'ai-peer-review.claude-launch-state/v1',
+    review_id: fx.contract.review_id,
+    invitation: path.join(
+      alias,
+      path.relative(fx.contract.repository_root, fx.contract.invitation)
+    ),
+    response: fx.contract.response,
+    model: fx.contract.model,
+    effort: fx.contract.effort,
+    session_handle: 'fixture-claude-session',
+    session_fingerprint: fingerprintSession('anthropic', 'fixture-claude-session'),
+    protocol_revision: 2,
+  };
+  const resume = () =>
+    buildClaudeReviewerResume({
+      repositoryRoot: fx.contract.repository_root,
+      invitation: fx.contract.invitation,
+      model: fx.contract.model,
+      effort: fx.contract.effort,
+      routing: {
+        schema: 'ai-peer-review.invitation-routing/v1',
+        review_id: fx.contract.review_id,
+        artifact: fx.contract.artifact,
+        workspace: fx.workspace,
+        response: fx.contract.response,
+      },
+    });
+  writeFileSync(fx.stateFile, JSON.stringify(state));
+  assert.doesNotThrow(resume);
+  const other = path.join(path.dirname(fx.contract.invitation), 'other-invitation.md');
+  writeFileSync(other, '# Different invitation\n');
+  const outside = path.join(path.dirname(fx.contract.repository_root), 'outside-invitation.md');
+  writeFileSync(outside, '# Outside invitation\n');
+  for (const invitation of [other, outside, `${other}.missing`]) {
+    writeFileSync(fx.stateFile, JSON.stringify({ ...state, invitation }));
+    assert.throws(
+      resume,
+      (error) =>
+        error.code === 'APR_CLAUDE_SESSION_INVALID' &&
+        error.details.mismatched_fields.includes('invitation')
+    );
+  }
 });
 
 test('launch-reviewer --resume reads the current pending response from protocol authority', async (t) => {

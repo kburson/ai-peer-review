@@ -777,12 +777,15 @@ function sessionError(message, recovery, details = {}) {
   return new AprError('APR_CLAUDE_SESSION_INVALID', message, { recovery, details });
 }
 
-function sameResolvedPath(left, right) {
-  return (
-    typeof left === 'string' &&
-    typeof right === 'string' &&
-    path.relative(path.resolve(left), path.resolve(right)) === ''
-  );
+function sameResolvedPath(root, left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
+  try {
+    const recorded = resolveContainedPath(root, left, 'Claude resume path').absolute;
+    const requested = resolveContainedPath(root, right, 'Claude resume path').absolute;
+    return path.relative(recorded, requested) === '';
+  } catch {
+    return false;
+  }
 }
 
 function readLaunchState(
@@ -830,11 +833,14 @@ function readLaunchState(
       !Number.isSafeInteger(value.protocol_revision) || value.protocol_revision < 0,
       'protocol_revision',
     ],
-    [!sameResolvedPath(value.invitation, contract.invitation), 'invitation'],
+    [
+      !sameResolvedPath(contract.repository_root, value.invitation, contract.invitation),
+      'invitation',
+    ],
     [
       allowPriorResponse
         ? typeof value.response !== 'string'
-        : !sameResolvedPath(value.response, contract.response),
+        : !sameResolvedPath(contract.repository_root, value.response, contract.response),
       'response',
     ],
     ...Object.entries(expected).map(([key, selected]) => [value[key] !== selected, key]),
