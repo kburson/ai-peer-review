@@ -211,7 +211,7 @@ test('manual Codex reviewer joins the sealed selection with a distinct session a
   assert.equal(startCode, 0, error);
   const reviewId = started.match(/^Review ([^:]+):/m)?.[1];
   const paths = resolveReviewPaths({
-    root: fx.root,
+    root: createGitRepository().root(fx.root),
     kind: 'spec',
     name: 'example',
     date: NOW.slice(0, 10),
