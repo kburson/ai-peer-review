@@ -8,6 +8,7 @@ import test from 'node:test';
 import { run } from '../../src/cli/run.mjs';
 import { fingerprintSession, participantIdentity } from '../../src/identity/registry.mjs';
 import {
+  buildClaudeReviewerLaunch,
   buildClaudeReviewerResume,
   runClaudeReviewerLaunch,
 } from '../../src/provider/claude-launch.mjs';
@@ -200,14 +201,28 @@ test('resumed Claude launch targets only the event-authorized second reviewer re
 
 test('launch-reviewer --resume reads the current pending response from protocol authority', async (t) => {
   const fx = await preparedTurnTwo(t);
+  const routing = {
+    schema: 'ai-peer-review.invitation-routing/v1',
+    review_id: 'review-turn-two',
+    artifact: path.join(fx.root, 'docs', 'artifact.md'),
+    workspace: fx.workspace,
+    response: fx.pending,
+  };
+  const originalContract = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.root,
+    invitation: fx.invitation,
+    routing,
+    model: 'claude-opus-5',
+    effort: 'high',
+  });
   const stateFile = path.join(fx.workspace, 'provider', 'claude', 'launch-state.json');
   mkdirSync(path.dirname(stateFile), { recursive: true });
   writeFileSync(
     stateFile,
     `${JSON.stringify({
       schema: 'ai-peer-review.claude-launch-state/v1',
-      review_id: 'review-turn-two',
-      invitation: fx.invitation,
+      review_id: originalContract.review_id,
+      invitation: originalContract.invitation,
       response: fx.firstResponse,
       model: 'claude-opus-5',
       effort: 'high',
@@ -223,13 +238,7 @@ test('launch-reviewer --resume reads the current pending response from protocol 
   const ambiguousContract = buildClaudeReviewerResume({
     repositoryRoot: fx.root,
     invitation: fx.invitation,
-    routing: {
-      schema: 'ai-peer-review.invitation-routing/v1',
-      review_id: 'review-turn-two',
-      artifact: path.join(fx.root, 'docs', 'artifact.md'),
-      workspace: fx.workspace,
-      response: fx.pending,
-    },
+    routing,
     model: 'claude-unavailable',
     effort: 'high',
   });
