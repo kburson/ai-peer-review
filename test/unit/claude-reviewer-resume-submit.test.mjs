@@ -279,7 +279,7 @@ test('launch-reviewer --resume reads the current pending response from protocol 
     }
   );
   assert.equal(refused, 1);
-  assert.equal(JSON.parse(refusalError).code, 'APR_REVIEWER_SELECTION_REFUSED');
+  assert.equal(JSON.parse(refusalError).code, 'APR_REVIEWER_SELECTION_REFUSED', refusalError);
   assert.equal(readFileSync(stateFile, 'utf8'), stateBeforeRefusal);
   assert.equal(
     JSON.parse(

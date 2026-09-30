@@ -5288,7 +5288,8 @@ export async function run(argv, io) {
         const current = statusReview(values.workspace, { now: io.now ?? new Date() });
         if (
           current.state !== 'reviewer-turn' ||
-          current.paths.invitation !== invitation ||
+          typeof current.paths.invitation !== 'string' ||
+          path.relative(path.resolve(current.paths.invitation), invitation) !== '' ||
           typeof current.paths.response !== 'string'
         ) {
           throw new AprError(
