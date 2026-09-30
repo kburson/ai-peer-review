@@ -845,7 +845,15 @@ function readLaunchState(
     throw sessionError(
       'Claude resume state conflicts with the current launch contract.',
       'Use the exact recorded invitation, model, effort, and reviewer session.',
-      { mismatched_fields: mismatchedFields }
+      {
+        mismatched_fields: mismatchedFields,
+        ...(mismatchedFields.includes('invitation')
+          ? {
+              recorded_invitation: String(value.invitation).slice(0, 500),
+              requested_invitation: String(contract.invitation).slice(0, 500),
+            }
+          : {}),
+      }
     );
   }
   return Object.freeze({ ...value });
