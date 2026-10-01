@@ -5,9 +5,10 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { format, resolveConfig } from 'prettier';
 
 import { configPaths, loadConfig, validateConfig } from '../../src/config/load.mjs';
-import { planSetup, setup } from '../../src/config/setup.mjs';
+import { planSetup, setup, updateSetup } from '../../src/config/setup.mjs';
 import { doctor } from '../../src/doctor.mjs';
 import { run, startReview } from '../../src/cli/run.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
@@ -116,9 +117,12 @@ test('Claude setup preview, apply, and removal preserve foreign hooks and status
   setup({ ...options, dryRun: true });
   assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
   setup(options);
-  assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
+  const installed = JSON.parse(readFileSync(settingsFile, 'utf8'));
+  assert.deepEqual(installed.hooks.SessionStart, [{ command: 'user-owned-session-hook' }]);
+  assert.equal(installed.statusLine.command, 'user-owned-status-line');
+  assert.equal(installed.hooks.PreToolUse[0].hooks[0].command, 'peer-review-claude-hook');
   setup({ ...options, remove: true, dryRun: true });
-  assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile, 'utf8')), installed);
   setup({ ...options, remove: true });
   assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
 });
@@ -228,6 +232,250 @@ test('removal preserves a pre-existing exact skill while removing provider owner
   setup({ ...options, remove: true });
   assert.equal(existsSync(skillFile), true);
   assert.equal(existsSync(adapterFile), false);
+});
+
+test('setup automatically replaces an older package-owned skill and keeps the previous bytes', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  const installed = readFileSync(skillFile, 'utf8');
+  const previous = `${installed}\n<!-- previous installed package -->\n`;
+  writeFileSync(skillFile, previous);
+  const preview = setup({ ...options, dryRun: true });
+  assert.equal(preview.changed, true);
+  assert.ok(
+    preview.operations.some((item) => item.owner === 'codex-skill' && item.backup_required)
+  );
+  assert.equal(readFileSync(skillFile, 'utf8'), previous);
+  setup(options);
+  assert.equal(readFileSync(skillFile, 'utf8'), installed);
+  assert.equal(readFileSync(`${skillFile}.bak`, 'utf8'), previous);
+  assert.equal(setup(options).changed, false);
+});
+
+test('teardown removes an older package-owned skill idempotently with a backup', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  const previous = `${readFileSync(skillFile, 'utf8')}\n<!-- previous installed package -->\n`;
+  writeFileSync(skillFile, previous);
+  const preview = setup({ ...options, remove: true, dryRun: true });
+  assert.ok(
+    preview.operations.some((item) => item.owner === 'codex-skill' && item.backup_required)
+  );
+  setup({ ...options, remove: true });
+  assert.equal(existsSync(skillFile), false);
+  assert.equal(readFileSync(`${skillFile}.bak`, 'utf8'), previous);
+  assert.equal(setup({ ...options, remove: true }).changed, false);
+});
+
+test('setup refuses a foreign differing skill without ownership evidence', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  mkdirSync(path.dirname(skillFile), { recursive: true });
+  writeFileSync(skillFile, 'foreign skill\n');
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  assert.throws(() => setup(options), { code: 'APR_SETUP_CONFLICT' });
+  assert.equal(readFileSync(skillFile, 'utf8'), 'foreign skill\n');
+});
+
+test('setup --update refreshes every recorded project host and is idempotent', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex', 'claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const changed = [];
+  for (const host of ['codex', 'claude']) {
+    const file = path.join(files.project, `.${host}`, 'skills', 'peer-review', 'SKILL.md');
+    const oldBytes = `${readFileSync(file, 'utf8')}\nprevious package\n`;
+    writeFileSync(file, oldBytes);
+    changed.push({ file, oldBytes });
+  }
+  const updateOptions = { cwd: files.project, home: files.home, gitExcludePath: files.exclude };
+  const preview = updateSetup({ ...updateOptions, dryRun: true });
+  assert.equal(preview.schema, 'ai-peer-review.setup-plan/v1');
+  assert.equal(preview.changed, true);
+  assert.deepEqual(preview.agents, ['claude', 'codex']);
+  assert.equal(
+    changed.every(({ file, oldBytes }) => readFileSync(file, 'utf8') === oldBytes),
+    true
+  );
+  const applied = updateSetup(updateOptions);
+  assert.equal(applied.schema, 'ai-peer-review.setup-result/v1');
+  assert.equal(applied.status, 'applied');
+  assert.equal(applied.diff, undefined);
+  assert.deepEqual(applied.backups.sort(), changed.map(({ file }) => `${file}.bak`).sort());
+  for (const { file, oldBytes } of changed) {
+    assert.notEqual(readFileSync(file, 'utf8'), oldBytes);
+    assert.equal(readFileSync(`${file}.bak`, 'utf8'), oldBytes);
+  }
+  const unchanged = updateSetup(updateOptions);
+  assert.equal(unchanged.changed, false);
+  assert.equal(unchanged.status, 'no-changes');
+  execFileSync('git', ['init', '-q'], { cwd: files.project });
+  const codexSkill = changed.find(
+    ({ file }) => path.basename(path.dirname(path.dirname(path.dirname(file)))) === '.codex'
+  ).file;
+  writeFileSync(codexSkill, `${readFileSync(codexSkill, 'utf8')}\nprevious package\n`);
+  const cliOutput = [];
+  const cliErrors = [];
+  assert.equal(
+    await run(['setup', '--update'], {
+      cwd: files.project,
+      env: {},
+      stdout: { write: (value) => cliOutput.push(String(value)) },
+      stderr: { write: (value) => cliErrors.push(String(value)) },
+    }),
+    0,
+    cliErrors.join('')
+  );
+  assert.match(cliOutput.join(''), /Setup applied/i);
+  assert.match(cliOutput.join(''), /SKILL\.md/);
+  assert.match(cliOutput.join(''), /\.bak/);
+  assert.doesNotMatch(cliOutput.join(''), /"schema"/);
+  const jsonOutput = [];
+  assert.equal(
+    await run(['setup', '--update', '--json'], {
+      cwd: files.project,
+      env: {},
+      stdout: { write: (value) => jsonOutput.push(String(value)) },
+      stderr: { write: (value) => cliErrors.push(String(value)) },
+    }),
+    0,
+    cliErrors.join('')
+  );
+  const cliResult = JSON.parse(jsonOutput.at(-1));
+  assert.equal(cliResult.schema, 'ai-peer-review.setup-result/v1');
+  assert.equal(cliResult.status, 'no-changes');
+  const noChangesOutput = [];
+  await run(['setup', '--update'], {
+    cwd: files.project,
+    env: {},
+    stdout: { write: (value) => noChangesOutput.push(String(value)) },
+    stderr: { write: (value) => cliErrors.push(String(value)) },
+  });
+  assert.match(noChangesOutput.join(''), /already up to date/i);
+  writeFileSync(codexSkill, `${readFileSync(codexSkill, 'utf8')}\nprevious package again\n`);
+  const appliedJsonOutput = [];
+  await run(['setup', '--update', '--json'], {
+    cwd: files.project,
+    env: {},
+    stdout: { write: (value) => appliedJsonOutput.push(String(value)) },
+    stderr: { write: (value) => cliErrors.push(String(value)) },
+  });
+  const appliedJson = JSON.parse(appliedJsonOutput.at(-1));
+  assert.equal(appliedJson.status, 'applied');
+  assert.deepEqual(appliedJson.backups, [`${codexSkill}.bak`]);
+  const previewOutput = [];
+  await run(['setup', '--update', '--dry-run'], {
+    cwd: files.project,
+    env: {},
+    stdout: { write: (value) => previewOutput.push(String(value)) },
+    stderr: { write: (value) => cliErrors.push(String(value)) },
+  });
+  assert.match(previewOutput.join(''), /Preview only/i);
+
+  assert.throws(() => updateSetup({ ...updateOptions, remove: true }), {
+    code: 'APR_SETUP_INVALID',
+  });
+  assert.throws(() => updateSetup({ ...updateOptions, agents: ['codex'] }), {
+    code: 'APR_SETUP_INVALID',
+  });
+});
+
+test('setup --update refuses a project with no prior package-owned setup', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  assert.throws(() => updateSetup({ cwd: files.project, home: files.home }), {
+    code: 'APR_SETUP_INVALID',
+  });
+});
+
+test('installed CLI refuses stale setup package identity before review work', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const configFile = path.join(files.project, '.ai-peer-review.json');
+  const config = JSON.parse(readFileSync(configFile, 'utf8'));
+  assert.match(config.setup.package_version, /^\d+\.\d+\.\d+$/);
+  assert.match(config.setup.skill_sha256, /^[0-9a-f]{64}$/);
+  const output = { stdout: '', stderr: '' };
+  const io = {
+    cwd: files.project,
+    env: {},
+    stdout: {
+      write: (value) => {
+        output.stdout += value;
+      },
+    },
+    stderr: {
+      write: (value) => {
+        output.stderr += value;
+      },
+    },
+  };
+  config.setup.package_version = '0.0.0';
+  writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+  assert.equal(await run(['status', 'missing-review'], io), 1);
+  assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
+  assert.match(JSON.parse(output.stderr).recovery, /setup --update --dry-run/i);
+  output.stderr = '';
+  assert.equal(await run(['help', 'setup'], io), 0);
+  assert.match(output.stdout, /--remove/);
+  delete config.setup.package_version;
+  writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
+  output.stderr = '';
+  assert.equal(await run(['doctor'], io), 1);
+  assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
+  setup(options);
+  const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
+  writeFileSync(skillFile, `${readFileSync(skillFile, 'utf8')}\nchanged\n`);
+  output.stderr = '';
+  assert.equal(await run(['status', 'missing-review'], io), 1);
+  assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
+  setup(options);
+  assert.equal(setup(options).changed, false);
 });
 
 test('runtime and published schema share authority and setup invariants', () => {
@@ -436,6 +684,92 @@ test('doctor runs active Phase 2 checks without making them mandatory for permis
   );
 });
 
+test('installation doctor does not require a session model or transport but requires the broker helper', () => {
+  const base = {
+    requestedMode: 'installation',
+    packageResolved: true,
+    skillAvailable: true,
+    identity: null,
+    git: { repository: true, worktreeSafe: true, scratchIgnored: true },
+    transport: { mode: 'manual', healthy: true },
+    brokerSecurity: { healthy: true, build_command: 'ai-peer-review build broker-security' },
+  };
+  const report = doctor(base);
+  assert.equal(report.healthy, true);
+  assert.equal(report.rows.find((row) => row.id === 'identity-source').required, false);
+  assert.equal(report.rows.find((row) => row.id === 'session-fingerprint').required, false);
+  assert.equal(report.rows.find((row) => row.id === 'broker-security').required, true);
+  assert.equal(doctor({ ...base, requestedMode: 'manual' }).healthy, false);
+  assert.equal(
+    doctor({ ...base, brokerSecurity: { ...base.brokerSecurity, healthy: false } }).healthy,
+    false
+  );
+});
+
+test('setup installs and removes only its exact start hook beside foreign host hooks', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const codexHooks = path.join(files.project, '.codex', 'hooks.json');
+  mkdirSync(path.dirname(codexHooks), { recursive: true });
+  writeFileSync(
+    codexHooks,
+    `${JSON.stringify({ hooks: { SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: 'foreign-hook' }] }] } }, null, 2)}\n`
+  );
+  const options = {
+    scope: 'project',
+    agents: ['codex', 'claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  const first = setup(options);
+  const codex = JSON.parse(readFileSync(codexHooks, 'utf8'));
+  const claudeSettings = path.join(files.project, '.claude', 'settings.json');
+  const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
+  assert.equal(codex.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
+  assert.equal(codex.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-codex-hook');
+  assert.equal(claude.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-claude-hook');
+  assert.ok(first.backups.includes(`${codexHooks}.bak`));
+  assert.equal(setup(options).changed, false);
+  setup({ ...options, remove: true });
+  const restored = JSON.parse(readFileSync(codexHooks, 'utf8'));
+  assert.equal(restored.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
+  assert.equal(restored.hooks.PreToolUse, undefined);
+  assert.equal(existsSync(claudeSettings), false);
+  assert.equal(setup({ ...options, remove: true }).changed, false);
+});
+
+test('setup preserves a pre-existing local Claude start hook without adding a duplicate', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const settingsFile = path.join(files.project, '.claude', 'settings.json');
+  mkdirSync(path.dirname(settingsFile), { recursive: true });
+  const existing = {
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: 'Bash',
+          hooks: [{ type: 'command', command: 'node bin/peer-review-claude-hook.mjs' }],
+        },
+      ],
+    },
+  };
+  writeFileSync(settingsFile, `${JSON.stringify(existing)}\n`);
+  const options = {
+    scope: 'project',
+    agents: ['claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile, 'utf8')), existing);
+  setup({ ...options, remove: true });
+  assert.deepEqual(JSON.parse(readFileSync(settingsFile, 'utf8')), existing);
+});
+
 test('doctor reports the explicit broker helper build command without blocking legacy manual rows', () => {
   const base = {
     requestedMode: 'manual',
@@ -465,6 +799,51 @@ test('doctor reports the explicit broker helper build command without blocking l
     true
   );
   assert.equal(doctor({ ...base, requestedMode: 'automatic-required' }).healthy, false);
+});
+
+test('doctor text distinguishes installation health from missing current-session identity', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-q'], { cwd: files.project });
+  setup({
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  });
+  const configFile = path.join(files.project, '.ai-peer-review.json');
+  const legacyConfig = JSON.parse(readFileSync(configFile, 'utf8'));
+  legacyConfig.hosts.codex.identity = {
+    provider: 'openai',
+    host: 'codex',
+    model_id: 'gpt-older-model',
+    model_display: 'Old Model',
+  };
+  writeFileSync(configFile, `${JSON.stringify(legacyConfig)}\n`);
+  const invoke = async (args) => {
+    let stdout = '';
+    let stderr = '';
+    const code = await run(args, {
+      cwd: files.project,
+      env: { CODEX_THREAD_ID: 'session-with-changing-model' },
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: (value) => (stderr += value) },
+      brokerSecurity: { healthy: true, build_command: 'ai-peer-review build broker-security' },
+    });
+    return { code, stdout, stderr };
+  };
+  const session = await invoke(['doctor']);
+  assert.equal(session.code, 1);
+  assert.match(session.stdout, /session readiness: unhealthy/i);
+  assert.match(session.stdout, /identity-source: unavailable/i);
+  assert.match(session.stdout, /recovery: .*model/i);
+  assert.doesNotMatch(session.stdout, /recovery: ai-peer-review build broker-security/i);
+  const installed = await invoke(['doctor', '--mode', 'installation']);
+  assert.equal(installed.code, 0, installed.stderr);
+  assert.match(installed.stdout, /installation: healthy/i);
+  assert.doesNotMatch(installed.stdout, /recovery: ai-peer-review build broker-security/i);
 });
 
 test('setup-only project configuration keeps consensus startup and resume diagnostics available', async (t) => {
@@ -535,4 +914,101 @@ test('setup-only project configuration keeps consensus startup and resume diagno
   assert.equal(started.review.authority.authority_policy, 'unavailable');
   assert.equal(started.review.max_turns, 4);
   assert.match(started.paths.reviewer_invitation, /docs[\\/]custom-reviews/);
+});
+
+function formattingOptions(files) {
+  return {
+    scope: 'project',
+    agents: ['codex', 'claude'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+}
+
+async function expectedJson(file, contents) {
+  return format(contents, { ...(await resolveConfig(file)), parser: 'json', filepath: file });
+}
+
+test('setup JSON formatting matches Prettier for every generated JSON file', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = formattingOptions(files);
+  const preview = setup({ ...options, dryRun: true });
+  setup(options);
+  for (const entry of preview.operations.filter((entry) => entry.file.endsWith('.json'))) {
+    const contents = readFileSync(entry.file, 'utf8');
+    assert.equal(contents, await expectedJson(entry.file, contents));
+    if (entry.owner === 'package-config') assert.ok(preview.diff.includes(contents));
+  }
+  assert.match(
+    readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8'),
+    /"command": \["claude", "--resume"\]/
+  );
+  assert.equal(setup(options).changed, false);
+});
+
+test('setup JSON formatting repairs existing bytes once with exact backup and project style', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = formattingOptions(files);
+  setup(options);
+  const file = path.join(files.project, '.ai-peer-review.json');
+  const config = JSON.parse(readFileSync(file, 'utf8'));
+  config.hosts.claude.resume.command.push('argument with "quotes" and \\ paths', 'x'.repeat(140));
+  writeFileSync(
+    path.join(files.project, '.prettierrc.json'),
+    JSON.stringify({ tabWidth: 4, printWidth: 60 })
+  );
+  const original = JSON.stringify(config, null, 2) + '\n';
+  writeFileSync(file, original);
+  const updateOptions = { ...options };
+  delete updateOptions.agents;
+  const preview = updateSetup({ ...updateOptions, dryRun: true });
+  assert.equal(preview.changed, true);
+  assert.equal(readFileSync(file, 'utf8'), original);
+  updateSetup(updateOptions);
+  const actual = readFileSync(file, 'utf8');
+  assert.equal(actual, await expectedJson(file, original));
+  assert.deepEqual(JSON.parse(actual), config);
+  assert.equal(readFileSync(file + '.bak', 'utf8'), original);
+  assert.equal(updateSetup(updateOptions).changed, false);
+});
+
+test('setup JSON formatting errors refuse before any setup mutation', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  writeFileSync(path.join(files.project, '.prettierrc.json'), '{');
+  assert.throws(() => setup(formattingOptions(files)), { code: 'APR_SETUP_INVALID' });
+  assert.equal(existsSync(path.join(files.project, '.ai-peer-review.json')), false);
+  assert.equal(existsSync(path.join(files.project, '.codex')), false);
+  assert.equal(existsSync(path.join(files.project, '.claude')), false);
+  assert.equal(readFileSync(files.exclude, 'utf8'), '# local excludes\n');
+});
+
+test('setup JSON formatting ignores caller ignore rules for explicitly authored JSON', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  writeFileSync(path.join(files.project, '.prettierignore'), '**/*.json\n');
+  writeFileSync(path.join(files.project, '.prettierrc.json'), JSON.stringify({ tabWidth: 4 }));
+  execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `import { setup } from ${JSON.stringify(new URL('../../src/config/setup.mjs', import.meta.url).href)}; setup(${JSON.stringify(formattingOptions(files))});`,
+    ],
+    { cwd: files.project }
+  );
+  const file = path.join(files.project, '.ai-peer-review.json');
+  const contents = readFileSync(file, 'utf8');
+  assert.equal(contents, await expectedJson(file, contents));
+});
+
+test('setup JSON formatting does not consult formatter for absent installation removal', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  writeFileSync(path.join(files.project, '.prettierrc.json'), '{');
+  assert.equal(setup({ ...formattingOptions(files), remove: true }).changed, false);
 });

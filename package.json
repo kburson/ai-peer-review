@@ -1,6 +1,6 @@
 {
   "name": "@kburson/ai-peer-review",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A deterministic, provider-neutral peer review protocol for AI agents",
   "type": "module",
   "license": "Apache-2.0",
@@ -41,7 +41,7 @@
     "test": "npm run test:unit && npm run test:golden",
     "test:unit": "node --test \"test/unit/**/*.test.mjs\"",
     "test:golden": "node --test \"test/golden/**/*.test.mjs\"",
-    "test:integration": "node --test \"test/integration/**/*.test.mjs\"",
+    "test:integration": "node --test --test-concurrency=2 \"test/integration/**/*.test.mjs\"",
     "test:packaging": "node --test \"test/packaging/**/*.test.mjs\"",
     "test:live:broker-handoff": "node test/live/installed-broker-handoff.mjs",
     "test:smoke": "node --test \"test/smoke/**/*.test.mjs\"",
@@ -58,14 +58,14 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
     "node-gyp": "12.4.0",
+    "prettier": "3.8.3",
     "zod": "4.6.2"
   },
   "devDependencies": {
     "@kburson/ai-task-manager": "file:vendors/kburson-ai-task-manager-0.1.0.tgz",
     "cspell": "8.19.4",
     "eslint": "9.39.4",
-    "markdownlint-cli2": "^0.23.3",
-    "prettier": "3.8.3"
+    "markdownlint-cli2": "^0.23.3"
   },
   "repository": {
     "type": "git",

@@ -188,6 +188,8 @@ export async function exerciseClaudeLaunchCli(
       'docs/artifact.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',
@@ -377,14 +379,16 @@ export async function exerciseClaudeLaunchCli(
   assert.doesNotMatch(JSON.stringify(initialResult), /fixture-claude-session/);
 }
 
-export async function exerciseMissingChildModelCli(t) {
-  const fx = isolateClaudeCliFixture(t, { configured: false });
+export async function exerciseMissingChildModelCli(t, { configured = false } = {}) {
+  const fx = isolateClaudeCliFixture(t, { configured });
   const started = await cliCall(
     [
       'start',
       'docs/artifact.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',
@@ -416,7 +420,7 @@ export async function exerciseMissingChildModelCli(t) {
   });
   assert.equal(joined.code, 1);
   assert.match(joined.stderr, /APR_IDENTITY_REQUIRED/);
-  assert.match(joined.stderr, /hosts\.claude\.identity\.model_id/);
+  assert.match(joined.stderr, /provider hook/);
   assert.equal(statusReview(workspace).state, 'awaiting-reviewer');
   assert.equal(
     JSON.parse(readFileSync(path.join(workspace, 'participants.json'), 'utf8')).reviewer,
@@ -435,6 +439,8 @@ export async function exerciseClaudeLaunchDiagnostics(
       'docs/artifact.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',

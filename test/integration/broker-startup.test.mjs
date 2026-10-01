@@ -4,7 +4,16 @@ import test from 'node:test';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
 import { launchReviewerOperation, reconcileReviewerLaunch } from '../../src/broker/launch.mjs';
 import { runBroker } from '../../src/broker/service.mjs';
-import { existsSync, readFileSync, realpathSync, writeFileSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+  unlinkSync,
+} from 'node:fs';
 import path from 'node:path';
 import { fixture, identity, NOW, replaceSection } from '../helpers/intervention-fixture.mjs';
 import {
@@ -32,6 +41,7 @@ import {
   initializeReview,
 } from '../../src/protocol/service.mjs';
 import { withReviewLock } from '../../src/protocol/store.mjs';
+import { reserveManualLaunch } from '../../src/provider/manual-launch-ledger.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 
 function brokerLaunchDeps(base) {
@@ -632,28 +642,23 @@ test('public broker suspend fences before removal and blocks reconcile and resta
   assert.equal(statusReview(started.paths.workspace).review.recovery.fenced, true);
 });
 
-test('fence publication rejects wake evidence that changed after provider reconciliation began', async (t) => {
+test('known pre-dispatch manual fence does not call provider reconciliation', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
   const started = await startReview(request(fx.root), fixtureStartupDeps);
-  await assert.rejects(
-    brokerClient.fenceManualRecovery(started.paths.workspace, {
-      connect: async () => {
-        throw Object.assign(new Error('dead'), { code: 'ENOENT' });
-      },
-      acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
-      reconcileProvider: async () => {
-        reserveWakeOperation(
-          started.paths.workspace,
-          wakeDecision(inspectReviewAuthority(started.paths.workspace).state),
-          new Date(NOW)
-        );
-        return { status: 'acknowledged' };
-      },
-    }),
-    { code: 'APR_WAKE_OUTCOME_UNKNOWN' }
-  );
-  assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
+  let observations = 0;
+  await brokerClient.fenceManualRecovery(started.paths.workspace, {
+    connect: async () => {
+      throw Object.assign(new Error('dead'), { code: 'ENOENT' });
+    },
+    acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
+    reconcileProvider: async () => {
+      observations++;
+      return { status: 'outcome-unknown' };
+    },
+  });
+  assert.equal(observations, 0);
+  assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), true);
 });
 
 test('suspended worker cannot reserve a wake after its awaited observation resumes', async (t) => {
@@ -1298,10 +1303,81 @@ test('ordinary reviewer submission preserves registered automatic delivery witho
   assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
 });
 
+test('dead broker can fence a registered unjoined review after explicit provider refusal', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const deps = {
+    ...fixtureStartupDeps,
+    adapters: {
+      claude: {
+        ...fixtureStartupDeps.adapters.claude,
+        launch: async () => {
+          throw new AprError('APR_REVIEWER_SELECTION_REFUSED', 'Claude rejected the model.', {
+            recovery: 'Choose a model available in Claude.',
+          });
+        },
+      },
+    },
+  };
+  await assert.rejects(startReview(automaticRequest(fx.root), brokerLaunchDeps(deps)), {
+    code: 'APR_REVIEWER_SELECTION_REFUSED',
+  });
+  const workspace = path.join(fx.root, '.scratch/peer-review/transaction-review');
+  const journal = registry.readStartupJournal(workspace);
+  assert.equal(journal.stage, 'registered');
+  assert.equal(journal.provider_operation.status, 'not-submitted');
+  await assert.rejects(
+    abandonReview({
+      workspace,
+      identity: automaticRequest(fx.root).identity,
+      reason: 'Premature retirement.',
+      now: NOW,
+    }),
+    { code: 'APR_INVALID_TRANSITION' }
+  );
+  const fenced = await brokerClient.fenceManualRecovery(workspace, {
+    connect: async () => {
+      throw Object.assign(new Error('dead'), { code: 'ENOENT' });
+    },
+    acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
+  });
+  assert.equal(fenced.fenced, true);
+  assert.equal(existsSync(path.join(workspace, 'manual-fence.json')), true);
+  assert.equal(existsSync(path.join(workspace, 'lineage-receipt.json')), false);
+  const abandoned = await abandonReview({
+    workspace,
+    identity: automaticRequest(fx.root).identity,
+    reason: 'Provider refused the requested reviewer.',
+    now: NOW,
+  });
+  assert.equal(abandoned.state, 'abandoned');
+  assert.equal(registry.inspectStartupAuthority({ workspace }).status, 'terminal');
+  assert.equal(existsSync(path.join(workspace, 'lineage-receipt.json')), false);
+  const successor = await startReview(
+    {
+      ...automaticRequest(fx.root),
+      reviewId: 'replacement-review',
+      reviewerModel: 'claude-opus-5-5',
+      reviewerEffort: 'high',
+    },
+    fixtureStartupDeps
+  );
+  const nextJournal = registry.readStartupJournal(successor.paths.workspace);
+  assert.equal(nextJournal.descriptor.reviewer.model_id, 'claude-opus-5-5');
+  assert.equal(nextJournal.descriptor.reviewer.effort, 'high');
+  assert.equal(existsSync(path.join(workspace, 'events.jsonl')), true);
+});
+
 test('dead broker recovery requires OS ownership proof and refuses unknown provider outcome', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
   const started = await startReview(request(fx.root), fixtureStartupDeps);
+  const journal = registry.readStartupJournal(started.paths.workspace);
+  await reserveManualLaunch(started.paths.workspace, {
+    reviewId: started.review_id,
+    requestDigest: journal.request_digest,
+    intentDigest: `sha256:${'a'.repeat(64)}`,
+  });
   const deps = {
     connect: async () => {
       throw Object.assign(new Error('dead'), { code: 'ECONNREFUSED' });
@@ -1315,11 +1391,98 @@ test('dead broker recovery requires OS ownership proof and refuses unknown provi
       error.code === 'APR_WAKE_OUTCOME_UNKNOWN' && error.recovery.includes('transaction-review')
   );
   assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
-  await brokerClient.fenceManualRecovery(started.paths.workspace, {
-    ...deps,
-    reconcileProvider: async () => ({ status: 'not-submitted' }),
+  await assert.rejects(
+    brokerClient.fenceManualRecovery(started.paths.workspace, {
+      ...deps,
+      reconcileProvider: async () => ({ status: 'not-submitted' }),
+    }),
+    { code: 'APR_WAKE_OUTCOME_UNKNOWN' }
+  );
+  assert.equal(statusReview(started.paths.workspace).review.recovery.fenced, false);
+});
+
+test('new unjoined manual review with complete empty launch history can be fenced and retired', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), fixtureStartupDeps);
+  const fenced = await brokerClient.fenceManualRecovery(started.paths.workspace, {
+    connect: async () => {
+      throw Object.assign(new Error('offline'), { code: 'ENOENT' });
+    },
+    acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
   });
-  assert.equal(statusReview(started.paths.workspace).review.recovery.fenced, true);
+  assert.equal(fenced.fenced, true);
+  const reservation = path.join(started.paths.workspace, 'collateral-reservation.json');
+  const saved = path.join(started.paths.workspace, 'collateral-reservation.saved.json');
+  renameSync(reservation, saved);
+  symlinkSync(saved, reservation);
+  const eventsBefore = readFileSync(started.paths.events);
+  await assert.rejects(
+    abandonReview({
+      workspace: started.paths.workspace,
+      identity: request(fx.root).identity,
+      reason: 'No reviewer launch was submitted.',
+      now: NOW,
+    }),
+    { code: 'APR_OUTPUT_COLLISION' }
+  );
+  assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
+  unlinkSync(reservation);
+  renameSync(saved, reservation);
+  const retired = await abandonReview({
+    workspace: started.paths.workspace,
+    identity: request(fx.root).identity,
+    reason: 'No reviewer launch was submitted.',
+    now: NOW,
+  });
+  assert.equal(retired.state, 'abandoned');
+});
+
+test('an earlier unknown wake blocks retirement after a later not-submitted wake', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(request(fx.root), fixtureStartupDeps);
+  const state = inspectReviewAuthority(started.paths.workspace).state;
+  const first = reserveWakeOperation(started.paths.workspace, wakeDecision(state), new Date(NOW));
+  appendWakeOutcome(
+    started.paths.workspace,
+    first.operation_id,
+    {
+      status: 'outcome-unknown',
+      reason: 'provider observation unavailable',
+    },
+    new Date(NOW)
+  );
+  const laterDecision = wakeDecision(state);
+  laterDecision.authority_revision += 1;
+  laterDecision.capsule.expected_revision += 1;
+  laterDecision.delivery.revision += 1;
+  laterDecision.capsule.next_command = 'peer-review resume /fixture/second';
+  const later = reserveWakeOperation(
+    started.paths.workspace,
+    laterDecision,
+    new Date('2026-09-29T05:00:00.000Z')
+  );
+  appendWakeOutcome(
+    started.paths.workspace,
+    later.operation_id,
+    {
+      status: 'not-submitted',
+      reason: 'explicit refusal before delivery',
+    },
+    new Date('2026-09-29T05:00:00.000Z')
+  );
+  await assert.rejects(
+    brokerClient.fenceManualRecovery(started.paths.workspace, {
+      connect: async () => {
+        throw Object.assign(new Error('offline'), { code: 'ENOENT' });
+      },
+      acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
+      reconcileProvider: async () => ({ status: 'not-submitted' }),
+    }),
+    { code: 'APR_WAKE_OUTCOME_UNKNOWN' }
+  );
+  assert.equal(existsSync(path.join(started.paths.workspace, 'manual-fence.json')), false);
 });
 
 test('recreated workers and immediate delivery recheck durable fence evidence', async () => {
@@ -1430,6 +1593,32 @@ test('startup durably reserves, creates authority, and registers before reviewer
   assert.equal(launches, 1);
 });
 
+test('explicit provider selection refusal retains a retryable registered startup', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const deps = {
+    ...fixtureStartupDeps,
+    adapters: {
+      claude: {
+        ...fixtureStartupDeps.adapters.claude,
+        launch: async () => {
+          throw new AprError('APR_REVIEWER_SELECTION_REFUSED', 'Claude rejected the model.', {
+            recovery: 'Choose a model available in Claude.',
+          });
+        },
+      },
+    },
+  };
+  await assert.rejects(startReview(automaticRequest(fx.root), brokerLaunchDeps(deps)), {
+    code: 'APR_REVIEWER_SELECTION_REFUSED',
+  });
+  const journal = JSON.parse(
+    readFileSync(path.join(fx.root, '.scratch/peer-review/transaction-review/startup-request.json'))
+  );
+  assert.equal(journal.stage, 'registered');
+  assert.equal(journal.provider_operation.status, 'not-submitted');
+});
+
 test('ambiguous launch retains journal and refuses automatic retry', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
@@ -1457,6 +1646,26 @@ test('ambiguous launch retains journal and refuses automatic retry', async (t) =
     readFileSync(path.join(fx.root, '.scratch/peer-review/transaction-review/startup-request.json'))
   );
   assert.equal(journal.stage, 'outcome-unknown');
+  const workspace = path.join(fx.root, '.scratch/peer-review/transaction-review');
+  await assert.rejects(
+    brokerClient.fenceManualRecovery(workspace, {
+      connect: async () => {
+        throw Object.assign(new Error('dead'), { code: 'ENOENT' });
+      },
+      acquireRecoveryOwnership: async () => ({ verify: () => true, release() {} }),
+    }),
+    { code: 'APR_WAKE_OUTCOME_UNKNOWN' }
+  );
+  await assert.rejects(
+    abandonReview({
+      workspace,
+      identity: automaticRequest(fx.root).identity,
+      reason: 'No reviewer joined.',
+      now: NOW,
+    }),
+    { code: 'APR_INVALID_TRANSITION' }
+  );
+  assert.equal(existsSync(path.join(workspace, 'manual-fence.json')), false);
 });
 
 test('reservation and registration failures preserve exact reconciliation evidence without dispatch', async (t) => {
@@ -1494,6 +1703,7 @@ test('reservation and registration failures preserve exact reconciliation eviden
 });
 
 const selection = {
+  issue: 117,
   reviewerProvider: 'claude',
   reviewerModel: 'claude-opus-5',
   reviewerEffort: 'medium',
@@ -1554,12 +1764,119 @@ test('new manual XPR refuses broker failure before creating authority or provide
   assert.equal(existsSync(path.join(fx.root, 'docs/peer-reviews')), false);
 });
 
+test('denied broker socket access does not start another broker or create review authority', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  let spawned = 0;
+  let bootstrap = 0;
+  const project = { digest: 'a'.repeat(64), physicalRoot: fx.root };
+  await assert.rejects(
+    brokerClient.ensureBroker({
+      project,
+      versions: { package_version: '0.3.0', broker_protocol_version: 1, node_major: 26 },
+      runtimeImage: {
+        root: '/runtime',
+        nodeExecutable: '/node',
+        digest: 'sha256:' + 'b'.repeat(64),
+      },
+      platform: {
+        verifyRuntimeImage: () => true,
+        connect: () => {
+          throw new AprError('APR_BROKER_ACCESS_DENIED', 'Broker socket access is denied.', {
+            recovery: 'Use approved host execution from the same session.',
+          });
+        },
+        createBootstrap: () => {
+          bootstrap += 1;
+        },
+        spawn: () => {
+          spawned += 1;
+        },
+      },
+    }),
+    { code: 'APR_BROKER_ACCESS_DENIED' }
+  );
+  assert.equal(bootstrap, 0);
+  assert.equal(spawned, 0);
+  assert.equal(existsSync(path.join(fx.root, '.scratch/peer-review')), false);
+});
+
+test('offline broker status lists a verified authority-stage recovery candidate without writes', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  await assert.rejects(
+    startReview(request(fx.root), {
+      ...fixtureStartupDeps,
+      afterStartupStage: async (stage) => {
+        if (stage === 'authority') throw new Error('defer registration');
+      },
+    }),
+    /defer registration/
+  );
+  const workspace = path.join(fx.root, '.scratch/peer-review/transaction-review');
+  const journalFile = path.join(workspace, 'startup-request.json');
+  const before = readFileSync(journalFile);
+  const stdout = [];
+  const stderr = [];
+  const io = {
+    cwd: fx.root,
+    env: {},
+    stdout: { write: (value) => stdout.push(String(value)) },
+    stderr: { write: (value) => stderr.push(String(value)) },
+    brokerConnect: async () => {
+      throw Object.assign(new Error('missing broker'), { code: 'ENOENT' });
+    },
+  };
+  assert.equal(await run(['broker', 'status', '--json'], io), 0, stderr.join(''));
+  const status = JSON.parse(stdout.at(-1));
+  assert.equal(status.status, 'offline');
+  assert.equal(status.recovery.candidates.length, 1);
+  assert.equal(status.recovery.candidates[0].workspace, workspace);
+  assert.equal(status.recovery.candidates[0].stage, 'authority');
+  assert.equal(status.recovery.candidates[0].verified, true);
+  assert.match(status.recovery.candidates[0].command, /broker reconcile/);
+  assert.deepEqual(readFileSync(journalFile), before);
+});
+
+test('offline candidates rank authenticated chronology and retain unverifiable evidence', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const stopAtAuthority = {
+    ...fixtureStartupDeps,
+    afterStartupStage: async (stage) => {
+      if (stage === 'authority') throw new Error('defer registration');
+    },
+  };
+  await assert.rejects(startReview(request(fx.root), stopAtAuthority), /defer registration/);
+  await assert.rejects(
+    startReview(
+      { ...request(fx.root), reviewId: 'second-review', now: '2026-09-29T05:00:00.000Z' },
+      stopAtAuthority
+    ),
+    /defer registration/
+  );
+  const broken = path.join(fx.root, '.scratch/peer-review/broken-review');
+  mkdirSync(broken);
+  writeFileSync(path.join(broken, 'startup-request.json'), '{broken');
+  const evidence = registry.inspectOfflineRecoveryCandidates({
+    digest: 'a'.repeat(64),
+    physicalRoot: fx.root,
+  });
+  assert.deepEqual(
+    evidence.candidates.map((candidate) => candidate.review_id),
+    ['second-review', 'transaction-review']
+  );
+  assert.equal(evidence.unverifiable.length, 1);
+  assert.equal(evidence.unverifiable[0].workspace, broken);
+});
+
 test('direct new start requires explicit reviewer selection before filesystem changes', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
   await assert.rejects(
     startReview({
       cwd: fx.root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: identity('author', 'missing-selection'),

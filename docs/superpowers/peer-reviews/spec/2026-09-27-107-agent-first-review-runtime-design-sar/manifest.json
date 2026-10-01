@@ -1,0 +1,286 @@
+{
+  "schema": "ai-peer-review.sar-evidence/v1",
+  "run_id": "107-runtime-api-spec-sar-fa78855",
+  "issue": 107,
+  "kind": "sar",
+  "execution": "user-directed single-worker review; not a package-protocol acceptance",
+  "baseline_commit": "fa7885559d99e9d2c486ec6b747719dd065d7596",
+  "filepath": "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+  "max_rounds": 6,
+  "status": "accepted",
+  "requested_model": "gpt-6-astra",
+  "requested_effort": "high",
+  "observed_model": null,
+  "observed_effort": null,
+  "identity_provenance": "Host worker assignment; exact model and effort not independently observable to worker",
+  "initial_digest": "sha256:018a9a475c81e97875804fe3ae35561d6e03975c09df301c1b94f8bd7faa7a76",
+  "current_digest": "sha256:e36a1506a1f63c7ee29394005650e53a9a8a6d1e347e1b39a82d6ad9f4977ac7",
+  "rounds": [
+    {
+      "round": 1,
+      "before_digest": "sha256:018a9a475c81e97875804fe3ae35561d6e03975c09df301c1b94f8bd7faa7a76",
+      "after_digest": "sha256:87f4b68b89bc8bc79118c29411a42cb916f6d1b16ff01fbbad9b4ea14f4344ce",
+      "verdict": "changes-required",
+      "finding_ids": [
+        "SAR-001",
+        "SAR-002",
+        "SAR-003",
+        "SAR-004",
+        "SAR-005",
+        "SAR-006",
+        "SAR-007",
+        "SAR-008",
+        "SAR-009",
+        "SAR-010"
+      ],
+      "review": "rounds/01-review.md",
+      "author_response": "rounds/01-author-response.md",
+      "patch": "rounds/01.patch"
+    },
+    {
+      "round": 2,
+      "before_digest": "sha256:87f4b68b89bc8bc79118c29411a42cb916f6d1b16ff01fbbad9b4ea14f4344ce",
+      "after_digest": "sha256:b7cef1580597ffcdb5fc1c1e1fc3182fbc0ed6e63711d0637b119376ec5830e7",
+      "verdict": "changes-required",
+      "finding_ids": ["SAR-011", "SAR-012", "SAR-013", "SAR-014"],
+      "review": "rounds/02-review.md",
+      "author_response": "rounds/02-author-response.md",
+      "patch": "rounds/02.patch"
+    },
+    {
+      "round": 3,
+      "before_digest": "sha256:b7cef1580597ffcdb5fc1c1e1fc3182fbc0ed6e63711d0637b119376ec5830e7",
+      "after_digest": "sha256:e36a1506a1f63c7ee29394005650e53a9a8a6d1e347e1b39a82d6ad9f4977ac7",
+      "verdict": "changes-required",
+      "finding_ids": ["SAR-015", "SAR-016"],
+      "review": "rounds/03-review.md",
+      "author_response": "rounds/03-author-response.md",
+      "patch": "rounds/03.patch"
+    },
+    {
+      "round": 4,
+      "before_digest": "sha256:e36a1506a1f63c7ee29394005650e53a9a8a6d1e347e1b39a82d6ad9f4977ac7",
+      "after_digest": "sha256:e36a1506a1f63c7ee29394005650e53a9a8a6d1e347e1b39a82d6ad9f4977ac7",
+      "verdict": "accepted",
+      "finding_ids": [],
+      "review": "rounds/04-review.md",
+      "author_response": null,
+      "patch": null
+    }
+  ],
+  "raw_logs_retained": false,
+  "final_digest": "sha256:e36a1506a1f63c7ee29394005650e53a9a8a6d1e347e1b39a82d6ad9f4977ac7",
+  "completed_at": "2026-09-27T07:39:22.523Z",
+  "intervention_required": false,
+  "findings": [
+    {
+      "id": "SAR-001",
+      "originating_round": 1,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-002",
+      "originating_round": 1,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-003",
+      "originating_round": 1,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-004",
+      "originating_round": 1,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-005",
+      "originating_round": 1,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-006",
+      "originating_round": 1,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-007",
+      "originating_round": 1,
+      "severity": "medium",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-008",
+      "originating_round": 1,
+      "severity": "medium",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-009",
+      "originating_round": 1,
+      "severity": "medium",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-010",
+      "originating_round": 1,
+      "severity": "medium",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-011",
+      "originating_round": 2,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-012",
+      "originating_round": 2,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-013",
+      "originating_round": 2,
+      "severity": "medium",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-014",
+      "originating_round": 2,
+      "severity": "medium",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-015",
+      "originating_round": 3,
+      "severity": "high",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    },
+    {
+      "id": "SAR-016",
+      "originating_round": 3,
+      "severity": "medium",
+      "author_disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_by_round": 4
+    }
+  ],
+  "verification": {
+    "prettier": "passed: spec and seven round Markdown files",
+    "markdownlint": "passed: eight files, zero issues",
+    "git_diff_check": "passed",
+    "json_examples": "four indented JSON examples parsed; future schemas not implemented",
+    "patch_reconstruction": {
+      "forward_rounds": 3,
+      "reverse_rounds": 3,
+      "all_intermediate_digests_match": true,
+      "baseline_restored_byte_exact": true
+    },
+    "head_unchanged": true
+  },
+  "evidence_notes": [
+    "Manually orchestrated SAR evidence, not a broker-signed package receipt.",
+    "recorded_at timestamps mark ledger recording, not exact inference boundaries.",
+    "Round 1 and 2 author tables received presentation-only formatting before final inventory hashing.",
+    "No independent model/effort telemetry or usage telemetry is available to the worker."
+  ],
+  "inventory": [
+    {
+      "path": "events.jsonl",
+      "bytes": 2602,
+      "digest": "sha256:67239b8d361f99473e5a5309f1889d5564b6f0250fb47474c9b384348af6eafe"
+    },
+    {
+      "path": "metrics.json",
+      "bytes": 806,
+      "digest": "sha256:7689efcb921b8448c9290c9cdce1fbc2327a864a51fb00208cc7f1111776ae95"
+    },
+    {
+      "path": "rounds/01-author-response.md",
+      "bytes": 2187,
+      "digest": "sha256:395223b2bd6d52d41c5d2ea36100479347cee077d4aea2594644221dcf95fc4f"
+    },
+    {
+      "path": "rounds/01-review.md",
+      "bytes": 4465,
+      "digest": "sha256:4e5ff889425f96dddf9a3727624b2506dfa9ed8446b8a55c78ae7ed3126132fb"
+    },
+    {
+      "path": "rounds/01.patch",
+      "bytes": 27228,
+      "digest": "sha256:fb6fe9bdb7259d0480c02491a7ff10125d7a93cabf1cbbca76bf696a2eb1d8b4"
+    },
+    {
+      "path": "rounds/02-author-response.md",
+      "bytes": 1474,
+      "digest": "sha256:5c2524102da36c134abd2bf1c8da2e287252e705f01f5308abcbb8d1b1a3496b"
+    },
+    {
+      "path": "rounds/02-review.md",
+      "bytes": 2789,
+      "digest": "sha256:af1b2ef805f7268eebe9f8417eae666df347cc3e53e5ecdb25c11d37e6486622"
+    },
+    {
+      "path": "rounds/02.patch",
+      "bytes": 12651,
+      "digest": "sha256:d9f1e68bf96bc53802de6d51216ee73930c4fa2cfb4daef1deccc8a496a5c5ed"
+    },
+    {
+      "path": "rounds/03-author-response.md",
+      "bytes": 595,
+      "digest": "sha256:dd9790cc3b70ced8a8c455268a949f1061b8acd780ed157540cd0d070ca7da43"
+    },
+    {
+      "path": "rounds/03-review.md",
+      "bytes": 1528,
+      "digest": "sha256:c524f5faeb3301b721df74fc79d501ca4d66324cc4491e5cafd47f8eb2d1ed4e"
+    },
+    {
+      "path": "rounds/03.patch",
+      "bytes": 6102,
+      "digest": "sha256:56f7770dd566edc649f03da21a13518f5f6f0ee3f432768c41a56477b43b879d"
+    },
+    {
+      "path": "rounds/04-review.md",
+      "bytes": 2568,
+      "digest": "sha256:4635106a83ec3b8a3c6466cc0844daa1d086e8e8b36d2578a5bbd31da2f7598d"
+    }
+  ]
+}

@@ -1,0 +1,311 @@
+{
+  "schema": "manual-controller-worker-sar-evidence/v1",
+  "issue": 107,
+  "kind": "sar",
+  "run_id": "2026-09-27-107-145046-controller-worker-sar",
+  "execution": "manually orchestrated evidence, not package-protocol acceptance",
+  "package_protocol_acceptance": false,
+  "verdict": "clean",
+  "rounds_used": 3,
+  "round_cap": 6,
+  "filepath": "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+  "controller": {
+    "role": "non-participant",
+    "source": "user-controller-instruction"
+  },
+  "participants": [
+    {
+      "id": "sar-worker-1",
+      "roles": [
+        "critique",
+        "revision"
+      ],
+      "identity": {
+        "requested_provider": "codex",
+        "requested_model": "gpt-6-astra",
+        "requested_effort": "high",
+        "requested_source": "controller-user-request",
+        "observed_provider": {
+          "value": "openai-codex",
+          "provenance": "reported",
+          "source": "agent-instruction-context",
+          "assurance": "not-provider-runtime-attestation"
+        },
+        "instruction_model_family": {
+          "value": "GPT-6",
+          "source": "agent-instruction-context",
+          "assurance": "not-exact-runtime-variant"
+        },
+        "observed_model": {
+          "value": null,
+          "unit": "model-id",
+          "provenance": "unavailable",
+          "reason": "not-exposed-to-worker",
+          "source": "worker-facing-tool-interface"
+        },
+        "observed_effort": {
+          "value": null,
+          "unit": "effort",
+          "provenance": "unavailable",
+          "reason": "not-exposed-to-worker",
+          "source": "worker-facing-tool-interface"
+        },
+        "process_termination": {
+          "value": null,
+          "unit": "status",
+          "provenance": "unavailable",
+          "reason": "not-observable-before-worker-return",
+          "source": "worker-facing-tool-interface"
+        }
+      }
+    }
+  ],
+  "initial_digest": "sha256:c262105281e099709d77a9595a4ba180b38eb391e6deac56e84013064f0edbed",
+  "final_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c",
+  "parent_review": {
+    "path": "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr",
+    "manifest_digest": "sha256:ef79a155bd8247492fc44481d6967f01f847b6b0a8f3551cd50ca720ad5602b5",
+    "final_digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8"
+  },
+  "lineage_patch": "lineage.patch",
+  "terminal_anchor": "final-fur.md",
+  "started_at": "2026-09-27T14:49:17.167Z",
+  "evidence_cutoff": "2026-09-27T14:59:34.133Z",
+  "rounds": [
+    {
+      "round": 1,
+      "verdict": "changes-required",
+      "before_digest": "sha256:c262105281e099709d77a9595a4ba180b38eb391e6deac56e84013064f0edbed",
+      "after_digest": "sha256:3fb1047705cedd77c863799d6ed8ee7d60d4c46ddde6714c9999af04e7046280",
+      "ended_at": "2026-09-27T14:53:58.480Z",
+      "review": "rounds/01-review.md",
+      "author_response": "rounds/01-author-response.md",
+      "patch": "rounds/01.patch",
+      "finding_ids": [
+        "CWSAR-001",
+        "CWSAR-002",
+        "CWSAR-003"
+      ]
+    },
+    {
+      "round": 2,
+      "verdict": "changes-required",
+      "before_digest": "sha256:3fb1047705cedd77c863799d6ed8ee7d60d4c46ddde6714c9999af04e7046280",
+      "after_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c",
+      "ended_at": "2026-09-27T14:55:46.358Z",
+      "review": "rounds/02-review.md",
+      "author_response": "rounds/02-author-response.md",
+      "patch": "rounds/02.patch",
+      "finding_ids": [
+        "CWSAR-004"
+      ],
+      "resolved_ids": [
+        "CWSAR-001",
+        "CWSAR-002",
+        "CWSAR-003"
+      ]
+    },
+    {
+      "round": 3,
+      "verdict": "clean",
+      "before_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c",
+      "after_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c",
+      "ended_at": "2026-09-27T14:59:13.500Z",
+      "review": "rounds/03-review.md",
+      "author_response": "rounds/03-author-response.md",
+      "patch": "rounds/03.patch",
+      "supplemental_no_change_collateral": true,
+      "finding_ids": [],
+      "resolved_ids": [
+        "CWSAR-001",
+        "CWSAR-002",
+        "CWSAR-003",
+        "CWSAR-004"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CWSAR-001",
+      "severity": "medium",
+      "originating_round": 1,
+      "resolved_in_round": 2,
+      "resolution": "fixed"
+    },
+    {
+      "id": "CWSAR-002",
+      "severity": "medium",
+      "originating_round": 1,
+      "resolved_in_round": 2,
+      "resolution": "fixed"
+    },
+    {
+      "id": "CWSAR-003",
+      "severity": "low",
+      "originating_round": 1,
+      "resolved_in_round": 2,
+      "resolution": "fixed"
+    },
+    {
+      "id": "CWSAR-004",
+      "severity": "medium",
+      "originating_round": 2,
+      "resolved_in_round": 3,
+      "resolution": "fixed"
+    }
+  ],
+  "metrics": {
+    "path": "metrics.json",
+    "digest": "sha256:34c3d82a18fda719b84491fc6c656a7803760ed24aa73840ee51b120d5d40daa",
+    "wall_duration": {
+      "value": 616966,
+      "unit": "ms",
+      "provenance": "derived",
+      "source": "host-prompt-time-and-local-tool-UTC-clock",
+      "formula": "end minus start",
+      "start": "2026-09-27T14:49:17.167Z",
+      "end": "2026-09-27T14:59:34.133Z",
+      "scope": "worker review/evidence interval; includes tools and waits; excludes final return",
+      "clock_assurance": "wall-clock difference; monotonic clock continuity not independently attested"
+    },
+    "token_total": {
+      "value": null,
+      "unit": "tokens",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "cost_total": {
+      "value": null,
+      "unit": "USD",
+      "provenance": "unavailable",
+      "reason": "not-exposed-to-worker",
+      "source": "worker-facing-tool-interface"
+    },
+    "coverage": "incomplete"
+  },
+  "validation": {
+    "path": "validation.json",
+    "digest": "sha256:d40a6b7187c14a7c128db824f1321de3da8c93af8c42653f09b64977b655c51d",
+    "status": "passed"
+  },
+  "limitations": [
+    "Manual single-agent review; no independent peer or package authority.",
+    "Exact model variant and effort are requested identities, not independently observed runtime facts.",
+    "Worker cannot observe terminal provider usage or process termination before returning; controller may preserve a separate amendment.",
+    "Clean-round author acknowledgment and empty patch are manual procedure collateral, not a target-runtime revision.",
+    "Wall measurements end at evidence cutoff; final return is not included."
+  ],
+  "inventory": [
+    {
+      "path": "baseline.json",
+      "bytes": 1454,
+      "digest": "sha256:c7515b7a0efaf34052398db76b9548ee07061ca62a9193117916e081f7df8f3c"
+    },
+    {
+      "path": "capture.mjs",
+      "bytes": 16737,
+      "digest": "sha256:6c1a17827881c570ab5fc38f5d5133b939ab6025ce1a5d532a021afa706f3068"
+    },
+    {
+      "path": "events.jsonl",
+      "bytes": 1970,
+      "digest": "sha256:a5de45621d5ab16ae68e7e01efddb61f43d7b2f6acbe63b1d0ce20f81deb3753"
+    },
+    {
+      "path": "final-fur.md",
+      "bytes": 121935,
+      "digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c"
+    },
+    {
+      "path": "initial-fur.md",
+      "bytes": 118610,
+      "digest": "sha256:c262105281e099709d77a9595a4ba180b38eb391e6deac56e84013064f0edbed"
+    },
+    {
+      "path": "lineage.patch",
+      "bytes": 44181,
+      "digest": "sha256:cb3bec7615fbbdff4e3f934c47618b9978314940c0b2a0da9e1c1da3705bcbee"
+    },
+    {
+      "path": "metrics.json",
+      "bytes": 23219,
+      "digest": "sha256:34c3d82a18fda719b84491fc6c656a7803760ed24aa73840ee51b120d5d40daa"
+    },
+    {
+      "path": "rounds/01-after.md",
+      "bytes": 121351,
+      "digest": "sha256:3fb1047705cedd77c863799d6ed8ee7d60d4c46ddde6714c9999af04e7046280"
+    },
+    {
+      "path": "rounds/01-author-response.md",
+      "bytes": 1854,
+      "digest": "sha256:23d437b0b6af78e57f0f7bffcb3823ea656b5eb10f95f5d3ed568058f6e0a9d6"
+    },
+    {
+      "path": "rounds/01-review.md",
+      "bytes": 3446,
+      "digest": "sha256:5446800d9e04a30c3a59561b78c9c4a096c382e06fc35ee6b4abbf86486809a1"
+    },
+    {
+      "path": "rounds/01.json",
+      "bytes": 471,
+      "digest": "sha256:6b2b8e434345493514a2ce408cefc2c9c70467ed8ec34c380ba04efe3fc8bbe1"
+    },
+    {
+      "path": "rounds/01.patch",
+      "bytes": 5082,
+      "digest": "sha256:abba162dc82225d824106270731a5290b21435277ce100855f806667c7c603ee"
+    },
+    {
+      "path": "rounds/02-after.md",
+      "bytes": 121935,
+      "digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c"
+    },
+    {
+      "path": "rounds/02-author-response.md",
+      "bytes": 932,
+      "digest": "sha256:036ad87429c752cc73c07e011fb7ad1784db7353c0a9f0e83d38a1221636bd6f"
+    },
+    {
+      "path": "rounds/02-review.md",
+      "bytes": 2142,
+      "digest": "sha256:d0c1a117cbfa2d1279e67a4a1d30e9a89134cb7e903903641ef7e7bd3f38073e"
+    },
+    {
+      "path": "rounds/02.json",
+      "bytes": 512,
+      "digest": "sha256:39b9606d8dfef3718ba27b1ae5b49dfe16c6ac083f3cf8940a88b29da4e91743"
+    },
+    {
+      "path": "rounds/02.patch",
+      "bytes": 1845,
+      "digest": "sha256:94a8a1d1e49ef5b15f5f0eb838fbf9c55b5f20b34f46949d95aeb967f6e349c0"
+    },
+    {
+      "path": "rounds/03-author-response.md",
+      "bytes": 766,
+      "digest": "sha256:0f707b7844d956ee03f6ab90ff6ed934bfe9c2bcacc4976fa6c3e60c5f379151"
+    },
+    {
+      "path": "rounds/03-review.md",
+      "bytes": 2167,
+      "digest": "sha256:7549cd17973ef8b69840bd51cf99e395e7c25c56204d76d1e6375d6d3aec4224"
+    },
+    {
+      "path": "rounds/03.json",
+      "bytes": 544,
+      "digest": "sha256:32dfec128fc2437f8dfc35b6688dfdd1a8e6ddc644683c762e305c762e0ae6be"
+    },
+    {
+      "path": "rounds/03.patch",
+      "bytes": 0,
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "validation.json",
+      "bytes": 3347,
+      "digest": "sha256:d40a6b7187c14a7c128db824f1321de3da8c93af8c42653f09b64977b655c51d"
+    }
+  ]
+}

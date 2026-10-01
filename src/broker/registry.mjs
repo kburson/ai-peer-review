@@ -661,6 +661,101 @@ function reviewWorkspaces(project) {
   ];
 }
 
+export function inspectOfflineRecoveryCandidates(project) {
+  const candidates = [];
+  const unverifiable = [];
+  let workspaces;
+  try {
+    workspaces = reviewWorkspaces(project);
+  } catch (error) {
+    return Object.freeze({
+      candidates: Object.freeze([]),
+      unverifiable: Object.freeze([
+        Object.freeze({ workspace: null, code: error?.code ?? 'APR_BROKER_STALE' }),
+      ]),
+    });
+  }
+  const registrationRootPath = path.join(
+    project.physicalRoot,
+    '.scratch',
+    'peer-review',
+    'broker',
+    'registrations'
+  );
+  for (const workspace of workspaces) {
+    const registrationFile = path.join(registrationRootPath, `${path.basename(workspace)}.json`);
+    try {
+      const authority = inspectStartupAuthority({ project, workspace });
+      if (authority.status !== 'active' && authority.status !== 'terminal')
+        throw failure(
+          'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
+          'Startup authority is incomplete.',
+          'Preserve the review and broker evidence.'
+        );
+      const journal = readStartupJournal(workspace);
+      if (!journal || !verifyRuntimeImage(journal.runtime))
+        throw failure(
+          'APR_BROKER_RUNTIME_MISSING',
+          'Pinned runtime image is not verified.',
+          'Restore the exact pinned runtime.'
+        );
+      let registration = null;
+      if (lstatExists(registrationFile)) {
+        registration = readRegistration(registrationFile);
+        if (
+          !ownedRegistration(project, registrationRootPath, registrationFile, registration) ||
+          registration.request_digest !== authority.request_digest ||
+          registration.runtime.digest !== journal.runtime.digest ||
+          registration.workspace !== workspace
+        )
+          throw failure(
+            'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
+            'Registration contradicts startup authority.',
+            'Preserve and inspect the exact registration.'
+          );
+      }
+      const createdAt = journal.created_at ?? registration?.created_at ?? null;
+      candidates.push(
+        Object.freeze({
+          review_id: path.basename(workspace),
+          workspace,
+          stage: journal.stage,
+          runtime_digest: journal.runtime.digest,
+          created_at: createdAt,
+          chronology: createdAt === null ? 'unknown' : 'authenticated',
+          mixed_image_recovery: 'unverified',
+          ranking_reason:
+            createdAt === null
+              ? 'verified authority; chronology unknown'
+              : 'recent authenticated startup',
+          verified: true,
+          command: `peer-review broker reconcile '${workspace.replaceAll("'", "'\\''")}' --json`,
+        })
+      );
+    } catch (error) {
+      unverifiable.push(
+        Object.freeze({
+          workspace,
+          code: error?.code ?? 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
+        })
+      );
+    }
+  }
+  candidates.sort((left, right) => {
+    if (left.created_at !== null && right.created_at === null) return -1;
+    if (right.created_at !== null && left.created_at === null) return 1;
+    if (left.created_at !== right.created_at) return left.created_at < right.created_at ? 1 : -1;
+    return (
+      left.runtime_digest.localeCompare(right.runtime_digest) ||
+      left.workspace.localeCompare(right.workspace)
+    );
+  });
+  return Object.freeze({
+    candidates: Object.freeze(candidates),
+    unverifiable: Object.freeze(unverifiable),
+  });
+}
+
 function authorityFailure(message, details = {}, cause) {
   throw failure(
     'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',

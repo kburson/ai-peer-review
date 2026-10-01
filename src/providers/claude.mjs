@@ -30,16 +30,6 @@ const execFile = promisify(execFileCallback);
 const ADAPTER_VERSION = '1.0.0';
 const SUPPORTED_SURFACE_VERSION = '2.1.278';
 
-const MODELS = Object.freeze({
-  opus: Object.freeze({ model_id: 'claude-opus-5', model_display: 'Claude Opus 5' }),
-  'claude-opus-5': Object.freeze({ model_id: 'claude-opus-5', model_display: 'Claude Opus 5' }),
-  sonnet: Object.freeze({ model_id: 'claude-sonnet-5', model_display: 'Claude Sonnet 5' }),
-  'claude-sonnet-5': Object.freeze({
-    model_id: 'claude-sonnet-5',
-    model_display: 'Claude Sonnet 5',
-  }),
-});
-
 function routingFromInvitation(invitationPath) {
   let encoded;
   try {
@@ -251,7 +241,7 @@ export function createClaudeProviderSurface(options = {}) {
     },
     version,
     observeCurrentSession: ({ root, token, workspace, operationId, handleLocator }) =>
-      operationId?.startsWith('start:')
+      token && /^(?:start|join):/.test(operationId ?? '')
         ? readClaudeStartHook({ root, token, sessionId: handleLocator, operationId })
         : waitForClaudeStreamObservation({ workspace, operationId, handleLocator }),
     observeBoundSession: ({ projectRoot, workspace, handleLocator, expected, now }) => {
@@ -269,6 +259,7 @@ export function createClaudeProviderSurface(options = {}) {
             root: projectRoot,
             sessionId: handleLocator,
             operationId: expected.operation_id,
+            toolUseId: expected.tool_use_id,
           });
         }
         return readClaudeStreamObservation({
@@ -487,7 +478,6 @@ export function createClaudeAdapter(options = {}) {
     selector: 'claude',
     provider: 'anthropic',
     host: 'claude-code',
-    models: MODELS,
     surface,
     adapterVersion: ADAPTER_VERSION,
     resource: { concurrent: true, resource_id: null },

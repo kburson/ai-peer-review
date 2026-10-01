@@ -1,0 +1,25 @@
+{
+  "schema": "ai-peer-review.sar-metrics/v1",
+  "rounds_reviewed": 4,
+  "revision_rounds": 3,
+  "findings_total": 16,
+  "findings_by_severity": { "high": 9, "medium": 7 },
+  "status": "accepted",
+  "tokens": {
+    "input": null,
+    "output": null,
+    "reasoning": null,
+    "provenance": "unavailable"
+  },
+  "cost": { "amount": null, "currency": null, "provenance": "unavailable" },
+  "raw_logs_retained": false,
+  "findings_resolved": 16,
+  "findings_open": 0,
+  "findings_disputed": 0,
+  "cap": 6,
+  "intervention_required": false,
+  "request_submitted_at": "2026-09-27T07:23:04.485Z",
+  "completed_at": "2026-09-27T07:39:22.523Z",
+  "duration_seconds": null,
+  "duration_provenance": "Active inference and per-round durations unavailable; timestamps identify request and evidence completion only"
+}

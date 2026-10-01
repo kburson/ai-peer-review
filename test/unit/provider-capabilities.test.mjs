@@ -16,19 +16,22 @@ import {
 import { participantIdentityFromProviderObservation } from '../../src/identity/registry.mjs';
 import { doctor } from '../../src/doctor.mjs';
 
-test('provider aliases resolve to exact immutable model and effort records', async () => {
-  const adapter = createClaudeAdapter();
-  assert.deepEqual(await adapter.resolveModel({ model: 'opus', effort: 'high' }), {
-    model_id: 'claude-opus-5',
-    model_display: 'Claude Opus 5',
-    effort: 'high',
-  });
-  await assert.rejects(adapter.resolveModel({ model: 'missing', effort: 'high' }), {
-    code: 'APR_REVIEWER_SELECTION_UNSUPPORTED',
-  });
-  await assert.rejects(adapter.resolveModel({ model: 'opus', effort: 'maximum' }), {
-    code: 'APR_REVIEWER_SELECTION_UNSUPPORTED',
-  });
+test('production adapters preserve future exact model and effort identifiers', async () => {
+  for (const adapter of [createClaudeAdapter(), createCodexAdapter(), createGrokAdapter()]) {
+    assert.deepEqual(await adapter.resolveModel({ model: 'claude-opus-5-5', effort: 'max' }), {
+      model_id: 'claude-opus-5-5',
+      model_display: 'claude-opus-5-5',
+      effort: 'max',
+    });
+    for (const model of ['', '--bad', 'model with space', 'model;exit']) {
+      await assert.rejects(adapter.resolveModel({ model, effort: 'high' }), {
+        code: 'APR_REVIEWER_SELECTION_UNSUPPORTED',
+      });
+    }
+    await assert.rejects(adapter.resolveModel({ model: 'claude-opus-5-5', effort: 'max;exit' }), {
+      code: 'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    });
+  }
 });
 
 test('role wake methods use the bound session and never a reviewer launch operation handle', async () => {

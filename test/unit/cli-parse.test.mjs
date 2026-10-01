@@ -7,6 +7,7 @@ import { run } from '../../src/cli/run.mjs';
 
 const EXPECTED_COMMANDS = [
   'setup',
+  'build',
   'doctor',
   'start',
   'advance',
@@ -27,6 +28,17 @@ const EXPECTED_COMMANDS = [
   'help',
   'explain',
 ];
+
+test('build accepts only the package-owned broker-security target', () => {
+  assert.deepEqual(parseCommand(['build', 'broker-security']), {
+    command: 'build',
+    args: ['broker-security'],
+    options: {},
+  });
+  usage(['build'], /positional/i);
+  usage(['build', 'broker'], /broker-security/i);
+  usage(['build', 'broker-security', 'extra'], /positional/i);
+});
 
 function usage(argv, pattern) {
   assert.throws(
@@ -110,6 +122,8 @@ test('start options have stable names, repeatability, and defaults', () => {
       'x',
       '--artifact-kind',
       'plan',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'codex',
       '--reviewer-model',
@@ -123,6 +137,8 @@ test('start options have stable names, repeatability, and defaults', () => {
       'x',
       '--artifact-kind',
       'plan',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',
@@ -134,6 +150,25 @@ test('start options have stable names, repeatability, and defaults', () => {
     'codex',
     'claude',
   ]);
+});
+
+test('new reviews require an explicit issue before SPR or XPR startup', () => {
+  for (const provider of ['codex', 'claude']) {
+    assert.throws(
+      () =>
+        parseCommand([
+          'start',
+          'docs/spec.md',
+          '--artifact-kind',
+          'spec',
+          '--reviewer-provider',
+          provider,
+          '--reviewer-model',
+          'model-id',
+        ]),
+      (error) => error.code === 'APR_ISSUE_REQUIRED' && /--issue/.test(error.message)
+    );
+  }
 });
 
 test('advance accepts exactly one workspace and one artifact with no flags', () => {
@@ -175,6 +210,19 @@ test('launch-reviewer has a closed fresh and resume grammar', () => {
       '--resume',
     ]).options,
     { host: 'claude', resume: true }
+  );
+  assert.equal(
+    parseCommand([
+      'launch-reviewer',
+      'invitation',
+      '--host',
+      'claude',
+      '--model',
+      'claude-opus-5-5',
+      '--effort',
+      'max',
+    ]).options.effort,
+    'max'
   );
   usage(
     ['launch-reviewer', 'invitation', '--host', 'codex', '--model', 'm', '--effort', 'high'],
@@ -346,6 +394,8 @@ test('rejects invalid positive integers and accepts Phase 2 automatic-required m
       'x',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'codex',
       '--reviewer-model',
@@ -534,6 +584,15 @@ test('request-grant maps only action-owned fields to canonical snake case', () =
   );
   usage(['request-grant', 'workspace', '--artifact-path', 'x'], /requires --action/i);
   usage(['request-grant', 'workspace', '--action', 'unknown'], /unknown protected action/i);
+});
+
+test('setup --update parses as a project upgrade request', () => {
+  assert.equal(parseCommand(['setup', '--update']).options.update, true);
+  assert.equal(parseCommand(['setup', '--update', '--json']).options.json, true);
+});
+
+test('doctor accepts installation mode for a session-independent package check', () => {
+  assert.equal(parseCommand(['doctor', '--mode', 'installation']).options.mode, 'installation');
 });
 
 test('top-level and command help normalize to the help command', () => {

@@ -105,3 +105,17 @@ test('invitation is collateral only and cannot override event-derived workspace 
   assert.equal(contract.invitation, fx.invitation);
   assert.notEqual(contract.invitation, outside);
 });
+
+test('execution contract preserves a future model and effort exactly', (t) => {
+  const fx = fixture(t);
+  const contract = buildReviewerExecutionContract({
+    workspace: fx.workspace,
+    host: 'claude',
+    model: 'claude-opus-5-5',
+    effort: 'max',
+    inspectAuthority: () => authority(fx),
+    ...commandPaths(path.parse(fx.root).root),
+  });
+  assert.equal(contract.model, 'claude-opus-5-5');
+  assert.equal(contract.effort, 'max');
+});

@@ -616,7 +616,16 @@ export function pathsToSeals(items, { expected_head: expectedHead } = {}) {
 export function finalMessage(review) {
   const protocol = review?.protocol ?? review?.state?.protocol;
   if (!protocol?.review_id) fail('Final commit message requires review authority.');
-  return `chore: finalize peer review ${protocol.review_id}`;
+  return reviewCommitMessage(
+    protocol,
+    `Finalize peer review ${protocol.review_id}`,
+    `chore: finalize peer review ${protocol.review_id}`
+  );
+}
+
+export function reviewCommitMessage(protocol, subject, legacySubject = subject) {
+  const issue = protocol?.startup?.context?.issue;
+  return Number.isSafeInteger(issue) && issue > 0 ? `[#${issue}] ${subject}` : legacySubject;
 }
 
 export function finalTrailers({ state, acceptance, manifest }) {

@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 
 import { AprError } from '../errors.mjs';
@@ -7,6 +8,9 @@ import { createLiveDeliverySource } from '../transport/live-wait.mjs';
 import { waitForHandoff } from './wait.mjs';
 
 const safeId = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const packageVersion = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+).version;
 
 const inputSchema = z
   .object({
@@ -52,7 +56,7 @@ function toolResult(value, { error = false } = {}) {
 export function createHandoffMcpServer({
   createServer = (identity) => new McpServer(identity),
   repositoryRoot,
-  version = '0.3.0',
+  version = packageVersion,
   wait = waitForHandoff,
   createDeliveries = createLiveDeliverySource,
 } = {}) {

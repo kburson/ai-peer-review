@@ -14,6 +14,9 @@ import { promisify } from 'node:util';
 import { inspectInstalledHandoff } from '../installed-handoff-evidence.mjs';
 
 const installed = process.env.APR_FIXTURE_PACKAGE;
+const packageVersion = JSON.parse(
+  readFileSync(path.join(installed, 'package.json'), 'utf8')
+).version;
 const root = process.cwd();
 const load = (file) => import(pathToFileURL(path.join(installed, file)));
 const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
@@ -52,7 +55,7 @@ try {
     platform,
     runtimeImage: JSON.parse(process.env.APR_FIXTURE_IMAGE),
     versions: {
-      package_version: '0.3.0',
+      package_version: packageVersion,
       broker_protocol_version: 1,
       node_major: Number(process.versions.node.split('.')[0]),
     },

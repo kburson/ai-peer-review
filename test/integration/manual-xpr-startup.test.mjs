@@ -32,6 +32,7 @@ async function start(fx) {
   const result = await startReview(
     {
       cwd: fx.root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: identity('author', '106-author', NOW.toISOString()),
@@ -58,6 +59,7 @@ test('manual XPR registers without asking a recovery-only broker worker to launc
   const result = await startReview(
     {
       cwd: fx.root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: identity('author', '106-manual-author'),
@@ -95,7 +97,18 @@ test('manual declared join ignores an inherited official resume command', async 
     })
   );
   const review = await start(fx);
-  const joined = await cli(['join', review.paths.invitation], fx, { env: reviewerEnv(fx) });
+  const joined = await cli(['join', review.paths.invitation], fx, {
+    env: reviewerEnv(fx),
+    identityContext: {
+      declared: {
+        host: 'claude-code',
+        provider: 'anthropic',
+        sessionId: SESSION,
+        modelId: 'claude-opus-5',
+        modelDisplay: 'Claude Opus 5',
+      },
+    },
+  });
   assert.equal(joined.code, 0, joined.stderr);
   const participants = JSON.parse(
     readFileSync(path.join(review.paths.workspace, 'participants.json'))
@@ -248,6 +261,8 @@ for (const configured of [false, true]) {
       'docs/artifact.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',

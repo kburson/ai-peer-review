@@ -11,6 +11,7 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
 import {
   canonicalChallengeBytes,
@@ -19,8 +20,14 @@ import {
 } from '../authority/canonicalize.mjs';
 import { requestGrant } from '../authority/challenge.mjs';
 import { verifyAndConsumeGrant } from '../authority/verify.mjs';
-import { requestBroker } from '../broker/client.mjs';
-import { startupEvidence } from '../broker/registry.mjs';
+import { ensureBroker, requestBroker } from '../broker/client.mjs';
+import { inspectOfflineRecoveryCandidates, startupEvidence } from '../broker/registry.mjs';
+import {
+  manualLaunchProvesNonSubmission,
+  reserveManualLaunch,
+  settleManualLaunch,
+} from '../provider/manual-launch-ledger.mjs';
+import { allWakeOperations } from '../coordinator/ledger.mjs';
 import {
   openParticipantSession,
   recordParticipantBinding,
@@ -32,7 +39,8 @@ import { platformSecurity } from '../broker/platform.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { applyReviewRecord, planReviewRecord } from '../collateral/review-record.mjs';
 import { loadConfig } from '../config/load.mjs';
-import { setup } from '../config/setup.mjs';
+import { setup, updateSetup } from '../config/setup.mjs';
+import { assertProjectSetupCompatible } from '../config/installation-identity.mjs';
 import {
   createResponseDraft,
   parseResponse,
@@ -66,6 +74,7 @@ import {
   buildPhaseManifest,
   finalMessage,
   finalTrailers,
+  reviewCommitMessage,
   pathsToSeals,
   sealHumanDecision,
   sealManifest,
@@ -93,6 +102,7 @@ import {
 import {
   activateStartup,
   prepareStartup,
+  requireStartupIssue,
   assertRequestedReviewer,
   validateRuntimeDescriptor,
 } from '../startup/runtime.mjs';
@@ -108,7 +118,7 @@ import {
   sealNoCommitHandoff,
   statusReview as protocolStatusReview,
 } from '../protocol/service.mjs';
-import { atomicCreate, atomicWrite } from '../protocol/store.mjs';
+import { atomicCreate, atomicWrite, withReviewLock } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
 import { manualTransport } from '../transport/manual.mjs';
 import {
@@ -814,7 +824,7 @@ function startupVariables(
         renderCommand(['peer-review', 'join', invitationAbsolute])
       ),
       zero_install_join_display: markdownCodeSpan(
-        renderCommand(['npx', '--yes', '@kburson/ai-peer-review@0.3.0', 'join', invitationAbsolute])
+        renderCommand(['npx', '--no-install', 'ai-peer-review', 'join', invitationAbsolute])
       ),
       recovery_display: markdownCodeSpan(
         renderCommand(['peer-review', 'resume', workspaceAbsolute])
@@ -858,6 +868,7 @@ function startResult(state, paths, startup) {
 }
 
 export async function startReview(input, deps = {}) {
+  requireStartupIssue(input.issue);
   if (!deps.validatedStartup) {
     const startupDeps = {
       ...deps,
@@ -1400,6 +1411,11 @@ async function runtimeObservationForJoin(invitation, identity, io) {
     operationId: expected.operation_id,
     expected,
     workspace: values.workspace,
+    root: state.protocol.startup.context.repository_root,
+    token:
+      runtime.reviewer.selector === 'codex'
+        ? io.env?.APR_CODEX_HOOK_TOKEN
+        : io.env?.APR_CLAUDE_HOOK_TOKEN,
     handleLocator: rawSession(io, runtime.reviewer.selector),
   });
   const adapterAttestation = await adapter.attestVersion({ runtimeImage: runtime });
@@ -2031,6 +2047,7 @@ function retainedWorkspacePaths(workspace, { includeReservation = false } = {}) 
 function releaseReservation(workspace, reviewId) {
   const file = path.join(workspace, 'collateral-reservation.json');
   if (!entryExists(file)) return;
+  if (!lstatSync(file).isFile()) collision(file);
   let record;
   try {
     record = JSON.parse(readFileSync(file, 'utf8'));
@@ -2046,8 +2063,7 @@ function releaseReservation(workspace, reviewId) {
   unlinkSync(file);
 }
 
-export async function abandonReview(input) {
-  const absolute = path.resolve(input.workspace);
+async function abandonLocked(input, absolute) {
   const authority = inspectReviewAuthority(absolute);
   const state = authority.state;
   const reason = String(input.reason ?? '').trim();
@@ -2068,34 +2084,81 @@ export async function abandonReview(input) {
       }
     );
   }
-  if (
-    state.protocol.state !== 'intervention-required' ||
-    !reason ||
-    !['author', 'reviewer'].some(
+  const unjoined =
+    state.protocol.state === 'awaiting-reviewer' &&
+    !state.participants.reviewer &&
+    state.protocol.startup.runtime?.ownership === 'broker';
+  const unjoinedEvidence = unjoined ? startupEvidence(absolute, state) : null;
+  const unjoinedSafe =
+    unjoinedEvidence?.recovery.fenced === true &&
+    ['authority', 'manual', 'registered'].includes(unjoinedEvidence.journal.stage) &&
+    (!unjoinedEvidence.journal.provider_operation ||
+      unjoinedEvidence.journal.provider_operation.status === 'not-submitted') &&
+    allWakeOperations(absolute).every((operation) =>
+      ['not-submitted', 'refused'].includes(operation.status)
+    ) &&
+    manualLaunchProvesNonSubmission(absolute, {
+      reviewId: state.protocol.review_id,
+      requestDigest: unjoinedEvidence.journal.request_digest,
+    }) &&
+    state.participants.author?.session_fingerprint === input.identity?.session_fingerprint;
+  const interventionSafe =
+    state.protocol.state === 'intervention-required' &&
+    ['author', 'reviewer'].some(
       (role) =>
         state.participants[role]?.session_fingerprint === input.identity?.session_fingerprint
-    )
-  ) {
+    );
+  if (!reason || (!unjoinedSafe && !interventionSafe)) {
     fail(
       'APR_INVALID_TRANSITION',
-      'Abandonment requires one registered participant during intervention.',
-      'Resume from the registered author or reviewer session and provide a reason.'
+      'Abandonment requires registered participant authority and safe terminal evidence.',
+      'For an unjoined review, fence exact broker delivery and prove every manual and wake operation was not submitted; legacy or uncertain launch history remains blocked. Otherwise resume during intervention.'
     );
   }
+  const reservation = path.join(absolute, 'collateral-reservation.json');
+  if (entryExists(reservation)) {
+    const paths = pathsForContext(state.protocol.startup.context);
+    if (paths.scratch.absolute !== absolute) collision(reservation);
+    reserveCollateral({ ...state, paths }, { write: false });
+  }
   const retainedPaths = retainedWorkspacePaths(absolute);
-  const abandoned = await mutateReview(absolute, expected(state), (current) =>
-    eventFor(
+  const abandoned = await mutateReview(absolute, expected(state), (current) => {
+    if (unjoinedSafe) {
+      const fresh = startupEvidence(absolute, current);
+      if (
+        current.protocol.state !== 'awaiting-reviewer' ||
+        current.participants.reviewer ||
+        !fresh.recovery.fenced ||
+        !['authority', 'manual', 'registered'].includes(fresh.journal.stage) ||
+        (fresh.journal.provider_operation &&
+          fresh.journal.provider_operation.status !== 'not-submitted') ||
+        !allWakeOperations(absolute).every((operation) =>
+          ['not-submitted', 'refused'].includes(operation.status)
+        ) ||
+        !manualLaunchProvesNonSubmission(absolute, {
+          reviewId: current.protocol.review_id,
+          requestDigest: fresh.journal.request_digest,
+        })
+      ) {
+        fail(
+          'APR_WAKE_OUTCOME_UNKNOWN',
+          'Unjoined retirement evidence changed.',
+          'Preserve the review and reconcile every exact provider operation.'
+        );
+      }
+    }
+    return eventFor(
       current,
       'abandoned',
       input.identity.session_fingerprint,
       {
-        intervention_id: current.protocol.intervention.intervention_id,
+        intervention_id: unjoinedSafe ? 'unjoined' : current.protocol.intervention.intervention_id,
         reason,
         retained_paths: retainedPaths,
       },
       input.now ?? new Date()
-    )
-  );
+    );
+  });
   releaseReservation(absolute, abandoned.protocol.review_id);
   return result(
     'abandon',
@@ -2107,6 +2170,11 @@ export async function abandonReview(input) {
       retained_paths: retainedPaths,
     }
   );
+}
+
+export async function abandonReview(input) {
+  const absolute = path.resolve(input.workspace);
+  return withReviewLock(path.join(absolute, 'dispatch'), () => abandonLocked(input, absolute));
 }
 
 function requireSuccessorAuthority(
@@ -3554,7 +3622,7 @@ export async function submitAuthorTurn(input, deps = {}) {
     },
     transactionRepository
   );
-  const message = `Peer review revision ${turn}`;
+  const message = reviewCommitMessage(state.protocol, `Peer review revision ${turn}`);
   const commit = commitExactPaths(transactionRepository, transaction, message, trailers);
   checkpoint(deps, 'transaction-completed');
   const nextReviewerPath = paths.reviewerResponse(turn + 1);
@@ -4446,6 +4514,7 @@ function inspectBrokerEvidence(project) {
   const registrations = listRegularJson(path.join(root, 'registrations'));
   const recoveryRecords = listRegularJson(path.join(root, 'recovery'));
   const unreconciled = new Set();
+  const inspected = inspectOfflineRecoveryCandidates(project);
   for (const file of registrations) {
     try {
       const record = JSON.parse(readFileSync(file, 'utf8'));
@@ -4471,22 +4540,15 @@ function inspectBrokerEvidence(project) {
     registrations: Object.freeze(registrations),
     recovery_records: Object.freeze(recoveryRecords),
     unreconciled_workspaces: Object.freeze([...unreconciled].sort()),
+    candidates: inspected.candidates,
+    unverifiable: inspected.unverifiable,
   });
 }
 
-function inspectBrokerWorkspaceEvidence(workspace) {
-  try {
-    const journal = JSON.parse(readFileSync(path.join(workspace, 'startup-request.json'), 'utf8'));
-    return Object.freeze({
-      ambiguous: ['launch-pending', 'outcome-unknown'].includes(journal.stage),
-    });
-  } catch {
-    return Object.freeze({ ambiguous: false });
-  }
-}
-
 function offlineBrokerStatus(project, evidence, error = null) {
-  const workspace = evidence.unreconciled_workspaces[0] ?? null;
+  const workspace = evidence.candidates
+    ? (evidence.candidates[0]?.workspace ?? null)
+    : (evidence.unreconciled_workspaces[0] ?? null);
   return brokerProjection('status', {
     status: 'offline',
     project_digest: project.digest,
@@ -4543,17 +4605,6 @@ async function brokerCommand(verb, workspace, io) {
         env: io.env,
         home: os.homedir(),
       });
-  if (verb === 'reconcile') {
-    const inspectWorkspace = io.brokerInspectWorkspaceEvidence ?? inspectBrokerWorkspaceEvidence;
-    if (inspectWorkspace(workspace).ambiguous) {
-      fail(
-        'APR_WAKE_OUTCOME_UNKNOWN',
-        'Ambiguous provider action cannot be replayed by broker reconciliation.',
-        'Preserve provider and startup evidence and reconcile the exact provider operation manually.',
-        { workspace }
-      );
-    }
-  }
   const connect = io.brokerConnect ?? ((input) => connectBroker(input, security));
   if (verb === 'suspend') {
     const authority = inspectReviewAuthority(workspace);
@@ -4584,10 +4635,26 @@ async function brokerCommand(verb, workspace, io) {
   try {
     client = await connect({ identity: project, paths, versions });
   } catch (error) {
-    if (verb === 'status' && ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code)) {
-      return offlineBrokerStatus(project, evidence, error);
-    }
-    throw error;
+    const absent = ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code);
+    if (verb === 'status' && absent) return offlineBrokerStatus(project, evidence, error);
+    if (verb !== 'reconcile' || !absent) throw error;
+    // Startup authority and the pinned image identify the only runtime allowed
+    // to inspect this review. Broker startup may recover old registrations but
+    // reconciliation never submits or retries a provider launch.
+    const runtime = (
+      io.brokerReconcileRuntime ??
+      ((target) => {
+        const authority = inspectReviewAuthority(target);
+        const observed = startupEvidence(target, authority.state);
+        return { versions: observed.journal.versions, runtimeImage: observed.journal.runtime };
+      })
+    )(workspace);
+    client = await (io.brokerEnsure ?? ensureBroker)({
+      project,
+      versions: runtime.versions,
+      runtimeImage: runtime.runtimeImage,
+      platform: security,
+    });
   }
   let value;
   try {
@@ -4782,7 +4849,7 @@ async function detectedDoctorContext(io, loaded, requestedMode) {
   };
 }
 
-function configuredIdentityContext(io, config) {
+function configuredIdentityContext(io) {
   const base = io.identityContext ?? {};
   if (base.declared) return base;
   const env = io.env ?? {};
@@ -4795,28 +4862,7 @@ function configuredIdentityContext(io, config) {
         : env.GROK_SESSION_ID
           ? 'grok'
           : null);
-  if (!adapter) return base;
-  const identity = config.hosts?.[adapter]?.identity ?? {};
-  if (adapter === 'claude') {
-    return {
-      ...base,
-      adapter,
-      declaredModel: {
-        ...(identity.model_id ? { modelId: identity.model_id } : {}),
-        ...(identity.model_display ? { modelDisplay: identity.model_display } : {}),
-        ...(base.declaredModel ?? {}),
-      },
-    };
-  }
-  return {
-    ...base,
-    adapter,
-    runtime: {
-      ...(identity.model_id ? { modelId: identity.model_id } : {}),
-      ...(identity.model_display ? { modelDisplay: identity.model_display } : {}),
-      ...(base.runtime ?? {}),
-    },
-  };
+  return adapter ? { ...base, adapter } : base;
 }
 
 function transportHost(identity) {
@@ -4979,7 +5025,7 @@ export async function run(argv, io) {
       return 0;
     }
     if (parsed.command === 'setup') {
-      const response = setup({
+      const response = (parsed.options.update ? updateSetup : setup)({
         scope: parsed.options.scope,
         agents: parsed.options.agent,
         dryRun: parsed.options.dryRun,
@@ -4988,11 +5034,57 @@ export async function run(argv, io) {
         cwd: io.cwd,
         env: io.env,
       });
-      if (parsed.options.dryRun)
-        io.stdout.write(response.diff ? `${response.diff}\n` : 'No changes.\n');
-      else writeJson(io.stdout, response);
+      if (parsed.options.json) writeJson(io.stdout, response);
+      else if (parsed.options.dryRun)
+        io.stdout.write(`Preview only; no files changed.\n${response.diff || 'No changes.\n'}`);
+      else if (response.status === 'no-changes')
+        io.stdout.write(
+          `Setup already up to date (${response.scope}; ${response.agents.join(', ')}). No files changed.\n`
+        );
+      else {
+        io.stdout.write(
+          `Setup applied (${response.scope}; ${response.agents.join(', ')}). Changed ${response.operations.length} file${response.operations.length === 1 ? '' : 's'}:\n`
+        );
+        for (const operation of response.operations)
+          io.stdout.write(`  ${operation.kind} ${path.relative(io.cwd, operation.file)}\n`);
+        if (response.backups.length) {
+          io.stdout.write(`Backups created:\n`);
+          for (const backup of response.backups)
+            io.stdout.write(`  ${path.relative(io.cwd, backup)}\n`);
+        }
+      }
       return 0;
     }
+    if (parsed.command === 'build') {
+      const nodeRoot = path.dirname(path.dirname(realpathSync(process.execPath)));
+      const script = fileURLToPath(
+        new URL('../../scripts/build-broker-security.mjs', import.meta.url)
+      );
+      try {
+        const output = io.buildBrokerSecurity
+          ? await io.buildBrokerSecurity({ script, nodeRoot, nodeExecutable: process.execPath })
+          : await execFile(process.execPath, [script, '--nodedir', nodeRoot], {
+              cwd: path.dirname(path.dirname(script)),
+              maxBuffer: 1024 * 1024,
+            });
+        io.stdout.write(
+          output?.stdout ?? `Built broker security for Node ${process.versions.node}.\n`
+        );
+        return 0;
+      } catch (cause) {
+        fail(
+          'APR_BROKER_BUILD_FAILED',
+          'Broker security helper build failed.',
+          'Install matching local Node development files and a C++ build toolchain, then rerun peer-review build broker-security.',
+          {
+            reason: String(cause?.stderr ?? cause?.message ?? cause)
+              .trim()
+              .slice(0, 1000),
+          }
+        );
+      }
+    }
+    assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
     if (parsed.command === 'doctor') {
       const loaded = loadConfig({ cwd: io.cwd, env: io.env });
       const detected = await detectedDoctorContext(io, loaded, parsed.options.mode ?? 'manual');
@@ -5005,12 +5097,18 @@ export async function run(argv, io) {
       else {
         const rows = response.rows.map((entry) => {
           const recovery =
-            entry.id === 'broker-security' && entry.details?.build_command
+            entry.id === 'broker-security' && entry.status !== 'ok' && entry.details?.build_command
               ? `\n  recovery: ${entry.details.build_command}`
-              : '';
+              : entry.id === 'identity-source' && entry.status === 'unavailable'
+                ? '\n  recovery: Use --mode installation for package health; review startup needs current-operation provider model evidence.'
+                : '';
           return `${entry.id}: ${entry.status}${recovery}`;
         });
-        io.stdout.write(`${response.healthy ? 'healthy' : 'unhealthy'}\n${rows.join('\n')}\n`);
+        const scope =
+          response.requested_mode === 'installation' ? 'installation' : 'session readiness';
+        io.stdout.write(
+          `${scope}: ${response.healthy ? 'healthy' : 'unhealthy'}\n${rows.join('\n')}\n`
+        );
       }
       return response.healthy ? 0 : 1;
     }
@@ -5077,14 +5175,25 @@ export async function run(argv, io) {
         routing.response = current.paths.response;
       }
       const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
+      const current = inspectReviewAuthority(values.workspace).state;
+      const evidence =
+        current.protocol.startup.runtime?.ownership === 'broker'
+          ? startupEvidence(values.workspace, current)
+          : null;
       const baseContract = parsed.options.resume
-        ? buildClaudeReviewerResume({ repositoryRoot, invitation, routing })
+        ? buildClaudeReviewerResume({
+            repositoryRoot,
+            invitation,
+            routing,
+            runtimeImage: evidence?.journal.runtime,
+          })
         : buildClaudeReviewerLaunch({
             repositoryRoot,
             invitation,
             routing,
             model: parsed.options.model,
             effort: parsed.options.effort,
+            runtimeImage: evidence?.journal.runtime,
           });
       const registered = inspectReview(values.workspace).participants.reviewer;
       const configured = loadConfig({ cwd: io.cwd, env: io.env }).config.hosts?.claude?.identity;
@@ -5106,14 +5215,79 @@ export async function run(argv, io) {
         operationId: `join:${values.reviewId}`,
         expectedCommand: claudeJoinCommand(contract),
       });
-      const response = await runClaudeReviewerLaunch({
-        contract,
-        resume: parsed.options.resume,
-        execFile:
-          io.execFile ?? createClaudeStreamingExec({ recorder, spawnProcess: io.spawnProcess }),
-        inspectAuthority: io.inspectAuthority,
-        fingerprintSession: io.fingerprintSession,
-      });
+      const launchDetails = evidence && {
+        reviewId: values.reviewId,
+        requestDigest: evidence.journal.request_digest,
+        intentDigest: sha256(
+          canonicalProjection({
+            invitation,
+            response: contract.response,
+            model: contract.model,
+            effort: contract.effort,
+            resume: Boolean(parsed.options.resume),
+          })
+        ),
+      };
+      const operation =
+        evidence &&
+        (await reserveManualLaunch(values.workspace, launchDetails, {
+          verifyAuthority() {
+            const fresh = inspectReviewAuthority(values.workspace).state;
+            const observed = startupEvidence(values.workspace, fresh);
+            if (
+              fresh.protocol.review_id !== values.reviewId ||
+              observed.journal.request_digest !== launchDetails.requestDigest ||
+              observed.recovery.fenced ||
+              observed.recovery.suspending ||
+              !['awaiting-reviewer', 'reviewer-turn'].includes(fresh.protocol.state)
+            ) {
+              fail(
+                'APR_WAKE_OUTCOME_UNKNOWN',
+                'Manual launch authority changed or is fenced.',
+                'Read the exact review status and reconcile its launch evidence before retrying.'
+              );
+            }
+          },
+        }));
+      let response;
+      try {
+        response = await runClaudeReviewerLaunch({
+          contract,
+          resume: parsed.options.resume,
+          execFile:
+            io.execFile ?? createClaudeStreamingExec({ recorder, spawnProcess: io.spawnProcess }),
+          inspectAuthority: io.inspectAuthority,
+          fingerprintSession: io.fingerprintSession,
+        });
+        if (operation)
+          await settleManualLaunch(
+            values.workspace,
+            launchDetails,
+            operation.id,
+            ['submitted', 'permission-blocked'].includes(response.status)
+              ? 'submitted'
+              : 'outcome-unknown'
+          );
+      } catch (error) {
+        if (operation && error?.code === 'APR_REVIEWER_SELECTION_REFUSED') {
+          const observationBase = path.join(values.workspace, 'provider', 'claude', 'observations');
+          const observed = [
+            path.join(
+              observationBase,
+              `${createHash('sha256').update(`join:${values.reviewId}`).digest('hex')}.json`
+            ),
+            path.join(observationBase, `join:${values.reviewId}.json`),
+          ].some(existsSync);
+          if (!observed)
+            await settleManualLaunch(
+              values.workspace,
+              launchDetails,
+              operation.id,
+              'not-submitted'
+            );
+        }
+        throw error;
+      }
       if (parsed.options.json) writeJson(io.stdout, response);
       else writeClaudeLaunchResult(io.stdout, response);
       return response.status === 'failed' ? 1 : 0;
@@ -5282,11 +5456,11 @@ export async function run(argv, io) {
       const deliveryDeps = { transport, execFile: io.execFile };
       if (active === 'reviewer') {
         const registeredReviewer = submitState.participants.reviewer;
-        const identityEnv = { ...(io.env ?? {}) };
-        if (
+        const legacyDeclaredClaude =
           registeredReviewer?.host === 'claude-code' &&
-          registeredReviewer.identity_source === 'declared'
-        ) {
+          registeredReviewer.identity_source === 'declared';
+        const identityEnv = { ...(io.env ?? {}) };
+        if (legacyDeclaredClaude) {
           delete identityEnv.CLAUDE_MODEL_ID;
           delete identityEnv.CLAUDE_MODEL_DISPLAY;
         }
@@ -5300,6 +5474,14 @@ export async function run(argv, io) {
               role: 'reviewer',
               env: identityEnv,
               ...configuredIdentityContext(io, loaded.config),
+              ...(legacyDeclaredClaude
+                ? {
+                    declaredModel: {
+                      modelId: registeredReviewer.model_id,
+                      modelDisplay: registeredReviewer.model_display,
+                    },
+                  }
+                : {}),
             }),
             decision,
             now: io.now ?? new Date(),
@@ -5486,6 +5668,7 @@ export async function run(argv, io) {
 }
 
 export async function runHandoffMcpStdio(options) {
+  assertProjectSetupCompatible({ cwd: options.repositoryRoot });
   const { serveHandoffMcpStdio } = await import('../mcp/server.mjs');
   return serveHandoffMcpStdio(options);
 }

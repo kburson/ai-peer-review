@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:9901816a2120d7bb8c6b3f501e59f03217faec9e5dbafadd145408a1662398b9" -->
+<!-- ai-peer-review-template version="1" digest="sha256:064952674640611160aff00e947b64de060d4a4cfe7139019eb0f24ee264aa25" -->
 <!-- ai-peer-review-invitation data="cGF5bG9hZA" -->
 
 # Reviewer invitation
@@ -39,7 +39,7 @@ Role: reviewer. Join from a distinct session in the same physical worktree.
 
 Installed join: `peer-review join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`
 
-Zero-install join: `npx --yes @kburson/ai-peer-review@0.3.0 join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`
+Installed-package join: `npx --no-install ai-peer-review join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md`
 
 Rules of engagement:
 

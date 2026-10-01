@@ -645,7 +645,8 @@ void* ConnectPrivate(const std::string& input, std::string* code, std::string* m
   if (!WaitNamedPipeW(path.c_str(), 5000)) {
     const DWORD error = GetLastError();
     if (error != ERROR_SEM_TIMEOUT) {
-      Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" : "APR_BROKER_START_FAILED",
+      Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" :
+           error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" : "APR_BROKER_START_FAILED",
            "Private named pipe is unavailable.");
       return nullptr;
     }
@@ -654,7 +655,8 @@ void* ConnectPrivate(const std::string& input, std::string* code, std::string* m
                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     const DWORD error = GetLastError();
-    Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" : "APR_BROKER_START_FAILED",
+    Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" :
+         error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" : "APR_BROKER_START_FAILED",
          "Private named pipe cannot be connected.");
     return nullptr;
   }

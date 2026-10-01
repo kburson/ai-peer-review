@@ -10,7 +10,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   );
 
   assert.equal(packageJson.name, '@kburson/ai-peer-review');
-  assert.equal(packageJson.version, '0.3.0');
+  assert.equal(packageJson.version, '0.4.0');
   assert.equal(packageJson.type, 'module');
   assert.equal(packageJson.engines.node, '>=24');
   assert.equal(packageJson.bin['peer-review'], './bin/peer-review.mjs');
@@ -18,6 +18,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   assert.deepEqual(packageJson.dependencies, {
     '@modelcontextprotocol/sdk': '1.30.0',
     'node-gyp': '12.4.0',
+    prettier: '3.8.3',
     zod: '4.6.2',
   });
   assert.deepEqual(packageJson.scripts, {
@@ -27,7 +28,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     test: 'npm run test:unit && npm run test:golden',
     'test:unit': 'node --test "test/unit/**/*.test.mjs"',
     'test:golden': 'node --test "test/golden/**/*.test.mjs"',
-    'test:integration': 'node --test "test/integration/**/*.test.mjs"',
+    'test:integration': 'node --test --test-concurrency=2 "test/integration/**/*.test.mjs"',
     'test:packaging': 'node --test "test/packaging/**/*.test.mjs"',
     'test:live:broker-handoff': 'node test/live/installed-broker-handoff.mjs',
     'test:smoke': 'node --test "test/smoke/**/*.test.mjs"',

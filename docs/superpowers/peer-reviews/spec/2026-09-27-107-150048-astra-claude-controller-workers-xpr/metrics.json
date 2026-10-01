@@ -1,0 +1,713 @@
+{
+  "schema": "ai-peer-review.manual-metrics/v1",
+  "run_id": "107-runtime-api-spec-xpr-20260927-150048",
+  "collection_source": "controller-observed provider results and durable files",
+  "attempts": [
+    {
+      "id": "astra-author-initialization",
+      "round": null,
+      "status": "failed",
+      "termination": "AITM worktree write-scope rejection",
+      "role": "author",
+      "provider": "openai",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "provider_api_duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "input_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "output_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "estimated_cost": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      }
+    },
+    {
+      "id": "astra-author-round-1-unresponsive",
+      "round": 1,
+      "status": "stopped-by-controller",
+      "termination": "no response after controller intervention",
+      "role": "author",
+      "provider": "openai",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "provider_api_duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "input_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "output_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "estimated_cost": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      }
+    },
+    {
+      "id": "astra-replacement-author-round-1",
+      "round": 1,
+      "status": "completed",
+      "termination": "patch returned through controller transport",
+      "role": "author",
+      "provider": "openai",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "provider_api_duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "input_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "output_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "estimated_cost": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      }
+    },
+    {
+      "id": "astra-replacement-author-round-2",
+      "round": 2,
+      "status": "completed",
+      "termination": "patch returned through controller transport",
+      "role": "author",
+      "provider": "openai",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "provider_api_duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "input_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "output_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "estimated_cost": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      }
+    },
+    {
+      "id": "astra-replacement-author-round-3",
+      "round": 3,
+      "status": "completed",
+      "termination": "patch returned through controller transport",
+      "role": "author",
+      "provider": "openai",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "provider_api_duration": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "input_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "output_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "reasoning_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_read_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "cache_creation_tokens": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      },
+      "estimated_cost": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      }
+    },
+    {
+      "id": "claude-reviewer-round-1",
+      "round": 1,
+      "role": "reviewer",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "effort": "high",
+      "service_tier": "standard",
+      "termination_status": "completed",
+      "stop_reason": "end_turn",
+      "terminal_reason": "completed",
+      "duration_ms": {
+        "value": 563880,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "provider_api_duration_ms": {
+        "value": 563263,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "input_tokens": {
+        "value": 14,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "output_tokens": {
+        "value": 37542,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "reasoning_tokens": {
+        "value": 18214,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "cache_read_tokens": {
+        "value": 254389,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "cache_creation_tokens": {
+        "value": 88380,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "estimated_cost_usd": {
+        "value": 1.9496145,
+        "provenance": "reported",
+        "source": "claude-cli-json",
+        "basis": "list-price estimate"
+      },
+      "permission_denials": {
+        "value": 1,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "web_search_requests": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "web_fetch_requests": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      }
+    },
+    {
+      "id": "claude-reviewer-round-2",
+      "round": 2,
+      "role": "reviewer",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "effort": "high",
+      "service_tier": "standard",
+      "termination_status": "completed",
+      "stop_reason": "end_turn",
+      "terminal_reason": "completed",
+      "duration_ms": {
+        "value": 517409,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "provider_api_duration_ms": {
+        "value": 517297,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "input_tokens": {
+        "value": 20,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "output_tokens": {
+        "value": 38549,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "reasoning_tokens": {
+        "value": 20070,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "cache_read_tokens": {
+        "value": 1246921,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "cache_creation_tokens": {
+        "value": 97406,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "estimated_cost_usd": {
+        "value": 2.5613455,
+        "provenance": "reported",
+        "source": "claude-cli-json",
+        "basis": "list-price estimate"
+      },
+      "permission_denials": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "web_search_requests": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "web_fetch_requests": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      }
+    },
+    {
+      "id": "claude-reviewer-round-3",
+      "round": 3,
+      "role": "reviewer",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "effort": "high",
+      "service_tier": "standard",
+      "termination_status": "completed",
+      "stop_reason": "end_turn",
+      "terminal_reason": "completed",
+      "duration_ms": {
+        "value": 380118,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "provider_api_duration_ms": {
+        "value": 379963,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "input_tokens": {
+        "value": 24,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "output_tokens": {
+        "value": 27422,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "reasoning_tokens": {
+        "value": 12510,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "cache_read_tokens": {
+        "value": 2721871,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "cache_creation_tokens": {
+        "value": 87423,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "estimated_cost_usd": {
+        "value": 2.9208355,
+        "provenance": "reported",
+        "source": "claude-cli-json",
+        "basis": "list-price estimate"
+      },
+      "permission_denials": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "web_search_requests": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "web_fetch_requests": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      }
+    },
+    {
+      "id": "claude-reviewer-round-4",
+      "round": 4,
+      "role": "reviewer",
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "effort": "high",
+      "service_tier": "standard",
+      "termination_status": "completed",
+      "stop_reason": "end_turn",
+      "terminal_reason": "completed",
+      "duration_ms": {
+        "value": 615094,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "provider_api_duration_ms": {
+        "value": 614920,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "input_tokens": {
+        "value": 24,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "output_tokens": {
+        "value": 20848,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "reasoning_tokens": {
+        "value": 8154,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "cache_read_tokens": {
+        "value": 3757088,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "cache_creation_tokens": {
+        "value": 81503,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "estimated_cost_usd": {
+        "value": 3.214894,
+        "provenance": "reported",
+        "source": "claude-cli-json",
+        "basis": "list-price estimate"
+      },
+      "permission_denials": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "web_search_requests": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      },
+      "web_fetch_requests": {
+        "value": 0,
+        "provenance": "reported",
+        "source": "claude-cli-json"
+      }
+    }
+  ],
+  "round_aggregates": [
+    {
+      "round": 1,
+      "reviewer_known": {
+        "provider_api_duration_ms": 563263,
+        "input_tokens": 14,
+        "output_tokens": 37542,
+        "reasoning_tokens": 18214,
+        "cache_read_tokens": 254389,
+        "cache_creation_tokens": 88380,
+        "estimated_cost_usd": 1.9496145
+      },
+      "complete_round_total": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "author-and-controller-usage-not-exposed",
+        "source": "controller-aggregate"
+      }
+    },
+    {
+      "round": 2,
+      "reviewer_known": {
+        "provider_api_duration_ms": 517297,
+        "input_tokens": 20,
+        "output_tokens": 38549,
+        "reasoning_tokens": 20070,
+        "cache_read_tokens": 1246921,
+        "cache_creation_tokens": 97406,
+        "estimated_cost_usd": 2.5613455
+      },
+      "complete_round_total": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "author-and-controller-usage-not-exposed",
+        "source": "controller-aggregate"
+      }
+    },
+    {
+      "round": 3,
+      "reviewer_known": {
+        "provider_api_duration_ms": 379963,
+        "input_tokens": 24,
+        "output_tokens": 27422,
+        "reasoning_tokens": 12510,
+        "cache_read_tokens": 2721871,
+        "cache_creation_tokens": 87423,
+        "estimated_cost_usd": 2.9208355
+      },
+      "complete_round_total": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "author-and-controller-usage-not-exposed",
+        "source": "controller-aggregate"
+      }
+    },
+    {
+      "round": 4,
+      "reviewer_known": {
+        "provider_api_duration_ms": 614920,
+        "input_tokens": 24,
+        "output_tokens": 20848,
+        "reasoning_tokens": 8154,
+        "cache_read_tokens": 3757088,
+        "cache_creation_tokens": 81503,
+        "estimated_cost_usd": 3.214894
+      },
+      "complete_round_total": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "author-and-controller-usage-not-exposed",
+        "source": "controller-aggregate"
+      }
+    }
+  ],
+  "agent_aggregates": {
+    "author": {
+      "provider": "openai",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "complete_total": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-multi-agent"
+      }
+    },
+    "reviewer": {
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "effort": "high",
+      "rounds": 4,
+      "provider_api_duration_ms": 2075443,
+      "process_duration_ms": 2076501,
+      "input_tokens": 82,
+      "output_tokens": 124361,
+      "reasoning_tokens": 58948,
+      "cache_read_tokens": 7980269,
+      "cache_creation_tokens": 354712,
+      "estimated_cost_usd": 10.6466895,
+      "termination_status": "completed"
+    },
+    "controller": {
+      "complete_total": {
+        "value": null,
+        "provenance": "unavailable",
+        "reason": "host-interface-not-exposed",
+        "source": "codex-visible-session"
+      }
+    }
+  },
+  "run_aggregate": {
+    "wall_duration_ms": {
+      "value": 5229000,
+      "provenance": "derived",
+      "source": "controller-ledger-boundaries"
+    },
+    "reviewer_known_subtotal": {
+      "provider_api_duration_ms": 2075443,
+      "process_duration_ms": 2076501,
+      "input_tokens": 82,
+      "output_tokens": 124361,
+      "reasoning_tokens": 58948,
+      "cache_read_tokens": 7980269,
+      "cache_creation_tokens": 354712,
+      "estimated_cost_usd": 10.6466895
+    },
+    "complete_run_total": {
+      "value": null,
+      "provenance": "unavailable",
+      "reason": "author-and-controller-usage-not-exposed",
+      "source": "controller-aggregate"
+    },
+    "currency": "USD",
+    "cost_basis": "known reviewer list-price estimate; not marginal billing proof"
+  },
+  "review_chain_aggregate": {
+    "prior_sar_metrics": "../2026-09-27-107-145046-controller-worker-sar/metrics.json",
+    "complete_chain_total": {
+      "value": null,
+      "provenance": "unavailable",
+      "reason": "prior-SAR-author-and-controller-usage-not-exposed",
+      "source": "controller-aggregate"
+    }
+  }
+}

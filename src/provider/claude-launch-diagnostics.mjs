@@ -2,6 +2,8 @@ import { AprError } from '../errors.mjs';
 
 const MAX_CAPTURE_BYTES = 1024 * 1024;
 const SPAWN_CODES = new Set(['ENOENT', 'EACCES']);
+const MODEL_REFUSAL_CODES = new Set(['model_not_found', 'invalid_model', 'unsupported_model']);
+const EFFORT_REFUSAL_CODES = new Set(['effort_not_found', 'invalid_effort', 'unsupported_effort']);
 const JOIN_CODES = new Set([
   'APR_IDENTITY_REQUIRED',
   'APR_IDENTITY_CONFLICT',
@@ -107,6 +109,24 @@ export function normalizeClaudeExecution({ execution, error = null } = {}) {
         !Array.isArray(structuredError) &&
         Object.keys(structuredError).length > 0))
   );
+  const providerCode =
+    output_valid &&
+    structuredError &&
+    typeof structuredError === 'object' &&
+    !Array.isArray(structuredError) &&
+    typeof structuredError.code === 'string'
+      ? structuredError.code
+      : null;
+  const selection_refusal =
+    provider_failed && MODEL_REFUSAL_CODES.has(providerCode)
+      ? 'model'
+      : provider_failed && EFFORT_REFUSAL_CODES.has(providerCode)
+        ? 'effort'
+        : provider_failed &&
+            providerCode === 'invalid_request_error' &&
+            ['model', 'effort'].includes(structuredError.param)
+          ? structuredError.param
+          : null;
   const join_code =
     provider_failed &&
     structuredError &&
@@ -126,6 +146,8 @@ export function normalizeClaudeExecution({ execution, error = null } = {}) {
     permission_denials,
     provider_failed,
     join_code,
+    selection_refusal,
+    selection_refusal_code: selection_refusal ? providerCode : null,
   });
 }
 

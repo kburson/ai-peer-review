@@ -75,6 +75,8 @@ test('CLI claim TTL parses whole hours and converts exactly once', () => {
         'docs/artifact.md',
         '--artifact-kind',
         'spec',
+        '--issue',
+        '117',
         '--reviewer-provider',
         'codex',
         '--reviewer-model',

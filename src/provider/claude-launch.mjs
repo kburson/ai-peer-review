@@ -3,11 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { renderCommand } from '../cli/help-data.mjs';
+import { verifyRuntimeImage as defaultVerifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
 import { fingerprintSession as defaultFingerprintSession } from '../identity/registry.mjs';
 import { inspectReviewAuthority as defaultInspectAuthority } from '../protocol/service.mjs';
 import { atomicWrite } from '../protocol/store.mjs';
+import { safeSelectionIdentifier } from '../providers/registry.mjs';
 import {
   buildClaudeLaunchDiagnostic,
   normalizeClaudeExecution,
@@ -15,8 +17,10 @@ import {
 
 const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
 const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
-const EFFORTS = new Set(['low', 'medium', 'high']);
 const PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
+const PACKAGE_VERSION = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+).version;
 
 export function buildClaudeLaunchEnvironment(parentEnvironment = process.env) {
   const environment = { ...parentEnvironment };
@@ -31,8 +35,30 @@ export function buildClaudeLaunchEnvironment(parentEnvironment = process.env) {
   return environment;
 }
 
-function packageCommand(verb, target) {
-  return [process.execPath, PACKAGE_BIN, verb, target];
+function pinnedPackagePrefix(repositoryRoot, image, verifyImage) {
+  const directory = path.join(repositoryRoot, '.scratch', 'peer-review', 'runtimes');
+  const valid =
+    typeof image?.root === 'string' &&
+    path.isAbsolute(image.root) &&
+    path.dirname(image.root) === directory &&
+    typeof image.nodeExecutable === 'string' &&
+    typeof image.entrypoint === 'string' &&
+    verifyImage(image);
+  if (!valid)
+    throw new AprError(
+      'APR_BROKER_RUNTIME_MISSING',
+      'The sealed reviewer runtime is unavailable.',
+      {
+        recovery: 'Preserve the review and restore its exact verified pinned runtime image.',
+      }
+    );
+  return [image.nodeExecutable, image.entrypoint];
+}
+
+function packageCommand(verb, target, pinnedPrefix = null) {
+  return pinnedPrefix
+    ? [...pinnedPrefix, verb, target]
+    : [process.execPath, PACKAGE_BIN, verb, target];
 }
 
 function fail(message, recovery, details = {}) {
@@ -70,7 +96,7 @@ function portableCommandPath(value, label) {
 }
 
 function safeIdentifier(value, label) {
-  if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)) {
+  if (!safeSelectionIdentifier(value)) {
     fail(
       `Claude ${label} is invalid.`,
       `Use the exact non-empty ${label} selected for this reviewer launch.`,
@@ -153,7 +179,9 @@ function renderClaudeBashCommand(argv) {
 }
 
 export function claudeJoinCommand(contract) {
-  return renderClaudeBashCommand(packageCommand('join', contract?.invitation));
+  return (
+    contract?.join_command ?? renderClaudeBashCommand(packageCommand('join', contract?.invitation))
+  );
 }
 
 function encodeClaudeBashRule(argv) {
@@ -197,7 +225,7 @@ function wakeLaunchers(root) {
       const manifest = JSON.parse(readFileSync(path.join(directory, 'package.json'), 'utf8'));
       if (
         manifest.name === '@kburson/ai-peer-review' &&
-        manifest.version === '0.3.0' &&
+        manifest.version === PACKAGE_VERSION &&
         manifest.bin?.['peer-review'] === './bin/peer-review.mjs' &&
         lstatSync(path.join(directory, 'bin/peer-review.mjs')).isFile() &&
         localNpxBinMatches(root, path.join(directory, 'bin/peer-review.mjs'))
@@ -416,6 +444,8 @@ export function buildClaudeReviewerLaunch({
   routing,
   model,
   effort,
+  runtimeImage = null,
+  verifyImage = defaultVerifyRuntimeImage,
 } = {}) {
   let physicalRoot;
   try {
@@ -451,15 +481,13 @@ export function buildClaudeReviewerLaunch({
     );
   }
   const selectedModel = safeIdentifier(model, 'model');
-  if (!EFFORTS.has(effort)) {
-    fail(
-      'Claude effort is invalid.',
-      'Use one of the supported Claude effort levels: low, medium, or high.'
-    );
-  }
+  const selectedEffort = safeIdentifier(effort, 'effort');
   const rule = encodeClaudeEditRule(response.absolute);
-  const join = packageCommand('join', resolvedInvitation.absolute);
-  const submit = packageCommand('submit', workspace.absolute);
+  const pinnedPrefix = runtimeImage
+    ? pinnedPackagePrefix(physicalRoot, runtimeImage, verifyImage)
+    : null;
+  const join = packageCommand('join', resolvedInvitation.absolute, pinnedPrefix);
+  const submit = packageCommand('submit', workspace.absolute, pinnedPrefix);
   const joinCommand = renderClaudeBashCommand(join);
   const submitCommand = renderClaudeBashCommand(submit);
   const joinRule = encodeClaudeBashRule(join);
@@ -501,7 +529,7 @@ export function buildClaudeReviewerLaunch({
     '--model',
     selectedModel,
     '--effort',
-    effort,
+    selectedEffort,
     '--allowedTools',
     ...allow,
   ]);
@@ -514,8 +542,9 @@ export function buildClaudeReviewerLaunch({
     response: response.absolute,
     artifact: artifact.absolute,
     model: selectedModel,
-    effort,
+    effort: selectedEffort,
     mode: 'launch',
+    join_command: joinCommand,
     submit_command: submitCommand,
     permissions: Object.freeze({ allow }),
     command: Object.freeze({ file: 'claude', args, shell: false }),
@@ -642,6 +671,32 @@ export function classifyClaudeReviewerOutcome({
     decision && expectedSessionFingerprint === current.reviewer.session_fingerprint
   );
   const denied = deniedExactResponse(providerResult, contract.response);
+  if (
+    !decision &&
+    !denied &&
+    !prior.reviewer &&
+    !current.reviewer &&
+    prior.protocol.sequence === current.protocol.sequence &&
+    prior.protocol.revision === current.protocol.revision &&
+    providerResult?.selection_refusal &&
+    !providerResult.session_id_present &&
+    !providerResult.interrupted
+  ) {
+    throw new AprError(
+      'APR_REVIEWER_SELECTION_REFUSED',
+      `Claude explicitly rejected the requested ${providerResult.selection_refusal}.`,
+      {
+        recovery:
+          'Open the installed Claude app and inspect /model and /effort, then start a new review with their exact supported identifiers.',
+        details: {
+          provider: 'claude',
+          model: contract.model,
+          effort: contract.effort,
+          provider_code: providerResult.selection_refusal_code,
+        },
+      }
+    );
+  }
   let status = 'outcome-unknown';
   let category = 'no-submission';
   if (submitted) status = 'submitted';
@@ -761,7 +816,12 @@ function readLaunchState(
   return Object.freeze({ ...value });
 }
 
-export function buildClaudeReviewerResume({ repositoryRoot, invitation, routing } = {}) {
+export function buildClaudeReviewerResume({
+  repositoryRoot,
+  invitation,
+  routing,
+  runtimeImage,
+} = {}) {
   let physicalRoot;
   try {
     physicalRoot = realpathSync(exactPath(repositoryRoot, 'repository'));
@@ -797,6 +857,7 @@ export function buildClaudeReviewerResume({ repositoryRoot, invitation, routing 
     routing,
     model: state?.model,
     effort: state?.effort,
+    runtimeImage,
   });
   readLaunchState(contract, defaultFingerprintSession, { allowPriorResponse: true });
   return contract;

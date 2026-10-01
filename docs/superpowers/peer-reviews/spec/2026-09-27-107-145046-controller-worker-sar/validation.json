@@ -1,0 +1,94 @@
+{
+  "schema": "manual-sar-validation/v1",
+  "at": "2026-09-27T14:59:14.141Z",
+  "fur_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c",
+  "checks": [
+    {
+      "check": "markdownlint",
+      "status": "passed",
+      "output": "markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)\nFinding: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/**/*.md !node_modules/** !coverage/** !.scratch/** !.ai-task-manager/memory/** !.ai-task-manager/templates/** !.claude/commands/task.md !AGENTS.md !templates/author-response.md !templates/reviewer-response.md !templates/human-decision.md !test/golden/templates/** !docs/superpowers/peer-reviews/**/*author-response-*.md !docs/superpowers/peer-reviews/**/*reviewer-response-*.md\nLinting: 11 files\nSummary: 0 issues in 0 files"
+    },
+    {
+      "check": "embedded-json",
+      "status": "passed",
+      "examples": [
+        {
+          "schema": "ai-peer-review.start-request/v1",
+          "form": "cli-inline"
+        },
+        {
+          "schema": "ai-peer-review.start-request/v1",
+          "form": "standalone"
+        },
+        {
+          "schema": "ai-peer-review.start-request/v1",
+          "form": "standalone"
+        },
+        {
+          "schema": "ai-peer-review.config/v2",
+          "form": "standalone"
+        },
+        {
+          "schema": "ai-peer-review.cleanup-request/v1",
+          "form": "cli-inline"
+        },
+        {
+          "schema": "ai-peer-review.response/v1",
+          "form": "standalone"
+        }
+      ],
+      "assurance": "JSON parsing and schema-label presence; target schemas are not implemented"
+    },
+    {
+      "check": "git-diff-check",
+      "status": "passed"
+    },
+    {
+      "check": "unrelated-files-and-index-preserved",
+      "status": "passed"
+    },
+    {
+      "check": "patch-reconstruction",
+      "status": "passed",
+      "edges": [
+        {
+          "edge": "lineage",
+          "direction": "forward",
+          "status": "passed",
+          "result_digest": "sha256:c262105281e099709d77a9595a4ba180b38eb391e6deac56e84013064f0edbed"
+        },
+        {
+          "edge": "lineage",
+          "direction": "reverse",
+          "status": "passed",
+          "result_digest": "sha256:14f490d3387046280734f8e2bd9d8c9a83f6520ebdb33f371aa6c79c13b3bab8"
+        },
+        {
+          "edge": "round-1",
+          "direction": "forward",
+          "status": "passed",
+          "result_digest": "sha256:3fb1047705cedd77c863799d6ed8ee7d60d4c46ddde6714c9999af04e7046280"
+        },
+        {
+          "edge": "round-1",
+          "direction": "reverse",
+          "status": "passed",
+          "result_digest": "sha256:c262105281e099709d77a9595a4ba180b38eb391e6deac56e84013064f0edbed"
+        },
+        {
+          "edge": "round-2",
+          "direction": "forward",
+          "status": "passed",
+          "result_digest": "sha256:78ee25ed7133e0d50214510f7d928539267a16e983b52b34c6ddb65fbf70235c"
+        },
+        {
+          "edge": "round-2",
+          "direction": "reverse",
+          "status": "passed",
+          "result_digest": "sha256:3fb1047705cedd77c863799d6ed8ee7d60d4c46ddde6714c9999af04e7046280"
+        }
+      ],
+      "clean_round": "empty patch; equal bytes"
+    }
+  ]
+}

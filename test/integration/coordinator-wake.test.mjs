@@ -324,7 +324,9 @@ test('offline broker status reads project-local startup evidence without a test 
   const status = JSON.parse(io.stdoutBytes.at(-1));
   assert.deepEqual(status.recovery.registrations, [path.join(registrations, 'review-01.json')]);
   assert.deepEqual(status.recovery.unreconciled_workspaces, [workspace]);
-  assert.match(status.recovery.action, /broker reconcile/);
+  assert.equal(status.recovery.candidates.length, 0);
+  assert.equal(status.recovery.unverifiable[0].workspace, workspace);
+  assert.doesNotMatch(status.recovery.action, /broker reconcile/);
 });
 
 test('offline broker status survives a real missing native security helper without connector injection', async (t) => {
@@ -368,15 +370,30 @@ test('offline broker status survives a real missing native security helper witho
   assert.match(status.recovery.diagnostic.message, /security helper/);
 });
 
-test('broker reconcile never replays an ambiguous provider action', async (t) => {
+test('offline broker reconcile restarts exact pinned runtime without replaying a launch', async (t) => {
   const root = workspace(t);
-  const io = brokerIo(() => {
-    throw new Error('must not request broker replay');
+  const io = brokerIo(() => ({ status: 'recovery-only' }));
+  io.brokerConnect = async () => {
+    throw Object.assign(new Error('missing discovery'), { code: 'APR_BROKER_STALE' });
+  };
+  let restart;
+  io.brokerReconcileRuntime = () => ({
+    versions: { package_version: '0.3.0', broker_protocol_version: 1, node_major: 26 },
+    runtimeImage: { root: '/pinned', nodeExecutable: process.execPath, digest: 'sha256:pinned' },
   });
-  io.brokerInspectWorkspaceEvidence = () => ({ ambiguous: true });
-  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 1);
-  assert.equal(JSON.parse(io.stderrBytes.at(-1)).code, 'APR_WAKE_OUTCOME_UNKNOWN');
-  assert.equal(io.brokerRequests.length, 0);
+  io.brokerEnsure = async (input) => {
+    restart = input;
+    return {
+      request: async (message) => {
+        assert.equal(message.command, 'reconcile');
+        assert.equal(message.workspace, root);
+        return { status: 'recovery-only' };
+      },
+    };
+  };
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0, io.stderrBytes.join(''));
+  assert.equal(restart.runtimeImage.root, '/pinned');
+  assert.equal(JSON.parse(io.stdoutBytes.at(-1)).status, 'recovery-only');
 });
 
 test('restart reconciles a crash after reservation before provider delivery', async (t) => {

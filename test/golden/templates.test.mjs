@@ -60,19 +60,17 @@ test('every package template hydrates to its exact golden without unresolved pla
   }
 });
 
-test('startup templates use absolute paths and document installed and zero-install commands', () => {
+test('startup templates use absolute paths and document installed-package commands', () => {
   for (const name of ['author-startup', 'reviewer-invitation']) {
     const variables = Object.fromEntries(TEMPLATE_VARIABLES[name].map((key) => [key, values[key]]));
     const output = hydrateTemplate(name, variables).toString();
     assert.match(output, /\/repo\/docs\/example\.md/);
     assert.match(output, /\/repo\/\.scratch\/peer-review\/review-01/);
     assert.match(output, /`peer-review /);
-    const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url)));
-    const commands = [...output.matchAll(/`npx --yes @kburson\/ai-peer-review@([^ ]+) ([^`]+)`/g)];
+    const commands = [...output.matchAll(/`npx --no-install ai-peer-review ([^`]+)`/g)];
     assert.equal(commands.length, 1, name);
-    assert.equal(commands[0][1], manifest.version, name);
     assert.equal(
-      commands[0][2],
+      commands[0][1],
       name === 'author-startup'
         ? 'status --help'
         : 'join /repo/docs/peer-reviews/spec/example/reviewer-invitation.md',

@@ -90,6 +90,7 @@ async function acceptedReview(root, reviewId, { noCommit = false, phases } = {})
     {
       ...fixtureSelection('codex', 'gpt-test'),
       cwd: root,
+      issue: 117,
       artifact: 'docs/artifact.md',
       artifactKind: 'spec',
       identity: author,
@@ -232,6 +233,10 @@ test('consensus finalization commits only acceptance and deterministic manifest'
   });
   assert.equal(finalized.state, 'accepted');
   assert.notEqual(finalized.review.commit, base);
+  assert.equal(
+    git(fx.root, ['log', '-1', '--format=%s']).trim(),
+    '[#117] Finalize peer review finalize-consensus'
+  );
   const physicalRoot = git(fx.root, ['rev-parse', '--show-toplevel']).trim();
   assert.deepEqual(
     git(fx.root, ['diff-tree', '--no-commit-id', '--name-only', '-r', finalized.review.commit])

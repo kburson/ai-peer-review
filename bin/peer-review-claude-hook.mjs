@@ -12,7 +12,7 @@ for await (const chunk of process.stdin) {
 }
 const event = JSON.parse(input);
 if (
-  !/^(?:peer-review|npx peer-review|node (?:\.\/)?bin\/peer-review\.mjs) start(?:\s|$)/.test(
+  !/^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs)(?:\s|$)/.test(
     event?.tool_input?.command ?? ''
   )
 )

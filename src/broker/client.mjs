@@ -11,10 +11,11 @@ import { verifyRuntimeImage } from './runtime-image.mjs';
 import { startupEvidence } from './registry.mjs';
 import { inspectReviewAuthority, canonicalProjection } from '../protocol/service.mjs';
 import { atomicCreate, withReviewLock } from '../protocol/store.mjs';
-import { latestWakeOperation } from '../coordinator/ledger.mjs';
+import { allWakeOperations, latestWakeOperation } from '../coordinator/ledger.mjs';
 import { canonicalProjectIdentity } from './identity.mjs';
 import { platformSecurity } from './platform.mjs';
 import { createGitRepository } from '../git/repository.mjs';
+import { manualLaunchProvesNonSubmission } from '../provider/manual-launch-ledger.mjs';
 
 function startFailure(cause, details = {}) {
   const error = new AprError(
@@ -323,7 +324,21 @@ export async function fenceManualRecovery(workspace, deps = {}) {
     return await withReviewLock(path.join(workspace, 'dispatch'), async () => {
       const observed = startupEvidence(workspace, inspectReviewAuthority(workspace).state);
       const operation = latestWakeOperation(workspace);
-      if (ownership) {
+      const wakeOperations = allWakeOperations(workspace);
+      const manualNotSubmitted = manualLaunchProvesNonSubmission(workspace, {
+        reviewId: observed.journal.review_id,
+        requestDigest: observed.journal.request_digest,
+      });
+      const definitelyNotSubmitted =
+        ['authority', 'manual', 'registered'].includes(observed.journal.stage) &&
+        (!observed.journal.provider_operation ||
+          observed.journal.provider_operation.status === 'not-submitted') &&
+        wakeOperations.every((entry) => ['not-submitted', 'refused'].includes(entry.status)) &&
+        manualNotSubmitted;
+      if (!manualNotSubmitted) throw unknown();
+      if (wakeOperations.some((entry) => ['reserved', 'outcome-unknown'].includes(entry.status)))
+        throw unknown();
+      if (ownership && !definitelyNotSubmitted) {
         const outcome = await deps.reconcileProvider?.({
           workspace,
           journal: observed.journal,
@@ -340,7 +355,9 @@ export async function fenceManualRecovery(workspace, deps = {}) {
         const fresh = inspectReviewAuthority(workspace);
         const current = startupEvidence(workspace, fresh.state);
         if (current.recovery.fenced) return current.recovery;
-        if (canonicalProjection(latestWakeOperation(workspace)) !== canonicalProjection(operation))
+        if (
+          canonicalProjection(allWakeOperations(workspace)) !== canonicalProjection(wakeOperations)
+        )
           throw unknown();
         if (current.journal.stage !== observed.journal.stage) throw unknown();
         if (ownership && !ownership.verify())

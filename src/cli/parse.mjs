@@ -9,7 +9,16 @@ function frozenList(values) {
 }
 
 export const COMMAND_FLAGS = Object.freeze({
-  setup: frozenList(['--agent', '--scope', '--dry-run', '--remove', '--confirm-scratch-exclude']),
+  setup: frozenList([
+    '--agent',
+    '--scope',
+    '--dry-run',
+    '--remove',
+    '--update',
+    '--confirm-scratch-exclude',
+    '--json',
+  ]),
+  build: frozenList([]),
   doctor: frozenList(['--mode', '--json']),
   start: frozenList([
     '--artifact-kind',
@@ -81,16 +90,19 @@ export const COMMAND_FLAGS = Object.freeze({
 export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 
 export const COMMAND_USAGE = Object.freeze({
-  setup: 'peer-review setup [--agent <name>] [--scope <user|project>] [--dry-run] [--remove]',
-  doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
+  setup:
+    'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--json]',
+  build: 'peer-review build broker-security',
+  doctor:
+    'peer-review doctor [--mode <installation|manual|resume-only|automatic-required>] [--json]',
   start:
-    'peer-review start <artifact> --artifact-kind <spec|plan> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
+    'peer-review start <artifact> --artifact-kind <spec|plan> --issue <N> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
   advance: 'peer-review advance <workspace> <artifact>',
   'request-grant':
     'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
   join: 'peer-review join <reviewer-invitation.md>',
   'launch-reviewer':
-    'peer-review launch-reviewer <reviewer-invitation.md> --host claude [--model <id> --effort <low|medium|high> | --resume] [--json]',
+    'peer-review launch-reviewer <reviewer-invitation.md> --host claude [--model <id> --effort <id> | --resume] [--json]',
   status: 'peer-review status <workspace> [--json] [--next]',
   resume: 'peer-review resume <workspace>',
   submit:
@@ -118,6 +130,7 @@ function grammar(min, max = min) {
 
 export const POSITIONAL_GRAMMAR = Object.freeze({
   setup: grammar(0),
+  build: grammar(1),
   doctor: grammar(0),
   start: grammar(1),
   advance: grammar(2),
@@ -143,6 +156,7 @@ const BOOLEAN_FLAGS = new Set([
   '--dry-run',
   '--apply',
   '--remove',
+  '--update',
   '--confirm-scratch-exclude',
   '--json',
   '--next',
@@ -228,6 +242,8 @@ function validateEnum(options, key, flag, values) {
 
 function validateConstraints(command, args, options) {
   if (command === 'setup') {
+    if (options.update && (options.remove || options.agent?.length))
+      usage('--update cannot be combined with --remove or --agent');
     validateEnum(options, 'scope', '--scope', ['user', 'project']);
     for (const agent of options.agent ?? []) {
       if (!['codex', 'claude', 'grok', 'generic'].includes(agent)) {
@@ -235,8 +251,16 @@ function validateConstraints(command, args, options) {
       }
     }
   }
+  if (command === 'build' && args[0] !== 'broker-security') {
+    usage('build target must be broker-security');
+  }
   if (command === 'doctor') {
-    validateEnum(options, 'mode', '--mode', ['manual', 'resume-only', 'automatic-required']);
+    validateEnum(options, 'mode', '--mode', [
+      'installation',
+      'manual',
+      'resume-only',
+      'automatic-required',
+    ]);
   }
   if (command === 'start') {
     if (!options.artifactKind) usage('start requires --artifact-kind');
@@ -266,6 +290,12 @@ function validateConstraints(command, args, options) {
       }
     }
     if (options.claimTtlMs === undefined) options.claimTtlMs = 8 * 60 * 60 * 1000;
+    if (options.issue === undefined) {
+      throw new AprError('APR_ISSUE_REQUIRED', 'New reviews require --issue <positive issue ID>.', {
+        recovery: 'Supply the tracked issue number with peer-review start --issue <N>.',
+        exitCode: 2,
+      });
+    }
   }
   if (command === 'submit') {
     validateEnum(options, 'decision', '--decision', ['revisions-requested', 'accepted']);
@@ -281,7 +311,6 @@ function validateConstraints(command, args, options) {
   }
   if (command === 'launch-reviewer') {
     validateEnum(options, 'host', '--host', ['claude']);
-    validateEnum(options, 'effort', '--effort', ['low', 'medium', 'high']);
     if (!options.host) usage('launch-reviewer requires --host claude');
     if (options.resume) {
       if (options.model !== undefined || options.effort !== undefined) {

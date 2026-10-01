@@ -203,6 +203,84 @@ test('builds an immutable dontAsk launch that authorizes only the pending respon
   );
 });
 
+test('unsealed PATH aliases never replace the package command', (t) => {
+  if (process.platform === 'win32') return t.skip('POSIX symlink command resolution');
+  const fx = fixture('claude exact alias ');
+  t.after(fx.cleanup);
+  const bin = path.join(fx.root, 'bin');
+  mkdirSync(bin);
+  symlinkSync(
+    new URL('../../bin/peer-review.mjs', import.meta.url).pathname,
+    path.join(bin, 'peer-review')
+  );
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5-5',
+    effort: 'high',
+    pathEnvironment: bin,
+  });
+  assert.match(claudeJoinCommand(contract), /peer-review\.mjs join /);
+  assert.equal(contract.permissions.allow[3], `Bash(${claudeJoinCommand(contract)})`);
+  assert.match(contract.submit_command, /peer-review\.mjs submit /);
+  assert.ok(contract.command.args.includes('claude-opus-5-5'));
+  rmSync(path.join(bin, 'peer-review'));
+  writeFileSync(path.join(bin, 'peer-review'), 'foreign');
+  const unsafe = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5-5',
+    effort: 'high',
+    pathEnvironment: bin,
+  });
+  assert.match(claudeJoinCommand(unsafe), /peer-review\.mjs join /);
+});
+
+test('broker review launches through its verified pinned image inside the project', (t) => {
+  const fx = fixture('claude pinned image ');
+  t.after(fx.cleanup);
+  const root = path.join(fx.repositoryRoot, '.scratch', 'peer-review', 'runtimes', 'image');
+  const nodeExecutable = path.join(root, 'node', 'node');
+  const entrypoint = path.join(root, 'package', 'bin', 'peer-review.mjs');
+  mkdirSync(path.dirname(nodeExecutable), { recursive: true });
+  mkdirSync(path.dirname(entrypoint), { recursive: true });
+  writeFileSync(nodeExecutable, 'node');
+  writeFileSync(entrypoint, 'cli');
+  const runtimeImage = { root, nodeExecutable, entrypoint, digest: `sha256:${'a'.repeat(64)}` };
+  const input = {
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5-5',
+    effort: 'high',
+    runtimeImage,
+    verifyImage: () => true,
+  };
+  const contract = buildClaudeReviewerLaunch(input);
+  const commandNode = nodeExecutable.replaceAll('\\', '/');
+  const commandEntrypoint = entrypoint.replaceAll('\\', '/');
+  assert.ok(claudeJoinCommand(contract).includes(commandNode));
+  assert.ok(claudeJoinCommand(contract).includes(commandEntrypoint));
+  assert.ok(claudeJoinCommand(contract).includes(' join '));
+  assert.ok(contract.submit_command.includes(commandNode));
+  assert.ok(contract.submit_command.includes(commandEntrypoint));
+  assert.ok(contract.submit_command.includes(' submit '));
+  assert.equal(contract.permissions.allow[3], `Bash(${claudeJoinCommand(contract)})`);
+  assert.throws(() => buildClaudeReviewerLaunch({ ...input, verifyImage: () => false }), {
+    code: 'APR_BROKER_RUNTIME_MISSING',
+  });
+  assert.throws(
+    () =>
+      buildClaudeReviewerLaunch({
+        ...input,
+        runtimeImage: { ...runtimeImage, root: fx.root },
+      }),
+    { code: 'APR_BROKER_RUNTIME_MISSING' }
+  );
+});
+
 test('builds and resumes the preflight-bound launch with its exact approved submit command', async (t) => {
   const fx = fixture('claude preflight launch ');
   t.after(fx.cleanup);
@@ -568,4 +646,22 @@ test('keeps the Claude session handle private and injects it only into exact res
   assert.equal(resumed.status, 'submitted');
   assert.deepEqual(resumedArgs.slice(0, 2), ['--resume', rawHandle]);
   assert.doesNotMatch(JSON.stringify(resumed), new RegExp(rawHandle));
+});
+
+test('Claude launch passes a future model and effort as exact argv values', (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.repositoryRoot,
+    invitation: fx.invitation,
+    routing: fx.routing,
+    model: 'claude-opus-5-5',
+    effort: 'max',
+  });
+  assert.equal(
+    contract.command.args[contract.command.args.indexOf('--model') + 1],
+    'claude-opus-5-5'
+  );
+  assert.equal(contract.command.args[contract.command.args.indexOf('--effort') + 1], 'max');
+  assert.equal(contract.effort, 'max');
 });

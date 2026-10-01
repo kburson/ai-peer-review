@@ -5,11 +5,13 @@ import { AprError } from '../errors.mjs';
 import { atomicWrite } from '../protocol/store.mjs';
 
 const TOKEN = /^[0-9a-f]{32}$/;
-const START = /^(?:peer-review|npx peer-review|node (?:\.\/)?bin\/peer-review\.mjs) start(?:\s|$)/;
+const START = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) start(?:\s|$)/;
+const JOIN = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) join(?:\s|$)/;
+const COMMAND = /^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs)(?:\s|$)/;
 
 function invalid(message) {
   throw new AprError('APR_CODEX_HOOK_INVALID', message, {
-    recovery: 'Run the exact start command from a Codex session with the trusted provider hook.',
+    recovery: 'Run the exact command from a Codex session with the trusted provider hook.',
   });
 }
 
@@ -26,12 +28,12 @@ export function captureCodexStartHook({
   observedAt = new Date(),
 } = {}) {
   const command = event?.tool_input?.command;
-  if (!START.test(command ?? '')) return null;
+  if (!COMMAND.test(command ?? '')) return null;
   if (
     event?.hook_event_name !== 'PreToolUse' ||
     event.tool_name !== 'Bash' ||
     typeof event.model !== 'string' ||
-    !event.model ||
+    !/^[A-Za-z0-9._:-]+$/.test(event.model) ||
     typeof event.session_id !== 'string' ||
     !event.session_id ||
     typeof event.tool_use_id !== 'string' ||
@@ -57,14 +59,17 @@ export function captureCodexStartHook({
     tool_use_id: event.tool_use_id,
     command,
   };
-  atomicWrite(recordFile(event.cwd, token), `${JSON.stringify(record)}\n`);
+  if (START.test(command) || JOIN.test(command))
+    atomicWrite(recordFile(event.cwd, token), `${JSON.stringify(record)}\n`);
   return Object.freeze({
     hookSpecificOutput: Object.freeze({
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
       updatedInput: Object.freeze({
         ...event.tool_input,
-        command: `APR_CODEX_HOOK_TOKEN=${token} ${command}`,
+        command: START.test(command)
+          ? `APR_CODEX_HOOK_TOKEN=${token} ${command}`
+          : `${JOIN.test(command) ? `APR_CODEX_HOOK_TOKEN=${token} ` : ''}CODEX_MODEL_ID=${event.model} CODEX_MODEL_DISPLAY=${event.model} ${command}`,
       }),
     }),
   });
@@ -92,9 +97,12 @@ export function readCodexStartHook({ root, token, sessionId, operationId } = {})
     record.provider !== 'openai' ||
     record.host !== 'codex' ||
     record.session_id !== sessionId ||
-    !START.test(record.command ?? '') ||
+    !(
+      (operationId?.startsWith('start:') && START.test(record.command ?? '')) ||
+      (operationId?.startsWith('join:') && JOIN.test(record.command ?? ''))
+    ) ||
     typeof operationId !== 'string' ||
-    !operationId.startsWith('start:')
+    !/^(?:start|join):/.test(operationId)
   )
     invalid('Codex hook record does not bind the exact start session.');
   return Object.freeze({

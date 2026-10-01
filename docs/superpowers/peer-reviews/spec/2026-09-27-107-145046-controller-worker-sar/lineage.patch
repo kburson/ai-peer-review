@@ -1,0 +1,710 @@
+--- a/fur.md
++++ b/fur.md
+@@ -4,8 +4,8 @@
+ 
+ - **Date:** 2026-09-27
+ - **Issue:** #107
+-- **Status:** Design captured from the operator-approved brainstorming session; implementation and backlog decomposition remain subject to refinement and plan approval
+-- **Scope:** Local and headless SAR, orchestrated SPR/XPR, agent-first API, portable supervision, durable evidence, and review analytics
++- **Status:** Revised after the accepted XPR with the controller-only/headless-worker normalization; requires follow-up review and plan reconciliation
++- **Scope:** Controller-supervised SAR/SPR/XPR, headless participants, agent-first API, portable supervision, durable evidence, and review analytics
+ - **Related work:** #39 project-local broker, #88 provider authority and recovery, #90 Claude launch identity, #102 install/version policy, and #106 manual XPR startup
+ 
+ ## Summary
+@@ -15,15 +15,31 @@
+ user selects the pattern and sequence in natural language. The host agent
+ translates that intent into one versioned JSON request. The runtime validates
+ the complete request before mutation, resolves provider capabilities and
+-configured fallbacks, then runs through either an inline path or a portable
++configured fallbacks, then runs every participant through a portable
+ project-local broker.
+ 
+ SAR, SPR, and XPR describe review participants. They do not describe process
+-placement, controller ownership, or transport. Attached versus headless
+-placement and inline versus managed supervision are separate axes. The
+-originating controller is not counted as a review participant unless it also
+-acts as the SAR worker or author.
++placement, controller ownership, or transport. The runtime has one normalized
++topology: the originating session is a non-participant controller, and every
++review role is a broker-supervised headless session. SAR has one headless
++participant performing critique and revision; SPR and XPR have distinct
++headless author and reviewer participants. The controller never becomes an
++author, reviewer, or SAR worker merely because it requested or supervises the
++run.
+ 
++This normalization is an observability requirement, not just a simplification.
++Provider usage, hidden reasoning counters, cache usage, API duration, process
++health, retries, and reported cost are visible most reliably at the boundary
++that launches and supervises a provider session. An agent cannot be the sole
++authority for measuring its own complete resource use because some metrics are
++emitted only after or outside its model turn. Keeping the controller outside
++all participant sessions lets the broker capture comparable attempt-level
++telemetry for SAR, SPR, and XPR without self-reporting gaps or controller and
++participant usage being conflated. Missing provider telemetry remains explicit;
++external supervision improves measurement coverage but does not invent values.
++The visible host session also remains available for user interaction,
++intervention, and progress reporting instead of being occupied by review work.
++
+ The project-local broker is an on-demand background Node.js service written
+ entirely in portable JavaScript. It uses loopback TCP with an operating-system
+ assigned ephemeral port. The package ships no native addon, custom executable,
+@@ -34,9 +50,9 @@
+ The originating chat receives an immediate receipt and a continuously updated
+ out-of-band monitor on a validated host surface. Runtime waiting consumes no
+ controller model tokens; host-imposed model wakeups are accounted separately.
+-On capable hosts, the model wakes only for an attached participant turn,
+-intervention, or terminal result.
+-Eligible headless work survives originating-chat disconnects.
++On capable hosts, the controller model wakes only for intervention or a
++terminal result. Participant work continues through originating-chat
++disconnects.
+ 
+ Each round binds reviewer findings, the author response, and a
+ supervisor-generated patch to exact before/after artifact digests. The current
+@@ -46,10 +62,10 @@
+ 
+ ## Goals
+ 
+-- Support local SAR from a request such as “run an SAR on this spec.”
+-- Support a headless SAR by a selected model without leaving the host chat.
+-- Support an attached author plus a headless reviewer for SPR and XPR.
+-- Support two headless participants with a controller-only originating chat.
++- Support SAR from a request such as “run an SAR on this spec” by launching one
++  headless participant under a non-participant controller.
++- Support SPR and XPR with distinct headless author and reviewer sessions.
++- Use one controller/participant boundary for every review class.
+ - Let users request one stage now or an ordered sequence up front.
+ - Preserve participant identity, exact-session continuity, artifact binding,
+   atomic state, reviewer/author boundaries, and fail-closed recovery.
+@@ -63,7 +79,9 @@
+ 
+ - Adding review stages the user did not request.
+ - Silently weakening a requested participant roster or fallback policy.
+-- Counting the controller as a reviewer merely because it supervises.
++- Counting the controller as an author or reviewer merely because it supervises.
++- Allowing an attached participant path that prevents complete external
++  supervision or conflates controller and participant telemetry.
+ - Using MCP as protocol authority or lifetime owner of a headless run.
+ - Running a machine-wide broker daemon.
+ - Resisting malicious software already running as the same OS user.
+@@ -71,12 +89,11 @@
+ - Automatically committing the FUR or evidence bundle.
+ - Ranking models from acceptance alone without outcome evidence.
+ 
+-## Independent Axes
++## Review Model
+ 
+ ### Review Class
+ 
+-- **SAR:** One participant performs both critique and revision. It may be the
+-  attached current agent or one headless agent.
++- **SAR:** One selected headless participant performs both critique and revision.
+ - **SPR:** Author and reviewer are distinct sessions in one provider family.
+ - **XPR:** Author and reviewer are distinct sessions in different provider
+   families.
+@@ -89,37 +106,40 @@
+ 
+ ### Controller Role
+ 
+-- **Participant-controller:** The originating chat is also the SAR worker or
+-  attached author.
+-- **Controller-only:** The originating chat launches, monitors, and intervenes
+-  but performs no review or revision.
++The originating chat is always controller-only. It validates user intent,
++launches the run, owns orchestration and artifact-integrity oversight, exposes
++progress, selects only among sealed fallback choices, collects available
++telemetry through the broker/adapters, authorizes intervention, and returns the
++terminal result. It performs no critique or revision. The protocol calls this
++role controller. “Orchestrator” remains acceptable user language but does not
++create a review participant.
+ 
+-The protocol calls this role controller. “Orchestrator” remains acceptable
+-user language but does not create a third review participant.
++### Normalized Execution Topology
+ 
+-### Placement and Supervision
++- **Controller:** The current host chat is outside the participant roster.
++- **Headless participant:** The broker owns a provider process/session for the
++  role and observes its execution envelope.
++- **Managed:** The project broker owns lifecycle, routing, telemetry
++  observation, fallback, and recovery for every participant role.
+ 
+-- **Attached:** The role is performed by the current host chat.
+-- **Headless:** The broker owns a provider CLI process/session for the role.
+-- **Inline:** A local attached SAR uses the protocol/evidence core directly.
+-- **Managed:** The project broker owns lifecycle, routing, fallback, and
+-  recovery for one or more headless roles.
++There is no attached or inline participant mode in the target runtime. Hosts
++may present a review as “local” when the controller and provider processes run
++on the same machine, but local describes deployment, not role co-location.
+ 
+ ## Required User Journeys
+ 
+-1. **Local SAR:** The current agent repeatedly critiques and revises the FUR
+-   inline. No provider process or broker is launched.
+-2. **Headless SAR:** One spawned participant owns critique and revision. The
+-   originating chat is controller-only.
+-3. **SPR with headless reviewer:** The attached current agent is author and
+-   controller; a distinct same-provider headless session is reviewer.
+-4. **SPR with two headless agents:** The controller launches distinct headless
+-   author and reviewer sessions under one provider family.
+-5. **XPR with headless reviewer:** The attached current agent is author and
+-   controller; the reviewer belongs to a different provider family.
+-6. **XPR with two headless agents:** The controller launches headless author
+-   and reviewer sessions from different provider families.
++1. **SAR:** The controller launches one headless participant that repeatedly
++   critiques and revises the FUR until accepted or stopped.
++2. **SPR:** The controller launches distinct headless author and reviewer
++   sessions in one provider family.
++3. **XPR:** The controller launches distinct headless author and reviewer
++   sessions in different provider families.
+ 
++Provider/model/effort selection can make a run cheap, deep, or cross-provider,
++but it does not change this topology. Even when the controller and a participant
++use the same model, they remain separate sessions with separate authority and
++telemetry identities.
++
+ ## User-Requested Sequences
+ 
+ A review sequence is exactly the ordered set of stages requested by the user.
+@@ -230,34 +250,32 @@
+ 
+ ## Stage and Participant Resolution
+ 
+-A stage contains kind, optional max-round override, participant placement and
++A stage contains kind, optional max-round override, headless participant
+ selection, optional profile, prior-stage visibility, declared fallback
+ alternatives, and any explicit conditional rule.
+ 
+-Attached roles inherit the current-session identity. An explicit headless
+-provider/model becomes primary and configured role fallbacks are appended after
+-deduplication. An unspecified headless role uses the first eligible candidate
+-from the selected/default profile.
++An explicit provider/model becomes primary and configured role fallbacks are
++appended after deduplication. An unspecified role uses the first eligible
++headless candidate from the selected/default profile.
+ 
+ The runtime displays and seals the complete intended sequence, selections,
+ fallback chain, caps, permissions, visibility, and supervision mode before
+-launch. Actual session fingerprints are observed and bound after launch, before
+-participant work is admitted. A mismatch fences the operation. Attached
+-identity is verified before reservation; two-party roles cannot share a session.
++launch. Actual worker-session fingerprints are observed and bound after launch,
++before participant work is admitted. A mismatch fences the operation.
++Two-party roles cannot share a session, and no worker session may equal the
++controller session.
+ 
+ The v1 nested contract uses stages[].max_rounds (positive safe integer bounded
+ by review.max_rounds_limit),
+ stages[].participants, profile, prior_evidence, and fallback_kinds. SAR has only
+-participants.solo; SPR/XPR have author and reviewer. Each selection has placement
+-(attached or headless); headless selections may specify selector, model and
+-effort, resolved together through the selected profile. Attached identity is
+-runtime-derived, never supplied as a fingerprint by the caller. An omitted
+-participant map means attached solo for SAR, or attached author and headless
+-reviewer for SPR/XPR. Only solo or author may be attached; an attached reviewer
+-or two attached roles are invalid for these six topologies. prior_evidence is independent
+-or shared; fallback_kinds is an explicit allowed class set, defaulting to the
+-requested class unless a profile explicitly authorizes a different allowed set.
+-Candidate membership alone cannot expand that set.
++participants.solo; SPR/XPR have author and reviewer. Each selection may specify
++selector, model and effort, resolved together through the selected profile.
++Placement is not caller-selectable in v1: every resolved participant record
++seals placement=headless. An omitted participant map resolves every required
++role from the selected/default profile. prior_evidence is independent or shared;
++fallback_kinds is an explicit allowed class set, defaulting to the requested
++class unless a profile explicitly authorizes a different allowed set. Candidate
++membership alone cannot expand that set.
+ 
+ Resolve the initial roster to the requested class. If none is eligible, return
+ the class/capability conflict before mutation. Cross-class fallback permission
+@@ -289,7 +307,7 @@
+ may additionally fall back to Codex, recording a replacement SPR attempt. None
+ of these rules permit the initial XPR to start as SPR.
+ 
+-Headless SAR followed by a two-headless XPR uses, for example:
++SAR followed by XPR uses, for example:
+ 
+     {
+       "schema": "ai-peer-review.start-request/v1",
+@@ -300,16 +318,16 @@
+           "kind": "sar",
+           "max_rounds": 6,
+           "participants": {
+-            "solo": { "placement": "headless", "selector": "codex",
++            "solo": { "selector": "codex",
+               "model": "gpt-6-astra", "effort": "high" }
+           }
+         },
+         {
+           "kind": "xpr",
+           "participants": {
+-            "author": { "placement": "headless", "selector": "codex",
++            "author": { "selector": "codex",
+               "model": "gpt-6-astra", "effort": "high" },
+-            "reviewer": { "placement": "headless", "selector": "claude",
++            "reviewer": { "selector": "claude",
+               "model": "claude-opus-5", "effort": "high" }
+           }
+         }
+@@ -331,26 +349,25 @@
+ There is no universal medium/high default. Explicit unsupported values never
+ fall through to another value. The receipt records each resolved value and source.
+ 
+-### Attached Identity and Role Grants
++### Worker Identity and Role Grants
+ 
+-A trusted host adapter obtains the session handle and observed provider/model
+-from host session metadata or the provider's exact-session observation surface
++A provider adapter launches each worker and obtains its session handle and
++observed provider/model from the provider's exact-session observation surface
+ (the #88/#90 identity mechanisms). A caller-supplied fingerprint, model name or
+ unverified environment variable is not identity evidence. Store an opaque,
+ worktree-scoped fingerprint derived with a private installation key over the
+ host identifier and exact session handle; keep raw handles only in protected
+ authority storage. Seal the fingerprint, evidence source/version, observed
+-identity and assurance in the participant record. If exact-session verification
+-is unavailable, that attached topology fails preflight.
++identity and assurance in the participant record. If launch-time exact-session
++verification is unavailable, that candidate fails preflight.
+ 
+-On reattachment, the adapter re-observes the session and proves possession of
++On worker resume, the adapter re-observes the session and proves possession of
+ its private transport binding; the runtime compares the sealed fingerprint and
+-identity, then issues a fresh grant. The same model in another chat is not the
+-same participant. CLI fallback uses the trusted local host bridge, never an
+-arbitrary role selected with a flag. A host without that bridge reports the
+-capability failure rather than bypassing identity.
++identity, then issues a fresh grant. The same model in another session is not
++the same participant. CLI fallback uses the same broker and provider adapters;
++it cannot assign the controller session to a worker role.
+ 
+-Controller authority and participant authority are separate even in one chat.
++Controller authority and participant authority are separate.
+ Participant grants are scoped to run_id, stage_attempt_id, round, phase,
+ fingerprint, expected_revision and an expiring grant ID. Replays return an
+ existing action receipt; advancing consumes the grant. Controller grants permit
+@@ -363,9 +380,9 @@
+ controls. Separation among unrestricted same-OS-user callers is accountability
+ and mistake prevention, not protection against an actor stealing local grants.
+ The manifest records role_authority=same-user-accountability, per-role
+-write_scope=enforced-provider-sandbox or attached-agent-compliance, and the SAR
+-critique/revision compliance claim separately. A controller-only grant cannot
+-submit a verdict; this does not claim immunity to malicious same-user software.
++write_scope=enforced-provider-sandbox, and the SAR critique/revision compliance
++claim separately. A controller grant cannot submit a participant turn; this
++does not claim immunity to malicious same-user software.
+ 
+ ## Round Contract and Caps
+ 
+@@ -406,7 +423,7 @@
+ there is no free post-admission failure allowance. A new dispatch needs remaining
+ budget or an explicitly authorized extend-cap within the configured limit.
+ 
+-Run states are starting, running, awaiting-attached-participant, reconciling,
++Run states are starting, running, awaiting-participant, reconciling,
+ intervention-required, accepted, cancelled and failed. Each requested stage has
+ an ID; replacements have new stage-attempt IDs under it. Acceptance requires
+ all requested stages accepted under the predicate below. Cancellation is never
+@@ -551,9 +568,10 @@
+ processes. Recheck exact bytes at each review/revision seal and acceptance.
+ Resolve physical paths, reject symlinks and hard-linked FURs, directory aliases
+ and review-folder overlap, and revalidate containment at write boundaries.
+-Do not alter unrelated staged or working files. Local SAR uses the same
+-deterministic core for snapshots and patches, with agent compliance rather than
+-an independently enforced separation between its two roles.
++Do not alter unrelated staged or working files. SAR uses the same deterministic
++core for snapshots and patches. Its single worker's separation between critique
++and revision phases is an agent-compliance claim, not an independently enforced
++separation between two participants.
+ 
+ A SAR worker is one author-capable session throughout. Its critique evaluates
+ an immutable input snapshot and is instructed not to edit until its findings
+@@ -819,6 +837,14 @@
+   and completion/failure classification; and
+ - a provenance of reported, derived, estimated or unavailable for every field
+   or coherent field group.
++
++The observed controller boundary is the preferred collection point. The
++motivating local-SAR experiment produced null cost values through the
++worker-facing interface even though the host UI later exposed discrete session
++usage. A worker therefore must not be the sole recorder of its own consumption.
++The broker and provider adapter collect terminal/session telemetry outside the
++worker turn whenever the host exposes it. This improves coverage without
++guaranteeing that every provider exposes every measure.
+ 
+ Each measurement carries value, unit, provenance and source scope. Derived
+ values identify their input observations and formula; estimates also identify
+@@ -855,7 +881,7 @@
+ operation ID, requested stage, stage-attempt, round (nullable before dispatch),
+ role/phase, local participant ID and retry/fallback parent. Provider-internal
+ calls and auxiliary models are child accounting scopes, not additional review
+-rounds. Attached and continuous SAR sessions may span phases or rounds; preserve
++rounds. Continuous SAR worker sessions may span phases or rounds; preserve
+ session-scoped measurements when the source cannot attribute them more finely.
+ Do not invent per-round allocations from a session total.
+ 
+@@ -885,6 +911,13 @@
+ are resource duration and can exceed wall time during concurrency. Never add
+ queue/API/wall durations unless the source defines disjoint components.
+ 
++metrics.json contains explicit round, participant/agent, stage, run, and
++review-chain aggregate views over the same attempt records. The manifest
++summarizes those views, their coverage, currency partitions, and metrics.json
++digest without duplicating raw provider output. Agent aggregates are keyed by
++stable participant ID and retain role, provider, model, and effort. Review-chain
++totals link terminal follow-up runs without rewriting prior run metrics.
++
+ Each newly dispatched critique, including a retry or fallback critique,
+ consumes a new round as specified by the cap contract. Transport reconnection
+ to an existing operation is not a new dispatch. Launch attempts before critique
+@@ -926,6 +959,10 @@
+ Adapters must advertise telemetry capabilities and mapping versions separately
+ from review capabilities. Missing usage support does not block an otherwise
+ eligible provider, but is visible before launch and in every affected receipt.
++Adapter development may require provider-specific research into process exit
++records, session APIs, host events, or billing/usage envelopes. The adapter
++contract permits richer mappings over time while keeping review correctness
++independent from complete telemetry.
+ 
+ Normalize telemetry through an allowlist of numeric counters, units, documented
+ enums, sanitized model labels and opaque local correlation IDs. Exclude prompt
+@@ -1029,7 +1066,7 @@
+ unattended are the only additional top-level start options defined here.
+ 
+ hard_timeout_ms bounds active provider operations, including quiet reasoning,
+-not time waiting for an attached human/agent. Diagnostic retention is finite
++not time waiting for controller intervention. Diagnostic retention is finite
+ even when preserve_clean_logs is true. Analysis weighting profiles belong to
+ issue #34's separately versioned consumer schema, not this runtime config. Token/spend
+ ceilings are deferred to a versioned policy extension: this release makes no
+@@ -1061,7 +1098,7 @@
+ replacement. Require evidence that it can no longer write or submit. Preserve
+ partial author bytes as a recovery checkpoint, but do not treat them as a sealed
+ revision. Ambiguous edits require intervention; a new reviewer receives only a
+-reconciled checkpoint. Fallback never switches an attached participant silently.
++reconciled checkpoint. Fallback never switches a worker silently.
+ 
+ An unavailable stage may use only an explicitly declared ordered alternative
+ under the registered extension described above; v1 supplies only sealed role
+@@ -1086,16 +1123,17 @@
+ 
+ Binary-free distribution applies to AIPR and its production dependency closure.
+ Already-installed Node and provider CLIs are external prerequisites; AIPR does
+-not build, bundle or download their executables. All six journeys are required
+-product goals, not claims of existing adapter support. Admission requires a
++not build, bundle or download their executables. All three normalized journeys
++are required product goals, not claims of existing adapter support. Admission requires a
+ versioned capability matrix for the exact host/model/effort, participant role,
+ launch, identity, output, permissions, cancellation and recovery. Unsupported
+ combinations fail preflight with an actionable capability report. Installed
+ conformance tests, not selector presence or model-name examples, establish
+ support. Generalized headless authors and SAR workers are new adapter work.
+ 
+-The broker starts only for headless or durable cross-session work. Local
+-attached SAR remains inline.
++The broker starts for every review because every participant is headless. SAR
++uses the same managed launch, liveness, telemetry, evidence, and recovery path
++as SPR/XPR, with one worker instead of two.
+ 
+ Broker, participant wrappers, lifecycle, locking, IPC, authentication, and
+ cleanup use Node APIs or audited pure-JavaScript dependencies. The target
+@@ -1200,9 +1238,8 @@
+ 
+ ## Disconnect and Recovery
+ 
+-- Two-headless runs continue after originating-chat loss.
+-- Attached-author runs may finish the reviewer turn, then wait for exact author.
+-- Local SAR pauses when its sole attached participant disappears.
++- SAR, SPR, and XPR continue after originating-chat loss while their worker
++  sessions and broker remain healthy.
+ - No participant is silently replaced.
+ - Another chat reconnects by run ID using durable authority.
+ - Unknown side effects remain fenced until reconciliation.
+@@ -1212,18 +1249,18 @@
+ extend-cap, reconcile-operation, resolve-checkpoint or acknowledge-unresolved.
+ Each carries action_id, expected_revision and validated
+ action-specific parameters. Mutations require authenticated controller authority;
+-reconnecting by run ID alone grants neither authority nor an attached role.
++reconnecting by run ID alone grants neither controller nor participant authority.
+ An exact replay returns its receipt, a stale revision fails, and unknown provider
+ effects block resume/replacement. Cancel fences new work, reconciles and stops
+ owned processes, and reports cancelled only after that is confirmed. Extending
+-a cap or replacing an attached identity requires explicit user authorization
++a cap or replacing a worker identity requires explicit user authorization
+ recorded in the event stream; automatic fallbacks use only the sealed policy.
+ No intervention may turn unresolved findings into normal acceptance.
+ 
+-An attached session that cannot be verified on return stays
+-awaiting-attached-participant without an automatic expiry or hard-timeout
+-replacement. It requires exact-session recovery, explicit user-authorized
+-replace-participant, or cancel. Observer reconnect does not issue a role grant.
++A worker session that cannot be verified on resume stays awaiting-participant
++without automatic replacement. It requires exact-session recovery, a
++preauthorized fallback, explicit user-authorized replacement, or cancel.
++Observer reconnect does not issue a participant grant.
+ 
+ The additional recovery actions require a verified user-authorization receipt
+ from the authority mechanism and a reason, not just a model claiming recovery
+@@ -1272,8 +1309,8 @@
+ ## Out-of-Band Monitor and Usage
+ 
+ start_review returns a receipt, then the controller calls wait_for_review. It
+-calls again after each attached turn or intervention and after observer detach,
+-always resuming from the durable cursor. The adapter reattaches outside inference
++calls again after intervention or observer detach, always resuming from the
++durable cursor. The adapter reattaches outside inference
+ where supported; each call covers one wait interval, not the entire conversation.
+ The call blocks outside model inference while a capability-tested MCP progress
+ surface or an equivalent out-of-band surface updates the user. Host progress
+@@ -1284,15 +1321,14 @@
+ Transport timeouts detach observers, not cancel reviews; adapters reattach with
+ the durable cursor outside inference when possible. Host-forced model re-entry
+ is disclosed and measured rather than called zero-token waiting. On capable
+-hosts the model wakes only for attached work, intervention, or terminal state.
++hosts the controller model wakes only for intervention or terminal state.
+ 
+-After the initial receipt, successful wakeups are bounded by delivered attached
+-turns + actionable interventions + host-forced re-entries + one terminal result.
++After the initial receipt, successful controller wakeups are bounded by
++actionable interventions + host-forced re-entries + one terminal result.
+ Repeated delivery of the same cursor does not create another wakeup. In a
+-fault-free controller-only two-headless run on a capable host, exactly one
+-post-receipt model wakeup delivers terminal status. An attached-author run adds
+-one per required author turn; attached SAR counts both critique and revision
+-handoffs. Provider monitoring never creates periodic model turns.
++fault-free SAR, SPR, or XPR on a capable host, exactly one post-receipt model
++wakeup delivers terminal status. Provider monitoring and participant handoffs
++never create periodic controller model turns.
+ 
+     XPR · stage 2/2 · round 2/12 · elapsed 04:12
+ 
+@@ -1302,10 +1338,10 @@
+ 
+     Usage       controller 3.1k · author 21.4k · reviewer 16.8k reported
+ 
+-Overlapping controller/author roles combine into one line. The monitor shows
+-one combined critique/revision line for a SAR worker. It shows
+-total and phase duration, stage/round/cap, liveness, last provider event,
+-protocol progress, and usage provenance.
++SPR and XPR always show separate controller, author, and reviewer lines. SAR
++shows separate controller and solo-worker lines, with critique/revision as the
++worker phase. The monitor shows total and phase duration, stage/round/cap,
++liveness, last provider event, protocol progress, and usage provenance.
+ 
+ The monitor updates elapsed time locally. Config defaults are exact:
+ monitoring.liveness_interval_ms=15000, warn_after_ms=60000 and
+@@ -1317,6 +1353,9 @@
+ without killing a legitimate long reasoning turn. A proved-live quiet provider
+ remains running; unknown effects fence it. hard_timeout_ms defaults to 1800000
+ from active-operation admission and intervenes with fencing/cancellation checks.
++The 120-second reconciliation threshold ensures that roughly two minutes of
++silence produces visible diagnostic progress rather than appearing to be a
++crashed or abandoned review.
+ 
+ Use an injected monotonic clock for intervals; UTC timestamps are for display
+ and audit. Across restart, record a new clock epoch and reconcile outstanding
+@@ -1335,9 +1374,9 @@
+ reasoning and provider-internal usage are never represented as zero. Broker,
+ CLI, and MCP compute consume no model tokens.
+ 
+-Request construction, attached-role work, interventions, returned tool text and
+-terminal summaries may consume controller tokens. Show these separately from
+-idle wait compute; controller usage is unavailable if the host cannot report it.
++Request construction, interventions, returned tool text and terminal summaries
++may consume controller tokens. Show these separately from worker usage and idle
++wait compute; controller usage is unavailable if the host cannot report it.
+ Normalize cumulative versus per-turn provider usage to prevent double counting.
+ Cost estimates require price provenance; subscription utilization remains
+ separate from marginal API cost and is never represented as a free review.
+@@ -1390,9 +1429,9 @@
+ the participant's bound session and checks FUR bytes before advancing. It
+ generates patches rather than trusting participant-supplied patches. Exact
+ action replay returns the receipt; conflicting replay, wrong role/phase or stale
+-digest/revision fails without advancing. Controller-only credentials cannot
+-submit participant turns. Inline SAR invokes the same core through local tools;
+-headless wrappers use the same transition contract under their role binding.
++digest/revision fails without advancing. Controller credentials cannot submit
++participant turns. Every headless wrapper uses the same transition contract
++under its role binding.
+ Every handoff supplies an exact structured next_action naming this operation
+ and its schema. The worker never edits package authority directly.
+ 
+@@ -1401,12 +1440,12 @@
+ paths and the applicable capability/usage provenance. status is deliberately
+ coarse. The response registry additionally requires these orthogonal dimensions:
+ 
+-- liveness: broker_heartbeat_age_ms (null for inline), broker_health (live,
++- liveness: broker_heartbeat_age_ms, broker_health (live,
+   lost, recovering, unknown or not-applicable), last_protocol_progress_at,
+   last_successful_observation_at, observation_age_ms and monitor_stale.
+ - participants: one entry per role with participant ID, placement, phase
+   (launch, critique, revision, waiting or terminal), role_state (active,
+-  awaiting-attachment, quiet, stopped, unknown or complete), process_health
++  awaiting-resume, quiet, stopped, unknown or complete), process_health
+   (live, dead, unknown or not-applicable), last_provider_event_at and
+   provider_output_age_ms. Unavailable observations are null with a reason,
+   never fabricated timestamps or zero ages.
+@@ -1417,17 +1456,16 @@
+ 
+ Required observable tuples, under the named fixture conditions, are:
+ 
+-| Fixture                                      | status                | Liveness/participant observation                                                     | Fencing                                                           |
+-| -------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
+-| Observer disconnect during two-headless work | running, last known   | Observer monitor_stale=true after its threshold; remote health unknown until recheck | Last known fencing with stale marker, never invented remote proof |
+-| Quiet reasoning with proved-live process     | running               | process_health=live, role_state=quiet after warning, increasing output age           | inactive                                                          |
+-| Unexpected process death mid-turn            | intervention-required | process_health=dead, role_state=stopped                                              | active: provider-process-dead and pending-effect obligations      |
+-| Broker restart before reconciliation         | reconciling           | broker_health=recovering, participants unknown pending observation                   | active: broker-restart                                            |
+-| Second participant launch failure            | intervention-required | Failed role stopped/dead if proved; first role observed separately                   | active: partial-launch, first role and launch operation fenced    |
++| Fixture                                    | status                | Liveness/participant observation                                                     | Fencing                                                           |
++| ------------------------------------------ | --------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
++| Observer disconnect during worker activity | running, last known   | Observer monitor_stale=true after its threshold; remote health unknown until recheck | Last known fencing with stale marker, never invented remote proof |
++| Quiet reasoning with proved-live process   | running               | process_health=live, role_state=quiet after warning, increasing output age           | inactive                                                          |
++| Unexpected process death mid-turn          | intervention-required | process_health=dead, role_state=stopped                                              | active: provider-process-dead and pending-effect obligations      |
++| Broker restart before reconciliation       | reconciling           | broker_health=recovering, participants unknown pending observation                   | active: broker-restart                                            |
++| Second participant launch failure          | intervention-required | Failed role stopped/dead if proved; first role observed separately                   | active: partial-launch, first role and launch operation fenced    |
+ 
+-An attached-role disconnect instead yields awaiting-attached-participant when
+-that role is needed. Current observations may refine these tuples only through
+-recorded reconciliation; they do not redefine the coarse state enum.
++Current observations may refine these tuples only through recorded
++reconciliation; they do not redefine the coarse state enum.
+ 
+ Error issues are bounded
+ with a truncation count when necessary. The help registry provides exact
+@@ -1475,7 +1513,7 @@
+         }],
+         "help_topic": "start-request",
+         "schema": "ai-peer-review.start-request/v1",
+-        "examples": ["sar-attached"]
++        "examples": ["sar"]
+       }
+     }
+ 
+@@ -1517,8 +1555,8 @@
+ - native broker security/build requirements are removed.
+ 
+ It replaces assumptions that every review has exactly two participants, the
+-invoking session must always be author, manual XPR is a human-relayed product
+-mode, and startup should be numerous CLI flags.
++invoking session is a participant, manual XPR is a human-relayed product mode,
++and startup should be numerous CLI flags.
+ 
+ ## Migration Principles
+ 
+@@ -1552,16 +1590,17 @@
+ changes but cannot infer a numerically equivalent round cap from max_turns.
+ 
+ Do not remove the existing manual XPR startup path until an installed
+-cross-family attached-author/headless-reviewer combination passes launch,
+-identity, role enforcement, cancellation, recovery and end-to-end evidence
+-conformance on each platform advertised for the replacement. Until then, the
++cross-family headless-author/headless-reviewer combination passes launch,
++identity, role enforcement, external telemetry observation, cancellation,
++recovery and end-to-end evidence conformance on each platform advertised for
++the replacement. Until then, the
+ legacy entry point remains explicitly available in its retained compatible
+ installation alongside the new runtime, with its original assurance labels.
+ Unsupported new-runtime topologies fail with guidance to that explicit legacy
+-choice; they never silently switch placement or relay a managed run. No third
+-placement is added to the target API. Retirement notes must identify the tested
++choice; they never silently assign the controller to a participant role.
++Retirement notes must identify the tested
+ replacement, invocation changes, retained-run recovery and explicit config
+-migration. The final replacement release must demonstrate all six journeys for
++migration. The final replacement release must demonstrate all three journeys for
+ its advertised capability matrix; incremental previews cannot claim completion.
+ 
+ Each new run seals a runtime_binding with package version, canonical installed
+@@ -1610,8 +1649,9 @@
+ ### Material Rework
+ 
+ - Startup currently assumes the invoking session is the author, selects one
+-  reviewer, and derives only SPR or XPR. It has no SAR, controller-only role,
+-  two-headless topology, or ordered review-stage sequence.
++  reviewer, and derives only SPR or XPR. It has no SAR, permanently
++  non-participant controller, normalized headless-worker topology, or ordered
++  review-stage sequence.
+ - The public CLI accepts a positional artifact plus many flags. It needs the
+   canonical versioned JSON request, request-id idempotency, preview, and
+   generated validation/help contract.
+@@ -1622,8 +1662,8 @@
+   explicit controller state, per-class caps, finding lineage, author
+   dispositions, and sequence termination on non-acceptance.
+ - Existing transport modes describe manual relay, resume-only, and automatic
+-  handoff. The target product instead separates placement from supervision and
+-  makes managed headless execution the normal broker-owned path.
++  handoff. The target product instead fixes participant placement as headless
++  and makes managed execution the normal broker-owned path.
+ - Configuration v1 has one `review.max_turns` and transport preferences. It
+   needs v2 class caps, named role-specific cascades, fallback authorization,
+   monitoring policy, and user/project merge behavior.
+@@ -1681,7 +1721,7 @@
+ 
+ ## Required Verification Themes
+ 
+-Planning must cover all six topologies; JSON input equivalence; detailed errors;
++Planning must cover all three normalized topologies; JSON input equivalence; detailed errors;
+ cross-transport idempotency; classification and fallback transitions; caps;
+ author responses and finding lineage; participant/session identity; reviewer
+ FUR denial with review-folder writes; dirty/new FUR snapshots and leases;
+@@ -1743,8 +1783,8 @@
+    monotonic time tests warning, reconciliation, stale-observer and hard-timeout
+    thresholds at their exact configured values, including clock-epoch recovery.
+    A capable monitor refreshes elapsed time without inference. Fault-free
+-   two-headless runs wake the controller once for terminal status; attached-author
+-   runs add exactly one wakeup per delivered author turn after the receipt.
++   SAR, SPR, and XPR wake the controller once for terminal status unless an
++   actionable intervention or host-forced re-entry occurs.
+    Unsupported host progress requires explicit unattended authority before launch.
+ 7. An installed pure-JavaScript package passes OS-specific credential storage,
+    role-write denial and child-containment tests. Untested combinations cannot
+@@ -1755,15 +1795,16 @@
+    uncertain artifact overlap and missing/mismatched installations. New starts
+    reject v1 or mixed config with migration guidance and prospective cap sources.
+    Manual XPR is not retired before the installed cross-family replacement gate
+-   passes. All six journey, config and monitor fixtures validate against the same
+-   registry used by offline CLI help and MCP schemas; all six journeys require
++   passes. All three journey, config and monitor fixtures validate against the same
++   registry used by offline CLI help and MCP schemas; all three journeys require
+    installed conformance before the final replacement release claims completion.
+-9. Attached SAR and attached-author handoffs can submit through MCP and CLI
+-   without commits. Wrong-role, stale-digest and stale-revision submissions fail;
+-   replay does not advance twice. A controller-only grant cannot submit a verdict.
+-   Exact-session reattachment succeeds; a same-model different chat fails. Expired
+-   or wrong-round grants fail, with assurance labels preserved. Unrecoverable
+-   attached sessions wait for explicit replacement/cancel, without silent expiry.
++9. Headless SAR workers, authors, and reviewers submit through broker-owned
++   role tools without commits. Wrong-role, stale-digest and stale-revision
++   submissions fail; replay does not advance twice. A controller grant cannot
++   submit a participant turn. Exact-session worker resume succeeds; a same-model
++   different session fails. Expired or wrong-round grants fail, with assurance
++   labels preserved. Unrecoverable workers wait for fallback, explicit
++   replacement, or cancel without silent identity substitution.
+ 10. Successful, failed, timed-out, interrupted and no-response provider attempts
+     produce provenance-tagged metrics receipts. Fixtures cover provider totals,
+     per-model/auxiliary counters, cache and reasoning tokens, inconsistent
+@@ -1799,16 +1840,21 @@
+ 
+ ## Resolved Decisions
+ 
+-- Headless SAR uses one participant for critique and revision.
++- Every review has one visible non-participant controller and only headless
++  worker participants.
++- SAR uses one worker for critique and revision; SPR/XPR use distinct author
++  and reviewer workers.
+ - Acceptance requires a fresh clean pass and explicit resolution of all open findings.
+ - Caps are SAR 6, SPR 10, XPR 12 and are configurable/overridable.
+ - A non-accepting exhausted cap stops the full sequence for intervention.
+ - Monitoring is out of band and includes controller/author/reviewer lines.
+-- Headless runs survive origin disconnect; attached roles wait for exact return.
++- Worker runs survive origin disconnect and preserve exact-session identity.
+ - Dirty/new FURs need no per-round commit.
+ - Normalized evidence is trackable by ordinary project workflow; raw logs are ephemeral.
+ - Every provider attempt contributes provenance-tagged token, duration, tool
+   and cost evidence, including attempts that never produce a response.
++- metrics.json and the manifest expose coverage-aware round, agent, stage, run,
++  and review-chain aggregates without converting unavailable values to zero.
+ - Evaluation is multidimensional across quality, cost, and time.
+ - Two-party reviewers can write the review folder and research the web, not FUR.
+ - Package authority is outside the collaborative review folder.

@@ -8,12 +8,16 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AprError } from '../errors.mjs';
 import { configPaths, validateConfig } from './load.mjs';
+import { installedPackageIdentity } from './installation-identity.mjs';
+
+const PRETTIER_CLI = createRequire(import.meta.url).resolve('prettier/bin/prettier.cjs');
 
 const HOST_DIR = Object.freeze({
   codex: '.codex',
@@ -23,6 +27,11 @@ const HOST_DIR = Object.freeze({
 });
 const SKILL_SOURCE = fileURLToPath(new URL('../../skills/peer-review/SKILL.md', import.meta.url));
 const SCRATCH_RULE = '.scratch/peer-review/';
+const START_HOOK = Object.freeze({
+  codex: 'peer-review-codex-hook',
+  claude: 'peer-review-claude-hook',
+});
+const HOOK_FILE = Object.freeze({ codex: 'hooks.json', claude: 'settings.json' });
 const OFFICIAL_RESUME = Object.freeze({
   codex: ['codex', 'resume'],
   claude: ['claude', '--resume'],
@@ -53,6 +62,29 @@ function fail(code, message, recovery, details = {}) {
 
 function stable(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function formatJson(value, file) {
+  try {
+    return execFileSync(
+      process.execPath,
+      [PRETTIER_CLI, '--parser', 'json', '--stdin-filepath', file, '--ignore-path', os.devNull],
+      {
+        input: stable(value),
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        maxBuffer: 4 * 1024 * 1024,
+        timeout: 30_000,
+      }
+    );
+  } catch (cause) {
+    fail(
+      'APR_SETUP_INVALID',
+      'Setup JSON formatting failed.',
+      'Repair the destination Prettier configuration, then retry setup.',
+      { file, reason: String(cause.stderr ?? cause.message).trim() }
+    );
+  }
 }
 
 function clone(value) {
@@ -113,8 +145,10 @@ function atomicWrite(file, contents) {
 }
 
 function operation(file, before, after, owner) {
-  const beforeText = before === null ? null : typeof before === 'string' ? before : stable(before);
-  const afterText = after === null ? null : typeof after === 'string' ? after : stable(after);
+  const beforeText =
+    before === null ? null : typeof before === 'string' ? before : readFileSync(file, 'utf8');
+  const afterText =
+    after === null ? null : typeof after === 'string' ? after : formatJson(after, file);
   return Object.freeze({
     file,
     owner,
@@ -126,6 +160,72 @@ function operation(file, before, after, owner) {
 
 function providerRoot({ scope, host, cwd, home }) {
   return path.join(scope === 'project' ? cwd : home, HOST_DIR[host]);
+}
+
+function startHookOperation({ root, host, remove, ownership }) {
+  if (!START_HOOK[host]) return { operation: null, hookAdded: false, hookFileCreated: false };
+  const file = path.join(root, HOOK_FILE[host]);
+  const fileExists = existsSync(file);
+  const before = readJson(file, {});
+  const after = clone(before);
+  const hook = { matcher: 'Bash', hooks: [{ type: 'command', command: START_HOOK[host] }] };
+  const groups = before.hooks?.PreToolUse ?? [];
+  if (!Array.isArray(groups))
+    fail(
+      'APR_SETUP_INVALID',
+      'PreToolUse hooks must be an array.',
+      'Repair the host hook settings.',
+      { file }
+    );
+  const matching = groups.filter((group) => stable(group) === stable(hook));
+  const localHook = groups.some(
+    (group) =>
+      group?.matcher === 'Bash' &&
+      group.hooks?.length === 1 &&
+      group.hooks[0]?.type === 'command' &&
+      group.hooks[0].command === `node bin/${START_HOOK[host]}.mjs`
+  );
+  if (matching.length > 1)
+    fail(
+      'APR_SETUP_CONFLICT',
+      'Duplicate package start hooks exist.',
+      'Remove the duplicate hook.',
+      { file }
+    );
+  if (remove) {
+    if (!ownership?.hook_added)
+      return { operation: null, hookAdded: false, hookFileCreated: false };
+    if (!matching.length)
+      fail(
+        'APR_SETUP_CONFLICT',
+        'Package start hook changed since setup.',
+        'Restore the hook before teardown.',
+        { file }
+      );
+    after.hooks.PreToolUse = groups.filter((group) => stable(group) !== stable(hook));
+    if (!after.hooks.PreToolUse.length) delete after.hooks.PreToolUse;
+    if (!Object.keys(after.hooks).length) delete after.hooks;
+    const removeFile = ownership.hook_file_created && !Object.keys(after).length;
+    return {
+      operation: operation(file, before, removeFile ? null : after, `${host}-start-hook`),
+      hookAdded: false,
+      hookFileCreated: false,
+    };
+  }
+  if (matching.length)
+    return {
+      operation: null,
+      hookAdded: Boolean(ownership?.hook_added),
+      hookFileCreated: Boolean(ownership?.hook_file_created),
+    };
+  if (localHook) return { operation: null, hookAdded: false, hookFileCreated: false };
+  after.hooks ??= {};
+  after.hooks.PreToolUse = [...groups, hook];
+  return {
+    operation: operation(file, fileExists ? before : null, after, `${host}-start-hook`),
+    hookAdded: true,
+    hookFileCreated: !fileExists,
+  };
 }
 
 function defaultExclude(cwd) {
@@ -185,6 +285,7 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
     result.setup = {
       owner: 'ai-peer-review',
       version: 2,
+      ...installedPackageIdentity(),
       agents: nextAgents,
       config_created: current.setup?.config_created ?? !configExists,
       scratch_exclude_added:
@@ -193,6 +294,32 @@ function packageConfigAfter(current, agents, remove, configExists, scope, scratc
       automatic_adapters_added: [...ownedAutomatic].sort(),
     };
   return result;
+}
+
+export function updateSetup(options = {}) {
+  if (options.remove || options.agents?.length)
+    fail(
+      'APR_SETUP_INVALID',
+      'Update cannot be combined with removal or explicit agents.',
+      'Use setup --update alone, or use setup --remove for teardown.'
+    );
+  const scope = options.scope ?? 'project';
+  if (!['user', 'project'].includes(scope))
+    fail('APR_SETUP_INVALID', 'Setup update scope is invalid.', 'Select user or project scope.');
+  const cwd = path.resolve(options.cwd ?? process.cwd());
+  const home = path.resolve(options.home ?? os.homedir());
+  const configFile = configPaths({ cwd, home, env: options.env ?? {}, platform: options.platform })[
+    scope
+  ];
+  const current = readJson(configFile, { schema: 'ai-peer-review.config/v1' });
+  validateConfig(current);
+  if (current.setup?.owner !== 'ai-peer-review' || !current.setup.agents?.length)
+    fail(
+      'APR_SETUP_INVALID',
+      'No prior package-owned setup exists in this scope.',
+      'Run peer-review setup with an explicit --agent and --scope first.'
+    );
+  return setup({ ...options, scope, agents: current.setup.agents });
 }
 
 export function setup(options = {}) {
@@ -243,17 +370,16 @@ export function setup(options = {}) {
     scratchRuleExists
   );
   validateConfig(nextConfig);
-  if (stable(currentConfig) !== stable(nextConfig)) {
-    const removeCreatedConfig =
-      remove && currentConfig.setup?.config_created && Object.keys(nextConfig).length === 1;
-    operations.push(
-      operation(
-        configFile,
-        configExists ? currentConfig : null,
-        removeCreatedConfig ? null : nextConfig,
-        'package-config'
-      )
-    );
+  const removeCreatedConfig =
+    remove && currentConfig.setup?.config_created && Object.keys(nextConfig).length === 1;
+  const configChanged = stable(currentConfig) !== stable(nextConfig);
+  const nextConfigText =
+    removeCreatedConfig || (!configExists && !configChanged)
+      ? null
+      : formatJson(nextConfig, configFile);
+  const currentConfigText = configExists ? readFileSync(configFile, 'utf8') : null;
+  if (configChanged || (configExists && currentConfigText !== nextConfigText)) {
+    operations.push(operation(configFile, currentConfigText, nextConfigText, 'package-config'));
   }
 
   const skillBytes = readFileSync(SKILL_SOURCE, 'utf8');
@@ -262,6 +388,12 @@ export function setup(options = {}) {
     const adapterFile = path.join(root, 'config.json');
     const adapterExists = existsSync(adapterFile);
     const current = readJson(adapterFile, {});
+    const hookResult = startHookOperation({
+      root,
+      host,
+      remove,
+      ownership: current.ai_peer_review,
+    });
     if (current.ai_peer_review && current.ai_peer_review.owner !== 'ai-peer-review') {
       fail(
         'APR_SETUP_CONFLICT',
@@ -288,6 +420,12 @@ export function setup(options = {}) {
           skill_created:
             current.ai_peer_review?.skill_created ??
             !existsSync(path.join(root, 'skills', 'peer-review', 'SKILL.md')),
+          ...(START_HOOK[host]
+            ? {
+                hook_added: hookResult.hookAdded,
+                hook_file_created: hookResult.hookFileCreated,
+              }
+            : {}),
         };
     const planned = planSetup({ scope, host, current, desired });
     let adapterOperation = null;
@@ -305,7 +443,12 @@ export function setup(options = {}) {
     const skillFile = path.join(root, 'skills', 'peer-review', 'SKILL.md');
     const existingSkill = existsSync(skillFile) ? readFileSync(skillFile, 'utf8') : null;
     const nextSkill = remove ? null : skillBytes;
-    if (!remove && existingSkill !== null && existingSkill !== skillBytes) {
+    const packageOwnedSkill =
+      current.ai_peer_review?.owner === 'ai-peer-review' &&
+      current.ai_peer_review.skill_created === true &&
+      currentConfig.setup?.owner === 'ai-peer-review' &&
+      currentConfig.setup.agents?.includes(host);
+    if (!remove && existingSkill !== null && existingSkill !== skillBytes && !packageOwnedSkill) {
       fail(
         'APR_SETUP_CONFLICT',
         'An existing peer-review skill is not package-owned.',
@@ -314,10 +457,8 @@ export function setup(options = {}) {
       );
     }
     if (!remove && adapterOperation) operations.push(adapterOperation);
-    const preserveSkillOnRemoval =
-      remove &&
-      (!current.ai_peer_review?.skill_created ||
-        (existingSkill !== null && existingSkill !== skillBytes));
+    if (!remove && hookResult.operation) operations.push(hookResult.operation);
+    const preserveSkillOnRemoval = remove && !packageOwnedSkill;
     if (
       !preserveSkillOnRemoval &&
       existingSkill !== nextSkill &&
@@ -325,6 +466,7 @@ export function setup(options = {}) {
     )
       operations.push(operation(skillFile, existingSkill, nextSkill, `${host}-skill`));
     if (remove && adapterOperation) operations.push(adapterOperation);
+    if (remove && hookResult.operation) operations.push(hookResult.operation);
   }
 
   if (scope === 'project') {
@@ -368,13 +510,16 @@ export function setup(options = {}) {
       return `${entry.kind} ${entry.file}\n- ${entry.before ?? '<absent>'}\n+ ${entry.after ?? '<absent>'}`;
     })
     .join('\n');
+  const backupRequired = (entry) =>
+    entry.kind === 'modify' ||
+    (entry.kind === 'remove' && entry.owner.endsWith('-skill') && entry.before !== skillBytes);
   const publicOperations = Object.freeze(
     operations.map((entry) =>
       Object.freeze({
         file: entry.file,
         owner: entry.owner,
         kind: entry.kind,
-        backup_required: entry.kind === 'modify',
+        backup_required: backupRequired(entry),
       })
     )
   );
@@ -383,7 +528,7 @@ export function setup(options = {}) {
     scope,
     agents,
     changed: operations.length > 0,
-    backup_required: operations.some((entry) => entry.kind === 'modify'),
+    backup_required: operations.some(backupRequired),
     operations: publicOperations,
     diff,
     input,
@@ -396,7 +541,7 @@ export function setup(options = {}) {
         ]
       : operations;
     for (const entry of applicationOrder) {
-      if (entry.kind === 'modify') {
+      if (backupRequired(entry)) {
         mkdirSync(path.dirname(`${entry.file}.bak`), { recursive: true });
         copyFileSync(entry.file, `${entry.file}.bak`);
       }
@@ -404,5 +549,14 @@ export function setup(options = {}) {
       else atomicWrite(entry.file, entry.after);
     }
   }
-  return Object.freeze(plan);
+  if (options.dryRun) return Object.freeze(plan);
+  return Object.freeze({
+    schema: 'ai-peer-review.setup-result/v1',
+    status: operations.length ? 'applied' : 'no-changes',
+    scope,
+    agents,
+    changed: operations.length > 0,
+    operations: publicOperations,
+    backups: operations.filter(backupRequired).map((entry) => `${entry.file}.bak`),
+  });
 }

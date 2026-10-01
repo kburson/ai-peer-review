@@ -1,0 +1,24 @@
+{
+  "schema": "ai-peer-review.metrics/v1",
+  "run_id": "107-runtime-api-spec-xpr-bb9e6a5",
+  "status": "aborted-by-user",
+  "rounds_completed": 0,
+  "reviewer_attempts": 2,
+  "reviewer_usage": {
+    "provenance": "provider-reported",
+    "input_tokens": 12,
+    "cache_creation_input_tokens": 55184,
+    "cache_read_input_tokens": 124903,
+    "output_tokens": 21849,
+    "thinking_tokens": 20877,
+    "api_duration_ms": 363125,
+    "wall_duration_ms": 777861,
+    "cost_usd": 1.1884405
+  },
+  "author_usage": {
+    "provenance": "unavailable"
+  },
+  "controller_usage": {
+    "provenance": "unavailable"
+  }
+}

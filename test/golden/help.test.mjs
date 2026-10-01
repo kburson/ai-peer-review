@@ -25,8 +25,66 @@ test('concept topics remain separate from the closed command grammar', () => {
   assert.throws(() => parseCommand(['help', 'unknown-concept']), { code: 'APR_USAGE' });
 });
 
+test('setup help and explain make package upgrades and teardown discoverable', () => {
+  const setup = helpRequest('setup', 'json');
+  assert.match(setup.purpose, /upgrade/i);
+  assert.match(setup.preconditions.join(' '), /same scope/i);
+  assert.match(setup.effects.join(' '), /package-owned skill.*backs up/i);
+  assert.match(setup.effects.join(' '), /idempotent teardown/i);
+  assert.match(setup.effects.join(' '), /provider hooks.*active model/i);
+  assert.match(setup.examples.join(' '), /--remove/);
+  assert.match(setup.examples.join(' '), /--dry-run/);
+  assert.match(setup.examples.join(' '), /setup --update/);
+  assert.match(setup.examples.join(' '), /setup --update --json/);
+  assert.match(setup.usage, /--json/);
+  assert.match(setup.effects.join(' '), /human-readable/i);
+  assert.match(
+    setup.flags.find(({ flag }) => flag === '--json').description,
+    /agents and scripts/i
+  );
+  assert.match(setup.defaults.join(' '), /project scope.*recorded hosts/i);
+  assert.match(setup.flags.find(({ flag }) => flag === '--update').description, /recorded.*host/i);
+  assert.match(setup.next_action, /doctor/i);
+  assert.ok(helpRequest('upgrade', 'json', { search: true }).matches.includes('setup'));
+  assert.match(explainError('APR_SETUP_CONFLICT').recovery, /foreign/i);
+  assert.match(explainError('APR_SETUP_CONFIRMATION_REQUIRED').recovery, /dry-run/i);
+  assert.match(explainError('APR_SETUP_VERSION_MISMATCH').recovery, /setup --update --dry-run/i);
+});
+
+test('build and setup help explain explicit execution and applied output', () => {
+  const build = helpRequest('build', 'json');
+  assert.equal(build.usage, 'peer-review build broker-security');
+  assert.match(build.preconditions.join(' '), /matching local Node development headers/i);
+  assert.match(build.effects.join(' '), /derives the Node development root/i);
+  assert.match(explainError('APR_BROKER_BUILD_FAILED').recovery, /build broker-security/);
+  assert.match(helpRequest('setup', 'json').effects.join(' '), /setup-result\/v1/);
+});
+
+test('doctor help distinguishes installation from current-operation readiness', () => {
+  const doctor = helpRequest('doctor', 'json');
+  assert.match(doctor.usage, /installation/);
+  assert.match(doctor.effects.join(' '), /model and effort may change/i);
+  assert.match(doctor.examples.join(' '), /doctor --mode installation/);
+  assert.match(
+    explainError('APR_IDENTITY_REQUIRED').recovery,
+    /do not pin a model in project config/i
+  );
+});
+
 test('start help gives complete intent-first selection and recovery guidance', () => {
   const start = helpRequest('start', 'text');
+  const startContract = helpRequest('start', 'json');
+  assert.match(startContract.usage, /--issue <N>/);
+  assert.match(
+    startContract.flags.find(({ flag }) => flag === '--issue').description,
+    /required.*issue/i
+  );
+  assert.match(startContract.preconditions.join(' '), /positive issue ID/i);
+  assert.ok(startContract.errors.includes('APR_ISSUE_REQUIRED'));
+  assert.match(explainError('APR_ISSUE_REQUIRED').recovery, /start --issue <N>/);
+  for (const concept of ['spr', 'xpr']) {
+    assert.match(helpRequest(concept, 'json').examples[0], /--issue [0-9]+/);
+  }
   assert.match(start, /--reviewer-provider/);
   assert.match(start, /--reviewer-model/);
   assert.match(start, /medium/);
@@ -34,7 +92,7 @@ test('start help gives complete intent-first selection and recovery guidance', (
   assert.match(start, /broker/i);
   assert.match(
     start,
-    /peer-review start docs\/spec\.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
+    /peer-review start docs\/spec\.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
   );
   assert.match(start, /APR_USAGE/);
   assert.doesNotMatch(start, /--runtime/);
@@ -86,8 +144,8 @@ test('all offline help topics derive complete contracts from the frozen command 
       topic.flags.map(({ flag }) => flag),
       COMMAND_FLAGS[command]
     );
-    assert.match(topic.examples[1], /^npx --yes @kburson\/ai-peer-review@0\.3\.0 /);
-    assert.doesNotMatch(topic.examples.join('\n'), /^npx --yes ai-peer-review@/m);
+    assert.match(topic.examples[1], /^npx --no-install ai-peer-review /);
+    assert.doesNotMatch(topic.examples.join('\n'), /^npx --yes /m);
     for (const code of topic.errors) {
       const explanation = explainError(code);
       assert.equal(explanation.code, code);
@@ -135,6 +193,11 @@ test('broker help declares authenticated project-local recovery semantics', () =
   assert.match(broker.wake, /ambiguous.*never.*replay/i);
   assert.match(broker.next_action, /offline.*recovery.*evidence/i);
   assert.equal(broker.json_schema, 'ai-peer-review.broker-result/v1');
+  assert.ok(broker.errors.includes('APR_BROKER_ACCESS_DENIED'));
+  assert.match(explainError('APR_BROKER_ACCESS_DENIED').recovery, /approved host execution/i);
+  assert.match(broker.effects.join(' '), /candidate.*ranking.*reconcile/i);
+  assert.match(helpRequest('abandon', 'json').preconditions.join(' '), /manual.*history/i);
+  assert.match(explainError('APR_LINEAGE_UNAVAILABLE').recovery, /fresh.*reviews-root/i);
 });
 
 test('Claude launch help and result schema freeze bounded recovery', () => {
@@ -212,6 +275,12 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   );
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_REQUIRED'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_UNSUPPORTED'));
+  assert.ok(helpRequest('start', 'json').errors.includes('APR_REVIEWER_SELECTION_REFUSED'));
+  assert.match(explainError('APR_REVIEWER_SELECTION_UNSUPPORTED').message, /locally/i);
+  assert.match(explainError('APR_REVIEWER_SELECTION_REFUSED').message, /provider explicitly/i);
+  assert.ok(
+    helpRequest('launch-reviewer', 'json').errors.includes('APR_REVIEWER_SELECTION_REFUSED')
+  );
   assert.ok(helpRequest('start', 'json').errors.includes('APR_AUTHORITY_POLICY'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_STALE_REVIEW'));
   assert.ok(helpRequest('start', 'json').errors.includes('APR_TEMPLATE_INVALID'));
@@ -223,6 +292,7 @@ test('help --all, search, JSON, and stable error explanations have deterministic
     'APR_BROKER_STALE',
     'APR_PROVIDER_RESOURCE_BUSY',
     'APR_REVIEWER_SELECTION_UNSUPPORTED',
+    'APR_REVIEWER_SELECTION_REFUSED',
     'APR_BROKER_REGISTRATION_CONFLICT',
   ]) {
     assert.ok(helpRequest('broker', 'json').errors.includes(code), code);

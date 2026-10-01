@@ -99,6 +99,25 @@ your agent knows the commands, the role boundaries, and what it is not allowed
 to do — so you can talk about reviews in plain language instead of quoting
 flags at it.
 
+After installing a newer package, run `peer-review setup --update --dry-run`
+then `peer-review setup --update` in each affected project. `--update` defaults
+to project scope and refreshes every host recorded by the prior package-owned
+setup. For a prior user-scope installation, add `--scope user`. Setup automatically replaces a
+previous package-owned skill and backs up its bytes as `SKILL.md.bak`; a repeat
+run is a no-op. The dry run clearly labels a preview and prints the diff; an
+applied update prints a readable summary with changed files and backup paths.
+For an agent or script, add `--json` to get the `setup-result/v1` result with
+`applied` or `no-changes`, affected operations, and backup paths. A dry run with
+`--json` returns the `setup-plan/v1` object. `peer-review setup --agent <host> --scope <user|project>
+--remove` is the idempotent teardown for that scope. A pre-existing or foreign
+skill is preserved and still causes a conflict instead of being overwritten.
+Global npm installation updates the binary but does not refresh copied project
+or user skills until setup runs again. The project setup records the package version and
+SHA-256 of the installed skill; review commands compare those values and the
+copied skill against the running CLI. A mismatch returns
+`APR_SETUP_VERSION_MISMATCH` with setup recovery. Run `peer-review help setup`
+and `peer-review explain APR_SETUP_VERSION_MISMATCH` for the exact procedure.
+
 Worth doing once before you rely on it:
 
 > Run the peer-review doctor and tell me whether anything needs fixing.
@@ -109,6 +128,14 @@ you asked for is actually available. For `automatic-required`, it also checks
 MCP connectivity, a current resident lease, the configured long timeout, and an
 end-to-end transport probe. Anything it calls out, it also tells you how to fix.
 
+From an ordinary terminal, run `peer-review doctor --mode installation` to
+check the installed package, skill, repository, scratch setup, and native broker
+helper without declaring a provider or model for the project. Plain `doctor`
+checks current-session review readiness and may be unhealthy when its invoking
+shell lacks current model metadata. Review startup captures the provider's
+current operation instead of pinning a model or effort to the worktree; either
+may change before a later review start in the same provider session.
+
 Broker-dependent startup additionally requires the package-owned native
 security helper. Building it is always explicit: provide a writable package
 installation and a local Node development tree that exactly matches the
@@ -116,51 +143,43 @@ running Node version and architecture. The builder never downloads headers,
 never runs as an install lifecycle hook, and fails if the compiler, Python,
 headers, or Windows import library is unavailable.
 
-From a source checkout:
+From the package installation (including a global installation):
 
 ```bash
-npm run build:broker-security -- --nodedir /absolute/local/node-development-tree
+ai-peer-review build broker-security
 ```
 
-From a consumer project root:
-
-```bash
-npm --prefix ./node_modules/@kburson/ai-peer-review run build:broker-security -- --nodedir /absolute/local/node-development-tree
-```
+The command derives the matching Node development root from the Node executable
+that runs the CLI. The existing `npm run build:broker-security -- --nodedir`
+script remains available for package maintainers who need an explicit root.
 
 For a read-only installation, build the same installed package in a writable
 location first. `doctor` reports the command for the installation it inspected.
+An unjoined broker review whose launch is explicitly refused or otherwise
+proven not submitted can be retired with `peer-review broker suspend <workspace>`
+followed by `peer-review abandon <workspace> --reason <text>`. The fence and
+terminal event preserve the workspace and broker evidence. If launch outcome is
+unknown, keep the attempt for exact provider reconciliation; lack of a reviewer
+join or lineage receipt does not prove the provider was never contacted.
+
 A missing or incompatible helper keeps the broker-security row unhealthy and
 broker-dependent startup fails with `APR_BROKER_START_FAILED`; legacy manual
 review operations remain available and never trigger a build.
 
 Claude Code must expose a genuine current session through
-`CLAUDE_CODE_SESSION_ID` (or `CLAUDE_SESSION_ID`). When the host does not expose
-model metadata, declare only the model fields in the project or user
-`.ai-peer-review.json`:
+`CLAUDE_CODE_SESSION_ID` (or `CLAUDE_SESSION_ID`). Project setup installs a
+provider hook that reads the model from the exact active Claude tool use and
+supplies it to each CLI invocation. Codex setup does the same from its hook
+event. Start and join also write private, token-named evidence for that exact
+operation. The provider is fixed by the active session; its model and effort
+can change between invocations without changing project configuration. Legacy
+`hosts.<provider>.identity` model fields remain readable for old configuration
+files but no longer select the current model. Rerun `peer-review setup --update`
+after upgrading so the host hooks and skill match the installed CLI.
 
-```json
-{
-  "schema": "ai-peer-review.config/v1",
-  "hosts": {
-    "claude": {
-      "identity": {
-        "provider": "anthropic",
-        "host": "claude-code",
-        "model_id": "claude-opus-5",
-        "model_display": "Claude Opus 5"
-      }
-    }
-  }
-}
-```
-
-The session fingerprint still derives only from the genuine current Claude
-session. Configuration cannot supply a session ID, and the package never
-guesses the active model. A runtime session combined with configured model
-metadata is labeled `identity_source: declared`; complete runtime session and
-model metadata remains `runtime`. Doctor, start, join, submit, finalize, grant,
-recovery, and abandonment all use this same resolution contract.
+The session fingerprint derives from the genuine current provider session.
+Legacy reviews with a declared Claude identity retain that sealed identity for
+their own pending manual submission; new reviews use current provider evidence.
 
 The compatibility `identity_source` field remains for legacy readers; it is not
 an independent model-verification claim. Current manifests expose separate
@@ -189,8 +208,29 @@ exact blob, so a dirty file is refused rather than quietly reviewed.
 From the author session, the equivalent explicit command is:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
+peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
 ```
+
+Replace `117` with the tracked issue number. Every new SPR or XPR requires
+`--issue`; the sealed ID prefixes package-generated review commits as `[#N]`.
+`peer-review explain APR_ISSUE_REQUIRED` describes the missing-issue refusal.
+
+Model and effort identifiers are passed through exactly after syntax validation.
+The package does not maintain an availability catalog. Inspect the installed
+provider app for choices: Claude has interactive `/model` and `/effort`
+selectors, while Grok offers `grok models`. These are selection aids, not
+authority for launch; a provider-coded rejection returns
+`APR_REVIEWER_SELECTION_REFUSED`. An uncertain provider result remains
+subject to reconciliation.
+
+In a conversational request, name the reviewer app and, where possible, its
+exact model ID: “Review `docs/spec.md` with Claude as reviewer, model
+`<exact ID from Claude>`, effort `high`.” The invoking session is the author.
+Shorthand such as “opus 5.5” or “astra 6” is a hint, not a sealed model ID;
+the agent should consult the installed app's choices or ask when more than one
+model fits. An omitted effort uses `medium`. The agent should show the resolved
+provider, model ID, and effort before calling `start`. The CLI itself accepts
+exact identifiers and does not resolve aliases.
 
 Direct classifier callers can follow the [Claude launch API migration](docs/claude-launch-api-migration.md) guide for session evidence, conditional recovery, and the widened v1 result schema.
 
@@ -279,7 +319,7 @@ One review can govern an immutable ordered artifact sequence. Phase authority
 comes only from `events.jsonl`; provider transcripts are never consulted:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --phases spec,plan
+peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --phases spec,plan
 # review and finalize the specification, then follow status --next:
 peer-review advance .scratch/peer-review/<review-id> docs/plan.md
 # review and finalize the plan normally
@@ -297,7 +337,7 @@ If an attempt cannot finish, preserve it and start the replacement under the
 same record identity:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --record-id record-554e80ec
+peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium --record-id record-554e80ec
 peer-review supersede .scratch/peer-review/review-old \
   --reason "Replacement attempt started" --by review-new
 ```
@@ -429,10 +469,10 @@ locally. Before that — or if you would rather install nothing at all — call 
 by its full registry name:
 
 ```bash
-npx --yes @kburson/ai-peer-review@0.3.0 --help
-npx --yes @kburson/ai-peer-review@0.3.0 setup --scope project --agent claude --dry-run
-npx --yes @kburson/ai-peer-review@0.3.0 start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
-npx --yes @kburson/ai-peer-review@0.3.0 status .scratch/peer-review/<review-id> --next
+npx --no-install ai-peer-review --help
+npx --no-install ai-peer-review setup --scope project --agent claude --dry-run
+npx --no-install ai-peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
+npx --no-install ai-peer-review status .scratch/peer-review/<review-id> --next
 ```
 
 Existing consumers should replace the unscoped package without changing commands or state paths:

@@ -64,6 +64,7 @@ const TRANSITIONS = new Map([
   ['intervention-required|participant-replaced', 'restore'],
   ['intervention-required|override-committed', 'accepted-over-objections'],
   ['intervention-required|override-sealed-no-commit', 'accepted-over-objections-uncommitted'],
+  ['awaiting-reviewer|abandoned', 'abandoned'],
   ['intervention-required|abandoned', 'abandoned'],
 ]);
 
@@ -402,6 +403,20 @@ function applyLifecycle(protocol, participants, event) {
     protocol.phases.cursor < protocol.phases.kinds.length - 1
   ) {
     throw transitionError(protocol.state, event, 'non-final phase cannot terminate the review');
+  }
+  if (protocol.state === 'awaiting-reviewer' && event.type === 'abandoned') {
+    if (
+      protocol.startup?.runtime?.ownership !== 'broker' ||
+      participants.reviewer ||
+      event.actor !== participants.author?.session_fingerprint ||
+      event.payload.intervention_id !== 'unjoined'
+    ) {
+      throw transitionError(
+        protocol.state,
+        event,
+        'unjoined retirement requires the sealed author'
+      );
+    }
   }
   const target = TRANSITIONS.get(`${String(protocol.state)}|${event.type}`);
   if (!target) {

@@ -37,10 +37,10 @@ test(
 );
 
 test(
-  'child join declares configured model fallback at the CLI boundary',
+  'a configured model cannot substitute for current provider evidence',
   { concurrency: false },
   async (t) => {
-    await exerciseClaudeLaunchCli(t, { modelSource: 'configured' });
+    await exerciseMissingChildModelCli(t, { configured: true });
   }
 );
 
@@ -83,7 +83,7 @@ function fixture({ configured = true } = {}) {
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-async function runJson(argv, root, sessionId) {
+async function runJson(argv, root, sessionId, modelId = null) {
   let stdout = '';
   let stderr = '';
   const code = await run([...argv, '--json'], {
@@ -97,7 +97,10 @@ async function runJson(argv, root, sessionId) {
       'declared'
     ),
     cwd: root,
-    env: { CLAUDE_CODE_SESSION_ID: sessionId },
+    env: {
+      CLAUDE_CODE_SESSION_ID: sessionId,
+      ...(modelId ? { CLAUDE_MODEL_ID: modelId, CLAUDE_MODEL_DISPLAY: modelId } : {}),
+    },
     now: new Date('2026-09-13T14:00:00.000Z'),
     doctorContext: { skillAvailable: true },
     stdout: { write: (value) => (stdout += value) },
@@ -113,6 +116,7 @@ async function runJson(argv, root, sessionId) {
 async function runText(argv, root, sessionId) {
   let stdout = '';
   let stderr = '';
+  const manualReviewer = sessionId === 'claude-reviewer';
   const code = await run(argv, {
     ...fixtureStartupDeps,
     transportCapability: 'manual',
@@ -124,7 +128,25 @@ async function runText(argv, root, sessionId) {
       'declared'
     ),
     cwd: root,
-    env: { CLAUDE_CODE_SESSION_ID: sessionId },
+    env: {
+      CLAUDE_CODE_SESSION_ID: sessionId,
+      ...(!manualReviewer
+        ? { CLAUDE_MODEL_ID: 'claude-opus-5', CLAUDE_MODEL_DISPLAY: 'Claude Opus 5' }
+        : {}),
+    },
+    ...(manualReviewer
+      ? {
+          identityContext: {
+            declared: {
+              host: 'claude-code',
+              provider: 'anthropic',
+              sessionId,
+              modelId: 'claude-opus-5',
+              modelDisplay: 'Claude Opus 5',
+            },
+          },
+        }
+      : {}),
     now: new Date('2026-09-13T14:00:00.000Z'),
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: (value) => (stderr += value) },
@@ -147,15 +169,21 @@ function replaceSection(file, heading, content) {
   writeFileSync(file, source.replace(pattern, `$1${content}`));
 }
 
-test('doctor resolves a genuine Claude session with configured model metadata truthfully', async (t) => {
+test('doctor uses the current Claude model even when project config names another model', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
 
-  const result = await runJson(['doctor', '--mode', 'manual'], fx.root, 'claude-session');
+  const result = await runJson(
+    ['doctor', '--mode', 'manual'],
+    fx.root,
+    'claude-session',
+    'claude-opus-5-5'
+  );
 
   assert.equal(result.code, 0, JSON.stringify(result.stderr));
   const source = result.stdout.rows.find((row) => row.id === 'identity-source');
-  assert.equal(source.status, 'declared');
+  assert.equal(source.status, 'runtime');
+  assert.equal(result.stdout.input.identity.model_id, 'claude-opus-5-5');
   assert.equal(
     result.stdout.input.identity.session_fingerprint,
     fingerprintSession('anthropic', 'claude-session')
@@ -171,12 +199,11 @@ test('doctor gives exact recovery when Claude runtime model metadata is absent',
   assert.equal(result.code, 1);
   const source = result.stdout.rows.find((row) => row.id === 'identity-source');
   assert.equal(source.status, 'unavailable');
-  assert.match(source.details.recovery, /\.ai-peer-review\.json/);
-  assert.match(source.details.recovery, /hosts\.claude\.identity\.model_id/);
-  assert.match(source.details.recovery, /hosts\.claude\.identity\.model_display/);
+  assert.match(source.details.recovery, /provider hook/);
+  assert.match(source.details.recovery, /current model/);
 });
 
-test('start, join, submit, and finalize share the configured Claude identity contract', async (t) => {
+test('workflow uses runtime author and invocation-scoped manual reviewer identity', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
 
@@ -186,6 +213,8 @@ test('start, join, submit, and finalize share the configured Claude identity con
       'docs/artifact.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',
@@ -202,7 +231,7 @@ test('start, join, submit, and finalize share the configured Claude identity con
   const workspace = path.dirname(findFile(fx.root, 'events.jsonl'));
   const invitation = statusReview(workspace).paths.invitation;
   let participants = JSON.parse(readFileSync(path.join(workspace, 'participants.json'), 'utf8'));
-  assert.equal(participants.author.identity_source, 'declared');
+  assert.equal(participants.author.identity_source, 'runtime');
 
   const sameSession = await runText(['join', invitation], fx.root, 'claude-author');
   assert.equal(sameSession.code, 1);

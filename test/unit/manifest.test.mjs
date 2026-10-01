@@ -277,6 +277,19 @@ test('human decision and manifest seals bind exact override authority', () => {
   assert.deepEqual(sealed.commit_paths, [decision.path, manifest.path]);
   assert.match(finalMessage(state), /review-01/);
   assert.equal(
+    finalMessage({
+      ...state,
+      protocol: {
+        ...state.protocol,
+        startup: {
+          ...state.protocol.startup,
+          context: { ...state.protocol.startup.context, issue: 117 },
+        },
+      },
+    }),
+    '[#117] Finalize peer review review-01'
+  );
+  assert.equal(
     finalTrailers({ state, acceptance: decision, manifest })['Peer-Review-Manifest'],
     manifest.digest
   );

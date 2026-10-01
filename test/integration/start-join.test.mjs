@@ -51,6 +51,39 @@ function repositoryFixture(prefix = 'apr-start-') {
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
 }
 
+test('programmatic start refuses a missing issue before provider or broker work', async (t) => {
+  const fx = repositoryFixture('apr-missing-issue-');
+  t.after(fx.cleanup);
+  let providerCalls = 0;
+  await assert.rejects(
+    startReview(
+      {
+        ...fixtureSelection('claude', 'claude-opus-5'),
+        issue: undefined,
+        cwd: fx.root,
+        artifact: 'docs/example.md',
+        artifactKind: 'spec',
+        identity: identity('author', 'missing-issue-author'),
+        now: NOW,
+      },
+      {
+        ...fixtureStartupDeps,
+        adapters: {
+          claude: {
+            capabilities() {
+              providerCalls += 1;
+              throw new Error('provider must not be contacted');
+            },
+          },
+        },
+      }
+    ),
+    (error) => error.code === 'APR_ISSUE_REQUIRED' && /issue/i.test(error.message)
+  );
+  assert.equal(providerCalls, 0);
+  assert.equal(existsSync(path.join(fx.root, '.scratch/peer-review')), false);
+});
+
 test('CLI start resolves explicit reviewer intent through the sealed startup runtime', async (t) => {
   const fx = repositoryFixture('apr-cli-start-');
   t.after(fx.cleanup);
@@ -61,6 +94,8 @@ test('CLI start resolves explicit reviewer intent through the sealed startup run
       'docs/example.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',
@@ -113,6 +148,8 @@ test('CLI start derives its author model from the active Codex hook record', asy
       'docs/example.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',
@@ -152,6 +189,55 @@ test('CLI start derives its author model from the active Codex hook record', asy
   assert.equal(binding.model_id, 'gpt-5.6-sol');
   assert.equal(binding.handle_locator, 'author-hook-session');
   assert.equal(existsSync(path.join(workspace, 'provider/bindings/reviewer.json')), false);
+});
+
+test('separate starts in one provider session seal the model and reviewer effort for each run', async (t) => {
+  const fx = repositoryFixture('apr-same-session-selection-');
+  t.after(fx.cleanup);
+  writeFileSync(path.join(fx.root, 'docs/second.md'), '# Second\n');
+  execFileSync('git', ['add', 'docs/second.md'], { cwd: fx.root });
+  execFileSync('git', ['commit', '-m', 'second fixture'], { cwd: fx.root, stdio: 'ignore' });
+  const starts = [];
+  for (const [artifact, authorModel, reviewerModel, effort] of [
+    ['docs/example.md', 'gpt-6-astra', 'claude-opus-5', 'medium'],
+    ['docs/second.md', 'gpt-6-sol', 'claude-opus-5-5', 'high'],
+  ]) {
+    const author = participantIdentity({
+      role: 'author',
+      host: 'codex',
+      provider: 'openai',
+      modelId: authorModel,
+      modelDisplay: authorModel,
+      sessionId: 'same-provider-session',
+      source: 'runtime',
+      joinedAt: NOW,
+    });
+    const started = await startReview(
+      {
+        ...fixtureSelection('claude', reviewerModel, effort),
+        cwd: fx.root,
+        artifact,
+        artifactKind: 'spec',
+        identity: author,
+        now: NOW,
+      },
+      fixtureStartupDeps
+    );
+    const request = JSON.parse(
+      readFileSync(path.join(started.paths.workspace, 'startup-request.json'), 'utf8')
+    );
+    starts.push({ started, request, authorModel, reviewerModel, effort });
+  }
+  assert.notEqual(starts[0].started.paths.workspace, starts[1].started.paths.workspace);
+  for (const { started, request, authorModel, reviewerModel, effort } of starts) {
+    assert.equal(request.request.author.model_id, authorModel);
+    assert.equal(request.request.startup.runtime.reviewer.model_id, reviewerModel);
+    assert.equal(request.request.startup.runtime.reviewer.effort, effort);
+    assert.equal(
+      inspectReview(started.paths.workspace).protocol.startup.runtime.reviewer.effort,
+      effort
+    );
+  }
 });
 
 test('CLI start binds a Claude author from exact PreToolUse transcript evidence', async (t) => {
@@ -200,6 +286,8 @@ test('CLI start binds a Claude author from exact PreToolUse transcript evidence'
       'docs/example.md',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
       '--reviewer-provider',
       'claude',
       '--reviewer-model',
@@ -669,7 +757,7 @@ test('start verifies and consumes an exact prevention-grade pin-verifier grant',
     artifact_kind: 'spec',
     reviews_root: 'docs/peer-reviews',
     path_template: '<kind>/<date>-<name>-<record-id>',
-    issue_id: null,
+    issue_id: 117,
     maximum_turns: 10,
     commit_mode: 'normal',
   };

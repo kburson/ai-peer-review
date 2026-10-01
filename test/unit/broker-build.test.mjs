@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -90,6 +91,10 @@ test('native ownership release preserves lock evidence and IPC waits are bounded
   assert.doesNotMatch(windowsRelease, /DeleteFileW|FileDisposition/);
   assert.match(posix, /kIpcTimeoutMilliseconds/);
   assert.match(posix, /poll\(/);
+  assert.match(
+    windows.match(/void\* ConnectPrivate[\s\S]*?\n}/)?.[0] ?? '',
+    /ERROR_ACCESS_DENIED[\s\S]*APR_BROKER_ACCESS_DENIED/
+  );
   assert.match(posixWrite, /MSG_DONTWAIT/);
   assert.match(windows, /kIpcTimeoutMilliseconds/);
   assert.doesNotMatch(
@@ -152,12 +157,39 @@ test('missing or mismatched native helper fails with the installation-specific o
   t.after(() => rmSync(installationRoot, { recursive: true, force: true }));
   const missing = inspectPlatformSecurity({ root: installationRoot });
   assert.equal(missing.healthy, false);
-  assert.match(missing.build_command, /^npm --prefix /);
-  assert.match(missing.build_command, /run build:broker-security -- --nodedir/);
+  assert.equal(missing.build_command, 'ai-peer-review build broker-security');
   assert.throws(() => platformSecurity({ root: installationRoot }), {
     code: 'APR_BROKER_START_FAILED',
   });
 });
+
+test(
+  'native broker connection distinguishes denied socket access from a stale endpoint',
+  { skip: process.platform === 'win32' || process.getuid?.() === 0 },
+  async (t) => {
+    if (!inspectPlatformSecurity().healthy)
+      return t.skip('native helper is not built in this isolated checkout');
+    const privateRoot = mkdtempSync(path.join(os.tmpdir(), 'bd-'));
+    const socketPath = path.join(privateRoot, 's');
+    const server = createServer((connection) => connection.end());
+    t.after(async () => {
+      chmodSync(privateRoot, 0o700);
+      await new Promise((resolve) => server.close(resolve));
+      rmSync(privateRoot, { recursive: true, force: true });
+    });
+    await new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(socketPath, resolve);
+    });
+    const security = platformSecurity();
+    security.connectPrivate(socketPath).close();
+    chmodSync(privateRoot, 0o000);
+    assert.throws(() => security.connectPrivate(socketPath), {
+      code: 'APR_BROKER_ACCESS_DENIED',
+      recovery: /approved host execution.*broker socket/i,
+    });
+  }
+);
 
 test('platform wrapper retains native handles and never reaches the builder implicitly', () => {
   const calls = [];
@@ -288,6 +320,13 @@ test('platform wrapper retains native handles and never reaches the builder impl
     calls.filter(([name, handle]) => name === 'closeConnection' && handle === 7).length,
     1
   );
+  binding.connectPrivate = () => {
+    throw Object.assign(new Error('sandbox denied'), { code: 'APR_BROKER_ACCESS_DENIED' });
+  };
+  assert.throws(() => platform.connectPrivate('/private/broker.sock'), {
+    code: 'APR_BROKER_ACCESS_DENIED',
+    recovery: /approved host execution.*broker socket/i,
+  });
   endpoint.close();
   directory.close();
   assert.deepEqual(
