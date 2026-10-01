@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { createRepositoryFixture } from '../helpers/repository-fixture.mjs';
+
 import { canonicalProjection } from '../../src/protocol/service.mjs';
 import { run } from '../../src/cli/run.mjs';
 import { AprError } from '../../src/errors.mjs';
@@ -22,8 +24,8 @@ const REVIEWER = `sha256:${'b'.repeat(64)}`;
 const AUTHOR = `sha256:${'a'.repeat(64)}`;
 const DIGEST = `sha256:${'d'.repeat(64)}`;
 
-function workspace(t) {
-  const root = path.join(process.cwd(), '.scratch', 'test');
+function workspace(t, projectRoot = process.cwd()) {
+  const root = path.join(projectRoot, '.scratch', 'test');
   mkdirSync(root, { recursive: true });
   const value = mkdtempSync(path.join(root, 'coordinator-wake-'));
   mkdirSync(path.join(value, 'deliveries'), { recursive: true });
@@ -122,12 +124,13 @@ function input(root, wakeAdapter, now = NOW) {
   };
 }
 
-function brokerIo(respond, evidence = {}) {
+function brokerIo(t, respond, evidence = {}) {
+  const project = createRepositoryFixture(t);
   const stdout = [];
   const stderr = [];
   const requests = [];
   return {
-    cwd: process.cwd(),
+    cwd: project.root,
     env: {},
     now: new Date(NOW),
     stdout: { write: (value) => stdout.push(String(value)) },
@@ -207,8 +210,7 @@ test('bounded coordinator status reports the latest durable outcome without sess
 });
 
 test('closed broker CLI authenticates project routing and refuses suspension without review authority', async (t) => {
-  const root = workspace(t);
-  const io = brokerIo((message) => {
+  const io = brokerIo(t, (message) => {
     if (message.command === 'status') {
       return {
         status: 'running',
@@ -228,7 +230,11 @@ test('closed broker CLI authenticates project routing and refuses suspension wit
     };
   });
 
-  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0);
+  const root = workspace(t, io.cwd);
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0, io.stderrBytes.join(''));
+  const foreign = createRepositoryFixture(t);
+  assert.equal(await run(['broker', 'reconcile', foreign.root, '--json'], io), 1);
+  assert.equal(JSON.parse(io.stderrBytes.at(-1)).code, 'APR_BROKER_AUTH_FAILED');
   const reconciled = JSON.parse(io.stdoutBytes.at(-1));
   assert.equal(reconciled.command, 'reconcile');
   assert.equal(reconciled.status, 'automatic-wait');
@@ -248,7 +254,7 @@ test('closed broker CLI authenticates project routing and refuses suspension wit
       ['stop', null],
     ]
   );
-  assert.ok(io.brokerRequests.every(({ project }) => project.physicalRoot === process.cwd()));
+  assert.ok(io.brokerRequests.every(({ project }) => project.physicalRoot === io.cwd));
 });
 
 test('broker stop refuses runnable and unreconciled project work', async (t) => {
@@ -258,7 +264,7 @@ test('broker stop refuses runnable and unreconciled project work', async (t) => 
       recovery: 'Reconcile or suspend the exact review.',
     });
   };
-  const runnable = brokerIo(refused);
+  const runnable = brokerIo(t, refused);
   assert.equal(await run(['broker', 'stop', '--json'], runnable), 1);
   assert.equal(JSON.parse(runnable.stderrBytes.at(-1)).code, 'APR_BROKER_STOP_REFUSED');
   assert.deepEqual(
@@ -266,7 +272,7 @@ test('broker stop refuses runnable and unreconciled project work', async (t) => 
     ['stop']
   );
 
-  const unreconciled = brokerIo(refused, {
+  const unreconciled = brokerIo(t, refused, {
     unreconciled_workspaces: [root],
   });
   assert.equal(await run(['broker', 'stop', '--json'], unreconciled), 1);
@@ -279,7 +285,7 @@ test('broker stop refuses runnable and unreconciled project work', async (t) => 
 
 test('offline broker status reports recovery evidence without starting a broker', async (t) => {
   const root = workspace(t);
-  const io = brokerIo(() => null, {
+  const io = brokerIo(t, () => null, {
     registrations: [path.join(root, 'registration.json')],
     recovery_records: [path.join(root, 'recovery.json')],
     unreconciled_workspaces: [root],
@@ -314,7 +320,7 @@ test('offline broker status reads project-local startup evidence without a test 
     path.join(workspace, 'startup-request.json'),
     JSON.stringify({ stage: 'outcome-unknown' })
   );
-  const io = brokerIo(() => null);
+  const io = brokerIo(t, () => null);
   io.cwd = projectRoot;
   delete io.brokerInspectEvidence;
   io.brokerConnect = async () => {
@@ -371,8 +377,8 @@ test('offline broker status survives a real missing native security helper witho
 });
 
 test('offline broker reconcile restarts exact pinned runtime without replaying a launch', async (t) => {
-  const root = workspace(t);
-  const io = brokerIo(() => ({ status: 'recovery-only' }));
+  const io = brokerIo(t, () => ({ status: 'recovery-only' }));
+  const root = workspace(t, io.cwd);
   io.brokerConnect = async () => {
     throw Object.assign(new Error('missing discovery'), { code: 'APR_BROKER_STALE' });
   };

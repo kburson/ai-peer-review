@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { platformSecurity } from '../../src/broker/platform.mjs';
 
 // cspell:ignore filemode
 
@@ -27,9 +28,9 @@ export function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-export function createRepositoryFixture(t) {
+export function createRepositoryFixture(t, { directoryName = 'repository' } = {}) {
   const parent = mkdtempSync(path.join(tmpdir(), 'ai-peer-review-repository-'));
-  const root = path.join(parent, 'repository');
+  const root = path.join(parent, directoryName);
   const linked = path.join(parent, 'linked');
   const outside = path.join(parent, 'outside');
   mkdirSync(root);
@@ -85,5 +86,79 @@ export function createRepositoryFixture(t) {
     artifactBytes,
     artifactDigest: sha256(artifactBytes),
     readArtifact: () => readFileSync(path.join(root, 'docs', 'artifact.md')),
+  };
+}
+
+// An explicit committed-policy fixture; no production API accepts this override.
+export function createPrimaryAuthorityFixture(
+  t,
+  { separateGitDir = false, pathsWithSpaces = false } = {}
+) {
+  const fixture = createRepositoryFixture(t, {
+    directoryName: pathsWithSpaces ? 'repository with spaces' : 'repository',
+  });
+  if (separateGitDir) {
+    git(fixture.root, 'worktree', 'remove', '--force', fixture.linked);
+    git(fixture.root, 'init', '--separate-git-dir', path.join(fixture.parent, 'administration'));
+    fixture.commonDir = realpathSync(path.join(fixture.parent, 'administration'));
+    git(fixture.root, 'worktree', 'add', fixture.linked, 'linked-fixture');
+  }
+  const configRelative = '.ai-peer-review/config.json';
+  const skillRelative = '.ai-peer-review/skills/peer-review/SKILL.md';
+  const policy = { schema: 'ai-peer-review.primary-config/v2', review: { max_turns: 4 } };
+  mkdirSync(path.dirname(path.join(fixture.root, skillRelative)), { recursive: true });
+  writeFileSync(path.join(fixture.root, configRelative), JSON.stringify(policy) + '\n');
+  writeFileSync(path.join(fixture.root, skillRelative), '# Shared procedure\n');
+  // Existing dirty unrelated fixture files intentionally remain dirty.
+  git(fixture.root, 'add', '--', configRelative, skillRelative);
+  git(
+    fixture.root,
+    'commit',
+    '--only',
+    '-m',
+    'primary owned files',
+    '--',
+    configRelative,
+    skillRelative
+  );
+  const record = {
+    schema: 'ai-peer-review.primary-activation/v1',
+    primary_root: fixture.root,
+    common_dir: fixture.commonDir,
+    primary_initialized: true,
+    integration_contract: 'test-contract/v1',
+    owned_blobs: {
+      config: {
+        path: configRelative,
+        blob: git(fixture.root, 'rev-parse', `HEAD:${configRelative}`),
+      },
+      skill: { path: skillRelative, blob: git(fixture.root, 'rev-parse', `HEAD:${skillRelative}`) },
+    },
+  };
+  const registrationPath = path.join(
+    fixture.commonDir,
+    'ai-peer-review',
+    'primary-activation.json'
+  );
+  if (process.platform === 'win32') {
+    const directory = platformSecurity().openPrivateDirectory(path.dirname(registrationPath));
+    try {
+      directory.create(path.basename(registrationPath), Buffer.from(JSON.stringify(record) + '\n'));
+    } finally {
+      directory.close();
+    }
+  } else {
+    mkdirSync(path.dirname(registrationPath), { mode: 0o700 });
+    writeFileSync(registrationPath, JSON.stringify(record) + '\n', { mode: 0o600 });
+  }
+  return {
+    ...fixture,
+    policy,
+    record,
+    registrationPath,
+    configPath: path.join(fixture.root, configRelative),
+    skillPath: path.join(fixture.root, skillRelative),
+    git: (...args) => git(fixture.root, ...args),
+    writeRecord: (value) => writeFileSync(registrationPath, JSON.stringify(value) + '\n'),
   };
 }

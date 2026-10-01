@@ -6,7 +6,7 @@ import path from 'node:path';
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
 
-// cspell:ignore ACDMRTUXB objectname
+// cspell:ignore ACDMRTUXB objectname gitdir commondir
 const CHANGE_FILTER = 'ACDMRTUXB';
 const REGULAR_MODES = new Set(['100644', '100755']);
 const EXCLUDED_REVIEWER_REF_PREFIXES = Object.freeze([
@@ -413,5 +413,103 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     checkIgnored,
     baseline,
     reviewerBoundary,
+  });
+}
+
+// Authority discovery deliberately does not share the sealed transaction runner.
+// Caller Git overrides must never choose another clone or a substitute index.
+export function authorityGit(cwd, args, { buffer = false } = {}) {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key))
+  );
+  try {
+    return nodeExecFileSync('git', args, {
+      cwd,
+      env,
+      encoding: buffer ? null : 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    });
+  } catch (cause) {
+    throw gitError(
+      'APR_REPOSITORY_NOT_FOUND',
+      'Physical Git authority discovery failed.',
+      'Run inside a valid physical Git worktree.',
+      { cwd: path.resolve(cwd) },
+      cause
+    );
+  }
+}
+
+export function discoverAuthorityRepository(cwd = process.cwd()) {
+  const physicalCwd = realpathSync(cwd);
+  const root = outputPath(physicalCwd, authorityGit(physicalCwd, ['rev-parse', '--show-toplevel']));
+  if (physicalCwd !== root && !physicalCwd.startsWith(root + path.sep))
+    throw authorityMembershipError('Caller is outside the physical worktree.');
+  const gitDir = outputPath(root, authorityGit(root, ['rev-parse', '--absolute-git-dir']));
+  const commonDir = outputPath(root, authorityGit(root, ['rev-parse', '--git-common-dir']));
+  const marker = path.join(root, '.git');
+  const metadata = lstatSync(marker);
+  if (metadata.isSymbolicLink())
+    throw authorityMembershipError('Symlinked Git worktree marker is unavailable authority.');
+  if (metadata.isDirectory()) {
+    if (realpathSync(marker) !== gitDir || gitDir !== commonDir)
+      throw authorityMembershipError(
+        'Git directory membership disagrees with the physical marker.'
+      );
+  } else if (metadata.isFile()) {
+    const match = /^gitdir: (.+)\r?\n?$/.exec(readFileSync(marker, 'utf8'));
+    if (!match || outputPath(root, match[1]) !== gitDir)
+      throw authorityMembershipError('Git file membership disagrees with discovery.');
+    if (gitDir !== commonDir) {
+      const administrators = realpathSync(path.join(commonDir, 'worktrees'));
+      if (
+        path.dirname(gitDir) !== administrators ||
+        outputPath(gitDir, readFileSync(path.join(gitDir, 'commondir'), 'utf8')) !== commonDir ||
+        outputPath(gitDir, readFileSync(path.join(gitDir, 'gitdir'), 'utf8')) !==
+          realpathSync(marker)
+      )
+        throw authorityMembershipError('Linked worktree administrative membership is invalid.');
+    }
+  } else
+    throw authorityMembershipError('Git worktree marker is not an ordinary file or directory.');
+  const records = authorityGit(root, ['worktree', 'list', '--porcelain', '-z'])
+    .split('\0\0')
+    .filter(Boolean);
+  const staleWorktrees = [];
+  const roots = records.map((record, index) => {
+    const field = record.split('\0').find((item) => item.startsWith('worktree '));
+    if (!field || record.split('\0').includes('bare'))
+      throw authorityMembershipError(
+        'Bare or malformed worktree inventory cannot provide authority.'
+      );
+    const candidate = field.slice('worktree '.length);
+    try {
+      return realpathSync(candidate);
+    } catch (cause) {
+      if (cause.code !== 'ENOENT' || index === 0 || path.resolve(candidate) === root) throw cause;
+      staleWorktrees.push(candidate);
+      return null;
+    }
+  });
+  if (
+    (!roots.includes(root) && !(gitDir === commonDir && roots[0] === commonDir)) ||
+    new Set(roots.filter(Boolean)).size !== roots.filter(Boolean).length
+  )
+    throw authorityMembershipError(
+      'Physical worktree is absent or ambiguous in the clone inventory.'
+    );
+  return Object.freeze({
+    root,
+    gitDir,
+    commonDir,
+    mainRoot: roots[0] === commonDir ? null : roots[0],
+    staleWorktrees: Object.freeze(staleWorktrees),
+  });
+}
+
+function authorityMembershipError(message) {
+  return new AprError('APR_REPOSITORY_NOT_FOUND', message, {
+    recovery: 'Restore the physical Git worktree membership and retry.',
   });
 }

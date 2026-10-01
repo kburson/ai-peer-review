@@ -27,3 +27,12 @@ export {
 export { buildClaudeProviderCapability } from './config/load.mjs';
 export { buildReviewerExecutionContract } from './provider/execution-contract.mjs';
 export { preflightReviewerExecution } from './provider/preflight.mjs';
+
+export {
+  configPaths,
+  loadConfig,
+  resolveConfigFields,
+  validatePrimaryStore,
+  validateUserStore,
+} from './config/load.mjs';
+export { resolvePrimaryAuthority } from './config/primary-authority.mjs';
