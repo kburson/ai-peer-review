@@ -80,3 +80,14 @@ Registration/activation writes and safe active-review inventory belong to Task 3
 selected-global runtime checks belong to Task 2. This child does not claim those
 interfaces or epic completion. Exact-SHA governed Test evidence is the next
 lifecycle boundary after committing the verified source.
+
+## Governed Test correction
+
+The first committed-SHA isolated Test run failed the extraction verifier because
+`docs/primary-authority-api.md` falls outside the frozen standalone path inventory.
+The earlier complete suite preceded that document's commit, so it did not prove
+the final HEAD inventory. Reproduced the executable verifier failure. A precise
+allowlist extension also required changing the frozen extraction manifest; that
+experimental edit was discarded. Moved the API documentation into the existing
+`docs/superpowers/reviews/` boundary instead. Extraction rules, manifest and tests
+remain unchanged. Exact-SHA Test must rerun after this correction.
