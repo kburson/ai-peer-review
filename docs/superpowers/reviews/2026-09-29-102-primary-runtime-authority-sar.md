@@ -40,3 +40,7 @@ No further design-level finding was identified in this pass. Host-specific skill
 - Reviewed design SHA-256: `8855d3af82e66a2c901f952d071f5ee2addeaf945a65662adf305fa51043d60b`.
 - The replacement design remains a draft pending user review. This SAR does not reapprove the prior XPR, approve an implementation plan, or authorize source-code implementation.
 - Document validation: Prettier, Markdown lint, spelling, and Git whitespace checks are run for the two changed Markdown files before commit. No source tests are claimed.
+
+## Erratum recorded after the reviewed snapshot
+
+SAR-01 was factually incorrect: the current source CLI and globally installed AIPR support `setup --update`. Its proposed removal of that command is withdrawn. The other SAR findings retain their original historical record. The replacement spec was subsequently revised to preserve `setup --update` and reconcile work completed after the SAR; its current bytes are outside the reviewed SHA-256 above and require the planned XPR before implementation planning.
