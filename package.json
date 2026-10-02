@@ -57,6 +57,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
+    "jsonc-parser": "3.3.1",
+    "markdownlint-cli2": "0.23.3",
     "node-gyp": "12.4.0",
     "prettier": "3.8.3",
     "zod": "4.6.2"
@@ -64,8 +66,7 @@
   "devDependencies": {
     "@kburson/ai-task-manager": "file:vendors/kburson-ai-task-manager-0.1.0.tgz",
     "cspell": "8.19.4",
-    "eslint": "9.39.4",
-    "markdownlint-cli2": "^0.23.3"
+    "eslint": "9.39.4"
   },
   "repository": {
     "type": "git",

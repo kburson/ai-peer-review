@@ -9,6 +9,7 @@ function frozenList(values) {
 }
 
 export const COMMAND_FLAGS = Object.freeze({
+  primary: frozenList(['--dry-run', '--update', '--json']),
   'register-runtime': frozenList(['--dry-run', '--update', '--json']),
   setup: frozenList([
     '--agent',
@@ -17,6 +18,8 @@ export const COMMAND_FLAGS = Object.freeze({
     '--remove',
     '--update',
     '--confirm-scratch-exclude',
+    '--migrate',
+    '--migrate-user',
     '--json',
   ]),
   build: frozenList([]),
@@ -91,9 +94,10 @@ export const COMMAND_FLAGS = Object.freeze({
 export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 
 export const COMMAND_USAGE = Object.freeze({
+  primary: 'peer-review primary <register|activate|inspect> [--dry-run] [--update] [--json]',
   'register-runtime': 'peer-review register-runtime [--dry-run] [--update] [--json]',
   setup:
-    'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--json]',
+    'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--migrate] [--migrate-user] [--json]',
   build: 'peer-review build broker-security',
   doctor:
     'peer-review doctor [--mode <installation|manual|resume-only|automatic-required>] [--json]',
@@ -131,6 +135,7 @@ function grammar(min, max = min) {
 }
 
 export const POSITIONAL_GRAMMAR = Object.freeze({
+  primary: grammar(1),
   'register-runtime': grammar(0),
   setup: grammar(0),
   build: grammar(1),
@@ -156,6 +161,8 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
 });
 
 const BOOLEAN_FLAGS = new Set([
+  '--migrate',
+  '--migrate-user',
   '--dry-run',
   '--apply',
   '--remove',
@@ -244,6 +251,12 @@ function validateEnum(options, key, flag, values) {
 }
 
 function validateConstraints(command, args, options) {
+  if (command === 'primary') {
+    if (!['register', 'activate', 'inspect'].includes(args[0]))
+      usage('primary requires register, activate, or inspect');
+    if (options.update && args[0] !== 'register') usage('--update requires primary register');
+    if (options.dryRun && args[0] === 'inspect') usage('primary inspect is already read-only');
+  }
   if (command === 'setup') {
     if (options.update && (options.remove || options.agent?.length))
       usage('--update cannot be combined with --remove or --agent');

@@ -6,6 +6,7 @@ import { COMMANDS, COMMAND_FLAGS, POSITIONAL_GRAMMAR, parseCommand } from '../..
 import { run } from '../../src/cli/run.mjs';
 
 const EXPECTED_COMMANDS = [
+  'primary',
   'register-runtime',
   'setup',
   'build',

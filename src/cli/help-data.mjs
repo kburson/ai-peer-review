@@ -3,6 +3,7 @@ import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './pa
 import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
+  primary: 'Inspect or explicitly register and activate the physical primary integration.',
   'register-runtime':
     'Register the executing global runtime and Node once for the verified OS account.',
   setup: 'Install, upgrade, or remove reversible peer-review agent integration.',
@@ -30,6 +31,9 @@ const PURPOSE = Object.freeze({
 });
 
 const SETUP_FLAG_HELP = Object.freeze({
+  '--migrate': 'Explicitly migrate owned legacy primary config; conflicting copies refuse.',
+  '--migrate-user':
+    'Consent to migrating classified machine bindings into the invoking account preferences; collisions refuse.',
   '--agent': 'Choose one host for initial setup or teardown; repeat to select several hosts.',
   '--scope': 'Choose user or project configuration. Setup --update defaults to project scope.',
   '--dry-run': 'Preview exact operations and backup requirements without changing files.',
@@ -48,6 +52,7 @@ const START_FLAG_HELP = Object.freeze({
 
 const HUMAN_GATED = new Set(['supplement', 'continue']);
 const ROLES = Object.freeze({
+  primary: ['human'],
   'register-runtime': ['human'],
   setup: ['human'],
   build: ['human'],
@@ -72,6 +77,7 @@ const ROLES = Object.freeze({
   explain: ['author', 'reviewer', 'human'],
 });
 const STATES = Object.freeze({
+  primary: ['outside-review'],
   'register-runtime': ['outside-review'],
   setup: ['outside-review'],
   build: ['outside-review'],
@@ -103,12 +109,15 @@ const STATES = Object.freeze({
   explain: ['any'],
 });
 const PRECONDITIONS = Object.freeze({
+  primary: [
+    'Physical main-worktree identity; clean committed owned blobs and safe actual-clone review inventory for activation.',
+  ],
   'register-runtime': [
     'An installed global package with valid runtime inventory, Node >=24 and a verified OS account directory.',
   ],
   setup: [
     'Choose the same scope (user or project) and host agent used by the previous installation.',
-    'After a global npm upgrade, run setup --update in each prior scope; it discovers recorded hosts without --agent.',
+    'An unchanged integration contract requires no refresh after a package upgrade; a mismatch reports the exact scope to update.',
   ],
   build: [
     'Matching local Node development headers, a C++ compiler, Python, and package-local node-gyp.',
@@ -156,16 +165,21 @@ const PRECONDITIONS = Object.freeze({
   explain: ['A known stable APR error code.'],
 });
 const EFFECTS = Object.freeze({
+  primary: [
+    'register and activate write private clone receipts only; inspect is read-only; no commits or provider launch.',
+  ],
   'register-runtime': [
     'Dry-run inspects without writes; apply records private account-wide locators atomically with read back.',
     'Explicit --update replaces a relocated package or Node locator for every clone; an in-place upgrade keeps the selection generation.',
   ],
   setup: [
-    'Dry-run previews exact owned changes without mutation; apply automatically replaces a prior package-owned skill and backs up its previous bytes as SKILL.md.bak.',
-    'Setup --remove is an idempotent teardown for the selected host and scope; foreign skills remain untouched.',
-    'Applying setup prints a human-readable applied or already-up-to-date result with changed files and backup paths. Add --json for the setup-result/v1 machine result; --dry-run previews without applying changes.',
-    'Codex and Claude setup install provider hooks that observe the active model for each CLI invocation; teardown removes only package-owned hooks and preserves foreign host hooks.',
-    'Global npm installation updates the command but does not refresh copied skills until setup runs again.',
+    'Dry-run reports planned before/after bytes and digests, primary branch and review inventory without applying writes.',
+    'Project setup requires the registered physical primary; linked apply refuses with its exact maintenance command. User setup is separate.',
+    'Explicit --migrate moves legacy primary configuration; --migrate-user consents to invoking-account machine-field migration and refuses collisions.',
+    'All destinations pass effective host formatting and lint before atomic application. Foreign hook and adapter property bytes are retained.',
+    'Setup never commits or activates; commit generated primary owned files, then inspect and run primary activate.',
+    'Applying setup prints human-readable file locations; --json reports complete planned bytes as setup-result/v1. Teardown removes proven owned hooks and wrappers, preserves policy and foreign settings, and retains the local scratch exclude.',
+    'Package currency compares declared integration contracts and normalized owned content rather than exact package versions.',
   ],
   build: [
     'Compiles only the installed package native helper; derives the Node development root from the executing Node binary.',
@@ -216,6 +230,12 @@ const EFFECTS = Object.freeze({
   explain: ['Read-only offline error rendering.'],
 });
 const ERRORS = Object.freeze({
+  primary: [
+    'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+    'APR_SETUP_CONFLICT',
+    'APR_RUNTIME_NOT_SELECTED',
+    'APR_RUNTIME_CHANGED',
+  ],
   'register-runtime': [
     'APR_USAGE',
     'APR_RUNTIME_ACCOUNT_UNAVAILABLE',
@@ -868,6 +888,11 @@ const ERROR_CATALOG = Object.freeze({
     recovery:
       'Use peer-review start --issue <N> with the tracked issue number; run peer-review help start for the complete command.',
   },
+  APR_PRIMARY_AUTHORITY_UNAVAILABLE: {
+    message: 'The physical clone primary or its activated committed policy is unavailable.',
+    recovery:
+      'Inspect the actual main worktree, preserve old and new blob diagnostics, settle active review inventory, then explicitly register or activate from the primary.',
+  },
   APR_SETUP_INVALID: {
     message: 'Setup scope, host selection, or existing provider configuration is invalid.',
     recovery: 'Repair the named input or configuration and preview setup again.',
@@ -907,8 +932,7 @@ const ERROR_CATALOG = Object.freeze({
       'Restart from the selected current installation; retained old images do not authorize continued effects.',
   },
   APR_SETUP_VERSION_MISMATCH: {
-    message:
-      'The project setup package version or copied skill digest differs from the installed CLI.',
+    message: 'Owned integration content differs from the selected installation contract.',
     recovery:
       'Run peer-review help setup, then peer-review setup --update --dry-run and peer-review setup --update in the affected project. Run peer-review doctor afterward.',
   },
@@ -1133,6 +1157,9 @@ function topic(command) {
             'peer-review setup --update --dry-run',
             'peer-review setup --update',
             'peer-review setup --update --json',
+            'peer-review primary register --dry-run',
+            'peer-review setup --update --dry-run --migrate',
+            'peer-review primary activate --dry-run',
           ]
         : []),
       ...(command === 'doctor' ? ['peer-review doctor --mode installation --json'] : []),
@@ -1152,7 +1179,7 @@ function topic(command) {
       command === 'build'
         ? 'Run peer-review doctor --mode automatic-required --json to verify the native helper.'
         : command === 'setup'
-          ? 'After initial setup, run peer-review doctor --json. After a package upgrade, run peer-review setup --update --dry-run and then peer-review setup --update in each prior scope, followed by doctor.'
+          ? 'After initial setup, run peer-review doctor --json. For an integration mismatch, inspect the reported scope with setup --update --dry-run, apply from the physical primary or user scope, commit changed primary owned files and explicitly activate them.'
           : command === 'launch-reviewer'
             ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
             : command === 'broker'

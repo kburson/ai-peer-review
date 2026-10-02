@@ -40,6 +40,11 @@ import { platformSecurity } from '../broker/platform.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { applyReviewRecord, planReviewRecord } from '../collateral/review-record.mjs';
 import { loadConfig } from '../config/load.mjs';
+import {
+  registerPrimary,
+  activatePrimaryPolicy,
+  inspectPrimary,
+} from '../config/primary-operations.mjs';
 import { setup, updateSetup } from '../config/setup.mjs';
 import { assertProjectSetupCompatible } from '../config/installation-identity.mjs';
 import {
@@ -5034,35 +5039,35 @@ export async function run(argv, io) {
       else io.stdout.write(`Runtime selection: ${response.selection_id ?? response.location}\n`);
       return 0;
     }
+    if (parsed.command === 'primary') {
+      const verb = parsed.args[0];
+      const response = await (
+        verb === 'register'
+          ? registerPrimary
+          : verb === 'activate'
+            ? activatePrimaryPolicy
+            : inspectPrimary
+      )({ cwd: io.cwd, dryRun: parsed.options.dryRun, update: parsed.options.update });
+      if (parsed.options.json) writeJson(io.stdout, response);
+      else io.stdout.write(JSON.stringify(response, null, 2) + '\n');
+      return 0;
+    }
     if (parsed.command === 'setup') {
-      const response = (parsed.options.update ? updateSetup : setup)({
+      const response = await (parsed.options.update ? updateSetup : setup)({
         scope: parsed.options.scope,
         agents: parsed.options.agent,
         dryRun: parsed.options.dryRun,
         remove: parsed.options.remove,
         confirmScratchExclude: parsed.options.confirmScratchExclude,
         cwd: io.cwd,
-        env: io.env,
+        migrate: parsed.options.migrate,
+        migrateUser: parsed.options.migrateUser,
       });
       if (parsed.options.json) writeJson(io.stdout, response);
-      else if (parsed.options.dryRun)
-        io.stdout.write(`Preview only; no files changed.\n${response.diff || 'No changes.\n'}`);
-      else if (response.status === 'no-changes')
+      else
         io.stdout.write(
-          `Setup already up to date (${response.scope}; ${response.agents.join(', ')}). No files changed.\n`
+          `${parsed.options.dryRun ? 'Preview only; no files changed.' : 'Setup applied.'} Scope: ${response.scope}. Changed ${response.applied ?? 0} files.\n${response.writes.map((entry) => `${entry.owner}: ${entry.file}${parsed.options.dryRun ? `\nBefore (${entry.beforeDigest ?? 'absent'}):\n${entry.before ?? ''}After (${entry.afterDigest ?? 'removed'}):\n${entry.after ?? ''}` : ''}`).join('\n')}\n`
         );
-      else {
-        io.stdout.write(
-          `Setup applied (${response.scope}; ${response.agents.join(', ')}). Changed ${response.operations.length} file${response.operations.length === 1 ? '' : 's'}:\n`
-        );
-        for (const operation of response.operations)
-          io.stdout.write(`  ${operation.kind} ${path.relative(io.cwd, operation.file)}\n`);
-        if (response.backups.length) {
-          io.stdout.write(`Backups created:\n`);
-          for (const backup of response.backups)
-            io.stdout.write(`  ${path.relative(io.cwd, backup)}\n`);
-        }
-      }
       return 0;
     }
     if (parsed.command === 'build') {

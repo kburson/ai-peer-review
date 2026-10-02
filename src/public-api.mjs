@@ -44,3 +44,11 @@ export {
   inspectRuntimeSelection,
 } from './config/runtime-selection.mjs';
 export { verifyRuntimeInventory } from './startup/runtime-inventory.mjs';
+
+export {
+  activatePrimaryPolicy,
+  registerPrimary,
+  inspectPrimary,
+} from './config/primary-operations.mjs';
+export { assertIntegrationCurrent } from './config/integration-contract.mjs';
+export { validateSetupWriteSet } from './config/setup-validation.mjs';

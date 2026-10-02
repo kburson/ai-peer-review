@@ -92,6 +92,7 @@ function ordinaryFile(root, relative) {
   for (let index = 0; index < segments.length; index += 1) {
     file = path.join(file, segments[index]);
     const stat = lstatSync(file);
+    if (stat.size > 1024 * 1024) unavailable('Primary registration exceeds its byte bound.');
     if (
       stat.isSymbolicLink() ||
       (index === segments.length - 1 ? !stat.isFile() : !stat.isDirectory())
@@ -108,6 +109,7 @@ export function readPrimaryRegistration(location) {
     const relative = 'ai-peer-review/primary-activation.json';
     const file = ordinaryFile(location.commonDir, relative);
     const stat = lstatSync(file);
+    if (stat.size > 1024 * 1024) unavailable('Primary registration exceeds its byte bound.');
     if (
       process.platform !== 'win32' &&
       ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid())

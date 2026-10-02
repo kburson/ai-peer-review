@@ -454,8 +454,7 @@ function merge(left, right) {
   return output;
 }
 
-export function configPaths({
-  cwd = process.cwd(),
+export function userConfigPath({
   env = process.env,
   platform = process.platform,
   home = os.homedir(),
@@ -465,7 +464,16 @@ export function configPaths({
       ? (env.APPDATA ?? env.XDG_CONFIG_HOME ?? path.join(home, '.config'))
       : (env.XDG_CONFIG_HOME ?? path.join(home, '.config'));
   if (!userRoot) invalid('A platform configuration directory is unavailable.');
-  const user = path.join(userRoot, 'ai-peer-review', 'config.json');
+  return path.join(userRoot, 'ai-peer-review', 'config.json');
+}
+
+export function configPaths({
+  cwd = process.cwd(),
+  env = process.env,
+  platform = process.platform,
+  home = os.homedir(),
+} = {}) {
+  const user = userConfigPath({ env, platform, home });
   let location;
   try {
     location = discoverAuthorityRepository(cwd);

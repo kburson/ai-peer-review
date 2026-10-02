@@ -17,6 +17,8 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   assert.equal(packageJson.bin['peer-review-mcp'], './bin/peer-review-mcp.mjs');
   assert.deepEqual(packageJson.dependencies, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    'jsonc-parser': '3.3.1',
+    'markdownlint-cli2': '0.23.3',
     'node-gyp': '12.4.0',
     prettier: '3.8.3',
     zod: '4.6.2',
