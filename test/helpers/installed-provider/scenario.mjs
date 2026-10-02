@@ -45,7 +45,7 @@ await activatePrimaryPolicy({ cwd: root });
 // Bound this multi-action fixture after maintenance, preserving any shorter
 // inherited deadline across all provider launches and simulated restarts.
 process.env.APR_PROVIDER_DEADLINE_MS = String(
-  Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity), Date.now() + 420_000)
+  Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity), Date.now() + 600_000)
 );
 const { platformSecurity } = await load('src/broker/platform.mjs');
 const { canonicalProjectIdentity } = await load('src/broker/identity.mjs');

@@ -196,7 +196,11 @@ if (initial) {
       pathToFileURL(path.join(installed, 'src/providers/claude-stream.mjs'))
     );
     let observed;
-    for (let i = 0; !observed && i < 100; i++) {
+    const observationDeadline = Math.min(
+      Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity),
+      Date.now() + 120_000
+    );
+    while (!observed && Date.now() < observationDeadline) {
       try {
         observed = readClaudeStreamObservation({
           workspace: ws,

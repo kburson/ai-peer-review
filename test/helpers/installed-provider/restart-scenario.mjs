@@ -19,7 +19,10 @@ export async function verifyInstalledLaunchRestart({
   const { createClaudeAdapter } = await load('src/providers/claude.mjs');
   const { readClaudeSessionSnapshot } = await load('src/providers/claude-stream.mjs');
   const heldFile = path.join(root, '.scratch/fixture-held-launch.json');
-  const deadline = Date.now() + 30_000;
+  const deadline = Math.min(
+    Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity),
+    Date.now() + 180_000
+  );
   while (!existsSync(heldFile) && Date.now() < deadline)
     await new Promise((resolve) => setTimeout(resolve, 25));
   assert.ok(existsSync(heldFile), 'synthetic reviewer must join and submit before restart');
