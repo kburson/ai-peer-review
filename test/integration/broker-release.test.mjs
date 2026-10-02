@@ -280,11 +280,18 @@ test('installed release preserves legacy evidence, current broker execution and 
   );
   const reported = securityApi.inspectPlatformSecurity().build_command;
   assert.equal(reported, 'ai-peer-review build broker-security');
-  runNpm(
-    'npm',
-    ['--prefix', installed, 'run', 'build:broker-security', '--', '--nodedir', developmentRoot],
-    { cwd: host, stdio: 'pipe' }
-  );
+  try {
+    runNpm(
+      'npm',
+      ['--prefix', installed, 'run', 'build:broker-security', '--', '--nodedir', developmentRoot],
+      { cwd: host, stdio: 'pipe' }
+    );
+  } catch (error) {
+    t.diagnostic(
+      'Installed compiler stdout: ' + (error.stdout?.toString().slice(-8192) ?? 'absent')
+    );
+    throw error;
+  }
   assert.equal(securityApi.inspectPlatformSecurity().healthy, true);
   const platform = {
     ...securityApi.platformSecurity(),
@@ -446,6 +453,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     }),
     APR_FIXTURE_CALLS: path.join(scratch, 'provider-calls.txt'),
     APR_FIXTURE_BROKER_LOG: path.join(scratch, 'automatic-broker.log'),
+    APR_FIXTURE_TIMING_LOG: path.join(scratch, 'runtime-timing.jsonl'),
     APR_FIXTURE_RESTART_SIMULATION: '1',
     APR_OFFLINE_WINDOWS_NODES: JSON.stringify([process.execPath, image.nodeExecutable]),
   };
@@ -467,7 +475,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     t.diagnostic(automatic.stdout);
   } catch (error) {
     t.diagnostic(error.stderr ?? 'Installed automatic fixture failed without stderr.');
-    for (const name of ['provider-calls.txt', 'automatic-broker.log']) {
+    for (const name of ['provider-calls.txt', 'automatic-broker.log', 'runtime-timing.jsonl']) {
       const file = path.join(scratch, name);
       if (existsSync(file)) t.diagnostic(name + ': ' + readFileSync(file, 'utf8').slice(-4000));
     }
