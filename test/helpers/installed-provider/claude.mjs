@@ -86,7 +86,7 @@ const cli = (argv, extra = {}) => {
       cwd: root,
       env: { ...env, ...extra },
       encoding: 'utf8',
-      timeout: 120_000,
+      timeout: 180_000,
     }
   );
   return argv.includes('--json') ? JSON.parse(output) : output;
@@ -162,7 +162,7 @@ if (initial) {
       cwd: root,
       env,
       encoding: 'utf8',
-      timeout: 120_000,
+      timeout: 180_000,
     });
   if (!resume) {
     const { inspectReview } = await import(

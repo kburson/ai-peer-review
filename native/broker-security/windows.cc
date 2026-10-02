@@ -17,7 +17,7 @@ struct Connection { HANDLE handle; bool server_side; bool fenced; unsigned clien
 struct PipeReadRequest { HANDLE handle; std::vector<unsigned char> bytes; LONG references; };
 struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
-constexpr DWORD kCommandReplyTimeoutMilliseconds = 30000;
+constexpr DWORD kCommandReplyTimeoutMilliseconds = 120000;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const char* text) {
   *code = stable;

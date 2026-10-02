@@ -183,7 +183,7 @@ test('installed release preserves legacy evidence, current broker execution and 
         {
           cwd: root,
           env,
-          timeout: 420_000,
+          timeout: 660_000,
           maxBuffer: 4 * 1024 * 1024,
         }
       );
@@ -481,7 +481,7 @@ test('installed release preserves legacy evidence, current broker execution and 
       {
         cwd: host,
         env: scenarioEnv,
-        timeout: 300_000,
+        timeout: 540_000,
         maxBuffer: 4 * 1024 * 1024,
       }
     );

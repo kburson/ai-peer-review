@@ -89,3 +89,5 @@ Until #107 delivers its install-ready portable transport, this package retains
 the current native broker source and explicit build helper. This delivery adds
 runtime inventory and deployment verification; it does not supply a portable
 broker or route execution to retained older packages.
+
+Authenticated native broker command replies have a bounded two-minute read budget for admitted registration and reconciliation work. Unauthenticated handshake and incomplete client frames retain their five-second deadlines. A timed-out submitted command is never replayed automatically; preserve its evidence and reconcile the operation before retrying.

@@ -44,7 +44,7 @@ struct Connection {
 };
 
 constexpr int kIpcTimeoutMilliseconds = 5000;
-constexpr int kCommandReplyTimeoutMilliseconds = 30000;
+constexpr int kCommandReplyTimeoutMilliseconds = 120000;
 using Deadline = std::chrono::steady_clock::time_point;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const std::string& text) {
