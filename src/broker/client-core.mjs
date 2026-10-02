@@ -132,9 +132,9 @@ export function createBrokerClientOperations({ performCurrentOperationEffect }) 
 
   async function connectUntilReady(connect, platform, retryable = () => false) {
     let last;
-    // Allow up to thirty seconds of readiness polling for recovery before
+    // Allow up to two minutes of readiness polling for recovery before
     // discovery is published; established IPC keeps its short handshake bound.
-    for (let attempt = 0; attempt < 1_200; attempt += 1) {
+    for (let attempt = 0; attempt < 4_800; attempt += 1) {
       try {
         return await connect();
       } catch (error) {

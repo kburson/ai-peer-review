@@ -15,7 +15,7 @@ const nativeAvailable = existsSync(
 for (const scenario of [
   {
     name: 'does not expose a handshake while slow recovery holds ownership',
-    recoveryMs: 6_000,
+    recoveryMs: 40_000,
     commandMs: 0,
     prepareMs: 0,
   },
@@ -36,7 +36,7 @@ for (const scenario of [
     `native broker ${scenario.name}`,
     {
       skip: !nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED,
-      timeout: 45_000,
+      timeout: 60_000,
     },
     async (t) => {
       const { platformSecurity } = await import('../../src/broker/platform.mjs');
