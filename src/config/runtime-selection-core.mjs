@@ -283,8 +283,25 @@ export function createSelectionStore({
     if (!same) {
       const temporary = path.join(ctx.directory, `.runtime-selection-${randomUUID()}.tmp`);
       try {
-        writeFileSync(temporary, JSON.stringify(value) + '\n', { flag: 'wx', mode: 0o600 });
-        renameSync(temporary, ctx.file);
+        const bytes = JSON.stringify(value) + '\n';
+        if (ctx.native) {
+          const handle = ctx.native.openPrivateDirectory(ctx.directory);
+          try {
+            if (!handle.verify())
+              refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime directory ownership changed.');
+            handle.create(path.basename(temporary), bytes);
+            if (!handle.verify())
+              refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime directory ownership changed.');
+            renameSync(temporary, ctx.file);
+            if (!handle.verify())
+              refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime directory ownership changed.');
+          } finally {
+            handle.close();
+          }
+        } else {
+          writeFileSync(temporary, bytes, { flag: 'wx', mode: 0o600 });
+          renameSync(temporary, ctx.file);
+        }
       } finally {
         try {
           unlinkSync(temporary);

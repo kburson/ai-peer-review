@@ -20,6 +20,7 @@ test('runtime registration refuses caller-selected account and package roots', (
 
 import {
   chmodSync,
+  lstatSync,
   readFileSync,
   writeFileSync,
   symlinkSync,
@@ -211,15 +212,24 @@ test('verified Windows account uses fixed LocalAppData and private native reads'
   const { createSelectionStore } = await core();
   const f = runtimeFixture(t);
   let reads = 0;
+  const protectedFiles = new Set();
   const security = () => ({
     userId: () => 'fixture-sid',
     openPrivateDirectory(directory) {
       mkdirSync(directory, { recursive: true, mode: 0o700 });
       return {
         verify: () => true,
+        create: (name, bytes) => {
+          const file = path.join(directory, name);
+          writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
+          protectedFiles.add(lstatSync(file).ino);
+        },
         read: (name) => {
           reads++;
-          return readFileSync(path.join(directory, name));
+          const file = path.join(directory, name);
+          if (!protectedFiles.has(lstatSync(file).ino))
+            throw new Error('Windows selection file lacks a protected owner-only ACL');
+          return readFileSync(file);
         },
         close() {},
       };
