@@ -151,6 +151,9 @@ test('installed release preserves legacy evidence, current broker execution and 
     const env = {
       ...process.env,
       APR_RELEASE_TEST_ROOT: scratch,
+      ...(process.platform === 'win32' && process.env.APR_OFFLINE_WINDOWS_GROUP
+        ? { APR_OFFLINE_WINDOWS_NODES: JSON.stringify([realpathSync(process.execPath)]) }
+        : {}),
       ...(endpointRoot ? { AI_PEER_REVIEW_ENDPOINT_ROOT: endpointRoot } : {}),
       APR_FIXTURE_ACCOUNT_HOME: accountHome,
       HOME: accountHome,
@@ -464,6 +467,33 @@ test('installed release preserves legacy evidence, current broker execution and 
     t.diagnostic(automatic.stdout);
   } catch (error) {
     t.diagnostic(error.stderr ?? 'Installed automatic fixture failed without stderr.');
+    for (const name of ['provider-calls.txt', 'automatic-broker.log']) {
+      const file = path.join(scratch, name);
+      if (existsSync(file)) t.diagnostic(name + ': ' + readFileSync(file, 'utf8').slice(-4000));
+    }
+    const reviewRoot = path.join(host, '.scratch/peer-review');
+    if (existsSync(reviewRoot)) {
+      for (const name of readdirSync(reviewRoot)) {
+        const directory = path.join(reviewRoot, name);
+        const journal = path.join(directory, 'startup-request.json');
+        if (existsSync(journal)) {
+          const value = JSON.parse(readFileSync(journal, 'utf8'));
+          t.diagnostic('startup stage ' + name + ': ' + value.stage);
+        }
+        const events = path.join(directory, 'events.jsonl');
+        if (existsSync(events)) {
+          const retained = readFileSync(events, 'utf8')
+            .trim()
+            .split('\n')
+            .slice(-8)
+            .map((line) => {
+              const value = JSON.parse(line);
+              return { type: value.type, sequence: value.sequence };
+            });
+          t.diagnostic('last events ' + name + ': ' + JSON.stringify(retained));
+        }
+      }
+    }
     throw error;
   }
   const automaticWorkspace = readdirSync(path.join(host, '.scratch/peer-review'))
