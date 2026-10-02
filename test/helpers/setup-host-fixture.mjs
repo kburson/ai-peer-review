@@ -17,9 +17,9 @@ import { createSetupMaintenanceCore } from '../../src/config/setup-core.mjs';
 export async function setupHostFixture(t) {
   const parent = realpathSync(mkdtempSync(path.join(tmpdir(), 'primary setup ')));
   t.after(() => rmSync(parent, { recursive: true, force: true }));
-  const root = path.join(parent, 'primary project'),
-    linked = path.join(parent, 'linked project'),
-    home = path.join(parent, 'account');
+  let root = path.join(parent, 'primary project'),
+    linked = path.join(parent, 'linked project');
+  const home = path.join(parent, 'account');
   mkdirSync(root);
   mkdirSync(home);
   const git = (...args) =>
@@ -36,7 +36,16 @@ export async function setupHostFixture(t) {
   git('add', '.');
   git('commit', '-m', 'fixture');
   git('worktree', 'add', '-b', 'linked', linked);
-  const commonDir = realpathSync(path.join(root, '.git'));
+  // Git for Windows expands 8.3 temp paths. Match physical authority discovery.
+  root = realpathSync(git('rev-parse', '--show-toplevel'));
+  linked = realpathSync(
+    execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: linked,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+  );
+  const commonDir = realpathSync(path.resolve(root, git('rev-parse', '--git-common-dir')));
   const registrationPath = path.join(commonDir, 'ai-peer-review', 'primary-activation.json');
   const sourceRoot = fileURLToPath(new URL('../..', import.meta.url));
   const core = createSetupMaintenanceCore({
