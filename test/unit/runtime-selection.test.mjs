@@ -359,3 +359,44 @@ test('one Node-manager relocation updates both clones through the account genera
   await assert.rejects(secondClone.assertSelected(), { code: 'APR_RUNTIME_CHANGED' });
   assert.equal((await relocated.assertSelected()).nodeExecutable, newNode);
 });
+
+test('replacement during final async account lookup fences admission', async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  let armed = false,
+    lookups = 0;
+  const account = () => {
+    if (armed && ++lookups === 2) {
+      writeFileSync(
+        path.join(f.packageRoot, 'runner.mjs'),
+        'export const changedDuringAdmission = true;'
+      );
+      f.seal();
+    }
+    return f.account();
+  };
+  const store = createSelectionStore({ account, packageRoot: f.packageRoot });
+  await store.register();
+  armed = true;
+  await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_CHANGED' });
+});
+
+for (const [name, lookup, dryRun] of [
+  ['dry-run planning', 1, true],
+  ['registration read back', 2, false],
+]) {
+  test(`replacement during ${name} refuses an old registration process`, async (t) => {
+    const { createSelectionStore } = await core();
+    const f = runtimeFixture(t);
+    let lookups = 0;
+    const account = () => {
+      if (++lookups === lookup) {
+        writeFileSync(path.join(f.packageRoot, 'runner.mjs'), 'export const replacement = true;');
+        f.seal();
+      }
+      return f.account();
+    };
+    const store = createSelectionStore({ account, packageRoot: f.packageRoot });
+    await assert.rejects(store.register({ dryRun }), { code: 'APR_RUNTIME_CHANGED' });
+  });
+}

@@ -13,7 +13,11 @@ import {
 import path from 'node:path';
 import { AprError } from '../errors.mjs';
 import { platformSecurity } from '../broker/platform.mjs';
-import { verifyRuntimeInventory, readBoundedOrdinaryFile } from '../startup/runtime-inventory.mjs';
+import {
+  verifyRuntimeInventory,
+  verifyRuntimeInventorySync,
+  readBoundedOrdinaryFile,
+} from '../startup/runtime-inventory.mjs';
 
 function refuse(code, message) {
   throw new AprError(code, message, {
@@ -189,11 +193,11 @@ export function createSelectionStore({
         'Registration requires an installed global runtime and Node >=24, not a source checkout.'
       );
   }
-  async function installation() {
+  function installation() {
     requireInstalledRunner();
     if (identity(lstatSync(actualNode, { bigint: true })) !== nodeIdentity)
       refuse('APR_RUNTIME_CHANGED', 'Node changed after the process started.');
-    const inventory = await verifyRuntimeInventory({
+    const inventory = verifyRuntimeInventorySync({
       packageRoot: actualRoot,
       previousObservation: processInventory,
     });
@@ -239,6 +243,7 @@ export function createSelectionStore({
           package_name: '@kburson/ai-peer-review',
           registered_at: new Date().toISOString(),
         };
+    installation();
     if (dryRun)
       return Object.freeze({
         schema: 'ai-peer-review.runtime-registration-plan/v1',
@@ -274,6 +279,7 @@ export function createSelectionStore({
       observed.node_executable !== actualNode
     )
       refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime selection read back disagrees.');
+    installation();
     processSelectionId = observed.selection_id;
     return observed;
   }
@@ -324,12 +330,14 @@ export function createSelectionStore({
       reselected.node_executable !== selected.node_executable
     )
       refuse('APR_RUNTIME_CHANGED', 'Account selection changed during admission.');
+    // No asynchronous wait may follow the final image revalidation.
+    const finalInventory = installation();
     processSelectionId = selected.selection_id;
     return Object.freeze({
-      ...inventory,
+      ...finalInventory,
       selection_id: selected.selection_id,
       nodeExecutable: actualNode,
-      inventory,
+      inventory: finalInventory,
     });
   }
   return Object.freeze({

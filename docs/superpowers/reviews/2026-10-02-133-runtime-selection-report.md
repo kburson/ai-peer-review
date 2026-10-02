@@ -27,7 +27,10 @@ Unchanged file/directory identities permit reuse only after revalidation.
 The store seals the manifest, Node identity and first selection generation
 internally. Runtime replacement, Node replacement or generation changes fence
 the existing process even when a caller omits previous observations. Selection
-is read again after inventory verification. A newly created store represents a
+is read again after inventory verification, followed by a synchronous image
+revalidation before returning admission. Registration revalidates after account
+lookup and read back as well. Three observed failing race tests cover replacement
+during these internal waits. A newly created store represents a
 fresh process; retaining the old store does not become a fresh invocation.
 
 Public interfaces expose selection reads, explicit registration, selected
@@ -37,7 +40,7 @@ expose admission observations for the later universal effect-fencing slice.
 
 ## Evidence and limits
 
-Targeted source tests passed 22/22 after observed failing behavior. They cover
+Targeted source tests passed 25/25 after observed failing behavior. They cover
 actual process environment overrides, closed CLI grammar/help, account
 unavailability, private records, Node floor, unknown schemas, package and Node relocation,
 package/Node replacement, mixed bytes, extra/linked modules, generation fences,
@@ -45,8 +48,8 @@ Windows verifier unavailability and a verified Windows directory-contract
 fixture. The Windows fixture exercises the native interface contract on this
 host; it does not claim a live Windows execution result.
 
-A two-file isolated runtime measured initial admission at about 1.23 ms and
-25 revalidated admissions at about 5.65 ms in one sample. These measurements are
+A two-file isolated runtime measured initial admission at about 1.54 ms and
+25 revalidated admissions at about 8.90 ms in one sample. These measurements are
 fixture evidence, not installed-package or production-hook performance claims.
 The unrelated clone dependency sentinel remained byte-identical.
 

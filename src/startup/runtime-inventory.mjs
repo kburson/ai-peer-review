@@ -99,7 +99,7 @@ function inspectExecutableCoverage(root, files) {
   walk();
   return Object.freeze(directories);
 }
-export async function verifyRuntimeInventory({ packageRoot, previousObservation } = {}) {
+export function verifyRuntimeInventorySync({ packageRoot, previousObservation } = {}) {
   try {
     const root = realpathSync(packageRoot);
     if (root !== path.resolve(packageRoot)) invalid('Runtime package root must be canonical.');
@@ -205,4 +205,8 @@ export async function verifyRuntimeInventory({ packageRoot, previousObservation 
     if (error instanceof AprError) throw error;
     invalid('The declared installed runtime inventory is unavailable or malformed.');
   }
+}
+
+export async function verifyRuntimeInventory(options) {
+  return verifyRuntimeInventorySync(options);
 }
