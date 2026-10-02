@@ -1,11 +1,15 @@
 {
   "schema": "aitm.install-manifest/v1",
   "intent": {
-    "providers": ["claude", "codex", "grok"],
+    "providers": [
+      "claude",
+      "codex",
+      "grok"
+    ],
     "linkMode": "stub",
     "features": {
       "memoryIndex": false,
-      "codexSuperpowers": false,
+      "codexSuperpowers": true,
       "codexSuperpowersGlobal": false
     },
     "memoryFiles": []
@@ -13,7 +17,7 @@
   "generatedBy": {
     "packageName": "@kburson/ai-task-manager",
     "packageVersion": "0.1.0",
-    "contractDigest": "fb7e27804fc45ae835f128daacc3b1275cb47f4f2a875eefd1283da7dc4dc7b0"
+    "contractDigest": "a03eba6351c92c0840543300b1cee3894c43f9a2e0ba06ec18eb571c8ab07983"
   },
   "artifacts": [
     {
@@ -84,6 +88,14 @@
       "required": true,
       "contract": "claude-skill",
       "digest": "15032ec53ba1ce40984f9d35c67542464cf99c675f4b204304678631c8ae675e"
+    },
+    {
+      "id": "provider.codex.bootstrap",
+      "path": "AGENTS.md",
+      "kind": "managed-block",
+      "ownership": "managed-fragment",
+      "required": true,
+      "contract": "codex-superpowers-repo"
     },
     {
       "id": "provider.codex.hooks",
