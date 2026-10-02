@@ -9,6 +9,7 @@ function frozenList(values) {
 }
 
 export const COMMAND_FLAGS = Object.freeze({
+  'register-runtime': frozenList(['--dry-run', '--update', '--json']),
   setup: frozenList([
     '--agent',
     '--scope',
@@ -90,6 +91,7 @@ export const COMMAND_FLAGS = Object.freeze({
 export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 
 export const COMMAND_USAGE = Object.freeze({
+  'register-runtime': 'peer-review register-runtime [--dry-run] [--update] [--json]',
   setup:
     'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--json]',
   build: 'peer-review build broker-security',
@@ -129,6 +131,7 @@ function grammar(min, max = min) {
 }
 
 export const POSITIONAL_GRAMMAR = Object.freeze({
+  'register-runtime': grammar(0),
   setup: grammar(0),
   build: grammar(1),
   doctor: grammar(0),

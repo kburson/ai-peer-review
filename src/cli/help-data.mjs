@@ -3,6 +3,8 @@ import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './pa
 import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
+  'register-runtime':
+    'Register the executing global runtime and Node once for the verified OS account.',
   setup: 'Install, upgrade, or remove reversible peer-review agent integration.',
   build: 'Compile the package-owned broker security helper for the current Node installation.',
   doctor: 'Inspect installation or current-operation peer-review readiness without mutation.',
@@ -46,6 +48,7 @@ const START_FLAG_HELP = Object.freeze({
 
 const HUMAN_GATED = new Set(['supplement', 'continue']);
 const ROLES = Object.freeze({
+  'register-runtime': ['human'],
   setup: ['human'],
   build: ['human'],
   doctor: ['author', 'reviewer', 'human'],
@@ -69,6 +72,7 @@ const ROLES = Object.freeze({
   explain: ['author', 'reviewer', 'human'],
 });
 const STATES = Object.freeze({
+  'register-runtime': ['outside-review'],
   setup: ['outside-review'],
   build: ['outside-review'],
   doctor: ['any'],
@@ -99,6 +103,9 @@ const STATES = Object.freeze({
   explain: ['any'],
 });
 const PRECONDITIONS = Object.freeze({
+  'register-runtime': [
+    'An installed global package with valid runtime inventory, Node >=24 and a verified OS account directory.',
+  ],
   setup: [
     'Choose the same scope (user or project) and host agent used by the previous installation.',
     'After a global npm upgrade, run setup --update in each prior scope; it discovers recorded hosts without --agent.',
@@ -149,6 +156,10 @@ const PRECONDITIONS = Object.freeze({
   explain: ['A known stable APR error code.'],
 });
 const EFFECTS = Object.freeze({
+  'register-runtime': [
+    'Dry-run inspects without writes; apply records private account-wide locators atomically with read back.',
+    'Explicit --update replaces a relocated package or Node locator for every clone; an in-place upgrade keeps the selection generation.',
+  ],
   setup: [
     'Dry-run previews exact owned changes without mutation; apply automatically replaces a prior package-owned skill and backs up its previous bytes as SKILL.md.bak.',
     'Setup --remove is an idempotent teardown for the selected host and scope; foreign skills remain untouched.',
@@ -205,6 +216,13 @@ const EFFECTS = Object.freeze({
   explain: ['Read-only offline error rendering.'],
 });
 const ERRORS = Object.freeze({
+  'register-runtime': [
+    'APR_USAGE',
+    'APR_RUNTIME_ACCOUNT_UNAVAILABLE',
+    'APR_RUNTIME_INSTALLATION_INVALID',
+    'APR_RUNTIME_SELECTION_INVALID',
+    'APR_RUNTIME_INVENTORY_INVALID',
+  ],
   setup: [
     'APR_USAGE',
     'APR_SETUP_INVALID',
@@ -858,6 +876,35 @@ const ERROR_CATALOG = Object.freeze({
     message: 'Setup encountered an existing integration it does not own.',
     recovery:
       'The skill or provider key is foreign to this package. Preserve or relocate it, then rerun peer-review setup --dry-run for the same host and scope; package-owned earlier skills upgrade automatically.',
+  },
+  APR_RUNTIME_ACCOUNT_UNAVAILABLE: {
+    message: 'The OS account profile or ownership verifier is unavailable.',
+    recovery:
+      'Restore the account profile and installed native ownership helper; environment overrides cannot select authority.',
+  },
+  APR_RUNTIME_INSTALLATION_INVALID: {
+    message: 'Runtime registration requires an installed package and Node >=24.',
+    recovery:
+      'Invoke register-runtime from the actual global installation; source checkouts cannot register.',
+  },
+  APR_RUNTIME_SELECTION_INVALID: {
+    message: 'The private account runtime selection is missing, unsafe or malformed.',
+    recovery:
+      'Inspect retained bytes and use global register-runtime --dry-run, then explicit --update for locator replacement.',
+  },
+  APR_RUNTIME_INVENTORY_INVALID: {
+    message: 'The installed runtime inventory is missing, unsafe, mixed or incomplete.',
+    recovery: 'Complete or reinstall the global package and retry from a fresh invocation.',
+  },
+  APR_RUNTIME_NOT_SELECTED: {
+    message: 'Executing package or Node does not match the account selection.',
+    recovery:
+      'Invoke the selected global CLI and Node; use explicit register-runtime --update for relocation.',
+  },
+  APR_RUNTIME_CHANGED: {
+    message: 'The selected installation or generation changed after observation.',
+    recovery:
+      'Restart from the selected current installation; retained old images do not authorize continued effects.',
   },
   APR_SETUP_VERSION_MISMATCH: {
     message:

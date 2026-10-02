@@ -1,3 +1,4 @@
+import { assertSelectedRuntime } from '../config/runtime-selection.mjs';
 import { AprError } from '../errors.mjs';
 import { PROVIDERS } from '../providers/registry.mjs';
 import { createHash } from 'node:crypto';
@@ -649,3 +650,6 @@ export function selectRuntime({
   }
   unavailable('no-policy-capability-intersection', { modes });
 }
+
+// Task 5 uses this admission observation at every production effect boundary.
+export const observeSelectedRuntime = (input) => assertSelectedRuntime(input);

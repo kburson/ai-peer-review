@@ -21,6 +21,16 @@ export function doctor(context = {}) {
         (requestedMode === 'automatic-required' &&
           context.transport.mode === 'automatic-required')));
   const phaseOne = [
+    ...(context.runtimeSelection
+      ? [
+          row(
+            'selected-global-runtime',
+            context.runtimeSelection.status === 'selected' ? 'ok' : 'unavailable',
+            false,
+            context.runtimeSelection
+          ),
+        ]
+      : []),
     row('package', context.packageResolved ? 'ok' : 'unavailable', true),
     row('skill', context.skillAvailable ? 'ok' : 'unavailable', true),
     row(

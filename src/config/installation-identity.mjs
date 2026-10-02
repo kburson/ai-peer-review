@@ -1,3 +1,4 @@
+import { assertSelectedRuntime } from './runtime-selection.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -67,3 +68,6 @@ export function assertProjectSetupCompatible({ cwd = process.cwd(), env = proces
     );
   }
 }
+
+// Locator selection is independent of legacy setup-version compatibility.
+export const selectedInstallationIdentity = (input) => assertSelectedRuntime(input);

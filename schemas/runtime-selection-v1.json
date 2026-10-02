@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.runtime-selection/v1",
+  "title": "Account-global runtime locator selection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "selection_id",
+    "package_root",
+    "node_executable",
+    "package_name",
+    "registered_at"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.runtime-selection/v1"
+    },
+    "selection_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$"
+    },
+    "package_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "node_executable": {
+      "type": "string",
+      "minLength": 1
+    },
+    "package_name": {
+      "const": "@kburson/ai-peer-review"
+    },
+    "registered_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

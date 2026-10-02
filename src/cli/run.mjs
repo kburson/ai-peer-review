@@ -1,3 +1,4 @@
+import { registerRuntimeSelection, inspectRuntimeSelection } from '../config/runtime-selection.mjs';
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
 import { execFile as execFileCallback } from 'node:child_process';
 import {
@@ -5024,6 +5025,15 @@ export async function run(argv, io) {
       else io.stdout.write(response);
       return 0;
     }
+    if (parsed.command === 'register-runtime') {
+      const response = await registerRuntimeSelection({
+        dryRun: parsed.options.dryRun,
+        update: parsed.options.update,
+      });
+      if (parsed.options.json) writeJson(io.stdout, response);
+      else io.stdout.write(`Runtime selection: ${response.selection_id ?? response.location}\n`);
+      return 0;
+    }
     if (parsed.command === 'setup') {
       const response = (parsed.options.update ? updateSetup : setup)({
         scope: parsed.options.scope,
@@ -5091,6 +5101,7 @@ export async function run(argv, io) {
       const context = io.doctorContext ?? {};
       const response = doctor({
         ...detected,
+        runtimeSelection: await inspectRuntimeSelection(),
         ...context,
       });
       if (parsed.options.json) writeJson(io.stdout, response);

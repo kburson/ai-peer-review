@@ -36,3 +36,11 @@ export {
   validateUserStore,
 } from './config/load.mjs';
 export { resolvePrimaryAuthority } from './config/primary-authority.mjs';
+
+export {
+  readRuntimeSelection,
+  registerRuntimeSelection,
+  assertSelectedRuntime,
+  inspectRuntimeSelection,
+} from './config/runtime-selection.mjs';
+export { verifyRuntimeInventory } from './startup/runtime-inventory.mjs';
