@@ -160,12 +160,8 @@ export function createClaudeStreamRecorder({ workspace, operationId, expectedCom
   });
 }
 
-export function createClaudeWakeRecorder({ sessionId, expectedModel } = {}) {
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(sessionId ?? '') ||
-    typeof expectedModel !== 'string' ||
-    !expectedModel
-  )
+export function createClaudeWakeRecorder({ sessionId } = {}) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(sessionId ?? ''))
     invalid('Claude wake stream expectation is invalid.');
   let initialized = null;
   let assistant = false;
@@ -176,7 +172,8 @@ export function createClaudeWakeRecorder({ sessionId, expectedModel } = {}) {
         if (
           initialized ||
           event.session_id !== sessionId ||
-          event.model !== expectedModel ||
+          typeof event.model !== 'string' ||
+          !event.model ||
           typeof event.claude_code_version !== 'string' ||
           !event.claude_code_version
         )
@@ -190,7 +187,8 @@ export function createClaudeWakeRecorder({ sessionId, expectedModel } = {}) {
         if (
           !initialized ||
           event.session_id !== sessionId ||
-          event.message?.model !== expectedModel
+          typeof event.message?.model !== 'string' ||
+          !event.message.model
         )
           invalid('Claude wake assistant stream changed session or model.');
         assistant = true;
@@ -349,7 +347,6 @@ export function readClaudeWakeOutcome({
   sessionId,
   wakeOperationId,
   capsuleDigest,
-  expectedModel,
 } = {}) {
   if (
     !path.isAbsolute(projectRoot ?? '') ||
@@ -357,9 +354,7 @@ export function readClaudeWakeOutcome({
     !path.isAbsolute(claudeHome ?? '') ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(sessionId ?? '') ||
     !/^sha256:[0-9a-f]{64}$/.test(wakeOperationId ?? '') ||
-    !/^sha256:[0-9a-f]{64}$/.test(capsuleDigest ?? '') ||
-    typeof expectedModel !== 'string' ||
-    !expectedModel
+    !/^sha256:[0-9a-f]{64}$/.test(capsuleDigest ?? '')
   )
     invalid('Claude wake transcript identity is invalid.');
   const file = path.join(
@@ -454,7 +449,8 @@ export function readClaudeWakeOutcome({
       continue;
     }
     if (!awaitingAssistant) continue;
-    if (entry.message?.model !== expectedModel) invalid('Claude wake model changed in transcript.');
+    if (typeof entry.message?.model !== 'string' || !entry.message.model)
+      invalid('Claude wake transcript has no observed model.');
     for (const part of Array.isArray(entry.message?.content) ? entry.message.content : []) {
       if (part?.type !== 'tool_use') continue;
       if (typeof part.id !== 'string' || !part.id || pendingTools.has(part.id))

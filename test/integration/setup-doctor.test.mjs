@@ -69,16 +69,8 @@ for (const host of ['codex', 'claude', 'grok', 'generic']) {
     assert.deepEqual(configuredAdapter.preserved, { value: host });
     assert.equal(configuredAdapter.ai_peer_review.version, 2);
     assert.equal(configuredAdapter.ai_peer_review.adapter_version, '2.0.0');
-    if (['codex', 'claude'].includes(host)) {
-      assert.deepEqual(configuredAdapter.ai_peer_review.mcp.server_command, ['peer-review-mcp']);
-      assert.equal(configuredAdapter.ai_peer_review.mcp.tool_timeout_ms, 28_800_000);
-      assert.equal(configuredAdapter.ai_peer_review.mcp.heartbeat_interval_ms, 15_000);
-      assert.equal(configuredAdapter.ai_peer_review.mcp.lease_ttl_ms, 60_000);
-      assert.equal(configuredAdapter.ai_peer_review.transport, 'live-wait');
-    } else {
-      assert.equal(configuredAdapter.ai_peer_review.mcp, null);
-      assert.equal(configuredAdapter.ai_peer_review.transport, 'manual');
-    }
+    assert.equal(configuredAdapter.ai_peer_review.mcp, null);
+    assert.equal(configuredAdapter.ai_peer_review.transport, 'manual');
     assert.match(readFileSync(files.exclude, 'utf8'), /\.scratch\/peer-review\//);
     assert.equal(readFileSync(path.join(files.project, '.gitignore'), 'utf8'), 'dist/\n');
     assert.equal(setup({ ...preview.input, dryRun: false }).changed, false);
@@ -120,7 +112,7 @@ test('Claude setup preview, apply, and removal preserve foreign hooks and status
   const installed = JSON.parse(readFileSync(settingsFile, 'utf8'));
   assert.deepEqual(installed.hooks.SessionStart, [{ command: 'user-owned-session-hook' }]);
   assert.equal(installed.statusLine.command, 'user-owned-status-line');
-  assert.equal(installed.hooks.PreToolUse[0].hooks[0].command, 'peer-review-claude-hook');
+  assert.equal(installed.hooks.PreToolUse, undefined);
   setup({ ...options, remove: true, dryRun: true });
   assert.deepEqual(JSON.parse(readFileSync(settingsFile, 'utf8')), installed);
   setup({ ...options, remove: true });
@@ -180,18 +172,11 @@ test('fresh setup removes only its own files and refuses foreign provider owners
   );
   const adapterFile = path.join(files.project, '.codex', 'config.json');
   const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
-  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.transport, 'live-wait');
-  assert.deepEqual(
+  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.transport, 'manual');
+  assert.equal(
     JSON.parse(readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')).hosts.codex
       .automatic,
-    {
-      adapter_version: '2.0.0',
-      capability: 'live-wait',
-      server_command: ['peer-review-mcp'],
-      tool_timeout_ms: 28_800_000,
-      heartbeat_interval_ms: 15_000,
-      lease_ttl_ms: 60_000,
-    }
+    undefined
   );
   const removal = setup({ ...options, remove: true, dryRun: true });
   assert.ok(
@@ -571,8 +556,8 @@ test('setup migrates an owned v1 installation to reversible Phase 2 adapters', (
     readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')
   );
   assert.equal(migrated.setup.version, 2);
-  assert.deepEqual(migrated.setup.automatic_adapters_added, ['codex']);
-  assert.equal(migrated.hosts.codex.automatic.capability, 'live-wait');
+  assert.deepEqual(migrated.setup.automatic_adapters_added, []);
+  assert.equal(migrated.hosts.codex.automatic, undefined);
 
   setup({ ...options, remove: true });
   const removed = JSON.parse(
@@ -706,15 +691,17 @@ test('installation doctor does not require a session model or transport but requ
   );
 });
 
-test('setup installs and removes only its exact start hook beside foreign host hooks', (t) => {
+test('new setup leaves model hooks uninstalled and preserves foreign host hooks', (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const codexHooks = path.join(files.project, '.codex', 'hooks.json');
   mkdirSync(path.dirname(codexHooks), { recursive: true });
-  writeFileSync(
-    codexHooks,
-    `${JSON.stringify({ hooks: { SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: 'foreign-hook' }] }] } }, null, 2)}\n`
-  );
+  const foreign = {
+    hooks: {
+      PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'foreign-hook' }] }],
+    },
+  };
+  writeFileSync(codexHooks, `${JSON.stringify(foreign)}\n`);
   const options = {
     scope: 'project',
     agents: ['codex', 'claude'],
@@ -723,21 +710,185 @@ test('setup installs and removes only its exact start hook beside foreign host h
     confirmScratchExclude: true,
     gitExcludePath: files.exclude,
   };
-  const first = setup(options);
-  const codex = JSON.parse(readFileSync(codexHooks, 'utf8'));
-  const claudeSettings = path.join(files.project, '.claude', 'settings.json');
-  const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
-  assert.equal(codex.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
-  assert.equal(codex.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-codex-hook');
-  assert.equal(claude.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-claude-hook');
-  assert.ok(first.backups.includes(`${codexHooks}.bak`));
+  setup(options);
+  assert.deepEqual(JSON.parse(readFileSync(codexHooks, 'utf8')), foreign);
+  assert.equal(existsSync(path.join(files.project, '.claude', 'settings.json')), false);
   assert.equal(setup(options).changed, false);
+});
+
+test('doctor accepts a headless provider session handle without a model hook', async (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-q'], { cwd: files.project });
+  setup({
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  });
+  let stdout = '';
+  const code = await run(['doctor', '--json'], {
+    cwd: files.project,
+    env: { CODEX_THREAD_ID: 'headless-doctor-session' },
+    brokerSecurity: { healthy: true },
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: () => {} },
+  });
+  const report = JSON.parse(stdout);
+  assert.equal(code, 0);
+  assert.equal(
+    report.rows.find((entry) => entry.id === 'identity-source').status,
+    'session-handle'
+  );
+  assert.equal(report.rows.find((entry) => entry.id === 'session-fingerprint').status, 'available');
+});
+
+test('setup update tears down an owned legacy Codex hook and preserves foreign hooks', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const adapterFile = path.join(files.project, '.codex', 'config.json');
+  const adapter = JSON.parse(readFileSync(adapterFile, 'utf8'));
+  adapter.ai_peer_review.hook_added = true;
+  adapter.ai_peer_review.hook_file_created = false;
+  writeFileSync(adapterFile, `${JSON.stringify(adapter, null, 2)}\n`);
+  const hooksFile = path.join(files.project, '.codex', 'hooks.json');
+  const foreign = { matcher: 'Bash', hooks: [{ type: 'command', command: 'foreign-hook' }] };
+  writeFileSync(
+    hooksFile,
+    `${JSON.stringify(
+      {
+        hooks: {
+          PreToolUse: [
+            foreign,
+            {
+              matcher: '^(?:Bash|functions\\.exec|exec)$',
+              hooks: [{ type: 'command', command: 'peer-review-codex-hook' }],
+            },
+          ],
+        },
+      },
+      null,
+      2
+    )}\n`
+  );
+  assert.equal(setup({ ...options, update: true }).changed, true);
+  assert.deepEqual(JSON.parse(readFileSync(hooksFile, 'utf8')).hooks.PreToolUse, [foreign]);
+  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.hook_added, false);
+  assert.equal(setup({ ...options, update: true }).changed, false);
   setup({ ...options, remove: true });
-  const restored = JSON.parse(readFileSync(codexHooks, 'utf8'));
-  assert.equal(restored.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
-  assert.equal(restored.hooks.PreToolUse, undefined);
-  assert.equal(existsSync(claudeSettings), false);
-  assert.equal(setup({ ...options, remove: true }).changed, false);
+  assert.deepEqual(JSON.parse(readFileSync(hooksFile, 'utf8')).hooks.PreToolUse, [foreign]);
+});
+
+test('setup update removes a package-owned automatic adapter with the obsolete hook', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const file = path.join(files.project, '.ai-peer-review.json');
+  const config = JSON.parse(readFileSync(file, 'utf8'));
+  config.hosts.codex.automatic = {
+    adapter_version: '2.0.0',
+    capability: 'live-wait',
+    server_command: ['peer-review-mcp'],
+    tool_timeout_ms: 28_800_000,
+    heartbeat_interval_ms: 15_000,
+    lease_ttl_ms: 60_000,
+  };
+  config.setup.automatic_adapters_added = ['codex'];
+  writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
+  assert.equal(
+    updateSetup({ cwd: files.project, home: files.home, gitExcludePath: files.exclude }).changed,
+    true
+  );
+  const updated = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(updated.hosts.codex.automatic, undefined);
+  assert.deepEqual(updated.setup.automatic_adapters_added, []);
+});
+
+test('setup update preserves an explicitly configured automatic adapter', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const file = path.join(files.project, '.ai-peer-review.json');
+  const config = JSON.parse(readFileSync(file, 'utf8'));
+  const custom = {
+    adapter_version: '2.0.0',
+    capability: 'live-wait',
+    server_command: ['custom-peer-review-mcp'],
+    tool_timeout_ms: 28_800_000,
+    heartbeat_interval_ms: 15_000,
+    lease_ttl_ms: 60_000,
+  };
+  config.hosts.codex.automatic = custom;
+  writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
+  updateSetup({ cwd: files.project, home: files.home, gitExcludePath: files.exclude });
+  assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')).hosts.codex.automatic, custom);
+  const host = JSON.parse(readFileSync(path.join(files.project, '.codex/config.json'), 'utf8'));
+  assert.equal(host.ai_peer_review.transport, 'live-wait');
+  assert.deepEqual(host.ai_peer_review.mcp, custom);
+});
+
+test('setup update removes an owned legacy hook file idempotently', (t) => {
+  const files = fixture();
+  t.after(() => rmSync(files.root, { recursive: true, force: true }));
+  const options = {
+    scope: 'project',
+    agents: ['codex'],
+    cwd: files.project,
+    home: files.home,
+    confirmScratchExclude: true,
+    gitExcludePath: files.exclude,
+  };
+  setup(options);
+  const adapterFile = path.join(files.project, '.codex', 'config.json');
+  const adapter = JSON.parse(readFileSync(adapterFile, 'utf8'));
+  adapter.ai_peer_review.hook_added = true;
+  adapter.ai_peer_review.hook_file_created = true;
+  writeFileSync(adapterFile, `${JSON.stringify(adapter, null, 2)}\n`);
+  const hooksFile = path.join(files.project, '.codex', 'hooks.json');
+  writeFileSync(
+    hooksFile,
+    `${JSON.stringify(
+      {
+        hooks: {
+          PreToolUse: [
+            { matcher: 'Bash', hooks: [{ type: 'command', command: 'peer-review-codex-hook' }] },
+          ],
+        },
+      },
+      null,
+      2
+    )}\n`
+  );
+  assert.equal(setup({ ...options, update: true }).changed, true);
+  assert.equal(existsSync(hooksFile), false);
+  assert.equal(setup({ ...options, update: true }).changed, false);
 });
 
 test('setup preserves a pre-existing local Claude start hook without adding a duplicate', (t) => {
@@ -801,7 +952,7 @@ test('doctor reports the explicit broker helper build command without blocking l
   assert.equal(doctor({ ...base, requestedMode: 'automatic-required' }).healthy, false);
 });
 
-test('doctor text distinguishes installation health from missing current-session identity', async (t) => {
+test('doctor text accepts a session handle without model evidence', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   execFileSync('git', ['init', '-q'], { cwd: files.project });
@@ -835,10 +986,11 @@ test('doctor text distinguishes installation health from missing current-session
     return { code, stdout, stderr };
   };
   const session = await invoke(['doctor']);
-  assert.equal(session.code, 1);
-  assert.match(session.stdout, /session readiness: unhealthy/i);
-  assert.match(session.stdout, /identity-source: unavailable/i);
-  assert.match(session.stdout, /recovery: .*model/i);
+  assert.equal(session.code, 0);
+  assert.match(session.stdout, /session readiness: healthy/i);
+  assert.match(session.stdout, /identity-source: session-handle/i);
+  assert.match(session.stdout, /session-fingerprint: available/i);
+  assert.doesNotMatch(session.stdout, /\/hooks/);
   assert.doesNotMatch(session.stdout, /recovery: ai-peer-review build broker-security/i);
   const installed = await invoke(['doctor', '--mode', 'installation']);
   assert.equal(installed.code, 0, installed.stderr);

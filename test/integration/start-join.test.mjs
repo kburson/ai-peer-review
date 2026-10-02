@@ -122,7 +122,119 @@ test('CLI start resolves explicit reviewer intent through the sealed startup run
   assert.match(stdout, /awaiting-reviewer/);
 });
 
-test('CLI start derives its author model from the active Codex hook record', async (t) => {
+test('CLI start records an explicitly requested headless Codex author model without a model hook', async (t) => {
+  const fx = repositoryFixture('apr-author-request-');
+  t.after(fx.cleanup);
+  let stdout = '';
+  let stderr = '';
+  const code = await run(
+    [
+      'start',
+      'docs/example.md',
+      '--artifact-kind',
+      'spec',
+      '--issue',
+      '124',
+      '--author-model',
+      'gpt-6-astra',
+      '--author-effort',
+      'high',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'claude-opus-5-5',
+      '--reviewer-effort',
+      'high',
+      '--transport-mode',
+      'manual',
+    ],
+    {
+      ...fixtureStartupDeps,
+      cwd: fx.root,
+      env: { CODEX_THREAD_ID: 'requested-author-session' },
+      now: new Date(NOW),
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: (value) => (stderr += value) },
+    }
+  );
+  assert.equal(code, 0, stderr);
+  const reviewId = stdout.match(/^Review ([^:]+):/m)?.[1];
+  assert.ok(reviewId);
+  const workspace = resolveReviewPaths({
+    root: fx.root,
+    kind: 'spec',
+    name: 'example',
+    date: NOW.slice(0, 10),
+    reviewId,
+  }).scratch.absolute;
+  const state = inspectReview(workspace);
+  assert.equal(state.participants.author.model_id, 'gpt-6-astra');
+  assert.equal(state.protocol.startup.runtime.author.effort, 'high');
+  assert.equal(state.protocol.startup.runtime.reviewer.model_id, 'claude-opus-5-5');
+});
+
+test('manual Codex reviewer joins the sealed selection with a distinct session and no model hook', async (t) => {
+  const fx = repositoryFixture('apr-reviewer-request-');
+  t.after(fx.cleanup);
+  let started = '';
+  let error = '';
+  const startCode = await run(
+    [
+      'start',
+      'docs/example.md',
+      '--artifact-kind',
+      'spec',
+      '--issue',
+      '124',
+      '--author-model',
+      'gpt-6-astra',
+      '--author-effort',
+      'high',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'gpt-6-sol',
+      '--reviewer-effort',
+      'medium',
+      '--transport-mode',
+      'manual',
+    ],
+    {
+      ...fixtureStartupDeps,
+      cwd: fx.root,
+      env: { CODEX_THREAD_ID: 'manual-author-session' },
+      now: new Date(NOW),
+      stdout: { write: (value) => (started += value) },
+      stderr: { write: (value) => (error += value) },
+    }
+  );
+  assert.equal(startCode, 0, error);
+  const reviewId = started.match(/^Review ([^:]+):/m)?.[1];
+  const paths = resolveReviewPaths({
+    root: createGitRepository().root(fx.root),
+    kind: 'spec',
+    name: 'example',
+    date: NOW.slice(0, 10),
+    reviewId,
+  });
+  const workspace = paths.scratch.absolute;
+  const invitation = paths.reviewerInvitation.absolute;
+  let joined = '';
+  let joinError = '';
+  const joinCode = await run(['join', invitation], {
+    ...fixtureStartupDeps,
+    cwd: fx.root,
+    env: { CODEX_THREAD_ID: 'manual-reviewer-session' },
+    now: new Date(NOW),
+    stdout: { write: (value) => (joined += value) },
+    stderr: { write: (value) => (joinError += value) },
+  });
+  assert.equal(joinCode, 0, joinError);
+  assert.match(joined, /reviewer-turn/);
+  assert.equal(inspectReview(workspace).participants.reviewer.model_id, 'gpt-6-sol');
+});
+
+test('CLI headless start binds the active Codex hook model to its child author session', async (t) => {
   const fx = repositoryFixture('apr-codex-author-start-');
   t.after(fx.cleanup);
   captureCodexStartHook({
@@ -132,10 +244,11 @@ test('CLI start derives its author model from the active Codex hook record', asy
       tool_input: { command: 'peer-review start docs/example.md --artifact-kind spec' },
       tool_use_id: 'call-author-start',
       turn_id: 'turn-author',
-      session_id: 'author-hook-session',
+      session_id: 'parent-hook-session',
       model: 'gpt-5.6-sol',
       cwd: fx.root,
     },
+    hookRuntimeSessionId: 'author-hook-session',
     sourceVersion: '0.155.0-alpha.9.2',
     token: 'c'.repeat(32),
     observedAt: NOW,

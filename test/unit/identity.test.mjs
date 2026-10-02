@@ -6,6 +6,7 @@ import {
   fingerprintSession,
   identityChangeEvent,
   participantIdentity,
+  registeredSessionIdentity,
   resolveIdentity,
 } from '../../src/identity/registry.mjs';
 import { codexAdapter } from '../../src/identity/codex.mjs';
@@ -21,6 +22,23 @@ import {
 } from '../helpers/review-fixture.mjs';
 
 const joinedAt = '2026-09-08T12:00:00.000Z';
+
+test('registered Codex session continues without current model evidence or with a changed model', () => {
+  const registered = runtime('codex', 'stable-author-session', 'gpt-6-astra');
+  const noModel = registeredSessionIdentity(registered, {
+    CODEX_THREAD_ID: 'stable-author-session',
+  });
+  const changedModel = registeredSessionIdentity(registered, {
+    CODEX_THREAD_ID: 'stable-author-session',
+    CODEX_MODEL_ID: 'gpt-6-sol',
+  });
+  assert.deepEqual(noModel, registered);
+  assert.deepEqual(changedModel, registered);
+  assert.throws(
+    () => registeredSessionIdentity(registered, { CODEX_THREAD_ID: 'different-session' }),
+    { code: 'APR_IDENTITY_CONFLICT' }
+  );
+});
 
 function runtime(adapter, sessionId, modelId = 'model-test') {
   return resolveIdentity({
@@ -108,8 +126,8 @@ test('Claude mixed identity fails closed without a runtime session or declared m
       }),
     (error) =>
       error.code === 'APR_IDENTITY_REQUIRED' &&
-      error.recovery.includes('provider hook') &&
-      error.recovery.includes('current model')
+      error.recovery.includes('--author-model') &&
+      error.recovery.includes('model hook is not required')
   );
 });
 

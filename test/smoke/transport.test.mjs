@@ -10,7 +10,7 @@ import { doctor } from '../../src/doctor.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('Phase 2 setup installs a runnable package MCP entrypoint and keeps generic manual', (t) => {
+test('setup retains the MCP entrypoint without advertising hook-dependent automatic transport', (t) => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'apr-transport-smoke-'));
   t.after(() => rmSync(fixture, { recursive: true, force: true }));
   const project = path.join(fixture, 'project');
@@ -33,15 +33,8 @@ test('Phase 2 setup installs a runnable package MCP entrypoint and keeps generic
   const generic = JSON.parse(readFileSync(path.join(project, '.agents/config.json'), 'utf8'));
   assert.equal(packageJson.bin['peer-review-mcp'], './bin/peer-review-mcp.mjs');
   assert.equal(existsSync(path.join(root, packageJson.bin['peer-review-mcp'])), true);
-  assert.deepEqual(config.hosts.codex.automatic, {
-    adapter_version: '2.0.0',
-    capability: 'live-wait',
-    server_command: ['peer-review-mcp'],
-    tool_timeout_ms: 28_800_000,
-    heartbeat_interval_ms: 15_000,
-    lease_ttl_ms: 60_000,
-  });
-  assert.equal(codex.ai_peer_review.transport, 'live-wait');
+  assert.equal(config.hosts.codex.automatic, undefined);
+  assert.equal(codex.ai_peer_review.transport, 'manual');
   assert.equal(generic.ai_peer_review.transport, 'manual');
   assert.equal(config.hosts.generic?.automatic, undefined);
 });

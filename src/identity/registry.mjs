@@ -305,6 +305,34 @@ export function resolveIdentity(context = {}) {
   });
 }
 
+const SESSION_ENV_KEYS = Object.freeze({
+  codex: ['CODEX_THREAD_ID', 'CODEX_SESSION_ID'],
+  'claude-code': ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_SESSION_ID'],
+  grok: ['GROK_SESSION_ID'],
+});
+
+/** Keep a registered participant bound to its session without rechecking its model. */
+export function registeredSessionIdentity(registered, env = {}) {
+  const sessionId = SESSION_ENV_KEYS[registered?.host]
+    ?.map((key) => env[key])
+    .find((value) => typeof value === 'string' && value);
+  if (!sessionId) {
+    fail(
+      'APR_IDENTITY_REQUIRED',
+      `The registered ${registered?.role ?? 'participant'} session handle is unavailable.`,
+      'Resume the registered provider session, then retry. A model hook is not required.'
+    );
+  }
+  if (fingerprintSession(registered.provider, sessionId) !== registered.session_fingerprint) {
+    fail(
+      'APR_IDENTITY_CONFLICT',
+      'Current session does not match the registered review participant.',
+      'Resume the registered provider session or use governed participant replacement.'
+    );
+  }
+  return registered;
+}
+
 export { identityEvidence, mergeObservedIdentity, v1Participant };
 
 export function assertDistinctParticipants(author, reviewer) {

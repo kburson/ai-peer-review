@@ -17,6 +17,18 @@
     "classification": { "enum": ["SPR", "XPR"] },
     "ownership": { "enum": ["native", "broker"] },
     "transport_mode": { "enum": ["manual", "resume-only", "automatic-required"] },
+    "author": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "host", "model_id", "model_display", "effort"],
+      "properties": {
+        "provider": { "enum": ["openai", "anthropic", "xai"] },
+        "host": { "enum": ["codex", "claude-code", "grok"] },
+        "model_id": { "type": "string", "minLength": 1 },
+        "model_display": { "type": "string", "minLength": 1 },
+        "effort": { "type": "string", "minLength": 1 }
+      }
+    },
     "reviewer": {
       "type": "object",
       "additionalProperties": false,

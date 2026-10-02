@@ -464,8 +464,7 @@ test('CLI submit resolves the current author and emits one closed result', async
     cwd: fx.root,
     env: {
       CODEX_SESSION_ID: 'author-cli-author',
-      CODEX_MODEL_ID: 'gpt-test',
-      CODEX_MODEL_DISPLAY: 'GPT Test',
+      CODEX_MODEL_ID: 'changed-mid-review',
     },
     now: '2026-09-09T02:02:00.000Z',
     stdout: { write: (value) => (stdout += value) },

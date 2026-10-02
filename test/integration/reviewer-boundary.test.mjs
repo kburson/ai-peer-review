@@ -434,8 +434,6 @@ test('CLI submit resolves the current reviewer and emits one closed result', asy
     cwd: fx.root,
     env: {
       CODEX_SESSION_ID: 'reviewer-cli-reviewer',
-      CODEX_MODEL_ID: 'gpt-test',
-      CODEX_MODEL_DISPLAY: 'GPT Test',
     },
     now: '2026-09-09T02:01:00.000Z',
     stdout: { write: (value) => (stdout += value) },

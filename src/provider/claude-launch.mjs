@@ -671,11 +671,17 @@ export function classifyClaudeReviewerOutcome({
     decision && expectedSessionFingerprint === current.reviewer.session_fingerprint
   );
   const denied = deniedExactResponse(providerResult, contract.response);
+  const unchangedRegisteredResume = Boolean(
+    resumeAvailable &&
+    prior.reviewer &&
+    current.reviewer &&
+    prior.reviewer.session_fingerprint === current.reviewer.session_fingerprint &&
+    expectedSessionFingerprint === current.reviewer.session_fingerprint
+  );
   if (
     !decision &&
     !denied &&
-    !prior.reviewer &&
-    !current.reviewer &&
+    ((!prior.reviewer && !current.reviewer) || unchangedRegisteredResume) &&
     prior.protocol.sequence === current.protocol.sequence &&
     prior.protocol.revision === current.protocol.revision &&
     providerResult?.selection_refusal &&
@@ -686,8 +692,9 @@ export function classifyClaudeReviewerOutcome({
       'APR_REVIEWER_SELECTION_REFUSED',
       `Claude explicitly rejected the requested ${providerResult.selection_refusal}.`,
       {
-        recovery:
-          'Open the installed Claude app and inspect /model and /effort, then start a new review with their exact supported identifiers.',
+        recovery: unchangedRegisteredResume
+          ? 'Open the installed Claude app and inspect /model and /effort, then retry this same reviewer session with supported identifiers.'
+          : 'Open the installed Claude app and inspect /model and /effort, then start a new review with their exact supported identifiers.',
         details: {
           provider: 'claude',
           model: contract.model,
@@ -766,14 +773,25 @@ function launchStatePath(contract) {
   ).absolute;
 }
 
-function sessionError(message, recovery) {
-  return new AprError('APR_CLAUDE_SESSION_INVALID', message, { recovery });
+function sessionError(message, recovery, details = {}) {
+  return new AprError('APR_CLAUDE_SESSION_INVALID', message, { recovery, details });
+}
+
+function sameResolvedPath(root, left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') return false;
+  try {
+    const recorded = resolveContainedPath(root, left, 'Claude resume path').absolute;
+    const requested = resolveContainedPath(root, right, 'Claude resume path').absolute;
+    return path.relative(recorded, requested) === '';
+  } catch {
+    return false;
+  }
 }
 
 function readLaunchState(
   contract,
   fingerprintSession = defaultFingerprintSession,
-  { allowPriorResponse = false } = {}
+  { allowPriorResponse = false, allowSelectionChange = false } = {}
 ) {
   const file = launchStatePath(contract);
   let value;
@@ -789,28 +807,59 @@ function readLaunchState(
     error.cause = cause;
     throw error;
   }
-  const expected = {
-    review_id: contract.review_id,
-    invitation: contract.invitation,
-    model: contract.model,
-    effort: contract.effort,
-  };
-  if (
-    value?.schema !== 'ai-peer-review.claude-launch-state/v1' ||
-    typeof value.session_handle !== 'string' ||
-    !/^[A-Za-z0-9._:-]+$/.test(value.session_handle) ||
-    !/^sha256:[0-9a-f]{64}$/.test(value.session_fingerprint ?? '') ||
-    value.session_fingerprint !== fingerprintSession('anthropic', value.session_handle) ||
-    !Number.isSafeInteger(value.protocol_revision) ||
-    value.protocol_revision < 0 ||
-    (allowPriorResponse
-      ? typeof value.response !== 'string'
-      : value.response !== contract.response) ||
-    Object.entries(expected).some(([key, selected]) => value[key] !== selected)
-  ) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw sessionError(
       'Claude resume state conflicts with the current launch contract.',
-      'Use the exact recorded invitation, model, effort, and reviewer session.'
+      'Use the exact recorded invitation, model, effort, and reviewer session.',
+      { mismatched_fields: ['schema'] }
+    );
+  }
+  const expected = {
+    review_id: contract.review_id,
+    ...(allowSelectionChange ? {} : { model: contract.model, effort: contract.effort }),
+  };
+  const mismatchedFields = [
+    [value?.schema !== 'ai-peer-review.claude-launch-state/v1', 'schema'],
+    [
+      typeof value.session_handle !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(value.session_handle),
+      'session_handle',
+    ],
+    [
+      !/^sha256:[0-9a-f]{64}$/.test(value.session_fingerprint ?? '') ||
+        value.session_fingerprint !== fingerprintSession('anthropic', value.session_handle),
+      'session_fingerprint',
+    ],
+    [
+      !Number.isSafeInteger(value.protocol_revision) || value.protocol_revision < 0,
+      'protocol_revision',
+    ],
+    [
+      !sameResolvedPath(contract.repository_root, value.invitation, contract.invitation),
+      'invitation',
+    ],
+    [
+      allowPriorResponse
+        ? typeof value.response !== 'string'
+        : !sameResolvedPath(contract.repository_root, value.response, contract.response),
+      'response',
+    ],
+    ...Object.entries(expected).map(([key, selected]) => [value[key] !== selected, key]),
+  ]
+    .filter(([invalid]) => invalid)
+    .map(([, field]) => field);
+  if (mismatchedFields.length > 0) {
+    throw sessionError(
+      'Claude resume state conflicts with the current launch contract.',
+      'Use the exact recorded invitation, model, effort, and reviewer session.',
+      {
+        mismatched_fields: mismatchedFields,
+        ...(mismatchedFields.includes('invitation')
+          ? {
+              recorded_invitation: String(value.invitation).slice(0, 500),
+              requested_invitation: String(contract.invitation).slice(0, 500),
+            }
+          : {}),
+      }
     );
   }
   return Object.freeze({ ...value });
@@ -821,6 +870,8 @@ export function buildClaudeReviewerResume({
   invitation,
   routing,
   runtimeImage,
+  model,
+  effort,
 } = {}) {
   let physicalRoot;
   try {
@@ -855,11 +906,14 @@ export function buildClaudeReviewerResume({
     repositoryRoot: physicalRoot,
     invitation,
     routing,
-    model: state?.model,
-    effort: state?.effort,
+    model: model ?? state?.model,
+    effort: effort ?? state?.effort,
     runtimeImage,
   });
-  readLaunchState(contract, defaultFingerprintSession, { allowPriorResponse: true });
+  readLaunchState(contract, defaultFingerprintSession, {
+    allowPriorResponse: true,
+    allowSelectionChange: true,
+  });
   return contract;
 }
 
@@ -885,7 +939,10 @@ export async function runClaudeReviewerLaunch({
     throw resultError('Claude pre-launch authority does not match the launch contract.');
   }
   const priorState = resume
-    ? readLaunchState(contract, fingerprintSession, { allowPriorResponse: true })
+    ? readLaunchState(contract, fingerprintSession, {
+        allowPriorResponse: true,
+        allowSelectionChange: true,
+      })
     : null;
   if (priorState && Number.isSafeInteger(prior.protocol.turns_used)) {
     const turn = prior.protocol.turns_used + 1;
@@ -899,13 +956,16 @@ export async function runClaudeReviewerLaunch({
       !Number.isSafeInteger(turn) ||
       turn < 1 ||
       !current ||
-      contract.response !== expected ||
+      !sameResolvedPath(contract.repository_root, contract.response, expected) ||
       !previous ||
       previous[1] !== current[1] ||
       Number(previous[2]) < 1 ||
       Number(previous[2]) > turn ||
-      priorState.response !==
+      !sameResolvedPath(
+        contract.repository_root,
+        priorState.response,
         path.join(path.dirname(contract.response), `${previous[1]}${previous[2]}.md`)
+      )
     ) {
       throw sessionError(
         'Claude resume response does not match current reviewer authority.',
@@ -1008,7 +1068,14 @@ export async function runClaudeReviewerLaunch({
   };
   const first = classifyClaudeReviewerOutcome(outcomeInput);
   let resumeAvailable = Boolean(priorState);
-  if (providerResult.output_valid && sessionHandle) {
+  if (
+    providerResult.output_valid &&
+    providerResult.session_id_present &&
+    !providerResult.provider_failed &&
+    !providerResult.interrupted &&
+    ([null, 0].includes(providerResult.exit_code) || first.status === 'permission-blocked') &&
+    sessionHandle
+  ) {
     atomicWrite(
       launchStatePath(contract),
       `${JSON.stringify(

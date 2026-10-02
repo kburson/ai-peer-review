@@ -12,7 +12,8 @@ function resolveRuntime({ runtime = {}, env = {} } = {}) {
     return null;
   }
   const sessionSource = runtimeSession ? 'official-runtime' : 'environment-declaration';
-  const modelSource = runtimeModel ? 'official-runtime' : 'environment-declaration';
+  const modelSource =
+    runtime.modelSource ?? (runtimeModel ? 'official-runtime' : 'environment-declaration');
   return {
     host: 'codex',
     provider: 'openai',
@@ -25,6 +26,13 @@ function resolveRuntime({ runtime = {}, env = {} } = {}) {
   };
 }
 
+function identityRecovery({ runtime = {}, env = {} } = {}) {
+  const sessionId = runtime.sessionId ?? env.CODEX_THREAD_ID ?? env.CODEX_SESSION_ID;
+  if (typeof sessionId !== 'string' || !sessionId)
+    return 'Run from a supported Codex session that exposes CODEX_THREAD_ID, then retry.';
+  return 'For a new review, pass the run-scoped --author-model and --author-effort selection. For an existing review, resume its registered Codex session; a model hook is not required.';
+}
+
 export const codexAdapter = Object.freeze({
   name: 'codex',
   host: 'codex',
@@ -32,6 +40,7 @@ export const codexAdapter = Object.freeze({
   sessionIdEnvKeys: frozen(['CODEX_THREAD_ID', 'CODEX_SESSION_ID']),
   capabilities: frozen(['manual', 'staleness-only']),
   resolveRuntime,
+  identityRecovery,
 });
 
 export default codexAdapter;

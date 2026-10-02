@@ -28,7 +28,11 @@ import {
   readClaudeSessionSnapshot,
 } from '../../src/providers/claude-stream.mjs';
 import { run, startReview } from '../../src/cli/run.mjs';
-import { fingerprintSession, participantIdentity } from '../../src/identity/registry.mjs';
+import {
+  fingerprintSession,
+  participantIdentity,
+  resolveIdentity,
+} from '../../src/identity/registry.mjs';
 import { createClaudeAdapter } from '../../src/providers/claude.mjs';
 import { createCodexProviderSurface } from '../../src/providers/codex.mjs';
 import { readCodexSessionSnapshot } from '../../src/providers/codex-session.mjs';
@@ -119,6 +123,109 @@ test('Codex start hook binds the exact pending tool use to provider model and se
   assert.equal(JSON.stringify(captured).includes('session-private'), false);
 });
 
+test('Codex headless start binds hook model to the child runtime session', (t) => {
+  const fixture = repositoryFixture('apr-codex-child-hook-');
+  t.after(fixture.cleanup);
+  const token = '8'.repeat(32);
+  captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'peer-review start docs/example.md --artifact-kind spec' },
+      tool_use_id: 'call-child-start',
+      turn_id: 'turn-child',
+      session_id: 'parent-session',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    hookRuntimeSessionId: 'child-session',
+    sourceVersion: '0.158.0-alpha.2.1',
+    token,
+  });
+  const observed = readCodexStartHook({
+    root: fixture.root,
+    token,
+    sessionId: 'child-session',
+    operationId: 'start:child-review',
+  });
+  assert.equal(observed.model_id, 'gpt-6-astra');
+  assert.equal(observed.session_id, 'child-session');
+  assert.equal(observed.hook_session_id, 'parent-session');
+});
+
+test('Codex headless start refuses a parent-only hook record', (t) => {
+  const fixture = repositoryFixture('apr-codex-parent-only-hook-');
+  t.after(fixture.cleanup);
+  const token = 'a'.repeat(32);
+  captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'peer-review start docs/example.md --artifact-kind spec' },
+      tool_use_id: 'call-parent-only',
+      turn_id: 'turn-parent-only',
+      session_id: 'parent-session',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    sourceVersion: '0.158.0-alpha.2.1',
+    token,
+  });
+  assert.throws(
+    () =>
+      readCodexStartHook({
+        root: fixture.root,
+        token,
+        sessionId: 'child-session',
+        operationId: 'start:parent-only-review',
+      }),
+    (error) =>
+      error.code === 'APR_CODEX_HOOK_INVALID' &&
+      /child.*session/i.test(error.recovery) &&
+      /CODEX_THREAD_ID/.test(error.recovery)
+  );
+});
+
+test('Codex headless hook rejects a different child when its runtime identifies the child', (t) => {
+  const fixture = repositoryFixture('apr-codex-child-bound-hook-');
+  t.after(fixture.cleanup);
+  const token = '9'.repeat(32);
+  captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'peer-review start docs/example.md --artifact-kind spec' },
+      tool_use_id: 'call-bound-child',
+      turn_id: 'turn-bound-child',
+      session_id: 'parent-session',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    hookRuntimeSessionId: 'actual-child',
+    sourceVersion: '0.158.0-alpha.2.1',
+    token,
+  });
+  assert.equal(
+    readCodexStartHook({
+      root: fixture.root,
+      token,
+      sessionId: 'actual-child',
+      operationId: 'start:bound-review',
+    }).session_id,
+    'actual-child'
+  );
+  assert.throws(
+    () =>
+      readCodexStartHook({
+        root: fixture.root,
+        token,
+        sessionId: 'different-child',
+        operationId: 'start:bound-review',
+      }),
+    { code: 'APR_CODEX_HOOK_INVALID' }
+  );
+});
+
 test('Codex hook keeps changing models in one session in separate start records', (t) => {
   const fixture = repositoryFixture('apr-codex-model-switch-');
   t.after(fixture.cleanup);
@@ -179,6 +286,240 @@ test('Codex hook observes the installed ai-peer-review CLI spelling', (t) => {
     observedAt: '2026-09-21T14:35:00.000Z',
   });
   assert.ok(result);
+});
+
+test('Codex hook observes documented npx --no-install peer-review commands', (t) => {
+  const fixture = repositoryFixture('apr-codex-npx-hook-');
+  t.after(fixture.cleanup);
+  const result = captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'npx --no-install peer-review doctor --json' },
+      tool_use_id: 'call-npx',
+      turn_id: 'turn-npx',
+      session_id: 'session-npx',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    sourceVersion: '0.158.0-alpha.2.1',
+    token: '7'.repeat(32),
+  });
+  assert.equal(
+    result?.hookSpecificOutput.updatedInput.command,
+    'CODEX_MODEL_ID=gpt-6-astra CODEX_MODEL_DISPLAY=gpt-6-astra npx --no-install peer-review doctor --json'
+  );
+});
+
+test('Codex code-mode hook supplies current model to a nested doctor command', () => {
+  const originalCode = "text(await tools.exec_command({cmd:'peer-review doctor --json'}));";
+  const result = captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'functions.exec',
+      tool_input: { code: originalCode, title: 'Check peer review' },
+      tool_use_id: 'call-code-mode',
+      turn_id: 'turn-code-mode',
+      session_id: 'parent-session',
+      model: 'gpt-6-astra',
+      cwd: '/tmp',
+    },
+    hookRuntimeSessionId: 'child-session',
+    sourceVersion: '0.158.0-alpha.2.1',
+    token: 'e'.repeat(32),
+  });
+  assert.equal(result?.hookSpecificOutput.updatedInput.title, 'Check peer review');
+  const commands = [];
+  const globals = {
+    tools: { exec_command: (args) => commands.push(args.cmd) },
+    text: () => {},
+  };
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const runCode = new AsyncFunction(
+    'globalThis',
+    'tools',
+    'text',
+    result.hookSpecificOutput.updatedInput.code
+  );
+  return runCode(globals, globals.tools, globals.text).then(() => {
+    assert.deepEqual(commands, [
+      'CODEX_MODEL_ID=gpt-6-astra CODEX_MODEL_DISPLAY=gpt-6-astra peer-review doctor --json',
+    ]);
+  });
+});
+
+test('Codex code-mode hook binds nested start with a private token and keeps the exec pragma', (t) => {
+  const fixture = repositoryFixture('apr-codex-code-mode-');
+  t.after(fixture.cleanup);
+  const token = 'f'.repeat(32);
+  const code =
+    '// @exec: {"yield_time_ms": 1000}\ntext(await tools.exec_command({cmd:\'peer-review start docs/example.md --artifact-kind spec\'}));';
+  const result = captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'functions.exec',
+      tool_input: { code },
+      tool_use_id: 'call-code-start',
+      turn_id: 'turn-code-start',
+      session_id: 'parent-session',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    hookRuntimeSessionId: 'child-session',
+    sourceVersion: '0.158.0-alpha.2.1',
+    token,
+  });
+  assert.ok(result.hookSpecificOutput.updatedInput.code.startsWith('// @exec:'));
+  const observed = readCodexStartHook({
+    root: fixture.root,
+    token,
+    sessionId: 'child-session',
+    operationId: 'start:code-review',
+  });
+  assert.equal(observed.model_id, 'gpt-6-astra');
+  assert.equal(observed.session_id, 'child-session');
+  const commands = [];
+  const globals = {
+    tools: { exec_command: (args) => commands.push(args.cmd) },
+    text: () => {},
+  };
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const runCode = new AsyncFunction(
+    'globalThis',
+    'tools',
+    'text',
+    result.hookSpecificOutput.updatedInput.code
+  );
+  return runCode(globals, globals.tools, globals.text).then(() => {
+    assert.deepEqual(commands, [
+      `APR_CODEX_HOOK_TOKEN=${token} peer-review start docs/example.md --artifact-kind spec`,
+    ]);
+  });
+});
+
+test('Codex code-mode hook refuses a dynamically built start command', async (t) => {
+  const fixture = repositoryFixture('apr-codex-code-dynamic-');
+  t.after(fixture.cleanup);
+  const token = 'a'.repeat(32);
+  const code =
+    "const cmd = 'peer-review start docs/example.md'; text(await tools.exec_command({cmd}));";
+  const result = captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'functions.exec',
+      tool_input: { code },
+      tool_use_id: 'call-code-dynamic',
+      turn_id: 'turn-code-dynamic',
+      session_id: 'parent-session',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    hookRuntimeSessionId: 'child-session',
+    sourceVersion: '0.158.0-alpha.2.1',
+    token,
+  });
+  assert.throws(
+    () =>
+      readCodexStartHook({
+        root: fixture.root,
+        token,
+        sessionId: 'child-session',
+        operationId: 'start:dynamic-review',
+      }),
+    { code: 'APR_CODEX_HOOK_INVALID' }
+  );
+  const globals = {
+    tools: { exec_command: () => assert.fail('Unapproved nested start reached the shell') },
+    text: () => {},
+  };
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const runCode = new AsyncFunction(
+    'globalThis',
+    'tools',
+    'text',
+    result.hookSpecificOutput.updatedInput.code
+  );
+  await assert.rejects(runCode(globals, globals.tools, globals.text), /APR_CODEX_HOOK_INVALID/);
+});
+
+test('Codex code-mode hook ignores a start command mentioned outside a nested cmd literal', (t) => {
+  const fixture = repositoryFixture('apr-codex-code-comment-');
+  t.after(fixture.cleanup);
+  const token = 'b'.repeat(32);
+  captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'functions.exec',
+      tool_input: {
+        code: "// peer-review start docs/example.md\ntext(await tools.exec_command({cmd:'peer-review doctor'}));",
+      },
+      tool_use_id: 'call-code-comment',
+      turn_id: 'turn-code-comment',
+      session_id: 'parent-session',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    hookRuntimeSessionId: 'child-session',
+    sourceVersion: '0.158.0-alpha.2.1',
+    token,
+  });
+  assert.throws(
+    () =>
+      readCodexStartHook({
+        root: fixture.root,
+        token,
+        sessionId: 'child-session',
+        operationId: 'start:comment-review',
+      }),
+    { code: 'APR_CODEX_HOOK_INVALID' }
+  );
+});
+
+test('Codex code-mode hook binds the documented local CLI script start spelling', (t) => {
+  const fixture = repositoryFixture('apr-codex-code-script-');
+  t.after(fixture.cleanup);
+  const token = 'c'.repeat(32);
+  captureCodexStartHook({
+    event: {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'functions.exec',
+      tool_input: {
+        code: "text(await tools.exec_command({cmd:'node bin/peer-review.mjs start docs/example.md'}));",
+      },
+      tool_use_id: 'call-code-script',
+      turn_id: 'turn-code-script',
+      session_id: 'parent-session',
+      model: 'gpt-6-astra',
+      cwd: fixture.root,
+    },
+    hookRuntimeSessionId: 'child-session',
+    sourceVersion: '0.158.0-alpha.2.1',
+    token,
+  });
+  assert.equal(
+    readCodexStartHook({
+      root: fixture.root,
+      token,
+      sessionId: 'child-session',
+      operationId: 'start:script-review',
+    }).model_id,
+    'gpt-6-astra'
+  );
+});
+
+test('Codex missing startup model evidence names run-scoped author selection recovery', () => {
+  assert.throws(
+    () =>
+      resolveIdentity({
+        role: 'author',
+        adapter: 'codex',
+        env: { CODEX_THREAD_ID: 'active-headless-child' },
+      }),
+    (error) =>
+      error.code === 'APR_IDENTITY_REQUIRED' &&
+      /--author-model/.test(error.recovery) &&
+      /model hook is not required/i.test(error.recovery)
+  );
 });
 
 test('Codex hook supplies the current model to a later command in the same session', (t) => {
@@ -1125,10 +1466,12 @@ test('CLI start uses production adapters when no test registry is injected', asy
   assert.match(stdout, /awaiting-reviewer/);
 });
 
-test('CLI doctor reports the current provider adapter observation', async () => {
+test('CLI doctor reports the current provider adapter observation', async (t) => {
+  const fixture = repositoryFixture('apr-provider-cli-doctor-');
+  t.after(fixture.cleanup);
   let stdout = '';
   const code = await run(['doctor', '--json'], {
-    cwd: process.cwd(),
+    cwd: fixture.root,
     env: {
       CODEX_THREAD_ID: 'doctor-session',
       CODEX_MODEL_ID: 'gpt-6-astra',
@@ -1147,6 +1490,7 @@ test('CLI doctor reports the current provider adapter observation', async () => 
       ],
     ]),
     brokerSecurity: { healthy: true },
+    doctorContext: { skillAvailable: true },
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: () => {} },
   });
