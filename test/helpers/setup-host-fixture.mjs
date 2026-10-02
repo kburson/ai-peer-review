@@ -45,9 +45,7 @@ export async function setupHostFixture(t) {
     home,
     admit: async () => ({ packageRoot: sourceRoot, selection_id: 'fixture-only' }),
   });
-  mkdirSync(path.dirname(registrationPath), { mode: 0o700 });
-  writeFileSync(
-    registrationPath,
+  const registrationBytes =
     JSON.stringify({
       schema: 'ai-peer-review.primary-activation/v1',
       primary_root: root,
@@ -55,9 +53,19 @@ export async function setupHostFixture(t) {
       primary_initialized: false,
       integration_contract: null,
       owned_blobs: null,
-    }) + '\n',
-    { mode: 0o600 }
-  );
+    }) + '\n';
+  if (process.platform === 'win32') {
+    const { platformSecurity } = await import('../../src/broker/platform.mjs');
+    const directory = platformSecurity().openPrivateDirectory(path.dirname(registrationPath));
+    try {
+      directory.create(path.basename(registrationPath), registrationBytes);
+    } finally {
+      directory.close();
+    }
+  } else {
+    mkdirSync(path.dirname(registrationPath), { mode: 0o700 });
+    writeFileSync(registrationPath, registrationBytes, { mode: 0o600 });
+  }
   const setupApply = (options = {}) =>
     core.setup({
       scope: 'project',

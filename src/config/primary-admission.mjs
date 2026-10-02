@@ -33,7 +33,10 @@ function acquirePrimaryAdmissionFence({ commonDir, dryRun = false }) {
     }
     return () => {};
   }
-  mkdirSync(directory, { mode: 0o700, recursive: true });
+  if (process.platform === 'win32') {
+    const parentHandle = platformSecurity().openPrivateDirectory(directory);
+    parentHandle.close();
+  } else mkdirSync(directory, { mode: 0o700, recursive: true });
   const parent = lstatSync(directory);
   if (
     !parent.isDirectory() ||
@@ -41,8 +44,11 @@ function acquirePrimaryAdmissionFence({ commonDir, dryRun = false }) {
     (process.platform !== 'win32' && (parent.mode & 0o077 || parent.uid !== process.getuid()))
   )
     refuse('Clone admission directory is not account-private.');
+  let handle;
   try {
-    mkdirSync(lock, { mode: 0o700 });
+    if (process.platform === 'win32')
+      handle = platformSecurity().openPrivateDirectory(lock, { exclusive: true });
+    else mkdirSync(lock, { mode: 0o700 });
   } catch (error) {
     if (error.code === 'EEXIST') {
       let owner;
@@ -63,10 +69,7 @@ function acquirePrimaryAdmissionFence({ commonDir, dryRun = false }) {
         token: randomUUID(),
         pid: process.pid,
       }) + '\n';
-  let handle;
-
   if (process.platform === 'win32') {
-    handle = platformSecurity().openPrivateDirectory(lock);
     if (!handle.verify()) refuse('Windows admission ownership cannot be proven.');
     handle.create('owner.json', bytes);
   } else writeFileSync(path.join(lock, 'owner.json'), bytes, { flag: 'wx', mode: 0o600 });

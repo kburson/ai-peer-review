@@ -165,9 +165,19 @@ std::string CanonicalPath(const std::string& input, std::string* code, std::stri
 
 std::string UserId(std::string*, std::string*) { return std::to_string(geteuid()); }
 
-void* OpenPrivateDirectory(const std::string& path, std::string* code, std::string* message) {
+void* OpenPrivateDirectory(const std::string& path, std::string* code, std::string* message, bool exclusive = false) {
   struct stat named {};
-  if (lstat(path.c_str(), &named) != 0) {
+  if (exclusive) {
+    if (mkdir(path.c_str(), 0700) != 0) {
+      Fail(code, message, errno == EEXIST ? "EEXIST" : "APR_BROKER_STALE",
+           "Exclusive private directory creation refused.");
+      return nullptr;
+    }
+    if (lstat(path.c_str(), &named) != 0) {
+      Fail(code, message, "APR_BROKER_STALE", "Created private directory cannot be observed.");
+      return nullptr;
+    }
+  } else if (lstat(path.c_str(), &named) != 0) {
     if (errno != ENOENT || mkdir(path.c_str(), 0700) != 0 || lstat(path.c_str(), &named) != 0) {
       Fail(code, message, "APR_BROKER_STALE", "Private broker directory cannot be created safely.");
       return nullptr;

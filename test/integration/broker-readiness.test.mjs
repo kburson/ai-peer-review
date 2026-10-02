@@ -131,3 +131,28 @@ for (const scenario of [
       assert.equal(advertisedDuringRecovery, false);
     }
   );
+
+test(
+  'native private directory creation can atomically refuse an existing admission directory',
+  { skip: !nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED },
+  async (t) => {
+    const { platformSecurity } = await import('../../src/broker/platform.mjs');
+    const security = platformSecurity();
+    const root = mkdtempSync(path.join(tmpdir(), 'apr-private-admission-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const directory = path.join(root, 'admission.lock');
+    const owned = security.openPrivateDirectory(directory, { exclusive: true });
+    assert.equal(owned.verify(), true);
+    owned.create('owner.json', 'owned proof');
+    owned.close();
+    assert.throws(() => security.openPrivateDirectory(directory, { exclusive: true }), {
+      code: 'EEXIST',
+    });
+    const observed = security.openPrivateDirectory(directory);
+    try {
+      assert.equal(observed.read('owner.json').toString(), 'owned proof');
+    } finally {
+      observed.close();
+    }
+  }
+);

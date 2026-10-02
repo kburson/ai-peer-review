@@ -399,7 +399,7 @@ std::string CanonicalPath(const std::string& input, std::string* code, std::stri
 
 std::string UserId(std::string* code, std::string* message) { return CurrentSid(code, message); }
 
-void* OpenPrivateDirectory(const std::string& input, std::string* code, std::string* message) {
+void* OpenPrivateDirectory(const std::string& input, std::string* code, std::string* message, bool exclusive = false) {
   const auto path = Wide(input);
   SECURITY_ATTRIBUTES attributes {};
   PSECURITY_DESCRIPTOR descriptor = nullptr;
@@ -407,6 +407,10 @@ void* OpenPrivateDirectory(const std::string& input, std::string* code, std::str
   const bool created = CreateDirectoryW(path.c_str(), &attributes) != 0;
   const DWORD createError = created ? ERROR_SUCCESS : GetLastError();
   LocalFree(descriptor);
+  if (!created && exclusive && createError == ERROR_ALREADY_EXISTS) {
+    Fail(code, message, "EEXIST", "Exclusive private directory creation refused.");
+    return nullptr;
+  }
   if (!created && createError != ERROR_ALREADY_EXISTS) {
     Fail(code, message, "APR_BROKER_STALE", "Private broker directory cannot be created.");
     return nullptr;
