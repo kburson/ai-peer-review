@@ -106,18 +106,25 @@ export function withPrimaryAdmissionFenceSync(options, operation) {
   const deadline = performance.now() + 5000;
   const pause = new Int32Array(new SharedArrayBuffer(4));
   let release;
+  let observedForeignOwner = false;
   for (;;) {
     try {
       release = acquirePrimaryAdmissionFence(options);
       break;
     } catch (error) {
+      const owner = error?.details?.owner_pid;
+      const foreignOwner = Number.isSafeInteger(owner) && owner !== process.pid;
       if (
         error?.details?.reason !== 'clone-admission-held' ||
-        !Number.isSafeInteger(error.details.owner_pid) ||
-        error.details.owner_pid === process.pid ||
+        owner === process.pid ||
+        (!foreignOwner && !observedForeignOwner) ||
         performance.now() >= deadline
       )
         throw error;
+      observedForeignOwner ||= foreignOwner;
+      // A known foreign owner can unpublish its proof just before removing
+      // the directory. Keep the original bounded wait through that release
+      // window; initial unattributed locks still refuse immediately.
       // No clone lock is owned while waiting. Effects revalidate authority
       // inside the newly acquired fence, before invoking their callback.
       Atomics.wait(pause, 0, 0, Math.min(10, deadline - performance.now()));
