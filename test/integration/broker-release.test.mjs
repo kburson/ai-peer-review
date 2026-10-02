@@ -145,6 +145,8 @@ test('installed release preserves legacy evidence, current broker execution and 
     if (endpointRoot) t.after(() => rmSync(endpointRoot, { recursive: true, force: true }));
     const accountHome = path.join(scratch, 'account-home');
     mkdirSync(accountHome, { mode: 0o700 });
+    for (const relative of ['.config', 'AppData/Roaming', 'AppData/Local'])
+      mkdirSync(path.join(accountHome, relative), { recursive: true, mode: 0o700 });
     const accountPreload = pathToFileURL(
       path.join(root, 'test/helpers/installed-provider/preload.mjs')
     ).href;
@@ -159,6 +161,7 @@ test('installed release preserves legacy evidence, current broker execution and 
       HOME: accountHome,
       USERPROFILE: accountHome,
       APPDATA: path.join(accountHome, 'AppData/Roaming'),
+      LOCALAPPDATA: path.join(accountHome, 'AppData/Local'),
       XDG_CONFIG_HOME: path.join(accountHome, '.config'),
       npm_config_cache: runNpm('npm', ['config', 'get', 'cache'], { encoding: 'utf8' }).trim(),
       NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${accountPreload}`,
@@ -478,6 +481,29 @@ test('installed release preserves legacy evidence, current broker execution and 
     for (const name of ['provider-calls.txt', 'automatic-broker.log', 'runtime-timing.jsonl']) {
       const file = path.join(scratch, name);
       if (existsSync(file)) t.diagnostic(name + ': ' + readFileSync(file, 'utf8').slice(-4000));
+    }
+    const traceFile = path.join(scratch, 'runtime-timing.jsonl');
+    if (existsSync(traceFile)) {
+      const traces = readFileSync(traceFile, 'utf8').trim().split('\n').map(JSON.parse);
+      const processes = new Map();
+      for (const trace of traces) {
+        const summary = processes.get(trace.pid) ?? {
+          pid: trace.pid,
+          first: trace.at,
+          last: trace.at,
+          calls: 0,
+          subprocessMs: 0,
+          lastCalls: [],
+        };
+        summary.last = trace.at;
+        if (trace.phase === 'returned') {
+          summary.calls++;
+          summary.subprocessMs += trace.elapsed;
+        }
+        summary.lastCalls = [...summary.lastCalls.slice(-5), trace];
+        processes.set(trace.pid, summary);
+      }
+      t.diagnostic('Subprocess timing summary: ' + JSON.stringify([...processes.values()]));
     }
     const reviewRoot = path.join(host, '.scratch/peer-review');
     if (existsSync(reviewRoot)) {
