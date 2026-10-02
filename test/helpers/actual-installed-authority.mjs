@@ -35,7 +35,7 @@ export function actualInstalledAuthority(t) {
   const linked = path.join(directory, 'linked project');
   mkdirSync(home, { mode: 0o700 });
   mkdirSync(root);
-  for (const relative of ['Library/Caches', 'cache', 'AppData'])
+  for (const relative of ['Library/Caches', 'cache', 'AppData/Roaming'])
     mkdirSync(path.join(home, relative), { recursive: true, mode: 0o700 });
   const profile = fileURLToPath(
     new URL('./installed-provider/account-profile.mjs', import.meta.url)
@@ -48,6 +48,8 @@ export function actualInstalledAuthority(t) {
     APR_FIXTURE_ACCOUNT_HOME: home,
     HOME: home,
     USERPROFILE: home,
+    XDG_CONFIG_HOME: path.join(home, '.config'),
+    APPDATA: path.join(home, 'AppData/Roaming'),
     XDG_CACHE_HOME: path.join(home, 'cache'),
     LOCALAPPDATA: path.join(home, 'AppData'),
     ...(endpointRoot ? { AI_PEER_REVIEW_ENDPOINT_ROOT: endpointRoot } : {}),

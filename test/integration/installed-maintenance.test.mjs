@@ -1,7 +1,8 @@
 // @story #137
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import test from 'node:test';
 import { actualInstalledAuthority } from '../helpers/actual-installed-authority.mjs';
 
@@ -237,3 +238,35 @@ for (const scenario of ['dirty primary', 'policy changed during registration loa
     assert.equal(JSON.parse(result.stdout).code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
   });
 }
+
+test('installed authority fixture isolates inherited account preference directories', (t) => {
+  const foreign = mkdtempSync(path.join(os.tmpdir(), 'apr-foreign-preferences-'));
+  t.after(() => rmSync(foreign, { recursive: true, force: true }));
+  const saved = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, APPDATA: process.env.APPDATA };
+  let f;
+  try {
+    process.env.XDG_CONFIG_HOME = foreign;
+    process.env.APPDATA = foreign;
+    f = actualInstalledAuthority(t);
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+  const preferences = f.execute(
+    'import {configPaths} from ' +
+      f.module('src/config/load.mjs') +
+      '; console.log(configPaths({cwd:process.cwd()}).user);'
+  );
+  assert.equal(preferences.status, 0, preferences.stderr);
+  assert.ok(
+    preferences.stdout.trim().startsWith(f.home + path.sep),
+    'account preferences must remain inside the disposable account'
+  );
+  assert.equal(
+    existsSync(path.join(foreign, 'ai-peer-review/config.json')),
+    false,
+    'fixture must preserve inherited account preference directories'
+  );
+});
