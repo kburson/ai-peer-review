@@ -207,12 +207,15 @@ export async function runBroker(input = {}) {
     for (const [workspace, worker] of [...workers]) {
       const state = worker.workState();
       if (state === 'recovery-only') {
+        await input.cleanupGuard?.();
         await worker.suspend();
+        await input.cleanupGuard?.();
         await worker.close();
         workerSubscriptions.get(workspace)?.();
         workerSubscriptions.delete(workspace);
         workers.delete(workspace);
       } else if (state === 'terminal') {
+        await input.cleanupGuard?.();
         await worker.close();
         workerSubscriptions.get(workspace)?.();
         workerSubscriptions.delete(workspace);
@@ -254,6 +257,7 @@ export async function runBroker(input = {}) {
     if (message?.command === 'stop') {
       const unreconciled = [];
       try {
+        await input.cleanupGuard?.();
         for (const registration of await registry.list()) {
           const worker = await addWorker(registration);
           if (worker.workState() === 'recovery-only') unreconciled.push(registration.workspace);
@@ -310,6 +314,7 @@ export async function runBroker(input = {}) {
           recovery: 'Wait for exact launch settlement, then reconcile before manual takeover.',
         });
       }
+      await input.cleanupGuard?.();
       await worker.suspend();
     } else {
       fail(
@@ -347,7 +352,11 @@ export async function runBroker(input = {}) {
     let cleanupError = null;
     for (const worker of workers.values()) {
       try {
-        if (worker.workState() !== 'terminal') await worker.suspend();
+        if (worker.workState() !== 'terminal') {
+          await input.cleanupGuard?.();
+          await worker.suspend();
+        }
+        await input.cleanupGuard?.();
         await worker.close();
       } catch (error) {
         cleanupError ??= error;
@@ -365,6 +374,7 @@ export async function runBroker(input = {}) {
     }
     if (!cleanupError) {
       try {
+        await input.cleanupGuard?.();
         owner.release?.();
       } catch (error) {
         cleanupError ??= error;

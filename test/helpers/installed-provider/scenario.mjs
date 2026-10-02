@@ -28,6 +28,8 @@ writeFileSync(path.join(root, 'docs/artifact.md'), '# Artifact\n\nA missing key 
 writeFileSync(path.join(root, '.gitignore'), 'node_modules/\npackage*.json\n.scratch/\n');
 git('add', 'docs/artifact.md', '.gitignore');
 git('commit', '-m', 'fixture');
+const { registerRuntimeSelection } = await load('src/config/runtime-selection.mjs');
+await registerRuntimeSelection();
 const { platformSecurity } = await load('src/broker/platform.mjs');
 const { canonicalProjectIdentity } = await load('src/broker/identity.mjs');
 const { ensureBroker, requestBroker } = await load('src/broker/client.mjs');

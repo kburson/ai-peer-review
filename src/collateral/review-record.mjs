@@ -1,3 +1,7 @@
+import {
+  assertCollateralCompatible,
+  readRuntimeCompatibility,
+} from '../protocol/compatibility.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   closeSync,
@@ -390,6 +394,14 @@ export function planReviewRecord({ workspaces, destination, now = new Date() } =
         left.started_at.localeCompare(right.started_at) ||
         left.review_id.localeCompare(right.review_id)
     );
+  assertCollateralCompatible({
+    manifest: readRuntimeCompatibility(),
+    operation: 'write',
+    metadata: [
+      { contract: 'archive', schema: 'ai-peer-review.relocation-plan/v1' },
+      { contract: 'archive', schema: 'ai-peer-review.relocation-receipt/v1' },
+    ],
+  });
   return deepFreeze({
     schema: 'ai-peer-review.relocation-plan/v1',
     record_id: recordId,
@@ -565,6 +577,12 @@ function pruneEmpty(directory, stop) {
 }
 
 export function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () => {} } = {}) {
+  if (typeof plan?.schema === 'string')
+    assertCollateralCompatible({
+      manifest: readRuntimeCompatibility(),
+      operation: 'write',
+      metadata: [{ contract: 'archive', schema: plan.schema }],
+    });
   if (plan?.schema !== 'ai-peer-review.relocation-plan/v1' || !Object.isFrozen(plan)) {
     fail(
       'APR_REVIEW_RECORD_INVALID',

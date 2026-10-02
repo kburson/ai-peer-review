@@ -46,6 +46,8 @@ const SETUP_FLAG_HELP = Object.freeze({
 });
 
 const START_FLAG_HELP = Object.freeze({
+  '--preserved-predecessor':
+    'Absolute path to preserved incompatible review evidence in this repository; seals a reference in an independent review without altering or settling its predecessor.',
   '--issue':
     'Required positive issue ID for every new SPR or XPR; sealed into startup authority and used in package-generated commit subjects.',
 });
@@ -191,7 +193,7 @@ const EFFECTS = Object.freeze({
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
     'Seals the requested issue ID; author revisions and finalization use [#N] commit subjects in normal mode.',
-    'A fresh --reviews-root or --review-path-template can create an independent review when an older attempt remains uncertain; verify the new review ID, invitation, and output paths. --record-id alone is insufficient.',
+    'A fresh --reviews-root or --review-path-template can create an independent review when an older attempt remains uncertain; verify the new review ID, invitation, and output paths. --record-id alone is insufficient. Use --preserved-predecessor <absolute-workspace> to seal the reference to preserved incompatible collateral.',
   ],
   advance: ['Appends one next-artifact event, reviewer draft, and durable delivery.'],
   'request-grant': ['Appends or reuses one challenge event; performs no Git operation.'],
@@ -828,7 +830,7 @@ const ERROR_CATALOG = Object.freeze({
   APR_LINEAGE_UNAVAILABLE: {
     message: 'The exact lineage receipt required for supersession is unavailable.',
     recovery:
-      'Preserve the unresolved attempt. For an independent fresh review, choose a fresh --reviews-root or --review-path-template and verify that its review ID and invitation differ; --record-id alone is insufficient.',
+      'Preserve the unresolved attempt. For an independent fresh review, choose a fresh --reviews-root or --review-path-template and verify that its review ID and invitation differ; --record-id alone is insufficient. Use --preserved-predecessor <absolute-workspace> to seal the reference to preserved incompatible collateral.',
   },
   APR_BROKER_BUILD_FAILED: {
     message: 'The explicit local broker security build failed.',

@@ -30,6 +30,7 @@ export const COMMAND_FLAGS = Object.freeze({
     '--reviews-root',
     '--review-path-template',
     '--record-id',
+    '--preserved-predecessor',
     '--issue',
     '--max-turns',
     '--claim-ttl',

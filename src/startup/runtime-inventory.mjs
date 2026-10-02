@@ -210,3 +210,5 @@ export function verifyRuntimeInventorySync({ packageRoot, previousObservation } 
 export async function verifyRuntimeInventory(options) {
   return verifyRuntimeInventorySync(options);
 }
+
+export const isVerifiedRuntimeInventory = (value) => observations.has(value);

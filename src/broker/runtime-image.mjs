@@ -1,3 +1,7 @@
+import {
+  assertCollateralCompatible,
+  readRuntimeCompatibility,
+} from '../protocol/compatibility.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
@@ -417,6 +421,12 @@ export function verifyRuntimeImage(image) {
     if (typeof root !== 'string' || !path.isAbsolute(root)) return false;
     directoryStatus(root, 'Runtime image');
     const manifest = readManifest(root);
+    if (typeof manifest?.schema === 'string')
+      assertCollateralCompatible({
+        manifest: readRuntimeCompatibility(),
+        operation: 'read',
+        metadata: [{ contract: 'runtimeImage', schema: manifest.schema }],
+      });
     if (
       manifest?.schema !== IMAGE_SCHEMA ||
       !manifest.package ||
@@ -475,7 +485,8 @@ export function verifyRuntimeImage(image) {
     if (!listed.includes(manifest.package.entrypoint) || !listed.includes(manifest.node.path))
       return false;
     return true;
-  } catch {
+  } catch (cause) {
+    if (cause?.code === 'APR_REVIEW_RUNTIME_UNSUPPORTED') throw cause;
     return false;
   }
 }

@@ -1,9 +1,11 @@
-import { randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { randomUUID, createHash } from 'node:crypto';
+import { mkdirSync, writeFileSync, realpathSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
+import packageJson from '../../package.json' with { type: 'json' };
 import { AprError } from '../errors.mjs';
 import { connectBroker, createFrameDecoder, encodeFrame, validateCommand } from './ipc.mjs';
 import { brokerPaths } from './paths.mjs';
@@ -33,7 +35,14 @@ function startFailure(cause, details = {}) {
 
 function bootstrapRecord({ project, versions, runtimeImage }) {
   return Object.freeze({
-    schema: 'ai-peer-review.broker-bootstrap/v1',
+    schema: 'ai-peer-review.broker-bootstrap/v2',
+    execution: Object.freeze({
+      package_root: realpathSync(fileURLToPath(new URL('../..', import.meta.url))),
+      node_executable: realpathSync(process.execPath),
+      package_digest: createHash('sha256')
+        .update(readFileSync(new URL('../../package.json', import.meta.url)))
+        .digest('hex'),
+    }),
     project: Object.freeze({
       digest: project.digest,
       physicalRoot: project.physicalRoot,
@@ -164,6 +173,11 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
   ) {
     throw startFailure(null, { reason: 'invalid-startup-input' });
   }
+  versions = {
+    package_version: packageJson.version,
+    broker_protocol_version: 1,
+    node_major: Number(process.versions.node.split('.')[0]),
+  };
   const runtimeVerified = platform?.verifyRuntimeImage ?? verifyRuntimeImage;
   if (!runtimeVerified(runtimeImage)) {
     throw startFailure(null, { reason: 'runtime-image-invalid' });
@@ -190,11 +204,11 @@ export async function ensureBroker({ project, versions, runtimeImage, platform }
     typeof platform?.createBootstrap === 'function'
       ? platform.createBootstrap({ project, versions, runtimeImage, record })
       : createBootstrap(record, platform);
-  const entrypoint = path.join(runtimeImage.root, 'package', 'bin', 'peer-review-broker.mjs');
+  const entrypoint = fileURLToPath(new URL('../../bin/peer-review-broker.mjs', import.meta.url));
   const launch = platform?.spawn ?? spawn;
   let child;
   try {
-    child = launch(runtimeImage.nodeExecutable, [entrypoint, bootstrap], {
+    child = launch(realpathSync(process.execPath), [entrypoint, bootstrap], {
       shell: false,
       detached: true,
       stdio: 'ignore',

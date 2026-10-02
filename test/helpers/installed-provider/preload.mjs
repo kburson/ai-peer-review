@@ -1,9 +1,18 @@
-// Test-only executable substitution. No registry, broker, authority, or IPC mock.
+// Explicit test-only provider executable and OS-account profile substitution.
+// No registry, broker, authority or IPC mock; selection writes only the disposable account.
+import os from 'node:os';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+const originalUserInfo = os.userInfo;
+if (process.env.APR_FIXTURE_ACCOUNT_HOME) {
+  os.userInfo = (options) => ({
+    ...originalUserInfo(options),
+    homedir: process.env.APR_FIXTURE_ACCOUNT_HOME,
+  });
+}
 const driver = fileURLToPath(new URL('./claude.mjs', import.meta.url));
 for (const method of ['spawn', 'execFile', 'execFileSync']) {
   const original = childProcess[method];

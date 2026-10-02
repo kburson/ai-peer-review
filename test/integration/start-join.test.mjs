@@ -1246,3 +1246,39 @@ test('join rejects scratch context and invitation redirection outside sealed sta
   );
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 });
+
+// @story #135
+test('independent successor seals a preserved predecessor reference without changing unknown evidence', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const predecessor = path.join(fx.root, '.scratch/peer-review/old-review');
+  mkdirSync(predecessor, { recursive: true });
+  const bytes = '{"schema":"ai-peer-review.event/v99","state":"accepted"}\n';
+  writeFileSync(path.join(predecessor, 'events.jsonl'), bytes);
+  const input = {
+    ...fixtureSelection('codex', 'gpt-test'),
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'successor-author'),
+    reviewId: 'independent-successor',
+    recordId: 'successor-record',
+    reviewsRoot: 'docs/independent-reviews',
+    preservedPredecessor: predecessor,
+    noCommit: true,
+    testHumanAuthority: 'fixture-a',
+    now: NOW,
+  };
+  const started = await startReview(input, fixtureStartupDeps);
+  const context = inspectReview(started.paths.workspace).protocol.startup.context;
+  assert.equal(context.schema, 'ai-peer-review.context/v2');
+  assert.equal(context.preserved_predecessor, realpathSync(predecessor));
+  assert.notEqual(started.paths.workspace, predecessor);
+  assert.equal(readFileSync(path.join(predecessor, 'events.jsonl'), 'utf8'), bytes);
+  const retried = await startReview(input, fixtureStartupDeps);
+  assert.equal(retried.paths.workspace, started.paths.workspace);
+  await assert.rejects(
+    startReview({ ...input, preservedPredecessor: undefined }, fixtureStartupDeps),
+    (error) => error.code === 'APR_OUTPUT_COLLISION'
+  );
+});

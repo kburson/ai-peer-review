@@ -12,6 +12,10 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
+import {
+  assertCollateralCompatible,
+  readRuntimeCompatibility,
+} from '../protocol/compatibility.mjs';
 import { AprError } from '../errors.mjs';
 import { atomicWrite } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';
@@ -223,6 +227,12 @@ function parseFrontmatter(bytes) {
       );
     }
   }
+  if (typeof metadata.schema === 'string')
+    assertCollateralCompatible({
+      manifest: readRuntimeCompatibility(),
+      operation: 'read',
+      metadata: [{ contract: 'response', schema: metadata.schema }],
+    });
   const keys = Object.keys(metadata);
   if (
     keys.length !== METADATA_KEYS.length ||

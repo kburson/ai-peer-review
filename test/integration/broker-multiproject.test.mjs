@@ -1,3 +1,5 @@
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -206,7 +208,11 @@ test('linked worktrees keep separate broker identity and startup uses literal ar
   assert.equal(client.project_digest, project.digest);
   assert.equal(attempts, 3);
   assert.equal(spawns.length, 1);
-  assert.equal(spawns[0].executable, runtimeImage.nodeExecutable);
+  assert.equal(spawns[0].executable, realpathSync(process.execPath));
+  assert.equal(
+    spawns[0].args[0],
+    fileURLToPath(new URL('../../bin/peer-review-broker.mjs', import.meta.url))
+  );
   assert.equal(spawns[0].args.length, 2);
   assert.equal(spawns[0].options.shell, false);
   assert.notEqual(

@@ -53,12 +53,13 @@ Do not copy a child agent's session ID into a parent shell, loosen sandbox
 isolation, relocate the broker socket, or replay an uncertain reviewer launch.
 Read `peer-review broker status --json` before the exact reported recovery
 action; status alone never starts the broker.
-Offline status lists verified pinned-runtime candidates in advisory order and
-retains unverifiable records. `peer-review broker reconcile <workspace>` starts
-the selected pinned image and authenticates its broker; a different image may
-inspect an older review only in recovery mode. Preserve the old review and
-its provider evidence if a candidate fails, then check broker ownership before
-trying another candidate.
+Offline status lists independently verified historical runtime evidence and
+retains unverifiable records. `peer-review broker reconcile <workspace>` uses
+the current selected global installation. Retained images cannot supply
+executable code. Supported collateral still requires sealed identity, protocol,
+provider and ownership checks. Unknown formats remain read-only; status never
+infers terminal state or a decision from unreadable journals. Preserve the review
+and provider settlement evidence when compatibility or safe cleanup is unavailable.
 
 For an unjoined review, `peer-review abandon <workspace> --reason <text>`
 requires a durable fence and complete evidence that no broker, wake, or manual
@@ -66,6 +67,8 @@ Claude launch reached the provider. An absent reviewer join, a hook denial,
 missing legacy launch history, or a generic provider failure is insufficient.
 An independent fresh XPR can use a distinct `--reviews-root` or
 `--review-path-template`; verify its new review ID, invitation, and outputs.
+For an incompatible predecessor, include `--preserved-predecessor <absolute-workspace>`
+to seal its reference in the independent review without modifying the predecessor.
 Changing only `--record-id` does not guarantee a new review ID, and the old
 uncertain attempt remains unresolved. `peer-review supersede` needs exact
 lineage authority and cannot replace abandonment when a lineage receipt is

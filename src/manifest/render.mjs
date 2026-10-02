@@ -1,3 +1,7 @@
+import {
+  assertCollateralCompatible,
+  readRuntimeCompatibility,
+} from '../protocol/compatibility.mjs';
 import { createHash } from 'node:crypto';
 
 import { AprError } from '../errors.mjs';
@@ -218,6 +222,12 @@ function supplementHistory(protocol, events) {
 }
 
 function assertManifestTruth(model, { closed = false } = {}) {
+  if (typeof model?.schema === 'string')
+    assertCollateralCompatible({
+      manifest: readRuntimeCompatibility(),
+      operation: 'read',
+      metadata: [{ contract: 'manifest', schema: model.schema }],
+    });
   if (closed) {
     const keys = [
       'schema',
@@ -456,6 +466,12 @@ export function buildPhaseManifest(review) {
 }
 
 export function sealPhaseManifest(model, { path: relative } = {}) {
+  if (typeof model?.schema === 'string')
+    assertCollateralCompatible({
+      manifest: readRuntimeCompatibility(),
+      operation: 'write',
+      metadata: [{ contract: 'phaseManifest', schema: model.schema }],
+    });
   if (
     model?.schema !== 'ai-peer-review.phase-manifest/v1' ||
     model.phase_status !== 'accepted' ||

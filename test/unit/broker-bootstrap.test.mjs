@@ -124,11 +124,15 @@ test('Windows bootstrap creation uses the native exclusive owner-only writer', a
           'bootstrap must be created through native ACL enforcement before launch'
         );
         assert.equal(path.basename(args[1]), created.name);
-        assert.deepEqual(created.record, fx.record);
+        assert.equal(created.record.schema, 'ai-peer-review.broker-bootstrap/v2');
         return { ready: Promise.resolve(), unref() {} };
       },
     },
   });
   assert.ok(created);
+  assert.equal(created.record.schema, 'ai-peer-review.broker-bootstrap/v2');
+  assert.deepEqual(created.record.project, fx.record.project);
+  assert.deepEqual(created.record.runtimeImage, fx.record.runtimeImage);
+  assert.equal(created.record.execution.node_executable, realpathSync(process.execPath));
   assert.equal(readFileSync(fx.file, 'utf8'), JSON.stringify(fx.record));
 });

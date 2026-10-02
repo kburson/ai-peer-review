@@ -35,7 +35,7 @@ export function buildClaudeLaunchEnvironment(parentEnvironment = process.env) {
   return environment;
 }
 
-function pinnedPackagePrefix(repositoryRoot, image, verifyImage) {
+function currentPackagePrefixAfterImageInspection(repositoryRoot, image, verifyImage) {
   const directory = path.join(repositoryRoot, '.scratch', 'peer-review', 'runtimes');
   const valid =
     typeof image?.root === 'string' &&
@@ -49,15 +49,16 @@ function pinnedPackagePrefix(repositoryRoot, image, verifyImage) {
       'APR_BROKER_RUNTIME_MISSING',
       'The sealed reviewer runtime is unavailable.',
       {
-        recovery: 'Preserve the review and restore its exact verified pinned runtime image.',
+        recovery:
+          'Preserve the review and its verified runtime-image evidence; run only the current selected installation.',
       }
     );
-  return [image.nodeExecutable, image.entrypoint];
+  return [realpathSync(process.execPath), PACKAGE_BIN];
 }
 
-function packageCommand(verb, target, pinnedPrefix = null) {
-  return pinnedPrefix
-    ? [...pinnedPrefix, verb, target]
+function packageCommand(verb, target, currentPrefix = null) {
+  return currentPrefix
+    ? [...currentPrefix, verb, target]
     : [process.execPath, PACKAGE_BIN, verb, target];
 }
 
@@ -483,11 +484,11 @@ export function buildClaudeReviewerLaunch({
   const selectedModel = safeIdentifier(model, 'model');
   const selectedEffort = safeIdentifier(effort, 'effort');
   const rule = encodeClaudeEditRule(response.absolute);
-  const pinnedPrefix = runtimeImage
-    ? pinnedPackagePrefix(physicalRoot, runtimeImage, verifyImage)
+  const currentPrefix = runtimeImage
+    ? currentPackagePrefixAfterImageInspection(physicalRoot, runtimeImage, verifyImage)
     : null;
-  const join = packageCommand('join', resolvedInvitation.absolute, pinnedPrefix);
-  const submit = packageCommand('submit', workspace.absolute, pinnedPrefix);
+  const join = packageCommand('join', resolvedInvitation.absolute, currentPrefix);
+  const submit = packageCommand('submit', workspace.absolute, currentPrefix);
   const joinCommand = renderClaudeBashCommand(join);
   const submitCommand = renderClaudeBashCommand(submit);
   const joinRule = encodeClaudeBashRule(join);

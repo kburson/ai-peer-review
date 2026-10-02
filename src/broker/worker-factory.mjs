@@ -210,9 +210,9 @@ export async function createProductionReviewWorker({
       clock,
       inspectStatus,
     });
-  // A newer broker may inspect an older registered review, but it must never
-  // execute that review under a different pinned runtime image.
-  if (registration.runtime.digest !== runtimeImage.digest) return makeRecoveryWorker();
+  // Historical image equality is provenance, not executable selection.
+  // The supported authority parser and exact journal/registration checks above
+  // remain mandatory before current adapters may continue the review.
   if (
     runtime.transport_mode !== 'automatic-required' ||
     evidence.recovery?.fenced ||

@@ -154,10 +154,9 @@ if (initial) {
   const { renderCommand } = await import(
     pathToFileURL(path.join(installed, 'src/cli/help-data.mjs'))
   );
-  const image = JSON.parse(process.env.APR_FIXTURE_IMAGE);
-  const pinned = [image.nodeExecutable, path.join(image.root, 'package/bin/peer-review.mjs')];
-  const runPinned = (argv) =>
-    execFileSync(pinned[0], [pinned[1], ...argv], {
+  const current = [process.execPath, path.join(installed, 'bin/peer-review.mjs')];
+  const runCurrent = (argv) =>
+    execFileSync(current[0], [current[1], ...argv], {
       cwd: root,
       env,
       encoding: 'utf8',
@@ -182,7 +181,7 @@ if (initial) {
     assert.equal(
       joinCommand,
       renderCommand(
-        [...pinned, 'join', invitation].map((part) => part.replaceAll('\\', '/')),
+        [...current, 'join', invitation].map((part) => part.replaceAll('\\', '/')),
         { platform: 'linux' }
       )
     );
@@ -204,13 +203,13 @@ if (initial) {
       }
     }
     assert.ok(observed, 'real broker must record the join stream promptly');
-    runPinned(['join', invitation]);
+    runCurrent(['join', invitation]);
     result('join-call');
   }
   const allow = args.slice(args.indexOf('--allowedTools') + 1);
   const commandFor = (argv) =>
     renderCommand(
-      [...pinned, ...argv].map((part) => part.replaceAll('\\', '/')),
+      [...current, ...argv].map((part) => part.replaceAll('\\', '/')),
       { platform: 'linux' }
     );
   // This models exact grants, not Claude's real permission engine. Execute the
@@ -242,7 +241,7 @@ if (initial) {
         encoding: 'utf8',
         timeout: 30_000,
       });
-    else runPinned(argv);
+    else runCurrent(argv);
     result(id);
   };
   if (resume) {

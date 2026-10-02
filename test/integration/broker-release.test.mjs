@@ -1,4 +1,5 @@
 // cspell:words nodedir DACL pwsh LiteralPath AccessRuleProtection
+import { sealInstalledRuntimeFixture } from '../helpers/installed-runtime-inventory.mjs';
 import assert from 'node:assert/strict';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import {
@@ -124,7 +125,7 @@ function projectFixture(scratch) {
   return { root: projectRoot, cleanup() {} };
 }
 
-test('installed release preserves legacy recovery, isolated brokers and pinned runtime closure', async (t) => {
+test('installed release preserves legacy evidence, current broker execution and runtime closure', async (t) => {
   if (!process.env.APR_RELEASE_TEST_ROOT) {
     mkdirSync(path.join(root, '.scratch/test'), { recursive: true });
     const scratch = realpathSync(mkdtempSync(path.join(root, '.scratch/test/apr-release-')));
@@ -133,7 +134,17 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     );
     // A process cannot delete its own loaded native addon on Windows. Keep
     // installation and all native imports in a child that exits before cleanup.
-    const env = { ...process.env, APR_RELEASE_TEST_ROOT: scratch };
+    const accountHome = path.join(scratch, 'account-home');
+    mkdirSync(accountHome, { mode: 0o700 });
+    const accountPreload = pathToFileURL(
+      path.join(root, 'test/helpers/installed-provider/preload.mjs')
+    ).href;
+    const env = {
+      ...process.env,
+      APR_RELEASE_TEST_ROOT: scratch,
+      APR_FIXTURE_ACCOUNT_HOME: accountHome,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${accountPreload}`,
+    };
     delete env.NODE_TEST_CONTEXT;
     try {
       const result = await promisify(execFile)(
@@ -306,6 +317,17 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
   } finally {
     idleEndpoint.close();
   }
+  sealInstalledRuntimeFixture(installed);
+  execFileSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      'const {registerRuntimeSelection}=await import(process.argv[1]); await registerRuntimeSelection();',
+      pathToFileURL(path.join(installed, 'src/config/runtime-selection.mjs')).href,
+    ],
+    { env: process.env, stdio: 'pipe' }
+  );
   const image = pinRuntimeImage({
     packageRoot: installed,
     nodeExecutable: realpathSync(process.execPath),
@@ -317,7 +339,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     broker_protocol_version: 1,
     node_major: Number(process.versions.node.split('.')[0]),
   };
-  const fixtureHome = path.join(scratch, 'provider-home');
+  const fixtureHome = process.env.APR_FIXTURE_ACCOUNT_HOME;
   mkdirSync(path.join(fixtureHome, 'Library/Caches'), { recursive: true });
   mkdirSync(path.join(fixtureHome, '.cache'), { recursive: true });
   const preload = pathToFileURL(
@@ -345,6 +367,7 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
         }
       : {}),
     APR_FIXTURE_PACKAGE: installed,
+    APR_FIXTURE_ACCOUNT_HOME: fixtureHome,
     APR_FIXTURE_IMAGE: JSON.stringify({
       root: image.root,
       nodeExecutable: image.nodeExecutable,
@@ -573,4 +596,13 @@ test('installed release preserves legacy recovery, isolated brokers and pinned r
     currentPackageVersion
   );
   stillLive.connection?.close();
+  const fencedStop = await connectBroker(
+    { identity: live[1].project, paths: live[1].paths, versions },
+    platform
+  );
+  await assert.rejects(clientApi.requestBroker(fencedStop, 'stop'), {
+    code: 'APR_BROKER_STOP_REFUSED',
+  });
+  fencedStop.connection?.close();
+  renameSync(path.join(host, 'replaced-node_modules'), path.join(host, 'node_modules'));
 });

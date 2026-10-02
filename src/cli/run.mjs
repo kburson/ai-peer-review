@@ -946,6 +946,43 @@ export async function startReview(input, deps = {}) {
       'Use one exact transport mode for the sealed runtime descriptor and startup request.'
     );
   }
+  let preservedPredecessor;
+  if (input.preservedPredecessor !== undefined) {
+    const requested = input.preservedPredecessor;
+    if (typeof requested !== 'string' || requested.length > 4096 || !path.isAbsolute(requested))
+      fail(
+        'APR_USAGE',
+        'A preserved predecessor requires an absolute review directory.',
+        'Choose the exact preserved review path.'
+      );
+    try {
+      if (lstatSync(requested).isSymbolicLink()) throw new Error('linked predecessor');
+      const canonical = realpathSync(requested);
+      const relative = path.relative(root, canonical);
+      if (
+        !relative ||
+        relative === '..' ||
+        relative.startsWith('..' + path.sep) ||
+        path.isAbsolute(relative)
+      )
+        throw new Error('outside repository');
+      let component = root;
+      for (const part of relative.split(path.sep)) {
+        component = path.join(component, part);
+        const stat = lstatSync(component);
+        if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('unsafe predecessor');
+      }
+      const eventStat = lstatSync(path.join(requested, 'events.jsonl'));
+      if (!eventStat.isFile() || eventStat.isSymbolicLink()) throw new Error('missing journal');
+      preservedPredecessor = realpathSync(requested);
+    } catch {
+      fail(
+        'APR_USAGE',
+        'Preserved predecessor must be an ordinary review directory in this repository.',
+        'Preserve its journal and choose the canonical review path.'
+      );
+    }
+  }
   const requestedAuthority = configuredAuthority(root, input.authority, loaded);
   const startupAssurance = input.testHumanAuthority
     ? 'unverified-test'
@@ -968,6 +1005,7 @@ export async function startReview(input, deps = {}) {
       transport_mode: transport.mode,
       ...(runtime ? { runtime } : {}),
       ...(phaseKinds ? { phases: phaseKinds } : {}),
+      ...(preservedPredecessor ? { preserved_predecessor: preservedPredecessor } : {}),
     });
   const recordId = input.recordId ?? reviewId;
   const date = now.slice(0, 10);
@@ -991,8 +1029,10 @@ export async function startReview(input, deps = {}) {
       { path: paths.scratch.relative }
     );
   }
+  if (preservedPredecessor === paths.scratch.absolute) collision(preservedPredecessor);
   const requestedContext = {
-    schema: 'ai-peer-review.context/v1',
+    schema: preservedPredecessor ? 'ai-peer-review.context/v2' : 'ai-peer-review.context/v1',
+    ...(preservedPredecessor ? { preserved_predecessor: preservedPredecessor } : {}),
     review_id: reviewId,
     record_id: recordId,
     repository_root: root,
@@ -1077,6 +1117,8 @@ export async function startReview(input, deps = {}) {
       context.reviews_root === requestedContext.reviews_root &&
       context.review_path_template === requestedContext.review_path_template &&
       context.issue === requestedContext.issue &&
+      context.schema === requestedContext.schema &&
+      context.preserved_predecessor === requestedContext.preserved_predecessor &&
       sealed.context_digest === sha256(contextBytes) &&
       sealed.destination === paths.destination.relative &&
       (sealed.author_startup_digest === sha256(authorStartupBytes) ||

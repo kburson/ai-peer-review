@@ -20,6 +20,9 @@ import { AprError } from '../errors.mjs';
 import { startupEvidence } from '../broker/registry.mjs';
 import {
   assertReaderWriterCompatibility,
+  assertCollateralCompatible,
+  readRuntimeCompatibility,
+  inspectUnsupportedReview,
   compatibilityDeclared,
   currentCompatibility,
   EVENT_V2_SCHEMA,
@@ -166,8 +169,28 @@ function readAuthority(workspace) {
     );
   }
   try {
+    assertCollateralCompatible({
+      manifest: readRuntimeCompatibility(),
+      operation: 'read',
+      metadata: events.flatMap((event) => [
+        { contract: 'event', schema: event?.schema },
+        ...(event?.payload?.startup?.context
+          ? [{ contract: 'context', schema: event.payload.startup.context.schema }]
+          : []),
+        ...(event?.payload?.startup?.runtime
+          ? [{ contract: 'runtime', schema: event.payload.startup.runtime.schema }]
+          : []),
+      ]),
+    });
     return { events, state: reduceEvents(events), file, bytes };
   } catch (cause) {
+    if (cause?.code === 'APR_REVIEW_RUNTIME_UNSUPPORTED') {
+      const diagnostic = inspectUnsupportedReview({ workspace });
+      throw new AprError(cause.code, cause.message, {
+        recovery: cause.recovery,
+        details: { ...cause.details, workspace: diagnostic.workspace, schemas: diagnostic.schemas },
+      });
+    }
     if (cause instanceof AprError) throw cause;
     throw authorityError(
       'APR_EVENT_LOG_CORRUPT',
