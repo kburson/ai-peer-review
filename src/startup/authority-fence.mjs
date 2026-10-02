@@ -201,6 +201,22 @@ export async function assertOperationAuthority({
     fences.set(fence, { kind });
     return fence;
   }
+  const parentSeal = parent ? fences.get(parent) : null;
+  if (parentSeal && parentSeal.kind !== 'read' && cwd === parentSeal.cwd) {
+    const seal = { ...parentSeal, kind, reviewWorkspace, reviewContext };
+    if (
+      reviewContext &&
+      realpathSync(reviewContext.repository_root) !== seal.primary.activeWorktreeRoot
+    )
+      refuse('Review context belongs to a different physical worktree.');
+    assertReviewAuthority(seal);
+    // Parent revalidation above completed both asynchronous runtime admission
+    // and the final synchronous physical observation. No promise boundary lies
+    // between that observation and this child seal. Effects and post-operation
+    // validation still make their own fresh observations.
+    fences.set(fence, seal);
+    return fence;
+  }
   const runtime = await assertSelectedRuntime();
   const selectionPath = await verifiedAccountSelectionPath();
   const selection = selectionBytes(selectionPath);

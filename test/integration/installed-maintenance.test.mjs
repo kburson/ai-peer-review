@@ -270,3 +270,47 @@ test('installed authority fixture isolates inherited account preference director
     'fixture must preserve inherited account preference directories'
   );
 });
+
+test('nested installed admission avoids repeated identical Git observations', (t) => {
+  const f = actualInstalledAuthority(t);
+  const result = f.execute(
+    'import cp from "node:child_process";import {syncBuiltinESMExports} from "node:module";' +
+      'const original=cp.execFileSync;let observations=0;cp.execFileSync=(file,args,...rest)=>{' +
+      'if(file==="git"&&args[0]==="ls-tree")observations++;return original(file,args,...rest);};syncBuiltinESMExports();' +
+      'const {withOperationAuthority}=await import(' +
+      f.module('src/startup/authority-fence.mjs') +
+      ');' +
+      'await withOperationAuthority({operation:"start",cwd:process.cwd()},async()=>{' +
+      'const before=observations;await withOperationAuthority({operation:"broker.register",cwd:process.cwd()},()=>{' +
+      'console.log(JSON.stringify({observations:observations-before}));});});'
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    JSON.parse(result.stdout).observations,
+    1,
+    'nested admission must reuse its freshly validated parent physical observation'
+  );
+});
+
+test('nested same-location admission still refuses policy drift before an effect', (t) => {
+  const f = actualInstalledAuthority(t);
+  const journal = path.join(f.root, '.scratch/peer-review/refused-effect');
+  const result = f.execute(
+    'import {writeFileSync,readFileSync} from "node:fs";' +
+      'import {withOperationAuthority,performCurrentOperationEffect} from ' +
+      f.module('src/startup/authority-fence.mjs') +
+      ';let code=null;try{await withOperationAuthority({operation:"start",cwd:process.cwd()},()=>' +
+      'withOperationAuthority({operation:"broker.register",cwd:process.cwd()},async()=>{' +
+      'await Promise.resolve();const policy=' +
+      JSON.stringify(path.join(f.root, '.ai-peer-review/config.json')) +
+      ';' +
+      'writeFileSync(policy,readFileSync(policy,"utf8")+" ");' +
+      'performCurrentOperationEffect(()=>writeFileSync(' +
+      JSON.stringify(journal) +
+      ',"unauthorized"));' +
+      '}));}catch(error){code=error.code;}console.log(JSON.stringify({code}));'
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
+  assert.equal(existsSync(journal), false);
+});
