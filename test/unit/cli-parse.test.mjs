@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { AprError } from '../../src/errors.mjs';
 import { COMMANDS, COMMAND_FLAGS, POSITIONAL_GRAMMAR, parseCommand } from '../../src/cli/parse.mjs';
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 
 const EXPECTED_COMMANDS = [
   'primary',

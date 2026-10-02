@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { requestBroker } from '../../src/broker/client.mjs';
+import { requestBroker } from '../helpers/broker-client-api.mjs';
 import {
   connectBroker,
   createFrameDecoder,

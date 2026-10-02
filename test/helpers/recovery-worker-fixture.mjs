@@ -2,9 +2,9 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { createProductionReviewWorker } from '../../src/broker/worker-factory.mjs';
+import { createProductionReviewWorker } from './broker-worker-api.mjs';
 
-export function recoveryWorkerFixture(t) {
+export function recoveryWorkerFixture(t, { workerFactory = createProductionReviewWorker } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'apr-recovery-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   let observedState = 'awaiting-reviewer';
@@ -36,7 +36,7 @@ export function recoveryWorkerFixture(t) {
       observedState = state;
     },
     makeWorker: (clock) =>
-      createProductionReviewWorker({
+      workerFactory({
         registration,
         project: { physicalRoot: root, digest: registration.project_digest },
         runtimeImage: registration.runtime,

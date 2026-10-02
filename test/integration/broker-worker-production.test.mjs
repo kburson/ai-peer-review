@@ -4,8 +4,8 @@ import test from 'node:test';
 
 import { createProviderBridge } from '../../src/broker/provider-bridge.mjs';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
-import { createProductionReviewWorker } from '../../src/broker/worker-factory.mjs';
-import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { createProductionReviewWorker } from '../helpers/broker-worker-api.mjs';
+import { canonicalProjection } from '../helpers/protocol-api.mjs';
 import { recoveryWorkerFixture } from '../helpers/recovery-worker-fixture.mjs';
 
 const AUTHOR = `sha256:${'a'.repeat(64)}`;

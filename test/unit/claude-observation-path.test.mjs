@@ -14,7 +14,7 @@ import test from 'node:test';
 import {
   createClaudeStreamRecorder,
   readClaudeStreamObservation,
-} from '../../src/providers/claude-stream.mjs';
+} from '../helpers/claude-stream-api.mjs';
 
 function fixture(t) {
   mkdirSync('.scratch/test', { recursive: true });

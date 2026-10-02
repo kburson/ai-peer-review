@@ -13,13 +13,14 @@ import {
 import { randomUUID } from 'node:crypto';
 import { AprError } from '../errors.mjs';
 import { platformSecurity } from '../broker/platform.mjs';
-function refuse(message) {
+function refuse(message, details = {}) {
   throw new AprError('APR_PRIMARY_AUTHORITY_UNAVAILABLE', message, {
+    details,
     recovery:
       'Wait for the owning operation to finish. Inspect an orphaned admission fence before explicit recovery; never remove a live fence.',
   });
 }
-export async function withPrimaryAdmissionFence({ commonDir, dryRun = false }, operation) {
+function acquirePrimaryAdmissionFence({ commonDir, dryRun = false }) {
   if (realpathSync(commonDir) !== commonDir) refuse('Clone admission directory is not canonical.');
   const directory = path.join(commonDir, 'ai-peer-review'),
     lock = path.join(directory, 'admission.lock');
@@ -30,7 +31,7 @@ export async function withPrimaryAdmissionFence({ commonDir, dryRun = false }, o
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
     }
-    return operation();
+    return () => {};
   }
   mkdirSync(directory, { mode: 0o700, recursive: true });
   const parent = lstatSync(directory);
@@ -43,7 +44,16 @@ export async function withPrimaryAdmissionFence({ commonDir, dryRun = false }, o
   try {
     mkdirSync(lock, { mode: 0o700 });
   } catch (error) {
-    if (error.code === 'EEXIST') refuse('Clone admission fence is already held.');
+    if (error.code === 'EEXIST') {
+      let owner;
+      try {
+        owner = JSON.parse(readFileSync(path.join(lock, 'owner.json'), 'utf8'));
+      } catch {}
+      refuse('Clone admission fence is already held.', {
+        reason: 'clone-admission-held',
+        owner_pid: Number.isSafeInteger(owner?.pid) && owner.pid > 0 ? owner.pid : null,
+      });
+    }
     throw error;
   }
   const identity = lstatSync(lock),
@@ -54,14 +64,14 @@ export async function withPrimaryAdmissionFence({ commonDir, dryRun = false }, o
         pid: process.pid,
       }) + '\n';
   let handle;
-  try {
-    if (process.platform === 'win32') {
-      handle = platformSecurity().openPrivateDirectory(lock);
-      if (!handle.verify()) refuse('Windows admission ownership cannot be proven.');
-      handle.create('owner.json', bytes);
-    } else writeFileSync(path.join(lock, 'owner.json'), bytes, { flag: 'wx', mode: 0o600 });
-    return await operation();
-  } finally {
+
+  if (process.platform === 'win32') {
+    handle = platformSecurity().openPrivateDirectory(lock);
+    if (!handle.verify()) refuse('Windows admission ownership cannot be proven.');
+    handle.create('owner.json', bytes);
+  } else writeFileSync(path.join(lock, 'owner.json'), bytes, { flag: 'wx', mode: 0o600 });
+
+  return () => {
     const observed = lstatSync(lock);
     if (observed.dev !== identity.dev || observed.ino !== identity.ino || observed.isSymbolicLink())
       refuse('Clone admission fence changed during the operation.');
@@ -82,5 +92,43 @@ export async function withPrimaryAdmissionFence({ commonDir, dryRun = false }, o
       }
     }
     rmdirSync(lock);
+  };
+}
+export async function withPrimaryAdmissionFence(options, operation) {
+  const release = acquirePrimaryAdmissionFence(options);
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
+}
+export function withPrimaryAdmissionFenceSync(options, operation) {
+  const deadline = performance.now() + 5000;
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  let release;
+  for (;;) {
+    try {
+      release = acquirePrimaryAdmissionFence(options);
+      break;
+    } catch (error) {
+      if (
+        error?.details?.reason !== 'clone-admission-held' ||
+        !Number.isSafeInteger(error.details.owner_pid) ||
+        error.details.owner_pid === process.pid ||
+        performance.now() >= deadline
+      )
+        throw error;
+      // No clone lock is owned while waiting. Effects revalidate authority
+      // inside the newly acquired fence, before invoking their callback.
+      Atomics.wait(pause, 0, 0, Math.min(10, deadline - performance.now()));
+    }
+  }
+  try {
+    const result = operation();
+    if (result && typeof result.then === 'function')
+      refuse('A bounded synchronous effect cannot retain clone authority across a wait.');
+    return result;
+  } finally {
+    release();
   }
 }

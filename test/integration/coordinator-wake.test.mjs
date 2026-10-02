@@ -7,17 +7,17 @@ import test from 'node:test';
 
 import { createRepositoryFixture } from '../helpers/repository-fixture.mjs';
 
-import { canonicalProjection } from '../../src/protocol/service.mjs';
-import { run } from '../../src/cli/run.mjs';
+import { canonicalProjection } from '../helpers/protocol-api.mjs';
+import { run } from '../helpers/operations-api.mjs';
 import { AprError } from '../../src/errors.mjs';
 import { decideWake } from '../../src/coordinator/decision.mjs';
-import { requestCoordinatorStop } from '../../src/coordinator/lease.mjs';
-import { reserveWakeOperation } from '../../src/coordinator/ledger.mjs';
+import { requestCoordinatorStop } from '../helpers/coordinator-lease-api.mjs';
+import { reserveWakeOperation } from '../helpers/coordinator-ledger-api.mjs';
 import {
   coordinatorStatus,
   reconcileWake,
   runCoordinator,
-} from '../../src/coordinator/service.mjs';
+} from '../helpers/coordinator-service-api.mjs';
 
 const NOW = Date.parse('2026-09-13T12:00:00.000Z');
 const REVIEWER = `sha256:${'b'.repeat(64)}`;

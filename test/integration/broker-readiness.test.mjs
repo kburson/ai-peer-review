@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { ensureBroker, requestBroker } from '../../src/broker/client.mjs';
+import { ensureBroker, requestBroker } from '../helpers/broker-client-api.mjs';
 import { connectBroker } from '../../src/broker/ipc.mjs';
 
 const nativeAvailable = existsSync(
@@ -17,11 +17,19 @@ for (const scenario of [
     name: 'does not expose a handshake while slow recovery holds ownership',
     recoveryMs: 6_000,
     commandMs: 0,
+    prepareMs: 0,
   },
   {
     name: 'allows slow authenticated command replies after a prompt handshake',
     recoveryMs: 0,
     commandMs: 6_000,
+    prepareMs: 0,
+  },
+  {
+    name: 'authenticates a fresh command connection after slow client preparation',
+    recoveryMs: 0,
+    commandMs: 0,
+    prepareMs: 6_000,
   },
 ])
   test(
@@ -113,6 +121,8 @@ for (const scenario of [
         throw error;
       });
       assert.equal(launches, 1);
+      if (scenario.prepareMs)
+        await new Promise((resolve) => setTimeout(resolve, scenario.prepareMs));
       assert.equal((await requestBroker(client, 'status')).status, 'running');
       assert.equal((await requestBroker(client, 'stop')).status, 'stopping');
       child.ref();

@@ -12,7 +12,13 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { joinReview, resumeReview, run, startReview, statusReview } from '../../src/cli/run.mjs';
+import {
+  joinReview,
+  resumeReview,
+  run,
+  startReview,
+  statusReview,
+} from '../helpers/operations-api.mjs';
 import { renderCommand } from '../../src/cli/help-data.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { statusReview as publicStatusReview } from '../../src/public-api.mjs';

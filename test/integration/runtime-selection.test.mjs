@@ -1,7 +1,7 @@
 // @story #133
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 
 test('registration dry run validates the executing installation before account writes', async () => {
   let output = '';

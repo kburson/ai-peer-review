@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
 import { inspectRecordLineage } from '../../src/protocol/record-lineage.mjs';
-import { inspectReview } from '../../src/protocol/service.mjs';
+import { inspectReview } from '../helpers/protocol-api.mjs';
 import { appendEvent } from '../../src/protocol/store.mjs';
 import { fixture, identity, NOW } from '../helpers/intervention-fixture.mjs';
 

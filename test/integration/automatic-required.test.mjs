@@ -10,10 +10,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { joinReview, startReview } from '../../src/cli/run.mjs';
+import { joinReview, startReview } from '../helpers/operations-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
-import { inspectReview } from '../../src/protocol/service.mjs';
-import { createNativePushTransport } from '../../src/transport/native-push.mjs';
+import { inspectReview } from '../helpers/protocol-api.mjs';
+import { createNativePushTransport } from '../helpers/native-push-api.mjs';
 import {
   negotiateAutomaticRequired,
   validateAutomaticParticipant,

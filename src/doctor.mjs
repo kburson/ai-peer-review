@@ -21,6 +21,7 @@ export function doctor(context = {}) {
         (requestedMode === 'automatic-required' &&
           context.transport.mode === 'automatic-required')));
   const phaseOne = [
+    ...(context.authorityRows ?? []),
     ...(context.runtimeSelection
       ? [
           row(

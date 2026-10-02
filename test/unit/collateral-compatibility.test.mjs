@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { acquireBrokerOwnership } from '../../src/broker/ownership.mjs';
-import { runBroker } from '../../src/broker/service.mjs';
+import { runBroker } from '../helpers/broker-service-api.mjs';
 import { verifyRuntimeInventorySync } from '../../src/startup/runtime-inventory.mjs';
 import { runtimeFixture } from '../helpers/runtime-selection-fixture.mjs';
 import * as compatibility from '../../src/protocol/compatibility.mjs';

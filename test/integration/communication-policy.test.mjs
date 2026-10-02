@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { joinReview, resumeReview, startReview } from '../../src/cli/run.mjs';
+import { joinReview, resumeReview, startReview } from '../helpers/operations-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { executeRecoveryWorkspaceCommand } from '../helpers/command-roundtrip.mjs';
 

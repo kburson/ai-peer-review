@@ -475,7 +475,7 @@ test('verified owned suspension permits activation without rewriting review evid
     f.setupApply(),
     (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE'
   );
-  const { fenceManualRecovery } = await import('../../src/broker/client.mjs');
+  const { fenceManualRecovery } = await import('../helpers/broker-client-api.mjs');
   await fenceManualRecovery(started.paths.workspace, {
     connect: async () => ({ request: async () => ({ status: 'recovery-only' }) }),
   });

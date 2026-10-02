@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ensureBroker } from '../../src/broker/client.mjs';
-import { runBroker } from '../../src/broker/service.mjs';
+import { ensureBroker } from '../helpers/broker-client-api.mjs';
+import { runBroker } from '../helpers/broker-service-api.mjs';
 
 function clock() {
   const pending = [];

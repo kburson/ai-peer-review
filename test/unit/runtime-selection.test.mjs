@@ -18,7 +18,14 @@ test('runtime registration refuses caller-selected account and package roots', (
   }
 });
 
-import { chmodSync, readFileSync, writeFileSync, symlinkSync, mkdirSync } from 'node:fs';
+import {
+  chmodSync,
+  readFileSync,
+  writeFileSync,
+  symlinkSync,
+  mkdirSync,
+  renameSync,
+} from 'node:fs';
 import path from 'node:path';
 import { runtimeFixture } from '../helpers/runtime-selection-fixture.mjs';
 
@@ -400,3 +407,19 @@ for (const [name, lookup, dryRun] of [
     await assert.rejects(store.register({ dryRun }), { code: 'APR_RUNTIME_CHANGED' });
   });
 }
+
+// @story #136
+test('removing the loaded selected installation refuses with a runtime diagnostic', async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
+  await store.register({ dryRun: false });
+  await store.assertSelected();
+  const moved = f.packageRoot + '-removed';
+  renameSync(f.packageRoot, moved);
+  try {
+    await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_CHANGED' });
+  } finally {
+    renameSync(moved, f.packageRoot);
+  }
+});

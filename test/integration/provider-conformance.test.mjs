@@ -26,14 +26,14 @@ import {
   collectClaudeStream,
   readClaudeStreamObservation,
   readClaudeSessionSnapshot,
-} from '../../src/providers/claude-stream.mjs';
-import { run, startReview } from '../../src/cli/run.mjs';
+} from '../helpers/claude-stream-api.mjs';
+import { run, startReview } from '../helpers/operations-api.mjs';
 import { fingerprintSession, participantIdentity } from '../../src/identity/registry.mjs';
 import { createClaudeAdapter } from '../../src/providers/claude.mjs';
 import { createCodexProviderSurface } from '../../src/providers/codex.mjs';
 import { readCodexSessionSnapshot } from '../../src/providers/codex-session.mjs';
-import { captureCodexStartHook, readCodexStartHook } from '../../src/providers/codex-hook.mjs';
-import { activateStartup, prepareStartup } from '../../src/startup/runtime.mjs';
+import { captureCodexStartHook, readCodexStartHook } from '../helpers/codex-hook-api.mjs';
+import { activateStartup, prepareStartup } from '../helpers/operations-api.mjs';
 import { fixtureStartupDeps } from '../helpers/internal-api.mjs';
 
 const NOW = '2026-09-21T00:00:00.000Z';
@@ -1153,7 +1153,8 @@ test('CLI doctor reports the current provider adapter observation', async (t) =>
     stderr: { write: () => {} },
   });
   const result = JSON.parse(stdout);
-  assert.equal(code, 0);
+  assert.equal(code, 1);
+  assert.equal(result.rows.find((row) => row.id === 'primary-registration').status, 'unavailable');
   assert.deepEqual(
     result.rows.find((entry) => entry.id === 'provider-adapter'),
     {

@@ -16,14 +16,14 @@ import assert from 'node:assert/strict';
 
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { createResponseDraft } from '../../src/collateral/responses.mjs';
-import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { canonicalProjection } from '../helpers/protocol-api.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
 import { run } from '../helpers/internal-api.mjs';
 import { claim, FINGERPRINTS, sequence } from '../helpers/review-fixture.mjs';
 
 async function recordModule() {
   try {
-    return await import('../../src/collateral/review-record.mjs');
+    return await import('../helpers/review-record-api.mjs');
   } catch (error) {
     if (error?.code === 'ERR_MODULE_NOT_FOUND') return {};
     throw error;

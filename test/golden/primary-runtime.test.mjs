@@ -12,7 +12,7 @@ test('primary maintenance grammar is explicit and cannot select a foreign primar
 test('source primary maintenance dispatch refuses runtime authority before writing', async (t) => {
   const { setupHostFixture } = await import('../helpers/setup-host-fixture.mjs');
   const f = await setupHostFixture(t);
-  const { run } = await import('../../src/cli/run.mjs');
+  const { run } = await import('../helpers/operations-api.mjs');
   const out = [],
     errors = [];
   const result = await run(['primary', 'register', '--dry-run', '--json'], {
@@ -24,4 +24,39 @@ test('source primary maintenance dispatch refuses runtime authority before writi
   assert.equal(result, 1);
   assert.match(errors.join(''), /APR_RUNTIME_/);
   assert.equal(out.length, 0);
+});
+
+// @story #136
+import { run as productionRun } from '../../src/cli/run.mjs';
+import { authorityInstalledFixture } from '../helpers/authority-installed-fixture.mjs';
+test('doctor outside Git retains independent unavailable authority rows', async () => {
+  let stdout = '',
+    stderr = '';
+  const result = await productionRun(['doctor', '--json', '--mode', 'installation'], {
+    cwd: '/',
+    env: {},
+    stdout: { write: (value) => (stdout += value) },
+    stderr: { write: (value) => (stderr += value) },
+  });
+  assert.equal(result, 1);
+  const response = JSON.parse(stdout);
+  assert.equal(response.schema, 'ai-peer-review.doctor/v1');
+  for (const id of [
+    'selected-global-runtime',
+    'primary-registration',
+    'primary-config',
+    'integration-contract',
+  ])
+    assert.ok(response.rows.some((row) => row.id === id));
+  assert.equal(stderr, '');
+});
+test('dirty primary doctor still reports the selected runtime and integration independently', async (t) => {
+  const f = await authorityInstalledFixture(t);
+  const result = f.execute(
+    'import {writeFileSync,readFileSync} from "node:fs";import path from "node:path";import {run} from ' +
+      f.module('src/cli/run.mjs') +
+      ';const config=path.join(process.cwd(),".ai-peer-review/config.json");writeFileSync(config,readFileSync(config,"utf8")+" ");let stdout="",stderr="";await run(["doctor","--json","--mode","installation"],{cwd:process.cwd(),env:{},stdout:{write:value=>stdout+=value},stderr:{write:value=>stderr+=value}});const response=JSON.parse(stdout);const rows=new Map(response.rows.map(row=>[row.id,row]));if(rows.get("selected-global-runtime")?.status!=="ok"||rows.get("primary-config")?.status!=="unavailable"||rows.get("integration-contract")?.status!=="ok")throw Error(stdout+stderr);console.log("independent");'
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), 'independent');
 });

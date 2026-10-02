@@ -418,7 +418,7 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
 
 // Authority discovery deliberately does not share the sealed transaction runner.
 // Caller Git overrides must never choose another clone or a substitute index.
-export function authorityGit(cwd, args, { buffer = false } = {}) {
+export function authorityGit(cwd, args, { buffer = false, input } = {}) {
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key))
   );
@@ -426,8 +426,9 @@ export function authorityGit(cwd, args, { buffer = false } = {}) {
     return nodeExecFileSync('git', args, {
       cwd,
       env,
+      input,
       encoding: buffer ? null : 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
       shell: false,
     });
   } catch (cause) {
@@ -443,11 +444,20 @@ export function authorityGit(cwd, args, { buffer = false } = {}) {
 
 export function discoverAuthorityRepository(cwd = process.cwd()) {
   const physicalCwd = realpathSync(cwd);
-  const root = outputPath(physicalCwd, authorityGit(physicalCwd, ['rev-parse', '--show-toplevel']));
+  const discovered = authorityGit(physicalCwd, [
+    'rev-parse',
+    '--path-format=absolute',
+    '--show-toplevel',
+    '--absolute-git-dir',
+    '--git-common-dir',
+  ])
+    .trim()
+    .split(/\r?\n/);
+  if (discovered.length !== 3 || discovered.some((value) => !path.isAbsolute(value)))
+    throw authorityMembershipError('Git returned incomplete physical membership paths.');
+  const [root, gitDir, commonDir] = discovered.map((value) => outputPath(physicalCwd, value));
   if (physicalCwd !== root && !physicalCwd.startsWith(root + path.sep))
     throw authorityMembershipError('Caller is outside the physical worktree.');
-  const gitDir = outputPath(root, authorityGit(root, ['rev-parse', '--absolute-git-dir']));
-  const commonDir = outputPath(root, authorityGit(root, ['rev-parse', '--git-common-dir']));
   const marker = path.join(root, '.git');
   const metadata = lstatSync(marker);
   if (metadata.isSymbolicLink())

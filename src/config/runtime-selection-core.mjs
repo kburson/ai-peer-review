@@ -295,9 +295,17 @@ export function createSelectionStore({
         'APR_RUNTIME_CHANGED',
         'Account selection changed after this invocation sealed its generation.'
       );
+    let currentRoot, currentNode, currentNodeIdentity;
+    try {
+      currentRoot = realpathSync(executingPackageRoot);
+      currentNode = realpathSync(executingNode);
+      currentNodeIdentity = identity(lstatSync(actualNode, { bigint: true }));
+    } catch {
+      refuse('APR_RUNTIME_CHANGED', 'The executing installation or Node is no longer available.');
+    }
     if (
-      realpathSync(executingPackageRoot) !== actualRoot ||
-      realpathSync(executingNode) !== actualNode ||
+      currentRoot !== actualRoot ||
+      currentNode !== actualNode ||
       selected.package_root !== actualRoot ||
       selected.node_executable !== actualNode
     )
@@ -307,7 +315,7 @@ export function createSelectionStore({
       );
     if (previousObservation && previousObservation.selection_id !== selected.selection_id)
       refuse('APR_RUNTIME_CHANGED', 'Account runtime selection changed after observation.');
-    if (identity(lstatSync(actualNode, { bigint: true })) !== nodeIdentity)
+    if (currentNodeIdentity !== nodeIdentity)
       refuse('APR_RUNTIME_CHANGED', 'Node changed after the process started.');
     const inventory = await verifyRuntimeInventory({
       packageRoot: actualRoot,

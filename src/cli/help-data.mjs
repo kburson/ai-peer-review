@@ -890,6 +890,12 @@ const ERROR_CATALOG = Object.freeze({
     recovery:
       'Use peer-review start --issue <N> with the tracked issue number; run peer-review help start for the complete command.',
   },
+  APR_OPERATION_AUTHORITY_UNAVAILABLE: {
+    message:
+      'The operation is unclassified or its current runtime, primary or review fence changed.',
+    recovery:
+      'Retry the named operation through the selected global runtime with current primary activation and integration.',
+  },
   APR_PRIMARY_AUTHORITY_UNAVAILABLE: {
     message: 'The physical clone primary or its activated committed policy is unavailable.',
     recovery:

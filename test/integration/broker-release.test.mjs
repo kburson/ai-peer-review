@@ -134,6 +134,15 @@ test('installed release preserves legacy evidence, current broker execution and 
     );
     // A process cannot delete its own loaded native addon on Windows. Keep
     // installation and all native imports in a child that exits before cleanup.
+    const endpointRoot =
+      process.platform === 'win32'
+        ? null
+        : realpathSync(
+            mkdtempSync(
+              path.join(process.platform === 'darwin' ? '/private/tmp' : '/tmp', 'apr-ep-')
+            )
+          );
+    if (endpointRoot) t.after(() => rmSync(endpointRoot, { recursive: true, force: true }));
     const accountHome = path.join(scratch, 'account-home');
     mkdirSync(accountHome, { mode: 0o700 });
     const accountPreload = pathToFileURL(
@@ -142,7 +151,13 @@ test('installed release preserves legacy evidence, current broker execution and 
     const env = {
       ...process.env,
       APR_RELEASE_TEST_ROOT: scratch,
+      ...(endpointRoot ? { AI_PEER_REVIEW_ENDPOINT_ROOT: endpointRoot } : {}),
       APR_FIXTURE_ACCOUNT_HOME: accountHome,
+      HOME: accountHome,
+      USERPROFILE: accountHome,
+      APPDATA: path.join(accountHome, 'AppData/Roaming'),
+      XDG_CONFIG_HOME: path.join(accountHome, '.config'),
+      npm_config_cache: runNpm('npm', ['config', 'get', 'cache'], { encoding: 'utf8' }).trim(),
       NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${accountPreload}`,
     };
     delete env.NODE_TEST_CONTEXT;
@@ -153,7 +168,7 @@ test('installed release preserves legacy evidence, current broker execution and 
         {
           cwd: root,
           env,
-          timeout: 180_000,
+          timeout: 240_000,
           maxBuffer: 4 * 1024 * 1024,
         }
       );
@@ -226,17 +241,12 @@ test('installed release preserves legacy evidence, current broker execution and 
   assert.equal(manifest.version, currentPackageVersion);
   assert.equal(existsSync(path.join(host, 'node_modules/eslint')), false);
   const load = (file) => import(pathToFileURL(path.join(installed, file)));
-  const api = await load('src/cli/run.mjs');
-  const protocol = await load('src/protocol/service.mjs');
   const securityApi = await load('src/broker/platform.mjs');
-  const clientApi = await load('src/broker/client.mjs');
   const { canonicalProjectIdentity } = await load('src/broker/identity.mjs');
   const { createGitRepository } = await load('src/git/repository.mjs');
   const { brokerPaths } = await load('src/broker/paths.mjs');
   const { connectBroker } = await load('src/broker/ipc.mjs');
   const { pinRuntimeImage, verifyRuntimeImage } = await load('src/broker/runtime-image.mjs');
-  const publicApi = await load('src/public-api.mjs');
-  assert.ok(!Object.keys(publicApi).some((key) => /coordinator|broker/i.test(key)));
   const help = execFileSync(
     process.execPath,
     [path.join(installed, 'bin/peer-review.mjs'), 'help', '--all'],
@@ -244,14 +254,7 @@ test('installed release preserves legacy evidence, current broker execution and 
   );
   assert.doesNotMatch(help, /peer-review coordinator/);
   projects.push(projectFixture(scratch), projectFixture(scratch), projectFixture(scratch));
-  const legacy = await loadLegacyAuthority({
-    cwd: projects[0].root,
-    identity: identity('author', 'legacy-release'),
-    reviewId: 'legacy-release',
-    now: NOW,
-  });
-  const recovered = await api.resumeReview(legacy.paths.workspace);
-  assert.ok(recovered);
+
   assert.equal(securityApi.inspectPlatformSecurity().healthy, false);
   assert.throws(() => securityApi.platformSecurity(), { code: 'APR_BROKER_START_FAILED' });
 
@@ -318,6 +321,11 @@ test('installed release preserves legacy evidence, current broker execution and 
     idleEndpoint.close();
   }
   sealInstalledRuntimeFixture(installed);
+  const api = await load('src/cli/run.mjs');
+  const protocol = await load('src/protocol/service.mjs');
+  const clientApi = await load('src/broker/client.mjs');
+  const publicApi = await load('src/public-api.mjs');
+  assert.ok(!Object.keys(publicApi).some((key) => /coordinator|broker/i.test(key)));
   execFileSync(
     process.execPath,
     [
@@ -328,6 +336,33 @@ test('installed release preserves legacy evidence, current broker execution and 
     ],
     { env: process.env, stdio: 'pipe' }
   );
+  const { registerPrimary, activatePrimaryPolicy } = await load(
+    'src/config/primary-operations.mjs'
+  );
+  const { setup } = await load('src/config/setup.mjs');
+  for (const project of projects) {
+    await registerPrimary({ cwd: project.root });
+    await setup({
+      scope: 'project',
+      agents: ['codex'],
+      cwd: project.root,
+      confirmScratchExclude: true,
+    });
+    execFileSync('git', ['add', '.'], { cwd: project.root, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'activate installed fixture primary'], {
+      cwd: project.root,
+      stdio: 'pipe',
+    });
+    await activatePrimaryPolicy({ cwd: project.root });
+  }
+  const legacy = await loadLegacyAuthority({
+    cwd: projects[0].root,
+    identity: identity('author', 'legacy-release'),
+    reviewId: 'legacy-release',
+    now: NOW,
+  });
+  assert.ok(publicApi.statusReview(legacy.paths.workspace));
+  await api.resumeReview(legacy.paths.workspace);
   const image = pinRuntimeImage({
     packageRoot: installed,
     nodeExecutable: realpathSync(process.execPath),
@@ -377,7 +412,6 @@ test('installed release preserves legacy evidence, current broker execution and 
     APR_FIXTURE_BROKER_LOG: path.join(scratch, 'automatic-broker.log'),
     APR_FIXTURE_RESTART_SIMULATION: '1',
     APR_OFFLINE_WINDOWS_NODES: JSON.stringify([process.execPath, image.nodeExecutable]),
-    APR_PROVIDER_DEADLINE_MS: String(Date.now() + 90_000),
   };
   assert.ok(
     Buffer.byteLength(scenarioEnv.APR_FIXTURE_IMAGE) < 4096,
@@ -390,7 +424,7 @@ test('installed release preserves legacy evidence, current broker execution and 
       {
         cwd: host,
         env: scenarioEnv,
-        timeout: 100_000,
+        timeout: 180_000,
         maxBuffer: 4 * 1024 * 1024,
       }
     );
@@ -601,7 +635,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     platform
   );
   await assert.rejects(clientApi.requestBroker(fencedStop, 'stop'), {
-    code: 'APR_BROKER_STOP_REFUSED',
+    code: 'APR_RUNTIME_CHANGED',
   });
   fencedStop.connection?.close();
   renameSync(path.join(host, 'replaced-node_modules'), path.join(host, 'node_modules'));

@@ -14,7 +14,7 @@ import {
   encodeClaudeEditRule,
   matchesClaudeEditRule,
   runClaudeReviewerLaunch,
-} from '../../src/provider/claude-launch.mjs';
+} from '../helpers/claude-launch-api.mjs';
 import { normalizeClaudeExecution } from '../../src/provider/claude-launch-diagnostics.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 

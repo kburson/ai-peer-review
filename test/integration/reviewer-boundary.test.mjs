@@ -16,8 +16,8 @@ import { participantIdentity } from '../../src/identity/registry.mjs';
 import {
   buildClaudeReviewerLaunch,
   runClaudeReviewerLaunch,
-} from '../../src/provider/claude-launch.mjs';
-import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
+} from '../helpers/claude-launch-api.mjs';
+import { inspectReviewAuthority } from '../helpers/protocol-api.mjs';
 
 const NOW = '2026-09-09T02:00:00.000Z';
 

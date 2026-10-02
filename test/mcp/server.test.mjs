@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { runHandoffMcpStdio } from '../../src/cli/run.mjs';
+import { runHandoffMcpStdio } from '../helpers/operations-api.mjs';
 import { AprError } from '../../src/errors.mjs';
-import { createHandoffMcpServer, serveHandoffMcpStdio } from '../../src/mcp/server.mjs';
+import { createHandoffMcpServer, serveHandoffMcpStdio } from '../helpers/mcp-api.mjs';
 
 const digest = `sha256:${'a'.repeat(64)}`;
 

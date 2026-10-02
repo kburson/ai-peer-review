@@ -9,7 +9,7 @@ import { format, resolveConfig } from 'prettier';
 import { configPaths, loadConfig, validateConfig } from '../../src/config/load.mjs';
 import { planSetup, setup, updateSetup } from '../helpers/legacy-setup-fixture.mjs';
 import { doctor } from '../../src/doctor.mjs';
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 
 function fixture() {
   const root = mkdtempSync(path.join(os.tmpdir(), 'apr-setup-'));
@@ -801,8 +801,9 @@ test('doctor text distinguishes installation health from missing current-session
   assert.match(session.stdout, /recovery: .*model/i);
   assert.doesNotMatch(session.stdout, /recovery: ai-peer-review build broker-security/i);
   const installed = await invoke(['doctor', '--mode', 'installation']);
-  assert.equal(installed.code, 0, installed.stderr);
-  assert.match(installed.stdout, /installation: healthy/i);
+  assert.equal(installed.code, 1, installed.stderr);
+  assert.match(installed.stdout, /installation: unhealthy/i);
+  assert.match(installed.stdout, /primary-registration: unavailable/);
   assert.doesNotMatch(installed.stdout, /recovery: ai-peer-review build broker-security/i);
 });
 
@@ -832,7 +833,7 @@ test('historical copied setup refuses review startup and reports migration diagn
   });
   assert.equal(doctorCode, 1);
   assert.equal(JSON.parse(doctorError).code, 'APR_SETUP_VERSION_MISMATCH');
-  assert.equal(doctorOutput, '');
+  assert.ok(JSON.parse(doctorOutput).rows.some((row) => row.id === 'primary-registration'));
   const configFile = path.join(root, '.ai-peer-review.json');
   const config = JSON.parse(readFileSync(configFile, 'utf8'));
   config.hosts.codex.resume.command = ['sh', '-c'];

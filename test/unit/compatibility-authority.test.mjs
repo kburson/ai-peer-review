@@ -16,7 +16,7 @@ import {
   reviewerTurnEvents,
   v2Event,
 } from '../helpers/review-fixture.mjs';
-import { inspectReview, mutateReview } from '../../src/protocol/service.mjs';
+import { inspectReview, mutateReview } from '../helpers/protocol-api.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
 
 const COMPATIBILITY = Object.freeze({

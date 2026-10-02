@@ -20,7 +20,13 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { joinReview, resumeReview, run, startReview, statusReview } from '../../src/cli/run.mjs';
+import {
+  joinReview,
+  resumeReview,
+  run,
+  startReview,
+  statusReview,
+} from '../helpers/operations-api.mjs';
 import {
   canonicalChallengeBytes,
   digestGrantParameters,
@@ -28,10 +34,10 @@ import {
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
 import { participantIdentity, v1Participant } from '../../src/identity/registry.mjs';
-import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
-import { prepareStartup } from '../../src/startup/runtime.mjs';
-import { captureCodexStartHook } from '../../src/providers/codex-hook.mjs';
-import { captureClaudeStartHook } from '../../src/providers/claude-hook.mjs';
+import { canonicalProjection, inspectReview, mutateReview } from '../helpers/protocol-api.mjs';
+import { prepareStartup } from '../helpers/operations-api.mjs';
+import { captureCodexStartHook } from '../helpers/codex-hook-api.mjs';
+import { captureClaudeStartHook } from '../helpers/claude-hook-api.mjs';
 import { createClaudeAdapter, createClaudeProviderSurface } from '../../src/providers/claude.mjs';
 import { createCodexAdapter, createCodexProviderSurface } from '../../src/providers/codex.mjs';
 import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';

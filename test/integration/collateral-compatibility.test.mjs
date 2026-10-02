@@ -6,12 +6,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import * as compatibility from '../../src/protocol/compatibility.mjs';
-import { inspectReview, mutateReview, mutateReviewBatch } from '../../src/protocol/service.mjs';
+import { inspectReview, mutateReview, mutateReviewBatch } from '../helpers/protocol-api.mjs';
 import { parseResponse } from '../../src/collateral/responses.mjs';
 import { renderManifest, sealPhaseManifest } from '../../src/manifest/render.mjs';
 import { readStartupJournal } from '../../src/broker/registry.mjs';
 import { runBrokerEntrypoint } from '../../bin/peer-review-broker.mjs';
-import { ensureBroker } from '../../src/broker/client.mjs';
+import { ensureBroker } from '../helpers/broker-client-api.mjs';
 import {
   createReviewWorkspace,
   reviewerTurnEvents,
@@ -312,7 +312,7 @@ test('archive support names the actual sealed relocation contracts and refuses u
 });
 
 test('unknown archive plans refuse before interpreting their shape or applying writes', async () => {
-  const { applyReviewRecord } = await import('../../src/collateral/review-record.mjs');
+  const { applyReviewRecord } = await import('../helpers/review-record-api.mjs');
   assert.throws(
     () => applyReviewRecord({ schema: 'ai-peer-review.relocation-plan/v99' }),
     (error) => error.code === 'APR_REVIEW_RUNTIME_UNSUPPORTED'

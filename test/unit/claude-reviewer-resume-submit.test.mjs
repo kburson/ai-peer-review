@@ -5,12 +5,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 import { fingerprintSession, participantIdentity } from '../../src/identity/registry.mjs';
 import {
   buildClaudeReviewerResume,
   runClaudeReviewerLaunch,
-} from '../../src/provider/claude-launch.mjs';
+} from '../helpers/claude-launch-api.mjs';
 import { launchAuthority, launchFixture } from '../helpers/claude-launch-fixture.mjs';
 import {
   fixtureObservation,

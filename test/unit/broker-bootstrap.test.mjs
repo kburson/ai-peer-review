@@ -12,7 +12,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readBrokerBootstrap } from '../../bin/peer-review-broker.mjs';
-import { ensureBroker } from '../../src/broker/client.mjs';
+import { ensureBroker } from '../helpers/broker-client-api.mjs';
 
 function fixture(t) {
   const scratch = new URL('../../.scratch/test/', import.meta.url);

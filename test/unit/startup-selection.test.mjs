@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { validateConfig } from '../../src/config/load.mjs';
 import { AprError } from '../../src/errors.mjs';
 import { resolveSelection } from '../../src/startup/selection.mjs';
-import { selectRuntime } from '../../src/startup/runtime.mjs';
+import { selectRuntime } from '../helpers/operations-api.mjs';
 
 const FAMILIES = Object.freeze({
   codex: { provider: 'openai', host: 'codex' },

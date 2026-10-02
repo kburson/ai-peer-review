@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { statusReview } from '../helpers/internal-api.mjs';
 import {
@@ -180,7 +180,11 @@ test('doctor uses the current Claude model even when project config names anothe
     'claude-opus-5-5'
   );
 
-  assert.equal(result.code, 0, JSON.stringify(result.stderr));
+  assert.equal(result.code, 1, JSON.stringify(result.stderr));
+  assert.equal(
+    result.stdout.rows.find((row) => row.id === 'primary-registration').status,
+    'unavailable'
+  );
   const source = result.stdout.rows.find((row) => row.id === 'identity-source');
   assert.equal(source.status, 'runtime');
   assert.equal(result.stdout.input.identity.model_id, 'claude-opus-5-5');

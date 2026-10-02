@@ -141,7 +141,10 @@ export function readPrimaryRegistration(location) {
       realpathSync(record.primary_root) !== record.primary_root
     )
       unavailable('Primary registration does not identify this clone’s main worktree.');
-    const primary = discoverAuthorityRepository(record.primary_root);
+    const primary =
+      location.root === record.primary_root
+        ? location
+        : discoverAuthorityRepository(record.primary_root);
     if (
       primary.root !== record.primary_root ||
       primary.gitDir !== primary.commonDir ||
@@ -162,24 +165,58 @@ export function resolvePrimaryAuthoritySync({ cwd = process.cwd() } = {}) {
     const { record, bytes } = readPrimaryRegistration(location);
     if (!record.primary_initialized)
       unavailable('Primary registration is explicitly uninitialized.');
+    const owned = Object.entries(record.owned_blobs);
+    const paths = owned.map(([, entry]) => entry.path);
+    const tree = authorityGit(record.primary_root, ['ls-tree', '-z', 'HEAD', '--', ...paths]);
+    const index = authorityGit(record.primary_root, ['ls-files', '--stage', '-z', '--', ...paths]);
+    const trees = new Map(
+      tree
+        .split(String.fromCharCode(0))
+        .filter(Boolean)
+        .map((line) => [line.split('\t')[1], line])
+    );
+    const indexes = new Map();
+    for (const line of index.split(String.fromCharCode(0)).filter(Boolean)) {
+      const name = line.split('\t')[1];
+      if (indexes.has(name)) unavailable('Primary owned index contains conflicting stages.');
+      indexes.set(name, line);
+    }
+    const batch = authorityGit(record.primary_root, ['cat-file', '--batch'], {
+      buffer: true,
+      input: owned.map(([, entry]) => entry.blob).join('\n') + '\n',
+    });
+    let offset = 0;
+    const committedBlobs = new Map();
+    for (const [, entry] of owned) {
+      const end = batch.indexOf(10, offset);
+      const header =
+        end >= 0
+          ? /^([0-9a-f]+) blob ([0-9]+)$/.exec(batch.subarray(offset, end).toString('ascii'))
+          : null;
+      const size = header ? Number(header[2]) : NaN;
+      if (
+        !header ||
+        header[1] !== entry.blob ||
+        !Number.isSafeInteger(size) ||
+        size > 16777216 ||
+        end + 1 + size >= batch.length ||
+        batch[end + 1 + size] !== 10
+      )
+        unavailable('Activated primary blob cannot be read completely.');
+      committedBlobs.set(entry.blob, batch.subarray(end + 1, end + 1 + size));
+      offset = end + 2 + size;
+    }
+    if (offset !== batch.length) unavailable('Primary blob batch contains unexpected output.');
     const observed = {};
     let config;
-    for (const [name, entry] of Object.entries(record.owned_blobs)) {
+    for (const [name, entry] of owned) {
       const file = ordinaryFile(record.primary_root, entry.path);
-      const tree = authorityGit(record.primary_root, ['ls-tree', '-z', 'HEAD', '--', entry.path]);
-      const match = /^(100644|100755) blob ([0-9a-f]+)\t([^\0]+)\0$/.exec(tree);
-      const index = authorityGit(record.primary_root, [
-        'ls-files',
-        '--stage',
-        '-z',
-        '--',
-        entry.path,
-      ]);
-      const stage = /^(100644|100755) ([0-9a-f]+) 0\t([^\0]+)\0$/.exec(index);
+      const match = /^(100644|100755) blob ([0-9a-f]+)\t([^\0]+)$/.exec(
+        trees.get(entry.path) ?? ''
+      );
+      const stage = /^(100644|100755) ([0-9a-f]+) 0\t([^\0]+)$/.exec(indexes.get(entry.path) ?? '');
       const working = readFileSync(file);
-      const committed = match
-        ? authorityGit(record.primary_root, ['cat-file', 'blob', match[2]], { buffer: true })
-        : null;
+      const committed = committedBlobs.get(entry.blob);
       if (
         !match ||
         !stage ||

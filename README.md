@@ -545,6 +545,13 @@ does not silently fall back when its broker is unavailable.
 
 ## Public API
 
+Public calls with effects require the current selected global installation and the
+activated primary policy for their repository. Await `applyReviewRecord`,
+native transport delivery/reconciliation, and `runClaudeReviewerLaunch`;
+admission and post-wait validation can reject before their next owned effect.
+Internal protocol snapshot and delivery-receipt writers also return admission
+promises. Pure calculations and status inspection keep their synchronous shape.
+
 The supported programmatic surface keeps protocol mutation in the CLI while
 exposing the adapter validation needed by official host integrations:
 
