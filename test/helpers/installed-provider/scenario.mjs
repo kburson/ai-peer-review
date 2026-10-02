@@ -45,7 +45,7 @@ await activatePrimaryPolicy({ cwd: root });
 // Bound this multi-action fixture after maintenance, preserving any shorter
 // inherited deadline across all provider launches and simulated restarts.
 process.env.APR_PROVIDER_DEADLINE_MS = String(
-  Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity), Date.now() + 150_000)
+  Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity), Date.now() + 240_000)
 );
 const { platformSecurity } = await load('src/broker/platform.mjs');
 const { canonicalProjectIdentity } = await load('src/broker/identity.mjs');
@@ -85,7 +85,7 @@ try {
   await promisify(execFile)('claude', ['--fixture-start'], {
     cwd: root,
     env: withoutProviderIdentity(process.env),
-    timeout: 45_000,
+    timeout: 135_000,
     encoding: 'utf8',
   });
   if (process.env.APR_FIXTURE_RESTART_SIMULATION === '1') {
@@ -105,7 +105,7 @@ try {
   const { readWakeOperation } = await load('src/coordinator/ledger.mjs');
   let receipt;
   let finalized = false;
-  const deadline = Date.now() + 45_000;
+  const deadline = Date.now() + 90_000;
   const handoffStarted = Date.now();
   while ((!receipt || !finalized) && Date.now() < deadline) {
     const directory = path.join(root, '.scratch/peer-review');

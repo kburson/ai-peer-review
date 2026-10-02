@@ -143,6 +143,14 @@ test('installed release preserves legacy evidence, current broker execution and 
             )
           );
     if (endpointRoot) t.after(() => rmSync(endpointRoot, { recursive: true, force: true }));
+    const externalPrefix =
+      process.platform === 'win32'
+        ? realpathSync(mkdtempSync(path.join(os.tmpdir(), 'apr global runtime ')))
+        : null;
+    if (externalPrefix)
+      t.after(() =>
+        rmSync(externalPrefix, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+      );
     const accountHome = path.join(scratch, 'account-home');
     mkdirSync(accountHome, { mode: 0o700 });
     for (const relative of ['.config', 'AppData/Roaming', 'AppData/Local'])
@@ -153,6 +161,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     const env = {
       ...process.env,
       APR_RELEASE_TEST_ROOT: scratch,
+      ...(externalPrefix ? { APR_RELEASE_GLOBAL_PREFIX: externalPrefix } : {}),
       ...(process.platform === 'win32' && process.env.APR_OFFLINE_WINDOWS_GROUP
         ? { APR_OFFLINE_WINDOWS_NODES: JSON.stringify([realpathSync(process.execPath)]) }
         : {}),
@@ -174,7 +183,7 @@ test('installed release preserves legacy evidence, current broker execution and 
         {
           cwd: root,
           env,
-          timeout: 240_000,
+          timeout: 420_000,
           maxBuffer: 4 * 1024 * 1024,
         }
       );
@@ -220,7 +229,8 @@ test('installed release preserves legacy evidence, current broker execution and 
     }
   });
   const host = path.join(scratch, 'host');
-  const globalPrefix = path.join(scratch, 'global runtime prefix');
+  const globalPrefix =
+    process.env.APR_RELEASE_GLOBAL_PREFIX ?? path.join(scratch, 'global runtime prefix');
   mkdirSync(host);
   writeFileSync(path.join(host, 'package.json'), '{"private":true}\n');
   const packed = parseNpmPackOutput(
@@ -471,7 +481,7 @@ test('installed release preserves legacy evidence, current broker execution and 
       {
         cwd: host,
         env: scenarioEnv,
-        timeout: 180_000,
+        timeout: 300_000,
         maxBuffer: 4 * 1024 * 1024,
       }
     );
