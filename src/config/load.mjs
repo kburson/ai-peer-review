@@ -548,14 +548,28 @@ export function loadConfig(options = {}) {
       : paths.project === null
         ? null
         : readConfig(paths.project);
-  const classified = paths.primaryRoot !== null || user?.schema === 'ai-peer-review.user-config/v2';
+  const legacyProject =
+    paths.primaryRoot === null && project?.schema === 'ai-peer-review.config/v1';
+  let legacyUser = user;
+  if (legacyProject && user?.schema === 'ai-peer-review.user-config/v2') {
+    validateUserStore(user);
+    // Read-only legacy inspection uses preferences, not the migrated user's setup receipt.
+    // The project integration guard still requires explicit primary migration before execution.
+    legacyUser = {
+      schema: 'ai-peer-review.config/v1',
+      ...(user.hosts ? { hosts: user.hosts } : {}),
+    };
+  }
+  const classified =
+    paths.primaryRoot !== null ||
+    (!legacyProject && user?.schema === 'ai-peer-review.user-config/v2');
   const config = classified
     ? resolveConfigFields({
         primary: project ?? { schema: 'ai-peer-review.primary-config/v2' },
         user,
         explicitIdentity: options.explicitIdentity,
       })
-    : (merge(user, project) ?? { schema: 'ai-peer-review.config/v1' });
+    : (merge(legacyUser, project) ?? { schema: 'ai-peer-review.config/v1' });
   validateConfig(config);
   const diagnostics = [];
   if (

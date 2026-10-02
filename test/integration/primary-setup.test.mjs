@@ -644,3 +644,54 @@ test('user maintenance shares the loader preference path while wrappers stay in 
     /primary inspect --json/
   );
 });
+
+test('legacy project inspection remains readable beside migrated account preferences', async (t) => {
+  const f = await setupHostFixture(t);
+  const { rmSync } = await import('node:fs');
+  rmSync(f.registrationPath);
+  const { installedPackageIdentity, assertProjectSetupCompatible } =
+    await import('../../src/config/installation-identity.mjs');
+  f.write(
+    '.ai-peer-review.json',
+    JSON.stringify({
+      schema: 'ai-peer-review.config/v1',
+      review: { max_turns: 7 },
+      setup: {
+        owner: 'ai-peer-review',
+        version: 1,
+        agents: ['generic'],
+        config_created: true,
+        scratch_exclude_added: false,
+        resume_commands_added: [],
+        ...installedPackageIdentity(),
+      },
+    })
+  );
+  const user = pathForUser(f);
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  mkdirSync(user.directory, { recursive: true });
+  writeFileSync(
+    user.file,
+    JSON.stringify({
+      schema: 'ai-peer-review.user-config/v2',
+      hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
+    })
+  );
+  const { loadConfig } = await import('../../src/config/load.mjs');
+  const loaded = loadConfig({ cwd: f.root, home: f.home, env: user.env });
+  assert.equal(loaded.config.review.max_turns, 7);
+  assert.deepEqual(loaded.config.hosts.codex.resume.command, ['codex', 'resume']);
+  assert.equal(loaded.paths.primaryRoot, null);
+  assert.throws(() => assertProjectSetupCompatible({ cwd: f.root, env: user.env }), {
+    code: 'APR_SETUP_VERSION_MISMATCH',
+  });
+});
+
+function pathForUser(f) {
+  const directory = f.home + '/.config/ai-peer-review';
+  return {
+    directory,
+    file: directory + '/config.json',
+    env: { XDG_CONFIG_HOME: f.home + '/.config' },
+  };
+}
