@@ -21,6 +21,7 @@ import { inspectStartupAuthority, reconcileRegistrations } from '../src/broker/r
 import { verifyRuntimeImage } from '../src/broker/runtime-image.mjs';
 import { createAuthenticatedBrokerServer, runBroker } from '../src/broker/service.mjs';
 import { createProductionReviewWorker } from '../src/broker/worker-factory.mjs';
+import { withOperationAuthority, performOperationEffect } from '../src/startup/authority-fence.mjs';
 import { createGitRepository } from '../src/git/repository.mjs';
 
 function exact(value, fields) {
@@ -190,87 +191,100 @@ function registrationSnapshotCurrent(store, registrations) {
 
 export async function runBrokerEntrypoint(file) {
   const bootstrap = readBrokerBootstrap(file);
-  const runtimeObservation = await assertExecutingRuntime(bootstrap);
-  if (!verifyRuntimeImage(bootstrap.runtimeImage)) {
-    throw new AprError('APR_BROKER_START_FAILED', 'Pinned broker runtime is incomplete.', {
-      recovery: 'Restore the exact immutable runtime image and retry.',
-    });
-  }
-  const packageRoot = runtimeObservation.packageRoot;
-  const security = platformSecurity({ root: packageRoot });
-  const platform = Object.freeze({ ...security, repository: createGitRepository() });
-  const identity = canonicalProjectIdentity({ cwd: bootstrap.project.physicalRoot, platform });
-  if (!sameIdentity(identity, bootstrap.project)) {
-    throw new AprError('APR_BROKER_AUTH_FAILED', 'Bootstrap project identity changed.', {
-      recovery: 'Discard the bootstrap and restart from the canonical project root.',
-    });
-  }
-  const store = {
-    root: path.join(identity.physicalRoot, '.scratch', 'peer-review', 'broker', 'registrations'),
-  };
-  const loadRegistrations = () =>
-    reconcileRegistrations({
-      project: identity,
-      store,
-      inspectAuthority: inspectStartupAuthority,
-    });
-  const registrations = await loadRegistrations();
-  const paths = brokerPaths({
-    identity,
-    platform,
-    env: process.env,
-    home: homedir(),
-  });
-  const owner = acquireBrokerOwnership(
-    {
-      identity,
-      paths,
-      versions: bootstrap.versions,
-      deferPublication: true,
-      reconcile: () => registrationSnapshotCurrent(store, registrations),
-    },
-    platform
-  );
-  const server = createAuthenticatedBrokerServer(owner, platform);
-  await runBroker({
-    identity,
-    owner,
-    versions: bootstrap.versions,
-    cleanupGuard: async () => {
-      const current = await assertSelectedRuntime({ previousObservation: runtimeObservation });
-      assertCurrentCleanupOwnership({
-        owner,
-        protocol: bootstrap.versions.broker_protocol_version,
-        runtime: current.inventory,
-      });
-    },
-    registry: {
-      list: loadRegistrations,
-      async get(workspace) {
-        const current = await loadRegistrations();
-        return current.find((entry) => entry.workspace === workspace) ?? null;
-      },
-    },
-    workerFactory: (registration) =>
-      createProductionReviewWorker({
-        registration,
-        project: identity,
-        runtimeImage: bootstrap.runtimeImage,
-        owner,
+  return withOperationAuthority(
+    { operation: 'broker.start', cwd: bootstrap.project.physicalRoot },
+    async (fence) => {
+      const runtimeObservation = await assertExecutingRuntime(bootstrap);
+      if (!verifyRuntimeImage(bootstrap.runtimeImage)) {
+        throw new AprError('APR_BROKER_START_FAILED', 'Pinned broker runtime is incomplete.', {
+          recovery: 'Restore the exact immutable runtime image and retry.',
+        });
+      }
+      const packageRoot = runtimeObservation.packageRoot;
+      const security = platformSecurity({ root: packageRoot });
+      const platform = Object.freeze({ ...security, repository: createGitRepository() });
+      const identity = canonicalProjectIdentity({ cwd: bootstrap.project.physicalRoot, platform });
+      if (!sameIdentity(identity, bootstrap.project)) {
+        throw new AprError('APR_BROKER_AUTH_FAILED', 'Bootstrap project identity changed.', {
+          recovery: 'Discard the bootstrap and restart from the canonical project root.',
+        });
+      }
+      const store = {
+        root: path.join(
+          identity.physicalRoot,
+          '.scratch',
+          'peer-review',
+          'broker',
+          'registrations'
+        ),
+      };
+      const loadRegistrations = () =>
+        reconcileRegistrations({
+          project: identity,
+          store,
+          inspectAuthority: inspectStartupAuthority,
+        });
+      const registrations = await loadRegistrations();
+      const paths = brokerPaths({
+        identity,
         platform,
+        env: process.env,
+        home: homedir(),
+      });
+      const owner = performOperationEffect(fence, () =>
+        acquireBrokerOwnership(
+          {
+            identity,
+            paths,
+            versions: bootstrap.versions,
+            deferPublication: true,
+            reconcile: () => registrationSnapshotCurrent(store, registrations),
+          },
+          platform
+        )
+      );
+      const server = createAuthenticatedBrokerServer(owner, platform);
+      await runBroker({
+        identity,
+        owner,
+        versions: bootstrap.versions,
+        cleanupGuard: async () => {
+          const current = await assertSelectedRuntime({ previousObservation: runtimeObservation });
+          assertCurrentCleanupOwnership({
+            owner,
+            protocol: bootstrap.versions.broker_protocol_version,
+            runtime: current.inventory,
+          });
+        },
+        registry: {
+          list: loadRegistrations,
+          async get(workspace) {
+            const current = await loadRegistrations();
+            return current.find((entry) => entry.workspace === workspace) ?? null;
+          },
+        },
+        workerFactory: (registration) =>
+          createProductionReviewWorker({
+            registration,
+            project: identity,
+            runtimeImage: bootstrap.runtimeImage,
+            owner,
+            platform,
+            clock: {
+              now: () => Date.now(),
+              setTimeout: (callback, delay) => setTimeout(callback, delay),
+              clearTimeout: (timer) => clearTimeout(timer),
+            },
+          }),
         clock: {
           now: () => Date.now(),
           setTimeout: (callback, delay) => setTimeout(callback, delay),
           clearTimeout: (timer) => clearTimeout(timer),
         },
-      }),
-    clock: {
-      now: () => Date.now(),
-      setTimeout: (callback, delay) => setTimeout(callback, delay),
-      clearTimeout: (timer) => clearTimeout(timer),
-    },
-    server,
-  });
+        server,
+      });
+    }
+  );
 }
 
 async function main(argv = process.argv.slice(2)) {

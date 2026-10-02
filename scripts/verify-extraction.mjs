@@ -79,6 +79,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'docs/dependency-audit-mcp.md',
     'docs/manual-cross-provider-peer-review.md',
     'docs/spdx-policy.md',
+    'docs/installation-runtime.md',
     'eslint.config.mjs',
     'package-lock.json',
     'package.json',
@@ -93,6 +94,8 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'scripts/verify-extraction.mjs',
     'scripts/verify-manual-xpr-evidence.mjs',
     'scripts/verify-release.mjs',
+    'scripts/pack-runtime.mjs',
+    'scripts/refuse-source-pack.mjs',
     'vendors/kburson-ai-task-manager-0.1.0.tgz',
   ],
 });

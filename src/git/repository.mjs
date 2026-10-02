@@ -108,6 +108,7 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     try {
       return execFileSync('git', args, {
         cwd,
+        env: scrubGitEnvironment(),
         encoding: buffer ? null : 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
@@ -416,12 +417,14 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
   });
 }
 
+export function scrubGitEnvironment() {
+  return Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key)));
+}
+
 // Authority discovery deliberately does not share the sealed transaction runner.
 // Caller Git overrides must never choose another clone or a substitute index.
 export function authorityGit(cwd, args, { buffer = false, input } = {}) {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key))
-  );
+  const env = scrubGitEnvironment();
   try {
     return nodeExecFileSync('git', args, {
       cwd,

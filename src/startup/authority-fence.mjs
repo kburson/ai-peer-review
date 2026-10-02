@@ -212,6 +212,15 @@ export async function assertOperationAuthority({
   )
     refuse('Selection changed between runtime admission and fence sealing.');
   const observation = observePrimary(cwd);
+  if (parent) {
+    assertOperationAuthorityNow(parent);
+    const parentSeal = fences.get(parent);
+    if (
+      parentSeal.kind === 'read' ||
+      parentSeal.primary.activeWorktreeRoot !== observation.primary.activeWorktreeRoot
+    )
+      refuse('Nested operation cannot change its admitted physical worktree.');
+  }
   if (
     reviewContext &&
     realpathSync(reviewContext.repository_root) !== observation.primary.activeWorktreeRoot

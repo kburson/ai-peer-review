@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { AprError } from '../errors.mjs';
 import { authorityGit, discoverAuthorityRepository } from '../git/repository.mjs';
 import { inspectReviewAuthority } from '../protocol/service.mjs';
+import { verifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { startupEvidence, readStartupJournal } from '../broker/registry.mjs';
 const observations = new WeakSet();
 const terminal = new Set([
@@ -58,6 +59,60 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
       if (!info.isFile() || info.size > 16 * 1024 * 1024 || (total += info.size) > 64 * 1024 * 1024)
         unavailable('Review inventory bytes exceed their bound.', { file });
       hash.update(file).update(readFileSync(file));
+    }
+  }
+  function inspectHookStore(directory, provider) {
+    boundTree(directory);
+    const keys = [
+      'command',
+      'host',
+      'model_id',
+      'observed_at',
+      'phase',
+      'provider',
+      'schema',
+      'session_id',
+      'source',
+      'source_version',
+      'tool_use_id',
+      ...(provider === 'codex' ? ['turn_id'] : []),
+    ].sort();
+    for (const name of readdirSync(directory)) {
+      const file = path.join(directory, name),
+        stat = metadata(file);
+      let record;
+      try {
+        if (
+          !/^[a-f0-9]{32}\.json$/.test(name) ||
+          !stat?.isFile() ||
+          (process.platform !== 'win32' && (stat.uid !== process.getuid() || stat.mode & 0o077)) ||
+          stat.size > 1024 * 1024
+        )
+          unavailable('Hook observation path is unsafe.', { file });
+        record = JSON.parse(readFileSync(file, 'utf8'));
+      } catch {
+        unavailable('Hook observation cannot be inspected.', { file });
+      }
+      if (
+        !record ||
+        JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(keys) ||
+        Object.values(record).some(
+          (value) => typeof value !== 'string' || !value || value.includes('\0')
+        ) ||
+        record.schema !== 'ai-peer-review.' + provider + '-hook/v1' ||
+        record.source !== 'official-exact-session' ||
+        record.phase !== 'tool-use' ||
+        record.provider !== (provider === 'codex' ? 'openai' : 'anthropic') ||
+        record.host !== (provider === 'codex' ? 'codex' : 'claude-code') ||
+        !/^[A-Za-z0-9._:-]+$/.test(record.model_id) ||
+        !Number.isFinite(Date.parse(record.observed_at)) ||
+        (provider === 'claude' &&
+          !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(record.session_id)) ||
+        !/^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) (?:start|join)(?:\s|$)/.test(
+          record.command
+        )
+      )
+        unavailable('Hook observation has an unknown or malformed record.', { file });
     }
   }
   function inspect(workspace) {
@@ -116,7 +171,22 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
         stat = metadata(file);
       if (!stat.isDirectory())
         unavailable('Unknown review scratch entry blocks activation.', { file });
-      if (['broker', 'runtimes'].includes(entry.name)) {
+      if (['codex-hooks', 'claude-hooks'].includes(entry.name)) {
+        inspectHookStore(file, entry.name.split('-')[0]);
+        continue;
+      }
+      if (entry.name === 'runtimes') {
+        const names = readdirSync(file);
+        if (names.length > 128) unavailable('Retained runtime image count exceeds its bound.');
+        for (const name of names.sort()) {
+          const image = path.join(file, name);
+          if (!metadata(image)?.isDirectory() || !verifyRuntimeImage(image))
+            unavailable('Retained runtime image cannot be verified.', { file: image });
+          hash.update(image).update(readFileSync(path.join(image, 'runtime-image.json')));
+        }
+        continue;
+      }
+      if (entry.name === 'broker') {
         boundTree(file);
         if (entry.name === 'broker') {
           const registrationRoot = path.join(file, 'registrations');

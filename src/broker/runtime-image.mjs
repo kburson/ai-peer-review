@@ -12,6 +12,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  readSync,
   readdirSync,
   realpathSync,
   renameSync,
@@ -389,21 +390,24 @@ function publicDescriptor(root, manifest) {
 
 function readManifest(root) {
   const manifestFile = path.join(root, MANIFEST_FILE);
-  regularFile(manifestFile, 'Runtime image manifest');
+  if (regularFile(manifestFile, 'Runtime image manifest').size > 16 * 1024 * 1024)
+    throw new Error('Runtime image manifest exceeds its bound.');
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
   return manifest;
 }
 
-function listImageFiles(root, relative = '') {
+function listImageFiles(root, relative = '', budget = { count: 0 }, depth = 0) {
+  if (depth > 128) return null;
   const directory = relative ? path.join(root, relative) : root;
   const files = [];
   for (const name of readdirSync(directory).sort()) {
+    if (++budget.count > 65536) return null;
     const childRelative = relative ? path.join(relative, name) : name;
     const child = path.join(root, childRelative);
     const status = lstatSync(child);
     if (status.isSymbolicLink()) return null;
     if (status.isDirectory()) {
-      const nested = listImageFiles(root, childRelative);
+      const nested = listImageFiles(root, childRelative, budget, depth + 1);
       if (nested === null) return null;
       files.push(...nested);
     } else if (status.isFile()) {
@@ -413,6 +417,48 @@ function listImageFiles(root, relative = '') {
     }
   }
   return files;
+}
+
+function streamFileDigest(file, expected) {
+  const descriptor = openSync(file, 'r');
+  try {
+    const before = fstatSync(descriptor);
+    if (!before.isFile() || before.size !== expected.size || before.size > 512 * 1024 * 1024)
+      return null;
+    const hash = createHash('sha256');
+    const buffer = Buffer.alloc(64 * 1024);
+    let offset = 0;
+    while (offset < before.size) {
+      const size = readSync(
+        descriptor,
+        buffer,
+        0,
+        Math.min(buffer.length, before.size - offset),
+        offset
+      );
+      if (!size) return null;
+      hash.update(buffer.subarray(0, size));
+      offset += size;
+    }
+    const after = fstatSync(descriptor),
+      current = lstatSync(file);
+    if (
+      current.isSymbolicLink() ||
+      [after, current].some(
+        (stat) =>
+          stat.dev !== before.dev ||
+          stat.ino !== before.ino ||
+          stat.size !== before.size ||
+          stat.mode !== before.mode ||
+          stat.mtimeMs !== before.mtimeMs ||
+          stat.ctimeMs !== before.ctimeMs
+      )
+    )
+      return null;
+    return 'sha256:' + hash.digest('hex');
+  } finally {
+    closeSync(descriptor);
+  }
 }
 
 export function verifyRuntimeImage(image) {
@@ -461,11 +507,14 @@ export function verifyRuntimeImage(image) {
     const expected = [...listed, MANIFEST_FILE].sort((left, right) => left.localeCompare(right));
     if (actual.sort((left, right) => left.localeCompare(right)).join('\n') !== expected.join('\n'))
       return false;
+    let total = 0;
     for (const entry of manifest.files) {
       if (
         !entry ||
         typeof entry.path !== 'string' ||
         !Number.isSafeInteger(entry.size) ||
+        entry.size < 0 ||
+        (total += entry.size) > 1024 * 1024 * 1024 ||
         !Number.isSafeInteger(entry.mode) ||
         !/^sha256:[a-f0-9]{64}$/.test(entry.digest)
       ) {
@@ -474,11 +523,10 @@ export function verifyRuntimeImage(image) {
       const file = path.join(root, ...entry.path.split('/'));
       if (!contained(root, file)) return false;
       const status = regularFile(file, 'Runtime image file');
-      const bytes = readFileSync(file);
       if (
         status.size !== entry.size ||
         (status.mode & 0o777) !== entry.mode ||
-        digest(bytes) !== entry.digest
+        streamFileDigest(file, entry) !== entry.digest
       )
         return false;
     }
