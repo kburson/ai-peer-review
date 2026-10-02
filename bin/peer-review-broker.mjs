@@ -134,11 +134,6 @@ function sameIdentity(actual, expected) {
 }
 
 async function assertExecutingRuntime(bootstrap) {
-  assertCollateralCompatible({
-    manifest: readRuntimeCompatibility(),
-    operation: 'write',
-    metadata: [{ contract: 'brokerBootstrap', schema: bootstrap.schema }],
-  });
   const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
   const currentNode = realpathSync(process.execPath);
   const bytes = readFileSync(path.join(root, 'package.json'));
@@ -191,6 +186,11 @@ function registrationSnapshotCurrent(store, registrations) {
 
 export async function runBrokerEntrypoint(file) {
   const bootstrap = readBrokerBootstrap(file);
+  assertCollateralCompatible({
+    manifest: readRuntimeCompatibility(),
+    operation: 'write',
+    metadata: [{ contract: 'brokerBootstrap', schema: bootstrap.schema }],
+  });
   return withOperationAuthority(
     { operation: 'broker.start', cwd: bootstrap.project.physicalRoot },
     async (fence) => {
