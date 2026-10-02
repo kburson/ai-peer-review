@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
+import { parseNpmPackOutput, runNpm, runRuntimePack } from '../helpers/npm-command.mjs';
 import { parseCommand } from '../../src/cli/parse.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -19,7 +19,7 @@ test('active release pins and packaged build contract match the selected minor',
   assert.equal(manifest.version, '0.4.0');
   for (const file of ['README.md', 'skills/peer-review/SKILL.md']) {
     const instructions = readFileSync(path.join(root, file), 'utf8');
-    assert.match(instructions, /npx --no-install ai-peer-review/);
+    assert.match(instructions, /(?:npx --no-install ai-peer-review|peer-review register-runtime)/);
     assert.doesNotMatch(instructions, /npx --yes @kburson\/ai-peer-review@0\.3\.0/);
   }
   assert.equal(manifest.scripts['build:broker-security'], 'node scripts/build-broker-security.mjs');
@@ -40,7 +40,7 @@ test('README installed-package start is a complete invocation for the current gr
 function pack(t) {
   const destination = mkdtempSync(path.join(os.tmpdir(), 'apr-pack-'));
   t.after(() => rmSync(destination, { recursive: true, force: true }));
-  const output = runNpm('npm', ['pack', '--json', '--pack-destination', destination], {
+  const output = runRuntimePack(['--json', '--pack-destination', destination], {
     cwd: root,
     encoding: 'utf8',
   });
@@ -69,9 +69,8 @@ test('published tarball is closed and exact-pins its audited production dependen
     'NOTICE',
     'README.md',
     'package.json',
-    'scripts/verify-extraction.mjs',
-    'scripts/verify-release.mjs',
     'scripts/build-broker-security.mjs',
+    'runtime-inventory.json',
     'native/broker-security/binding.gyp',
     'native/broker-security/addon.cc',
     'native/broker-security/posix.cc',
@@ -100,9 +99,8 @@ test('published tarball is closed and exact-pins its audited production dependen
     'provenance/extraction-manifest.json',
     'provenance/relicensing-declaration.json',
     'provenance/release-manifest.json',
-    'scripts/verify-extraction.mjs',
-    'scripts/verify-release.mjs',
     'scripts/build-broker-security.mjs',
+    'runtime-inventory.json',
     'native/broker-security/binding.gyp',
     'native/broker-security/addon.cc',
     'native/broker-security/posix.cc',
@@ -119,6 +117,8 @@ test('published tarball is closed and exact-pins its audited production dependen
 
   assert.deepEqual(packageJson.dependencies ?? {}, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    'jsonc-parser': '3.3.1',
+    'markdownlint-cli2': '0.23.3',
     'node-gyp': '12.4.0',
     prettier: '3.8.3',
     zod: '4.6.2',
@@ -135,6 +135,8 @@ test('published tarball is closed and exact-pins its audited production dependen
     .sort();
   assert.deepEqual(installedProductionDependencies, [
     '@modelcontextprotocol/sdk',
+    'jsonc-parser',
+    'markdownlint-cli2',
     'node-gyp',
     'prettier',
     'zod',
@@ -174,40 +176,26 @@ test('README and NOTICE bind the exact source, filtered tip, bootstrap, and lice
   assert.match(readme, new RegExp(BOOTSTRAP));
 });
 
-test('public exports and command guidance remain narrow and installation-aware', () => {
-  const publicApi = readFileSync(path.join(root, 'src/public-api.mjs'), 'utf8');
-  assert.equal(
-    publicApi,
-    "export { explainError } from './cli/help-data.mjs';\n" +
-      'export {\n' +
-      '  applyReviewRecord,\n' +
-      '  planReviewRecord,\n' +
-      '  renderReviewHistory,\n' +
-      "} from './collateral/review-record.mjs';\n" +
-      "export { statusReview } from './protocol/service.mjs';\n" +
-      "export { inspectRecordLineage, validateSuccessor } from './protocol/record-lineage.mjs';\n" +
-      "export { currentPhase, isFinalPhase, isPhased, parsePhaseKinds } from './protocol/phases.mjs';\n" +
-      "export { buildPhaseManifest, sealPhaseManifest } from './manifest/render.mjs';\n" +
-      'export {\n' +
-      '  refreshResidentLease,\n' +
-      '  residentHealth,\n' +
-      '  residentLivenessEvent,\n' +
-      '  validateResidentLease,\n' +
-      "} from './transport/resident.mjs';\n" +
-      "export { createNativePushTransport } from './transport/native-push.mjs';\n" +
-      "export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';\n" +
-      'export {\n' +
-      '  buildClaudeReviewerLaunch,\n' +
-      '  buildClaudeReviewerResume,\n' +
-      '  classifyClaudeReviewerOutcome,\n' +
-      '  encodeClaudeEditRule,\n' +
-      '  matchesClaudeEditRule,\n' +
-      '  runClaudeReviewerLaunch,\n' +
-      "} from './provider/claude-launch.mjs';\n" +
-      "export { buildClaudeProviderCapability } from './config/load.mjs';\n" +
-      "export { buildReviewerExecutionContract } from './provider/execution-contract.mjs';\n" +
-      "export { preflightReviewerExecution } from './provider/preflight.mjs';\n"
-  );
+test('public exports and command guidance remain narrow and installation-aware', async () => {
+  const { pathToFileURL } = await import('node:url');
+  const publicApi = await import(pathToFileURL(path.join(root, 'src/public-api.mjs')));
+  for (const name of [
+    'applyReviewRecord',
+    'statusReview',
+    'resolvePrimaryAuthority',
+    'assertSelectedRuntime',
+    'verifyRuntimeInventory',
+    'assertIntegrationCurrent',
+    'validateSetupWriteSet',
+  ])
+    assert.equal(typeof publicApi[name], 'function', 'Missing public contract ' + name);
+  for (const name of [
+    'initializeReview',
+    'mutateReview',
+    'createSelectionStore',
+    'finishNativeInventory',
+  ])
+    assert.equal(publicApi[name], undefined, 'Private effect boundary was exported ' + name);
   const sources = [
     'README.md',
     'skills/peer-review/SKILL.md',
@@ -224,14 +212,14 @@ test('public exports and command guidance remain narrow and installation-aware',
     if (/npx peer-review/.test(bytes)) assert.match(bytes, /confirmed local installation/, file);
   }
   const readme = sources.find(([file]) => file === 'README.md')[1];
-  assert.match(readme, /npm install --save-dev @kburson\/ai-peer-review/);
+  assert.match(readme, /Installed runtime and release artifact/);
   assert.match(readme, /npx --no-install ai-peer-review/);
   assert.match(readme, /from '@kburson\/ai-peer-review'/);
   assert.match(readme, /npm uninstall ai-peer-review/);
   const skill = sources.find(([file]) => file === 'skills/peer-review/SKILL.md')[1];
-  assert.match(skill, /npm install --save-dev @kburson\/ai-peer-review/);
-  assert.match(skill, /npx --no-install ai-peer-review/);
-  assert.match(skill, /npm uninstall ai-peer-review/);
+  assert.match(skill, /npm install --global @kburson\/ai-peer-review/);
+  assert.match(skill, /peer-review register-runtime/);
+  assert.match(skill, /Consumer CI does not need AI peer review/);
 });
 
 test('workflows retain complete platform and release safety gates', () => {
@@ -249,7 +237,7 @@ test('workflows retain complete platform and release safety gates', () => {
     'npm run test:mcp',
     'npm run test:packaging',
     'npm run test:smoke',
-    'npm pack --dry-run',
+    'npm run pack:runtime -- --dry-run',
     'verify-extraction.mjs --require-legacy-removed',
   ])
     assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -342,7 +330,7 @@ test('workflows retain complete platform and release safety gates', () => {
       'npm run test:mcp',
       'npm run test:packaging',
       'npm run test:smoke',
-      'npm pack --dry-run',
+      'npm run pack:runtime -- --dry-run',
     ])
       assert.match(job, new RegExp(gate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }

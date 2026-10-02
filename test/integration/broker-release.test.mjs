@@ -1,5 +1,4 @@
 // cspell:words nodedir DACL pwsh LiteralPath AccessRuleProtection
-import { sealInstalledRuntimeFixture } from '../helpers/installed-runtime-inventory.mjs';
 import assert from 'node:assert/strict';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import {
@@ -7,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { once } from 'node:events';
 import { protectWindowsRuntime } from '../helpers/windows-offline.mjs';
-import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
+import { parseNpmPackOutput, runNpm, runRuntimePack } from '../helpers/npm-command.mjs';
 import { fixtureStartupDeps, loadLegacyAuthority } from '../helpers/internal-api.mjs';
 import { identity, NOW } from '../helpers/intervention-fixture.mjs';
 
@@ -214,10 +214,11 @@ test('installed release preserves legacy evidence, current broker execution and 
     }
   });
   const host = path.join(scratch, 'host');
+  const globalPrefix = path.join(scratch, 'global runtime prefix');
   mkdirSync(host);
   writeFileSync(path.join(host, 'package.json'), '{"private":true}\n');
   const packed = parseNpmPackOutput(
-    runNpm('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], {
+    runRuntimePack(['--ignore-scripts', '--json', '--pack-destination', scratch], {
       cwd: root,
       encoding: 'utf8',
     }),
@@ -227,6 +228,9 @@ test('installed release preserves legacy evidence, current broker execution and 
     'npm',
     [
       'install',
+      '--global',
+      '--prefix',
+      globalPrefix,
       '--offline',
       '--omit=dev',
       '--ignore-scripts',
@@ -236,7 +240,11 @@ test('installed release preserves legacy evidence, current broker execution and 
     ],
     { cwd: host, stdio: 'pipe' }
   );
-  const installed = path.join(host, 'node_modules/@kburson/ai-peer-review');
+  const installed = path.join(
+    globalPrefix,
+    ...(process.platform === 'win32' ? [] : ['lib']),
+    'node_modules/@kburson/ai-peer-review'
+  );
   const manifest = JSON.parse(readFileSync(path.join(installed, 'package.json')));
   assert.equal(manifest.version, currentPackageVersion);
   assert.equal(existsSync(path.join(host, 'node_modules/eslint')), false);
@@ -320,7 +328,6 @@ test('installed release preserves legacy evidence, current broker execution and 
   } finally {
     idleEndpoint.close();
   }
-  sealInstalledRuntimeFixture(installed);
   const api = await load('src/cli/run.mjs');
   const protocol = await load('src/protocol/service.mjs');
   const clientApi = await load('src/broker/client.mjs');
@@ -362,6 +369,32 @@ test('installed release preserves legacy evidence, current broker execution and 
     now: NOW,
   });
   assert.ok(publicApi.statusReview(legacy.paths.workspace));
+  const verifyUnsupportedPreservation = (workspace) => {
+    const names = ['events.jsonl', 'protocol.json', 'participants.json'];
+    const before = names.map((name) =>
+      existsSync(path.join(workspace, name)) ? readFileSync(path.join(workspace, name)) : null
+    );
+    const events = before[0].toString().trim().split('\n').map(JSON.parse);
+    events[0].schema = 'ai-peer-review.event/v99';
+    const unsupportedBytes = events.map(JSON.stringify).join('\n') + '\n';
+    writeFileSync(path.join(workspace, 'events.jsonl'), unsupportedBytes);
+    try {
+      assert.throws(() => publicApi.statusReview(workspace), {
+        code: 'APR_REVIEW_RUNTIME_UNSUPPORTED',
+      });
+      assert.equal(readFileSync(path.join(workspace, 'events.jsonl'), 'utf8'), unsupportedBytes);
+      for (let i = 1; i < names.length; i++)
+        assert.deepEqual(
+          existsSync(path.join(workspace, names[i]))
+            ? readFileSync(path.join(workspace, names[i]))
+            : null,
+          before[i]
+        );
+    } finally {
+      writeFileSync(path.join(workspace, 'events.jsonl'), before[0]);
+    }
+  };
+  verifyUnsupportedPreservation(legacy.paths.workspace);
   await api.resumeReview(legacy.paths.workspace);
   const image = pinRuntimeImage({
     packageRoot: installed,
@@ -433,6 +466,11 @@ test('installed release preserves legacy evidence, current broker execution and 
     t.diagnostic(error.stderr ?? 'Installed automatic fixture failed without stderr.');
     throw error;
   }
+  const automaticWorkspace = readdirSync(path.join(host, '.scratch/peer-review'))
+    .map((name) => path.join(host, '.scratch/peer-review', name))
+    .find((directory) => existsSync(path.join(directory, 'events.jsonl')));
+  assert.equal(publicApi.statusReview(automaticWorkspace).state, 'accepted');
+  verifyUnsupportedPreservation(automaticWorkspace);
   stopBrokers = async () => {
     for (const { project, paths, workspace } of live) {
       if (workspace) {
@@ -569,6 +607,10 @@ test('installed release preserves legacy evidence, current broker execution and 
       assurance: 'runtime',
     },
   });
+  // The runner is global. A foreign consumer dependency tree remains irrelevant
+  // to the immutable broker image, including when the consumer replaces it.
+  mkdirSync(path.join(host, 'node_modules'), { recursive: true });
+  writeFileSync(path.join(host, 'node_modules', 'foreign.txt'), 'consumer dependency');
   renameSync(path.join(host, 'node_modules'), path.join(host, 'replaced-node_modules'));
   assert.equal(verifyRuntimeImage(image), true);
   const execution = `
@@ -634,9 +676,18 @@ test('installed release preserves legacy evidence, current broker execution and 
     { identity: live[1].project, paths: live[1].paths, versions },
     platform
   );
-  await assert.rejects(clientApi.requestBroker(fencedStop, 'stop'), {
-    code: 'APR_RUNTIME_CHANGED',
-  });
-  fencedStop.connection?.close();
+  // Replacing consumer dependencies above must remain irrelevant. Replacing
+  // the selected global dependency closure must fence a command with effects.
+  const selectedDependencies = path.join(installed, 'node_modules');
+  const withheldSelectedDependencies = path.join(installed, 'replaced-node_modules');
+  renameSync(selectedDependencies, withheldSelectedDependencies);
+  try {
+    await assert.rejects(clientApi.requestBroker(fencedStop, 'stop'), {
+      code: 'APR_RUNTIME_INVENTORY_INVALID',
+    });
+  } finally {
+    fencedStop.connection?.close();
+    renameSync(withheldSelectedDependencies, selectedDependencies);
+  }
   renameSync(path.join(host, 'replaced-node_modules'), path.join(host, 'node_modules'));
 });

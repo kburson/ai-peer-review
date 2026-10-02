@@ -12,19 +12,17 @@
     "peer-review": "./bin/peer-review.mjs",
     "peer-review-codex-hook": "./bin/peer-review-codex-hook.mjs",
     "peer-review-claude-hook": "./bin/peer-review-claude-hook.mjs",
-    "peer-review-mcp": "./bin/peer-review-mcp.mjs"
+    "peer-review-mcp": "./bin/peer-review-mcp.mjs",
+    "peer-review-verify-deployment": "./bin/verify-deployment.mjs"
   },
   "exports": "./src/public-api.mjs",
   "files": [
     "bin/",
     "src/",
-    "docs/",
     "schemas/",
     "templates/",
     "skills/",
     "provenance/",
-    "scripts/verify-extraction.mjs",
-    "scripts/verify-release.mjs",
     "native/broker-security/binding.gyp",
     "native/broker-security/addon.cc",
     "native/broker-security/posix.cc",
@@ -32,7 +30,14 @@
     "scripts/build-broker-security.mjs",
     "LICENSE",
     "NOTICE",
-    "README.md"
+    "README.md",
+    "docs/releases/",
+    "docs/dependency-audit-mcp.md",
+    "docs/dependency-audit-broker-build.md",
+    "docs/manual-cross-provider-peer-review.md",
+    "docs/claude-launch-api-migration.md",
+    "docs/spdx-policy.md",
+    "docs/installation-runtime.md"
   ],
   "scripts": {
     "build:broker-security": "node scripts/build-broker-security.mjs",
@@ -49,7 +54,9 @@
     "test:slow": "npm run test:integration && npm run test:mcp && npm run test:smoke",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . && markdownlint-cli2 \"**/*.md\" && cspell --no-progress \"**/*.{md,mjs,js,json}\""
+    "lint": "eslint . && markdownlint-cli2 \"**/*.md\" && cspell --no-progress \"**/*.{md,mjs,js,json}\"",
+    "pack:runtime": "node scripts/pack-runtime.mjs",
+    "prepack": "node scripts/refuse-source-pack.mjs"
   },
   "publishConfig": {
     "access": "public",
