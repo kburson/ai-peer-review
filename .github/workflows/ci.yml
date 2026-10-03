@@ -105,6 +105,8 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw 'Native endpoint recovery failed' }
               node --test test/unit/runtime-selection.test.mjs test/unit/claude-reviewer-resume-submit.test.mjs test/golden/primary-runtime.test.mjs
               if ($LASTEXITCODE -ne 0) { throw 'Windows account and reviewer fixture verification failed' }
+              node --test --test-name-pattern='selection permission drift' test/integration/authority-entrypoints.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Windows immediate selection authority fixture failed' }
               node --test test/integration/broker-release.test.mjs
             } finally {
               $result = $LASTEXITCODE

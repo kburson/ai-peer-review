@@ -24,13 +24,13 @@ export async function authorityInstalledFixture(t) {
   }
   sealInstalledRuntimeFixture(installed);
   symlinkSync(path.join(source, 'node_modules'), path.join(f.parent, 'node_modules'), 'dir');
-  const module = (name) => JSON.stringify(pathToFileURL(path.join(installed, name)).href);
+  const module = (name) => JSON.stringify(new URL(name, pathToFileURL(installed + path.sep)).href);
   const execute = (code) =>
     spawnSync(
       process.execPath,
       [
         '--import',
-        new URL('./installed-provider/preload.mjs', import.meta.url).href,
+        new URL('./installed-provider/account-profile.mjs', import.meta.url).href,
         '--input-type=module',
         '-e',
         'import {registerRuntimeSelection} from ' +
