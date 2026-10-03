@@ -1,5 +1,11 @@
 import { AprError } from '../errors.mjs';
-import { createFrameDecoder, encodeFrame, validateCommand, validateHandshake } from './ipc.mjs';
+import {
+  assertBrokerTransport,
+  createFrameDecoder,
+  encodeFrame,
+  validateCommand,
+  validateHandshake,
+} from './ipc.mjs';
 import { reserveReviewerLaunch, settleReservedReviewerLaunch } from './launch.mjs';
 
 const IDLE_MILLISECONDS = 60_000;
@@ -67,7 +73,7 @@ function decodeOne(bytes) {
   return values[0];
 }
 
-export function createAuthenticatedBrokerServer(owner, platform, { schedule = setImmediate } = {}) {
+export function createLegacyBrokerServer(owner, platform, { schedule = setImmediate } = {}) {
   if (!owner?.handshake || typeof owner?.endpoint?.accept !== 'function') {
     fail(
       'APR_BROKER_START_FAILED',
@@ -336,10 +342,10 @@ export async function runBroker(input = {}) {
   try {
     for (const registration of await registry.list()) await addWorker(registration);
     await settleWorkers({ resetIdle: true });
-    server.start(serializedDispatch);
+    await server.start(serializedDispatch);
     // Recovery can exceed the short handshake deadline. Advertise only after
     // workers are restored and the server can accept authenticated commands.
-    owner.publish?.();
+    await owner.publish?.();
     await untilStopped;
     await sequence;
   } finally {
@@ -365,7 +371,7 @@ export async function runBroker(input = {}) {
     }
     if (!cleanupError) {
       try {
-        owner.release?.();
+        await owner.release?.();
       } catch (error) {
         cleanupError ??= error;
       }
@@ -375,3 +381,9 @@ export async function runBroker(input = {}) {
 }
 
 export { IDLE_MILLISECONDS };
+
+export { createLegacyBrokerServer as createAuthenticatedBrokerServer };
+
+export function createPortableBrokerServer() {
+  assertBrokerTransport('portable');
+}

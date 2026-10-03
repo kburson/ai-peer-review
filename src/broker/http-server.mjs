@@ -1,0 +1,225 @@
+import http from 'node:http';
+import { performance } from 'node:perf_hooks';
+import { finished } from 'node:stream/promises';
+import { authenticateLoopback, validatePrivateBinding } from './http-auth.mjs';
+
+export const HTTP_BODY_LIMIT = 1_048_576;
+// New sockets have no authenticated priority: at 128 pending peers, even a
+// legitimate new client can be refused. Existing authenticated keep-alive
+// controls retain capacity; every accepted socket still counts toward 256.
+export const HTTP_ADMISSION_LIMITS = Object.freeze({ sockets: 256, pending: 128 });
+const realClock = { now: () => performance.now(), setTimeout, clearTimeout };
+
+function reject(res, status) {
+  if (res.destroyed) return;
+  res.writeHead(status, { Connection: 'close', 'Content-Length': '0' });
+  res.end(() => res.socket?.destroy());
+}
+
+function bytes(value) {
+  const body = Buffer.from(JSON.stringify(value), 'utf8');
+  if (body.length > HTTP_BODY_LIMIT) throw new Error('frame bound');
+  return body;
+}
+
+async function write(res, data) {
+  if (res.write(data)) return;
+  await new Promise((resolve, reject) => {
+    const cleanup = () => {
+      res.removeListener('drain', drained);
+      res.removeListener('close', closed);
+      res.removeListener('error', failed);
+    };
+    const drained = () => {
+      cleanup();
+      resolve();
+    };
+    const failed = (error) => {
+      cleanup();
+      reject(error);
+    };
+    const closed = () => failed(new Error('Broker stream closed.'));
+    res.once('drain', drained);
+    res.once('close', closed);
+    res.once('error', failed);
+    if (res.destroyed) closed();
+  });
+}
+
+async function finish(res, data) {
+  const settled = finished(res, { cleanup: true });
+  res.end(data);
+  await settled;
+}
+
+export async function createLoopbackServer({
+  binding,
+  authenticate = authenticateLoopback,
+  dispatch,
+  clock = realClock,
+}) {
+  if (
+    !validatePrivateBinding(binding) ||
+    typeof dispatch !== 'function' ||
+    typeof authenticate !== 'function' ||
+    !['now', 'setTimeout', 'clearTimeout'].every((key) => typeof clock?.[key] === 'function')
+  )
+    throw new TypeError('Invalid loopback broker dependencies.');
+  const expected = { ...binding, port: null };
+  const sockets = new Map();
+  const active = new Set();
+  let pending = 0;
+  let closing = false;
+  const clear = (state, name) => {
+    if (state[name] !== null) clock.clearTimeout(state[name]);
+    state[name] = null;
+  };
+  const receipt = (socket, state) => {
+    if (state.receipt !== null) return;
+    state.receipt = clock.setTimeout(() => socket.destroy(), 10_000);
+  };
+  const idle = (socket, state) => {
+    clear(state, 'idle');
+    state.idle = clock.setTimeout(() => socket.destroy(), 5_000);
+  };
+
+  const handle = async (req, res) => {
+    const state = sockets.get(req.socket);
+    if (!state || closing) return reject(res, 503);
+    receipt(req.socket, state);
+    if (req.method !== 'POST' || !['/rpc', '/wait'].includes(req.url) || req.httpVersion !== '1.1')
+      return reject(res, 400);
+    const auth = authenticate(req.rawHeaders, expected);
+    if (!auth?.ok) return reject(res, auth?.status ?? 401);
+    if (!state.authenticated) {
+      state.authenticated = true;
+      pending -= 1;
+    }
+    clear(state, 'idle');
+    if (Number(req.headers['content-length']) > HTTP_BODY_LIMIT) return reject(res, 413);
+    const chunks = [];
+    let size = 0;
+    try {
+      for await (const chunk of req) {
+        size += chunk.length;
+        if (size > HTTP_BODY_LIMIT) return reject(res, 413);
+        chunks.push(chunk);
+      }
+      const parsed = JSON.parse(
+        new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))
+      );
+      if (
+        !parsed ||
+        parsed.schema !== 'ai-peer-review.rpc/v1' ||
+        !/^[a-z][a-z0-9_-]{0,63}$/.test(parsed.operation ?? '') ||
+        !parsed.body ||
+        typeof parsed.body !== 'object' ||
+        Array.isArray(parsed.body) ||
+        !/^[a-zA-Z0-9-]{1,64}$/.test(parsed.action_id ?? '') ||
+        Object.keys(parsed).sort().join(',') !== 'action_id,body,operation,schema'
+      )
+        return reject(res, 400);
+      req.operation = parsed.operation;
+      req.body = parsed.body;
+      req.actionId = parsed.action_id;
+      req.brokerSignal = state.abort.signal;
+      clear(state, 'receipt');
+    } catch {
+      return reject(res, 400);
+    }
+    try {
+      const result = await dispatch(req, res, auth);
+      if (res.writableEnded || res.destroyed) return;
+      if (req.url === '/wait') {
+        if (!result || typeof result[Symbol.asyncIterator] !== 'function') return reject(res, 500);
+        res.writeHead(200, { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store' });
+        for await (const event of result) {
+          if (res.destroyed) break;
+          await write(res, Buffer.concat([bytes(event), Buffer.from('\n')]));
+        }
+        if (!res.destroyed) await finish(res);
+      } else {
+        const body = bytes(result);
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+          'Content-Length': body.length,
+        });
+        await finish(res, body);
+      }
+    } catch {
+      if (res.headersSent) res.destroy();
+      else reject(res, 500);
+    }
+  };
+  const server = http.createServer(
+    {
+      maxHeaderSize: 16_384,
+      requestTimeout: 10_000,
+      headersTimeout: 10_000,
+      connectionsCheckingInterval: 1_000,
+    },
+    (req, res) => {
+      const task = handle(req, res).catch(() => {
+        if (res.headersSent) res.destroy();
+        else reject(res, 500);
+      });
+      active.add(task);
+      task.finally(() => active.delete(task));
+    }
+  );
+  server.on('connection', (socket) => {
+    if (
+      closing ||
+      sockets.size >= HTTP_ADMISSION_LIMITS.sockets ||
+      pending >= HTTP_ADMISSION_LIMITS.pending
+    )
+      return socket.destroy();
+    const state = { authenticated: false, idle: null, receipt: null, abort: new AbortController() };
+    sockets.set(socket, state);
+    pending += 1;
+    receipt(socket, state);
+    idle(socket, state);
+    socket.on('data', () => {
+      receipt(socket, state);
+      if (!state.authenticated) idle(socket, state);
+    });
+    socket.on('close', () => {
+      clear(state, 'idle');
+      clear(state, 'receipt');
+      state.abort.abort();
+      sockets.delete(socket);
+      if (!state.authenticated) pending -= 1;
+    });
+  });
+  server.on('upgrade', (_req, socket) => {
+    socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+  });
+  server.on('clientError', (error, socket) => {
+    if (socket.destroyed) return;
+    socket.end(
+      `HTTP/1.1 ${error.code === 'HPE_HEADER_OVERFLOW' ? '431 Request Header Fields Too Large' : '400 Bad Request'}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`
+    );
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  expected.port = server.address().port;
+  let closed;
+  return Object.freeze({
+    port: expected.port,
+    close() {
+      closed ??= (async () => {
+        closing = true;
+        const stopped = new Promise((resolve, reject) =>
+          server.close((error) => (error ? reject(error) : resolve()))
+        );
+        for (const socket of sockets.keys()) socket.destroy();
+        await Promise.allSettled([...active]);
+        await stopped;
+      })();
+      return closed;
+    },
+  });
+}

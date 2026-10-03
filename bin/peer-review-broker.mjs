@@ -6,13 +6,14 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { AprError } from '../src/errors.mjs';
+import { assertBrokerTransport } from '../src/broker/ipc.mjs';
 import { canonicalProjectIdentity } from '../src/broker/identity.mjs';
 import { acquireBrokerOwnership } from '../src/broker/ownership.mjs';
 import { brokerPaths } from '../src/broker/paths.mjs';
 import { platformSecurity } from '../src/broker/platform.mjs';
 import { inspectStartupAuthority, reconcileRegistrations } from '../src/broker/registry.mjs';
 import { verifyRuntimeImage } from '../src/broker/runtime-image.mjs';
-import { createAuthenticatedBrokerServer, runBroker } from '../src/broker/service.mjs';
+import { createLegacyBrokerServer, runBroker } from '../src/broker/service.mjs';
 import { createProductionReviewWorker } from '../src/broker/worker-factory.mjs';
 import { createGitRepository } from '../src/git/repository.mjs';
 
@@ -154,7 +155,8 @@ function registrationSnapshotCurrent(store, registrations) {
   });
 }
 
-export async function runBrokerEntrypoint(file) {
+export async function runBrokerEntrypoint(file, { transport = 'legacy' } = {}) {
+  assertBrokerTransport(transport);
   const bootstrap = readBrokerBootstrap(file);
   if (!verifyRuntimeImage(bootstrap.runtimeImage)) {
     throw new AprError('APR_BROKER_START_FAILED', 'Pinned broker runtime is incomplete.', {
@@ -197,7 +199,7 @@ export async function runBrokerEntrypoint(file) {
     },
     platform
   );
-  const server = createAuthenticatedBrokerServer(owner, platform);
+  const server = createLegacyBrokerServer(owner, platform);
   await runBroker({
     identity,
     owner,

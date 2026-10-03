@@ -5,7 +5,13 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 import { AprError } from '../errors.mjs';
-import { connectBroker, createFrameDecoder, encodeFrame, validateCommand } from './ipc.mjs';
+import {
+  assertBrokerTransport,
+  connectBroker,
+  createFrameDecoder,
+  encodeFrame,
+  validateCommand,
+} from './ipc.mjs';
 import { brokerPaths } from './paths.mjs';
 import { verifyRuntimeImage } from './runtime-image.mjs';
 import { startupEvidence } from './registry.mjs';
@@ -154,7 +160,14 @@ function observeLaunch(child) {
   });
 }
 
-export async function ensureBroker({ project, versions, runtimeImage, platform } = {}) {
+export async function ensureBroker({
+  project,
+  versions,
+  runtimeImage,
+  platform,
+  transport = 'legacy',
+} = {}) {
+  assertBrokerTransport(transport);
   if (
     !project ||
     !/^[a-f0-9]{64}$/.test(project.digest ?? '') ||

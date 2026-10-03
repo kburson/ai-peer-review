@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { timingSafeEqual } from 'node:crypto';
 import { AprError } from '../errors.mjs';
+import { requestLoopback } from './http-client.mjs';
 
 const MAX_FRAME = 65536;
 const COMMANDS = new Set(['status', 'register', 'launch', 'suspend', 'stop', 'reconcile']);
@@ -152,7 +153,8 @@ function openAuthorityDirectory(paths, platform) {
   }
 }
 
-export async function connectBroker({ identity, paths, versions }, platform) {
+export async function connectBroker({ identity, paths, versions, transport = 'legacy' }, platform) {
+  assertBrokerTransport(transport);
   const directory = openAuthorityDirectory(paths, platform);
   let connection = null;
   const metadataName = path.basename(paths.metadata);
@@ -222,4 +224,38 @@ export async function connectBroker({ identity, paths, versions }, platform) {
   } finally {
     directory.close();
   }
+}
+
+// Task 2 must provide the verified protection/ownership adapter before portable
+// startup can publish or listen. Selecting portable never enters native startup.
+export function assertBrokerTransport(transport) {
+  if (transport === 'portable')
+    throw brokerError(
+      'APR_BROKER_PROTECTION_UNAVAILABLE',
+      'Portable broker startup requires the verified protection and ownership adapter.'
+    );
+  if (transport !== 'legacy') throw brokerError('APR_BROKER_PROTOCOL', 'Unknown broker transport.');
+}
+
+export function createLoopbackBrokerClient({ endpoint, privateBinding, agent }) {
+  return Object.freeze({
+    transport: 'portable',
+    async request(message) {
+      const command = validateCommand(message);
+      const response = await requestLoopback({
+        endpoint,
+        privateBinding,
+        agent,
+        operation: command.command,
+        body: { workspace: command.workspace },
+        actionId: command.id,
+      });
+      if (!response.ok)
+        throw new AprError(response.error.code, response.error.message, {
+          recovery: 'Reconcile the recorded action before retrying a possible mutation.',
+          details: { action_id: response.action_id, retry_safe: response.retry_safe },
+        });
+      return response.result;
+    },
+  });
 }
