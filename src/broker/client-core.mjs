@@ -298,13 +298,15 @@ export function createBrokerClientOperations({
       } catch (error) {
         const startup = startupInputs.get(client);
         // A readiness observation can outlive an empty broker's normal idle
-        // retirement. Reacquire only our own admitted startup before submission.
+        // retirement, including between handshake and discovery reread. Reacquire
+        // only our own admitted startup when discovery is now absent.
         // External clients, malformed discovery and submitted commands never retry.
         if (
           command !== 'status' &&
           startup &&
           error?.code === 'APR_BROKER_STALE' &&
-          error.message === 'Broker discovery metadata is unavailable.' &&
+          (error.message === 'Broker discovery metadata is unavailable.' ||
+            discoveryChangedDuringHandshake(error)) &&
           performance.now() < deadline
         ) {
           assertCurrentOperationAuthority();

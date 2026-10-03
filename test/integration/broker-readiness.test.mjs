@@ -14,6 +14,23 @@ const nativeAvailable = existsSync(
 
 for (const scenario of [
   {
+    name: 'reacquires an empty broker retiring during an unsent stop handshake',
+    recoveryMs: 0,
+    commandMs: 0,
+    prepareMs: 0,
+    idleRetire: true,
+    retireDuringHandshake: true,
+  },
+  {
+    name: 'refuses an empty broker retiring during a handshake after authority drift',
+    recoveryMs: 0,
+    commandMs: 0,
+    prepareMs: 0,
+    idleRetire: true,
+    retireDuringHandshake: true,
+    authorityDrift: true,
+  },
+  {
     name: 'refuses reacquiring a retired empty broker after authority drift',
     recoveryMs: 0,
     commandMs: 0,
@@ -76,7 +93,28 @@ for (const scenario of [
         assertCurrentOperationAuthority: assertAuthority,
       });
       const { platformSecurity } = await import('../../src/broker/platform.mjs');
-      const security = platformSecurity();
+      const nativeSecurity = platformSecurity();
+      let retireDuringHandshake = false;
+      let discoveryReads = 0;
+      const security = {
+        ...nativeSecurity,
+        openPrivateDirectory(...args) {
+          const directory = nativeSecurity.openPrivateDirectory(...args);
+          return {
+            ...directory,
+            read(name) {
+              if (retireDuringHandshake && name === 'broker.json' && ++discoveryReads === 2) {
+                // Delay only the parent's reread. The real independent broker
+                // performs its ordinary idle retirement and native cleanup.
+                Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 6_000);
+                if (scenario.authorityDrift) authorityCurrent = false;
+                retireDuringHandshake = false;
+              }
+              return directory.read(name);
+            },
+          };
+        },
+      };
       const root = mkdtempSync(path.join(tmpdir(), 'apr-ready-'));
       const directory = path.join(root, 'authority');
       const identity = {
@@ -134,7 +172,7 @@ for (const scenario of [
         platform: {
           ...security,
           verifyRuntimeImage: () => true,
-          discoveryState: () => 'missing',
+          discoveryState: () => (existsSync(paths.metadata) ? 'present' : 'missing'),
           connect: () => connectBroker({ identity, paths, versions }, security),
           createBootstrap: () => bootstrap,
           spawn() {
@@ -166,6 +204,25 @@ for (const scenario of [
         throw error;
       });
       assert.equal(launches, 1);
+      if (scenario.retireDuringHandshake) {
+        const originalChild = child;
+        const originalExit = exited;
+        originalChild.ref();
+        retireDuringHandshake = true;
+        if (scenario.authorityDrift) {
+          await assert.rejects(requestBroker(client, 'stop'), (error) => error === drift);
+          assert.equal(launches, 1);
+          assert.equal(existsSync(paths.metadata), false);
+        } else {
+          assert.equal((await requestBroker(client, 'stop')).status, 'stopping');
+          assert.equal(launches, 2);
+          child.ref();
+          assert.equal(await exited, 0, diagnostics);
+        }
+        assert.equal(await originalExit, 0, diagnostics);
+        assert.equal(discoveryReads, 2);
+        return;
+      }
       if (scenario.idleRetire) {
         child.ref();
         assert.equal(await exited, 0, diagnostics);

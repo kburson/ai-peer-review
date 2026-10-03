@@ -351,17 +351,54 @@ test('endpoint access denial and unclassified connection failure remain terminal
 });
 
 // @story #137
-test('missing discovery on a client without admitted startup identity stays terminal', async () => {
-  const failure = Object.assign(new Error('Broker discovery metadata is unavailable.'), {
+test('retired discovery on a client without admitted startup identity stays terminal', async () => {
+  for (const message of [
+    'Broker discovery metadata is unavailable.',
+    'Broker discovery changed during handshake.',
+  ]) {
+    const failure = Object.assign(new Error(message), { code: 'APR_BROKER_STALE' });
+    let attempts = 0;
+    const client = {
+      async takeConnection() {
+        attempts++;
+        throw failure;
+      },
+    };
+    await assert.rejects(requestBroker(client, 'stop'), (error) => error === failure);
+    assert.equal(attempts, 1);
+  }
+});
+
+// @story #137
+test('changed discovery that is still present refuses an admitted unsent command', async () => {
+  const failure = Object.assign(new Error('Broker discovery changed during handshake.'), {
     code: 'APR_BROKER_STALE',
   });
-  let attempts = 0;
-  const client = {
-    async takeConnection() {
-      attempts++;
-      throw failure;
+  let commandConnections = 0;
+  let readinessConnections = 0;
+  const { ensureBroker, requestBroker: request } = createBrokerClientOperations({
+    performCurrentOperationEffect: (operation) => operation(),
+    assertCurrentOperationAuthority: () => {},
+  });
+  const client = await ensureBroker({
+    project: { digest: 'e'.repeat(64) },
+    versions: handshake.versions,
+    runtimeImage: { root: '/runtime', nodeExecutable: process.execPath },
+    platform: {
+      verifyRuntimeImage: () => true,
+      discoveryState: () => 'present',
+      connect() {
+        readinessConnections++;
+        return {
+          async takeConnection() {
+            commandConnections++;
+            throw failure;
+          },
+        };
+      },
     },
-  };
-  await assert.rejects(requestBroker(client, 'stop'), (error) => error === failure);
-  assert.equal(attempts, 1);
+  });
+  await assert.rejects(request(client, 'stop'), (error) => error === failure);
+  assert.equal(commandConnections, 1);
+  assert.equal(readinessConnections, 1);
 });
