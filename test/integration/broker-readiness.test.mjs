@@ -203,7 +203,9 @@ test(
     current.write(encodeFrame(handshake));
     const accepted = endpoint.accept();
     t.after(() => accepted.close());
-    assert.equal(security.peerUser(accepted), security.userId());
+    // Match the production server: consume the client's frame before Windows
+    // authenticates the security context associated with its last read.
     assert.deepEqual(accepted.readFrame(), encodeFrame(handshake));
+    assert.equal(security.peerUser(accepted), security.userId());
   }
 );
