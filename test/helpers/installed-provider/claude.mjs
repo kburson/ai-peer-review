@@ -324,6 +324,8 @@ if (initial) {
 if (!initial && !resume && process.env.APR_FIXTURE_RESTART_SIMULATION === '1') {
   // The installed test owns this synthetic process and terminates it after
   // ordinary join/submit, before any launch acknowledgement can be persisted.
+  // Complete the provider turn before withholding its final launch result.
+  record('assistant', [{ type: 'text', text: 'Completed the requested action.' }]);
   const heldFile = path.join(root, '.scratch/fixture-held-launch.json');
   const pendingFile = `${heldFile}.${process.pid}.tmp`;
   writeFileSync(pendingFile, JSON.stringify({ pid: process.pid, session }), { mode: 0o600 });
