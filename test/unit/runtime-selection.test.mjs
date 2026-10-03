@@ -58,7 +58,12 @@ test('one account selection is shared by clones and ignores caller environment',
   }
   assert.equal(
     await store.location(),
-    path.join(f.home, '.config/ai-peer-review/runtime-selection.json')
+    path.join(
+      f.home,
+      process.platform === 'win32'
+        ? 'AppData/Local/ai-peer-review/runtime-selection.json'
+        : '.config/ai-peer-review/runtime-selection.json'
+    )
   );
 });
 
@@ -76,7 +81,8 @@ test('unavailable account and unsafe selection bytes refuse', async (t) => {
   );
   const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
   await store.register({ dryRun: false });
-  chmodSync(await store.location(), 0o644);
+  if (process.platform === 'win32') writeFileSync(await store.location(), 'x'.repeat(8193));
+  else chmodSync(await store.location(), 0o644);
   await assert.rejects(store.read(), { code: 'APR_RUNTIME_SELECTION_INVALID' });
 });
 
