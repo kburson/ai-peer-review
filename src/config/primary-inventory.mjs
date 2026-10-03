@@ -153,13 +153,17 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
     const fields = record.split('\0');
     const value = fields.find((field) => field.startsWith('worktree '));
     if (!value || fields.includes('bare')) unavailable('Worktree inventory is malformed.');
-    const root = value.slice(9);
+    const listedRoot = value.slice(9);
     let location;
     try {
-      location = discoverAuthorityRepository(realpathSync(root));
+      location = discoverAuthorityRepository(realpathSync(listedRoot));
     } catch (error) {
-      unavailable('A clone worktree cannot be inventoried.', { root, reason: error.message });
+      unavailable('A clone worktree cannot be inventoried.', {
+        root: listedRoot,
+        reason: error.message,
+      });
     }
+    const root = location.root;
     if (location.commonDir !== commonDir)
       unavailable('Worktree inventory crosses clone authority.', { root });
     const scratch = path.join(root, '.scratch', 'peer-review');

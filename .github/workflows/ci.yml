@@ -107,12 +107,12 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw 'Windows account and reviewer fixture verification failed' }
               node --test --test-name-pattern='selection permission drift' test/integration/authority-entrypoints.test.mjs
               if ($LASTEXITCODE -ne 0) { throw 'Windows immediate selection authority fixture failed' }
+              node --test --test-name-pattern='installed Git observations' test/integration/installed-maintenance.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Windows installed authority compiler probe failed' }
               node --test test/integration/collateral-compatibility.test.mjs test/integration/primary-authority.test.mjs test/integration/primary-setup.test.mjs
               if ($LASTEXITCODE -ne 0) { throw 'Windows integration fixture portability failed' }
               node --test --test-name-pattern='independent successor' test/integration/start-join.test.mjs
               if ($LASTEXITCODE -ne 0) { throw 'Windows preserved predecessor membership failed' }
-              node --test --test-name-pattern='installed Git observations' test/integration/installed-maintenance.test.mjs
-              if ($LASTEXITCODE -ne 0) { throw 'Windows installed authority compiler probe failed' }
               node --test test/integration/broker-release.test.mjs
             } finally {
               $result = $LASTEXITCODE

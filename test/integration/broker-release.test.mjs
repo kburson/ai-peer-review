@@ -790,14 +790,11 @@ test('installed release preserves legacy evidence, current broker execution and 
   const currentStatus = await clientApi.requestBroker(currentBroker, 'status');
   assert.equal(currentStatus.package_version, currentPackageVersion);
   assert.equal(currentStatus.project_digest, live[1].project.digest);
-  currentBroker.connection?.close();
   phase('selected-dependency-fence-start');
-  const fencedStop = await clientApi.ensureBroker({
-    project: live[1].project,
-    versions,
-    runtimeImage: image,
-    platform,
-  });
+  // This authenticated client has already proved the current empty clone.
+  // Inventory admission must refuse the effect before another IPC operation;
+  // a second readiness check would race this idle broker's normal retirement.
+  const fencedStop = currentBroker;
   // Replacing consumer dependencies above must remain irrelevant. Replacing
   // the selected global dependency closure must fence a command with effects.
   const selectedDependencies = path.join(installed, 'node_modules');
