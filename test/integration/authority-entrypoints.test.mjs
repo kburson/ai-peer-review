@@ -211,11 +211,11 @@ test('direct broker restoration refuses source authority before starting a worke
 test('selection permission drift refuses an immediate effect with unchanged bytes', async (t) => {
   const f = await authorityInstalledFixture(t);
   const result = f.execute(
-    'import {chmodSync,existsSync,writeFileSync} from "node:fs"; import {verifiedAccountSelectionPath} from ' +
+    'import {chmodSync,existsSync,readFileSync,writeFileSync} from "node:fs"; import {execFileSync} from "node:child_process"; import {verifiedAccountSelectionPath} from ' +
       f.module('src/config/runtime-selection.mjs') +
       '; import {assertOperationAuthority,performOperationEffect} from ' +
       f.module('src/startup/authority-fence.mjs') +
-      '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); chmodSync(await verifiedAccountSelectionPath(),420); let refused=false; try{performOperationEffect(fence,()=>writeFileSync("effect","unsafe"));}catch(error){refused=true;} if(!refused||existsSync("effect")) throw Error("public selection admitted an effect"); console.log("fenced");'
+      '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); const selection=await verifiedAccountSelectionPath(); const before=readFileSync(selection); if(process.platform==="win32"){execFileSync("icacls.exe",[selection,"/grant","*S-1-1-0:(R)"],{stdio:"pipe"});}else{chmodSync(selection,420);} if(!before.equals(readFileSync(selection)))throw Error("permission drift changed selection bytes"); let refused=false; try{performOperationEffect(fence,()=>writeFileSync("effect","unsafe"));}catch(error){refused=true;} if(!refused||existsSync("effect")) throw Error("public selection admitted an effect"); console.log("fenced");'
   );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), 'fenced');
