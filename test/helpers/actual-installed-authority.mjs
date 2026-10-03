@@ -65,7 +65,7 @@ export function actualInstalledAuthority(t) {
     ],
     { cwd: installed, env, encoding: 'utf8', timeout: 120000 }
   );
-  assert.equal(build.status, 0, build.stderr);
+  assert.equal(build.status, 0, build.stdout + build.stderr);
   const cli = (args, cwd = root) =>
     spawnSync(process.execPath, [path.join(installed, 'bin/peer-review.mjs'), ...args], {
       cwd,

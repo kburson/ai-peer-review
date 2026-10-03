@@ -2,6 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { platformSecurity } from '../../src/broker/platform.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 test('primary setup migrates portable policy without activating or committing it', async (t) => {
   const f = await setupHostFixture(t);
@@ -21,7 +23,9 @@ test('linked setup apply refuses with the physical primary recovery command', as
   const f = await setupHostFixture(t);
   await assert.rejects(
     Promise.resolve().then(() => f.setupApply({ cwd: f.linked })),
-    (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' && error.recovery.includes(f.root)
+    (error) =>
+      error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' &&
+      error.recovery.includes(JSON.stringify(f.root))
   );
   assert.equal(f.exists('.ai-peer-review/config.json'), false);
 });
@@ -123,7 +127,9 @@ test('linked activation cannot select an experimental primary', async (t) => {
   const f = await setupHostFixture(t);
   await assert.rejects(
     Promise.resolve().then(() => f.core.activate({ cwd: f.linked })),
-    (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' && error.recovery.includes(f.root)
+    (error) =>
+      error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' &&
+      error.recovery.includes(JSON.stringify(f.root))
   );
 });
 
@@ -382,7 +388,7 @@ test('project setup confirms and atomically appends its local scratch exclude', 
   );
   assert.equal(f.exists('.ai-peer-review/config.json'), false);
   const preview = await f.setupApply({ dryRun: true });
-  assert.ok(preview.writes.some((entry) => entry.file.endsWith('info/exclude')));
+  assert.ok(preview.writes.some((entry) => entry.file.endsWith(path.join('info', 'exclude'))));
   assert.equal(f.read('.git/info/exclude'), original);
   await f.setupApply();
   assert.ok(f.read('.git/info/exclude').startsWith(original));
@@ -448,7 +454,7 @@ test('explicit machine migration writes invoking account preferences and refuses
 
 test('verified owned suspension permits activation without rewriting review evidence', async (t) => {
   const f = await setupHostFixture(t);
-  const { rmSync, writeFileSync } = await import('node:fs');
+  const { rmSync } = await import('node:fs');
   const saved = readFileSync(f.registrationPath);
   rmSync(f.registrationPath);
   f.write('docs/artifact.md', '# Artifact\n');
@@ -470,7 +476,12 @@ test('verified owned suspension permits activation without rewriting review evid
     },
     fixtureStartupDeps
   );
-  writeFileSync(f.registrationPath, saved, { mode: 0o600 });
+  const directory = platformSecurity().openPrivateDirectory(path.dirname(f.registrationPath));
+  try {
+    directory.create(path.basename(f.registrationPath), saved);
+  } finally {
+    directory.close();
+  }
   await assert.rejects(
     f.setupApply(),
     (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE'
@@ -479,7 +490,6 @@ test('verified owned suspension permits activation without rewriting review evid
   await fenceManualRecovery(started.paths.workspace, {
     connect: async () => ({ request: async () => ({ status: 'recovery-only' }) }),
   });
-  const path = await import('node:path');
   const eventFile = path.join(started.paths.workspace, 'events.jsonl'),
     journalFile = path.join(started.paths.workspace, 'startup-request.json');
   const events = readFileSync(eventFile),
