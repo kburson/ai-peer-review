@@ -291,14 +291,13 @@ export function createBrokerClientOperations({
       try {
         return await client.takeConnection();
       } catch (error) {
-        // Only the handshake was sent. A busy owner can miss one short
-        // handshake window; malformed frames and submitted commands never retry.
-        if (
-          error?.code !== 'APR_BROKER_PROTOCOL' ||
-          error.message !== 'Broker frame prefix timed out.' ||
-          performance.now() >= deadline
-        )
-          throw error;
+        // No command was sent. A busy owner can occupy the native endpoint or
+        // miss one short handshake window; malformed/auth failures never retry.
+        const retryable =
+          error?.code === 'EBUSY' ||
+          (error?.code === 'APR_BROKER_PROTOCOL' &&
+            error.message === 'Broker frame prefix timed out.');
+        if (!retryable || performance.now() >= deadline) throw error;
         await new Promise((resolve) => setTimeout(resolve, 25));
       }
     }

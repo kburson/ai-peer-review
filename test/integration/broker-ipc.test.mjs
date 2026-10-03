@@ -304,3 +304,48 @@ test('malformed and truncated command handshakes remain terminal without retry',
     assert.equal(attempts, 1);
   }
 });
+
+// @story #137
+test('a busy native endpoint is reacquired before one guarded command submission', async () => {
+  let attempts = 0;
+  let submissions = 0;
+  const client = {
+    async takeConnection() {
+      attempts++;
+      if (attempts === 1)
+        throw Object.assign(new Error('Private named pipe cannot be connected.'), {
+          code: 'EBUSY',
+        });
+      return {
+        exchange(bytes) {
+          submissions++;
+          const decoder = createFrameDecoder();
+          const [command] = decoder.push(bytes);
+          decoder.end();
+          assert.equal(command.command, 'stop');
+          return encodeFrame({ id: command.id, ok: true, result: { status: 'stopping' } });
+        },
+        close() {},
+      };
+    },
+  };
+  assert.equal((await requestBroker(client, 'stop')).status, 'stopping');
+  assert.equal(attempts, 2);
+  assert.equal(submissions, 1);
+});
+
+// @story #137
+test('endpoint access denial and unclassified connection failure remain terminal', async () => {
+  for (const code of ['APR_BROKER_ACCESS_DENIED', 'APR_BROKER_START_FAILED']) {
+    let attempts = 0;
+    const failure = Object.assign(new Error('Private named pipe cannot be connected.'), { code });
+    const client = {
+      async takeConnection() {
+        attempts++;
+        throw failure;
+      },
+    };
+    await assert.rejects(requestBroker(client, 'stop'), (error) => error === failure);
+    assert.equal(attempts, 1);
+  }
+});

@@ -648,19 +648,19 @@ void* ConnectPrivate(const std::string& input, std::string* code, std::string* m
   const auto path = Wide(input);
   if (!WaitNamedPipeW(path.c_str(), 5000)) {
     const DWORD error = GetLastError();
-    if (error != ERROR_SEM_TIMEOUT) {
-      Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" :
-           error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" : "APR_BROKER_START_FAILED",
-           "Private named pipe is unavailable.");
-      return nullptr;
-    }
+    Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" :
+         error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" :
+         (error == ERROR_SEM_TIMEOUT || error == ERROR_PIPE_BUSY) ? "EBUSY" : "APR_BROKER_START_FAILED",
+         "Private named pipe is unavailable.");
+    return nullptr;
   }
   HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     const DWORD error = GetLastError();
     Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" :
-         error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" : "APR_BROKER_START_FAILED",
+         error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" :
+         error == ERROR_PIPE_BUSY ? "EBUSY" : "APR_BROKER_START_FAILED",
          "Private named pipe cannot be connected.");
     return nullptr;
   }

@@ -36,7 +36,7 @@ for (const scenario of [
     recoveryMs: 0,
     commandMs: 0,
     prepareMs: 0,
-    occupiedMs: 6_000,
+    occupiedMs: 12_000,
   },
 ])
   test(
