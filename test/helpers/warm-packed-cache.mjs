@@ -28,6 +28,21 @@ export function warmPackedCache({ root, scratch, npm = runNpm }) {
     cwd: host,
     stdio: 'inherit',
   });
+  npm(
+    'npm',
+    [
+      'install',
+      '--global',
+      '--prefix',
+      path.join(scratch, 'global prefix'),
+      '--omit=dev',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      tarball,
+    ],
+    { cwd: host, stdio: 'inherit' }
+  );
   return tarball;
 }
 

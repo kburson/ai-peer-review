@@ -17,6 +17,7 @@ export function actualInstalledAuthority(t) {
       '--global',
       '--prefix',
       prefix,
+      '--omit=dev',
       '--ignore-scripts',
       '--offline',
       '--no-audit',
