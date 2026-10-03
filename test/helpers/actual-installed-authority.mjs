@@ -36,7 +36,7 @@ export function actualInstalledAuthority(t) {
   const linked = path.join(directory, 'linked project');
   mkdirSync(home, { mode: 0o700 });
   mkdirSync(root);
-  for (const relative of ['Library/Caches', 'cache', 'AppData/Roaming'])
+  for (const relative of ['Library/Caches', 'cache', 'AppData/Roaming', 'AppData/Local'])
     mkdirSync(path.join(home, relative), { recursive: true, mode: 0o700 });
   const profile = new URL('./installed-provider/account-profile.mjs', import.meta.url).href;
   const endpointRoot =
@@ -50,7 +50,7 @@ export function actualInstalledAuthority(t) {
     XDG_CONFIG_HOME: path.join(home, '.config'),
     APPDATA: path.join(home, 'AppData/Roaming'),
     XDG_CACHE_HOME: path.join(home, 'cache'),
-    LOCALAPPDATA: path.join(home, 'AppData'),
+    LOCALAPPDATA: path.join(home, 'AppData/Local'),
     ...(endpointRoot ? { AI_PEER_REVIEW_ENDPOINT_ROOT: endpointRoot } : {}),
     NODE_OPTIONS: '--import ' + JSON.stringify(profile),
     APR_NODEDIR_BASE: process.env.APR_NODEDIR_BASE || path.dirname(path.dirname(process.execPath)),
