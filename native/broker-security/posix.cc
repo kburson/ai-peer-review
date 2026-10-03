@@ -93,24 +93,26 @@ bool ReadAll(int descriptor, std::vector<unsigned char>* bytes) {
   return true;
 }
 
-bool WaitReady(int descriptor, short events, const Deadline& deadline) {
+bool WaitReady(int descriptor, short events, const Deadline& deadline, bool* timed_out = nullptr) {
   for (;;) {
     const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
       deadline - std::chrono::steady_clock::now()).count();
-    if (remaining <= 0) return false;
+    if (remaining <= 0) { if (timed_out) *timed_out = true; return false; }
     pollfd observed {descriptor, events, 0};
     const int result = poll(&observed, 1, static_cast<int>(remaining));
     if (result < 0 && errno == EINTR) continue;
+    if (result == 0 && timed_out) *timed_out = true;
     return result > 0 && (observed.revents & events) != 0;
   }
 }
 
-bool ReadExact(int descriptor, unsigned char* bytes, size_t size, int timeout) {
+bool ReadExact(int descriptor, unsigned char* bytes, size_t size, int timeout, bool* timed_out) {
+  *timed_out = false;
   const auto deadline = std::chrono::steady_clock::now() +
                         std::chrono::milliseconds(timeout);
   size_t offset = 0;
   while (offset < size) {
-    if (!WaitReady(descriptor, POLLIN, deadline)) return false;
+    if (!WaitReady(descriptor, POLLIN, deadline, timed_out)) return false;
     const auto count = recv(descriptor, bytes + offset, size - offset, 0);
     if (count < 0 && errno == EINTR) continue;
     if (count <= 0) return false;
@@ -484,9 +486,11 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   // the client's command reply can wait for bounded worker/stop reconciliation.
   const int timeout = !connection->server_side && connection->client_writes >= 2
     ? kCommandReplyTimeoutMilliseconds : kIpcTimeoutMilliseconds;
+  bool timed_out = false;
   unsigned char prefix[4];
-  if (!ReadExact(connection->descriptor, prefix, sizeof(prefix), timeout)) {
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame prefix is truncated.");
+  if (!ReadExact(connection->descriptor, prefix, sizeof(prefix), timeout, &timed_out)) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL",
+                timed_out ? "Broker frame prefix timed out." : "Broker frame prefix is truncated.");
   }
   const size_t length = (static_cast<size_t>(prefix[0]) << 24) |
                         (static_cast<size_t>(prefix[1]) << 16) |
@@ -497,8 +501,9 @@ bool ConnectionRead(void* value, size_t maximum, std::vector<unsigned char>* byt
   }
   bytes->assign(prefix, prefix + sizeof(prefix));
   bytes->resize(sizeof(prefix) + length);
-  if (!ReadExact(connection->descriptor, bytes->data() + sizeof(prefix), length, timeout)) {
-    return Fail(code, message, "APR_BROKER_PROTOCOL", "Broker frame body is truncated.");
+  if (!ReadExact(connection->descriptor, bytes->data() + sizeof(prefix), length, timeout, &timed_out)) {
+    return Fail(code, message, "APR_BROKER_PROTOCOL",
+                timed_out ? "Broker frame body timed out." : "Broker frame body is truncated.");
   }
   return true;
 }

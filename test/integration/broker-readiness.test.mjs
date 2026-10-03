@@ -31,6 +31,13 @@ for (const scenario of [
     commandMs: 0,
     prepareMs: 6_000,
   },
+  {
+    name: 'authenticates a command after an occupied broker exceeds one handshake window',
+    recoveryMs: 0,
+    commandMs: 0,
+    prepareMs: 0,
+    occupiedMs: 6_000,
+  },
 ])
   test(
     `native broker ${scenario.name}`,
@@ -71,6 +78,7 @@ for (const scenario of [
           versions,
           recoveryMs: scenario.recoveryMs,
           commandMs: scenario.commandMs,
+          occupiedMs: scenario.occupiedMs ?? 0,
         })
       );
       let child;
@@ -79,6 +87,10 @@ for (const scenario of [
       let observedRecovery = false;
       let advertisedDuringRecovery;
       let launches = 0;
+      let observeOccupied;
+      const occupied = new Promise((resolve) => {
+        observeOccupied = resolve;
+      });
       t.after(async () => {
         if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
         child?.ref();
@@ -110,8 +122,11 @@ for (const scenario of [
               diagnostics += data;
             });
             child.on('message', (message) => {
-              observedRecovery = true;
-              advertisedDuringRecovery = message.advertised;
+              if (message.occupied) observeOccupied();
+              if (message.recovering) {
+                observedRecovery = true;
+                advertisedDuringRecovery = message.advertised;
+              }
             });
             return child;
           },
@@ -124,6 +139,7 @@ for (const scenario of [
       if (scenario.prepareMs)
         await new Promise((resolve) => setTimeout(resolve, scenario.prepareMs));
       assert.equal((await requestBroker(client, 'status')).status, 'running');
+      if (scenario.occupiedMs) await occupied;
       assert.equal((await requestBroker(client, 'stop')).status, 'stopping');
       child.ref();
       assert.equal(await exited, 0, diagnostics);

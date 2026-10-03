@@ -162,7 +162,9 @@ export function createCoordinatorOperations({
     let result;
     try {
       result = outcome(await dispatch(() => adapter.deliver(deliveryInput(operation))));
-    } catch {
+    } catch (error) {
+      const code = /^APR_[A-Z0-9_]{1,64}$/.test(error?.code ?? '') ? error.code : 'unknown';
+      console.error('[peer-review] adapter-delivery-failed', code);
       result = { status: 'outcome-unknown', reason: 'adapter-delivery-failed' };
     }
     return appendWakeOutcome(workspace, operation.operation_id, result, new Date(now));

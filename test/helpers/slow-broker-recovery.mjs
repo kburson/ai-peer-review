@@ -3,7 +3,7 @@ import { acquireBrokerOwnership } from '../../src/broker/ownership.mjs';
 import { platformSecurity } from '../../src/broker/platform.mjs';
 import { createAuthenticatedBrokerServer, runBroker } from '../helpers/broker-service-api.mjs';
 
-const { identity, paths, versions, recoveryMs, commandMs } = JSON.parse(
+const { identity, paths, versions, recoveryMs, commandMs, occupiedMs } = JSON.parse(
   readFileSync(process.argv[2], 'utf8')
 );
 const platform = platformSecurity();
@@ -38,7 +38,14 @@ await runBroker({
         if (command.command === 'status' && commandMs) {
           await new Promise((resolve) => setTimeout(resolve, commandMs));
         }
-        return dispatch(command);
+        const result = await dispatch(command);
+        if (command.command === 'status' && occupiedMs) {
+          setTimeout(() => {
+            process.send({ occupied: true });
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, occupiedMs);
+          }, 0);
+        }
+        return result;
       });
     },
   },

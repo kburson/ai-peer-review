@@ -40,7 +40,10 @@ import { createGitRepository } from '../git/repository.mjs';
 import { manualLaunchProvesNonSubmission } from '../provider/manual-launch-ledger.mjs';
 
 // @story #136
-export function createBrokerClientOperations({ performCurrentOperationEffect }) {
+export function createBrokerClientOperations({
+  performCurrentOperationEffect,
+  assertCurrentOperationAuthority,
+}) {
   const atomicCreate = (...args) => performCurrentOperationEffect(() => rawAtomicCreate(...args));
   const withReviewLock = (workspace, callback, options = {}) =>
     rawWithReviewLock(
@@ -281,13 +284,36 @@ export function createBrokerClientOperations({ performCurrentOperationEffect }) 
     }
   }
 
+  async function takeCommandConnection(client) {
+    if (!client.takeConnection) return client.connection;
+    const deadline = performance.now() + 120_000;
+    for (;;) {
+      try {
+        return await client.takeConnection();
+      } catch (error) {
+        // Only the handshake was sent. A busy owner can miss one short
+        // handshake window; malformed frames and submitted commands never retry.
+        if (
+          error?.code !== 'APR_BROKER_PROTOCOL' ||
+          error.message !== 'Broker frame prefix timed out.' ||
+          performance.now() >= deadline
+        )
+          throw error;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+  }
+
   async function requestBroker(client, command, workspace = null) {
     const message = validateCommand({ id: randomUUID(), command, workspace });
     if (typeof client?.request === 'function') return client.request(message);
     const decoder = createFrameDecoder();
-    const connection = client.takeConnection ? await client.takeConnection() : client.connection;
+    const connection = await takeCommandConnection(client);
     let bytes;
     try {
+      // IPC delegates effects to the broker. Revalidate without taking the
+      // clone writer lock: broker workers must fence their own disk effects.
+      if (command !== 'status') assertCurrentOperationAuthority();
       bytes = await connection.exchange(encodeFrame(message));
     } finally {
       connection.close?.();

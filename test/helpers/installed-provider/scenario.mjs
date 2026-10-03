@@ -186,6 +186,23 @@ try {
   if (existsSync(reviewDirectory)) {
     for (const name of readdirSync(reviewDirectory)) {
       const workspace = path.join(reviewDirectory, name);
+      const wakeDirectory = path.join(workspace, 'wake/operations');
+      if (existsSync(wakeDirectory)) {
+        for (const name of readdirSync(wakeDirectory).filter((file) =>
+          /^[a-f0-9]{64}\.json$/.test(file)
+        )) {
+          const wake = JSON.parse(readFileSync(path.join(wakeDirectory, name), 'utf8'));
+          console.error(
+            'wake-operation',
+            JSON.stringify({
+              role: wake.target_role,
+              status: wake.status,
+              outcomes: wake.outcomes,
+              protocol_revision: wake.protocol_revision,
+            })
+          );
+        }
+      }
       for (const relative of ['startup-request.json', 'provider/claude/launch-state.json']) {
         const file = path.join(workspace, relative);
         if (existsSync(file)) {

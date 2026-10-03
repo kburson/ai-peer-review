@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { createBrokerClientOperations } from '../../src/broker/client-core.mjs';
 import { requestBroker } from '../helpers/broker-client-api.mjs';
 import {
   connectBroker,
@@ -255,5 +256,51 @@ test('broker schema closes handshake, command and reply projections', () => {
   assert.equal(schema.additionalProperties, false);
   for (const name of ['handshake', 'command', 'reply']) {
     assert.equal(schema.$defs[name].additionalProperties, false);
+  }
+});
+
+test('command submission revalidates the carried effect fence after asynchronous connection acquisition', async () => {
+  const failure = Object.assign(new Error('authority changed during handshake'), {
+    code: 'APR_TEST_AUTHORITY_CHANGED',
+  });
+  const operations = createBrokerClientOperations({
+    performCurrentOperationEffect: (operation) => operation(),
+    assertCurrentOperationAuthority() {
+      throw failure;
+    },
+  });
+  let submitted = false;
+  let closed = false;
+  const client = {
+    async takeConnection() {
+      await Promise.resolve();
+      return {
+        exchange() {
+          submitted = true;
+          throw new Error('command was submitted after authority drift');
+        },
+        close() {
+          closed = true;
+        },
+      };
+    },
+  };
+  await assert.rejects(operations.requestBroker(client, 'stop'), (error) => error === failure);
+  assert.equal(submitted, false);
+  assert.equal(closed, true);
+});
+
+test('malformed and truncated command handshakes remain terminal without retry', async () => {
+  for (const message of ['Broker frame prefix is truncated.', 'Malformed broker handshake.']) {
+    const failure = Object.assign(new Error(message), { code: 'APR_BROKER_PROTOCOL' });
+    let attempts = 0;
+    const client = {
+      async takeConnection() {
+        attempts++;
+        throw failure;
+      },
+    };
+    await assert.rejects(requestBroker(client, 'stop'), (error) => error === failure);
+    assert.equal(attempts, 1);
   }
 });
