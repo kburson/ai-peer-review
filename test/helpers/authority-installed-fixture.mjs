@@ -16,6 +16,12 @@ export async function authorityInstalledFixture(t) {
   mkdirSync(installed);
   for (const name of ['src', 'bin', 'schemas', 'templates', 'skills', 'provenance', 'package.json'])
     cpSync(path.join(source, name), path.join(installed, name), { recursive: true });
+  if (process.platform === 'win32') {
+    const relative = 'native/broker-security/build/Release';
+    mkdirSync(path.join(installed, relative), { recursive: true });
+    for (const name of ['broker_security.node', 'build-identity.json'])
+      cpSync(path.join(source, relative, name), path.join(installed, relative, name));
+  }
   sealInstalledRuntimeFixture(installed);
   symlinkSync(path.join(source, 'node_modules'), path.join(f.parent, 'node_modules'), 'dir');
   const module = (name) => JSON.stringify(pathToFileURL(path.join(installed, name)).href);
