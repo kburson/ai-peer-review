@@ -132,7 +132,9 @@ async function preparedTurnTwo(t) {
     now: '2026-09-17T12:02:00.000Z',
   });
   try {
-    discoverAuthorityRepository(root);
+    const physical = discoverAuthorityRepository(root);
+    assert.equal(physical.root, realpathSync.native(root));
+    assert.equal(physical.gitDir, realpathSync.native(path.join(root, '.git')));
   } catch (error) {
     const causes = [];
     for (let cause = error; cause; cause = cause.cause)
