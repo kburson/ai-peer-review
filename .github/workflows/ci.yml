@@ -103,7 +103,7 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw 'Offline build failed' }
               node --test --test-name-pattern='abandoned connection' test/integration/broker-readiness.test.mjs
               if ($LASTEXITCODE -ne 0) { throw 'Native endpoint recovery failed' }
-              node --test test/unit/runtime-selection.test.mjs test/unit/claude-reviewer-resume-submit.test.mjs
+              node --test test/unit/runtime-selection.test.mjs test/unit/claude-reviewer-resume-submit.test.mjs test/golden/primary-runtime.test.mjs
               if ($LASTEXITCODE -ne 0) { throw 'Windows account and reviewer fixture verification failed' }
               node --test test/integration/broker-release.test.mjs
             } finally {

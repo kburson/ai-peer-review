@@ -2,7 +2,7 @@
 import { cpSync, mkdirSync, symlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setupHostFixture } from './setup-host-fixture.mjs';
 import { sealInstalledRuntimeFixture } from './installed-runtime-inventory.mjs';
 export async function authorityInstalledFixture(t) {
@@ -18,7 +18,7 @@ export async function authorityInstalledFixture(t) {
     cpSync(path.join(source, name), path.join(installed, name), { recursive: true });
   sealInstalledRuntimeFixture(installed);
   symlinkSync(path.join(source, 'node_modules'), path.join(f.parent, 'node_modules'), 'dir');
-  const module = (name) => JSON.stringify(new URL(name, 'file://' + installed + '/').href);
+  const module = (name) => JSON.stringify(pathToFileURL(path.join(installed, name)).href);
   const execute = (code) =>
     spawnSync(
       process.execPath,

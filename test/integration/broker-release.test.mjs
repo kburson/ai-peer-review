@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import {
   existsSync,
+  appendFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -177,7 +178,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     };
     delete env.NODE_TEST_CONTEXT;
     try {
-      const result = await promisify(execFile)(
+      const execution = promisify(execFile)(
         process.execPath,
         ['--test', fileURLToPath(import.meta.url)],
         {
@@ -187,14 +188,37 @@ test('installed release preserves legacy evidence, current broker execution and 
           maxBuffer: 4 * 1024 * 1024,
         }
       );
+      for (const stream of [execution.child.stdout, execution.child.stderr]) {
+        let pending = '';
+        stream.on('data', (chunk) => {
+          pending += chunk.toString();
+          const lines = pending.split(/\r?\n/);
+          pending = lines.pop();
+          for (const line of lines)
+            if (line.includes('[installed-release]')) process.stderr.write(line + '\n');
+        });
+      }
+      const result = await execution;
       t.diagnostic(result.stdout);
     } catch (error) {
+      const progressFile = path.join(scratch, 'stage-progress.log');
+      if (existsSync(progressFile)) t.diagnostic(readFileSync(progressFile, 'utf8').slice(-8192));
       t.diagnostic(error.stdout ?? 'Installed child produced no test output.');
       t.diagnostic(error.stderr ?? '');
       throw error;
     }
     return;
   }
+  const phaseStart = Date.now();
+  const phase = (name) => {
+    const message = '[installed-release] ' + name + ' elapsed_ms=' + (Date.now() - phaseStart);
+    appendFileSync(
+      path.join(process.env.APR_RELEASE_TEST_ROOT, 'stage-progress.log'),
+      message + '\n'
+    );
+    console.error(message);
+  };
+  phase('child-start');
   const scratch = realpathSync(process.env.APR_RELEASE_TEST_ROOT);
   const live = [];
   const projects = [];
@@ -202,7 +226,9 @@ test('installed release preserves legacy evidence, current broker execution and 
   let stopBrokers = async () => {};
   t.after(async () => {
     try {
+      phase('cleanup-start');
       await stopBrokers();
+      phase('cleanup-stopped');
       for (const child of children) {
         let timer;
         try {
@@ -261,6 +287,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     ...(process.platform === 'win32' ? [] : ['lib']),
     'node_modules/@kburson/ai-peer-review'
   );
+  phase('packed-installed');
   const manifest = JSON.parse(readFileSync(path.join(installed, 'package.json')));
   assert.equal(manifest.version, currentPackageVersion);
   assert.equal(existsSync(path.join(host, 'node_modules/eslint')), false);
@@ -540,6 +567,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     }
     throw error;
   }
+  phase('automatic-accepted');
   const automaticWorkspace = readdirSync(path.join(host, '.scratch/peer-review'))
     .map((name) => path.join(host, '.scratch/peer-review', name))
     .find((directory) => existsSync(path.join(directory, 'events.jsonl')));
@@ -580,16 +608,19 @@ test('installed release preserves legacy evidence, current broker execution and 
           now: NOW,
         });
       }
+      phase('cleanup-reacquire-' + project.digest.slice(0, 8));
       const client = await clientApi.ensureBroker({
         project,
         versions,
         runtimeImage: image,
         platform,
       });
+      phase('cleanup-stop-' + project.digest.slice(0, 8));
       await clientApi.requestBroker(client, 'stop');
       client.connection?.close();
     }
   };
+  phase('isolated-clones-start');
   for (let index = 0; index < projects.length; index++) {
     const project = canonicalProjectIdentity({ cwd: projects[index].root, platform });
     const paths = brokerPaths({
@@ -625,6 +656,7 @@ test('installed release preserves legacy evidence, current broker execution and 
       throw error;
     }
     live.push({ project, paths });
+    phase('clone-status-' + index);
     const status = await clientApi.requestBroker(client, 'status');
     assert.equal(status.package_version, currentPackageVersion);
     // Startup sends register then launch through one client. Each command
@@ -744,16 +776,19 @@ test('installed release preserves legacy evidence, current broker execution and 
   assert.equal(verifyRuntimeImage(image), true);
   // An empty broker legitimately idles out while the other clone's installed
   // operations run. Reacquire through the normal lifecycle after long checks.
+  phase('empty-clone-reacquire');
   const currentBroker = await clientApi.ensureBroker({
     project: live[1].project,
     versions,
     runtimeImage: image,
     platform,
   });
+  phase('empty-clone-status');
   const currentStatus = await clientApi.requestBroker(currentBroker, 'status');
   assert.equal(currentStatus.package_version, currentPackageVersion);
   assert.equal(currentStatus.project_digest, live[1].project.digest);
   currentBroker.connection?.close();
+  phase('selected-dependency-fence-start');
   const fencedStop = await clientApi.ensureBroker({
     project: live[1].project,
     versions,
@@ -774,4 +809,5 @@ test('installed release preserves legacy evidence, current broker execution and 
     renameSync(withheldSelectedDependencies, selectedDependencies);
   }
   renameSync(path.join(host, 'replaced-node_modules'), path.join(host, 'node_modules'));
+  phase('assertions-complete');
 });
