@@ -39,6 +39,10 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
   const mkdirSync = (...args) => performCurrentOperationEffect(() => rawMkdirSync(...args));
   const writeFileSync = (...args) => performCurrentOperationEffect(() => rawWriteFileSync(...args));
   const acquireProviderResource = (...args) => {
+    // Concurrent leases only validate identity and update in-memory session state.
+    // Repository write admission here would age fresh provider observations before
+    // validation; provider actions retain their independent effect fences.
+    if (args[0]?.descriptor?.concurrent === true) return rawAcquireProviderResource(...args);
     const lease = performCurrentOperationEffect(() => rawAcquireProviderResource(...args));
     return Object.freeze(
       Object.fromEntries(
