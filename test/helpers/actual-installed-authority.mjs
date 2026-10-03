@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { runNpm } from './npm-command.mjs';
 import { packRuntime } from './runtime-package.mjs';
 
@@ -37,9 +37,7 @@ export function actualInstalledAuthority(t) {
   mkdirSync(root);
   for (const relative of ['Library/Caches', 'cache', 'AppData/Roaming'])
     mkdirSync(path.join(home, relative), { recursive: true, mode: 0o700 });
-  const profile = fileURLToPath(
-    new URL('./installed-provider/account-profile.mjs', import.meta.url)
-  );
+  const profile = new URL('./installed-provider/account-profile.mjs', import.meta.url).href;
   const endpointRoot =
     process.platform === 'win32' ? null : realpathSync(mkdtempSync('/tmp/apr-e-'));
   if (endpointRoot) t.after(() => rmSync(endpointRoot, { recursive: true, force: true }));

@@ -24,7 +24,7 @@ export async function authorityInstalledFixture(t) {
       process.execPath,
       [
         '--import',
-        fileURLToPath(new URL('./installed-provider/preload.mjs', import.meta.url)),
+        new URL('./installed-provider/preload.mjs', import.meta.url).href,
         '--input-type=module',
         '-e',
         'import {registerRuntimeSelection} from ' +
