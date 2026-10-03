@@ -574,7 +574,10 @@ test('installed release preserves legacy evidence, current broker execution and 
   assert.equal(publicApi.statusReview(automaticWorkspace).state, 'accepted');
   verifyUnsupportedPreservation(automaticWorkspace);
   stopBrokers = async () => {
-    for (const { project, workspace } of live) {
+    // Stop empty clones before lengthy active-review abandonment can put their
+    // ordinary idle retirement between readiness and command authentication.
+    const emptyFirst = [...live].sort((a, b) => Boolean(a.workspace) - Boolean(b.workspace));
+    for (const { project, workspace } of emptyFirst) {
       if (workspace) {
         const state = protocol.inspectReview(workspace);
         await protocol.mutateReview(
