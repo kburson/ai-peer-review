@@ -134,6 +134,8 @@ jobs:
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run pack:runtime -- --dry-run
 
   preferred-node:
@@ -171,6 +173,8 @@ jobs:
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run pack:runtime -- --dry-run
 
   npm-pack-compatibility:
@@ -204,6 +208,8 @@ jobs:
       - name: Verify packed builder, dependency and source inventory
         run: npm run test:packaging
       - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
 
   phase-2-boundary:
     name: Phase 2 boundary
@@ -235,6 +241,8 @@ jobs:
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run pack:runtime -- --dry-run
 
   live-provider-optional:

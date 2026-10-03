@@ -611,13 +611,11 @@ test('installed release preserves legacy evidence, current broker execution and 
           now: NOW,
         });
       }
-      phase('cleanup-reacquire-' + project.digest.slice(0, 8));
-      const client = await clientApi.ensureBroker({
-        project,
-        versions,
-        runtimeImage: image,
-        platform,
-      });
+      // Readiness is not a lease. Stop through the client whose authenticated
+      // identity was checked below; requestBroker handles an unsent command
+      // after ordinary retirement under fresh authority, without command replay.
+      const client = live.find((entry) => entry.project.digest === project.digest).client;
+      assert.ok(client);
       phase('cleanup-stop-' + project.digest.slice(0, 8));
       await clientApi.requestBroker(client, 'stop');
       client.connection?.close();
@@ -658,7 +656,7 @@ test('installed release preserves legacy evidence, current broker execution and 
       );
       throw error;
     }
-    live.push({ project, paths });
+    live.push({ project, paths, client });
     phase('clone-status-' + index);
     const status = await clientApi.requestBroker(client, 'status');
     assert.equal(status.package_version, currentPackageVersion);
@@ -786,6 +784,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     runtimeImage: image,
     platform,
   });
+  live[1].client = currentBroker;
   phase('empty-clone-status');
   const currentStatus = await clientApi.requestBroker(currentBroker, 'status');
   assert.equal(currentStatus.package_version, currentPackageVersion);
