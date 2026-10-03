@@ -105,7 +105,9 @@ try {
   const { readWakeOperation } = await load('src/coordinator/ledger.mjs');
   let receipt;
   let finalized = false;
-  const deadline = Date.now() + 180_000;
+  // Three serial role turns include their real CLI work and durable stream
+  // acknowledgment. Keep this observation inside the inherited provider bound.
+  const deadline = Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS), Date.now() + 300_000);
   const handoffStarted = Date.now();
   while ((!receipt || !finalized) && Date.now() < deadline) {
     const directory = path.join(root, '.scratch/peer-review');

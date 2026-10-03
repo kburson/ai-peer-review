@@ -546,7 +546,7 @@ test('installed release preserves legacy evidence, current broker execution and 
   assert.equal(publicApi.statusReview(automaticWorkspace).state, 'accepted');
   verifyUnsupportedPreservation(automaticWorkspace);
   stopBrokers = async () => {
-    for (const { project, paths, workspace } of live) {
+    for (const { project, workspace } of live) {
       if (workspace) {
         const state = protocol.inspectReview(workspace);
         await protocol.mutateReview(
@@ -580,7 +580,12 @@ test('installed release preserves legacy evidence, current broker execution and 
           now: NOW,
         });
       }
-      const client = await connectBroker({ identity: project, paths, versions }, platform);
+      const client = await clientApi.ensureBroker({
+        project,
+        versions,
+        runtimeImage: image,
+        platform,
+      });
       await clientApi.requestBroker(client, 'stop');
       client.connection?.close();
     }
@@ -737,19 +742,24 @@ test('installed release preserves legacy evidence, current broker execution and 
     }
   }
   assert.equal(verifyRuntimeImage(image), true);
-  const stillLive = await connectBroker(
-    { identity: live[1].project, paths: live[1].paths, versions },
-    platform
-  );
-  assert.equal(
-    (await clientApi.requestBroker(stillLive, 'status')).package_version,
-    currentPackageVersion
-  );
-  stillLive.connection?.close();
-  const fencedStop = await connectBroker(
-    { identity: live[1].project, paths: live[1].paths, versions },
-    platform
-  );
+  // An empty broker legitimately idles out while the other clone's installed
+  // operations run. Reacquire through the normal lifecycle after long checks.
+  const currentBroker = await clientApi.ensureBroker({
+    project: live[1].project,
+    versions,
+    runtimeImage: image,
+    platform,
+  });
+  const currentStatus = await clientApi.requestBroker(currentBroker, 'status');
+  assert.equal(currentStatus.package_version, currentPackageVersion);
+  assert.equal(currentStatus.project_digest, live[1].project.digest);
+  currentBroker.connection?.close();
+  const fencedStop = await clientApi.ensureBroker({
+    project: live[1].project,
+    versions,
+    runtimeImage: image,
+    platform,
+  });
   // Replacing consumer dependencies above must remain irrelevant. Replacing
   // the selected global dependency closure must fence a command with effects.
   const selectedDependencies = path.join(installed, 'node_modules');
