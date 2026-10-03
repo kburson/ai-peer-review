@@ -168,6 +168,8 @@ jobs:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - *offline-broker
       - run: npm test
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:integration
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
@@ -233,6 +235,8 @@ jobs:
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm ls --omit=dev --json
       - run: npm test
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:integration
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp

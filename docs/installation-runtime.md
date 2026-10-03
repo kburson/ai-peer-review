@@ -64,7 +64,14 @@ unsupported collateral remains intact and read-only.
 ## Source CI and releases
 
 Source maintainers run tests, lint, formatting and release verification in this
-repository. Build the actual publishable artifact with:
+repository. Source unit and integration commands first build the native helper
+with the existing explicit local builder. Provision Python, a compiler and
+matching Node development files before running them. When the files are not
+beside the Node installation, set `APR_NODEDIR_BASE` to the directory containing
+the versioned development tree. This source preparation never downloads headers
+and is excluded from the runtime artifact.
+
+Build the actual publishable artifact with:
 
 ```bash
 npm run pack:runtime -- --json --pack-destination /absolute/artifact-directory
