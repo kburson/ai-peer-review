@@ -26,6 +26,13 @@ import { fixtureStartupDeps, loadLegacyAuthority } from '../helpers/internal-api
 import { identity, NOW } from '../helpers/intervention-fixture.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+// Keep the provider scenario's existing bound separate from installation,
+// clone/closure verification and required authenticated shutdown. A whole-child
+// bound must allow those later phases after a slow but valid provider scenario;
+// individual production command/readiness and owned-child exit limits remain.
+const automaticScenarioTimeoutMs = 1_020_000;
+const releaseFixtureTimeoutMs = automaticScenarioTimeoutMs + 1_200_000;
+
 const currentPackageVersion = JSON.parse(
   readFileSync(path.join(root, 'package.json'), 'utf8')
 ).version;
@@ -184,7 +191,7 @@ test('installed release preserves legacy evidence, current broker execution and 
         {
           cwd: root,
           env,
-          timeout: 1_140_000,
+          timeout: releaseFixtureTimeoutMs,
           maxBuffer: 4 * 1024 * 1024,
         }
       );
@@ -508,7 +515,7 @@ test('installed release preserves legacy evidence, current broker execution and 
       {
         cwd: host,
         env: scenarioEnv,
-        timeout: 1_020_000,
+        timeout: automaticScenarioTimeoutMs,
         maxBuffer: 4 * 1024 * 1024,
       }
     );
