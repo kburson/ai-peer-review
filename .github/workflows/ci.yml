@@ -101,6 +101,8 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw 'Network isolation failed' }
               npm run build:broker-security -- --nodedir $developmentTree
               if ($LASTEXITCODE -ne 0) { throw 'Offline build failed' }
+              node --test --test-name-pattern='abandoned connection' test/integration/broker-readiness.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Native endpoint recovery failed' }
               node --test test/integration/broker-release.test.mjs
             } finally {
               $result = $LASTEXITCODE

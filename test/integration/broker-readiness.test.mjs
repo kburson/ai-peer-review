@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { ensureBroker, requestBroker } from '../helpers/broker-client-api.mjs';
-import { connectBroker } from '../../src/broker/ipc.mjs';
+import { connectBroker, encodeFrame } from '../../src/broker/ipc.mjs';
 
 const nativeAvailable = existsSync(
   new URL('../../native/broker-security/build/Release/broker_security.node', import.meta.url)
@@ -170,5 +170,40 @@ test(
     } finally {
       observed.close();
     }
+  }
+);
+
+// @story #137
+test(
+  'native Windows endpoint accepts an authenticated client after an abandoned connection',
+  { skip: process.platform !== 'win32', timeout: 15_000 },
+  async (t) => {
+    const { platformSecurity } = await import('../../src/broker/platform.mjs');
+    const security = platformSecurity();
+    const name = String.raw`\\.\pipe\apr-abandoned-${process.pid}-${Date.now()}`;
+    const endpoint = security.listenPrivate(name);
+    t.after(() => endpoint.close());
+    const abandoned = security.connectPrivate(name);
+    abandoned.close();
+    try {
+      endpoint.accept().close();
+    } catch (error) {
+      assert.equal(error.code, 'APR_BROKER_START_FAILED');
+    }
+    assert.equal(endpoint.verify(), true);
+    const current = security.connectPrivate(name);
+    t.after(() => current.close());
+    const handshake = {
+      schema: 'ai-peer-review.broker-handshake/v1',
+      tuple: ['ai-peer-review.broker-root/v1', 'C:/fixture', null, security.userId()],
+      versions: { package_version: '0.4.0', broker_protocol_version: 1, node_major: 26 },
+      instance_id: 'a'.repeat(64),
+      nonce: 'b'.repeat(64),
+    };
+    current.write(encodeFrame(handshake));
+    const accepted = endpoint.accept();
+    t.after(() => accepted.close());
+    assert.equal(security.peerUser(accepted), security.userId());
+    assert.deepEqual(accepted.readFrame(), encodeFrame(handshake));
   }
 );
