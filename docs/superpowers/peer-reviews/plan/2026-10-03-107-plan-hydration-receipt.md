@@ -56,7 +56,7 @@ No state advancement, implementation, child creation or publication is claimed.
 ```
 
 The original protected AC citations, VC IDs, DoD/lifecycle markers and field
-records were preserved. The accepted plan directs urgent Tasks1/2/4 first;
-#102/#107 reconciliation and installed conformance remain separate release gates.
+records were preserved. The accepted plan directs urgent Tasks1/2/4 first.
+Joint #102/#107 reconciliation and installed conformance remain separate release gates.
 The source plan commit is local in the issue-bound worktree; pushing Git refs is
 outside the Plan activity allowance, and was not attempted or bypassed.
