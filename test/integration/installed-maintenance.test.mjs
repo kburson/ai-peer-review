@@ -196,9 +196,12 @@ for (const scenario of ['dirty primary', 'policy changed during registration loa
         JSON.stringify(path.join(f.installed, 'package.json')) +
         ')).version};' +
         'const directory=path.join(process.cwd(),".scratch/peer-review/broker");' +
+        'mkdirSync(path.dirname(directory),{recursive:true,mode:448});' +
+        'const privateDirectory=platform.openPrivateDirectory(directory);' +
         'mkdirSync(path.join(directory,"registrations"),{recursive:true,mode:448});' +
         'const bootstrap=path.join(directory,"bootstrap-a1.json");' +
-        'writeFileSync(bootstrap,JSON.stringify(bootstrapRecord({project,versions,runtimeImage})),{mode:384});' +
+        'try{privateDirectory.create("bootstrap-a1.json",JSON.stringify(bootstrapRecord({project,versions,runtimeImage})));}' +
+        'finally{privateDirectory.close();}' +
         'const paths=brokerPaths({identity:project,platform,env:process.env,home:process.env.HOME});' +
         'console.log(JSON.stringify({bootstrap,paths}));'
     );

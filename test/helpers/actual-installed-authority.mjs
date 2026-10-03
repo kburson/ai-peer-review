@@ -8,7 +8,9 @@ import { runNpm } from './npm-command.mjs';
 import { packRuntime } from './runtime-package.mjs';
 
 export function actualInstalledAuthority(t) {
-  const { directory, tarball } = packRuntime(t);
+  const { directory: packedDirectory, tarball } = packRuntime(t);
+  const directory =
+    process.platform === 'win32' ? realpathSync.native(packedDirectory) : packedDirectory;
   const prefix = path.join(directory, 'global prefix');
   runNpm(
     'npm',
