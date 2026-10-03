@@ -126,6 +126,8 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
         }),
       ]);
     } catch (cause) {
+      const code = /^APR_[A-Z0-9_]{1,64}$/.test(cause?.code ?? '') ? cause.code : 'unknown';
+      console.error('[peer-review] reviewer-launch-failed', code);
       failure = cause;
     } finally {
       clearTimeout(timer);

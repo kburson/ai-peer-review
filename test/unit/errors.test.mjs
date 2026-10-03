@@ -24,12 +24,16 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     zod: '4.6.2',
   });
   assert.deepEqual(packageJson.scripts, {
+    'pack:runtime': 'node scripts/pack-runtime.mjs',
+    prepack: 'node scripts/refuse-source-pack.mjs',
     'build:broker-security': 'node scripts/build-broker-security.mjs',
     'pretarball:install': 'npm uninstall -D @kburson/ai-task-manager',
     'tarball:install': 'npm install -D file:vendors/kburson-ai-task-manager-0.1.0.tgz',
     test: 'npm run test:unit && npm run test:golden',
+    'pretest:unit': 'node scripts/prepare-source-tests.mjs',
     'test:unit': 'node --test "test/unit/**/*.test.mjs"',
     'test:golden': 'node --test "test/golden/**/*.test.mjs"',
+    'pretest:integration': 'node scripts/prepare-source-tests.mjs',
     'test:integration': 'node --test --test-concurrency=2 "test/integration/**/*.test.mjs"',
     'test:packaging': 'node --test "test/packaging/**/*.test.mjs"',
     'test:live:broker-handoff': 'node test/live/installed-broker-handoff.mjs',
@@ -43,13 +47,10 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   assert.deepEqual(packageJson.files, [
     'bin/',
     'src/',
-    'docs/',
     'schemas/',
     'templates/',
     'skills/',
     'provenance/',
-    'scripts/verify-extraction.mjs',
-    'scripts/verify-release.mjs',
     'native/broker-security/binding.gyp',
     'native/broker-security/addon.cc',
     'native/broker-security/posix.cc',
@@ -58,6 +59,13 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     'LICENSE',
     'NOTICE',
     'README.md',
+    'docs/releases/',
+    'docs/dependency-audit-mcp.md',
+    'docs/dependency-audit-broker-build.md',
+    'docs/manual-cross-provider-peer-review.md',
+    'docs/claude-launch-api-migration.md',
+    'docs/spdx-policy.md',
+    'docs/installation-runtime.md',
   ]);
 });
 

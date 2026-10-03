@@ -81,6 +81,17 @@ function committed(location) {
   }
   return owned;
 }
+function createPrivateRecord(file, bytes) {
+  if (process.platform !== 'win32') return writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
+  const handle = platformSecurity().openPrivateDirectory(path.dirname(file));
+  try {
+    if (!handle.verify()) unavailable('Windows primary directory ownership changed.');
+    handle.create(path.basename(file), bytes);
+    if (!handle.verify()) unavailable('Windows primary directory ownership changed.');
+  } finally {
+    handle.close();
+  }
+}
 function writeRecord(location, before, after, operation) {
   const file = primaryRegistrationPath(location.commonDir),
     directory = path.dirname(file);
@@ -109,7 +120,7 @@ function writeRecord(location, before, after, operation) {
     created_at: new Date().toISOString(),
   });
   const journal = path.join(directory, 'receipt-' + randomUUID() + '.json');
-  writeFileSync(journal, stable(receipt), { flag: 'wx', mode: 0o600 });
+  createPrivateRecord(journal, stable(receipt));
   let observed = null;
   try {
     observed = readFileSync(file);
@@ -123,7 +134,7 @@ function writeRecord(location, before, after, operation) {
     unavailable('Primary registration changed before maintenance write.');
   const temporary = path.join(directory, '.activation-' + randomUUID() + '.tmp');
   try {
-    writeFileSync(temporary, stable(after), { flag: 'wx', mode: 0o600 });
+    createPrivateRecord(temporary, stable(after));
     renameSync(temporary, file);
   } finally {
     rmSync(temporary, { force: true });

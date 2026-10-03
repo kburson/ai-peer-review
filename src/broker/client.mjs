@@ -2,9 +2,13 @@
 import {
   withOperationAuthority,
   performCurrentOperationEffect,
+  assertCurrentOperationAuthority,
 } from '../startup/authority-fence.mjs';
 import { createBrokerClientOperations } from './client-core.mjs';
-const operations = createBrokerClientOperations({ performCurrentOperationEffect });
+const operations = createBrokerClientOperations({
+  performCurrentOperationEffect,
+  assertCurrentOperationAuthority,
+});
 export const bootstrapRecord = operations.bootstrapRecord;
 export function ensureBroker(input = {}) {
   return withOperationAuthority(

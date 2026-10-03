@@ -1,12 +1,15 @@
 import { execFileSync as nodeExecFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
+import { lstatSync, readFileSync, readlinkSync, realpathSync as nodeRealpathSync } from 'node:fs';
 import path from 'node:path';
 
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
 
 // cspell:ignore ACDMRTUXB objectname gitdir commondir
+// The native Windows resolver expands short directory names before comparing
+// physical membership with Git's expanded paths. Preserve POSIX resolution.
+const realpathSync = process.platform === 'win32' ? nodeRealpathSync.native : nodeRealpathSync;
 const CHANGE_FILTER = 'ACDMRTUXB';
 const REGULAR_MODES = new Set(['100644', '100755']);
 const EXCLUDED_REVIEWER_REF_PREFIXES = Object.freeze([
@@ -108,6 +111,7 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     try {
       return execFileSync('git', args, {
         cwd,
+        env: scrubGitEnvironment(),
         encoding: buffer ? null : 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
@@ -416,12 +420,14 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
   });
 }
 
+export function scrubGitEnvironment() {
+  return Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key)));
+}
+
 // Authority discovery deliberately does not share the sealed transaction runner.
 // Caller Git overrides must never choose another clone or a substitute index.
 export function authorityGit(cwd, args, { buffer = false, input } = {}) {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !/^GIT_/i.test(key))
-  );
+  const env = scrubGitEnvironment();
   try {
     return nodeExecFileSync('git', args, {
       cwd,

@@ -70,21 +70,26 @@ You remain the tie-breaker when the agents cannot agree.
 
 Ask your agent to do it:
 
-> Install `@kburson/ai-peer-review` as a dev dependency and run its project setup for
-> Claude Code.
+> Install `@kburson/ai-peer-review` globally, build its native helper, register the
+> runtime and primary checkout, and run project setup for Claude Code.
 
-Setup is deliberately boring and fully reversible. It writes four things:
+Project setup writes the portable primary policy and current host integrations:
 
-| File                                  | What it is for                  |
-| ------------------------------------- | ------------------------------- |
-| `.ai-peer-review.json`                | project configuration           |
-| `.claude/skills/peer-review/SKILL.md` | the skill your agent reads      |
-| `.claude/config.json`                 | a single `ai_peer_review` key   |
-| `.git/info/exclude`                   | ignores `.scratch/peer-review/` |
+| File                                  | What it is for                               |
+| ------------------------------------- | -------------------------------------------- |
+| `.ai-peer-review/config.json`         | primary project configuration                |
+| `.ai-peer-review/SKILL.md`            | shared protocol skill                        |
+| `.claude/skills/peer-review/SKILL.md` | Claude wrapper for the shared skill          |
+| `.claude/settings.json`               | owned Claude hooks, when selected            |
+| `.codex/hooks.json`                   | owned Codex hooks, when selected             |
+| `.git/info/exclude`                   | consented ignore for `.scratch/peer-review/` |
 
-Swap `.claude` for `.codex`, `.grok`, or `.agents` depending on the agent;
-`--agent claude|codex|grok|generic` chooses. `--scope user` installs into your
-home directory instead of the project.
+`--agent claude|codex|grok|generic` chooses the wrapper host directory:
+`.claude`, `.codex`, `.grok`, or `.agents`. Claude hook settings use
+`settings.json`; Codex uses `hooks.json`. Provider `config.json` files are
+not new setup outputs; recognized legacy `ai_peer_review` metadata is removed
+during migration. `--scope user` installs user wrappers into your home
+directory instead of the project.
 
 Two things worth knowing before you run it:
 
@@ -112,9 +117,9 @@ For an agent or script, add `--json` to get the `setup-result/v1` result with
 --remove` is the idempotent teardown for that scope. A pre-existing or foreign
 skill is preserved and still causes a conflict instead of being overwritten.
 Global npm installation updates the binary but does not refresh copied project
-or user skills until setup runs again. The project setup records the package version and
-SHA-256 of the installed skill; review commands compare those values and the
-copied skill against the running CLI. A mismatch returns
+or user skills until setup runs again. Project setup records the current integration contract and owned content digests;
+review commands compare those with the activated primary policy and installed
+assets. An upgrade keeps the selected locator and requires no project version pin. A mismatch returns
 `APR_SETUP_VERSION_MISMATCH` with setup recovery. Run `peer-review help setup`
 and `peer-review explain APR_SETUP_VERSION_MISMATCH` for the exact procedure.
 
@@ -611,3 +616,12 @@ commercial terms that applied in AITM. The standalone bootstrap commit and its
 descendants are Apache-2.0 under the independently verified declaration in
 `provenance/relicensing-declaration.json`. See `NOTICE`, `LICENSE`, and
 `docs/spdx-policy.md` for the exact boundary.
+
+## Installed runtime and release artifact
+
+See [installation and migration](docs/installation-runtime.md) for native bootstrap,
+current global selection, read-only deployment checks, upgrades, and the source-only
+release workflow. `peer-review-verify-deployment --json` checks package integrity and reports
+native and runtime-inventory readiness independently. `peer-review doctor --mode installation`
+checks selection and project/provider configuration. Consumer builds and CI require
+neither command unless they explicitly opt into ai-peer-review.

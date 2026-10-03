@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm
     steps:
+      - name: Configure native development directory
+        run: echo "APR_NODEDIR_BASE=${{ runner.temp }}/node-gyp" >> "$GITHUB_ENV"
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -30,6 +32,12 @@ jobs:
           package-manager-cache: false
       - run: npm install --global npm@12.0.2
       - run: npm ci
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Provision native Node development files
+        run: node node_modules/node-gyp/bin/node-gyp.js install --ensure --devdir="${{ runner.temp }}/node-gyp"
+      - run: node test/helpers/warm-packed-cache.mjs
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm test
       - run: npm run test:integration
@@ -46,7 +54,7 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           artifact="kburson-ai-peer-review-${version}.tgz"
           printf 'artifact=%s\n' "$artifact" >> "$GITHUB_ENV"
-          npm pack
+          npm run pack:runtime
           test -f "$artifact"
           shasum -a 256 "$artifact" > SHA256SUMS
       - name: Publish or verify matching npm artifact

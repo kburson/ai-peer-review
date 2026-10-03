@@ -11,7 +11,6 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { runNpm } from '../npm-command.mjs';
 
 process.on('uncaughtExceptionMonitor', (error) => {
   if (process.env.APR_FIXTURE_BROKER_LOG)
@@ -87,7 +86,7 @@ const cli = (argv, extra = {}) => {
       cwd: root,
       env: { ...env, ...extra },
       encoding: 'utf8',
-      timeout: 30_000,
+      timeout: 180_000,
     }
   );
   return argv.includes('--json') ? JSON.parse(output) : output;
@@ -125,7 +124,10 @@ if (initial) {
     '--max-turns',
     '2',
   ];
-  const command = `npx peer-review ${argv.join(' ')}`;
+  const { renderCommand } = await import(
+    pathToFileURL(path.join(installed, 'src/cli/help-data.mjs'))
+  );
+  const command = renderCommand(['peer-review', ...argv]);
   tool('start-call', command);
   const hook = JSON.parse(
     execFileSync(process.execPath, [path.join(installed, 'bin/peer-review-claude-hook.mjs')], {
@@ -160,7 +162,7 @@ if (initial) {
       cwd: root,
       env,
       encoding: 'utf8',
-      timeout: 30_000,
+      timeout: 180_000,
     });
   if (!resume) {
     const { inspectReview } = await import(
@@ -174,7 +176,10 @@ if (initial) {
     );
     const joinRules = args.filter(
       (value) =>
-        value.startsWith('Bash(') && value.endsWith(')') && value.includes('peer-review.mjs join ')
+        value.startsWith('Bash(') &&
+        value.endsWith(')') &&
+        value.includes('peer-review.mjs') &&
+        value.includes(' join ')
     );
     assert.equal(joinRules.length, 1);
     const joinCommand = joinRules[0].slice(5, -1);
@@ -191,7 +196,11 @@ if (initial) {
       pathToFileURL(path.join(installed, 'src/providers/claude-stream.mjs'))
     );
     let observed;
-    for (let i = 0; !observed && i < 100; i++) {
+    const observationDeadline = Math.min(
+      Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity),
+      Date.now() + 120_000
+    );
+    while (!observed && Date.now() < observationDeadline) {
       try {
         observed = readClaudeStreamObservation({
           workspace: ws,
@@ -215,33 +224,18 @@ if (initial) {
   // This models exact grants, not Claude's real permission engine. Execute the
   // same argv represented by the emitted command only after checking its grant.
   const runTool = (id, argv, name) => {
-    let command = commandFor(argv);
+    const command = commandFor(argv);
     if (resume) {
       assert.ok(prompt.includes(`${name}: ${command}`), 'prompt and executable argv must agree');
       assert.equal(process.env.npm_config_offline, 'true');
       assert.equal(process.env.npm_config_yes, 'false');
-      if (author) {
-        const alias = renderCommand(
-          ['npx', 'peer-review', ...argv].map((part) => part.replaceAll('\\', '/')),
-          { platform: 'linux' }
-        );
-        assert.ok(allow.includes(`Bash(${alias})`), 'observed npx alias must have an exact grant');
-        command = alias;
-      }
     }
     assert.ok(
       allow.includes(`Bash(${command})`),
       `missing exact grant for fixture command: ${command}`
     );
     tool(id, command);
-    if (resume && author)
-      runNpm('npx', ['peer-review', ...argv], {
-        cwd: root,
-        env,
-        encoding: 'utf8',
-        timeout: 30_000,
-      });
-    else runCurrent(argv);
+    runCurrent(argv);
     result(id);
   };
   if (resume) {
@@ -330,6 +324,8 @@ if (initial) {
 if (!initial && !resume && process.env.APR_FIXTURE_RESTART_SIMULATION === '1') {
   // The installed test owns this synthetic process and terminates it after
   // ordinary join/submit, before any launch acknowledgement can be persisted.
+  // Complete the provider turn before withholding its final launch result.
+  record('assistant', [{ type: 'text', text: 'Completed the requested action.' }]);
   const heldFile = path.join(root, '.scratch/fixture-held-launch.json');
   const pendingFile = `${heldFile}.${process.pid}.tmp`;
   writeFileSync(pendingFile, JSON.stringify({ pid: process.pid, session }), { mode: 0o600 });

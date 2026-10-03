@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { appendFileSync, existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 // This explicitly simulates persisted crash states in a disposable workspace.
@@ -19,7 +19,10 @@ export async function verifyInstalledLaunchRestart({
   const { createClaudeAdapter } = await load('src/providers/claude.mjs');
   const { readClaudeSessionSnapshot } = await load('src/providers/claude-stream.mjs');
   const heldFile = path.join(root, '.scratch/fixture-held-launch.json');
-  const deadline = Date.now() + 30_000;
+  const deadline = Math.min(
+    Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity),
+    Date.now() + 180_000
+  );
   while (!existsSync(heldFile) && Date.now() < deadline)
     await new Promise((resolve) => setTimeout(resolve, 25));
   assert.ok(existsSync(heldFile), 'synthetic reviewer must join and submit before restart');
@@ -58,6 +61,15 @@ export async function verifyInstalledLaunchRestart({
   assert.equal(joined.state.protocol.state, 'author-revision');
   assert.ok(joined.events.some((event) => event.type === 'reviewer-joined'));
   assert.ok(joined.events.some((event) => event.type === 'reviewer-revisions-requested'));
+  assert.equal(
+    readClaudeSessionSnapshot({
+      projectRoot: root,
+      claudeHome: path.join(process.env.HOME, '.claude'),
+      sessionId: held.session,
+    }).phase,
+    'terminal-snapshot',
+    'lost launch acknowledgement must follow a completed synthetic provider turn'
+  );
   const assertNoDelivery = () => {
     assert.deepEqual(readFileSync(process.env.APR_FIXTURE_CALLS, 'utf8').trim().split('\n'), [
       'start',
@@ -152,40 +164,8 @@ export async function verifyInstalledLaunchRestart({
     acknowledged.observation.session_fingerprint,
     joined.state.participants.reviewer.session_fingerprint
   );
-  // The killed synthetic launch left an unfinished reviewer transcript. Model
-  // the independently completed provider turn that a late acknowledgement
-  // represents; otherwise the return wake must correctly refuse that session.
-  const transcript = path.join(
-    process.env.HOME,
-    '.claude',
-    'projects',
-    root.replace(/[^A-Za-z0-9]/g, '-'),
-    `${held.session}.jsonl`
-  );
-  appendFileSync(
-    transcript,
-    `${JSON.stringify({
-      type: 'assistant',
-      sessionId: held.session,
-      version: '2.1.278',
-      timestamp: new Date().toISOString(),
-      message: {
-        role: 'assistant',
-        model: expected.model_id,
-        stop_reason: 'end_turn',
-        content: [{ type: 'text', text: 'Synthetic reviewer launch turn completed.' }],
-      },
-    })}\n`
-  );
-  assert.equal(
-    readClaudeSessionSnapshot({
-      projectRoot: root,
-      claudeHome: path.join(process.env.HOME, '.claude'),
-      sessionId: held.session,
-    }).phase,
-    'terminal-snapshot',
-    'synthetic late launch acknowledgement must include a completed reviewer turn'
-  );
+  // The completed synthetic turn is already independently recorded, while the
+  // exact launch receipt remains absent throughout both crash-state checks.
   await requestBroker(client, 'reconcile', workspace);
   const settled = JSON.parse(readFileSync(journalFile, 'utf8'));
   assert.equal(settled.stage, 'launched');

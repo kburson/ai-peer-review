@@ -73,6 +73,9 @@ jobs:
       - &warm-broker
         name: Warm npm cache for packed release
         run: node test/helpers/warm-packed-cache.mjs
+      - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - &offline-broker
         name: Build and verify installed broker without network
         shell: pwsh
@@ -101,6 +104,18 @@ jobs:
               if ($LASTEXITCODE -ne 0) { throw 'Network isolation failed' }
               npm run build:broker-security -- --nodedir $developmentTree
               if ($LASTEXITCODE -ne 0) { throw 'Offline build failed' }
+              node --test --test-name-pattern='abandoned connection|empty broker' test/integration/broker-readiness.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Native endpoint recovery failed' }
+              node --test test/unit/runtime-selection.test.mjs test/unit/claude-reviewer-resume-submit.test.mjs test/golden/primary-runtime.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Windows account and reviewer fixture verification failed' }
+              node --test --test-name-pattern='selection permission drift' test/integration/authority-entrypoints.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Windows immediate selection authority fixture failed' }
+              node --test --test-name-pattern='installed Git observations|standalone installed broker' test/integration/installed-maintenance.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Windows installed authority compiler probe failed' }
+              node --test test/integration/collateral-compatibility.test.mjs test/integration/primary-authority.test.mjs test/integration/primary-setup.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Windows integration fixture portability failed' }
+              node --test --test-name-pattern='independent successor' test/integration/start-join.test.mjs
+              if ($LASTEXITCODE -ne 0) { throw 'Windows preserved predecessor membership failed' }
               node --test test/integration/broker-release.test.mjs
             } finally {
               $result = $LASTEXITCODE
@@ -119,8 +134,9 @@ jobs:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
-      - run: npm run test:smoke
-      - run: npm pack --dry-run
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+      - run: npm run pack:runtime -- --dry-run
 
   preferred-node:
     name: Node ${{ matrix.node }} / ${{ matrix.os == 'ubuntu-latest' && 'Ubuntu' || matrix.os }}
@@ -147,15 +163,21 @@ jobs:
       - *node-development
       - *windows-library
       - *warm-broker
+      - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - *offline-broker
       - run: npm test
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:integration
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
-      - run: npm run test:smoke
-      - run: npm pack --dry-run
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+      - run: npm run pack:runtime -- --dry-run
 
   npm-pack-compatibility:
     name: npm ${{ matrix.npm }} / Node ${{ matrix.node }}
@@ -169,6 +191,8 @@ jobs:
             npm: '12.0.2'
     runs-on: ubuntu-latest
     steps:
+      - name: Configure native development directory
+        run: echo "APR_NODEDIR_BASE=${{ runner.temp }}/node-gyp" >> "$GITHUB_ENV"
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -179,9 +203,15 @@ jobs:
       - run: npm install --global "npm@${{ matrix.npm }}"
       - run: test "$(npm --version)" = "${{ matrix.npm }}"
       - run: npm ci
+      - *python
+      - *posix-compiler
+      - *node-development
+      - *warm-broker
       - name: Verify packed builder, dependency and source inventory
         run: npm run test:packaging
       - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
 
   phase-2-boundary:
     name: Phase 2 boundary
@@ -205,13 +235,19 @@ jobs:
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm ls --omit=dev --json
       - run: npm test
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:integration
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:smoke
-      - run: npm pack --dry-run
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+      - run: npm run pack:runtime -- --dry-run
 
   live-provider-optional:
     name: Optional live-provider probe

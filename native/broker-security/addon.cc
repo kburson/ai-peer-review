@@ -7,7 +7,7 @@
 namespace broker_security {
 std::string CanonicalPath(const std::string&, std::string*, std::string*);
 std::string UserId(std::string*, std::string*);
-void* OpenPrivateDirectory(const std::string&, std::string*, std::string*);
+void* OpenPrivateDirectory(const std::string&, std::string*, std::string*, bool);
 bool VerifyDirectory(void*);
 bool DirectoryRead(void*, const std::string&, std::vector<unsigned char>*, bool*, std::string*, std::string*);
 bool DirectoryCreate(void*, const std::string&, const std::vector<unsigned char>&, std::string*, std::string*);
@@ -138,11 +138,16 @@ napi_value UserId(napi_env env, napi_callback_info) {
 }
 
 napi_value OpenPrivateDirectory(napi_env env, napi_callback_info info) {
-  napi_value values[1];
-  if (!Args(env, info, 1, values)) return nullptr;
+  napi_value values[2];
+  size_t count = 2;
+  if (napi_get_cb_info(env, info, &count, values, nullptr, nullptr) != napi_ok || count < 1)
+    return Throw(env, "APR_BROKER_PATH_INVALID", "Directory path is required.");
+  bool exclusive = false;
+  if (count > 1 && napi_get_value_bool(env, values[1], &exclusive) != napi_ok)
+    return Throw(env, "APR_BROKER_PATH_INVALID", "Exclusive creation must be boolean.");
   std::string input, code, message;
   if (!String(env, values[0], &input)) return Throw(env, "APR_BROKER_PATH_INVALID", "Directory path must be a string.");
-  void* value = broker_security::OpenPrivateDirectory(input, &code, &message);
+  void* value = broker_security::OpenPrivateDirectory(input, &code, &message, exclusive);
   return value ? External(env, Kind::directory, value) : Throw(env, code, message);
 }
 

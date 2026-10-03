@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function cliPath(tool) {
   const invoked = process.env.npm_execpath;
@@ -26,6 +27,16 @@ export function runNpm(tool, args, options = {}) {
     return execFileSync(process.execPath, [cli, ...args], options);
   }
   return execFileSync(tool, args, options);
+}
+
+// All installed fixtures consume the same actual runtime-only tarball as release CI.
+export function runRuntimePack(args, options = {}) {
+  const root = options.cwd ?? fileURLToPath(new URL('../..', import.meta.url));
+  return execFileSync(
+    process.execPath,
+    [path.join(root, 'scripts/pack-runtime.mjs'), ...args],
+    options
+  );
 }
 
 export function parseNpmPackOutput(output, { expectedPackageName, requireFilename = false } = {}) {

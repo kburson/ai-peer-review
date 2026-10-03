@@ -201,6 +201,22 @@ export async function assertOperationAuthority({
     fences.set(fence, { kind });
     return fence;
   }
+  const parentSeal = parent ? fences.get(parent) : null;
+  if (parentSeal && parentSeal.kind !== 'read' && cwd === parentSeal.cwd) {
+    const seal = { ...parentSeal, kind, reviewWorkspace, reviewContext };
+    if (
+      reviewContext &&
+      realpathSync(reviewContext.repository_root) !== seal.primary.activeWorktreeRoot
+    )
+      refuse('Review context belongs to a different physical worktree.');
+    assertReviewAuthority(seal);
+    // Parent revalidation above completed both asynchronous runtime admission
+    // and the final synchronous physical observation. No promise boundary lies
+    // between that observation and this child seal. Effects and post-operation
+    // validation still make their own fresh observations.
+    fences.set(fence, seal);
+    return fence;
+  }
   const runtime = await assertSelectedRuntime();
   const selectionPath = await verifiedAccountSelectionPath();
   const selection = selectionBytes(selectionPath);
@@ -212,6 +228,15 @@ export async function assertOperationAuthority({
   )
     refuse('Selection changed between runtime admission and fence sealing.');
   const observation = observePrimary(cwd);
+  if (parent) {
+    assertOperationAuthorityNow(parent);
+    const parentSeal = fences.get(parent);
+    if (
+      parentSeal.kind === 'read' ||
+      parentSeal.primary.activeWorktreeRoot !== observation.primary.activeWorktreeRoot
+    )
+      refuse('Nested operation cannot change its admitted physical worktree.');
+  }
   if (
     reviewContext &&
     realpathSync(reviewContext.repository_root) !== observation.primary.activeWorktreeRoot

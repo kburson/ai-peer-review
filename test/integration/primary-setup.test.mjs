@@ -2,6 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { platformSecurity } from '../../src/broker/platform.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 test('primary setup migrates portable policy without activating or committing it', async (t) => {
   const f = await setupHostFixture(t);
@@ -21,7 +23,9 @@ test('linked setup apply refuses with the physical primary recovery command', as
   const f = await setupHostFixture(t);
   await assert.rejects(
     Promise.resolve().then(() => f.setupApply({ cwd: f.linked })),
-    (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' && error.recovery.includes(f.root)
+    (error) =>
+      error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' &&
+      error.recovery.includes(JSON.stringify(f.root))
   );
   assert.equal(f.exists('.ai-peer-review/config.json'), false);
 });
@@ -123,7 +127,9 @@ test('linked activation cannot select an experimental primary', async (t) => {
   const f = await setupHostFixture(t);
   await assert.rejects(
     Promise.resolve().then(() => f.core.activate({ cwd: f.linked })),
-    (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' && error.recovery.includes(f.root)
+    (error) =>
+      error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' &&
+      error.recovery.includes(JSON.stringify(f.root))
   );
 });
 
@@ -382,7 +388,7 @@ test('project setup confirms and atomically appends its local scratch exclude', 
   );
   assert.equal(f.exists('.ai-peer-review/config.json'), false);
   const preview = await f.setupApply({ dryRun: true });
-  assert.ok(preview.writes.some((entry) => entry.file.endsWith('info/exclude')));
+  assert.ok(preview.writes.some((entry) => entry.file.endsWith(path.join('info', 'exclude'))));
   assert.equal(f.read('.git/info/exclude'), original);
   await f.setupApply();
   assert.ok(f.read('.git/info/exclude').startsWith(original));
@@ -448,7 +454,7 @@ test('explicit machine migration writes invoking account preferences and refuses
 
 test('verified owned suspension permits activation without rewriting review evidence', async (t) => {
   const f = await setupHostFixture(t);
-  const { rmSync, writeFileSync } = await import('node:fs');
+  const { rmSync } = await import('node:fs');
   const saved = readFileSync(f.registrationPath);
   rmSync(f.registrationPath);
   f.write('docs/artifact.md', '# Artifact\n');
@@ -470,7 +476,12 @@ test('verified owned suspension permits activation without rewriting review evid
     },
     fixtureStartupDeps
   );
-  writeFileSync(f.registrationPath, saved, { mode: 0o600 });
+  const directory = platformSecurity().openPrivateDirectory(path.dirname(f.registrationPath));
+  try {
+    directory.create(path.basename(f.registrationPath), saved);
+  } finally {
+    directory.close();
+  }
   await assert.rejects(
     f.setupApply(),
     (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE'
@@ -479,7 +490,6 @@ test('verified owned suspension permits activation without rewriting review evid
   await fenceManualRecovery(started.paths.workspace, {
     connect: async () => ({ request: async () => ({ status: 'recovery-only' }) }),
   });
-  const path = await import('node:path');
   const eventFile = path.join(started.paths.workspace, 'events.jsonl'),
     journalFile = path.join(started.paths.workspace, 'startup-request.json');
   const events = readFileSync(eventFile),
@@ -644,3 +654,54 @@ test('user maintenance shares the loader preference path while wrappers stay in 
     /primary inspect --json/
   );
 });
+
+test('legacy project inspection remains readable beside migrated account preferences', async (t) => {
+  const f = await setupHostFixture(t);
+  const { rmSync } = await import('node:fs');
+  rmSync(f.registrationPath);
+  const { installedPackageIdentity, assertProjectSetupCompatible } =
+    await import('../../src/config/installation-identity.mjs');
+  f.write(
+    '.ai-peer-review.json',
+    JSON.stringify({
+      schema: 'ai-peer-review.config/v1',
+      review: { max_turns: 7 },
+      setup: {
+        owner: 'ai-peer-review',
+        version: 1,
+        agents: ['generic'],
+        config_created: true,
+        scratch_exclude_added: false,
+        resume_commands_added: [],
+        ...installedPackageIdentity(),
+      },
+    })
+  );
+  const user = pathForUser(f);
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  mkdirSync(user.directory, { recursive: true });
+  writeFileSync(
+    user.file,
+    JSON.stringify({
+      schema: 'ai-peer-review.user-config/v2',
+      hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
+    })
+  );
+  const { loadConfig } = await import('../../src/config/load.mjs');
+  const loaded = loadConfig({ cwd: f.root, home: f.home, env: user.env });
+  assert.equal(loaded.config.review.max_turns, 7);
+  assert.deepEqual(loaded.config.hosts.codex.resume.command, ['codex', 'resume']);
+  assert.equal(loaded.paths.primaryRoot, null);
+  assert.throws(() => assertProjectSetupCompatible({ cwd: f.root, env: user.env }), {
+    code: 'APR_SETUP_VERSION_MISMATCH',
+  });
+});
+
+function pathForUser(f) {
+  const directory = f.home + '/.config/ai-peer-review';
+  return {
+    directory,
+    file: directory + '/config.json',
+    env: { XDG_CONFIG_HOME: f.home + '/.config' },
+  };
+}

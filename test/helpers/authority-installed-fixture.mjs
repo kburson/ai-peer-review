@@ -1,30 +1,58 @@
 // @story #136
-import { cpSync, mkdirSync, symlinkSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { setupHostFixture } from './setup-host-fixture.mjs';
-import { sealInstalledRuntimeFixture } from './installed-runtime-inventory.mjs';
+import { packRuntime } from './runtime-package.mjs';
+import { runNpm } from './npm-command.mjs';
 export async function authorityInstalledFixture(t) {
   const f = await setupHostFixture(t);
   await f.setupApply();
   f.git('add', '.');
   f.git('commit', '-m', 'activate fixture policy');
   await f.core.activate({ cwd: f.root });
-  const source = fileURLToPath(new URL('../..', import.meta.url));
-  const installed = path.join(f.parent, 'global runtime');
-  mkdirSync(installed);
-  for (const name of ['src', 'bin', 'schemas', 'templates', 'skills', 'provenance', 'package.json'])
-    cpSync(path.join(source, name), path.join(installed, name), { recursive: true });
-  sealInstalledRuntimeFixture(installed);
-  symlinkSync(path.join(source, 'node_modules'), path.join(f.parent, 'node_modules'), 'dir');
-  const module = (name) => JSON.stringify(new URL(name, 'file://' + installed + '/').href);
+  // Use the genuine installed artifact and nested global dependency closure.
+  // Ancestor source dependency links cannot stand in for selected runtime bytes.
+  const { tarball } = packRuntime(t);
+  const prefix = path.join(f.parent, 'global runtime prefix');
+  runNpm(
+    'npm',
+    [
+      'install',
+      '--global',
+      '--prefix',
+      prefix,
+      '--ignore-scripts',
+      '--offline',
+      '--no-audit',
+      '--no-fund',
+      tarball,
+    ],
+    { encoding: 'utf8' }
+  );
+  const installed = path.join(
+    prefix,
+    ...(process.platform === 'win32' ? [] : ['lib']),
+    'node_modules/@kburson/ai-peer-review'
+  );
+  execFileSync(
+    process.execPath,
+    [
+      path.join(installed, 'scripts/build-broker-security.mjs'),
+      '--nodedir',
+      process.env.APR_NODEDIR_BASE
+        ? path.join(process.env.APR_NODEDIR_BASE, process.versions.node)
+        : path.dirname(path.dirname(process.execPath)),
+    ],
+    { cwd: f.root, encoding: 'utf8' }
+  );
+  const module = (name) => JSON.stringify(new URL(name, pathToFileURL(installed + path.sep)).href);
   const execute = (code) =>
     spawnSync(
       process.execPath,
       [
         '--import',
-        fileURLToPath(new URL('./installed-provider/preload.mjs', import.meta.url)),
+        new URL('./installed-provider/account-profile.mjs', import.meta.url).href,
         '--input-type=module',
         '-e',
         'import {registerRuntimeSelection} from ' +

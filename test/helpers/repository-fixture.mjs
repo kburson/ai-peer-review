@@ -4,7 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  realpathSync,
+  realpathSync as nodeRealpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -12,6 +12,8 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { platformSecurity } from '../../src/broker/platform.mjs';
+
+const realpathSync = process.platform === 'win32' ? nodeRealpathSync.native : nodeRealpathSync;
 
 // cspell:ignore filemode
 

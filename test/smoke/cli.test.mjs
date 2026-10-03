@@ -5,9 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { sealInstalledRuntimeFixture } from '../helpers/installed-runtime-inventory.mjs';
 
-import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
+import { parseNpmPackOutput, runNpm, runRuntimePack } from '../helpers/npm-command.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -19,7 +18,7 @@ test('packed CLI installs into a non-Node host and starts a review through injec
   mkdirSync(packDir);
   mkdirSync(host);
   const packed = parseNpmPackOutput(
-    runNpm('npm', ['pack', '--json', '--pack-destination', packDir], {
+    runRuntimePack(['--json', '--pack-destination', packDir], {
       cwd: root,
       encoding: 'utf8',
     }),
@@ -70,7 +69,27 @@ test('packed CLI installs into a non-Node host and starts a review through injec
   });
   assert.match(installedPeerHelp, /Commands:/);
 
-  const installed = path.join(host, 'node_modules/@kburson/ai-peer-review');
+  const globalPrefix = path.join(fixture, 'global runtime prefix');
+  runNpm(
+    'npm',
+    [
+      'install',
+      '--global',
+      '--prefix',
+      globalPrefix,
+      '--offline',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      tarball,
+    ],
+    { stdio: 'pipe' }
+  );
+  const installed = path.join(
+    globalPrefix,
+    ...(process.platform === 'win32' ? [] : ['lib']),
+    'node_modules/@kburson/ai-peer-review'
+  );
   const developmentRoot = [
     process.env.APR_NODEDIR_BASE && path.join(process.env.APR_NODEDIR_BASE, process.versions.node),
     path.dirname(process.execPath),
@@ -82,7 +101,6 @@ test('packed CLI installs into a non-Node host and starts a review through injec
     ['--prefix', installed, 'run', 'build:broker-security', '--', '--nodedir', developmentRoot],
     { stdio: 'pipe' }
   );
-  sealInstalledRuntimeFixture(installed);
   const accountHome = path.join(fixture, 'account-home');
   mkdirSync(accountHome, { mode: 0o700 });
   writeFileSync(path.join(host, '.gitignore'), 'node_modules/\npackage*.json\n.scratch/\n');
@@ -98,7 +116,7 @@ test('packed CLI installs into a non-Node host and starts a review through injec
     process.execPath,
     [
       '--import',
-      fileURLToPath(new URL('../helpers/installed-provider/preload.mjs', import.meta.url)),
+      new URL('../helpers/installed-provider/preload.mjs', import.meta.url).href,
       fileURLToPath(new URL('../helpers/installed-smoke.mjs', import.meta.url)),
     ],
     {

@@ -186,8 +186,32 @@ export function createSelectionStore({
       refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime selection is missing or unreadable.');
     }
   }
+  function isProjectDependency() {
+    // A scoped local dependency belongs to the checkout containing its node_modules.
+    // An explicit disposable/global lib/node_modules prefix is a separate installation.
+    const dependencyRoot = path.dirname(path.dirname(actualRoot));
+    if (path.basename(dependencyRoot) !== 'node_modules') return false;
+    let prefix = path.dirname(dependencyRoot);
+    if (kind !== 'win32' && path.basename(prefix) === 'lib') prefix = path.dirname(prefix);
+    while (true) {
+      if (
+        ['.git', 'package.json', 'package-lock.json', 'npm-shrinkwrap.json'].some((name) =>
+          existsSync(path.join(prefix, name))
+        )
+      )
+        return true;
+      if (kind !== 'win32' && path.basename(path.dirname(dependencyRoot)) === 'lib') return false;
+      const parent = path.dirname(prefix);
+      if (parent === prefix) return false;
+      prefix = parent;
+    }
+  }
   function requireInstalledRunner() {
-    if (Number(nodeVersion.split('.')[0]) < 24 || existsSync(path.join(actualRoot, '.git')))
+    if (
+      Number(nodeVersion.split('.')[0]) < 24 ||
+      existsSync(path.join(actualRoot, '.git')) ||
+      isProjectDependency()
+    )
       refuse(
         'APR_RUNTIME_INSTALLATION_INVALID',
         'Registration requires an installed global runtime and Node >=24, not a source checkout.'
@@ -264,8 +288,25 @@ export function createSelectionStore({
     if (!same) {
       const temporary = path.join(ctx.directory, `.runtime-selection-${randomUUID()}.tmp`);
       try {
-        writeFileSync(temporary, JSON.stringify(value) + '\n', { flag: 'wx', mode: 0o600 });
-        renameSync(temporary, ctx.file);
+        const bytes = JSON.stringify(value) + '\n';
+        if (ctx.native) {
+          const handle = ctx.native.openPrivateDirectory(ctx.directory);
+          try {
+            if (!handle.verify())
+              refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime directory ownership changed.');
+            handle.create(path.basename(temporary), bytes);
+            if (!handle.verify())
+              refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime directory ownership changed.');
+            renameSync(temporary, ctx.file);
+            if (!handle.verify())
+              refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime directory ownership changed.');
+          } finally {
+            handle.close();
+          }
+        } else {
+          writeFileSync(temporary, bytes, { flag: 'wx', mode: 0o600 });
+          renameSync(temporary, ctx.file);
+        }
       } finally {
         try {
           unlinkSync(temporary);
