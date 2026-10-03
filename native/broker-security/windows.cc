@@ -623,6 +623,15 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
     const DWORD error = connected ? ERROR_SUCCESS : GetLastError();
     if (error == ERROR_PIPE_CONNECTED) {
       connected = true;
+    } else if (!connected && error == ERROR_NO_DATA) {
+      // A client can time out while this owner is occupied, before accept.
+      // Return that disconnected instance to listening without replacing the
+      // private owner handle or treating the client's loss as an owner failure.
+      if (!DisconnectNamedPipe(endpoint->handle)) {
+        Fail(code, message, "APR_BROKER_START_FAILED", "Abandoned named-pipe connection cannot be reset.");
+        return nullptr;
+      }
+      if (GetTickCount64() >= deadline) break;
     } else if (!connected && error == ERROR_PIPE_LISTENING && GetTickCount64() < deadline) {
       Sleep(1);
     } else if (!connected) {
