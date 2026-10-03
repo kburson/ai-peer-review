@@ -202,6 +202,15 @@ function observeRuntimeInventory({
       !/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(metadata.version)
     )
       invalid('Runtime package metadata is invalid.');
+    if (!diagnosticOnly) {
+      for (const [name, version] of Object.entries(metadata.dependencies ?? {})) {
+        const dependency = 'node_modules/' + name + '/package.json';
+        if (!entries.some((entry) => entry.path === dependency))
+          invalid('Runtime dependency is outside the sealed installation closure.');
+        if (JSON.parse(stableBytes(root, dependency, 1048576).bytes).version !== version)
+          invalid('Runtime dependency disagrees with its installed metadata.');
+      }
+    }
     // Recheck every identity after the whole observation, rejecting mixed replacement.
     for (const entry of entries)
       if (identity(ordinary(root, entry.path).stat) !== entry.identity)

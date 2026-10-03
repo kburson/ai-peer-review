@@ -134,11 +134,11 @@ export function createBrokerClientOperations({
     return connectBroker({ identity: project, paths, versions }, platform);
   }
 
-  async function connectUntilReady(connect, platform, retryable = () => false) {
-    let last;
+  async function connectUntilReady(connect, platform, retryable, deadline) {
+    let last = startFailure(null, { reason: 'readiness-deadline-expired' });
     // Allow up to two minutes of readiness polling for recovery before
     // discovery is published; established IPC keeps its short handshake bound.
-    for (let attempt = 0; attempt < 4_800; attempt += 1) {
+    while (performance.now() < deadline) {
       try {
         return await connect();
       } catch (error) {
@@ -149,8 +149,11 @@ export function createBrokerClientOperations({
           throw error;
         last = error;
       }
-      if (typeof platform?.delay === 'function') await platform.delay(25);
-      else await new Promise((resolve) => setTimeout(resolve, 25));
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) break;
+      const delay = Math.min(25, remaining);
+      if (typeof platform?.delay === 'function') await platform.delay(delay);
+      else await new Promise((resolve) => setTimeout(resolve, delay));
     }
     throw last;
   }
@@ -209,7 +212,11 @@ export function createBrokerClientOperations({
     });
   }
 
-  async function ensureBroker({ project, versions, runtimeImage, platform } = {}) {
+  async function ensureBroker(
+    { project, versions, runtimeImage, platform } = {},
+    acquisitionDeadline = Infinity
+  ) {
+    const deadline = Math.min(performance.now() + 120_000, acquisitionDeadline);
     if (
       !project ||
       !/^[a-f0-9]{64}$/.test(project.digest ?? '') ||
@@ -229,10 +236,16 @@ export function createBrokerClientOperations({
       throw startFailure(null, { reason: 'runtime-image-invalid' });
     }
     const connect = async () => {
+      if (performance.now() >= deadline)
+        throw startFailure(null, { reason: 'readiness-deadline-expired' });
       const client =
         typeof platform?.connect === 'function'
           ? await platform.connect({ project, versions, runtimeImage })
           : await defaultConnect(project, versions, platform);
+      if (performance.now() >= deadline) {
+        client.connection?.close?.();
+        throw startFailure(null, { reason: 'readiness-deadline-expired' });
+      }
       startupInputs.set(client, { project, versions, runtimeImage, platform });
       return client;
     };
@@ -242,7 +255,7 @@ export function createBrokerClientOperations({
       // A Windows exclusive writer may still be publishing discovery. Wait for
       // that existing broker; never launch a second process for this condition.
       if (error?.code === 'EBUSY' || discoveryChangedDuringHandshake(error))
-        return connectUntilReady(connect, platform, discoveryPublicationPending);
+        return connectUntilReady(connect, platform, discoveryPublicationPending, deadline);
       const launchable =
         ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_OWNED'].includes(error?.code) ||
         (error?.code === 'APR_BROKER_STALE' && missingDiscovery(project, platform));
@@ -282,7 +295,8 @@ export function createBrokerClientOperations({
         platform,
         (error) =>
           error?.code === 'APR_BROKER_STALE' &&
-          (missingDiscovery(project, platform) || discoveryPublicationPending(error))
+          (missingDiscovery(project, platform) || discoveryPublicationPending(error)),
+        deadline
       );
     } catch (error) {
       throw startFailure(error, { bootstrap });
@@ -294,7 +308,12 @@ export function createBrokerClientOperations({
     const deadline = performance.now() + 120_000;
     for (;;) {
       try {
-        return await client.takeConnection();
+        const connection = await client.takeConnection();
+        if (performance.now() >= deadline) {
+          connection.close?.();
+          throw startFailure(null, { reason: 'command-acquisition-deadline-expired' });
+        }
+        return connection;
       } catch (error) {
         const startup = startupInputs.get(client);
         // A readiness observation can outlive an empty broker's normal idle
@@ -311,7 +330,7 @@ export function createBrokerClientOperations({
         ) {
           assertCurrentOperationAuthority();
           if (!missingDiscovery(startup.project, startup.platform)) throw error;
-          client = await ensureBroker(startup);
+          client = await ensureBroker(startup, deadline);
           continue;
         }
         // No command was sent. A busy owner can occupy the native endpoint or

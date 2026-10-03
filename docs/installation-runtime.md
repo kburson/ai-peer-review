@@ -23,7 +23,7 @@ The deployment diagnostic checks package assets without registry access or
 project/account writes. A verified status means package integrity passed.
 Native requires-build or runtime-inventory requires-bootstrap status requires
 the explicit native build before review use. Bootstrap verifies unchanged
-shipped assets and exact runtime dependencies, publishes its native helper and
+shipped assets and exact runtime dependencies inside the installed package root, publishes its native helper and
 identity, and atomically extends the inventory to executable dependencies in the
 installation. A changed package requires reinstallation; bootstrap never reseals
 changed ai-peer-review source bytes.
@@ -97,4 +97,4 @@ the current native broker source and explicit build helper. This delivery adds
 runtime inventory and deployment verification; it does not supply a portable
 broker or route execution to retained older packages.
 
-Broker startup polls for authenticated readiness for up to two minutes of retry delay while recovery completes; discovery stays unpublished until ownership and restoration are ready. Authenticated native broker command replies have a bounded two-minute read budget for admitted registration and reconciliation work. Unauthenticated handshake and incomplete client frames retain their five-second deadlines. Before command submission, a typed busy native endpoint or frame-prefix handshake timeout may reconnect within a bounded two-minute acquisition window; malformed/truncated handshakes remain terminal and authority is revalidated immediately before an effect command is sent. A timed-out submitted command is never replayed automatically; preserve its evidence and reconcile the operation before retrying.
+Broker startup uses a two-minute elapsed readiness deadline, counting connection work as well as retry delays, while recovery completes; discovery stays unpublished until ownership and restoration are ready. Authenticated native broker command replies have a bounded two-minute read budget for admitted registration and reconciliation work. Unauthenticated handshake and incomplete client frames retain their five-second deadlines. Before command submission, a typed busy native endpoint or frame-prefix handshake timeout may reconnect within a bounded two-minute acquisition window; malformed/truncated handshakes remain terminal and authority is revalidated immediately before an effect command is sent. Retirement reacquisition shares the original command acquisition deadline. An already-started native connection or handshake keeps its existing bounded timeout; a connection completed after the deadline is closed without submitting a command. A timed-out submitted command is never replayed automatically; preserve its evidence and reconcile the operation before retrying.

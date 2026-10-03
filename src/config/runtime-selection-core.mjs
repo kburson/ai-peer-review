@@ -194,7 +194,12 @@ export function createSelectionStore({
     let prefix = path.dirname(dependencyRoot);
     if (kind !== 'win32' && path.basename(prefix) === 'lib') prefix = path.dirname(prefix);
     while (true) {
-      if (existsSync(path.join(prefix, '.git'))) return true;
+      if (
+        ['.git', 'package.json', 'package-lock.json', 'npm-shrinkwrap.json'].some((name) =>
+          existsSync(path.join(prefix, name))
+        )
+      )
+        return true;
       if (kind !== 'win32' && path.basename(path.dirname(dependencyRoot)) === 'lib') return false;
       const parent = path.dirname(prefix);
       if (parent === prefix) return false;

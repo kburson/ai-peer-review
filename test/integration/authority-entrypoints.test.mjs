@@ -339,7 +339,7 @@ test('replacement runtime rejects a carried fence but admits a fresh unchanged-c
       JSON.stringify(f.installed + '-upgrade') +
       ';cpSync(' +
       JSON.stringify(f.installed) +
-      ',next,{recursive:true});const selection=await import(pathToFileURL(path.join(next,"src/config/runtime-selection.mjs")));await selection.registerRuntimeSelection({update:true});let refused=false;try{await revalidateOperationAuthority(old);writeFileSync("stale-effect","unsafe");}catch{refused=true;}const fresh=await import(pathToFileURL(path.join(next,"src/startup/authority-fence.mjs")));await fresh.assertOperationAuthority({operation:"start",cwd:process.cwd()});if(!refused||existsSync("stale-effect"))throw Error("replacement admitted stale authority");console.log("upgraded");'
+      ',next,{recursive:true,verbatimSymlinks:true});const selection=await import(pathToFileURL(path.join(next,"src/config/runtime-selection.mjs")));await selection.registerRuntimeSelection({update:true});let refused=false;try{await revalidateOperationAuthority(old);writeFileSync("stale-effect","unsafe");}catch{refused=true;}const fresh=await import(pathToFileURL(path.join(next,"src/startup/authority-fence.mjs")));await fresh.assertOperationAuthority({operation:"start",cwd:process.cwd()});if(!refused||existsSync("stale-effect"))throw Error("replacement admitted stale authority");console.log("upgraded");'
   );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), 'upgraded');

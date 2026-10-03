@@ -24,19 +24,13 @@ export function prepareNativeInventory(packageRoot) {
   const observed = inspectPackageInventory({ packageRoot });
   const metadata = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
   for (const [name, version] of Object.entries(metadata.dependencies ?? {})) {
-    let current = packageRoot,
-      found = null;
-    while (true) {
-      const candidate = path.join(current, 'node_modules', name, 'package.json');
-      if (existsSync(candidate)) {
-        found = candidate;
-        break;
-      }
-      const parent = path.dirname(current);
-      if (parent === current) break;
-      current = parent;
-    }
-    if (!found || JSON.parse(readBoundedOrdinaryFile(found, 1048576)).version !== version)
+    const dependency = path.join(packageRoot, 'node_modules', name, 'package.json');
+    if (!existsSync(dependency))
+      throw new Error('Runtime dependency must remain inside the installed closure: ' + name);
+    const relative = path.relative(packageRoot, realpathSync(dependency));
+    if (relative.startsWith('..') || path.isAbsolute(relative))
+      throw new Error('Runtime dependency leaves its installed closure: ' + name);
+    if (JSON.parse(readBoundedOrdinaryFile(dependency, 1048576)).version !== version)
       throw new Error('Missing or mismatched installed runtime dependency: ' + name);
   }
   return observed.entries.filter(

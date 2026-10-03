@@ -118,6 +118,7 @@ test('native installation build refreshes only its bounded runtime inventory', (
     'npm',
     [
       'install',
+      '--install-strategy=nested',
       '--prefix',
       prefix,
       '--ignore-scripts',
@@ -299,6 +300,7 @@ test('project-local installed package cannot register itself as the global runne
     'npm',
     [
       'install',
+      '--install-strategy=nested',
       '--prefix',
       prefix,
       '--ignore-scripts',
@@ -357,3 +359,92 @@ test('source npm pack refuses and leaves the source manifest unchanged', () => {
   );
   assert.deepEqual(readFileSync(file), before);
 });
+
+for (const nested of [false, true]) {
+  test(
+    nested
+      ? 'a plain local npm install outside Git cannot register as the shared runner'
+      : 'installed native bootstrap refuses effective dependencies outside its sealed root',
+    (t) => {
+      const { tarball, directory } = packRuntime(t);
+      const consumer = path.join(
+        directory,
+        nested ? 'plain nested consumer' : 'plain hoisted consumer'
+      );
+      runNpm(
+        'npm',
+        [
+          'install',
+          '--prefix',
+          consumer,
+          '--install-strategy=' + (nested ? 'nested' : 'hoisted'),
+          '--ignore-scripts',
+          '--offline',
+          '--no-audit',
+          '--no-fund',
+          tarball,
+        ],
+        { encoding: 'utf8' }
+      );
+      assert.equal(existsSync(path.join(consumer, '.git')), false);
+      const installed = path.join(consumer, 'node_modules/@kburson/ai-peer-review');
+      const inventoryPath = path.join(installed, 'runtime-inventory.json');
+      const before = readFileSync(inventoryPath);
+      const build = spawnSync(
+        process.execPath,
+        [
+          path.join(installed, 'scripts/build-broker-security.mjs'),
+          '--nodedir',
+          process.env.APR_NODEDIR_BASE
+            ? path.join(process.env.APR_NODEDIR_BASE, process.versions.node)
+            : path.dirname(path.dirname(process.execPath)),
+        ],
+        { cwd: consumer, encoding: 'utf8' }
+      );
+      if (!nested) {
+        assert.notEqual(build.status, 0, 'ancestor-resolved dependency bytes were accepted');
+        assert.match(build.stderr, /dependency.*(?:closure|root|installation)/i);
+        assert.deepEqual(
+          readFileSync(inventoryPath),
+          before,
+          'refusal changed the shipped inventory'
+        );
+        assert.equal(existsSync(path.join(installed, 'native/broker-security/build')), false);
+      } else {
+        assert.equal(build.status, 0, build.stderr);
+        const home = path.join(directory, 'isolated local account');
+        mkdirSync(home, { mode: 0o700 });
+        const preload = new URL('../helpers/installed-provider/preload.mjs', import.meta.url).href;
+        const registration = spawnSync(
+          process.execPath,
+          [path.join(installed, 'bin/peer-review.mjs'), 'register-runtime', '--dry-run', '--json'],
+          {
+            cwd: consumer,
+            encoding: 'utf8',
+            env: {
+              ...process.env,
+              APR_FIXTURE_ACCOUNT_HOME: home,
+              HOME: home,
+              USERPROFILE: home,
+              NODE_OPTIONS: (process.env.NODE_OPTIONS ?? '') + ' --import=' + preload,
+            },
+          }
+        );
+        assert.notEqual(
+          registration.status,
+          0,
+          'plain local installation became the shared runner'
+        );
+        assert.match(registration.stderr, /APR_RUNTIME_INSTALLATION_INVALID/);
+        assert.equal(
+          existsSync(path.join(home, '.config/ai-peer-review/runtime-selection.json')),
+          false
+        );
+        assert.equal(
+          existsSync(path.join(home, 'AppData/Local/ai-peer-review/runtime-selection.json')),
+          false
+        );
+      }
+    }
+  );
+}
