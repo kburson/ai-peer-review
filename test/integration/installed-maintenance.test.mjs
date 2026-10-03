@@ -1,10 +1,48 @@
 // @story #137
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdtempSync,
+  rmSync,
+  lstatSync,
+  readdirSync,
+} from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
 import test from 'node:test';
 import { actualInstalledAuthority } from '../helpers/actual-installed-authority.mjs';
+
+function ownershipSnapshot(file) {
+  let stat;
+  try {
+    stat = lstatSync(file);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+  assert.ok(!stat.isSymbolicLink(), 'ownership resource must not become a link: ' + file);
+  const metadata = {
+    mode: stat.mode,
+    uid: stat.uid,
+    gid: stat.gid,
+    mtime: stat.mtimeMs,
+    ...(process.platform === 'win32'
+      ? { acl: execFileSync('icacls.exe', [file], { encoding: 'utf8', stdio: 'pipe' }) }
+      : {}),
+  };
+  if (stat.isDirectory())
+    return {
+      ...metadata,
+      entries: readdirSync(file)
+        .sort()
+        .map((name) => [name, ownershipSnapshot(path.join(file, name))]),
+    };
+  assert.ok(stat.isFile(), 'ownership resource must remain ordinary: ' + file);
+  return { ...metadata, bytes: readFileSync(file) };
+}
 
 test('installed Git observations and transactions ignore foreign Git redirects', (t) => {
   const f = actualInstalledAuthority(t);
@@ -203,10 +241,23 @@ for (const scenario of ['dirty primary', 'policy changed during registration loa
         'try{privateDirectory.create("bootstrap-a1.json",JSON.stringify(bootstrapRecord({project,versions,runtimeImage})));}' +
         'finally{privateDirectory.close();}' +
         'const paths=brokerPaths({identity:project,platform,env:process.env,home:process.env.HOME});' +
+        'const preservedParent=platform.openPrivateDirectory(paths.authorityDirectories[0]);' +
+        'try{preservedParent.create("pre-existing.txt","independent account evidence");}' +
+        'finally{preservedParent.close();}' +
         'console.log(JSON.stringify({bootstrap,paths}));'
     );
     assert.equal(setup.status, 0, setup.stderr);
     const { bootstrap, paths } = JSON.parse(setup.stdout);
+    const ownershipPaths = [
+      ...paths.authorityDirectories,
+      ...paths.endpointDirectories,
+      paths.endpoint,
+      paths.lock,
+      paths.metadata,
+    ];
+    const beforeOwnership = new Map(ownershipPaths.map((file) => [file, ownershipSnapshot(file)]));
+    const preserved = path.join(paths.authorityDirectories[0], 'pre-existing.txt');
+    assert.equal(readFileSync(preserved, 'utf8'), 'independent account evidence');
     const policy = path.join(f.root, '.ai-peer-review/config.json');
     let race = '';
     if (scenario === 'dirty primary') writeFileSync(policy, readFileSync(policy, 'utf8') + ' ');
@@ -230,15 +281,14 @@ for (const scenario of ['dirty primary', 'policy changed during registration loa
         ');}catch(error){code=error.code;}console.log(JSON.stringify({code}));'
     );
     assert.equal(result.status, 0, result.stderr);
-    for (const file of [
-      ...paths.authorityDirectories,
-      ...paths.endpointDirectories,
-      paths.endpoint,
-      paths.lock,
-      paths.metadata,
-    ])
-      assert.equal(existsSync(file), false, 'ownership effect: ' + file);
     assert.equal(JSON.parse(result.stdout).code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
+    for (const file of ownershipPaths)
+      assert.deepEqual(
+        ownershipSnapshot(file),
+        beforeOwnership.get(file),
+        'ownership effect: ' + file
+      );
+    assert.equal(readFileSync(preserved, 'utf8'), 'independent account evidence');
   });
 }
 
