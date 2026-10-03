@@ -116,7 +116,7 @@ test('packed CLI installs into a non-Node host and starts a review through injec
     process.execPath,
     [
       '--import',
-      fileURLToPath(new URL('../helpers/installed-provider/preload.mjs', import.meta.url)),
+      new URL('../helpers/installed-provider/preload.mjs', import.meta.url).href,
       fileURLToPath(new URL('../helpers/installed-smoke.mjs', import.meta.url)),
     ],
     {

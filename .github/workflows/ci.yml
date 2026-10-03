@@ -73,6 +73,9 @@ jobs:
       - &warm-broker
         name: Warm npm cache for packed release
         run: node test/helpers/warm-packed-cache.mjs
+      - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - &offline-broker
         name: Build and verify installed broker without network
         shell: pwsh
@@ -133,9 +136,6 @@ jobs:
       - run: npm run test:packaging
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
-      - run: npm run test:smoke
-        env:
-          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run pack:runtime -- --dry-run
 
   preferred-node:
@@ -163,6 +163,9 @@ jobs:
       - *node-development
       - *windows-library
       - *warm-broker
+      - run: npm run test:smoke
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - *offline-broker
       - run: npm test
       - run: npm run test:integration
@@ -170,9 +173,6 @@ jobs:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
-        env:
-          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
-      - run: npm run test:smoke
         env:
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run pack:runtime -- --dry-run
