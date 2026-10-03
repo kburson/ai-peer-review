@@ -44,6 +44,7 @@ export function createBrokerClientOperations({
   performCurrentOperationEffect,
   assertCurrentOperationAuthority,
 }) {
+  const startupInputs = new WeakMap();
   const atomicCreate = (...args) => performCurrentOperationEffect(() => rawAtomicCreate(...args));
   const withReviewLock = (workspace, callback, options = {}) =>
     rawWithReviewLock(
@@ -227,10 +228,14 @@ export function createBrokerClientOperations({
     if (!runtimeVerified(runtimeImage)) {
       throw startFailure(null, { reason: 'runtime-image-invalid' });
     }
-    const connect = () =>
-      typeof platform?.connect === 'function'
-        ? platform.connect({ project, versions, runtimeImage })
-        : defaultConnect(project, versions, platform);
+    const connect = async () => {
+      const client =
+        typeof platform?.connect === 'function'
+          ? await platform.connect({ project, versions, runtimeImage })
+          : await defaultConnect(project, versions, platform);
+      startupInputs.set(client, { project, versions, runtimeImage, platform });
+      return client;
+    };
     try {
       return await connect();
     } catch (error) {
@@ -284,13 +289,29 @@ export function createBrokerClientOperations({
     }
   }
 
-  async function takeCommandConnection(client) {
+  async function takeCommandConnection(client, command) {
     if (!client.takeConnection) return client.connection;
     const deadline = performance.now() + 120_000;
     for (;;) {
       try {
         return await client.takeConnection();
       } catch (error) {
+        const startup = startupInputs.get(client);
+        // A readiness observation can outlive an empty broker's normal idle
+        // retirement. Reacquire only our own admitted startup before submission.
+        // External clients, malformed discovery and submitted commands never retry.
+        if (
+          command !== 'status' &&
+          startup &&
+          error?.code === 'APR_BROKER_STALE' &&
+          error.message === 'Broker discovery metadata is unavailable.' &&
+          performance.now() < deadline
+        ) {
+          assertCurrentOperationAuthority();
+          if (!missingDiscovery(startup.project, startup.platform)) throw error;
+          client = await ensureBroker(startup);
+          continue;
+        }
         // No command was sent. A busy owner can occupy the native endpoint or
         // miss one short handshake window; malformed/auth failures never retry.
         const retryable =
@@ -307,7 +328,7 @@ export function createBrokerClientOperations({
     const message = validateCommand({ id: randomUUID(), command, workspace });
     if (typeof client?.request === 'function') return client.request(message);
     const decoder = createFrameDecoder();
-    const connection = await takeCommandConnection(client);
+    const connection = await takeCommandConnection(client, command);
     let bytes;
     try {
       // IPC delegates effects to the broker. Revalidate without taking the

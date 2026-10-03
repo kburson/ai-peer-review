@@ -349,3 +349,19 @@ test('endpoint access denial and unclassified connection failure remain terminal
     assert.equal(attempts, 1);
   }
 });
+
+// @story #137
+test('missing discovery on a client without admitted startup identity stays terminal', async () => {
+  const failure = Object.assign(new Error('Broker discovery metadata is unavailable.'), {
+    code: 'APR_BROKER_STALE',
+  });
+  let attempts = 0;
+  const client = {
+    async takeConnection() {
+      attempts++;
+      throw failure;
+    },
+  };
+  await assert.rejects(requestBroker(client, 'stop'), (error) => error === failure);
+  assert.equal(attempts, 1);
+});

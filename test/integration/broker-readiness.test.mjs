@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { ensureBroker, requestBroker } from '../helpers/broker-client-api.mjs';
+import { createBrokerClientOperations } from '../../src/broker/client-core.mjs';
 import { connectBroker, encodeFrame } from '../../src/broker/ipc.mjs';
 
 const nativeAvailable = existsSync(
@@ -13,6 +13,21 @@ const nativeAvailable = existsSync(
 );
 
 for (const scenario of [
+  {
+    name: 'refuses reacquiring a retired empty broker after authority drift',
+    recoveryMs: 0,
+    commandMs: 0,
+    prepareMs: 0,
+    idleRetire: true,
+    authorityDrift: true,
+  },
+  {
+    name: 'reacquires a normally retired empty broker before an unsent stop',
+    recoveryMs: 0,
+    commandMs: 0,
+    prepareMs: 0,
+    idleRetire: true,
+  },
   {
     name: 'does not expose a handshake while slow recovery holds ownership',
     recoveryMs: 40_000,
@@ -46,6 +61,20 @@ for (const scenario of [
       timeout: 60_000,
     },
     async (t) => {
+      let authorityCurrent = true;
+      const drift = Object.assign(new Error('Authority changed after readiness.'), {
+        code: 'APR_TEST_AUTHORITY_CHANGED',
+      });
+      const assertAuthority = () => {
+        if (!authorityCurrent) throw drift;
+      };
+      const { ensureBroker, requestBroker } = createBrokerClientOperations({
+        performCurrentOperationEffect(operation) {
+          assertAuthority();
+          return operation();
+        },
+        assertCurrentOperationAuthority: assertAuthority,
+      });
       const { platformSecurity } = await import('../../src/broker/platform.mjs');
       const security = platformSecurity();
       const root = mkdtempSync(path.join(tmpdir(), 'apr-ready-'));
@@ -79,6 +108,7 @@ for (const scenario of [
           recoveryMs: scenario.recoveryMs,
           commandMs: scenario.commandMs,
           occupiedMs: scenario.occupiedMs ?? 0,
+          idleRetire: scenario.idleRetire ?? false,
         })
       );
       let child;
@@ -136,6 +166,22 @@ for (const scenario of [
         throw error;
       });
       assert.equal(launches, 1);
+      if (scenario.idleRetire) {
+        child.ref();
+        assert.equal(await exited, 0, diagnostics);
+        assert.equal(existsSync(paths.metadata), false);
+        if (scenario.authorityDrift) {
+          authorityCurrent = false;
+          await assert.rejects(requestBroker(client, 'stop'), (error) => error === drift);
+          assert.equal(launches, 1);
+          return;
+        }
+        assert.equal((await requestBroker(client, 'stop')).status, 'stopping');
+        assert.equal(launches, 2);
+        child.ref();
+        assert.equal(await exited, 0, diagnostics);
+        return;
+      }
       if (scenario.prepareMs)
         await new Promise((resolve) => setTimeout(resolve, scenario.prepareMs));
       assert.equal((await requestBroker(client, 'status')).status, 'running');
