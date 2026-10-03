@@ -84,3 +84,33 @@ test('256 authenticated sockets bound total admission and cleanup restores capac
   await f.flush();
   assert.equal(admitted.destroyed, false);
 });
+
+test(
+  'authenticated control survives six seconds idle before full pending saturation',
+  { timeout: 9_000 },
+  async (t) => {
+    const f = await portableBrokerFixture(t, { realClock: true });
+    const { createLoopbackBrokerClient } = await import('../../src/broker/ipc.mjs');
+    const client = createLoopbackBrokerClient({
+      endpoint: f.endpoint,
+      privateBinding: f.privateBinding,
+    });
+    t.after(() => client.close?.());
+    assert.deepEqual(await client.request({ id: 'before', command: 'status', workspace: null }), {
+      operation: 'status',
+    });
+    assert.equal((await f.request()).ok, true);
+    await new Promise((resolve) => setTimeout(resolve, 6_100));
+    const slow = await Promise.all(Array.from({ length: 128 }, () => f.rawSocket()));
+    await f.flush();
+    assert.deepEqual(await client.request({ id: 'after', command: 'status', workspace: null }), {
+      operation: 'status',
+    });
+    assert.deepEqual(await client.request({ id: 'cancel', command: 'stop', workspace: null }), {
+      operation: 'stop',
+    });
+    assert.equal((await f.request()).ok, true);
+    assert.equal((await f.request({ operation: 'cancel' })).ok, true);
+    for (const socket of slow) socket.destroy();
+  }
+);

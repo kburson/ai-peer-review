@@ -1,4 +1,5 @@
 import path from 'node:path';
+import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { AprError } from '../errors.mjs';
 import { requestLoopback } from './http-client.mjs';
@@ -238,14 +239,22 @@ export function assertBrokerTransport(transport) {
 }
 
 export function createLoopbackBrokerClient({ endpoint, privateBinding, agent }) {
+  const ownedAgent = agent ?? new http.Agent({ keepAlive: true, timeout: 0 });
+  if (!ownedAgent.keepAlive || ownedAgent.options.timeout !== 0)
+    throw new TypeError(
+      'Portable control requires a dedicated keep-alive agent without idle expiry.'
+    );
   return Object.freeze({
     transport: 'portable',
+    close() {
+      if (!agent) ownedAgent.destroy();
+    },
     async request(message) {
       const command = validateCommand(message);
       const response = await requestLoopback({
         endpoint,
         privateBinding,
-        agent,
+        agent: ownedAgent,
         operation: command.command,
         body: { workspace: command.workspace },
         actionId: command.id,

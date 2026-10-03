@@ -8,6 +8,8 @@ export const HTTP_BODY_LIMIT = 1_048_576;
 // legitimate new client can be refused. Existing authenticated keep-alive
 // controls retain capacity; every accepted socket still counts toward 256.
 export const HTTP_ADMISSION_LIMITS = Object.freeze({ sockets: 256, pending: 128 });
+// Authenticated control connections outlive the 15-second monitoring cadence.
+// Their lifetime is bounded by explicit close and the total socket admission cap.
 const realClock = { now: () => performance.now(), setTimeout, clearTimeout };
 
 function reject(res, status) {
@@ -52,6 +54,47 @@ async function finish(res, data) {
   await settled;
 }
 
+const ABORTED = Symbol('broker aborted');
+async function untilAbort(promise, signal) {
+  if (signal.aborted) return ABORTED;
+  let stop;
+  const aborted = new Promise((resolve) => {
+    stop = () => resolve(ABORTED);
+    signal.addEventListener('abort', stop, { once: true });
+  });
+  try {
+    return await Promise.race([promise, aborted]);
+  } finally {
+    signal.removeEventListener('abort', stop);
+  }
+}
+
+async function streamEvents(res, events, signal) {
+  const iterator = events[Symbol.asyncIterator]();
+  let completed = false;
+  try {
+    while (!signal.aborted) {
+      const step = await untilAbort(
+        Promise.resolve().then(() => iterator.next()),
+        signal
+      );
+      if (step === ABORTED) return;
+      if (step.done) {
+        completed = true;
+        return;
+      }
+      await write(res, Buffer.concat([bytes(step.value), Buffer.from('\n')]));
+    }
+  } finally {
+    // An async generator's return can itself wait behind a blocked next().
+    // Invoke cleanup, handle its rejection, and never let it retain ownership.
+    if (!completed && typeof iterator.return === 'function')
+      Promise.resolve()
+        .then(() => iterator.return())
+        .catch(() => {});
+  }
+}
+
 export async function createLoopbackServer({
   binding,
   authenticate = authenticateLoopback,
@@ -86,7 +129,14 @@ export async function createLoopbackServer({
   const handle = async (req, res) => {
     const state = sockets.get(req.socket);
     if (!state || closing) return reject(res, 503);
+    // Overlapping HTTP pipelining is unsupported. Queue the bounded refusal
+    // behind the active response so a legitimate wait keeps its lifetime.
+    if (state.inFlight) return reject(res, 400);
+    state.inFlight = true;
     receipt(req.socket, state);
+    res.once('close', () => {
+      state.inFlight = false;
+    });
     if (req.method !== 'POST' || !['/rpc', '/wait'].includes(req.url) || req.httpVersion !== '1.1')
       return reject(res, 400);
     const auth = authenticate(req.rawHeaders, expected);
@@ -128,15 +178,16 @@ export async function createLoopbackServer({
       return reject(res, 400);
     }
     try {
-      const result = await dispatch(req, res, auth);
+      const result = await untilAbort(
+        Promise.resolve().then(() => dispatch(req, res, auth)),
+        state.abort.signal
+      );
+      if (result === ABORTED) return;
       if (res.writableEnded || res.destroyed) return;
       if (req.url === '/wait') {
         if (!result || typeof result[Symbol.asyncIterator] !== 'function') return reject(res, 500);
         res.writeHead(200, { 'Content-Type': 'application/x-ndjson', 'Cache-Control': 'no-store' });
-        for await (const event of result) {
-          if (res.destroyed) break;
-          await write(res, Buffer.concat([bytes(event), Buffer.from('\n')]));
-        }
+        await streamEvents(res, result, state.abort.signal);
         if (!res.destroyed) await finish(res);
       } else {
         const body = bytes(result);
@@ -155,6 +206,7 @@ export async function createLoopbackServer({
   const server = http.createServer(
     {
       maxHeaderSize: 16_384,
+      keepAliveTimeout: 0,
       requestTimeout: 10_000,
       headersTimeout: 10_000,
       connectionsCheckingInterval: 1_000,
@@ -175,13 +227,19 @@ export async function createLoopbackServer({
       pending >= HTTP_ADMISSION_LIMITS.pending
     )
       return socket.destroy();
-    const state = { authenticated: false, idle: null, receipt: null, abort: new AbortController() };
+    const state = {
+      authenticated: false,
+      inFlight: false,
+      idle: null,
+      receipt: null,
+      abort: new AbortController(),
+    };
     sockets.set(socket, state);
     pending += 1;
     receipt(socket, state);
     idle(socket, state);
     socket.on('data', () => {
-      receipt(socket, state);
+      if (!state.inFlight) receipt(socket, state);
       if (!state.authenticated) idle(socket, state);
     });
     socket.on('close', () => {

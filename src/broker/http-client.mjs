@@ -7,7 +7,7 @@ function envelope(code, actionId, uncertain) {
   return {
     schema: 'ai-peer-review.response/v1',
     ok: false,
-    mutation_occurred: null,
+    mutation_occurred: uncertain ? null : false,
     retry_safe: !uncertain,
     next_action: uncertain ? 'reconcile' : null,
     action_id: actionId,
@@ -56,12 +56,12 @@ function open(
       },
       (res) => resolve({ res, req })
     );
-    req.once('error', () =>
+    req.once('error', (error) =>
       resolve({
         failure: envelope(
           signal?.aborted ? 'APR_BROKER_ABORTED' : 'APR_BROKER_DELIVERY_UNKNOWN',
           actionId,
-          mutation && mayBeSent
+          mutation && mayBeSent && error.code !== 'ECONNREFUSED'
         ),
       })
     );
@@ -79,6 +79,8 @@ export async function requestLoopback(input) {
   const { res, req, failure } = await operation.response;
   if (failure) return failure;
   try {
+    if ([400, 401, 403, 413, 431, 503].includes(res.statusCode))
+      return envelope('APR_BROKER_REQUEST_REFUSED', operation.actionId, false);
     if (res.statusCode !== 200) throw new Error('refused');
     const chunks = [];
     let size = 0;
@@ -94,7 +96,11 @@ export async function requestLoopback(input) {
       throw new Error('envelope');
     return value;
   } catch {
-    return envelope('APR_BROKER_DELIVERY_UNKNOWN', operation.actionId, operation.uncertain());
+    return envelope(
+      input.signal?.aborted ? 'APR_BROKER_ABORTED' : 'APR_BROKER_DELIVERY_UNKNOWN',
+      operation.actionId,
+      operation.uncertain()
+    );
   } finally {
     res.destroy();
     req.destroy();

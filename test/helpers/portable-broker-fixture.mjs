@@ -74,7 +74,7 @@ export async function portableBrokerFixture(t, options = {}) {
   });
   const endpoint = { host: '127.0.0.1', port: server.port };
   const sockets = new Set();
-  const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+  const agent = new http.Agent({ keepAlive: true, timeout: 0, maxSockets: 1 });
   t.after(async () => {
     agent.destroy();
     for (const socket of sockets) socket.destroy();

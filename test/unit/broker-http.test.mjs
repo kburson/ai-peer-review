@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync, readdirSync } from 'node:fs';
+import { Linter } from 'eslint';
 import { portableBrokerFixture } from '../helpers/portable-broker-fixture.mjs';
 
 test('authenticated HTTP dispatch returns status without exposing credentials', async (t) => {
@@ -386,3 +388,283 @@ test(
     assert.equal((await f.request()).ok, true);
   }
 );
+
+test(
+  'server close cancels a never-yielding iterator without waiting for its return',
+  { timeout: 2_000 },
+  async (t) => {
+    let started;
+    const nextStarted = new Promise((resolve) => {
+      started = resolve;
+    });
+    let returned = false;
+    let unblock;
+    const f = await portableBrokerFixture(t, {
+      dispatch: async () => ({
+        [Symbol.asyncIterator]() {
+          return this;
+        },
+        next() {
+          started();
+          return new Promise((resolve) => {
+            unblock = resolve;
+          });
+        },
+        return() {
+          returned = true;
+          return new Promise(() => {});
+        },
+      }),
+    });
+    const socket = await f.rawSocket();
+    socket.write(
+      f
+        .rawRequest(
+          '',
+          JSON.stringify({
+            schema: 'ai-peer-review.rpc/v1',
+            operation: 'wait',
+            body: {},
+            action_id: 'wait',
+          })
+        )
+        .replace('rpc HTTP', 'wait HTTP')
+    );
+    await nextStarted;
+    const closed = f.server.close();
+    const settled = await Promise.race([
+      closed.then(() => true),
+      new Promise((resolve) => setTimeout(() => resolve(false), 500)),
+    ]);
+    unblock({ done: true });
+    await closed;
+    assert.equal(settled, true, 'close must settle despite blocked next and return');
+    assert.equal(returned, true);
+  }
+);
+
+test('partial pipelined bytes cannot restart receipt deadline during authenticated wait', async (t) => {
+  let started;
+  const streaming = new Promise((resolve) => {
+    started = resolve;
+  });
+  const f = await portableBrokerFixture(t, {
+    dispatch: async () =>
+      (async function* () {
+        started();
+        yield { cursor: 1 };
+        await new Promise(() => {});
+      })(),
+  });
+  const socket = await f.rawSocket();
+  socket.write(
+    f
+      .rawRequest(
+        '',
+        JSON.stringify({
+          schema: 'ai-peer-review.rpc/v1',
+          operation: 'wait',
+          body: {},
+          action_id: 'wait',
+        })
+      )
+      .replace('rpc HTTP', 'wait HTTP')
+      .replace('Connection: close', 'Connection: keep-alive')
+  );
+  await streaming;
+  await f.flush();
+  socket.write(f.rawRequest().slice(0, 25));
+  await f.flush();
+  f.clock.advance(10_000);
+  await f.flush();
+  assert.equal(socket.destroyed, false, 'in-flight wait has no header receipt deadline');
+});
+
+test('definite authentication refusal and connection refusal leave mutation retry safe', async (t) => {
+  const f = await portableBrokerFixture(t);
+  const refused = await f.request({
+    operation: 'cancel',
+    privateBinding: { ...f.privateBinding, credential: 'd'.repeat(64) },
+  });
+  assert.equal(refused.retry_safe, true);
+  assert.equal(refused.mutation_occurred, false);
+  assert.equal(refused.next_action, null);
+  await f.server.close();
+  const notConnected = await f.request({ operation: 'cancel' });
+  assert.equal(notConnected.retry_safe, true);
+  assert.equal(notConnected.mutation_occurred, false);
+});
+
+test('abort during response reading retains aborted code and mutation uncertainty', async (t) => {
+  let sent;
+  const headersSent = new Promise((resolve) => {
+    sent = resolve;
+  });
+  const f = await portableBrokerFixture(t, {
+    dispatch: async (_req, res) => {
+      res.writeHead(200);
+      res.write('{');
+      sent();
+      await new Promise(() => {});
+    },
+  });
+  const controller = new AbortController();
+  const pending = f.request({ operation: 'cancel', signal: controller.signal });
+  await headersSent;
+  await f.flush();
+  controller.abort();
+  const response = await pending;
+  assert.equal(response.error.code, 'APR_BROKER_ABORTED');
+  assert.equal(response.retry_safe, false);
+});
+
+test('production import graph cannot activate unprotected loopback server', () => {
+  const linter = new Linter();
+  const rule = {
+    meta: { schema: [] },
+    create(context) {
+      const serverModule = (value) =>
+        typeof value === 'string' && value.endsWith('http-server.mjs');
+      return {
+        ImportDeclaration(node) {
+          if (!serverModule(node.source.value)) return;
+          if (
+            node.specifiers.some(
+              (specifier) =>
+                specifier.type !== 'ImportSpecifier' ||
+                specifier.imported.name !== 'HTTP_BODY_LIMIT'
+            )
+          )
+            context.report({
+              node,
+              message:
+                'Task 2 protected authority is required before production listener activation.',
+            });
+        },
+        ImportExpression(node) {
+          if (serverModule(node.source.value))
+            context.report({ node, message: 'Dynamic listener activation requires Task 2.' });
+        },
+      };
+    },
+  };
+  const check = (source) =>
+    linter.verify(source, [
+      {
+        languageOptions: { sourceType: 'module', ecmaVersion: 'latest' },
+        plugins: { boundary: { rules: { protected: rule } } },
+        rules: { 'boundary/protected': 'error' },
+      },
+    ]);
+  assert.equal(
+    check("import { createLoopbackServer as activate } from './http-server.mjs'; activate({});")
+      .length,
+    1
+  );
+  assert.equal(
+    check("import * as broker from './http-server.mjs'; broker.createLoopbackServer({});").length,
+    1
+  );
+  assert.equal(check("await import('./http-server.mjs');").length, 1);
+  for (const directory of ['src', 'bin']) {
+    for (const relative of readdirSync(new URL('../../' + directory, import.meta.url), {
+      recursive: true,
+    })) {
+      if (!relative.endsWith('.mjs')) continue;
+      const source = readFileSync(
+        new URL('../../' + directory + '/' + relative, import.meta.url),
+        'utf8'
+      );
+      assert.deepEqual(check(source), [], directory + '/' + relative);
+    }
+  }
+});
+
+test('complete overlapping pipeline refuses second dispatch without cutting active wait', async (t) => {
+  let started;
+  const streaming = new Promise((resolve) => {
+    started = resolve;
+  });
+  const f = await portableBrokerFixture(t, {
+    dispatch: async () =>
+      (async function* () {
+        started();
+        yield { cursor: 1 };
+        await new Promise(() => {});
+      })(),
+  });
+  const socket = await f.rawSocket();
+  const first = f
+    .rawRequest(
+      '',
+      JSON.stringify({
+        schema: 'ai-peer-review.rpc/v1',
+        operation: 'wait',
+        body: {},
+        action_id: 'first',
+      })
+    )
+    .replace('rpc HTTP', 'wait HTTP')
+    .replace('Connection: close', 'Connection: keep-alive');
+  socket.write(first);
+  await streaming;
+  await f.flush();
+  socket.write(
+    f.rawRequest(
+      '',
+      JSON.stringify({
+        schema: 'ai-peer-review.rpc/v1',
+        operation: 'status',
+        body: {},
+        action_id: 'second',
+      })
+    )
+  );
+  await f.flush();
+  f.clock.advance(10_000);
+  await f.flush();
+  assert.equal(socket.destroyed, false, 'refused pipeline must preserve the active wait');
+  assert.equal(f.dispatchCalls.length, 1);
+});
+
+test('same portable client serves status while its mutation dispatch is delayed', async (t) => {
+  let began;
+  const started = new Promise((resolve) => {
+    began = resolve;
+  });
+  let release;
+  const delayed = new Promise((resolve) => {
+    release = resolve;
+  });
+  t.after(() => release());
+  const f = await portableBrokerFixture(t, {
+    dispatch: async (req) => {
+      if (req.operation === 'launch') {
+        began();
+        await delayed;
+      }
+      return {
+        schema: 'ai-peer-review.response/v1',
+        ok: true,
+        result: { operation: req.operation },
+      };
+    },
+  });
+  const { createLoopbackBrokerClient } = await import('../../src/broker/ipc.mjs');
+  const client = createLoopbackBrokerClient({
+    endpoint: f.endpoint,
+    privateBinding: f.privateBinding,
+  });
+  t.after(() => client.close());
+  const launch = client.request({ id: 'launch', command: 'launch', workspace: process.cwd() });
+  await started;
+  const status = client.request({ id: 'status', command: 'status', workspace: null });
+  const responsive = await Promise.race([
+    status.then(() => true),
+    new Promise((resolve) => setTimeout(() => resolve(false), 500)),
+  ]);
+  release();
+  await launch;
+  assert.deepEqual(await status, { operation: 'status' });
+  assert.equal(responsive, true, 'status must not queue behind a mutation on the same client');
+});

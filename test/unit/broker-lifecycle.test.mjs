@@ -849,6 +849,10 @@ test('recovery snapshot progression does not block broker readiness or launch pr
   const clock = fakeClock();
   const server = fakeServer();
   let published = false;
+  let publishReady;
+  const publication = new Promise((resolve) => {
+    publishReady = resolve;
+  });
   const worker = await f.makeWorker(clock);
   const input = brokerInput({
     clock,
@@ -861,13 +865,16 @@ test('recovery snapshot progression does not block broker readiness or launch pr
     physicalRoot: f.registration.project_root,
   };
   input.owner = {
-    publish() {
+    async publish() {
+      await new Promise((resolve) => setImmediate(resolve));
       published = true;
+      publishReady();
     },
     release() {},
   };
   const running = runBroker(input);
   await Promise.race([server.ready, running]);
+  await Promise.race([publication, running]);
   assert.equal(published, true);
   assert.equal((await server.request({ id: 'status', command: 'status' })).reviews, 0);
   assert.equal(f.bytes(), original);
