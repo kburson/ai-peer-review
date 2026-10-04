@@ -78,6 +78,7 @@ export async function requestLoopback(input) {
   const operation = open(input, '/rpc');
   const { res, req, failure } = await operation.response;
   if (failure) return failure;
+  let completed = false;
   try {
     if ([400, 401, 403, 413, 431, 503].includes(res.statusCode))
       return envelope('APR_BROKER_REQUEST_REFUSED', operation.actionId, false);
@@ -94,6 +95,7 @@ export async function requestLoopback(input) {
     );
     if (value?.schema !== 'ai-peer-review.response/v1' || typeof value.ok !== 'boolean')
       throw new Error('envelope');
+    completed = true;
     return value;
   } catch {
     return envelope(
@@ -102,14 +104,16 @@ export async function requestLoopback(input) {
       operation.uncertain()
     );
   } finally {
-    res.destroy();
-    req.destroy();
+    if (!completed) {
+      res.destroy();
+      req.destroy();
+    }
   }
 }
 
 export async function* waitLoopback({ afterCursor, ...input }) {
   const operation = open(
-    { ...input, operation: input.operation ?? 'wait', body: { ...input.body, afterCursor } },
+    { ...input, operation: 'wait', body: { ...input.body, after_cursor: afterCursor } },
     '/wait'
   );
   const { res, req, failure } = await operation.response;

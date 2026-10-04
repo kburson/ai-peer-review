@@ -238,8 +238,10 @@ export function assertBrokerTransport(transport) {
   if (transport !== 'legacy') throw brokerError('APR_BROKER_PROTOCOL', 'Unknown broker transport.');
 }
 
+// Own a concurrent control pool, separate from streaming wait agents. Call close
+// when finished; new connections have no priority under the pending admission cap.
 export function createLoopbackBrokerClient({ endpoint, privateBinding, agent }) {
-  const ownedAgent = agent ?? new http.Agent({ keepAlive: true, timeout: 0 });
+  const ownedAgent = agent ?? new http.Agent({ keepAlive: true, timeout: 0, maxFreeSockets: 2 });
   if (!ownedAgent.keepAlive || ownedAgent.options.timeout !== 0)
     throw new TypeError(
       'Portable control requires a dedicated keep-alive agent without idle expiry.'

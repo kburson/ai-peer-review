@@ -78,7 +78,11 @@ export async function portableBrokerFixture(t, options = {}) {
   t.after(async () => {
     agent.destroy();
     for (const socket of sockets) socket.destroy();
-    await server.close();
+    try {
+      await server.close();
+    } catch (error) {
+      if (!options.expectedCloseFailure || error.code !== options.expectedCloseFailure) throw error;
+    }
   });
   const headers = () => ({
     Host: `127.0.0.1:${server.port}`,

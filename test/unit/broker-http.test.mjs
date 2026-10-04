@@ -443,7 +443,7 @@ test(
   }
 );
 
-test('partial pipelined bytes cannot restart receipt deadline during authenticated wait', async (t) => {
+test('partial pipelined bytes do not arm custom receipt timers during authenticated wait', async (t) => {
   let started;
   const streaming = new Promise((resolve) => {
     started = resolve;
@@ -505,7 +505,11 @@ test('abort during response reading retains aborted code and mutation uncertaint
       res.writeHead(200);
       res.write('{');
       sent();
-      await new Promise(() => {});
+      if (!_req.brokerSignal.aborted) {
+        await new Promise((resolve) => {
+          _req.brokerSignal.addEventListener('abort', resolve, { once: true });
+        });
+      }
     },
   });
   const controller = new AbortController();
@@ -541,6 +545,17 @@ test('production import graph cannot activate unprotected loopback server', () =
                 'Task 2 protected authority is required before production listener activation.',
             });
         },
+        ExportNamedDeclaration(node) {
+          if (
+            serverModule(node.source?.value) &&
+            node.specifiers.some((specifier) => specifier.local.name !== 'HTTP_BODY_LIMIT')
+          )
+            context.report({ node, message: 'Listener re-export requires Task 2.' });
+        },
+        ExportAllDeclaration(node) {
+          if (serverModule(node.source.value))
+            context.report({ node, message: 'Wildcard listener re-export requires Task 2.' });
+        },
         ImportExpression(node) {
           if (serverModule(node.source.value))
             context.report({ node, message: 'Dynamic listener activation requires Task 2.' });
@@ -566,6 +581,8 @@ test('production import graph cannot activate unprotected loopback server', () =
     1
   );
   assert.equal(check("await import('./http-server.mjs');").length, 1);
+  assert.equal(check("export { createLoopbackServer } from './http-server.mjs';").length, 1);
+  assert.equal(check("export * from './http-server.mjs';").length, 1);
   for (const directory of ['src', 'bin']) {
     for (const relative of readdirSync(new URL('../../' + directory, import.meta.url), {
       recursive: true,
@@ -667,4 +684,276 @@ test('same portable client serves status while its mutation dispatch is delayed'
   await launch;
   assert.deepEqual(await status, { operation: 'status' });
   assert.equal(responsive, true, 'status must not queue behind a mutation on the same client');
+});
+
+test('graceful close waits for delayed RPC dispatch and delivers its reply', async (t) => {
+  let began, release;
+  const started = new Promise((resolve) => {
+    began = resolve;
+  });
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const f = await portableBrokerFixture(t, {
+    dispatch: async () => {
+      began();
+      await gate;
+      return { schema: 'ai-peer-review.response/v1', ok: true, result: 'settled' };
+    },
+  });
+  const request = f.request({ operation: 'cancel' });
+  await started;
+  let settled = false;
+  const closed = f.server.close().then(() => {
+    settled = true;
+  });
+  await f.flush();
+  const premature = settled;
+  release();
+  const response = await request;
+  await closed;
+  assert.equal(premature, false, 'running mutation must remain a shutdown obligation');
+  assert.equal(response.ok, true);
+  assert.equal(response.result, 'settled');
+});
+
+test('stop reply is drained intact when close starts inside dispatch', async (t) => {
+  let closed;
+  const f = await portableBrokerFixture(t, {
+    dispatch: async () => {
+      closed = f.server.close();
+      return { schema: 'ai-peer-review.response/v1', ok: true, result: { status: 'stopping' } };
+    },
+  });
+  const response = await f.request({ operation: 'stop' });
+  await closed;
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.result, { status: 'stopping' });
+});
+
+test('outstanding mutation at shutdown deadline rejects and retains broker owner', async (t) => {
+  let began, release;
+  const started = new Promise((resolve) => {
+    began = resolve;
+  });
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const f = await portableBrokerFixture(t, {
+    expectedCloseFailure: 'APR_BROKER_SHUTDOWN_OUTSTANDING',
+    dispatch: async () => {
+      began();
+      await gate;
+      return { schema: 'ai-peer-review.response/v1', ok: true };
+    },
+  });
+  const pending = f.request({ operation: 'cancel', actionId: 'outstanding' });
+  await started;
+  let released = false;
+  const { runBroker } = await import('../../src/broker/service.mjs');
+  const stopped = runBroker({
+    identity: { digest: 'a'.repeat(64), physicalRoot: process.cwd() },
+    versions: {},
+    clock: f.clock,
+    registry: { list: async () => [], get: async () => null },
+    workerFactory: async () => {},
+    owner: {
+      publish() {
+        throw new Error('test cleanup trigger');
+      },
+      release() {
+        released = true;
+      },
+    },
+    server: { start() {}, close: () => f.server.close() },
+  }).then(
+    () => null,
+    (error) => error
+  );
+  await f.flush();
+  f.clock.advance(10_000);
+  await f.flush();
+  const error = await stopped;
+  release();
+  await pending;
+  assert.equal(error?.code, 'APR_BROKER_SHUTDOWN_OUTSTANDING');
+  assert.deepEqual(error.details.outstanding_dispatches, [
+    { operation: 'cancel', action_id: 'outstanding' },
+  ]);
+  assert.equal(released, false);
+});
+
+for (const [route, operation] of [
+  ['wait', 'cancel'],
+  ['rpc', 'wait'],
+]) {
+  test(
+    'route operation mismatch ' + route + ' ' + operation + ' refuses before dispatch',
+    async (t) => {
+      const f = await portableBrokerFixture(t);
+      const payload = JSON.stringify({
+        schema: 'ai-peer-review.rpc/v1',
+        operation,
+        body: {},
+        action_id: 'route',
+      });
+      const reply = await f.raw(f.rawRequest('', payload).replace('rpc HTTP', route + ' HTTP'));
+      assert.match(reply, /^HTTP\/1.1 400/);
+      assert.equal(f.dispatchCalls.length, 0);
+    }
+  );
+}
+
+for (const field of ['operation', 'action_id']) {
+  test('RPC field ' + field + ' refuses coercible arrays before dispatch', async (t) => {
+    const f = await portableBrokerFixture(t);
+    const payload = {
+      schema: 'ai-peer-review.rpc/v1',
+      operation: 'status',
+      body: {},
+      action_id: 'typed',
+    };
+    payload[field] = [payload[field]];
+    assert.match(await f.raw(f.rawRequest('', JSON.stringify(payload))), /^HTTP\/1.1 400/);
+    assert.equal(f.dispatchCalls.length, 0);
+  });
+}
+
+test('wait client forces wait operation and snake-case cursor on the wire', async (t) => {
+  const f = await portableBrokerFixture(t, {
+    dispatch: async () =>
+      (async function* () {
+        yield { cursor: 9 };
+      })(),
+  });
+  const { waitLoopback } = await import('../../src/broker/http-client.mjs');
+  const stream = waitLoopback({
+    endpoint: f.endpoint,
+    privateBinding: f.privateBinding,
+    operation: 'cancel',
+    afterCursor: 7,
+    body: {},
+  });
+  let result, error;
+  try {
+    result = await stream.next();
+  } catch (cause) {
+    error = cause;
+  }
+  await stream.return();
+  assert.equal(error, undefined);
+  assert.equal(f.dispatchCalls[0]?.operation, 'wait');
+  assert.deepEqual(f.dispatchCalls[0]?.body, { after_cursor: 7 });
+  assert.equal(result.value.cursor, 9);
+});
+
+test('owned concurrent client bounds surplus idle sockets without serializing controls', async (t) => {
+  const seen = new Set();
+  const f = await portableBrokerFixture(t, {
+    dispatch: async (req) => {
+      seen.add(req.socket);
+      return { schema: 'ai-peer-review.response/v1', ok: true, result: {} };
+    },
+  });
+  const { createLoopbackBrokerClient } = await import('../../src/broker/ipc.mjs');
+  const client = createLoopbackBrokerClient({
+    endpoint: f.endpoint,
+    privateBinding: f.privateBinding,
+  });
+  t.after(() => client.close());
+  await Promise.all(
+    Array.from({ length: 8 }, (_, id) =>
+      client.request({ id: 'idle-' + id, command: 'status', workspace: null })
+    )
+  );
+  await f.flush();
+  assert.ok(seen.size >= 3, 'pool remains concurrent');
+  assert.ok(
+    [...seen].filter((socket) => !socket.destroyed).length <= 2,
+    'surplus idle pool is bounded'
+  );
+});
+
+test('unauthenticated Expect receives no provisional response before refusal', async (t) => {
+  const f = await portableBrokerFixture(t);
+  const reply = await f.raw(
+    f.rawRequest('Expect: 100-continue\r\n', '{}', { Authorization: 'Bearer ' + 'd'.repeat(64) })
+  );
+  assert.match(reply, /^HTTP\/1.1 401/);
+  assert.equal(reply.includes('100 Continue'), false);
+  assert.equal(f.dispatchCalls.length, 0);
+});
+
+test(
+  'real parser deadline during wait closes without injecting raw HTTP into stream',
+  { timeout: 14_000 },
+  async (t) => {
+    let started;
+    const streaming = new Promise((resolve) => {
+      started = resolve;
+    });
+    const f = await portableBrokerFixture(t, {
+      realClock: true,
+      dispatch: async () =>
+        (async function* () {
+          started();
+          yield { cursor: 1 };
+          await new Promise(() => {});
+        })(),
+    });
+    const socket = await f.rawSocket();
+    const chunks = [];
+    socket.on('data', (chunk) => chunks.push(chunk));
+    const close = new Promise((resolve) => socket.once('close', resolve));
+    socket.write(
+      f
+        .rawRequest(
+          '',
+          JSON.stringify({
+            schema: 'ai-peer-review.rpc/v1',
+            operation: 'wait',
+            body: {},
+            action_id: 'parser',
+          })
+        )
+        .replace('rpc HTTP', 'wait HTTP')
+        .replace('Connection: close', 'Connection: keep-alive')
+    );
+    await streaming;
+    await f.flush();
+    socket.write(f.rawRequest().slice(0, 25));
+    await close;
+    const wire = Buffer.concat(chunks).toString();
+    assert.equal(
+      wire.split('HTTP/1.1').length - 1,
+      1,
+      'parser failure cannot insert a second HTTP response'
+    );
+  }
+);
+
+test('successful RPC does not explicitly destroy the completed client request', async (t) => {
+  const { default: http } = await import('node:http');
+  let completed = false,
+    destroyedAfterSuccess = 0;
+  class ObservedAgent extends http.Agent {
+    addRequest(req, options) {
+      const destroy = req.destroy.bind(req);
+      req.destroy = (...args) => {
+        if (completed) destroyedAfterSuccess += 1;
+        return destroy(...args);
+      };
+      req.on('response', (res) =>
+        res.once('end', () => {
+          completed = true;
+        })
+      );
+      return super.addRequest(req, options);
+    }
+  }
+  const agent = new ObservedAgent({ keepAlive: true, timeout: 0 });
+  t.after(() => agent.destroy());
+  const f = await portableBrokerFixture(t);
+  assert.equal((await f.request({ agent })).ok, true);
+  assert.equal(destroyedAfterSuccess, 0);
 });

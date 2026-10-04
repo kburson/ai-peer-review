@@ -1,9 +1,12 @@
 import http from 'node:http';
 import { performance } from 'node:perf_hooks';
 import { finished } from 'node:stream/promises';
+import { AprError } from '../errors.mjs';
 import { authenticateLoopback, validatePrivateBinding } from './http-auth.mjs';
 
 export const HTTP_BODY_LIMIT = 1_048_576;
+// Shutdown never releases ownership while dispatch/drain obligations remain.
+export const HTTP_SHUTDOWN_GRACE_MS = 10_000;
 // New sockets have no authenticated priority: at 128 pending peers, even a
 // legitimate new client can be refused. Existing authenticated keep-alive
 // controls retain capacity; every accepted socket still counts toward 256.
@@ -111,6 +114,7 @@ export async function createLoopbackServer({
   const expected = { ...binding, port: null };
   const sockets = new Map();
   const active = new Set();
+  const rpcDispatches = new Map();
   let pending = 0;
   let closing = false;
   const clear = (state, name) => {
@@ -126,16 +130,19 @@ export async function createLoopbackServer({
     state.idle = clock.setTimeout(() => socket.destroy(), 5_000);
   };
 
-  const handle = async (req, res) => {
+  const handle = async (req, res, expectation) => {
     const state = sockets.get(req.socket);
     if (!state || closing) return reject(res, 503);
     // Overlapping HTTP pipelining is unsupported. Queue the bounded refusal
     // behind the active response so a legitimate wait keeps its lifetime.
     if (state.inFlight) return reject(res, 400);
     state.inFlight = true;
+    state.operation = null;
+    state.response = res;
     receipt(req.socket, state);
     res.once('close', () => {
       state.inFlight = false;
+      state.response = null;
     });
     if (req.method !== 'POST' || !['/rpc', '/wait'].includes(req.url) || req.httpVersion !== '1.1')
       return reject(res, 400);
@@ -146,6 +153,8 @@ export async function createLoopbackServer({
       pending -= 1;
     }
     clear(state, 'idle');
+    if (expectation === 'other') return reject(res, 417);
+    if (expectation === 'continue') res.writeContinue();
     if (Number(req.headers['content-length']) > HTTP_BODY_LIMIT) return reject(res, 413);
     const chunks = [];
     let size = 0;
@@ -161,15 +170,19 @@ export async function createLoopbackServer({
       if (
         !parsed ||
         parsed.schema !== 'ai-peer-review.rpc/v1' ||
-        !/^[a-z][a-z0-9_-]{0,63}$/.test(parsed.operation ?? '') ||
+        typeof parsed.operation !== 'string' ||
+        !/^[a-z][a-z0-9_-]{0,63}$/.test(parsed.operation) ||
+        req.url.endsWith('wait') !== (parsed.operation === 'wait') ||
         !parsed.body ||
         typeof parsed.body !== 'object' ||
         Array.isArray(parsed.body) ||
-        !/^[a-zA-Z0-9-]{1,64}$/.test(parsed.action_id ?? '') ||
+        typeof parsed.action_id !== 'string' ||
+        !/^[a-zA-Z0-9-]{1,64}$/.test(parsed.action_id) ||
         Object.keys(parsed).sort().join(',') !== 'action_id,body,operation,schema'
       )
         return reject(res, 400);
       req.operation = parsed.operation;
+      state.operation = parsed.operation;
       req.body = parsed.body;
       req.actionId = parsed.action_id;
       req.brokerSignal = state.abort.signal;
@@ -178,10 +191,18 @@ export async function createLoopbackServer({
       return reject(res, 400);
     }
     try {
-      const result = await untilAbort(
-        Promise.resolve().then(() => dispatch(req, res, auth)),
-        state.abort.signal
-      );
+      const dispatched = Promise.resolve().then(() => dispatch(req, res, auth));
+      if (req.operation !== 'wait') {
+        rpcDispatches.set(dispatched, { operation: req.operation, action_id: req.actionId });
+        const settled = () => rpcDispatches.delete(dispatched);
+        dispatched.then(settled, settled);
+      }
+      // Only the wait route can abandon a blocked event subscription. RPC
+      // dispatch remains an ownership obligation even after peer disconnect.
+      const result =
+        req.operation === 'wait'
+          ? await untilAbort(dispatched, state.abort.signal)
+          : await dispatched;
       if (result === ABORTED) return;
       if (res.writableEnded || res.destroyed) return;
       if (req.url === '/wait') {
@@ -203,6 +224,14 @@ export async function createLoopbackServer({
       else reject(res, 500);
     }
   };
+  const accept = (req, res, expectation) => {
+    const task = handle(req, res, expectation).catch(() => {
+      if (res.headersSent) res.destroy();
+      else reject(res, 500);
+    });
+    active.add(task);
+    task.finally(() => active.delete(task));
+  };
   const server = http.createServer(
     {
       maxHeaderSize: 16_384,
@@ -211,15 +240,10 @@ export async function createLoopbackServer({
       headersTimeout: 10_000,
       connectionsCheckingInterval: 1_000,
     },
-    (req, res) => {
-      const task = handle(req, res).catch(() => {
-        if (res.headersSent) res.destroy();
-        else reject(res, 500);
-      });
-      active.add(task);
-      task.finally(() => active.delete(task));
-    }
+    (req, res) => accept(req, res)
   );
+  server.on('checkContinue', (req, res) => accept(req, res, 'continue'));
+  server.on('checkExpectation', (req, res) => accept(req, res, 'other'));
   server.on('connection', (socket) => {
     if (
       closing ||
@@ -230,6 +254,8 @@ export async function createLoopbackServer({
     const state = {
       authenticated: false,
       inFlight: false,
+      operation: null,
+      response: null,
       idle: null,
       receipt: null,
       abort: new AbortController(),
@@ -255,6 +281,7 @@ export async function createLoopbackServer({
   });
   server.on('clientError', (error, socket) => {
     if (socket.destroyed) return;
+    if (!socket.writable || sockets.get(socket)?.inFlight) return socket.destroy();
     socket.end(
       `HTTP/1.1 ${error.code === 'HPE_HEADER_OVERFLOW' ? '431 Request Header Fields Too Large' : '400 Bad Request'}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`
     );
@@ -273,9 +300,43 @@ export async function createLoopbackServer({
         const stopped = new Promise((resolve, reject) =>
           server.close((error) => (error ? reject(error) : resolve()))
         );
-        for (const socket of sockets.keys()) socket.destroy();
-        await Promise.allSettled([...active]);
-        await stopped;
+        // Pending receipts and wait streams can abort; active RPC replies drain.
+        for (const [socket, state] of sockets) {
+          if (!state.inFlight || state.operation === null || state.operation === 'wait')
+            socket.destroy();
+        }
+        let timer;
+        const deadline = new Promise((_, reject) => {
+          timer = clock.setTimeout(
+            () =>
+              reject(
+                new AprError(
+                  'APR_BROKER_SHUTDOWN_OUTSTANDING',
+                  'Broker shutdown has outstanding dispatch or response obligations.',
+                  {
+                    recovery:
+                      'Retain ownership and reconcile the recorded obligations before release.',
+                    details: {
+                      outstanding_dispatches: [...rpcDispatches.values()],
+                      outstanding_responses: active.size,
+                    },
+                  }
+                )
+              ),
+            HTTP_SHUTDOWN_GRACE_MS
+          );
+        });
+        try {
+          await Promise.race([Promise.allSettled([...active, ...rpcDispatches.keys()]), deadline]);
+          for (const socket of sockets.keys()) socket.destroy();
+          await stopped;
+        } catch (error) {
+          for (const socket of sockets.keys()) socket.destroy();
+          await stopped;
+          throw error;
+        } finally {
+          clock.clearTimeout(timer);
+        }
       })();
       return closed;
     },
