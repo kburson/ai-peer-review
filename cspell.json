@@ -12,7 +12,9 @@
     "docs/peer-reviews/**/*reviewer-response-*.md",
     "scripts/providers/**",
     "scripts/review/**",
-    "scripts/tests/**"
+    "scripts/tests/**",
+    ".tmp/**",
+    ".claude/worktrees/**"
   ],
   "words": [
     "AITM",

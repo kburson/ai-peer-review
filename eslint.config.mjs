@@ -1,5 +1,15 @@
 export default [
   {
+    ignores: [
+      'node_modules/**',
+      'coverage/**',
+      '.scratch/**',
+      '.tmp/**',
+      '.claude/worktrees/**',
+      'native/broker-security/build/**',
+    ],
+  },
+  {
     files: ['**/*.mjs', '**/*.js'],
     ignores: ['node_modules/**', 'coverage/**', '.scratch/**'],
     languageOptions: {
