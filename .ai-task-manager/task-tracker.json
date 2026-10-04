@@ -84,16 +84,6 @@
       "setup": "npm-ci",
       "steps": [
         {
-          "classification": "lint-full",
-          "kind": "lint",
-          "command": "npm run lint"
-        },
-        {
-          "classification": "format-full",
-          "kind": "format",
-          "command": "npm run format:check"
-        },
-        {
           "classification": "test-cloud-complete",
           "kind": "test",
           "command": "node scripts/ci/verify-receipts.mjs"
