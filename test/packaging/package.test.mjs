@@ -4,6 +4,8 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { load } from 'js-yaml';
+import { LANES } from '../../scripts/ci/receipt.mjs';
 import { fileURLToPath } from 'node:url';
 
 import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
@@ -244,11 +246,6 @@ test('workflows retain complete platform and release safety gates', () => {
     'windows-latest',
     'npm run format:check',
     'npm run lint',
-    'npm test',
-    'npm run test:integration',
-    'npm run test:mcp',
-    'npm run test:packaging',
-    'npm run test:smoke',
     'npm pack --dry-run',
     'verify-extraction.mjs --require-legacy-removed',
   ])
@@ -291,11 +288,30 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.match(normalizeWindows, /cpSync/);
   assert.match(normalizeWindows, /process\.arch/);
   assert.match(normalizeWindows, /'Release'/);
-  const defaultTests = namedStep('Run default tests');
-  assert.match(
-    defaultTests,
-    /env:\n          APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp\n        run: npm test/
-  );
+  const workflow = load(ci);
+  const requiredLanes = {
+    fast: ['npm', 'test'],
+    integration: ['npm', 'run', 'test:integration'],
+    mcp: ['npm', 'run', 'test:mcp'],
+    packaging: ['npm', 'run', 'test:packaging'],
+    smoke: ['npm', 'run', 'test:smoke'],
+  };
+  for (const key of ['node-24', 'preferred-node', 'phase-2-boundary']) {
+    const steps = workflow.jobs[key].steps;
+    for (const [lane, command] of Object.entries(requiredLanes)) {
+      const matches = steps.filter((step) => step.name === 'Verify tests: ' + lane);
+      assert.equal(matches.length, 1, key + ':' + lane);
+      assert.equal(matches[0].run, 'node scripts/ci/record-tests.mjs ' + lane);
+      assert.deepEqual(LANES[lane].command, command);
+      if (lane === 'integration' || (key === 'node-24' && lane === 'fast'))
+        assert.equal(matches[0].env.APR_NODEDIR_BASE, '${{ runner.temp }}/node-gyp');
+    }
+    const uploads = steps.filter((step) => step.name === 'Publish actual test execution records');
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0].if, '${{ always() }}');
+    assert.equal(uploads[0].with['if-no-files-found'], 'error');
+    assert.equal(uploads[0].with['include-hidden-files'], true);
+  }
   const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';
   assert.match(preferredNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
   assert.match(preferredNode, /runs-on: \$\{\{ matrix\.os \}\}/);
@@ -311,12 +327,6 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.match(ci, /&warm-broker\s+name: Warm npm cache for packed release/);
   assert.ok(preferredNode.indexOf('*warm-broker') < preferredNode.indexOf('*offline-broker'));
   const offline = namedStep('Build and verify installed broker without network');
-  const integrationSteps = [
-    ...ci.matchAll(/- run: npm run test:integration\n([\s\S]*?)(?=\n      -)/g),
-  ];
-  assert.equal(integrationSteps.length, 3);
-  for (const step of integrationSteps)
-    assert.match(step[1], /APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp/);
   for (const gate of [
     'unshare --net',
     'sandbox-exec',
@@ -334,16 +344,7 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.doesNotMatch(offline, /New-NetFirewallRule/);
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [preferredNode, boundary]) {
-    for (const gate of [
-      'npm run format:check',
-      'npm run lint',
-      'npm test',
-      'npm run test:integration',
-      'npm run test:mcp',
-      'npm run test:packaging',
-      'npm run test:smoke',
-      'npm pack --dry-run',
-    ])
+    for (const gate of ['npm run format:check', 'npm run lint', 'npm pack --dry-run'])
       assert.match(job, new RegExp(gate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 

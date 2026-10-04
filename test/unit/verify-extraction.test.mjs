@@ -110,6 +110,7 @@ function validManifest(overrides = {}) {
         'docs/conformance/2026-09-21-88-installed-provider-surfaces.md',
         'docs/conformance/2026-09-26-106-manual-xpr-evidence.json',
         'docs/conformance/2026-09-26-106-manual-xpr.md',
+        'docs/ci-verification.md',
         'docs/claude-launch-api-migration.md',
         'docs/dependency-audit-broker-build.md',
         'docs/dependency-audit-mcp.md',
@@ -122,6 +123,9 @@ function validManifest(overrides = {}) {
         'native/broker-security/binding.gyp',
         'native/broker-security/posix.cc',
         'native/broker-security/windows.cc',
+        'scripts/ci/receipt.mjs',
+        'scripts/ci/record-tests.mjs',
+        'scripts/ci/verify-receipts.mjs',
         'scripts/build-broker-security.mjs',
         'scripts/run-secret-scan.mjs',
         'scripts/task-tracker/verify-epic-trail.mjs',
@@ -319,6 +323,30 @@ test('does not widen co-review globs to their containing directories', async () 
     }),
     /foreign retained paths/
   );
+});
+
+test('admits the four declared CI evidence files and rejects neighboring foreign files', async () => {
+  const declared = [
+    'docs/ci-verification.md',
+    'scripts/ci/receipt.mjs',
+    'scripts/ci/record-tests.mjs',
+    'scripts/ci/verify-receipts.mjs',
+  ];
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: ['LICENSE', ...declared].join('\n') }),
+  });
+  for (const foreign of ['scripts/ci/other.mjs', 'docs/ci-other.md']) {
+    await assert.rejects(
+      verifyExtraction({
+        root: '/repo',
+        manifest: validManifest(),
+        runGit: fakeGit({ current: ['LICENSE', ...declared, foreign].join('\n') }),
+      }),
+      /foreign standalone paths/
+    );
+  }
 });
 
 test('rejects a foreign path in standalone HEAD', async () => {
