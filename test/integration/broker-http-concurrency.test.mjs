@@ -24,16 +24,16 @@ test('pending cap preserves existing authenticated keep-alive controls and recov
   const f = await portableBrokerFixture(t);
   assert.equal((await f.request()).ok, true);
   const slow = await Promise.all(Array.from({ length: 128 }, () => f.rawSocket()));
-  await f.flush();
+  await f.waitForPending(128);
   const excess = await f.rawSocket();
-  await f.flush();
+  await f.waitForClosed(excess);
   assert.equal(excess.destroyed, true);
   assert.equal((await f.request()).ok, true);
   assert.equal((await f.request({ operation: 'cancel' })).ok, true);
   for (const socket of slow) socket.destroy();
-  await f.flush();
+  await f.waitForPending(0);
   const recovered = await f.rawSocket();
-  await f.flush();
+  await f.waitForPending(1);
   assert.equal(recovered.destroyed, false);
 });
 
@@ -75,13 +75,15 @@ test('256 authenticated sockets bound total admission and cleanup restores capac
   });
   for (const agent of agents) assert.equal((await f.request({ agent })).ok, true);
   const refused = await f.rawSocket();
-  await f.flush();
+  await f.waitForClosed(refused);
   assert.equal(refused.destroyed, true);
   assert.equal((await f.request({ agent: agents[0] })).ok, true);
+  const released = Object.values(agents[1].freeSockets).flat()[0];
+  assert.ok(released, 'authenticated keep-alive socket exists before release');
   agents[1].destroy();
-  await f.flush();
+  await f.waitForClosed(released);
   const admitted = await f.rawSocket();
-  await f.flush();
+  await f.waitForPending(1);
   assert.equal(admitted.destroyed, false);
 });
 
@@ -102,7 +104,7 @@ test(
     assert.equal((await f.request()).ok, true);
     await new Promise((resolve) => setTimeout(resolve, 6_100));
     const slow = await Promise.all(Array.from({ length: 128 }, () => f.rawSocket()));
-    await f.flush();
+    await f.waitForPending(128);
     assert.deepEqual(await client.request({ id: 'after', command: 'status', workspace: null }), {
       operation: 'status',
     });

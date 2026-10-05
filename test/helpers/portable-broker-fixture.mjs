@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import net from 'node:net';
 import http from 'node:http';
+import { performance } from 'node:perf_hooks';
 
 export function fakeClock() {
   let now = 0;
@@ -37,6 +38,14 @@ export const flush = async () => {
   await new Promise((resolve) => setTimeout(resolve, 10));
 };
 
+export async function waitForBrokerCondition(condition, description, { timeoutMs = 1_000 } = {}) {
+  const deadline = performance.now() + timeoutMs;
+  while (!condition()) {
+    assert.ok(performance.now() < deadline, 'Timed out awaiting ' + description);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 export async function portableBrokerFixture(t, options = {}) {
   const module = await import('../../src/broker/http-server.mjs').catch((error) => {
     if (error.code === 'ERR_MODULE_NOT_FOUND') return null;
@@ -47,7 +56,33 @@ export async function portableBrokerFixture(t, options = {}) {
     'function',
     'async loopback server contract is missing'
   );
+
   const clock = options.realClock ? undefined : fakeClock();
+  const baseClock = clock ?? { now: () => performance.now(), setTimeout, clearTimeout };
+  const observedTimers = new Map();
+  const observedClock = {
+    now: baseClock.now,
+    setTimeout(fn, delay) {
+      const key = baseClock.setTimeout(() => {
+        observedTimers.delete(key);
+        fn();
+      }, delay);
+      observedTimers.set(key, delay);
+      return key;
+    },
+    clearTimeout(key) {
+      observedTimers.delete(key);
+      baseClock.clearTimeout(key);
+    },
+  };
+  const waitForPending = (count) =>
+    waitForBrokerCondition(
+      () => [...observedTimers.values()].filter((delay) => delay === 10_000).length === count,
+      count + ' accepted pending broker receipts'
+    );
+  const waitForClosed = (socket) =>
+    waitForBrokerCondition(() => socket.closed, 'remote socket close acknowledgement');
+
   const privateBinding = {
     credential: 'a'.repeat(64),
     instanceId: 'b'.repeat(64),
@@ -57,7 +92,7 @@ export async function portableBrokerFixture(t, options = {}) {
   const server = await module.createLoopbackServer({
     binding: privateBinding,
     authenticate: options.authenticate,
-    clock,
+    clock: observedClock,
     dispatch: async (req, res, auth) => {
       dispatchCalls.push({ operation: req.operation, body: req.body, auth });
       if (options.dispatch) return options.dispatch(req, res, auth);
@@ -130,6 +165,8 @@ export async function portableBrokerFixture(t, options = {}) {
     endpoint,
     privateBinding,
     clock,
+    waitForPending,
+    waitForClosed,
     flush,
     dispatchCalls,
     rawSocket,
