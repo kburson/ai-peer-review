@@ -10,3 +10,5 @@ test/unit/verify-extraction.test.mjs
 test/golden/templates/*.md
 test/golden/manifests/*.md
 docs/superpowers/peer-reviews/**
+# Preserve immutable accepted companion Plan bytes; integrity verified against f792abd.
+docs/superpowers/plans/2026-10-05-107-runtime-contract-plan-amendment.md
