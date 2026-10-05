@@ -16,33 +16,15 @@ const fail = (code) => {
 const REPOSITORY = 'kburson/ai-peer-review';
 const ORIGINAL = '60efdbbeb60c83c1c56884491ae018eaea70d282';
 
-function stableScope(body, scope) {
-  // Fixed compatibility with AITM reviewed-scope model/targets/record v1.
-  // Native recording appends exactly one separator and a closed receipt pointer.
-  // It grants no authority here; the approved record and native source still do.
-  const pointerFamily = /<!--\s*aitm-reviewed-scope-evidence/;
-  const pointer =
-    / <!-- aitm-reviewed-scope-evidence comment="([1-9][0-9]{0,19})" sha256="([a-f0-9]{64})" lineage="([a-f0-9]{64})" -->$/;
-  const verifier =
-    /<!--\s*aitm-(?:verified(?:-by|-at)?|ac-evidence|dod-evidence)\b|\bvc-list\s*=|(?<![\w:])vc:[1-9][0-9]*(?![\w])/i;
-  const owned = new Set([
-    'agent review passed',
-    'final review passed',
-    'passed final human review',
-    'story closed and moved to done',
-    'timing data flushed to issue',
-  ]);
-  const comments = new Set(),
-    lineages = new Set(),
-    normalized = new Map();
-  const start = body.indexOf(scope),
-    end = start + scope.length;
+function liveBodyLines(body) {
+  // Match the native reviewed-scope v1 live-line boundary without importing AITM.
+  // Offsets always refer to the original body; literal examples remain hashed.
+  const result = [];
   let offset = 0,
     fence = null,
     comment = false;
   for (const raw of body.split('\n')) {
     const lineOffset = offset;
-    const inScope = lineOffset >= start && lineOffset < end;
     offset += raw.length + 1;
     const marker = raw.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
     if (fence) {
@@ -72,6 +54,34 @@ function stableScope(body, scope) {
       comment = true;
       continue;
     }
+    result.push({ raw, lineOffset });
+  }
+  if (fence || comment) fail('native-mapping-invalid');
+  return result;
+}
+
+function stableScope(scope, live) {
+  // Fixed compatibility with AITM reviewed-scope model/targets/record v1.
+  // Native recording appends exactly one separator and a closed receipt pointer.
+  // It grants no authority here; the approved record and native source still do.
+  const pointerFamily = /<!--\s*aitm-reviewed-scope-evidence/;
+  const pointer =
+    / <!-- aitm-reviewed-scope-evidence comment="([1-9][0-9]{0,19})" sha256="([a-f0-9]{64})" lineage="([a-f0-9]{64})" -->$/;
+  const verifier =
+    /<!--\s*aitm-(?:verified(?:-by|-at)?|ac-evidence|dod-evidence)\b|\bvc-list\s*=|(?<![\w:])vc:[1-9][0-9]*(?![\w])/i;
+  const owned = new Set([
+    'agent review passed',
+    'final review passed',
+    'passed final human review',
+    'story closed and moved to done',
+    'timing data flushed to issue',
+  ]);
+  const comments = new Set(),
+    lineages = new Set(),
+    normalized = new Map();
+  const { start, end, bytes } = scope;
+  for (const { raw, lineOffset } of live) {
+    const inScope = lineOffset >= start && lineOffset < end;
     if (inScope) normalized.set(lineOffset, raw.replace(/^(\s*[-*] )\[[ xX]\](?= )/gm, '$1[ ]'));
     if (!pointerFamily.test(raw)) continue;
     const match = raw.match(pointer);
@@ -102,9 +112,8 @@ function stableScope(body, scope) {
     lineages.add(match[3]);
     normalized.set(lineOffset, original.replace(/^(\s*[-*] )\[[ xX]\](?= )/gm, '$1[ ]'));
   }
-  if (fence || comment) fail('native-mapping-invalid');
   let scopeOffset = start;
-  return scope
+  return bytes
     .split('\n')
     .map((line) => {
       const result = normalized.get(scopeOffset) ?? line;
@@ -116,27 +125,29 @@ function stableScope(body, scope) {
 
 export function extractRuntimeContractMapping(body) {
   if (typeof body !== 'string') fail('native-mapping-invalid');
+  const live = liveBodyLines(body);
   const section = (name) => {
-    const matches = [...body.matchAll(new RegExp('^## ' + name + '$', 'gm'))];
+    const matches = live.filter(({ raw }) => raw === '## ' + name);
     if (matches.length !== 1) fail('native-mapping-invalid');
-    const start = matches[0].index;
-    const rest = body.slice(start + matches[0][0].length);
-    const end = rest.search(/^## /m);
-    return body.slice(start, end < 0 ? undefined : start + matches[0][0].length + end);
+    const start = matches[0].lineOffset;
+    const end =
+      live.find(({ raw, lineOffset }) => lineOffset > start && /^## /.test(raw))?.lineOffset ??
+      body.length;
+    return { start, end, bytes: body.slice(start, end) };
   };
   const plan = section('Plan Metadata'),
     scope = section('Scope'),
     commands = section('Verification Commands');
-  const originals = [...plan.matchAll(/^- \*\*Source-plan-commit\*\*: ([a-f0-9]+)$/gm)];
-  const vc = [...commands.matchAll(/^- \[[ xX]\] `([^\n]+)` <!-- id=1 -->$/gm)];
+  const originals = [...plan.bytes.matchAll(/^- \*\*Source-plan-commit\*\*: ([a-f0-9]+)$/gm)];
+  const vc = [...commands.bytes.matchAll(/^- \[[ xX]\] `([^\n]+)` <!-- id=1 -->$/gm)];
   if (originals.length !== 1 || originals[0][1] !== ORIGINAL || vc.length !== 1)
     fail('native-mapping-invalid');
   return {
     repository: REPOSITORY,
     issue: 144,
     originalSourcePlanCommit: ORIGINAL,
-    planMetadataSha256: hash(plan),
-    scopeSha256: hash(stableScope(body, scope)),
+    planMetadataSha256: hash(plan.bytes),
+    scopeSha256: hash(stableScope(scope, live)),
     vc1Sha256: hash(vc[0][1]),
   };
 }

@@ -374,3 +374,69 @@ test('[#144] fenced example checkbox glyph changes remain semantic Scope drift',
     api.extractRuntimeContractMapping(example)
   );
 });
+
+const literalBlocks = [
+  ['backtick', (text) => '```text\n' + text + '\n```'],
+  ['tilde', (text) => '~~~~text\n' + text + '\n~~~~'],
+  ['multiline comment', (text) => '<!-- retained literal\n' + text + '\n-->'],
+];
+for (const [kind, wrap] of literalBlocks) {
+  test(
+    '[#144] live section selection retains ' + kind + ' unrelated H2 and all following bytes',
+    () => {
+      const content = narrative + '\n' + wrap('## Other\nExact literal example  \t');
+      const originalBody = body.replace(narrative, content);
+      const expectedScope = '## Scope\n\n' + content + '\n\n';
+      assert.equal(api.extractRuntimeContractMapping(originalBody).scopeSha256, sha(expectedScope));
+      assert.notDeepEqual(
+        api.extractRuntimeContractMapping(
+          originalBody.replace('Exact literal example', 'Changed literal example')
+        ),
+        api.extractRuntimeContractMapping(originalBody)
+      );
+    }
+  );
+  for (const name of ['Scope', 'Plan Metadata', 'Verification Commands']) {
+    test(
+      '[#144] literal ' + kind + ' named ' + name + ' H2 cannot duplicate a live section',
+      () => {
+        const content = narrative + '\n' + wrap('## ' + name + '\nLiteral requirement  \t');
+        const originalBody = body.replace(narrative, content);
+        assert.equal(
+          api.extractRuntimeContractMapping(originalBody).scopeSha256,
+          sha('## Scope\n\n' + content + '\n\n')
+        );
+        assert.equal(
+          api.extractRuntimeContractMapping(originalBody).planMetadataSha256,
+          api.extractRuntimeContractMapping(body).planMetadataSha256
+        );
+        assert.equal(
+          api.extractRuntimeContractMapping(originalBody).vc1Sha256,
+          api.extractRuntimeContractMapping(body).vc1Sha256
+        );
+      }
+    );
+    test(
+      '[#144] literal ' + kind + ' named ' + name + ' H2 cannot replace a missing live heading',
+      () => {
+        const changed = body.replace('## ' + name, wrap('## ' + name));
+        assert.throws(() => api.extractRuntimeContractMapping(changed), /native-mapping-invalid/);
+      }
+    );
+  }
+}
+test('[#144] live section selection still refuses genuine duplicate or missing headings', () => {
+  for (const name of ['Scope', 'Plan Metadata', 'Verification Commands']) {
+    assert.throws(
+      () =>
+        api.extractRuntimeContractMapping(
+          body.replace('## ' + name, '## ' + name + '\n\n## ' + name)
+        ),
+      /native-mapping-invalid/
+    );
+    assert.throws(
+      () => api.extractRuntimeContractMapping(body.replace('## ' + name, '## Removed')),
+      /native-mapping-invalid/
+    );
+  }
+});
