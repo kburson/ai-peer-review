@@ -15,6 +15,105 @@ const fail = (code) => {
 };
 const REPOSITORY = 'kburson/ai-peer-review';
 const ORIGINAL = '60efdbbeb60c83c1c56884491ae018eaea70d282';
+
+function stableScope(body, scope) {
+  // Fixed compatibility with AITM reviewed-scope model/targets/record v1.
+  // Native recording appends exactly one separator and a closed receipt pointer.
+  // It grants no authority here; the approved record and native source still do.
+  const pointerFamily = /<!--\s*aitm-reviewed-scope-evidence/;
+  const pointer =
+    / <!-- aitm-reviewed-scope-evidence comment="([1-9][0-9]{0,19})" sha256="([a-f0-9]{64})" lineage="([a-f0-9]{64})" -->$/;
+  const verifier =
+    /<!--\s*aitm-(?:verified(?:-by|-at)?|ac-evidence|dod-evidence)\b|\bvc-list\s*=|(?<![\w:])vc:[1-9][0-9]*(?![\w])/i;
+  const owned = new Set([
+    'agent review passed',
+    'final review passed',
+    'passed final human review',
+    'story closed and moved to done',
+    'timing data flushed to issue',
+  ]);
+  const comments = new Set(),
+    lineages = new Set(),
+    normalized = new Map();
+  const start = body.indexOf(scope),
+    end = start + scope.length;
+  let offset = 0,
+    fence = null,
+    comment = false;
+  for (const raw of body.split('\n')) {
+    const lineOffset = offset;
+    const inScope = lineOffset >= start && lineOffset < end;
+    offset += raw.length + 1;
+    const marker = raw.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (fence) {
+      if (
+        marker &&
+        marker[1][0] === fence[0] &&
+        marker[1].length >= fence.length &&
+        !marker[2].trim()
+      )
+        fence = null;
+      continue;
+    }
+    if (comment) {
+      const close = raw.indexOf('-->');
+      if (close < 0) continue;
+      comment = false;
+      if (raw.slice(close + 3).trim()) fail('native-mapping-invalid');
+      continue;
+    }
+    if (marker) {
+      fence = marker[1];
+      continue;
+    }
+    const begin = raw.indexOf('<!--');
+    if (begin >= 0 && raw.indexOf('-->', begin) < 0) {
+      if (raw.slice(0, begin).trim()) fail('native-mapping-invalid');
+      comment = true;
+      continue;
+    }
+    if (inScope) normalized.set(lineOffset, raw.replace(/^(\s*[-*] )\[[ xX]\](?= )/gm, '$1[ ]'));
+    if (!pointerFamily.test(raw)) continue;
+    const match = raw.match(pointer);
+    if (!inScope || !match) fail('native-mapping-invalid');
+    const original = raw.slice(0, match.index);
+    // A second, unknown or malformed pointer must never disappear with metadata.
+    if (
+      pointerFamily.test(original) ||
+      !/^- \[[ x]\] .+$/.test(original) ||
+      verifier.test(original)
+    )
+      fail('native-mapping-invalid');
+    const label = original
+      .slice(6)
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+    if (
+      !label ||
+      owned.has(label) ||
+      /^deep[- ]?dive complete$|^discussion complete$/i.test(label) ||
+      comments.has(match[1]) ||
+      lineages.has(match[3])
+    )
+      fail('native-mapping-invalid');
+    comments.add(match[1]);
+    lineages.add(match[3]);
+    normalized.set(lineOffset, original.replace(/^(\s*[-*] )\[[ xX]\](?= )/gm, '$1[ ]'));
+  }
+  if (fence || comment) fail('native-mapping-invalid');
+  let scopeOffset = start;
+  return scope
+    .split('\n')
+    .map((line) => {
+      const result = normalized.get(scopeOffset) ?? line;
+      scopeOffset += line.length + 1;
+      return result;
+    })
+    .join('\n');
+}
+
 export function extractRuntimeContractMapping(body) {
   if (typeof body !== 'string') fail('native-mapping-invalid');
   const section = (name) => {
@@ -37,7 +136,7 @@ export function extractRuntimeContractMapping(body) {
     issue: 144,
     originalSourcePlanCommit: ORIGINAL,
     planMetadataSha256: hash(plan),
-    scopeSha256: hash(scope.replace(/^(\s*[-*] )\[[ xX]\](?= )/gm, '$1[ ]')),
+    scopeSha256: hash(stableScope(body, scope)),
     vc1Sha256: hash(vc[0][1]),
   };
 }

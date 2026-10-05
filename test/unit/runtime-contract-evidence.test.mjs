@@ -187,3 +187,190 @@ test('[#144] native source authentication does not substitute reader identity fo
   x.source.authentication.repository = 'foreign/repository';
   assert.throws(() => api.validateNativeApprovalSource(x), /approved-evidence-source-invalid/);
 });
+
+const scopePointer = (commentId = '6000000001', digest = 'c', lineage = 'd') =>
+  '<!-- aitm-reviewed-scope-evidence comment="' +
+  commentId +
+  '" sha256="' +
+  digest.repeat(64) +
+  '" lineage="' +
+  lineage.repeat(64) +
+  '" -->';
+const narrative = '- [ ] Preserve exact normative contract.';
+test('[#144] mapping preserves exact bytes across canonical native narrative receipt metadata', () => {
+  for (const originalLine of [
+    narrative,
+    narrative + '  ',
+    narrative + '\t',
+    narrative + ' <!-- retained-note -->',
+  ]) {
+    const originalBody = body.replace(narrative, originalLine);
+    const recorded = originalBody.replace(
+      originalLine,
+      originalLine.replace('- [ ]', '- [x]') + ' ' + scopePointer()
+    );
+    assert.deepEqual(
+      api.extractRuntimeContractMapping(recorded),
+      api.extractRuntimeContractMapping(originalBody)
+    );
+    for (const changed of [
+      recorded.replace('exact normative', 'edited normative'),
+      recorded.replace('Preserve exact', 'Preserve  exact'),
+      recorded.replace(' <!-- retained-note -->', ' <!-- changed-note -->'),
+    ].filter((x) => x !== recorded))
+      assert.notDeepEqual(
+        api.extractRuntimeContractMapping(changed),
+        api.extractRuntimeContractMapping(originalBody)
+      );
+  }
+});
+test('[#144] mapping preserves literal pointer examples inside fenced Scope requirements', () => {
+  for (const fence of ['```', '~~~~']) {
+    const example = body.replace(
+      narrative,
+      narrative +
+        '\n' +
+        fence +
+        'text\n' +
+        '- [x] Literal requirement ' +
+        scopePointer() +
+        '\n' +
+        fence
+    );
+    const recorded = example.replace(
+      narrative,
+      narrative.replace('[ ]', '[x]') + ' ' + scopePointer('6000000002', 'e', 'f')
+    );
+    assert.deepEqual(
+      api.extractRuntimeContractMapping(recorded),
+      api.extractRuntimeContractMapping(example)
+    );
+    assert.notDeepEqual(
+      api.extractRuntimeContractMapping(
+        example.replace('sha256="' + 'c'.repeat(64), 'sha256="' + 'a'.repeat(64))
+      ),
+      api.extractRuntimeContractMapping(example)
+    );
+  }
+});
+for (const [name, changed] of [
+  [
+    'unknown attribute',
+    body.replace(narrative, narrative + ' ' + scopePointer().replace(' -->', ' extra="true" -->')),
+  ],
+  [
+    'unknown version',
+    body.replace(
+      narrative,
+      narrative + ' ' + scopePointer().replace('scope-evidence ', 'scope-evidence:v2 ')
+    ),
+  ],
+  [
+    'unknown marker family',
+    body.replace(
+      narrative,
+      narrative + ' ' + scopePointer().replace('scope-evidence ', 'scope-evidence-other ')
+    ),
+  ],
+  ['zero comment ID', body.replace(narrative, narrative + ' ' + scopePointer('0'))],
+  ['leading zero ID', body.replace(narrative, narrative + ' ' + scopePointer('06000000001'))],
+  ['long comment ID', body.replace(narrative, narrative + ' ' + scopePointer('1'.repeat(21)))],
+  ['uppercase digest', body.replace(narrative, narrative + ' ' + scopePointer('6000000001', 'C'))],
+  [
+    'truncated digest',
+    body.replace(
+      narrative,
+      narrative + ' ' + scopePointer().replace('c'.repeat(64), 'c'.repeat(63))
+    ),
+  ],
+  [
+    'duplicate on line',
+    body.replace(narrative, narrative + ' ' + scopePointer() + ' ' + scopePointer()),
+  ],
+  [
+    'duplicate comment across lines',
+    body.replace(
+      narrative,
+      narrative +
+        ' ' +
+        scopePointer() +
+        '\n- [x] Another target. ' +
+        scopePointer('6000000001', 'e', 'f')
+    ),
+  ],
+  [
+    'duplicate lineage across lines',
+    body.replace(
+      narrative,
+      narrative +
+        ' ' +
+        scopePointer() +
+        '\n- [x] Another target. ' +
+        scopePointer('6000000002', 'e', 'd')
+    ),
+  ],
+  [
+    'nonterminal pointer',
+    body.replace(narrative, narrative + ' ' + scopePointer() + ' changed requirement'),
+  ],
+  ['missing native separator', body.replace(narrative, narrative + scopePointer())],
+  ['standalone pointer', body.replace(narrative, narrative + '\n' + scopePointer())],
+  ['indented target', body.replace(narrative, '  ' + narrative + ' ' + scopePointer())],
+  [
+    'alternate bullet',
+    body.replace(narrative, narrative.replace('- ', '* ') + ' ' + scopePointer()),
+  ],
+  [
+    'uppercase checkbox',
+    body.replace(narrative, narrative.replace('[ ]', '[X]') + ' ' + scopePointer()),
+  ],
+  [
+    'verification-bearing target',
+    body.replace(narrative, narrative + ' <!-- aitm-verified vc-list="vc:1" --> ' + scopePointer()),
+  ],
+  ['verification token target', body.replace(narrative, narrative + ' vc:1 ' + scopePointer())],
+  ['lifecycle target', body.replace(narrative, '- [x] Final Review Passed ' + scopePointer())],
+  ['lifecycle alias', body.replace(narrative, '- [x] Passed final human review ' + scopePointer())],
+  ['deep dive target', body.replace(narrative, '- [x] Deep dive complete ' + scopePointer())],
+  ['discussion target', body.replace(narrative, '- [x] Discussion complete ' + scopePointer())],
+  [
+    'pointer outside Scope',
+    body.replace(
+      '## AITM Progress Markers',
+      '## AITM Progress Markers\n- [x] Elsewhere. ' + scopePointer()
+    ),
+  ],
+])
+  test('[#144] mapping refuses native pointer ' + name, () => {
+    assert.throws(() => api.extractRuntimeContractMapping(changed), /native-mapping-invalid/);
+  });
+
+test('[#144] mapping keeps a fenced literal identical to live native metadata as requirement text', () => {
+  const literal = narrative.replace('[ ]', '[x]') + ' ' + scopePointer();
+  const example = body.replace(narrative, narrative + '\n```text\n' + literal + '\n```');
+  const recorded = example.replace(narrative + '\n', literal + '\n');
+  assert.deepEqual(
+    api.extractRuntimeContractMapping(recorded),
+    api.extractRuntimeContractMapping(example)
+  );
+  assert.notDeepEqual(
+    api.extractRuntimeContractMapping(
+      recorded.replace(
+        'text\n' + literal,
+        'text\n' + literal.replace('exact normative', 'changed normative')
+      )
+    ),
+    api.extractRuntimeContractMapping(recorded)
+  );
+});
+
+test('[#144] fenced example checkbox glyph changes remain semantic Scope drift', () => {
+  const example = body.replace(
+    narrative,
+    narrative + '\n```text\n- [ ] Literal requirement ' + scopePointer() + '\n```'
+  );
+  assert.notDeepEqual(
+    api.extractRuntimeContractMapping(example.replace('- [ ] Literal', '- [x] Literal')),
+    api.extractRuntimeContractMapping(example)
+  );
+});
