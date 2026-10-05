@@ -1,0 +1,851 @@
+{
+  "schema": "ai-peer-review.runtime-contract-adoption/v1",
+  "issue": 144,
+  "amendment": {
+    "revision": "4d8815b2fabf861d24d25fa9735b953865e99f55",
+    "path": "docs/superpowers/specs/2026-10-03-107-runtime-policy-reconciliation-design.md",
+    "blob": "dcb99da9191789472bbd1840beb72448bf755fba",
+    "sha256": "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405"
+  },
+  "amendmentReview": {
+    "reviewId": "review-58b490491800f0c13d64191cb58071b5",
+    "subject": {
+      "revision": "4d8815b2fabf861d24d25fa9735b953865e99f55",
+      "path": "docs/superpowers/specs/2026-10-03-107-runtime-policy-reconciliation-design.md",
+      "blob": "dcb99da9191789472bbd1840beb72448bf755fba",
+      "sha256": "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405"
+    },
+    "manifest": {
+      "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+      "path": "docs/superpowers/peer-reviews/spec/2026-10-05-2026-10-03-107-runtime-policy-reconciliation-design-review-58b490491800f0c13d64191cb58071b5/review-58b490491800f0c13d64191cb58071b5-review-manifest.md",
+      "blob": "f7fc7a459c1b12605e0c1e1270ed78c07e0e07ef",
+      "sha256": "ff16ea825925148f8ab83ee380f10796fc83c75c3c9d26fc93209383a5983efb"
+    },
+    "finalResponse": {
+      "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+      "path": "docs/superpowers/peer-reviews/spec/2026-10-05-2026-10-03-107-runtime-policy-reconciliation-design-review-58b490491800f0c13d64191cb58071b5/review-58b490491800f0c13d64191cb58071b5-reviewer-response-2.md",
+      "blob": "387d981ac81f815b202d309cd8783b7c4cb5c382",
+      "sha256": "2fdfb6635210ee77d793aa1a9779fb908b072e7801a8adbc7f7575cd59c76958"
+    },
+    "finalization": {
+      "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+      "sha256": "a74efc00e4961460674cbef689140c7a4c478a780ff049c27111af0b0d7fb16d"
+    }
+  },
+  "reviewedDigests": [
+    "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405",
+    "7eb93ca43014ff4f57c3e3b93e8d2d1e996bb68b6585ff356a07cf31445e9292",
+    "744390c3aa12d92e08051054a75812a0b348787d59069d09d4f9e762ea4c76d9",
+    "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8",
+    "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
+    "e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a",
+    "208a8e54a014415cdef0dda2b6d266b7745e7126d0902a34c2b7c1041b420828",
+    "f939b52fbb790f16d17cc8441a2e873ab836b300b51fd2abd60611ad08cb62f1",
+    "6ccf9ddf86a0f5f097e2608c153d33de1b72cb4f7beb96c67573614b9f1418ec",
+    "cbde9dd03599db73474944bd84123a3b441964f270c716112b0324ccb0d5488a",
+    "f8d724cc9e5602aaf268d567c3c3d4b3180d7149cd1ac1b1865647fece0079da",
+    "04caa2a1677f341a8fe06bab5090a4768b09e2b4349f8317dc3940a516320787",
+    "155fdc4c8d4ba794de0f4d758af965211aab858768483fdfd9ccf261b8940481",
+    "4d3fc800794729aecac4bab72e5560e8367cf0c1d2565361527e9b8035fe2b36",
+    "25ab2156fa4f82277119bf5735bb47db21d58112a21dd73537f06ec80ecb7987",
+    "b633a1f16d7e8464873f52ee2f69d9baac08a871dd2aaf13f31f7e14d8dabd44",
+    "9a4f51b04cbf621ffcce841054ab434b3d7c9acc89f8010913f170d133f2ff37",
+    "76a0ca687364aeac8d41d9122a203eea79c7b18cd51f1b731df4a1c21d0b4f23",
+    "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14",
+    "ba1560b9a81c0f5b2875cd2c546de84bde94020164dc7d5235cbab31102418ac",
+    "2e3a0001e7b6926ac8491bda55eef018d6cccb1f06f0e00b1f0fe966f6a654b7",
+    "f743d3911e51e188f4dc4ea56502d41060b389ec93c577a28374f9f39fbcb6b3",
+    "6e867728907a8a0a67ee5ffe145560d2fd9a39e94134d409594e540a72d71a59",
+    "01f734cdcb72e6484189d4ded64334d4b05fb2cbc5a14a5d12c33f2edd90116c",
+    "45149a3afcc8e66fa487f41bece09bb35a58e7c4c0033da2c5b32a887ad07170",
+    "a49f63acee0df5ba85fe9773e2835fb10b50b2e58c375db53c9d4c867e8b1d6a",
+    "b1d7a799a27ae5ec2c419ec92b275ab3160f2005cc4484497e680131b9a75d4f"
+  ],
+  "schemas": [
+    {
+      "revision": "66b1a7a5fe061336bcf484d26fab3973a3b19c77",
+      "path": "schemas/api-response-v1.json",
+      "blob": "9716dd04415601fb01bcd30834e4d5039fc638f7",
+      "sha256": "7eb93ca43014ff4f57c3e3b93e8d2d1e996bb68b6585ff356a07cf31445e9292"
+    },
+    {
+      "revision": "66b1a7a5fe061336bcf484d26fab3973a3b19c77",
+      "path": "schemas/response-v1.json",
+      "blob": "08894b5fc4e5bc84e1011c131cd7359e3e247982",
+      "sha256": "744390c3aa12d92e08051054a75812a0b348787d59069d09d4f9e762ea4c76d9"
+    }
+  ],
+  "decisions": {
+    "runtimeInstallation": "current-global",
+    "policyAuthority": "exclusive-primary",
+    "legacyRecovery": "drain-before-replacement",
+    "evidenceIntegration": "owner30-canonical",
+    "telemetryIntegration": "exact-attempt",
+    "responseCompatibility": "contextual-schema-artifacts"
+  },
+  "unresolvedConflicts": [],
+  "activationBinding": {
+    "ownerIssue": 102,
+    "interfaces": [
+      "assertSelectedRuntime",
+      "withPrimaryAdmissionFence",
+      "resolvePrimaryAuthority",
+      "inspectPrimaryReviewInventory"
+    ],
+    "guarantees": ["old-family-exclusion", "pre-replacement-drain"],
+    "source": {
+      "revision": "021bed7e9cc01782f0822e99fa2d3a58aadeb16e",
+      "path": "docs/superpowers/specs/2026-09-29-102-primary-runtime-authority-design.md",
+      "blob": "1dfe8089d93ea18e45394fb98303937feedab885",
+      "sha256": "7130694f89335165a63d29196a56f3665c605fc5b85dde73105a6766da338a4f"
+    },
+    "registration": {
+      "revision": "021bed7e9cc01782f0822e99fa2d3a58aadeb16e",
+      "path": "docs/superpowers/specs/2026-09-29-102-primary-runtime-authority-design.md",
+      "blob": "1dfe8089d93ea18e45394fb98303937feedab885",
+      "sha256": "7130694f89335165a63d29196a56f3665c605fc5b85dde73105a6766da338a4f"
+    },
+    "release": null,
+    "conformance": [],
+    "unresolvedOverlapObligations": [
+      "PR139 remains draft/unmerged; required Windows CI failing. Observed interface source is not delivered.",
+      "Protected registered approved contract/addendum transport and independently reviewed #130 detailed schemas remain pending.",
+      "Actual current-package installed old-family exclusion/drain/rollback conformance and Task18 activation schema/evidence remain pending."
+    ],
+    "interfaceSources": [
+      {
+        "interface": "assertSelectedRuntime",
+        "reference": {
+          "path": "src/config/runtime-selection.mjs",
+          "revision": "84565bc16164d562a5d742987352db7f3a4e31d1",
+          "blob": "d63aefa2134f9c86b6e71c4f62800a0413d9f526",
+          "sha256": "01f734cdcb72e6484189d4ded64334d4b05fb2cbc5a14a5d12c33f2edd90116c"
+        },
+        "status": "observed-unmerged-draft",
+        "activationAuthorized": false
+      },
+      {
+        "interface": "withPrimaryAdmissionFence",
+        "reference": {
+          "path": "src/config/primary-admission.mjs",
+          "revision": "84565bc16164d562a5d742987352db7f3a4e31d1",
+          "blob": "c971be20c4e9fe26ed0d852838de81ef6ed8e6c5",
+          "sha256": "45149a3afcc8e66fa487f41bece09bb35a58e7c4c0033da2c5b32a887ad07170"
+        },
+        "status": "observed-unmerged-draft",
+        "activationAuthorized": false
+      },
+      {
+        "interface": "resolvePrimaryAuthority",
+        "reference": {
+          "path": "src/config/primary-authority.mjs",
+          "revision": "84565bc16164d562a5d742987352db7f3a4e31d1",
+          "blob": "93ab84cb4ebdc7167db7a6a57bd668864877f95d",
+          "sha256": "a49f63acee0df5ba85fe9773e2835fb10b50b2e58c375db53c9d4c867e8b1d6a"
+        },
+        "status": "observed-unmerged-draft",
+        "activationAuthorized": false
+      },
+      {
+        "interface": "inspectPrimaryReviewInventory",
+        "reference": {
+          "path": "src/config/primary-inventory.mjs",
+          "revision": "84565bc16164d562a5d742987352db7f3a4e31d1",
+          "blob": "b835349814b93c32a6ab20aff42fb2c35e52629a",
+          "sha256": "b1d7a799a27ae5ec2c419ec92b275ab3160f2005cc4484497e680131b9a75d4f"
+        },
+        "status": "observed-unmerged-draft",
+        "activationAuthorized": false
+      }
+    ]
+  },
+  "runtimePolicy": {
+    "issue": 102,
+    "boundedSubsection": "### #102 — runtime, policy and prior journals",
+    "bundle": "A",
+    "reconciliation": {
+      "revision": "4d8815b2fabf861d24d25fa9735b953865e99f55",
+      "path": "docs/superpowers/specs/2026-10-03-107-runtime-policy-reconciliation-design.md",
+      "blob": "dcb99da9191789472bbd1840beb72448bf755fba",
+      "sha256": "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405"
+    },
+    "boundedPlan": {
+      "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+      "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+      "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+      "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+    },
+    "planReview": {
+      "reviewId": "review-057079566301a0106537dde070ea518a",
+      "subject": {
+        "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+        "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+        "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+        "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+      },
+      "manifest": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-review-manifest.md",
+        "blob": "fbadd11475c4015bc6e1a9944119e27dc4bdb712",
+        "sha256": "05ea2c71b969d6893e9be17d0e32d3161f7810fd2a4a9bf1a62797d0654eda93"
+      },
+      "finalResponse": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-reviewer-response-2.md",
+        "blob": "1cbb91ae79e3427d5780de156d0e0c21d59d3f30",
+        "sha256": "b29bdd2209341f29b6f8a8affd13576f55d58a20410b9f4aac541b468710ee94"
+      },
+      "finalization": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "sha256": "77d6eb0ebd44dc4394478e657bc644c670e18acc53ef6ff628ea818a0bfba7d7"
+      }
+    },
+    "nativeAdoption": {
+      "kind": "aitm-owned-comment",
+      "repository": "kburson/ai-peer-review",
+      "ownerIssue": 102,
+      "ownedCommentKey": "runtime-contract-adoption.144-v1",
+      "commentDatabaseId": 5996099451,
+      "commentNodeId": "IC_kwDOUTbzDs8AAAABZWU3ew",
+      "url": "https://github.com/kburson/ai-peer-review/issues/102#issuecomment-5996099451",
+      "body": {
+        "revision": "c70f4dec2be35f69f9dd073244ae9168787900fe",
+        "path": "evidence/portable-runtime/contracts/owners/102-adoption.md",
+        "blob": "3d3a1d906fa5aa6685a446f6e4baa51390a3b0d6",
+        "sha256": "3885933db908da7cb243ecd870fb510525089c15aa440687673374f67ddd7295"
+      },
+      "bodySha256": "3885933db908da7cb243ecd870fb510525089c15aa440687673374f67ddd7295",
+      "nativeReceipt": {
+        "revision": "c70f4dec2be35f69f9dd073244ae9168787900fe",
+        "path": "evidence/portable-runtime/contracts/owners/102-native-receipt.json",
+        "blob": "c8552db0b57ed2b482954b85461926724aa76bd0",
+        "sha256": "2fb70b0820ad32c8efc17a7bc5105d4d1bee2bfd46d3f6dd530e0c6f036f4a51"
+      },
+      "publishedAt": "2026-10-05T14:05:15Z",
+      "observedAt": "2026-10-05T14:07:35.200Z"
+    },
+    "preservedBaselines": [
+      {
+        "kind": "accepted-design",
+        "status": "accepted replacement design only; no deployed proof",
+        "reference": {
+          "revision": "021bed7e9cc01782f0822e99fa2d3a58aadeb16e",
+          "path": "docs/superpowers/specs/2026-09-29-102-primary-runtime-authority-design.md",
+          "blob": "1dfe8089d93ea18e45394fb98303937feedab885",
+          "sha256": "7130694f89335165a63d29196a56f3665c605fc5b85dde73105a6766da338a4f"
+        }
+      },
+      {
+        "kind": "broader-plan",
+        "status": "native Plan-approved; independent broad normal Plan XPR unverified",
+        "reference": {
+          "revision": "8ee1cbe1e4c09469648727df453803880a4b9c57",
+          "path": "docs/superpowers/plans/2026-10-01-102-primary-runtime-authority.md",
+          "blob": "013319d69f25779bab90744eb6551e7548fc8c0c",
+          "sha256": "f1b6e0a7d03aa33e71e39ce0e08218a80bc41f01dc337a3b20a1c221f93bd62c"
+        }
+      }
+    ],
+    "remainingObligations": [
+      "PR139 remains draft/unmerged; required Windows CI failing. Observed interface source is not delivered.",
+      "Protected registered approved contract/addendum transport and independently reviewed #130 detailed schemas remain pending.",
+      "Actual current-package installed old-family exclusion/drain/rollback conformance and Task18 activation schema/evidence remain pending."
+    ]
+  },
+  "evidence": {
+    "issue": 30,
+    "boundedSubsection": "### #30 — canonical evidence and immutable amendments",
+    "bundle": "A",
+    "reconciliation": {
+      "revision": "4d8815b2fabf861d24d25fa9735b953865e99f55",
+      "path": "docs/superpowers/specs/2026-10-03-107-runtime-policy-reconciliation-design.md",
+      "blob": "dcb99da9191789472bbd1840beb72448bf755fba",
+      "sha256": "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405"
+    },
+    "boundedPlan": {
+      "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+      "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+      "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+      "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+    },
+    "planReview": {
+      "reviewId": "review-057079566301a0106537dde070ea518a",
+      "subject": {
+        "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+        "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+        "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+        "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+      },
+      "manifest": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-review-manifest.md",
+        "blob": "fbadd11475c4015bc6e1a9944119e27dc4bdb712",
+        "sha256": "05ea2c71b969d6893e9be17d0e32d3161f7810fd2a4a9bf1a62797d0654eda93"
+      },
+      "finalResponse": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-reviewer-response-2.md",
+        "blob": "1cbb91ae79e3427d5780de156d0e0c21d59d3f30",
+        "sha256": "b29bdd2209341f29b6f8a8affd13576f55d58a20410b9f4aac541b468710ee94"
+      },
+      "finalization": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "sha256": "77d6eb0ebd44dc4394478e657bc644c670e18acc53ef6ff628ea818a0bfba7d7"
+      }
+    },
+    "nativeAdoption": {
+      "kind": "aitm-owned-comment",
+      "repository": "kburson/ai-peer-review",
+      "ownerIssue": 30,
+      "ownedCommentKey": "runtime-contract-adoption.144-v1",
+      "commentDatabaseId": 5995642448,
+      "commentNodeId": "IC_kwDOUTbzDs8AAAABZV4-UA",
+      "url": "https://github.com/kburson/ai-peer-review/issues/30#issuecomment-5995642448",
+      "body": {
+        "revision": "c70f4dec2be35f69f9dd073244ae9168787900fe",
+        "path": "evidence/portable-runtime/contracts/owners/30-adoption.md",
+        "blob": "b584f9499b42f5ef9b32340def6c513c5c490f7c",
+        "sha256": "d1e2b6f00147513fecc55ff71096be125e693b8dce551b4278431835bdffa966"
+      },
+      "bodySha256": "d1e2b6f00147513fecc55ff71096be125e693b8dce551b4278431835bdffa966",
+      "nativeReceipt": {
+        "revision": "c70f4dec2be35f69f9dd073244ae9168787900fe",
+        "path": "evidence/portable-runtime/contracts/owners/30-native-receipt.json",
+        "blob": "4ef6cdbeb0e2a0930122dd022be32be2a7fe907e",
+        "sha256": "e00a4390cf99670061d9f873bd850161c52069f681c96142b7da29050266a79c"
+      },
+      "publishedAt": "2026-10-05T13:39:54Z",
+      "observedAt": "2026-10-05T13:42:55.680Z"
+    },
+    "preservedBaselines": [
+      {
+        "kind": "historical-pre-revision-plan",
+        "status": "requested revisions; later superseded; no acceptance",
+        "reference": {
+          "revision": "a607b26b7471759fa58de63239e1113ab54641a3",
+          "path": "docs/plans/2026-09-13-30-artifact-lifecycle-review-evidence.md",
+          "blob": "3d480e37a7665d13f43b188590fd47ca55fdfef8",
+          "sha256": "2d436e187e4ee2a0d22fda275d90801b67c82ad7ca8b4b688dcf105dd649ff6f"
+        }
+      },
+      {
+        "kind": "current-broader-plan",
+        "status": "unaccepted revised Plan",
+        "reference": {
+          "revision": "5a92b539aac0fc1f444ff7a359643e9c49382927",
+          "path": "docs/plans/2026-09-13-30-artifact-lifecycle-review-evidence.md",
+          "blob": "28873876b547835b603cf9b2354cd72a5919bc15",
+          "sha256": "8de3983dd0eeceff56e998458d1d810fd50779eec65dc0fd3807a2ed5ed8cf08"
+        }
+      }
+    ],
+    "remainingObligations": [
+      "Broader30 Plan remains unaccepted; detailed lifecycle/amendment/shared evidence schemas and snapshot/patch/export implementation remain independently governed."
+    ]
+  },
+  "analytics": {
+    "issue": 34,
+    "boundedSubsection": "### #34 — observation-only analytics consumption",
+    "bundle": "A",
+    "reconciliation": {
+      "revision": "4d8815b2fabf861d24d25fa9735b953865e99f55",
+      "path": "docs/superpowers/specs/2026-10-03-107-runtime-policy-reconciliation-design.md",
+      "blob": "dcb99da9191789472bbd1840beb72448bf755fba",
+      "sha256": "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405"
+    },
+    "boundedPlan": {
+      "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+      "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+      "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+      "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+    },
+    "planReview": {
+      "reviewId": "review-057079566301a0106537dde070ea518a",
+      "subject": {
+        "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+        "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+        "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+        "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+      },
+      "manifest": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-review-manifest.md",
+        "blob": "fbadd11475c4015bc6e1a9944119e27dc4bdb712",
+        "sha256": "05ea2c71b969d6893e9be17d0e32d3161f7810fd2a4a9bf1a62797d0654eda93"
+      },
+      "finalResponse": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-reviewer-response-2.md",
+        "blob": "1cbb91ae79e3427d5780de156d0e0c21d59d3f30",
+        "sha256": "b29bdd2209341f29b6f8a8affd13576f55d58a20410b9f4aac541b468710ee94"
+      },
+      "finalization": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "sha256": "77d6eb0ebd44dc4394478e657bc644c670e18acc53ef6ff628ea818a0bfba7d7"
+      }
+    },
+    "nativeAdoption": {
+      "kind": "aitm-owned-comment",
+      "repository": "kburson/ai-peer-review",
+      "ownerIssue": 34,
+      "ownedCommentKey": "runtime-contract-adoption.144-v1",
+      "commentDatabaseId": 5995739253,
+      "commentNodeId": "IC_kwDOUTbzDs8AAAABZV-4dQ",
+      "url": "https://github.com/kburson/ai-peer-review/issues/34#issuecomment-5995739253",
+      "body": {
+        "revision": "c70f4dec2be35f69f9dd073244ae9168787900fe",
+        "path": "evidence/portable-runtime/contracts/owners/34-adoption.md",
+        "blob": "b1411b57b6ea5a890c58ef576f9ff56fc439a529",
+        "sha256": "5b0639abddd38dfd4c3d8467931bd7f70ed65afa420706049284691dcdeaec17"
+      },
+      "bodySha256": "5b0639abddd38dfd4c3d8467931bd7f70ed65afa420706049284691dcdeaec17",
+      "nativeReceipt": {
+        "revision": "c70f4dec2be35f69f9dd073244ae9168787900fe",
+        "path": "evidence/portable-runtime/contracts/owners/34-native-receipt.json",
+        "blob": "bd0331b0cda9281b37acd136b6bce2f949ab101e",
+        "sha256": "0d82e9b9377d1d6b571642d6ccc2b7007269415560063f8a3639812da3b55945"
+      },
+      "publishedAt": "2026-10-05T13:45:12Z",
+      "observedAt": "2026-10-05T13:54:37.395Z"
+    },
+    "preservedBaselines": [
+      {
+        "kind": "standalone-design",
+        "status": "DRAFT; no accepted standalone Plan",
+        "reference": {
+          "revision": "1860a95c4ab6ebf859a2fe57146c720220c62480",
+          "path": "docs/design/2026-09-13-34-provider-comparison-experiments-design.md",
+          "blob": "5b914e748a9ed095818cb8a260b9c0e96a4d2d67",
+          "sha256": "ee4459590ccc2d43e322ae90d339efd0448f74dbcca46453d5c3c85b1969eb4b"
+        }
+      }
+    ],
+    "remainingObligations": [
+      "Standalone34 specification/Plan,31/32 prerequisites and experiment/scoring implementation remain separately governed."
+    ]
+  },
+  "telemetry": {
+    "issue": 109,
+    "boundedSubsection": "### #109 — attributable attempt telemetry",
+    "bundle": "A",
+    "reconciliation": {
+      "revision": "4d8815b2fabf861d24d25fa9735b953865e99f55",
+      "path": "docs/superpowers/specs/2026-10-03-107-runtime-policy-reconciliation-design.md",
+      "blob": "dcb99da9191789472bbd1840beb72448bf755fba",
+      "sha256": "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405"
+    },
+    "boundedPlan": {
+      "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+      "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+      "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+      "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+    },
+    "planReview": {
+      "reviewId": "review-057079566301a0106537dde070ea518a",
+      "subject": {
+        "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+        "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+        "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+        "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+      },
+      "manifest": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-review-manifest.md",
+        "blob": "fbadd11475c4015bc6e1a9944119e27dc4bdb712",
+        "sha256": "05ea2c71b969d6893e9be17d0e32d3161f7810fd2a4a9bf1a62797d0654eda93"
+      },
+      "finalResponse": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-reviewer-response-2.md",
+        "blob": "1cbb91ae79e3427d5780de156d0e0c21d59d3f30",
+        "sha256": "b29bdd2209341f29b6f8a8affd13576f55d58a20410b9f4aac541b468710ee94"
+      },
+      "finalization": {
+        "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+        "sha256": "77d6eb0ebd44dc4394478e657bc644c670e18acc53ef6ff628ea818a0bfba7d7"
+      }
+    },
+    "nativeAdoption": {
+      "kind": "aitm-owned-comment",
+      "repository": "kburson/ai-peer-review",
+      "ownerIssue": 109,
+      "ownedCommentKey": "runtime-contract-adoption.144-v1",
+      "commentDatabaseId": 5995680598,
+      "commentNodeId": "IC_kwDOUTbzDs8AAAABZV7TVg",
+      "url": "https://github.com/kburson/ai-peer-review/issues/109#issuecomment-5995680598",
+      "body": {
+        "revision": "c70f4dec2be35f69f9dd073244ae9168787900fe",
+        "path": "evidence/portable-runtime/contracts/owners/109-adoption.md",
+        "blob": "d6e0d620fe158bbaafb6a06890383b614d76d2bd",
+        "sha256": "ced7e2137ffac5af9cae3d150c2a59295f54a077f0f268bbdb5a07f130b44ea2"
+      },
+      "bodySha256": "ced7e2137ffac5af9cae3d150c2a59295f54a077f0f268bbdb5a07f130b44ea2",
+      "nativeReceipt": {
+        "revision": "c70f4dec2be35f69f9dd073244ae9168787900fe",
+        "path": "evidence/portable-runtime/contracts/owners/109-native-receipt.json",
+        "blob": "6a760d2750d7e6f5398065e4270b5aabcaf1dd48",
+        "sha256": "88b28fd81f33fe87340192ee903ed4224b6802c55a150be40531fa7f0321b601"
+      },
+      "publishedAt": "2026-10-05T13:41:58Z",
+      "observedAt": "2026-10-05T13:58:47.040Z"
+    },
+    "preservedBaselines": [
+      {
+        "kind": "owner-plan",
+        "status": "absent; bounded Codex consumption only; broader152/153 implementation pending",
+        "reference": null
+      }
+    ],
+    "remainingObligations": [
+      "109 Codex headless repair/controller timing remains R4P;152/153 own broader provider/controller/aggregate integration."
+    ]
+  },
+  "governance": {
+    "immutableSpecification": {
+      "revision": "60efdbbeb60c83c1c56884491ae018eaea70d282",
+      "path": "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+      "blob": "8caa6f8fe1d25f0aec41de8e32ac8ddcfed150bb",
+      "sha256": "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e"
+    },
+    "canonicalPlan": {
+      "revision": "92041e75fb333365cc3f73b9c480cb7bc5a50eb1",
+      "path": "docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+      "blob": "d1724d39193d8c54a70c150f44a009f9d214ef88",
+      "sha256": "e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a"
+    },
+    "canonicalPlanReview": {
+      "reviewId": "review-6522bc912d65661298c2b1a072c32f0b",
+      "subject": {
+        "revision": "92041e75fb333365cc3f73b9c480cb7bc5a50eb1",
+        "path": "docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "blob": "d1724d39193d8c54a70c150f44a009f9d214ef88",
+        "sha256": "e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a"
+      },
+      "manifest": {
+        "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-03-107-agent-first-portable-runtime-review-6522bc912d65661298c2b1a072c32f0b/review-6522bc912d65661298c2b1a072c32f0b-review-manifest.md",
+        "blob": "0201ae549a1381ce304fdf4e5e2a3e2c6e80f1a8",
+        "sha256": "84c1f2657824b8b7953f76b12e77df5659803cc3feb225f0d432148c697fb026"
+      },
+      "finalResponse": {
+        "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-03-107-agent-first-portable-runtime-review-6522bc912d65661298c2b1a072c32f0b/review-6522bc912d65661298c2b1a072c32f0b-reviewer-response-2.md",
+        "blob": "557d427d62f2a1a01cdd74bd8e380fc595137581",
+        "sha256": "cb3e62add4a5b8757c8cd65d7771012b5ab4d1df216c7f00bd32fd3410911b06"
+      },
+      "finalization": {
+        "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+        "sha256": "318cba13e36f3c0d361047f4a21a61b251dd59d181f913dbb034253e32026880"
+      }
+    },
+    "companionPlan": {
+      "revision": "c4ba22817b8d558f4f9ab44c9336f60e059efbdc",
+      "path": "docs/superpowers/plans/2026-10-05-107-runtime-contract-plan-amendment.md",
+      "blob": "ff1a376ef81e26ec5f2402090587cfa2438b347a",
+      "sha256": "208a8e54a014415cdef0dda2b6d266b7745e7126d0902a34c2b7c1041b420828"
+    },
+    "companionPlanReview": {
+      "reviewId": "review-a4157c49c11ad9d12836d7bfea0df472",
+      "subject": {
+        "revision": "c4ba22817b8d558f4f9ab44c9336f60e059efbdc",
+        "path": "docs/superpowers/plans/2026-10-05-107-runtime-contract-plan-amendment.md",
+        "blob": "ff1a376ef81e26ec5f2402090587cfa2438b347a",
+        "sha256": "208a8e54a014415cdef0dda2b6d266b7745e7126d0902a34c2b7c1041b420828"
+      },
+      "manifest": {
+        "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-107-runtime-contract-plan-amendment-review-a4157c49c11ad9d12836d7bfea0df472/review-a4157c49c11ad9d12836d7bfea0df472-review-manifest.md",
+        "blob": "b7569d9385992ab4a25c1b239fd5cf42900f3c5c",
+        "sha256": "4a4878c34cea8f9fae8e6dfc38081d15c10e315080053183f1fb6101c66e972f"
+      },
+      "finalResponse": {
+        "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+        "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-107-runtime-contract-plan-amendment-review-a4157c49c11ad9d12836d7bfea0df472/review-a4157c49c11ad9d12836d7bfea0df472-reviewer-response-2.md",
+        "blob": "faf3f22fa5cd19cb461a15aa0a62ebe955aa36bb",
+        "sha256": "b2b5008a358f8b7cbc0c625401d6cebbb891b0eedb51aafedef481c0ad81b274"
+      },
+      "finalization": {
+        "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+        "sha256": "64c53a2ca257709d26779e240899e410c2bdcfe7cba1c39e84fcfaba3067117c"
+      }
+    },
+    "nativeMapping": {
+      "repository": "kburson/ai-peer-review",
+      "issue": 144,
+      "originalSourcePlanCommit": "60efdbbeb60c83c1c56884491ae018eaea70d282",
+      "planMetadataSha256": "cac9d5a3045cfc19a4219068a8329d24e049997316d5a81651be33f92e2db262",
+      "scopeSha256": "76bf64517f137c86df1fcfbeb3b2497cb9fe3daebc390ada44421d9acb50af8a",
+      "vc1Sha256": "4262a32e3243b83e40df99fc466c183b39731ac62aed1c6983bfb8e7a774bc3d"
+    },
+    "normativeTargets": [
+      {
+        "source": {
+          "revision": "60efdbbeb60c83c1c56884491ae018eaea70d282",
+          "path": "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+          "blob": "8caa6f8fe1d25f0aec41de8e32ac8ddcfed150bb",
+          "sha256": "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e"
+        },
+        "sections": ["Evidence"],
+        "schemaIdentifiers": [
+          "ai-peer-review.record/v1",
+          "ai-peer-review.series-index/v1",
+          "ai-peer-review.patch-chain/v1",
+          "ai-peer-review.response-envelope/v1"
+        ],
+        "detailedSchemaFrozen": false
+      },
+      {
+        "source": {
+          "revision": "60efdbbeb60c83c1c56884491ae018eaea70d282",
+          "path": "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+          "blob": "8caa6f8fe1d25f0aec41de8e32ac8ddcfed150bb",
+          "sha256": "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e"
+        },
+        "sections": [
+          "Metrics and Comparative Evaluation",
+          "Accounting Identity and Aggregation",
+          "Costs, Recovery and Privacy"
+        ],
+        "schemaIdentifiers": [
+          "ai-peer-review.attempt-metrics/v1",
+          "ai-peer-review.measurement/v1",
+          "ai-peer-review.aggregate-coverage/v1",
+          "ai-peer-review.telemetry-amendment/v1"
+        ],
+        "detailedSchemaFrozen": false
+      }
+    ],
+    "priorLineage": [
+      {
+        "review": {
+          "reviewId": "review-58b490491800f0c13d64191cb58071b5",
+          "subject": {
+            "revision": "4d8815b2fabf861d24d25fa9735b953865e99f55",
+            "path": "docs/superpowers/specs/2026-10-03-107-runtime-policy-reconciliation-design.md",
+            "blob": "dcb99da9191789472bbd1840beb72448bf755fba",
+            "sha256": "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405"
+          },
+          "manifest": {
+            "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+            "path": "docs/superpowers/peer-reviews/spec/2026-10-05-2026-10-03-107-runtime-policy-reconciliation-design-review-58b490491800f0c13d64191cb58071b5/review-58b490491800f0c13d64191cb58071b5-review-manifest.md",
+            "blob": "f7fc7a459c1b12605e0c1e1270ed78c07e0e07ef",
+            "sha256": "ff16ea825925148f8ab83ee380f10796fc83c75c3c9d26fc93209383a5983efb"
+          },
+          "finalResponse": {
+            "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+            "path": "docs/superpowers/peer-reviews/spec/2026-10-05-2026-10-03-107-runtime-policy-reconciliation-design-review-58b490491800f0c13d64191cb58071b5/review-58b490491800f0c13d64191cb58071b5-reviewer-response-2.md",
+            "blob": "387d981ac81f815b202d309cd8783b7c4cb5c382",
+            "sha256": "2fdfb6635210ee77d793aa1a9779fb908b072e7801a8adbc7f7575cd59c76958"
+          },
+          "finalization": {
+            "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+            "sha256": "a74efc00e4961460674cbef689140c7a4c478a780ff049c27111af0b0d7fb16d"
+          }
+        },
+        "receipt": {
+          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "path": "evidence/portable-runtime/contracts/review-lineage/review-58b490491800f0c13d64191cb58071b5.json",
+          "blob": "e87d28a280b75903eb6c5621a6f61780558ee1d8",
+          "sha256": "76a0ca687364aeac8d41d9122a203eea79c7b18cd51f1b731df4a1c21d0b4f23"
+        },
+        "verifier": {
+          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
+          "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
+          "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
+        }
+      },
+      {
+        "review": {
+          "reviewId": "review-057079566301a0106537dde070ea518a",
+          "subject": {
+            "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+            "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+            "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+            "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+          },
+          "manifest": {
+            "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+            "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-review-manifest.md",
+            "blob": "fbadd11475c4015bc6e1a9944119e27dc4bdb712",
+            "sha256": "05ea2c71b969d6893e9be17d0e32d3161f7810fd2a4a9bf1a62797d0654eda93"
+          },
+          "finalResponse": {
+            "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+            "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-reviewer-response-2.md",
+            "blob": "1cbb91ae79e3427d5780de156d0e0c21d59d3f30",
+            "sha256": "b29bdd2209341f29b6f8a8affd13576f55d58a20410b9f4aac541b468710ee94"
+          },
+          "finalization": {
+            "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+            "sha256": "77d6eb0ebd44dc4394478e657bc644c670e18acc53ef6ff628ea818a0bfba7d7"
+          }
+        },
+        "receipt": {
+          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "path": "evidence/portable-runtime/contracts/review-lineage/review-057079566301a0106537dde070ea518a.json",
+          "blob": "6ab2cdf05f5725e4c7737199b36a5444ac054e03",
+          "sha256": "ba1560b9a81c0f5b2875cd2c546de84bde94020164dc7d5235cbab31102418ac"
+        },
+        "verifier": {
+          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
+          "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
+          "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
+        }
+      },
+      {
+        "review": {
+          "reviewId": "review-a4157c49c11ad9d12836d7bfea0df472",
+          "subject": {
+            "revision": "c4ba22817b8d558f4f9ab44c9336f60e059efbdc",
+            "path": "docs/superpowers/plans/2026-10-05-107-runtime-contract-plan-amendment.md",
+            "blob": "ff1a376ef81e26ec5f2402090587cfa2438b347a",
+            "sha256": "208a8e54a014415cdef0dda2b6d266b7745e7126d0902a34c2b7c1041b420828"
+          },
+          "manifest": {
+            "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+            "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-107-runtime-contract-plan-amendment-review-a4157c49c11ad9d12836d7bfea0df472/review-a4157c49c11ad9d12836d7bfea0df472-review-manifest.md",
+            "blob": "b7569d9385992ab4a25c1b239fd5cf42900f3c5c",
+            "sha256": "4a4878c34cea8f9fae8e6dfc38081d15c10e315080053183f1fb6101c66e972f"
+          },
+          "finalResponse": {
+            "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+            "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-107-runtime-contract-plan-amendment-review-a4157c49c11ad9d12836d7bfea0df472/review-a4157c49c11ad9d12836d7bfea0df472-reviewer-response-2.md",
+            "blob": "faf3f22fa5cd19cb461a15aa0a62ebe955aa36bb",
+            "sha256": "b2b5008a358f8b7cbc0c625401d6cebbb891b0eedb51aafedef481c0ad81b274"
+          },
+          "finalization": {
+            "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+            "sha256": "64c53a2ca257709d26779e240899e410c2bdcfe7cba1c39e84fcfaba3067117c"
+          }
+        },
+        "receipt": {
+          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "path": "evidence/portable-runtime/contracts/review-lineage/review-a4157c49c11ad9d12836d7bfea0df472.json",
+          "blob": "cd0ca70c45e3f7d4992a7fb5e19d01202fff92a1",
+          "sha256": "2e3a0001e7b6926ac8491bda55eef018d6cccb1f06f0e00b1f0fe966f6a654b7"
+        },
+        "verifier": {
+          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
+          "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
+          "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
+        }
+      },
+      {
+        "review": {
+          "reviewId": "review-6522bc912d65661298c2b1a072c32f0b",
+          "subject": {
+            "revision": "92041e75fb333365cc3f73b9c480cb7bc5a50eb1",
+            "path": "docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+            "blob": "d1724d39193d8c54a70c150f44a009f9d214ef88",
+            "sha256": "e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a"
+          },
+          "manifest": {
+            "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+            "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-03-107-agent-first-portable-runtime-review-6522bc912d65661298c2b1a072c32f0b/review-6522bc912d65661298c2b1a072c32f0b-review-manifest.md",
+            "blob": "0201ae549a1381ce304fdf4e5e2a3e2c6e80f1a8",
+            "sha256": "84c1f2657824b8b7953f76b12e77df5659803cc3feb225f0d432148c697fb026"
+          },
+          "finalResponse": {
+            "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+            "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-03-107-agent-first-portable-runtime-review-6522bc912d65661298c2b1a072c32f0b/review-6522bc912d65661298c2b1a072c32f0b-reviewer-response-2.md",
+            "blob": "557d427d62f2a1a01cdd74bd8e380fc595137581",
+            "sha256": "cb3e62add4a5b8757c8cd65d7771012b5ab4d1df216c7f00bd32fd3410911b06"
+          },
+          "finalization": {
+            "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+            "sha256": "318cba13e36f3c0d361047f4a21a61b251dd59d181f913dbb034253e32026880"
+          }
+        },
+        "receipt": {
+          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "path": "evidence/portable-runtime/contracts/review-lineage/review-6522bc912d65661298c2b1a072c32f0b.json",
+          "blob": "20740e5b4baa33c68560ecf02d1fb5df136cba88",
+          "sha256": "f743d3911e51e188f4dc4ea56502d41060b389ec93c577a28374f9f39fbcb6b3"
+        },
+        "verifier": {
+          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "path": "evidence/portable-runtime/contracts/verifier-sources/91d09d4971ce242397c04f616dc459eb9162076d.json",
+          "blob": "36cc81cd987c1c333aafc38787c47336acc6a08b",
+          "sha256": "6e867728907a8a0a67ee5ffe145560d2fd9a39e94134d409594e540a72d71a59"
+        }
+      }
+    ],
+    "expectedEvidenceApprover": {
+      "githubLogin": "kburson",
+      "role": "orchestrator",
+      "authorSessionFingerprint": "sha256:3360e116e28ffcee773a4e3ea34dd0578d5ef69a6b6d7df268f0693489c2d4be"
+    },
+    "recordReviewSelection": {
+      "provider": "claude",
+      "modelId": "claude-opus-5-5",
+      "effort": "high"
+    },
+    "checkerSchemas": [
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "schemas/runtime-contract-adoption-v1.json",
+        "blob": "192c6fbf30e7bcf24372dfa07ba381943d79e251",
+        "sha256": "f939b52fbb790f16d17cc8441a2e873ab836b300b51fd2abd60611ad08cb62f1"
+      },
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "schemas/runtime-contract-evidence-approval-v1.json",
+        "blob": "f4141a9c056c22ce764c25919ce453c6af8e77cc",
+        "sha256": "6ccf9ddf86a0f5f097e2608c153d33de1b72cb4f7beb96c67573614b9f1418ec"
+      },
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "schemas/runtime-review-lineage-proof-v1.json",
+        "blob": "d9b68e48ef2ff8675aef156ff52579e8d3d837e2",
+        "sha256": "cbde9dd03599db73474944bd84123a3b441964f270c716112b0324ccb0d5488a"
+      }
+    ],
+    "checkerImporterSources": [
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "scripts/lib/runtime-review-grammar-v0.4.1.mjs",
+        "blob": "909cf1ca04bea4f6d1d3982781a0a0e938f518ab",
+        "sha256": "f8d724cc9e5602aaf268d567c3c3d4b3180d7149cd1ac1b1865647fece0079da"
+      },
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "scripts/lib/review-grammar-v0.4.1/compatibility.mjs",
+        "blob": "e59600d9c0fb075cd79858ca2e499505793bf144",
+        "sha256": "04caa2a1677f341a8fe06bab5090a4768b09e2b4349f8317dc3940a516320787"
+      },
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "scripts/lib/review-grammar-v0.4.1/events.mjs",
+        "blob": "1335cad2e5ccc8e9fe94142e019e020e0493f001",
+        "sha256": "155fdc4c8d4ba794de0f4d758af965211aab858768483fdfd9ccf261b8940481"
+      },
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "scripts/lib/review-grammar-v0.4.1/record-lineage.mjs",
+        "blob": "6ba51f03c8289fde0f433dfa5feb71e403add8ef",
+        "sha256": "4d3fc800794729aecac4bab72e5560e8367cf0c1d2565361527e9b8035fe2b36"
+      },
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "scripts/lib/review-grammar-v0.4.1/reducer.mjs",
+        "blob": "994ec45ef53a6b5ac0c2cc947e16113635a779cb",
+        "sha256": "25ab2156fa4f82277119bf5735bb47db21d58112a21dd73537f06ec80ecb7987"
+      },
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "scripts/lib/review-grammar-v0.4.1/runtime-descriptor.mjs",
+        "blob": "3d38834c846875584b9a5fcc1f68fd89dcf0cf0c",
+        "sha256": "b633a1f16d7e8464873f52ee2f69d9baac08a871dd2aaf13f31f7e14d8dabd44"
+      },
+      {
+        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "path": "scripts/lib/review-grammar-v0.4.1/runtime-v1.json",
+        "blob": "955cbd53e27444f5d9c8a5c3ed2338f874b21bcb",
+        "sha256": "9a4f51b04cbf621ffcce841054ab434b3d7c9acc89f8010913f170d133f2ff37"
+      }
+    ]
+  }
+}
