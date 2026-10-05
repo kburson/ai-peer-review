@@ -1,0 +1,575 @@
+#!/usr/bin/env node
+// @story #144
+// Document-only verification. This module never starts or changes a runtime.
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseResponse } from '../src/collateral/responses.mjs';
+import { inspectRecordLineage } from '../src/protocol/record-lineage.mjs';
+import { parseRawJson } from '../src/api/canonical-json.mjs';
+
+const ASSURANCES = JSON.parse(
+  readFileSync(new URL('../schemas/response-v1.json', import.meta.url), 'utf8')
+).properties.authority_assurance.enum.filter((strength) => strength !== 'unverified-test');
+const SHA = /^[a-f0-9]{64}$/;
+const OBJECT = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/;
+const OWNERS = { runtimePolicy: 102, evidence: 30, analytics: 34, telemetry: 109 };
+const FIELDS = [
+  'schema',
+  'issue',
+  ...Object.keys(OWNERS),
+  'amendment',
+  'amendmentReview',
+  'reviewedDigests',
+  'schemas',
+  'decisions',
+  'unresolvedConflicts',
+  'activationBinding',
+];
+const DECISIONS = {
+  runtimeInstallation: ['current-global', 'reviewed-coexistence'],
+  policyAuthority: ['exclusive-primary', 'reviewed-layered-policy'],
+  legacyRecovery: ['drain-before-replacement', 'reviewed-retained-runtime-recovery'],
+  evidenceIntegration: ['owner30-canonical'],
+  telemetryIntegration: ['exact-attempt'],
+  responseCompatibility: ['contextual-schema-artifacts'],
+};
+const INTERFACES = [
+  'assertSelectedRuntime',
+  'withPrimaryAdmissionFence',
+  'resolvePrimaryAuthority',
+  'inspectPrimaryReviewInventory',
+];
+const CASES = [
+  'changed-current-selection',
+  'unsupported-active-fenced-journals',
+  'mixed-policy',
+  'old-launcher-after-probe',
+  'simultaneous-native-portable-start',
+  'pre-replacement-drain',
+  'broker-crash-window',
+  'configured-roots',
+];
+const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const blob = (bytes, algorithm) =>
+  createHash(algorithm)
+    .update(Buffer.concat([Buffer.from('blob ' + bytes.length + '\0'), bytes]))
+    .digest('hex');
+const object = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+const exact = (x, keys) =>
+  object(x) && Object.keys(x).sort().join('|') === [...keys].sort().join('|');
+const safePath = (p) =>
+  typeof p === 'string' &&
+  p.length > 0 &&
+  !path.posix.isAbsolute(p) &&
+  !p.includes('\\') &&
+  !/[\0\r\n:]/.test(p) &&
+  p.split('/').every((s) => s && s !== '.' && s !== '..');
+const fixturePath = (p) => /^(?:test|tests|\.scratch|node_modules)\//.test(p);
+
+export function checkRuntimeContractAdoption({
+  record,
+  artifacts,
+  recordReference,
+  approvalReview,
+} = {}) {
+  const contractBlockers = [],
+    activationBlockers = [],
+    assurance = new Set();
+  const block = (code) => contractBlockers.push(code);
+  const get = (key) => (artifacts instanceof Map ? artifacts.get(key) : undefined);
+  const verified = (ref) => {
+    if (
+      !exact(ref, ['revision', 'path', 'blob', 'sha256']) ||
+      !OBJECT.test(ref.revision ?? '') ||
+      !OBJECT.test(ref.blob ?? '') ||
+      !SHA.test(ref.sha256 ?? '') ||
+      !safePath(ref.path)
+    ) {
+      block('artifact-reference-invalid');
+      return null;
+    }
+    if (fixturePath(ref.path)) {
+      block('fixture-authority-forbidden');
+      return null;
+    }
+    const bytes = get(ref.revision + ':' + ref.path);
+    if (!Buffer.isBuffer(bytes)) {
+      block('artifact-unavailable');
+      return null;
+    }
+    if (hash(bytes) !== ref.sha256) {
+      block('artifact-digest-mismatch');
+      return null;
+    }
+    if (blob(bytes, ref.blob.length === 64 ? 'sha256' : 'sha1') !== ref.blob) {
+      block('artifact-blob-mismatch');
+      return null;
+    }
+    return bytes;
+  };
+  const json = (ref) => {
+    const bytes = verified(ref);
+    if (!bytes) return null;
+    try {
+      const text = bytes.toString('utf8');
+      if (ref.path.endsWith('.md')) {
+        const match = text.match(/^```json\r?\n([\s\S]*?)^\`\`\`\s*$/m);
+        if (!match) throw Error('manifest-json');
+        return parseRawJson(match[1]);
+      }
+      return parseRawJson(text);
+    } catch {
+      block('artifact-json-invalid');
+      return null;
+    }
+  };
+  const sameSubject = (a, b) =>
+    a?.path === b?.path &&
+    a?.revision === b?.revision &&
+    a?.blob === b?.blob &&
+    a?.sha256 === b?.sha256;
+  const review = (proof, subject) => {
+    if (
+      !exact(proof, ['reviewId', 'subject', 'manifest', 'finalResponse', 'finalization']) ||
+      !sameSubject(proof.subject, subject) ||
+      !proof.reviewId
+    ) {
+      block('review-proof-incomplete');
+      return;
+    }
+    verified(subject);
+    const manifest = json(proof.manifest),
+      bytes = verified(proof.finalResponse);
+    if (!manifest || !bytes) {
+      block('review-proof-incomplete');
+      return;
+    }
+    if (
+      manifest.schema !== 'ai-peer-review.manifest/v1' ||
+      manifest.review_id !== proof.reviewId ||
+      manifest.status !== 'accepted' ||
+      manifest.acceptance_basis !== 'reviewer-consensus'
+    )
+      block('review-not-accepted');
+    if (manifest.commit_mode !== 'normal' || !OBJECT.test(manifest.final_commit ?? ''))
+      block('review-mode-not-normal');
+    const author = manifest.participants?.author?.session_fingerprint;
+    const reviewer = manifest.participants?.reviewer?.session_fingerprint;
+    if (
+      !/^sha256:[a-f0-9]{64}$/.test(author ?? '') ||
+      !/^sha256:[a-f0-9]{64}$/.test(reviewer ?? '') ||
+      author === reviewer
+    )
+      block('review-participant-conflict');
+    const history = manifest.artifact_history?.at(-1),
+      turn = manifest.turns?.at(-1);
+    const finalization = proof.finalization;
+    const message = get('commit:' + finalization?.revision);
+    if (
+      !exact(finalization, ['revision', 'sha256']) ||
+      !OBJECT.test(finalization.revision ?? '') ||
+      !SHA.test(finalization.sha256 ?? '') ||
+      !Buffer.isBuffer(message) ||
+      hash(message) !== finalization.sha256
+    ) {
+      block('review-finalization-incomplete');
+    } else {
+      if (get('parent:' + finalization.revision) !== manifest.final_commit)
+        block('review-finalization-parent-mismatch');
+      for (const ref of [proof.manifest, proof.finalResponse]) {
+        const committed = get('tree:' + finalization.revision + ':' + ref.path);
+        const pinned = get(ref.revision + ':' + ref.path);
+        if (!Buffer.isBuffer(committed) || !Buffer.isBuffer(pinned) || !committed.equals(pinned))
+          block('review-finalization-tree-mismatch');
+      }
+      const trailers = {
+        'Peer-Review-ID': proof.reviewId,
+        'Peer-Review-Turn': String((turn?.turn ?? 0) + 1),
+        'Peer-Review-Artifact-Blob': subject.blob,
+        'Peer-Review-Acceptance': 'sha256:' + proof.finalResponse.sha256,
+        'Peer-Review-Manifest': 'sha256:' + proof.manifest.sha256,
+      };
+      for (const [key, value] of Object.entries(trailers)) {
+        const lines = message
+          .toString('utf8')
+          .split('\n')
+          .filter((line) => line.startsWith(key + ': '));
+        if (lines.length !== 1 || lines[0] !== key + ': ' + value)
+          block('review-finalization-mismatch');
+      }
+    }
+    if (
+      manifest.artifact_path !== subject.path ||
+      history?.path !== subject.path ||
+      history?.commit !== subject.revision ||
+      history?.blob !== subject.blob ||
+      history?.digest !== 'sha256:' + subject.sha256
+    )
+      block('review-subject-mismatch');
+    const lineage = inspectRecordLineage(manifest);
+    if (lineage.status !== 'complete' || lineage.attempts.at(-1)?.review_id !== proof.reviewId)
+      block('review-lineage-incomplete');
+    if (
+      turn?.decision !== 'accepted' ||
+      turn?.reviewer_response?.path !== proof.finalResponse.path ||
+      turn?.reviewer_response?.digest !== 'sha256:' + proof.finalResponse.sha256
+    )
+      block('review-response-mismatch');
+    try {
+      const response = parseResponse(bytes);
+      const m = response.metadata;
+      if (
+        m.review_id !== proof.reviewId ||
+        m.role !== 'reviewer' ||
+        m.turn !== turn?.turn ||
+        m.commit_mode !== 'normal' ||
+        m.agent.session_fingerprint !== reviewer ||
+        m.artifact_path !== subject.path ||
+        m.artifact_commit !== subject.revision ||
+        m.artifact_blob !== subject.blob ||
+        m.artifact_digest !== 'sha256:' + subject.sha256 ||
+        !Number.isFinite(Date.parse(m.submitted_at)) ||
+        response.sections.find((s) => s.heading === 'Decision')?.content.trim() !== 'accepted'
+      )
+        block('review-response-mismatch');
+      if (m.authority_assurance !== manifest.authority_assurance)
+        block('review-assurance-mismatch');
+    } catch {
+      block('review-response-invalid');
+    }
+    if (!ASSURANCES.includes(manifest.authority_assurance)) block('review-assurance-invalid');
+    else assurance.add(manifest.authority_assurance);
+  };
+  if (
+    !exact(record, FIELDS) ||
+    record.schema !== 'ai-peer-review.runtime-contract-adoption/v1' ||
+    record.issue !== 144
+  )
+    block('record-schema-invalid');
+  if (!object(record))
+    return {
+      contractAdopted: false,
+      activationAuthorized: false,
+      publicationAllowed: false,
+      contractBlockers,
+      activationBlockers,
+      assurance: [],
+    };
+  for (const [role, issue] of Object.entries(OWNERS)) {
+    const owner = record[role];
+    if (
+      !exact(owner, ['issue', 'contract', 'plan', 'adoptionReview', 'planReview']) ||
+      owner.issue !== issue
+    ) {
+      block(role + '-owner-mismatch');
+      continue;
+    }
+    verified(owner.contract);
+    verified(owner.plan);
+    review(owner.adoptionReview, record.amendment);
+    review(owner.planReview, owner.plan);
+  }
+  verified(record.amendment);
+  review(record.amendmentReview, record.amendment);
+  if (recordReference !== undefined || approvalReview !== undefined)
+    review(approvalReview, recordReference);
+  if (!Array.isArray(record.schemas) || !record.schemas.length) block('schemas-missing');
+  else record.schemas.forEach(verified);
+  if (
+    !Array.isArray(record.reviewedDigests) ||
+    !record.reviewedDigests.length ||
+    record.reviewedDigests.some((d) => !SHA.test(d))
+  )
+    block('reviewed-digests-invalid');
+  else {
+    const required = [
+      record.amendment,
+      ...(record.schemas ?? []),
+      ...Object.keys(OWNERS).flatMap((r) => [record[r]?.contract, record[r]?.plan]),
+    ];
+    if (required.some((r) => !record.reviewedDigests.includes(r?.sha256)))
+      block('reviewed-digests-incomplete');
+  }
+  if (
+    !exact(record.decisions, Object.keys(DECISIONS)) ||
+    Object.entries(DECISIONS).some(([k, values]) => !values.includes(record.decisions?.[k]))
+  )
+    block('decisions-incomplete');
+  if (!Array.isArray(record.unresolvedConflicts) || record.unresolvedConflicts.length)
+    block('contract-conflicts-unresolved');
+  const binding = record.activationBinding;
+  if (
+    !object(binding) ||
+    binding.ownerIssue !== 102 ||
+    !Array.isArray(binding.interfaces) ||
+    INTERFACES.some((name) => !binding.interfaces.includes(name)) ||
+    !Array.isArray(binding.guarantees) ||
+    !['old-family-exclusion', 'pre-replacement-drain'].every((g) => binding.guarantees.includes(g))
+  ) {
+    block('activation-binding-missing');
+  } else {
+    verified(binding.source);
+    verified(binding.registration);
+    const operationalStart = contractBlockers.length;
+    if (
+      !Array.isArray(binding.unresolvedOverlapObligations) ||
+      binding.unresolvedOverlapObligations.length
+    )
+      activationBlockers.push('activation-overlap-unresolved');
+    if (
+      !object(binding.release) ||
+      !OBJECT.test(binding.release.sourceRevision ?? '') ||
+      typeof binding.release.tag !== 'string' ||
+      !binding.release.tag.length ||
+      !binding.release.tarball
+    )
+      activationBlockers.push('release-proof-incomplete');
+    else {
+      verified(binding.release.tarball);
+      const tagTarget = get('tag:' + binding.release.tag);
+      if (tagTarget !== binding.release.sourceRevision)
+        activationBlockers.push('release-tag-mismatch');
+    }
+    if (
+      !Array.isArray(binding.conformance) ||
+      CASES.some((name) => !binding.conformance.some((c) => c.case === name))
+    )
+      activationBlockers.push('activation-proof-incomplete');
+    else
+      for (const proof of binding.conformance) {
+        if (!CASES.includes(proof.case)) {
+          activationBlockers.push('activation-proof-invalid');
+          continue;
+        }
+        const document = json(proof.artifact),
+          release = binding.release;
+        if (
+          !document ||
+          document.schema !== 'ai-peer-review.activation-conformance/v1' ||
+          document.ownerIssue !== 102 ||
+          document.case !== proof.case ||
+          document.sourceRevision !== release?.sourceRevision ||
+          document.releaseTag !== release?.tag ||
+          document.tarballSha256 !== release?.tarball?.sha256 ||
+          !Array.isArray(document.observations) ||
+          document.observations.length !== 3 ||
+          ['darwin', 'linux', 'win32'].some(
+            (platform) => document.observations.filter((o) => o.platform === platform).length !== 1
+          )
+        ) {
+          activationBlockers.push('activation-conformance-invalid');
+          continue;
+        }
+        for (const observation of document.observations) {
+          const receipt = json(observation.receipt);
+          if (
+            observation.mode !== 'genuine-installed-process' ||
+            observation.outcome !== 'passed' ||
+            !Number.isFinite(Date.parse(observation.observedAt)) ||
+            !receipt ||
+            receipt.platform !== observation.platform ||
+            receipt.case !== proof.case ||
+            receipt.sourceRevision !== release.sourceRevision ||
+            receipt.tarballSha256 !== release.tarball.sha256 ||
+            receipt.outcome !== observation.outcome ||
+            receipt.mode !== observation.mode ||
+            receipt.observedAt !== observation.observedAt
+          )
+            activationBlockers.push('activation-conformance-invalid');
+        }
+        review(proof.review, proof.artifact);
+      }
+    activationBlockers.push(
+      ...contractBlockers.splice(operationalStart).map((code) => 'activation-' + code)
+    );
+  }
+  const contractAdopted = contractBlockers.length === 0;
+  const activationAuthorized = contractAdopted && activationBlockers.length === 0;
+  return {
+    contractAdopted,
+    activationAuthorized,
+    publicationAllowed: activationAuthorized,
+    contractBlockers: [...new Set(contractBlockers)].sort(),
+    activationBlockers: [...new Set(activationBlockers)].sort(),
+    assurance: [...assurance].sort(),
+  };
+}
+
+export function parseAdoptionArgs(args) {
+  const result = {};
+  for (let i = 0; i < args.length; i += 2) {
+    const key = args[i];
+    if (
+      !['--record', '--approved-ref'].includes(key) ||
+      Object.hasOwn(result, key) ||
+      typeof args[i + 1] !== 'string' ||
+      args[i + 1].startsWith('--')
+    )
+      throw Error('usage-invalid');
+    result[key] = args[i + 1];
+  }
+  if (!result['--record'] || !result['--approved-ref']) throw Error('usage-invalid');
+  return { record: result['--record'], approvedRef: result['--approved-ref'] };
+}
+export function validateApprovedSelector(selector, recordPath) {
+  if (
+    !exact(selector, ['schema', 'evidenceRevision', 'record', 'approvalReview']) ||
+    selector.schema !== 'ai-peer-review.runtime-contract-approved-ref/v1' ||
+    !OBJECT.test(selector.evidenceRevision ?? '') ||
+    !safePath(recordPath) ||
+    !recordPath.startsWith('evidence/portable-runtime/contracts/') ||
+    selector.record?.path !== recordPath ||
+    !OBJECT.test(selector.record?.revision ?? '') ||
+    !exact(selector.approvalReview, [
+      'reviewId',
+      'subject',
+      'manifest',
+      'finalResponse',
+      'finalization',
+    ]) ||
+    !OBJECT.test(selector.approvalReview?.finalization?.revision ?? '')
+  )
+    throw Error('approved-reference-incomplete');
+}
+export function collectConformanceReceipts(record, readPinned, collect) {
+  for (const proof of record.activationBinding?.conformance ?? []) {
+    const ref = proof.artifact,
+      bytes = readPinned(ref);
+    if (
+      !Buffer.isBuffer(bytes) ||
+      hash(bytes) !== ref?.sha256 ||
+      blob(bytes, ref?.blob?.length === 64 ? 'sha256' : 'sha1') !== ref?.blob
+    )
+      continue;
+    let document;
+    try {
+      document = parseRawJson(bytes.toString('utf8'));
+    } catch {
+      continue;
+    }
+    if (
+      document?.schema !== 'ai-peer-review.activation-conformance/v1' ||
+      !Array.isArray(document.observations)
+    )
+      continue;
+    for (const observation of document.observations) collect(observation?.receipt);
+  }
+}
+export function inspectApprovedAdoption({ record: recordPath, approvedRef, cwd = process.cwd() }) {
+  const git = (args, encoding = null) =>
+    execFileSync('git', args, {
+      cwd,
+      encoding,
+      maxBuffer: 32 * 1024 * 1024,
+      env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))),
+    });
+  const selector = parseRawJson(readFileSync(approvedRef, 'utf8'));
+  validateApprovedSelector(selector, recordPath);
+  if (git(['cat-file', '-t', selector.evidenceRevision], 'utf8').trim() !== 'commit')
+    throw Error('approved-reference-not-commit');
+  git(['merge-base', '--is-ancestor', selector.record.revision, selector.evidenceRevision]);
+  const artifacts = new Map(),
+    observed = new Set();
+  const collect = (x) => {
+    if (!x || typeof x !== 'object') return;
+    if (Object.hasOwn(x, 'revision') && Object.hasOwn(x, 'path')) {
+      if (!OBJECT.test(x.revision ?? '') || !safePath(x.path) || fixturePath(x.path))
+        throw Error('artifact-reference-invalid');
+      if (git(['cat-file', '-t', x.revision], 'utf8').trim() !== 'commit')
+        throw Error('artifact-revision-not-commit');
+      const key = x.revision + ':' + x.path;
+      if (!observed.has(key)) {
+        artifacts.set(key, git(['show', key]));
+        observed.add(key);
+      }
+    }
+    if (exact(x, ['revision', 'sha256'])) {
+      if (
+        !OBJECT.test(x.revision ?? '') ||
+        !SHA.test(x.sha256 ?? '') ||
+        git(['cat-file', '-t', x.revision], 'utf8').trim() !== 'commit'
+      )
+        throw Error('finalization-reference-invalid');
+      artifacts.set('commit:' + x.revision, git(['show', '--no-patch', '--format=%B', x.revision]));
+    }
+    if (
+      exact(x, ['reviewId', 'subject', 'manifest', 'finalResponse', 'finalization']) &&
+      OBJECT.test(x.finalization?.revision ?? '')
+    ) {
+      const revision = x.finalization.revision;
+      artifacts.set(
+        'parent:' + revision,
+        git(['rev-list', '--parents', '-n', '1', revision], 'utf8')
+          .trim()
+          .split(' ')
+          .slice(1)
+          .join(' ')
+      );
+      for (const ref of [x.manifest, x.finalResponse]) {
+        if (safePath(ref?.path))
+          artifacts.set(
+            'tree:' + revision + ':' + ref.path,
+            git(['show', revision + ':' + ref.path])
+          );
+      }
+    }
+    for (const value of Object.values(x)) collect(value);
+  };
+  collect(selector);
+  const local = readFileSync(path.resolve(cwd, recordPath));
+  const pinned = artifacts.get(selector.record.revision + ':' + recordPath);
+  if (!pinned?.equals(local)) throw Error('record-drift');
+  if (
+    hash(pinned) !== selector.record.sha256 ||
+    blob(pinned, selector.record.blob?.length === 64 ? 'sha256' : 'sha1') !== selector.record.blob
+  )
+    throw Error('record-digest-mismatch');
+  const record = parseRawJson(pinned.toString('utf8'));
+  collect(record);
+  collectConformanceReceipts(
+    record,
+    (ref) => artifacts.get(ref?.revision + ':' + ref?.path),
+    collect
+  );
+  const tag = record.activationBinding?.release?.tag;
+  if (tag && /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(tag) && !tag.includes('..'))
+    artifacts.set(
+      'tag:' + tag,
+      git(['rev-parse', '--verify', 'refs/tags/' + tag + '^{commit}'], 'utf8').trim()
+    );
+  // Caller selectors choose immutable evidence; acceptance must come from the actual record review.
+  git([
+    'merge-base',
+    '--is-ancestor',
+    selector.approvalReview?.finalization?.revision,
+    selector.evidenceRevision,
+  ]);
+  const report = checkRuntimeContractAdoption({
+    record,
+    artifacts,
+    recordReference: selector.record,
+    approvalReview: selector.approvalReview,
+  });
+  return report;
+}
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    const report = inspectApprovedAdoption(parseAdoptionArgs(process.argv.slice(2)));
+    console.log(JSON.stringify(report));
+    process.exitCode = report.publicationAllowed ? 0 : 4;
+  } catch (error) {
+    console.log(
+      JSON.stringify({
+        contractAdopted: false,
+        activationAuthorized: false,
+        publicationAllowed: false,
+        contractBlockers: [error.message],
+        activationBlockers: [],
+      })
+    );
+    process.exitCode = 4;
+  }
+}
