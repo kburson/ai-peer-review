@@ -78,6 +78,7 @@ function validManifest(overrides = {}) {
         'docs/superpowers',
         'docs/releases',
         'docs/whitepapers',
+        'evidence/portable-runtime/contracts',
         'provenance',
         'schemas',
         'skills/peer-review',
@@ -126,6 +127,16 @@ function validManifest(overrides = {}) {
         'scripts/ci/receipt.mjs',
         'scripts/ci/record-tests.mjs',
         'scripts/ci/verify-receipts.mjs',
+        'scripts/check-runtime-contract-adoption.mjs',
+        'scripts/lib/runtime-contract-evidence.mjs',
+        'scripts/lib/runtime-review-grammar-v0.4.1.mjs',
+        'scripts/lib/runtime-review-lineage-proof.mjs',
+        'scripts/lib/review-grammar-v0.4.1/compatibility.mjs',
+        'scripts/lib/review-grammar-v0.4.1/events.mjs',
+        'scripts/lib/review-grammar-v0.4.1/record-lineage.mjs',
+        'scripts/lib/review-grammar-v0.4.1/reducer.mjs',
+        'scripts/lib/review-grammar-v0.4.1/runtime-descriptor.mjs',
+        'scripts/lib/review-grammar-v0.4.1/runtime-v1.json',
         'scripts/build-broker-security.mjs',
         'scripts/run-secret-scan.mjs',
         'scripts/task-tracker/verify-epic-trail.mjs',
@@ -728,4 +739,23 @@ test('refuses to record a failed Gitleaks scan as passing', () => {
       }),
     /Gitleaks scan failed/
   );
+});
+
+test('[#144] standalone inventory admits excluded contract evidence and exact checker closure only', async () => {
+  const allowed=[
+    'evidence/portable-runtime/contracts/runtime-contract-adoption.json',
+    'evidence/portable-runtime/contracts/review-lineage/review-fixture.json',
+    'scripts/check-runtime-contract-adoption.mjs',
+    'scripts/lib/runtime-contract-evidence.mjs',
+    'scripts/lib/runtime-review-grammar-v0.4.1.mjs',
+    'scripts/lib/runtime-review-lineage-proof.mjs',
+    'scripts/lib/review-grammar-v0.4.1/events.mjs',
+  ];
+  await verifyExtraction({root:'/repo',manifest:validManifest(),
+    runGit:fakeGit({current:['LICENSE',...allowed].join('\n')})});
+  for(const foreign of ['evidence/portable-runtime/other.json','evidence/other.json',
+    'scripts/lib/unrelated.mjs','scripts/lib/review-grammar-v0.4.1/unrelated.mjs']){
+    await assert.rejects(verifyExtraction({root:'/repo',manifest:validManifest(),
+      runGit:fakeGit({current:['LICENSE',...allowed,foreign].join('\n')})}),/foreign standalone paths/);
+  }
 });
