@@ -127,6 +127,12 @@ export function parseRawJson(text) {
         space();
         if (text[position] !== '"') return fail('json-key', pointer);
         const key = string(pointer);
+        // A malformed key cannot form a scalar diagnostic child pointer.
+        try {
+          assertScalarString(key);
+        } catch {
+          return fail('lone-surrogate', pointer);
+        }
         const path = pointer + '/' + escapePointer(key);
         if (seen.has(key)) return fail('duplicate-key', path);
         seen.add(key);

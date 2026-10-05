@@ -213,3 +213,58 @@ test('[#145] diagnostic bounds preserve Unicode scalars in long JSON Pointer key
     assert.ok(error.details.issues[0].pointer.isWellFormed());
   }
 });
+
+test('[#145] raw non-scalar keys fail with schema-valid corrective error envelopes', () => {
+  const valid = registry.operationRegistry.start_review.examples[0];
+  const prefix = JSON.stringify(valid).slice(0, -1);
+  for (const key of ['\\ud800', '\\udc00', 'prefix\\ud800', '\\udc00suffix']) {
+    for (const duplicate of [false, true]) {
+      const members = '"' + key + '":1' + (duplicate ? ',"' + key + '":2' : '');
+      for (const [suffix, parent] of [
+        [',' + members + '}', ''],
+        [',"extra":{' + members + '}}', '/extra'],
+        [',"extra":[{' + members + '}]}', '/extra/0'],
+        [',"extra":{"' + key + '":', '/extra'],
+      ]) {
+        const rawText = prefix + suffix;
+        let parsed = valid;
+        try {
+          parsed = JSON.parse(rawText);
+        } catch {
+          /* retain valid parsed input for malformed raw text */
+        }
+        assert.throws(
+          () => validation.validateOperation('start_review', parsed, { rawText }),
+          (error) => {
+            assert.equal(error.code, 'APR_REQUEST_INVALID');
+            const envelope = error.toJSON();
+            assert.equal(envelope.mutation_occurred, false);
+            assert.equal(envelope.retry_safe, true);
+            assert.deepEqual(validation.validateContract(registry.responseSchema, envelope), []);
+            assert.equal(error.details.issues[0].pointer, parent);
+            assert.ok(error.details.issues[0].pointer.isWellFormed());
+            return true;
+          }
+        );
+      }
+    }
+  }
+});
+
+test('[#145] valid scalar raw keys preserve exact escaped duplicate-key pointers', () => {
+  const valid = registry.operationRegistry.start_review.examples[0];
+  const prefix = JSON.stringify(valid).slice(0, -1);
+  const key = '😀/~';
+  const members = JSON.stringify(key) + ':1,' + JSON.stringify(key) + ':2';
+  const rawText = prefix + ',"extra":{' + members + '}}';
+  assert.throws(
+    () => validation.validateOperation('start_review', JSON.parse(rawText), { rawText }),
+    (error) => {
+      assert.equal(error.code, 'APR_REQUEST_INVALID');
+      assert.equal(error.details.issues[0].rule, 'duplicate-key');
+      assert.equal(error.details.issues[0].pointer, '/extra/😀~1~0');
+      assert.deepEqual(validation.validateContract(registry.responseSchema, error.toJSON()), []);
+      return true;
+    }
+  );
+});
