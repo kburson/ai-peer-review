@@ -754,7 +754,8 @@
       ],
       "expectedEvidenceApprover": {
         "githubLogin": "kburson",
-        "role": "orchestrator"
+        "role": "orchestrator",
+        "authorSessionFingerprint": "sha256:3360e116e28ffcee773a4e3ea34dd0578d5ef69a6b6d7df268f0693489c2d4be"
       },
       "recordReviewSelection": {
         "provider": "claude",

@@ -22,6 +22,10 @@ test('[#144] governed record has closed grammar without fixture adoption authori
   assert.equal(report.publicationAllowed, false);
 });
 for (const [name, change] of [
+  [
+    'missing expected root fingerprint',
+    (r) => delete r.governance.expectedEvidenceApprover.authorSessionFingerprint,
+  ],
   ['missing expected root author', (r) => delete r.governance.expectedEvidenceApprover],
   ['missing checker schema refs', (r) => delete r.governance.checkerSchemas],
   ['missing exact current importer refs', (r) => delete r.governance.checkerImporterSources],
@@ -164,7 +168,7 @@ function approvalGrammarFixture() {
       bindingVerified: true,
       lifecycleApproval: false,
       observedAt: '2026-10-05T00:00:00Z',
-      actorSessionFingerprint: 'a'.repeat(64),
+      actorSessionFingerprint: 'sha256:' + 'a'.repeat(64),
       bindingGenerationId: '00000000-0000-0000-0000-000000000000',
     },
     rootInspection: {

@@ -474,6 +474,11 @@ export function verifyGovernedRuntimeContractEvidence({
     for (const entry of g.priorLineage) {
       const receipt = readJson(entry.receipt),
         verifier = readJson(entry.verifier);
+      if (
+        equal(entry.review, g.canonicalPlanReview) &&
+        receipt.identities.authorFingerprint !== g.expectedEvidenceApprover.authorSessionFingerprint
+      )
+        block('governed-root-author-fingerprint-mismatch');
       const proof = checkRetainedLineageProof({
         receipt,
         reviewReference: entry.review,
@@ -538,6 +543,8 @@ export function verifyGovernedRuntimeContractEvidence({
       !equal(payload.approvalReview, approvalReview) ||
       !equal(payload.canonicalPlanReview, g.canonicalPlanReview) ||
       !equal(payload.nativeMapping, g.nativeMapping) ||
+      payload.nativeTransaction.actorSessionFingerprint !==
+        g.expectedEvidenceApprover.authorSessionFingerprint ||
       !equal(payload.lineageProofs, lineageProofs) ||
       payload.nativeTransaction.ownedCommentKey !== t.ownedCommentKey ||
       payload.authorityAssurance !== normal.assurance[0] ||

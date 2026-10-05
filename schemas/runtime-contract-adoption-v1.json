@@ -818,7 +818,7 @@
         "expectedEvidenceApprover": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["githubLogin", "role"],
+          "required": ["githubLogin", "role", "authorSessionFingerprint"],
           "properties": {
             "githubLogin": {
               "type": "string",
@@ -826,6 +826,10 @@
             },
             "role": {
               "const": "orchestrator"
+            },
+            "authorSessionFingerprint": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
             }
           }
         },
