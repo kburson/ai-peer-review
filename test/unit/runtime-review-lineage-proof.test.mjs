@@ -157,3 +157,9 @@ for (const [name, change] of [
     change(p);
     assert.equal(api.validateRuntimeLineageProof(p), false);
   });
+
+test('[#144] unrelated runtime closure cannot select the known producer profile', () => {
+  const p = structuredClone(actualReceipts[0]);
+  p.producer.runtimeImageDigest = 'sha256:' + '0'.repeat(64);
+  assert.equal(api.validateRuntimeLineageProof(p), false);
+});

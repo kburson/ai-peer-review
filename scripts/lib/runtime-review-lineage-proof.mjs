@@ -72,6 +72,13 @@ function read(file) {
 }
 const json = (file) => parseRawJson(read(file).toString('utf8'));
 // Exact producer modules that interpret the source/launch authority inspected below.
+// This bounded profile freezes the actually inspected complete package/Node closure.
+// A changed Node/dependency/package image requires a separately reviewed profile.
+export const LINEAGE_PRODUCER_RUNTIME_IMAGE = Object.freeze({
+  digest: 'sha256:5d2225b9e75751b57bed38802b6e0fa291b5d44b0a1ce3e9aaead9fd8fe8c955',
+  byteSha256: '1d9d126844149a391fed2fa27a26d6ba23dcdb5e251b37cf3ddd702ed3ac6e7a',
+  fileCount: 4739,
+});
 export const LINEAGE_PRODUCER_SOURCES = Object.freeze({
   ...RUNTIME_REVIEW_PRODUCER_SOURCES,
   'src/broker/runtime-image.mjs':
@@ -178,6 +185,8 @@ export function verifyRuntimeReviewLineage({ workspace, reviewReference, produce
   const registration = json(journal.registration_file);
   assertRuntimeReviewStartupBinding({ journal, registration, initialEvent: events[0], workspace });
   if (!verifyRuntimeImage(journal.runtime)) fail('producer-image-invalid');
+  if (journal.runtime.digest !== LINEAGE_PRODUCER_RUNTIME_IMAGE.digest)
+    fail('producer-image-profile-mismatch');
   const imageBytes = read(path.join(journal.runtime.root, 'runtime-image.json')),
     image = parseRawJson(imageBytes.toString('utf8'));
   if (
@@ -368,7 +377,10 @@ export function validateRuntimeLineageProof(value) {
       value.attempt.eventCount === value.attempt.sequence &&
       value.identities.authorFingerprint !== value.identities.reviewerFingerprint &&
       value.identities.authorityAssurance === value.reproducibility.assurance &&
-      equal(value.producer.sources, LINEAGE_PRODUCER_SOURCES)
+      equal(value.producer.sources, LINEAGE_PRODUCER_SOURCES) &&
+      value.producer.runtimeImageDigest === LINEAGE_PRODUCER_RUNTIME_IMAGE.digest &&
+      value.producer.runtimeImageByteSha256 === LINEAGE_PRODUCER_RUNTIME_IMAGE.byteSha256 &&
+      value.producer.fileCount === LINEAGE_PRODUCER_RUNTIME_IMAGE.fileCount
     );
   } catch {
     return false;
