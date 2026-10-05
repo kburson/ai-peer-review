@@ -40,7 +40,7 @@
     "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
     "e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a",
     "208a8e54a014415cdef0dda2b6d266b7745e7126d0902a34c2b7c1041b420828",
-    "f939b52fbb790f16d17cc8441a2e873ab836b300b51fd2abd60611ad08cb62f1",
+    "9018523174a6cf8118e71b6416b4f665fb71e7fc8eead043633291de805084e1",
     "6ccf9ddf86a0f5f097e2608c153d33de1b72cb4f7beb96c67573614b9f1418ec",
     "cbde9dd03599db73474944bd84123a3b441964f270c716112b0324ccb0d5488a",
     "f8d724cc9e5602aaf268d567c3c3d4b3180d7149cd1ac1b1865647fece0079da",
@@ -643,13 +643,13 @@
           }
         },
         "receipt": {
-          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
           "path": "evidence/portable-runtime/contracts/review-lineage/review-58b490491800f0c13d64191cb58071b5.json",
           "blob": "e87d28a280b75903eb6c5621a6f61780558ee1d8",
           "sha256": "76a0ca687364aeac8d41d9122a203eea79c7b18cd51f1b731df4a1c21d0b4f23"
         },
         "verifier": {
-          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
           "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
           "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
           "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
@@ -682,13 +682,13 @@
           }
         },
         "receipt": {
-          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
           "path": "evidence/portable-runtime/contracts/review-lineage/review-057079566301a0106537dde070ea518a.json",
           "blob": "6ab2cdf05f5725e4c7737199b36a5444ac054e03",
           "sha256": "ba1560b9a81c0f5b2875cd2c546de84bde94020164dc7d5235cbab31102418ac"
         },
         "verifier": {
-          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
           "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
           "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
           "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
@@ -721,13 +721,13 @@
           }
         },
         "receipt": {
-          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
           "path": "evidence/portable-runtime/contracts/review-lineage/review-a4157c49c11ad9d12836d7bfea0df472.json",
           "blob": "cd0ca70c45e3f7d4992a7fb5e19d01202fff92a1",
           "sha256": "2e3a0001e7b6926ac8491bda55eef018d6cccb1f06f0e00b1f0fe966f6a654b7"
         },
         "verifier": {
-          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
           "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
           "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
           "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
@@ -760,13 +760,13 @@
           }
         },
         "receipt": {
-          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
           "path": "evidence/portable-runtime/contracts/review-lineage/review-6522bc912d65661298c2b1a072c32f0b.json",
           "blob": "20740e5b4baa33c68560ecf02d1fb5df136cba88",
           "sha256": "f743d3911e51e188f4dc4ea56502d41060b389ec93c577a28374f9f39fbcb6b3"
         },
         "verifier": {
-          "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+          "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
           "path": "evidence/portable-runtime/contracts/verifier-sources/91d09d4971ce242397c04f616dc459eb9162076d.json",
           "blob": "36cc81cd987c1c333aafc38787c47336acc6a08b",
           "sha256": "6e867728907a8a0a67ee5ffe145560d2fd9a39e94134d409594e540a72d71a59"
@@ -779,25 +779,27 @@
       "authorSessionFingerprint": "sha256:3360e116e28ffcee773a4e3ea34dd0578d5ef69a6b6d7df268f0693489c2d4be"
     },
     "recordReviewSelection": {
-      "provider": "claude",
+      "selector": "claude",
+      "provider": "anthropic",
+      "host": "claude-code",
       "modelId": "claude-opus-5-5",
       "effort": "high"
     },
     "checkerSchemas": [
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "schemas/runtime-contract-adoption-v1.json",
-        "blob": "192c6fbf30e7bcf24372dfa07ba381943d79e251",
-        "sha256": "f939b52fbb790f16d17cc8441a2e873ab836b300b51fd2abd60611ad08cb62f1"
+        "blob": "29261f9118a8c0573a2da5faeabf727688817a34",
+        "sha256": "9018523174a6cf8118e71b6416b4f665fb71e7fc8eead043633291de805084e1"
       },
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "schemas/runtime-contract-evidence-approval-v1.json",
         "blob": "f4141a9c056c22ce764c25919ce453c6af8e77cc",
         "sha256": "6ccf9ddf86a0f5f097e2608c153d33de1b72cb4f7beb96c67573614b9f1418ec"
       },
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "schemas/runtime-review-lineage-proof-v1.json",
         "blob": "d9b68e48ef2ff8675aef156ff52579e8d3d837e2",
         "sha256": "cbde9dd03599db73474944bd84123a3b441964f270c716112b0324ccb0d5488a"
@@ -805,43 +807,43 @@
     ],
     "checkerImporterSources": [
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "scripts/lib/runtime-review-grammar-v0.4.1.mjs",
         "blob": "909cf1ca04bea4f6d1d3982781a0a0e938f518ab",
         "sha256": "f8d724cc9e5602aaf268d567c3c3d4b3180d7149cd1ac1b1865647fece0079da"
       },
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "scripts/lib/review-grammar-v0.4.1/compatibility.mjs",
         "blob": "e59600d9c0fb075cd79858ca2e499505793bf144",
         "sha256": "04caa2a1677f341a8fe06bab5090a4768b09e2b4349f8317dc3940a516320787"
       },
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "scripts/lib/review-grammar-v0.4.1/events.mjs",
         "blob": "1335cad2e5ccc8e9fe94142e019e020e0493f001",
         "sha256": "155fdc4c8d4ba794de0f4d758af965211aab858768483fdfd9ccf261b8940481"
       },
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "scripts/lib/review-grammar-v0.4.1/record-lineage.mjs",
         "blob": "6ba51f03c8289fde0f433dfa5feb71e403add8ef",
         "sha256": "4d3fc800794729aecac4bab72e5560e8367cf0c1d2565361527e9b8035fe2b36"
       },
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "scripts/lib/review-grammar-v0.4.1/reducer.mjs",
         "blob": "994ec45ef53a6b5ac0c2cc947e16113635a779cb",
         "sha256": "25ab2156fa4f82277119bf5735bb47db21d58112a21dd73537f06ec80ecb7987"
       },
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "scripts/lib/review-grammar-v0.4.1/runtime-descriptor.mjs",
         "blob": "3d38834c846875584b9a5fcc1f68fd89dcf0cf0c",
         "sha256": "b633a1f16d7e8464873f52ee2f69d9baac08a871dd2aaf13f31f7e14d8dabd44"
       },
       {
-        "revision": "06baf2b24510eb16360981e2b8e30ef6adc8d359",
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
         "path": "scripts/lib/review-grammar-v0.4.1/runtime-v1.json",
         "blob": "955cbd53e27444f5d9c8a5c3ed2338f874b21bcb",
         "sha256": "9a4f51b04cbf621ffcce841054ab434b3d7c9acc89f8010913f170d133f2ff37"
