@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 // @story #144
 // Retained public facts only. Original private events are never replayed by these tests.
 import test from 'node:test';
@@ -105,4 +106,28 @@ for (const [label, change, blocker] of [
     assert.equal(result.receiptCoherent, false);
     assert.ok(result.blockers.includes(blocker), JSON.stringify(result.blockers));
   });
+}
+
+for (const field of ['artifact_history', 'turns']) {
+  test(
+    '[#144] malformed actual retained ' + field + ' returns typed refusal without throwing',
+    () => {
+      const x = actual(),
+        p = x.reviewReference;
+      const old = x.artifacts.get(p.manifest.revision + ':' + p.manifest.path).toString();
+      const match = old.match(/^`{3}json\r?\n([\s\S]*?)^`{3}\s*$/m);
+      const model = JSON.parse(match[1]);
+      model[field] = {};
+      const bytes = Buffer.from(JSON.stringify(model));
+      const sha = createHash('sha256').update(bytes).digest('hex');
+      const blob = createHash('sha1')
+        .update(Buffer.concat([Buffer.from('blob ' + bytes.length + '\0'), bytes]))
+        .digest('hex');
+      p.manifest = { ...p.manifest, sha256: sha, blob };
+      x.artifacts.set(p.manifest.revision + ':' + p.manifest.path, bytes);
+      const result = checkRetainedLineageProof(x);
+      assert.equal(result.receiptCoherent, false);
+      assert.ok(result.blockers.includes('lineage-proof-normal-collateral-incomplete'));
+    }
+  );
 }

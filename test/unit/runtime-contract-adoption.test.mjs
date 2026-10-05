@@ -1019,3 +1019,34 @@ test('[#144] own normal collateral cannot substitute for retained lineage and go
   assert.ok(result.contractBlockers.includes('lineage-proofs-missing'));
   assert.ok(result.contractBlockers.includes('approved-evidence-transaction-missing'));
 });
+
+for (const [field, value] of [
+  ['artifact_history', {}],
+  ['turns', {}],
+  ['artifact_history', null],
+  ['turns', null],
+  ['participants', null],
+  ['runtime', []],
+  ['lineage_receipt', []],
+]) {
+  test(
+    '[#144] malformed ' + field + ' gives typed refusal through normal and adoption seams',
+    () => {
+      const f = fixture(),
+        p = f.record.amendmentReview;
+      const manifest = JSON.parse(f.artifacts.get(p.manifest.revision + ':' + p.manifest.path));
+      manifest[field] = value;
+      p.manifest = f.add(p.manifest.path, manifest);
+      const normal = api.checkNormalRuntimeReview({
+        proof: p,
+        artifacts: f.artifacts,
+        producerVersion: '0.4.1',
+      });
+      assert.equal(normal.collateralComplete, false);
+      assert.ok(normal.blockers.includes('review-manifest-invalid'));
+      const report = api.checkRuntimeContractAdoption(f);
+      assert.equal(report.contractAdopted, false);
+      assert.ok(report.contractBlockers.includes('review-manifest-invalid'));
+    }
+  );
+}

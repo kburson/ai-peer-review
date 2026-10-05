@@ -280,7 +280,11 @@ function createReviewContext({ artifacts, block, assurance, producerVersion = '0
       block('review-proof-incomplete');
       return;
     }
-    if (!validateRuntimeReviewManifest(manifest, producerVersion)) block('review-manifest-invalid');
+    if (!validateRuntimeReviewManifest(manifest, producerVersion)) {
+      block('review-manifest-invalid');
+      if (manifest.status !== 'accepted') block('review-not-accepted');
+      return; // Closed shape must be valid before dependent container dereferences.
+    }
     if (
       manifest.schema !== 'ai-peer-review.manifest/v1' ||
       manifest.review_id !== proof.reviewId ||

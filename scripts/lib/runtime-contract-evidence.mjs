@@ -211,7 +211,15 @@ export function checkRetainedLineageProof({ receipt, reviewReference, artifacts 
     artifacts,
     producerVersion: '0.4.1',
   });
-  if (!normal.collateralComplete) block('lineage-proof-normal-collateral-incomplete');
+  if (!normal.collateralComplete) {
+    block('lineage-proof-normal-collateral-incomplete');
+    return {
+      receiptCoherent: false,
+      verifierCurrent: false,
+      blockers: [...new Set(blockers)].sort(),
+      originalPrivateReplay: 'unavailable',
+    };
+  }
   const bytes = pinned(reviewReference?.manifest, artifacts);
   let manifest;
   try {
