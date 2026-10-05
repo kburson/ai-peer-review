@@ -1,3 +1,4 @@
+import { renderHelp } from '../api/registry.mjs';
 import { AprError } from '../errors.mjs';
 import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './parse.mjs';
 import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
@@ -1226,4 +1227,9 @@ export function explainError(code, format = 'json') {
     recovery: entry.recovery,
   });
   return format === 'json' ? result : `${code}\n\n${entry.message}\nRecovery: ${entry.recovery}\n`;
+}
+
+// Structured API discovery seam; runtime routing is activated by later stories.
+export function apiHelpRequest(topic = 'operations', format = 'structured') {
+  return renderHelp({ topic, format });
 }

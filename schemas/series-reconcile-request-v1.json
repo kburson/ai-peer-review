@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.series-reconcile-request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.series-reconcile-request/v1"
+    },
+    "action_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "filepath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "expected_pointer_digest": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "const": "absent"
+        }
+      ]
+    },
+    "expected_index_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "user_authorization": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "action": {
+      "enum": ["repair-pointer", "repoint", "new-lineage"]
+    },
+    "series_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    }
+  },
+  "required": [
+    "schema",
+    "action_id",
+    "filepath",
+    "expected_pointer_digest",
+    "expected_index_revision",
+    "user_authorization",
+    "reason",
+    "action"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "enum": ["repair-pointer", "repoint"]
+          }
+        }
+      },
+      "then": {
+        "required": ["series_id"]
+      }
+    }
+  ]
+}

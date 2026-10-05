@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.wait-request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.wait-request/v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "after_cursor": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  },
+  "required": ["schema", "run_id", "after_cursor"]
+}

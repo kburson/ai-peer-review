@@ -103,6 +103,7 @@
     "unreviewable",
     "unvalidated",
     "USERPROFILE",
-    "WINDIR"
+    "WINDIR",
+    "repoint"
   ]
 }

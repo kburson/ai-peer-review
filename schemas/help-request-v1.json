@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.help-request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.help-request/v1"
+    },
+    "topic": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "format": {
+      "enum": ["structured", "text"]
+    }
+  },
+  "required": ["schema", "topic"]
+}

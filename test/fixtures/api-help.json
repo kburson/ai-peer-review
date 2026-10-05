@@ -1,0 +1,579 @@
+{
+  "schema": "ai-peer-review.help/v1",
+  "ok": true,
+  "mutation_occurred": false,
+  "retry_safe": true,
+  "next_action": null,
+  "topic": "operations",
+  "summary": "CLI inline JSON, CLI --request files and MCP objects use identical closed contracts. Parsed-only MCP duplicate_keys is not-observable. Authentication is transport-bound; credentials and raw handles are forbidden.",
+  "topics": {
+    "operations": "CLI inline JSON, CLI --request files and MCP objects use identical closed contracts. Parsed-only MCP duplicate_keys is not-observable. Authentication is transport-bound; credentials and raw handles are forbidden.",
+    "start-request": "stages is required. SAR has solo; SPR/XPR have author and reviewer. Explicit selector/model/effort expresses intent; installed admission separately checks actual provider capabilities. Canonical identity hashes exact submitted filepath and content before defaults.",
+    "classes": "SAR is one solo worker; SPR has distinct same-family author/reviewer sessions; XPR has distinct cross-family sessions. All workers are headless.",
+    "sequences": "Stages run in order; independent or shared prior_evidence is explicit. Non-acceptance stops later stages.",
+    "fallbacks": "fallback_kinds is nonempty, unique, includes the requested class and preserves role count. Profile policy is sealed independently.",
+    "permissions": "Controller intervention and participant submission use distinct sealed role bindings. User authorization is verified separately from its receipt reference.",
+    "monitoring": "monitoring.reconcile_after_ms=120000 is the provider-output liveness threshold for a read-only reconciliation probe, not proof of death. Liveness checks default to 15000ms; warning to 60000ms. A wrapper reconnect window bounds transport reattachment and identity revalidation; it does not reset liveness, hard timeout or stage budgets. Quiet live reasoning continues; unknown effects stay fenced.",
+    "waiting": "Transport timeout detaches the observer; it does not cancel the review. Resume after_cursor outside inference where the host permits it.",
+    "status": "Coarse status is independent of liveness, participants, fencing and dispatch_admission. Unavailable observations are null with a reason. A lost visible observer holds new dispatch until a verified visible surface reattaches.",
+    "interventions": "Every intervention carries action_id and expected_revision plus a closed action. Exact replay returns its receipt. Resume cannot clear unproved effects; unresolved findings cannot become acceptance.",
+    "turns": "submit_review_turn seals role-partition response bytes; critique and revision are separate closed content contracts. Reviewed digest and revision must match authority.",
+    "evidence": "Retain exact sealed responses, digests, patches, manifests and lineage. Pointer reconciliation is bounded and reversible; historical evidence is immutable.",
+    "broker": "Read-only tools do not silently create a run or broker. Cleanup apply requires action_id and revalidates ownership and activity.",
+    "errors": "Errors return bounded JSON Pointer issues with rule, safe received summary, expected shape, correction, truncation count, mutation status, retry safety and an exact help next_action.",
+    "journeys": "1. Construct start request, preview intent, start, then wait with the durable cursor. 2. Handle a typed intervention and resume wait. 3. Inspect retained evidence and explicitly reconcile a series pointer or clean up eligible brokers.",
+    "findings": "Use registry grammar ai-peer-review.finding-id/v1; whole-input matching and requested-stage lifetime uniqueness are required. APR_FINDINGS_UNRESOLVED prevents acceptance."
+  },
+  "operations": {
+    "start_review": {
+      "name": "start_review",
+      "cli": "start",
+      "topic": "start-request",
+      "description": "Use one versioned closed request for start_review.",
+      "request_schema": "ai-peer-review.start-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.start-request/v1",
+          "request_id": "apr-request-example",
+          "filepath": "spec.md",
+          "stages": [
+            {
+              "kind": "sar",
+              "max_rounds": 6
+            }
+          ]
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    },
+    "preview_review": {
+      "name": "preview_review",
+      "cli": "preview",
+      "topic": "start-request",
+      "description": "Validate and disclose the intended sequence without mutation.",
+      "request_schema": "ai-peer-review.start-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.start-request/v1",
+          "request_id": "apr-request-example",
+          "filepath": "spec.md",
+          "stages": [
+            {
+              "kind": "sar",
+              "max_rounds": 6
+            }
+          ]
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    },
+    "wait_for_review": {
+      "name": "wait_for_review",
+      "cli": "wait",
+      "topic": "waiting",
+      "description": "Use one versioned closed request for wait_for_review.",
+      "request_schema": "ai-peer-review.wait-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.wait-request/v1",
+          "run_id": "apr-run-example",
+          "after_cursor": null
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    },
+    "get_review_status": {
+      "name": "get_review_status",
+      "cli": "status",
+      "topic": "status",
+      "description": "Use one versioned closed request for get_review_status.",
+      "request_schema": "ai-peer-review.status-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.status-request/v1",
+          "run_id": "apr-run-example"
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    },
+    "intervene_review": {
+      "name": "intervene_review",
+      "cli": "intervene",
+      "topic": "interventions",
+      "description": "Use one versioned closed request for intervene_review.",
+      "request_schema": "ai-peer-review.intervention-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.intervention-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "action": {
+            "kind": "cancel",
+            "reason": "Requested by the controller"
+          }
+        },
+        {
+          "schema": "ai-peer-review.intervention-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "action": {
+            "kind": "resume"
+          }
+        },
+        {
+          "schema": "ai-peer-review.intervention-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "action": {
+            "kind": "replace-participant",
+            "participant_id": "worker-author",
+            "candidate": {
+              "selector": "codex",
+              "model": "gpt-6-astra",
+              "effort": "high"
+            },
+            "user_authorization": "apr-authorization-example",
+            "reason": "Verified replacement authorization"
+          }
+        },
+        {
+          "schema": "ai-peer-review.intervention-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "action": {
+            "kind": "extend-cap",
+            "requested_stage_id": "stage-1",
+            "max_rounds": 12,
+            "user_authorization": "apr-authorization-example",
+            "reason": "Explicitly authorized additional rounds"
+          }
+        },
+        {
+          "schema": "ai-peer-review.intervention-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "action": {
+            "kind": "reconcile-operation",
+            "operation_id": "operation-1",
+            "evidence_receipts": ["receipt-1"],
+            "user_authorization": "apr-authorization-example",
+            "reason": "Inspect exact operation identity and effects"
+          }
+        },
+        {
+          "schema": "ai-peer-review.intervention-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "action": {
+            "kind": "resolve-checkpoint",
+            "checkpoint_id": "checkpoint-1",
+            "expected_current_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "disposition": "restore-sealed",
+            "target_sealed_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "user_authorization": "apr-authorization-example",
+            "reason": "Restore sealed bytes after proved writer quiescence"
+          }
+        },
+        {
+          "schema": "ai-peer-review.intervention-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "action": {
+            "kind": "acknowledge-unresolved",
+            "operation_ids": ["operation-1"],
+            "user_authorization": "apr-authorization-example",
+            "reason": "End work while retaining every unresolved obligation"
+          }
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    },
+    "submit_review_turn": {
+      "name": "submit_review_turn",
+      "cli": "submit",
+      "topic": "turns",
+      "description": "Use one versioned closed request for submit_review_turn.",
+      "request_schema": "ai-peer-review.submit-turn-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.submit-turn-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "stage_attempt_id": "apr-attempt-example",
+          "round": 1,
+          "phase": "critique",
+          "reviewed_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "response_path": ".scratch/peer-review/run/submissions/solo/critique.json",
+          "response_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "schema": "ai-peer-review.submit-turn-request/v1",
+          "run_id": "apr-run-example",
+          "action_id": "apr-action-example",
+          "expected_revision": 1,
+          "stage_attempt_id": "apr-attempt-example",
+          "round": 1,
+          "phase": "revision",
+          "reviewed_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "response_path": ".scratch/peer-review/run/submissions/solo/revision.json",
+          "response_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    },
+    "get_peer_review_help": {
+      "name": "get_peer_review_help",
+      "cli": "help",
+      "topic": "operations",
+      "description": "Use one versioned closed request for get_peer_review_help.",
+      "request_schema": "ai-peer-review.help-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.help-request/v1",
+          "topic": "operations",
+          "format": "structured"
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    },
+    "cleanup_brokers": {
+      "name": "cleanup_brokers",
+      "cli": "cleanup",
+      "topic": "broker",
+      "description": "Use one versioned closed request for cleanup_brokers.",
+      "request_schema": "ai-peer-review.cleanup-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.cleanup-request/v1",
+          "project": "/example/project",
+          "mode": "dry-run"
+        },
+        {
+          "schema": "ai-peer-review.cleanup-request/v1",
+          "project": "/example/project",
+          "mode": "apply",
+          "action_id": "apr-action-cleanup"
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    },
+    "reconcile_review_series": {
+      "name": "reconcile_review_series",
+      "cli": "reconcile-series",
+      "topic": "evidence",
+      "description": "Use one versioned closed request for reconcile_review_series.",
+      "request_schema": "ai-peer-review.series-reconcile-request/v1",
+      "response_schema_document": "schemas/api-response-v1.json",
+      "examples": [
+        {
+          "schema": "ai-peer-review.series-reconcile-request/v1",
+          "action_id": "apr-action-series",
+          "filepath": "spec.md",
+          "expected_pointer_digest": "absent",
+          "expected_index_revision": 1,
+          "user_authorization": "apr-authorization-series",
+          "reason": "Explicit bounded pointer reconciliation",
+          "action": "new-lineage"
+        },
+        {
+          "schema": "ai-peer-review.series-reconcile-request/v1",
+          "action_id": "apr-action-series",
+          "filepath": "spec.md",
+          "expected_pointer_digest": "absent",
+          "expected_index_revision": 1,
+          "user_authorization": "apr-authorization-series",
+          "reason": "Explicit bounded pointer reconciliation",
+          "action": "repair-pointer",
+          "series_id": "apr-series-existing"
+        },
+        {
+          "schema": "ai-peer-review.series-reconcile-request/v1",
+          "action_id": "apr-action-series",
+          "filepath": "spec.md",
+          "expected_pointer_digest": "absent",
+          "expected_index_revision": 1,
+          "user_authorization": "apr-authorization-series",
+          "reason": "Explicit bounded pointer reconciliation",
+          "action": "repoint",
+          "series_id": "apr-series-existing"
+        }
+      ],
+      "errors": [
+        "APR_REQUEST_INVALID",
+        "APR_OPERATION_UNKNOWN",
+        "APR_FINDINGS_UNRESOLVED",
+        "APR_FINDING_ID_CONFLICT",
+        "APR_FALLBACK_TOPOLOGY_INVALID"
+      ]
+    }
+  },
+  "errors": {
+    "APR_REQUEST_INVALID": {
+      "message": "Review request is malformed.",
+      "recovery": "Correct the reported fields and retry the exact registered operation."
+    },
+    "APR_OPERATION_UNKNOWN": {
+      "message": "The operation is not registered.",
+      "recovery": "Read the operation registry and choose a registered operation."
+    },
+    "APR_FINDINGS_UNRESOLVED": {
+      "message": "Unresolved findings prevent acceptance.",
+      "recovery": "Resolve every open finding through the registered critique and revision contract."
+    },
+    "APR_FINDING_ID_CONFLICT": {
+      "message": "A finding ID is already used in this requested-stage ledger.",
+      "recovery": "Choose fresh finding IDs and resubmit the same phase and revision."
+    },
+    "APR_FALLBACK_TOPOLOGY_INVALID": {
+      "message": "Fallback classes change the requested role count.",
+      "recovery": "Use a separate requested stage for a different role count."
+    }
+  },
+  "finding_grammar": {
+    "id": "ai-peer-review.finding-id/v1",
+    "pattern": "^[A-Za-z][A-Za-z0-9._-]{0,63}$",
+    "flags": "",
+    "minLength": 1,
+    "maxLength": 64
+  },
+  "examples": [
+    {
+      "name": "status",
+      "value": {
+        "schema": "ai-peer-review.response/v1",
+        "ok": true,
+        "mutation_occurred": false,
+        "retry_safe": true,
+        "next_action": {
+          "tool": "wait_for_review",
+          "arguments": {
+            "schema": "ai-peer-review.wait-request/v1",
+            "run_id": "apr-run-example",
+            "after_cursor": null
+          }
+        },
+        "summary": "SAR is running; observations are unavailable until verified.",
+        "evidence_paths": ["docs/superpowers/peer-reviews/run/manifest.json"],
+        "run_id": "apr-run-example",
+        "status": "running",
+        "revision": 1,
+        "cursor": "cursor-1",
+        "input_validation": {
+          "duplicate_keys": "not-observable"
+        },
+        "liveness": {
+          "broker_heartbeat_age_ms": null,
+          "broker_health": "unknown",
+          "last_protocol_progress_at": null,
+          "last_successful_observation_at": null,
+          "observation_age_ms": null,
+          "monitor_stale": true,
+          "unavailable_reason": "not-observed"
+        },
+        "participants": [
+          {
+            "role": "solo",
+            "participant_id": "worker-solo",
+            "placement": "headless",
+            "phase": "critique",
+            "role_state": "unknown",
+            "process_health": "unknown",
+            "last_provider_event_at": null,
+            "provider_output_age_ms": null,
+            "unavailable_reason": "not-observed"
+          }
+        ],
+        "fencing": {
+          "active": false,
+          "entries": []
+        },
+        "dispatch_admission": {
+          "held": false,
+          "reason_code": null,
+          "required_action": null
+        }
+      }
+    },
+    {
+      "name": "error",
+      "value": {
+        "schema": "ai-peer-review.response/v1",
+        "ok": false,
+        "mutation_occurred": false,
+        "retry_safe": true,
+        "next_action": {
+          "tool": "get_peer_review_help",
+          "arguments": {
+            "schema": "ai-peer-review.help-request/v1",
+            "topic": "start-request",
+            "format": "structured"
+          }
+        },
+        "error": {
+          "code": "APR_REQUEST_INVALID",
+          "message": "Review request is malformed.",
+          "issues": [
+            {
+              "pointer": "/stages/0/kind",
+              "rule": "enum",
+              "received": "string (3 UTF-16 units; value withheld)",
+              "expected": ["sar", "spr", "xpr"],
+              "correction": "Choose sar, spr or xpr."
+            }
+          ],
+          "truncated_issue_count": 0,
+          "help_topic": "start-request",
+          "schema": "ai-peer-review.start-request/v1",
+          "examples": []
+        },
+        "details": {
+          "issues": [
+            {
+              "pointer": "/stages/0/kind",
+              "rule": "enum",
+              "received": "string (3 UTF-16 units; value withheld)",
+              "expected": ["sar", "spr", "xpr"],
+              "correction": "Choose sar, spr or xpr."
+            }
+          ],
+          "truncated_issue_count": 0,
+          "help_topic": "start-request",
+          "schema": "ai-peer-review.start-request/v1",
+          "examples": []
+        }
+      }
+    },
+    {
+      "name": "config",
+      "value": {
+        "schema": "ai-peer-review.config/v2",
+        "review": {
+          "round_caps": {
+            "sar": 6,
+            "spr": 10,
+            "xpr": 12
+          },
+          "max_rounds_limit": 1000
+        },
+        "orchestration": {
+          "default_profile": null,
+          "profiles": {}
+        },
+        "monitoring": {
+          "liveness_interval_ms": 15000,
+          "warn_after_ms": 60000,
+          "reconcile_after_ms": 120000,
+          "hard_timeout_ms": 1800000
+        },
+        "broker": {
+          "idle_grace_ms": 60000
+        },
+        "telemetry": {
+          "grace_period_ms": 30000
+        },
+        "diagnostics": {
+          "retention_ms": 604800000,
+          "preserve_clean_logs": false
+        },
+        "retries": {
+          "max_launch_attempts_per_candidate": 2,
+          "max_revision_attempts_per_round": 3
+        }
+      }
+    },
+    {
+      "name": "critique",
+      "value": {
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "finding_id": "XPR-001",
+            "category": "correctness",
+            "severity": "high",
+            "rationale": "The boundary requires a closed schema.",
+            "evidence": ["spec.md:1"]
+          }
+        ],
+        "resolutions": []
+      }
+    },
+    {
+      "name": "revision",
+      "value": {
+        "dispositions": [
+          {
+            "finding_id": "XPR-001",
+            "disposition": "fixed",
+            "rationale": "The closed schema rejects the unexpected field."
+          }
+        ],
+        "revised_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    }
+  ],
+  "compatibility": "API registry envelope, transport tag ai-peer-review.response/v1. The historical response-v1.json reader owns legacy participant responses; choose the boundary-specific document, never the tag alone."
+}

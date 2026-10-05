@@ -1,0 +1,18 @@
+{
+  "valid": {
+    "schema": "ai-peer-review.start-request/v1",
+    "request_id": "apr-request-example",
+    "filepath": "spec.md",
+    "stages": [
+      {
+        "kind": "sar",
+        "max_rounds": 6
+      }
+    ]
+  },
+  "rawEquivalent": [
+    "{\"schema\":\"ai-peer-review.start-request/v1\",\"request_id\":\"apr-request-example\",\"filepath\":\"spec.md\",\"stages\":[{\"kind\":\"sar\",\"max_rounds\":6}]}",
+    " { \"stages\": [ { \"max_rounds\": 6.0, \"kind\": \"sar\" } ], \"filepath\": \"\\u0073pec.md\", \"request_id\": \"apr-request-example\", \"schema\": \"ai-peer-review.start-request/v1\" } ",
+    "{\"stages\":[{\"max_rounds\":6e0,\"kind\":\"sar\"}],\"request_id\":\"apr-request-example\",\"schema\":\"ai-peer-review.start-request/v1\",\"filepath\":\"spec.md\"}"
+  ]
+}
