@@ -1,0 +1,42 @@
+{
+  "ownerIssue": 34,
+  "repository": "kburson/ai-peer-review",
+  "authenticatedActor": "kburson",
+  "comment": {
+    "nodeId": "IC_kwDOUTbzDs8AAAABZV-4dQ",
+    "id": 5995739253,
+    "url": "https://github.com/kburson/ai-peer-review/issues/34#issuecomment-5995739253",
+    "ownedKey": "runtime-contract-adoption.144-v1",
+    "sha256": "5b0639abddd38dfd4c3d8467931bd7f70ed65afa420706049284691dcdeaec17",
+    "authoredBy": "kburson",
+    "createdAt": "2026-10-05T13:45:12Z"
+  },
+  "issueBody": {
+    "version": 14,
+    "sha256": "344820842052f05f027e7bab72388f77089c91296add6afc963d1c6923a10cd0",
+    "ordinaryMetadataAndMarkersPreserved": true
+  },
+  "acceptedOwnerPlan": {
+    "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+    "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+    "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8",
+    "reviewId": "review-057079566301a0106537dde070ea518a"
+  },
+  "native": {
+    "commentExit": 0,
+    "bodyExit": 0,
+    "bindingVerified": true,
+    "role": "agent",
+    "branch": "codex/planning",
+    "lifecycleStatePreserved": "ready-for-plan",
+    "pauseExit": 0,
+    "occupancyReleaseExit": 0,
+    "paused": true,
+    "timerOpen": false,
+    "activeBindingAbsent": true,
+    "sourceAndOldCollateralPreserved": true
+  },
+  "jointAdoptionClaim": false,
+  "fullCanonicalPlanAndContractActivationGatesPending": true,
+  "recordedAt": "2026-10-05T13:54:37.395Z"
+}
