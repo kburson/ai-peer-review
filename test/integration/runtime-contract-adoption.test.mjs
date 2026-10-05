@@ -50,6 +50,33 @@ function withGitFixture(run) {
         },
       },
     };
+    // Complete locator grammar only. These five deliberately non-normal draft
+    // objects and synthetic public descriptor never supply acceptance authority.
+    selector.lineageProofs = Array.from({ length: 5 }, (_, i) => ({
+      review: {
+        reviewId: 'review-offline-fixture-' + i,
+        subject: selector.record,
+        manifest: selector.record,
+        finalResponse: selector.record,
+        finalization: selector.approvalReview.finalization,
+      },
+      receipt: selector.record,
+      verifier: selector.record,
+    }));
+    selector.approvedEvidenceTransaction = {
+      kind: 'aitm-owned-comment',
+      repository: 'kburson/ai-peer-review',
+      issue: 144,
+      ownedCommentKey: 'runtime-contract-approved-evidence.review-offline-fixture',
+      commentDatabaseId: 1,
+      commentNodeId: 'IC_offline_fixture',
+      url: 'https://github.com/kburson/ai-peer-review/issues/144#issuecomment-1',
+      authoredBy: 'offline-fixture',
+      body: selector.record,
+      bodySha256: selector.record.sha256,
+      publishedAt: '2026-10-05T00:00:00Z',
+      observedAt: '2026-10-05T00:00:01Z',
+    };
     const approvedRef = path.join(cwd, 'selector.json');
     writeFileSync(approvedRef, JSON.stringify(selector));
     run({ cwd, record, approvedRef, git, selector });

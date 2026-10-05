@@ -836,10 +836,16 @@
         "recordReviewSelection": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["provider", "modelId", "effort"],
+          "required": ["selector", "provider", "host", "modelId", "effort"],
           "properties": {
-            "provider": {
+            "selector": {
               "const": "claude"
+            },
+            "provider": {
+              "const": "anthropic"
+            },
+            "host": {
+              "const": "claude-code"
             },
             "modelId": {
               "const": "claude-opus-5-5"

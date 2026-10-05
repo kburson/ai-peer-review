@@ -407,6 +407,28 @@ function currentCheckerCommitted() {
     return false;
   }
 }
+
+// Compare the explicit decision to the producer's full requested identity. CLI
+// selector and provider are distinct fields; no aliases or authority are inferred.
+export function matchesRuntimeContractReviewSelection({ selection, requestedReviewer } = {}) {
+  return (
+    exact(selection, ['selector', 'provider', 'host', 'modelId', 'effort']) &&
+    exact(requestedReviewer, [
+      'selector',
+      'provider',
+      'host',
+      'model_id',
+      'model_display',
+      'effort',
+    ]) &&
+    requestedReviewer.selector === selection.selector &&
+    requestedReviewer.provider === selection.provider &&
+    requestedReviewer.host === selection.host &&
+    requestedReviewer.model_id === selection.modelId &&
+    requestedReviewer.effort === selection.effort
+  );
+}
+
 export function verifyGovernedRuntimeContractEvidence({
   record,
   recordReference,
@@ -578,9 +600,10 @@ export function verifyGovernedRuntimeContractEvidence({
         const requested = receipt.identities?.requestedReviewer,
           selected = g.recordReviewSelection;
         if (
-          requested?.provider !== selected.provider ||
-          requested?.model_id !== selected.modelId ||
-          requested?.effort !== selected.effort
+          !matchesRuntimeContractReviewSelection({
+            selection: selected,
+            requestedReviewer: requested,
+          })
         )
           block('governed-record-review-selection-mismatch');
       }

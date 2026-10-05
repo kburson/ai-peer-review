@@ -202,3 +202,48 @@ for (const [name, change] of [
     change(p);
     assert.equal(checker.validateRuntimeContractEvidenceApproval(p), false);
   });
+
+test('[#144] exact requested record reviewer distinguishes CLI selector from actual provider', () => {
+  const requested = JSON.parse(
+    readFileSync(
+      new URL(
+        '../../evidence/portable-runtime/contracts/review-lineage/review-057079566301a0106537dde070ea518a.json',
+        import.meta.url
+      )
+    )
+  ).identities.requestedReviewer;
+  assert.equal(requested.selector, 'claude');
+  assert.equal(requested.provider, 'anthropic');
+  assert.equal(typeof evidence.matchesRuntimeContractReviewSelection, 'function');
+  assert.equal(
+    evidence.matchesRuntimeContractReviewSelection({
+      selection: fixture.record.governance.recordReviewSelection,
+      requestedReviewer: requested,
+    }),
+    true
+  );
+  for (const [key, value] of [
+    ['selector', 'anthropic'],
+    ['provider', 'claude'],
+    ['host', 'other-host'],
+    ['model_id', 'other-model'],
+    ['effort', 'low'],
+  ]) {
+    const altered = { ...requested, [key]: value };
+    assert.equal(
+      evidence.matchesRuntimeContractReviewSelection({
+        selection: fixture.record.governance.recordReviewSelection,
+        requestedReviewer: altered,
+      }),
+      false,
+      key
+    );
+  }
+  assert.equal(
+    evidence.matchesRuntimeContractReviewSelection({
+      selection: { ...fixture.record.governance.recordReviewSelection, alias: true },
+      requestedReviewer: requested,
+    }),
+    false
+  );
+});
