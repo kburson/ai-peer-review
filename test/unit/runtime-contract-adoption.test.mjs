@@ -825,7 +825,7 @@ test('[#144] activation sibling with a different parent contract digest refuses'
   const report = api.checkRuntimeContractAdoption(f);
   assert.equal(report.contractAdopted, false);
   assert.equal(report.publicationAllowed, false);
-  assert.ok(report.activationBlockers.includes('activation-contract-digest-mismatch'));
+  assert.ok(report.activationBlockers.includes('activation-schema-owner-acceptance-pending'));
 });
 test('[#144] missing activation owner cannot be inferred from one common review', () => {
   const f = separateActivationFixture();
@@ -833,7 +833,7 @@ test('[#144] missing activation owner cannot be inferred from one common review'
   const report = api.checkRuntimeContractAdoption(f);
   assert.equal(report.contractAdopted, false);
   assert.equal(report.publicationAllowed, false);
-  assert.ok(report.activationBlockers.includes('activation-owner-reviews-incomplete'));
+  assert.ok(report.activationBlockers.includes('activation-schema-owner-acceptance-pending'));
 });
 
 test('[#144] shared accepted Plan cannot replace an owner native transaction', () => {
@@ -1050,3 +1050,12 @@ for (const [field, value] of [
     }
   );
 }
+
+test('[#144] unknown operational object is refusal-only before Task18 accepted schema', () => {
+  const f = fixture();
+  f.activationAddendum = { untrusted: true };
+  const r = api.checkRuntimeContractAdoption(f);
+  assert.equal(r.activationAuthorized, false);
+  assert.ok(r.activationBlockers.includes('activation-schema-owner-acceptance-pending'));
+  assert.ok(r.activationBlockers.includes('activation-addendum-unsupported'));
+});

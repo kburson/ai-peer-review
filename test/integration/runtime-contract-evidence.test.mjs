@@ -8,14 +8,23 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { readRuntimeContractGitBlob } from '../../scripts/check-runtime-contract-adoption.mjs';
 import { checkRetainedLineageProof } from '../../scripts/lib/runtime-contract-evidence.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const git = (args) =>
-  execFileSync('git', args, {
-    cwd: root,
-    maxBuffer: 32 * 1024 * 1024,
-    env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))),
-  });
+const immutableGitObjects = new Map();
+const git = (args) => {
+  const key = JSON.stringify(args);
+  if (!immutableGitObjects.has(key))
+    immutableGitObjects.set(
+      key,
+      execFileSync('git', args, {
+        cwd: root,
+        maxBuffer: 32 * 1024 * 1024,
+        env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))),
+      })
+    );
+  return Buffer.from(immutableGitObjects.get(key));
+};
 function actual() {
   const receipt = JSON.parse(
     readFileSync(
@@ -35,7 +44,7 @@ function actual() {
     ...receipt.verifier.sources,
   ];
   for (const r of refs)
-    artifacts.set(r.revision + ':' + r.path, git(['show', r.revision + ':' + r.path]));
+    artifacts.set(r.revision + ':' + r.path, readRuntimeContractGitBlob(git, r.revision, r.path));
   artifacts.set(
     'commit:' + p.finalization.revision,
     git(['show', '--no-patch', '--format=%B', p.finalization.revision])
@@ -52,7 +61,7 @@ function actual() {
   for (const r of [p.manifest, p.finalResponse])
     artifacts.set(
       'tree:' + p.finalization.revision + ':' + r.path,
-      git(['show', p.finalization.revision + ':' + r.path])
+      readRuntimeContractGitBlob(git, p.finalization.revision, r.path)
     );
   return {
     receipt,

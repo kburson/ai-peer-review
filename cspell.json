@@ -112,5 +112,5 @@
     "unreviewed",
     "issuecomment"
   ],
-  "ignoreRegExpList": ["/\"nodeId\":\\s*\"IC_[A-Za-z0-9_-]+\"/g"]
+  "ignoreRegExpList": ["/\"(?:nodeId|commentNodeId)\":\\s*\"IC_[A-Za-z0-9_-]+\"/g"]
 }

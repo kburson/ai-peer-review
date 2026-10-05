@@ -10,7 +10,10 @@ import { parseRawJson } from '../../src/api/canonical-json.mjs';
 import { verifyRuntimeImage } from '../../src/broker/runtime-image.mjs';
 import { readManualLaunchHistory } from '../../src/provider/manual-launch-ledger.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
-import { checkNormalRuntimeReview } from '../check-runtime-contract-adoption.mjs';
+import {
+  checkNormalRuntimeReview,
+  readRuntimeContractGitBlob,
+} from '../check-runtime-contract-adoption.mjs';
 import {
   RUNTIME_REVIEW_PRODUCER_SOURCES,
   reduceRuntimeReviewEvents,
@@ -136,7 +139,7 @@ function committedVerifier(reviewRoot) {
       const bytes = read(path.join(root, p));
       let committed;
       try {
-        committed = git(['show', revision + ':' + p]);
+        committed = readRuntimeContractGitBlob(git, revision, p);
       } catch {
         fail('verifier-source-uncommitted');
       }
@@ -265,12 +268,15 @@ export function verifyRuntimeReviewLineage({ workspace, reviewReference, produce
     reviewReference.manifest,
     reviewReference.finalResponse,
   ])
-    artifacts.set(ref.revision + ':' + ref.path, git(['show', ref.revision + ':' + ref.path]));
+    artifacts.set(
+      ref.revision + ':' + ref.path,
+      readRuntimeContractGitBlob(git, ref.revision, ref.path)
+    );
   const final = reviewReference.finalization.revision;
   artifacts.set('commit:' + final, git(['show', '-s', '--format=%B', final]));
   artifacts.set('parent:' + final, git(['rev-parse', final + '^'], 'utf8').trim());
   for (const r of [reviewReference.manifest, reviewReference.finalResponse])
-    artifacts.set('tree:' + final + ':' + r.path, git(['show', final + ':' + r.path]));
+    artifacts.set('tree:' + final + ':' + r.path, readRuntimeContractGitBlob(git, final, r.path));
   const normal = checkNormalRuntimeReview({
     proof: reviewReference,
     artifacts,
@@ -294,14 +300,14 @@ export function verifyRuntimeReviewLineage({ workspace, reviewReference, produce
     fail('persisted-terminal-collateral-conflict');
   const members = [];
   for (const h of manifest.artifact_history) {
-    const bytes = git(['show', h.commit + ':' + h.path]),
+    const bytes = readRuntimeContractGitBlob(git, h.commit, h.path),
       blob = git(['rev-parse', h.commit + ':' + h.path], 'utf8').trim();
     if ('sha256:' + hash(bytes) !== h.digest || blob !== h.blob) fail('review-member-conflict');
     members.push({ revision: h.commit, path: h.path, blob, sha256: hash(bytes) });
   }
   for (const turn of manifest.turns)
     for (const r of [turn.reviewer_response, turn.author_response].filter(Boolean)) {
-      const bytes = git(['show', final + ':' + r.path]),
+      const bytes = readRuntimeContractGitBlob(git, final, r.path),
         blob = git(['rev-parse', final + ':' + r.path], 'utf8').trim();
       if ('sha256:' + hash(bytes) !== r.digest) fail('review-member-conflict');
       members.push({ revision: final, path: r.path, blob, sha256: hash(bytes) });

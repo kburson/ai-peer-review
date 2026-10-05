@@ -83,6 +83,9 @@ function descriptorValid(t) {
     Date.parse(t.observedAt) >= Date.parse(t.publishedAt)
   );
 }
+export function validateNativeApprovalDescriptor(value) {
+  return descriptorValid(value);
+}
 export function validateNativeApprovalSource({ transaction: t, retainedBody, source } = {}) {
   const c = source?.comment,
     marker = '<!-- aitm-owned-comment key="' + t?.ownedCommentKey + '" -->';
@@ -161,7 +164,15 @@ export function readNativeContractSource(transaction) {
 }
 
 import { validateRuntimeLineageProof } from './runtime-review-lineage-proof.mjs';
-import { checkNormalRuntimeReview } from '../check-runtime-contract-adoption.mjs';
+import {
+  checkNormalRuntimeReview,
+  validateRuntimeContractRecord,
+  validateRuntimeContractEvidenceApproval,
+  readRuntimeContractGitBlob,
+} from '../check-runtime-contract-adoption.mjs';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 const equal = (a, b) => {
   const canonical = (v) =>
     Array.isArray(v)
@@ -305,4 +316,306 @@ export function checkRetainedLineageProof({
     blockers: [...new Set(blockers)].sort(),
     originalPrivateReplay: 'unavailable',
   };
+}
+
+const CHECKER_SCHEMA_PATHS = [
+  'schemas/runtime-contract-adoption-v1.json',
+  'schemas/runtime-contract-evidence-approval-v1.json',
+  'schemas/runtime-review-lineage-proof-v1.json',
+];
+const CHECKER_IMPORTER_PATHS = [
+  'scripts/lib/runtime-review-grammar-v0.4.1.mjs',
+  ...[
+    'compatibility.mjs',
+    'events.mjs',
+    'record-lineage.mjs',
+    'reducer.mjs',
+    'runtime-descriptor.mjs',
+    'runtime-v1.json',
+  ].map((p) => 'scripts/lib/review-grammar-v0.4.1/' + p),
+];
+// Fixed data-only provenance: relevant versioned grammar evolution needs reviewed
+// compatibility; unrelated later application/schema additions do not change it.
+export function checkRuntimeContractConsumerPins({ governance, artifacts } = {}) {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  try {
+    return [
+      [governance?.checkerSchemas, CHECKER_SCHEMA_PATHS],
+      [governance?.checkerImporterSources, CHECKER_IMPORTER_PATHS],
+    ].every(
+      ([refs, paths]) =>
+        Array.isArray(refs) &&
+        refs.length === paths.length &&
+        paths.every((p) => {
+          const matches = refs.filter((r) => r?.path === p);
+          if (matches.length !== 1) return false;
+          const bytes = pinned(matches[0], artifacts);
+          return bytes !== null && bytes.equals(readFileSync(path.join(root, p)));
+        })
+    );
+  } catch {
+    return false;
+  }
+}
+
+// The executing checker is fixed local source, never selector-chosen code. This
+// checks its current commit separately from each historical generator closure.
+function currentCheckerCommitted() {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))
+  );
+  const git = (args, encoding = null) =>
+    execFileSync('git', args, {
+      cwd: root,
+      env,
+      encoding,
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  try {
+    const revision = git(['rev-parse', '--verify', 'HEAD'], 'utf8').trim();
+    const files = git(
+      [
+        'ls-files',
+        'scripts/check-runtime-contract-adoption.mjs',
+        'scripts/lib',
+        'src',
+        'schemas',
+        'package.json',
+        'package-lock.json',
+      ],
+      'utf8'
+    )
+      .trim()
+      .split('\n');
+    const required = [
+      'scripts/check-runtime-contract-adoption.mjs',
+      'scripts/lib/runtime-contract-evidence.mjs',
+      'scripts/lib/runtime-review-lineage-proof.mjs',
+      'scripts/lib/runtime-review-grammar-v0.4.1.mjs',
+      'schemas/runtime-contract-adoption-v1.json',
+      'schemas/runtime-contract-evidence-approval-v1.json',
+    ];
+    return (
+      required.every((p) => files.includes(p)) &&
+      files.every((p) =>
+        readFileSync(path.join(root, p)).equals(readRuntimeContractGitBlob(git, revision, p))
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+export function verifyGovernedRuntimeContractEvidence({
+  record,
+  recordReference,
+  approvalReview,
+  lineageProofs,
+  approvedEvidenceTransaction,
+  artifacts,
+} = {}) {
+  const blockers = [];
+  const block = (x) => blockers.push(x);
+  const result = () => ({
+    adoptionEvidenceComplete: blockers.length === 0,
+    blockers: [...new Set(blockers)].sort(),
+    originalPrivateReplay: 'unavailable',
+    consumedEvidence: 'retained-reviewed-local-verification',
+  });
+  const readJson = (ref) => {
+    const bytes = pinned(ref, artifacts);
+    if (!bytes) throw Error('governed-evidence-bytes-invalid');
+    return parseRawJson(bytes.toString('utf8'));
+  };
+  if (
+    !validateRuntimeContractRecord(record) ||
+    !recordReference ||
+    !approvalReview ||
+    !Array.isArray(lineageProofs) ||
+    !approvedEvidenceTransaction
+  ) {
+    block('governed-evidence-incomplete');
+    return result();
+  }
+  try {
+    const g = record.governance;
+    if (!checkRuntimeContractConsumerPins({ governance: g, artifacts }))
+      block('governed-consumer-version-provenance-invalid');
+    const normal = checkNormalRuntimeReview({
+      proof: approvalReview,
+      artifacts,
+      producerVersion: '0.4.1',
+    });
+    const recordBytes = pinned(recordReference, artifacts);
+    if (
+      !normal.collateralComplete ||
+      !equal(approvalReview.subject, recordReference) ||
+      !recordBytes ||
+      !equal(readJson(recordReference), record)
+    ) {
+      block('governed-record-acceptance-invalid');
+      return result();
+    }
+    const expectedReviews = [
+      record.amendmentReview,
+      record.evidence.planReview,
+      g.companionPlanReview,
+      g.canonicalPlanReview,
+    ];
+    if (
+      !equal(g.canonicalPlanReview.subject, g.canonicalPlan) ||
+      !equal(g.companionPlanReview.subject, g.companionPlan) ||
+      expectedReviews.some((r) => g.priorLineage.filter((x) => equal(x.review, r)).length !== 1)
+    )
+      block('governed-prior-review-set-invalid');
+    for (const ref of [g.immutableSpecification, g.canonicalPlan, g.companionPlan])
+      if (!pinned(ref, artifacts)) block('governed-plan-source-invalid');
+    for (const entry of g.priorLineage) {
+      const receipt = readJson(entry.receipt),
+        verifier = readJson(entry.verifier);
+      const proof = checkRetainedLineageProof({
+        receipt,
+        reviewReference: entry.review,
+        artifacts,
+        approvedVerifierReference: verifier,
+      });
+      if (!proof.receiptCoherent || !proof.verifierPinned) block('governed-prior-lineage-invalid');
+    }
+    const ids = [];
+    for (const target of g.normativeTargets) {
+      const bytes = pinned(target.source, artifacts),
+        text = bytes?.toString('utf8');
+      if (
+        !equal(target.source, g.immutableSpecification) ||
+        !text ||
+        target.detailedSchemaFrozen !== false ||
+        target.sections.some(
+          (section) =>
+            !text
+              .split('\n')
+              .some(
+                (line) => /^#{1,6} /.test(line) && line.slice(line.indexOf(' ') + 1) === section
+              )
+        )
+      )
+        block('governed-normative-source-invalid');
+      ids.push(...target.schemaIdentifiers);
+    }
+    const expectedIds = [
+      'record',
+      'series-index',
+      'patch-chain',
+      'response-envelope',
+      'attempt-metrics',
+      'measurement',
+      'aggregate-coverage',
+      'telemetry-amendment',
+    ].map((x) => 'ai-peer-review.' + x + '/v1');
+    if (ids.length !== 8 || expectedIds.some((id) => ids.filter((x) => x === id).length !== 1))
+      block('governed-normative-targets-invalid');
+    if (blockers.length) return result();
+    const t = approvedEvidenceTransaction,
+      body = pinned(t.body, artifacts);
+    if (
+      !body ||
+      t.authoredBy !== g.expectedEvidenceApprover.githubLogin ||
+      g.expectedEvidenceApprover.role !== 'orchestrator' ||
+      t.ownedCommentKey !== 'runtime-contract-approved-evidence.' + approvalReview.reviewId
+    ) {
+      block('approved-evidence-root-identity-invalid');
+      return result();
+    }
+    const blocks = [...body.toString('utf8').matchAll(/^`{3}json\r?\n([\s\S]*?)^`{3}\s*$/gm)];
+    if (blocks.length !== 1) {
+      block('approved-evidence-payload-invalid');
+      return result();
+    }
+    const payload = parseRawJson(blocks[0][1]);
+    if (
+      !validateRuntimeContractEvidenceApproval(payload) ||
+      !equal(payload.record, recordReference) ||
+      !equal(payload.approvalReview, approvalReview) ||
+      !equal(payload.canonicalPlanReview, g.canonicalPlanReview) ||
+      !equal(payload.nativeMapping, g.nativeMapping) ||
+      !equal(payload.lineageProofs, lineageProofs) ||
+      payload.nativeTransaction.ownedCommentKey !== t.ownedCommentKey ||
+      payload.authorityAssurance !== normal.assurance[0] ||
+      normal.assurance.length !== 1
+    ) {
+      block('approved-evidence-payload-invalid');
+      return result();
+    }
+    if (
+      lineageProofs.length !== 5 ||
+      g.priorLineage.some((x) => lineageProofs.filter((y) => equal(x, y)).length !== 1)
+    ) {
+      block('approved-evidence-lineage-set-invalid');
+      return result();
+    }
+    const own = lineageProofs.filter((x) => equal(x.review, approvalReview));
+    if (
+      own.length !== 1 ||
+      lineageProofs.filter((x) => x.review.reviewId === approvalReview.reviewId).length !== 1
+    ) {
+      block('approved-evidence-own-terminal-missing');
+      return result();
+    }
+    for (const entry of lineageProofs) {
+      if (!exact(entry, ['review', 'receipt', 'verifier'])) {
+        block('approved-evidence-lineage-set-invalid');
+        continue;
+      }
+      const receipt = readJson(entry.receipt);
+      if (equal(entry.review, approvalReview)) {
+        const requested = receipt.identities?.requestedReviewer,
+          selected = g.recordReviewSelection;
+        if (
+          requested?.provider !== selected.provider ||
+          requested?.model_id !== selected.modelId ||
+          requested?.effort !== selected.effort
+        )
+          block('governed-record-review-selection-mismatch');
+      }
+      const proof = checkRetainedLineageProof({
+        receipt,
+        reviewReference: entry.review,
+        artifacts,
+        approvedVerifierReference: readJson(entry.verifier),
+      });
+      if (!proof.receiptCoherent || !proof.verifierPinned)
+        block('approved-evidence-lineage-invalid');
+    }
+    if (
+      !equal(
+        payload.rootInspection.receiptReferences,
+        lineageProofs.map((x) => x.receipt)
+      ) ||
+      !equal(
+        payload.rootInspection.verifierReferences,
+        lineageProofs.map((x) => x.verifier)
+      ) ||
+      Date.parse(payload.observedAt) > Date.parse(t.publishedAt) ||
+      Date.parse(payload.nativeTransaction.observedAt) > Date.parse(t.publishedAt)
+    )
+      block('approved-evidence-inspection-invalid');
+    if (blockers.length) return result();
+    // Authenticate the actual retained root-authored native transaction. Caller
+    // objects or a successful source fixture cannot replace this fixed reader.
+    const source = readNativeContractSource(t);
+    validateNativeApprovalSource({ transaction: t, retainedBody: body, source });
+    if (
+      source.issue?.number !== 144 ||
+      !equal(extractRuntimeContractMapping(source.issue.body), g.nativeMapping)
+    )
+      block('native-mapping-current-source-mismatch');
+    if (!currentCheckerCommitted()) block('current-checker-source-uncommitted');
+  } catch (error) {
+    block(
+      error?.message === 'approved-evidence-source-unavailable'
+        ? error.message
+        : 'governed-evidence-invalid'
+    );
+  }
+  return result();
 }

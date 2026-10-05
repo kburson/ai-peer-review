@@ -6,7 +6,7 @@ import path from 'node:path';
 import { setup } from '../../src/config/setup.mjs';
 
 export function sourceCliProject(t) {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'apr-source-cli-')));
+  const root = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'apr-source-cli-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const git = (args) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
   git(['init', '-b', 'trunk']);

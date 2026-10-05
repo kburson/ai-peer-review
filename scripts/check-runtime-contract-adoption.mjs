@@ -6,6 +6,10 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  verifyGovernedRuntimeContractEvidence,
+  validateNativeApprovalDescriptor,
+} from './lib/runtime-contract-evidence.mjs';
 import { parseResponse } from '../src/collateral/responses.mjs';
 import { inspectRecordLineage as inspectProducer041Lineage } from './lib/review-grammar-v0.4.1/record-lineage.mjs';
 import { inspectRecordLineage as inspectProducer040Lineage } from '../src/protocol/record-lineage.mjs';
@@ -30,6 +34,7 @@ const FIELDS = [
   'decisions',
   'unresolvedConflicts',
   'activationBinding',
+  'governance',
 ];
 const DECISIONS = {
   runtimeInstallation: ['current-global', 'reviewed-coexistence'],
@@ -406,6 +411,41 @@ export function checkNormalRuntimeReview({ proof, artifacts, producerVersion } =
   };
 }
 
+// Resolve an exact tree member to its object before reading bytes. git show
+// can stat a long rev:path argument on Windows despite the object being present.
+export function readRuntimeContractGitBlob(git, revision, memberPath) {
+  if (
+    typeof git !== 'function' ||
+    !OBJECT.test(revision ?? '') ||
+    !safePath(memberPath) ||
+    fixturePath(memberPath)
+  )
+    throw Error('artifact-reference-invalid');
+  const oid = git(['rev-parse', '--verify', revision + ':' + memberPath], 'utf8')
+    .toString()
+    .trim();
+  if (!OBJECT.test(oid)) throw Error('artifact-object-invalid');
+  return git(['cat-file', 'blob', oid]);
+}
+
+export function validateRuntimeContractEvidenceApproval(value) {
+  try {
+    const schema = schemaDocument('runtime-contract-evidence-approval-v1.json', '0.4.1');
+    return documentValid(schema, value, schema, 0, '0.4.1');
+  } catch {
+    return false;
+  }
+}
+
+export function validateRuntimeContractRecord(record) {
+  try {
+    const schema = schemaDocument('runtime-contract-adoption-v1.json', '0.4.1');
+    return documentValid(schema, record, schema, 0, '0.4.1');
+  } catch {
+    return false;
+  }
+}
+
 export function checkRuntimeContractAdoption({
   record,
   artifacts,
@@ -425,11 +465,13 @@ export function checkRuntimeContractAdoption({
     artifacts,
     block,
     assurance,
+    producerVersion: record?.governance ? '0.4.1' : '0.4.0',
   });
   if (
     !exact(record, FIELDS) ||
     record.schema !== 'ai-peer-review.runtime-contract-adoption/v1' ||
-    record.issue !== 144
+    record.issue !== 144 ||
+    !validateRuntimeContractRecord(record)
   )
     block('record-schema-invalid');
   if (!object(record))
@@ -633,14 +675,23 @@ export function checkRuntimeContractAdoption({
   review(record.amendmentReview, record.amendment);
   if (!recordReference || !approvalReview) block('record-acceptance-required');
   else review(approvalReview, recordReference);
-  // These governed prerequisites remain fail-closed until their complete consumer
-  // validates source/profile/review/native authority. Collateral alone is insufficient.
-  block(lineageProofs === undefined ? 'lineage-proofs-missing' : 'lineage-proofs-unverified');
-  block(
-    approvedEvidenceTransaction === undefined
-      ? 'approved-evidence-transaction-missing'
-      : 'approved-evidence-transaction-unverified'
-  );
+  const governed = verifyGovernedRuntimeContractEvidence({
+    record,
+    recordReference,
+    approvalReview,
+    lineageProofs,
+    approvedEvidenceTransaction,
+    artifacts,
+  });
+  if (!governed.adoptionEvidenceComplete) {
+    governed.blockers.forEach(block);
+    block(lineageProofs === undefined ? 'lineage-proofs-missing' : 'lineage-proofs-unverified');
+    block(
+      approvedEvidenceTransaction === undefined
+        ? 'approved-evidence-transaction-missing'
+        : 'approved-evidence-transaction-unverified'
+    );
+  }
   if (!Array.isArray(record.schemas) || !record.schemas.length) block('schemas-missing');
   else record.schemas.forEach(verified);
   if (
@@ -693,6 +744,22 @@ export function checkRuntimeContractAdoption({
   } else {
     verified(binding.source);
     verified(binding.registration);
+    if (record.governance) {
+      if (
+        !Array.isArray(binding.interfaceSources) ||
+        binding.interfaceSources.length !== INTERFACES.length ||
+        INTERFACES.some(
+          (name) => binding.interfaceSources.filter((x) => x?.interface === name).length !== 1
+        )
+      )
+        block('activation-interface-sources-incomplete');
+      else
+        for (const item of binding.interfaceSources) {
+          verified(item.reference);
+          if (item.status !== 'observed-unmerged-draft' || item.activationAuthorized !== false)
+            block('activation-interface-source-authority-invalid');
+        }
+    }
     if (binding.release != null || (binding.conformance?.length ?? 0) > 0)
       block('contract-release-identity-forbidden');
     if (
@@ -701,37 +768,11 @@ export function checkRuntimeContractAdoption({
     )
       activationBlockers.push('activation-overlap-unresolved');
   }
-  const operationalStart = contractBlockers.length;
+  // Task18 owns the independently accepted activation/installed-conformance
+  // grammar. Task5 does not interpret a competing field-level schema.
   if (!activationAddendum) activationBlockers.push('activation-addendum-missing');
-  else if (!exact(activationAddendum, ['record', 'ownerReviews'])) {
-    activationBlockers.push('activation-addendum-invalid');
-  } else {
-    const document = json(activationAddendum.record);
-    if (!document || document.schema !== 'ai-peer-review.runtime-activation-addendum/v1')
-      activationBlockers.push('activation-addendum-invalid');
-    if (!recordReference || document?.contractDigest !== recordReference.sha256)
-      activationBlockers.push('activation-contract-digest-mismatch');
-    const owners = activationAddendum.ownerReviews;
-    if (
-      !Array.isArray(owners) ||
-      owners.length !== 3 ||
-      [102, 107, 30].some((issue) => owners.filter((p) => p?.issue === issue).length !== 1)
-    ) {
-      activationBlockers.push('activation-owner-reviews-incomplete');
-    } else
-      for (const owner of owners) {
-        if (!exact(owner, ['issue', 'review']))
-          activationBlockers.push('activation-owner-reviews-incomplete');
-        else review(owner.review, activationAddendum.record);
-      }
-    // Task 18 owns the exact accepted activation/installed-conformance schema
-    // and executable operational proof. This Task 5 implementation has no such
-    // reviewed profile: generic JSON assertions can never authorize publication.
-    activationBlockers.push('activation-schema-owner-acceptance-pending');
-  }
-  activationBlockers.push(
-    ...contractBlockers.splice(operationalStart).map((code) => 'activation-' + code)
-  );
+  else activationBlockers.push('activation-addendum-unsupported');
+  activationBlockers.push('activation-schema-owner-acceptance-pending');
   const contractAdopted = contractBlockers.length === 0;
   const activationAuthorized =
     mode === 'publication' && contractAdopted && activationBlockers.length === 0;
@@ -766,7 +807,14 @@ export function parseAdoptionArgs(args) {
 }
 export function validateApprovedSelector(selector, recordPath) {
   if (
-    !exact(selector, ['schema', 'evidenceRevision', 'record', 'approvalReview']) ||
+    !exact(selector, [
+      'schema',
+      'evidenceRevision',
+      'record',
+      'approvalReview',
+      'lineageProofs',
+      'approvedEvidenceTransaction',
+    ]) ||
     selector.schema !== 'ai-peer-review.runtime-contract-approved-ref/v1' ||
     !OBJECT.test(selector.evidenceRevision ?? '') ||
     !safePath(recordPath) ||
@@ -780,7 +828,14 @@ export function validateApprovedSelector(selector, recordPath) {
       'finalResponse',
       'finalization',
     ]) ||
-    !OBJECT.test(selector.approvalReview?.finalization?.revision ?? '')
+    !OBJECT.test(selector.approvalReview?.finalization?.revision ?? '') ||
+    !Array.isArray(selector.lineageProofs) ||
+    selector.lineageProofs.length !== 5 ||
+    !validateNativeApprovalDescriptor(selector.approvedEvidenceTransaction) ||
+    selector.lineageProofs.some((x) => {
+      const schema = schemaDocument('runtime-contract-adoption-v1.json', '0.4.1');
+      return !documentValid(schema.$defs.lineage, x, schema, 0, '0.4.1');
+    })
   )
     throw Error('approved-reference-incomplete');
 }
@@ -837,7 +892,7 @@ export function inspectApprovedAdoption({
         throw Error('artifact-revision-not-commit');
       const key = x.revision + ':' + x.path;
       if (!observed.has(key)) {
-        artifacts.set(key, git(['show', key]));
+        artifacts.set(key, readRuntimeContractGitBlob(git, x.revision, x.path));
         observed.add(key);
       }
     }
@@ -867,7 +922,7 @@ export function inspectApprovedAdoption({
         if (safePath(ref?.path))
           artifacts.set(
             'tree:' + revision + ':' + ref.path,
-            git(['show', revision + ':' + ref.path])
+            readRuntimeContractGitBlob(git, revision, ref.path)
           );
       }
     }
@@ -889,6 +944,18 @@ export function inspectApprovedAdoption({
     (ref) => artifacts.get(ref?.revision + ':' + ref?.path),
     collect
   );
+  // Resolve immutable public receipt/source inventories as data, never code.
+  for (const entry of selector.lineageProofs)
+    for (const ref of [entry.receipt, entry.verifier]) {
+      const bytes = artifacts.get(ref.revision + ':' + ref.path);
+      if (
+        !Buffer.isBuffer(bytes) ||
+        hash(bytes) !== ref.sha256 ||
+        blob(bytes, ref.blob.length === 64 ? 'sha256' : 'sha1') !== ref.blob
+      )
+        throw Error('lineage-reference-invalid');
+      collect(parseRawJson(bytes.toString('utf8')));
+    }
   const tag = record.activationBinding?.release?.tag;
   if (tag && /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(tag) && !tag.includes('..'))
     artifacts.set(
@@ -907,6 +974,8 @@ export function inspectApprovedAdoption({
     artifacts,
     recordReference: selector.record,
     approvalReview: selector.approvalReview,
+    lineageProofs: selector.lineageProofs,
+    approvedEvidenceTransaction: selector.approvedEvidenceTransaction,
     mode,
   });
   return report;

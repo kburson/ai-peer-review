@@ -231,7 +231,7 @@ test('closed broker CLI authenticates project routing and refuses suspension wit
     };
   });
 
-  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0);
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0, io.stderrBytes.join(''));
   const reconciled = JSON.parse(io.stdoutBytes.at(-1));
   assert.equal(reconciled.command, 'reconcile');
   assert.equal(reconciled.status, 'automatic-wait');
