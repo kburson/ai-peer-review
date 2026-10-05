@@ -23,7 +23,19 @@ function fixture(assurance = 'unavailable') {
     return ref;
   };
   const subject = add('docs/contracts/follow-up.md', 'Exact joint follow-up owner contract.');
-  const plan = add('docs/plans/owner-addenda.md', 'Bounded owner plan addenda.');
+  const plan = add(
+    'docs/plans/owner-addenda.md',
+    [102, 30, 34, 109]
+      .map(
+        (issue) =>
+          '### #' +
+          issue +
+          ' — bounded owner contract\n\nExact bounded intent for owner #' +
+          issue +
+          '.\n'
+      )
+      .join('\n')
+  );
   const author = 'sha256:' + '1'.repeat(64),
     reviewer = 'sha256:' + '2'.repeat(64);
   const review = (subject, suffix) => {
@@ -231,6 +243,98 @@ function fixture(assurance = 'unavailable') {
       conformance: [],
     },
   };
+  for (const role of ['runtimePolicy', 'evidence', 'analytics', 'telemetry']) {
+    const owner = record[role];
+    const issue = owner.issue;
+    const section = '### #' + issue + ' — bounded owner contract';
+    const text = section + '\n\nExact bounded intent for owner #' + issue + '.';
+    const ownedKey = 'runtime-contract-adoption.144-v1';
+    const body =
+      '# Bounded contract adoption — #' +
+      issue +
+      '\nBundle: A\n' +
+      plan.path +
+      '\n' +
+      plan.blob +
+      '\n' +
+      plan.sha256 +
+      '\n' +
+      planReview.reviewId +
+      '\n' +
+      subject.sha256 +
+      '\n' +
+      text +
+      '\n<!-- aitm-owned-comment key="' +
+      ownedKey +
+      '" -->';
+    const bodyRef = add('evidence/owners/' + issue + '.md', body);
+    const facts = {
+      ownerIssue: issue,
+      repository: 'kburson/ai-peer-review',
+      authenticatedActor: 'fixture-actor',
+      comment: {
+        nodeId: 'IC-fixture-' + issue,
+        id: 1000 + issue,
+        url:
+          'https://github.com/kburson/ai-peer-review/issues/' +
+          issue +
+          '#issuecomment-' +
+          (1000 + issue),
+        ownedKey,
+        sha256: bodyRef.sha256,
+        authoredBy: 'fixture-actor',
+        createdAt: '2026-10-01T00:00:00Z',
+      },
+      issueBody: { version: 1, sha256: '5'.repeat(64), ordinaryMetadataAndMarkersPreserved: true },
+      acceptedOwnerPlan: {
+        revision: planReview.finalization.revision,
+        blob: plan.blob,
+        sha256: plan.sha256,
+        reviewId: planReview.reviewId,
+      },
+      native: {
+        commentExit: 0,
+        bodyExit: 0,
+        bindingVerified: true,
+        role: 'agent',
+        branch: 'fixture/owner-' + issue,
+        lifecycleStatePreserved: 'plan',
+        pauseExit: 0,
+        occupancyReleaseExit: 0,
+        paused: true,
+        timerOpen: false,
+        activeBindingAbsent: true,
+        sourceAndOldCollateralPreserved: true,
+      },
+      jointAdoptionClaim: false,
+      fullCanonicalPlanAndContractActivationGatesPending: true,
+      recordedAt: '2026-10-01T00:00:01Z',
+    };
+    record[role] = {
+      issue,
+      boundedSubsection: section,
+      bundle: 'A',
+      reconciliation: subject,
+      boundedPlan: plan,
+      planReview,
+      nativeAdoption: {
+        kind: 'aitm-owned-comment',
+        repository: facts.repository,
+        ownerIssue: issue,
+        ownedCommentKey: ownedKey,
+        commentDatabaseId: facts.comment.id,
+        commentNodeId: facts.comment.nodeId,
+        url: facts.comment.url,
+        body: bodyRef,
+        bodySha256: bodyRef.sha256,
+        nativeReceipt: add('evidence/owners/' + issue + '-receipt.json', facts),
+        publishedAt: facts.comment.createdAt,
+        observedAt: facts.recordedAt,
+      },
+      preservedBaselines: [{ kind: 'broader-plan', status: 'unaccepted', reference: plan }],
+      remainingObligations: ['Implementation and exact release activation remain pending.'],
+    };
+  }
   return { record, artifacts, add, review };
 }
 test('[#144] checker exposes its document-only boundary', () => {
@@ -254,8 +358,6 @@ for (const name of cases.negativeCases.filter((x) => x !== 'pending-release')) {
       const value = JSON.parse(f.artifacts.get(ref.revision + ':' + ref.path));
       change(value);
       const replacement = f.add(ref.path, value);
-      for (const owner of ['runtimePolicy', 'evidence', 'analytics', 'telemetry'])
-        r[owner].adoptionReview.manifest = replacement;
       r.amendmentReview.manifest = replacement;
     };
     switch (name) {
@@ -732,4 +834,138 @@ test('[#144] missing activation owner cannot be inferred from one common review'
   assert.equal(report.contractAdopted, true);
   assert.equal(report.publicationAllowed, false);
   assert.ok(report.activationBlockers.includes('activation-owner-reviews-incomplete'));
+});
+
+test('[#144] shared accepted Plan cannot replace an owner native transaction', () => {
+  const f = fixture();
+  delete f.record.evidence.nativeAdoption;
+  const report = api.checkRuntimeContractAdoption(f);
+  assert.equal(report.contractAdopted, false);
+  assert.ok(report.contractBlockers.includes('evidence-owner-mismatch'));
+});
+const nativeFailures = [
+  [
+    'different-owner',
+    (x) => {
+      x.ownerIssue = 34;
+    },
+  ],
+  [
+    'different-repository',
+    (x) => {
+      x.repository = 'other/project';
+    },
+  ],
+  [
+    'unverified-binding',
+    (x) => {
+      x.native.bindingVerified = false;
+    },
+  ],
+  [
+    'failed-comment',
+    (x) => {
+      x.native.commentExit = 1;
+    },
+  ],
+  [
+    'failed-pointer',
+    (x) => {
+      x.native.bodyExit = 1;
+    },
+  ],
+  [
+    'changed-ordinary-authority',
+    (x) => {
+      x.issueBody.ordinaryMetadataAndMarkersPreserved = false;
+    },
+  ],
+  [
+    'changed-source',
+    (x) => {
+      x.native.sourceAndOldCollateralPreserved = false;
+    },
+  ],
+  [
+    'wrong-plan-bytes',
+    (x) => {
+      x.acceptedOwnerPlan.sha256 = 'e'.repeat(64);
+    },
+  ],
+  [
+    'wrong-plan-review',
+    (x) => {
+      x.acceptedOwnerPlan.reviewId = 'unrelated-review';
+    },
+  ],
+  [
+    'different-comment-author',
+    (x) => {
+      x.comment.authoredBy = 'other';
+    },
+  ],
+  [
+    'different-comment-id',
+    (x) => {
+      x.comment.id += 1;
+    },
+  ],
+  [
+    'different-body',
+    (x) => {
+      x.comment.sha256 = 'e'.repeat(64);
+    },
+  ],
+  [
+    'fabricated-joint-adoption',
+    (x) => {
+      x.jointAdoptionClaim = true;
+    },
+  ],
+  [
+    'unknown-receipt-field',
+    (x) => {
+      x.callerApproved = true;
+    },
+  ],
+];
+for (const [name, mutate] of nativeFailures)
+  test('[#144] native owner receipt refuses ' + name, () => {
+    const f = fixture(),
+      proof = f.record.evidence.nativeAdoption;
+    const receipt = JSON.parse(
+      f.artifacts.get(proof.nativeReceipt.revision + ':' + proof.nativeReceipt.path)
+    );
+    mutate(receipt);
+    proof.nativeReceipt = f.add(proof.nativeReceipt.path, receipt);
+    const report = api.checkRuntimeContractAdoption(f);
+    assert.equal(report.contractAdopted, false);
+    assert.ok(report.contractBlockers.includes('owner-native-proof-invalid'));
+  });
+test('[#144] native source bytes cannot be normalized by adding terminal newline', () => {
+  const f = fixture(),
+    proof = f.record.evidence.nativeAdoption;
+  const bytes = f.artifacts.get(proof.body.revision + ':' + proof.body.path);
+  proof.body = f.add(proof.body.path, bytes.toString() + '\n');
+  const report = api.checkRuntimeContractAdoption(f);
+  assert.equal(report.contractAdopted, false);
+  assert.ok(report.contractBlockers.includes('owner-native-proof-invalid'));
+});
+test('[#144] owner disposition must contain its exact accepted bounded subsection', () => {
+  const f = fixture(),
+    proof = f.record.evidence.nativeAdoption;
+  const bytes = f.artifacts.get(proof.body.revision + ':' + proof.body.path);
+  proof.body = f.add(
+    proof.body.path,
+    bytes.toString().replace('Exact bounded intent for owner #30.', 'Different intent.')
+  );
+  proof.bodySha256 = proof.body.sha256;
+  const receipt = JSON.parse(
+    f.artifacts.get(proof.nativeReceipt.revision + ':' + proof.nativeReceipt.path)
+  );
+  receipt.comment.sha256 = proof.body.sha256;
+  proof.nativeReceipt = f.add(proof.nativeReceipt.path, receipt);
+  const report = api.checkRuntimeContractAdoption(f);
+  assert.equal(report.contractAdopted, false);
+  assert.ok(report.contractBlockers.includes('owner-native-proof-invalid'));
 });

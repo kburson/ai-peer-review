@@ -381,19 +381,192 @@ export function checkRuntimeContractAdoption({
       activationBlockers,
       assurance: [],
     };
+  const nativeIds = new Set();
   for (const [role, issue] of Object.entries(OWNERS)) {
     const owner = record[role];
     if (
-      !exact(owner, ['issue', 'contract', 'plan', 'adoptionReview', 'planReview']) ||
+      !exact(owner, [
+        'issue',
+        'boundedSubsection',
+        'bundle',
+        'reconciliation',
+        'boundedPlan',
+        'planReview',
+        'nativeAdoption',
+        'preservedBaselines',
+        'remainingObligations',
+      ]) ||
       owner.issue !== issue
     ) {
       block(role + '-owner-mismatch');
       continue;
     }
-    verified(owner.contract);
-    verified(owner.plan);
-    review(owner.adoptionReview, record.amendment);
-    review(owner.planReview, owner.plan);
+    verified(owner.reconciliation);
+    const planBytes = verified(owner.boundedPlan);
+    review(owner.planReview, owner.boundedPlan);
+    if (
+      !sameSubject(owner.reconciliation, record.amendment) ||
+      owner.bundle !== 'A' ||
+      typeof owner.boundedSubsection !== 'string' ||
+      !owner.boundedSubsection.startsWith('### #' + issue + ' — ')
+    )
+      block('owner-bounded-contract-invalid');
+    if (
+      !Array.isArray(owner.preservedBaselines) ||
+      owner.preservedBaselines.length === 0 ||
+      owner.preservedBaselines.some(
+        (x) =>
+          !exact(x, ['kind', 'status', 'reference']) ||
+          typeof x.kind !== 'string' ||
+          !x.kind ||
+          typeof x.status !== 'string' ||
+          !x.status
+      )
+    )
+      block('owner-preserved-baselines-invalid');
+    else
+      for (const baseline of owner.preservedBaselines)
+        if (baseline.reference !== null) verified(baseline.reference);
+    if (
+      !Array.isArray(owner.remainingObligations) ||
+      owner.remainingObligations.length === 0 ||
+      owner.remainingObligations.some((x) => typeof x !== 'string' || !x.trim())
+    )
+      block('owner-remaining-obligations-invalid');
+    const proof = owner.nativeAdoption;
+    if (
+      !exact(proof, [
+        'kind',
+        'repository',
+        'ownerIssue',
+        'ownedCommentKey',
+        'commentDatabaseId',
+        'commentNodeId',
+        'url',
+        'body',
+        'bodySha256',
+        'nativeReceipt',
+        'publishedAt',
+        'observedAt',
+      ])
+    ) {
+      block('owner-native-proof-invalid');
+      continue;
+    }
+    const body = verified(proof.body),
+      receipt = json(proof.nativeReceipt);
+    const stamp = (x) => typeof x === 'string' && Number.isFinite(Date.parse(x));
+    const integer = (x) => Number.isSafeInteger(x) && x > 0;
+    const strings = (x, keys) =>
+      keys.every((key) => typeof x?.[key] === 'string' && x[key].length > 0);
+    const comment = receipt?.comment,
+      native = receipt?.native,
+      accepted = receipt?.acceptedOwnerPlan;
+    const expectedUrl =
+      'https://github.com/kburson/ai-peer-review/issues/' +
+      issue +
+      '#issuecomment-' +
+      proof.commentDatabaseId;
+    const plan = planBytes?.toString('utf8') ?? '';
+    const sectionStart = plan.indexOf(owner.boundedSubsection + '\n');
+    const sectionEnd =
+      sectionStart < 0 ? -1 : plan.indexOf('\n### ', sectionStart + owner.boundedSubsection.length);
+    const section =
+      sectionStart < 0
+        ? null
+        : plan.slice(sectionStart, sectionEnd < 0 ? undefined : sectionEnd).trim();
+    const bodyText = body?.toString('utf8') ?? '';
+    if (
+      proof.kind !== 'aitm-owned-comment' ||
+      proof.repository !== 'kburson/ai-peer-review' ||
+      proof.ownerIssue !== issue ||
+      proof.ownedCommentKey !== 'runtime-contract-adoption.144-v1' ||
+      !integer(proof.commentDatabaseId) ||
+      !strings(proof, ['commentNodeId']) ||
+      proof.url !== expectedUrl ||
+      !stamp(proof.publishedAt) ||
+      !stamp(proof.observedAt) ||
+      Date.parse(proof.observedAt) < Date.parse(proof.publishedAt) ||
+      proof.bodySha256 !== proof.body?.sha256 ||
+      !SHA.test(proof.bodySha256 ?? '') ||
+      !body ||
+      hash(body) !== proof.bodySha256 ||
+      !section ||
+      !bodyText.includes(section) ||
+      !bodyText.includes('<!-- aitm-owned-comment key="' + proof.ownedCommentKey + '" -->') ||
+      ![
+        owner.boundedPlan.path,
+        owner.boundedPlan.blob,
+        owner.boundedPlan.sha256,
+        owner.planReview.reviewId,
+        owner.reconciliation.sha256,
+      ].every((value) => bodyText.includes(value)) ||
+      !exact(receipt, [
+        'ownerIssue',
+        'repository',
+        'authenticatedActor',
+        'comment',
+        'issueBody',
+        'acceptedOwnerPlan',
+        'native',
+        'jointAdoptionClaim',
+        'fullCanonicalPlanAndContractActivationGatesPending',
+        'recordedAt',
+      ]) ||
+      receipt.ownerIssue !== issue ||
+      receipt.repository !== proof.repository ||
+      !strings(receipt, ['authenticatedActor']) ||
+      !exact(comment, ['nodeId', 'id', 'url', 'ownedKey', 'sha256', 'authoredBy', 'createdAt']) ||
+      comment.id !== proof.commentDatabaseId ||
+      comment.nodeId !== proof.commentNodeId ||
+      comment.url !== proof.url ||
+      comment.ownedKey !== proof.ownedCommentKey ||
+      comment.sha256 !== proof.bodySha256 ||
+      comment.authoredBy !== receipt.authenticatedActor ||
+      comment.createdAt !== proof.publishedAt ||
+      receipt.recordedAt !== proof.observedAt ||
+      !exact(receipt.issueBody, ['version', 'sha256', 'ordinaryMetadataAndMarkersPreserved']) ||
+      !integer(receipt.issueBody.version) ||
+      !SHA.test(receipt.issueBody.sha256 ?? '') ||
+      receipt.issueBody.ordinaryMetadataAndMarkersPreserved !== true ||
+      !exact(accepted, ['revision', 'blob', 'sha256', 'reviewId']) ||
+      ![owner.boundedPlan.revision, owner.planReview.finalization?.revision].includes(
+        accepted.revision
+      ) ||
+      accepted.blob !== owner.boundedPlan.blob ||
+      accepted.sha256 !== owner.boundedPlan.sha256 ||
+      accepted.reviewId !== owner.planReview.reviewId ||
+      !exact(native, [
+        'commentExit',
+        'bodyExit',
+        'bindingVerified',
+        'role',
+        'branch',
+        'lifecycleStatePreserved',
+        'pauseExit',
+        'occupancyReleaseExit',
+        'paused',
+        'timerOpen',
+        'activeBindingAbsent',
+        'sourceAndOldCollateralPreserved',
+      ]) ||
+      native.commentExit !== 0 ||
+      native.bodyExit !== 0 ||
+      native.bindingVerified !== true ||
+      native.role !== 'agent' ||
+      !strings(native, ['branch', 'lifecycleStatePreserved']) ||
+      native.pauseExit !== 0 ||
+      native.occupancyReleaseExit !== 0 ||
+      native.paused !== true ||
+      native.timerOpen !== false ||
+      native.activeBindingAbsent !== true ||
+      native.sourceAndOldCollateralPreserved !== true ||
+      receipt.jointAdoptionClaim !== false ||
+      receipt.fullCanonicalPlanAndContractActivationGatesPending !== true
+    )
+      block('owner-native-proof-invalid');
+    if (nativeIds.has(proof.commentDatabaseId)) block('owner-native-transaction-reused');
+    nativeIds.add(proof.commentDatabaseId);
   }
   verified(record.amendment);
   review(record.amendmentReview, record.amendment);
@@ -411,7 +584,7 @@ export function checkRuntimeContractAdoption({
     const required = [
       record.amendment,
       ...(record.schemas ?? []),
-      ...Object.keys(OWNERS).flatMap((r) => [record[r]?.contract, record[r]?.plan]),
+      ...Object.keys(OWNERS).flatMap((r) => [record[r]?.reconciliation, record[r]?.boundedPlan]),
     ];
     if (required.some((r) => !record.reviewedDigests.includes(r?.sha256)))
       block('reviewed-digests-incomplete');
