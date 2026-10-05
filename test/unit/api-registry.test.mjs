@@ -200,3 +200,16 @@ test('[#145] critique severity preserves submitted identifiers without a provide
   value.findings[0].severity = 'provider-specific-severity';
   assert.deepEqual(validation.validateContract(example.schema, value), []);
 });
+
+test('[#145] diagnostic bounds preserve Unicode scalars in long JSON Pointer keys', () => {
+  const key = 'a'.repeat(238) + '😀' + 'tail';
+  const valid = registry.operationRegistry.start_review.examples[0];
+  try {
+    validation.validateOperation('start_review', { ...valid, [key]: true });
+    assert.fail('expected invalid closed request');
+  } catch (error) {
+    assert.equal(error.code, 'APR_REQUEST_INVALID');
+    assert.deepEqual(validation.validateContract(registry.responseSchema, error.toJSON()), []);
+    assert.ok(error.details.issues[0].pointer.isWellFormed());
+  }
+});

@@ -43,7 +43,7 @@ export function validationIssue(
   correction = 'Use the registered field shape.'
 ) {
   return {
-    pointer: String(pointer).slice(0, 240),
+    pointer: [...String(pointer)].slice(0, 240).join(''),
     rule,
     received: safeReceived(value),
     expected,
