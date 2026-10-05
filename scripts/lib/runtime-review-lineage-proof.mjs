@@ -354,7 +354,10 @@ export function verifyRuntimeReviewLineage({ workspace, reviewReference, produce
 }
 
 const proofSchema = JSON.parse(
-  readFileSync(new URL('./runtime-review-lineage-proof-v1.schema.json', import.meta.url), 'utf8')
+  readFileSync(
+    new URL('../../schemas/runtime-review-lineage-proof-v1.json', import.meta.url),
+    'utf8'
+  )
 );
 export function validateRuntimeLineageProof(value) {
   try {

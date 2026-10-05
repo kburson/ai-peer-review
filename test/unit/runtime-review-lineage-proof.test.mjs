@@ -51,3 +51,109 @@ test('[#144] retained proof grammar refuses caller success flags, raw handles an
   ])
     assert.equal(api.validateRuntimeLineageProof(value), false);
 });
+
+import { readFileSync } from 'node:fs';
+const actualReceipts = [
+  'review-58b490491800f0c13d64191cb58071b5',
+  'review-057079566301a0106537dde070ea518a',
+  'review-a4157c49c11ad9d12836d7bfea0df472',
+].map((id) =>
+  JSON.parse(
+    readFileSync(
+      new URL(
+        '../../evidence/portable-runtime/contracts/review-lineage/' + id + '.json',
+        import.meta.url
+      ),
+      'utf8'
+    )
+  )
+);
+test('[#144] actual generated safe receipts retain closed grammar without granting review authority', () => {
+  for (const value of actualReceipts) assert.equal(api.validateRuntimeLineageProof(value), true);
+});
+for (const [name, change] of [
+  [
+    'raw provider handle',
+    (p) => {
+      p.identities.session_handle = 'private';
+    },
+  ],
+  [
+    'unknown event proof field',
+    (p) => {
+      p.attempt.claimedProof = true;
+    },
+  ],
+  [
+    'CI replay overstatement',
+    (p) => {
+      p.reproducibility.ciOriginalEventReplay = 'complete';
+    },
+  ],
+  [
+    'missing member',
+    (p) => {
+      p.members = [];
+    },
+  ],
+  [
+    'different target',
+    (p) => {
+      p.reviewReference.reviewId = 'review-other';
+    },
+  ],
+  [
+    'equal participants',
+    (p) => {
+      p.identities.reviewerFingerprint = p.identities.authorFingerprint;
+    },
+  ],
+  [
+    'missing source interpreter',
+    (p) => {
+      delete p.producer.sources['src/protocol/reducer.mjs'];
+    },
+  ],
+  [
+    'different producer interpreter',
+    (p) => {
+      p.producer.sources['src/protocol/reducer.mjs'] = '0'.repeat(64);
+    },
+  ],
+  [
+    'uncommitted verifier omission',
+    (p) => {
+      p.verifier.sources = [];
+    },
+  ],
+  [
+    'incoherent event count',
+    (p) => {
+      p.attempt.eventCount = 1;
+    },
+  ],
+  [
+    'missing terminal proof',
+    (p) => {
+      delete p.checks.terminalTransaction;
+    },
+  ],
+  [
+    'failed source profile',
+    (p) => {
+      p.checks.producerSourceProfile = false;
+    },
+  ],
+  [
+    'stronger signer assurance',
+    (p) => {
+      p.identities.authorityAssurance = 'host-verified';
+      p.reproducibility.assurance = 'host-verified';
+    },
+  ],
+])
+  test('[#144] retained safe proof refuses ' + name, () => {
+    const p = structuredClone(actualReceipts[0]);
+    change(p);
+    assert.equal(api.validateRuntimeLineageProof(p), false);
+  });
