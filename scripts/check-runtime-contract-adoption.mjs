@@ -62,22 +62,31 @@ const safePath = (p) =>
 const fixturePath = (p) => /^(?:test|tests|\.scratch|node_modules)\//.test(p);
 
 const manifestSchemas = new Map();
-function schemaDocument(name) {
-  if (!manifestSchemas.has(name)) {
+function schemaDocument(name, producerVersion = '0.4.0') {
+  const cacheKey = producerVersion + ':' + name;
+  if (!manifestSchemas.has(cacheKey)) {
     const file = name.startsWith('ai-peer-review.')
       ? name.slice('ai-peer-review.'.length).replace('/', '-') + '.json'
       : name;
     if (!/^[a-z0-9-]+\.json$/.test(file)) throw Error('manifest-schema-reference-invalid');
     const document = JSON.parse(
-      readFileSync(new URL('../schemas/' + file, import.meta.url), 'utf8')
+      readFileSync(
+        new URL(
+          producerVersion === '0.4.1' && file === 'runtime-v1.json'
+            ? './lib/review-grammar-v0.4.1/runtime-v1.json'
+            : '../schemas/' + file,
+          import.meta.url
+        ),
+        'utf8'
+      )
     );
-    manifestSchemas.set(name, document);
+    manifestSchemas.set(cacheKey, document);
   }
-  return manifestSchemas.get(name);
+  return manifestSchemas.get(cacheKey);
 }
 // Interpret only the checked-in document schema vocabulary. Unknown schema
 // keywords or unresolved references refuse rather than silently dropping rules.
-function documentValid(schema, value, root, depth = 0) {
+function documentValid(schema, value, root, depth = 0, producerVersion = '0.4.0') {
   if (depth > 128 || !object(schema)) return false;
   const vocabulary = [
     '$schema',
@@ -113,17 +122,21 @@ function documentValid(schema, value, root, depth = 0) {
   if (Object.keys(schema).some((key) => !vocabulary.includes(key))) return false;
   if (schema.$ref) {
     const [name, fragment = ''] = schema.$ref.split('#');
-    const targetRoot = name ? schemaDocument(name) : root;
+    const targetRoot = name ? schemaDocument(name, producerVersion) : root;
     let target = targetRoot;
     for (const key of fragment.split('/').slice(1))
       target = target?.[key.replaceAll('~1', '/').replaceAll('~0', '~')];
-    if (!documentValid(target, value, targetRoot, depth + 1)) return false;
+    if (!documentValid(target, value, targetRoot, depth + 1, producerVersion)) return false;
   }
-  if (schema.anyOf && !schema.anyOf.some((s) => documentValid(s, value, root, depth + 1)))
+  if (
+    schema.anyOf &&
+    !schema.anyOf.some((s) => documentValid(s, value, root, depth + 1, producerVersion))
+  )
     return false;
   if (
     schema.oneOf &&
-    schema.oneOf.filter((s) => documentValid(s, value, root, depth + 1)).length !== 1
+    schema.oneOf.filter((s) => documentValid(s, value, root, depth + 1, producerVersion)).length !==
+      1
   )
     return false;
   const leaf = { ...schema };
@@ -152,34 +165,44 @@ function documentValid(schema, value, root, depth = 0) {
       return false;
   }
   if (Array.isArray(value)) {
-    if (schema.items && !value.every((v) => documentValid(schema.items, v, root, depth + 1)))
+    if (
+      schema.items &&
+      !value.every((v) => documentValid(schema.items, v, root, depth + 1, producerVersion))
+    )
       return false;
-    if (schema.contains && !value.some((v) => documentValid(schema.contains, v, root, depth + 1)))
+    if (
+      schema.contains &&
+      !value.some((v) => documentValid(schema.contains, v, root, depth + 1, producerVersion))
+    )
       return false;
   } else if (object(value)) {
     for (const [key, member] of Object.entries(value)) {
       if (Object.hasOwn(schema.properties ?? {}, key)) {
-        if (!documentValid(schema.properties[key], member, root, depth + 1)) return false;
+        if (!documentValid(schema.properties[key], member, root, depth + 1, producerVersion))
+          return false;
       } else if (schema.additionalProperties === false) return false;
       else if (
         object(schema.additionalProperties) &&
-        !documentValid(schema.additionalProperties, member, root, depth + 1)
+        !documentValid(schema.additionalProperties, member, root, depth + 1, producerVersion)
       )
         return false;
     }
   }
   for (const clause of schema.allOf ?? [])
-    if (!documentValid(clause, value, root, depth + 1)) return false;
+    if (!documentValid(clause, value, root, depth + 1, producerVersion)) return false;
   if (schema.if) {
-    const branch = documentValid(schema.if, value, root, depth + 1) ? schema.then : schema.else;
-    if (branch && !documentValid(branch, value, root, depth + 1)) return false;
+    const branch = documentValid(schema.if, value, root, depth + 1, producerVersion)
+      ? schema.then
+      : schema.else;
+    if (branch && !documentValid(branch, value, root, depth + 1, producerVersion)) return false;
   }
   return true;
 }
-function closedManifestValid(model) {
+export function validateRuntimeReviewManifest(model, producerVersion = '0.4.0') {
   try {
-    const schema = schemaDocument('manifest-v1.json');
-    if (!documentValid(schema, model, schema)) return false;
+    if (!['0.4.0', '0.4.1'].includes(producerVersion)) return false;
+    const schema = schemaDocument('manifest-v1.json', producerVersion);
+    if (!documentValid(schema, model, schema, 0, producerVersion)) return false;
     sealManifest(model); // Canonical normal-mode terminal coherence, not event lineage.
     return true;
   } catch {
@@ -187,19 +210,7 @@ function closedManifestValid(model) {
   }
 }
 
-export function checkRuntimeContractAdoption({
-  record,
-  artifacts,
-  recordReference,
-  approvalReview,
-  activationAddendum,
-  mode = 'publication',
-} = {}) {
-  const contractBlockers = [],
-    activationBlockers = [],
-    assurance = new Set();
-  const block = (code) => contractBlockers.push(code);
-  if (!['publication', 'adoption-only'].includes(mode)) block('verification-mode-invalid');
+function createReviewContext({ artifacts, block, assurance, producerVersion = '0.4.0' }) {
   const get = (key) => (artifacts instanceof Map ? artifacts.get(key) : undefined);
   const verified = (ref) => {
     if (
@@ -268,7 +279,7 @@ export function checkRuntimeContractAdoption({
       block('review-proof-incomplete');
       return;
     }
-    if (!closedManifestValid(manifest)) block('review-manifest-invalid');
+    if (!validateRuntimeReviewManifest(manifest, producerVersion)) block('review-manifest-invalid');
     if (
       manifest.schema !== 'ai-peer-review.manifest/v1' ||
       manifest.review_id !== proof.reviewId ||
@@ -365,6 +376,47 @@ export function checkRuntimeContractAdoption({
     if (!ASSURANCES.includes(manifest.authority_assurance)) block('review-assurance-invalid');
     else assurance.add(manifest.authority_assurance);
   };
+  return { get, verified, json, sameSubject, review };
+}
+
+export function checkNormalRuntimeReview({ proof, artifacts, producerVersion } = {}) {
+  const blockers = [],
+    assurance = new Set();
+  if (!['0.4.0', '0.4.1'].includes(producerVersion))
+    blockers.push('review-producer-profile-unsupported');
+  else
+    createReviewContext({
+      artifacts,
+      block: (code) => blockers.push(code),
+      assurance,
+      producerVersion,
+    }).review(proof, proof?.subject);
+  return {
+    collateralComplete: blockers.length === 0,
+    blockers: [...new Set(blockers)].sort(),
+    assurance: [...assurance].sort(),
+    privateEventReplay: 'not-checked',
+  };
+}
+
+export function checkRuntimeContractAdoption({
+  record,
+  artifacts,
+  recordReference,
+  approvalReview,
+  activationAddendum,
+  mode = 'publication',
+} = {}) {
+  const contractBlockers = [],
+    activationBlockers = [],
+    assurance = new Set();
+  const block = (code) => contractBlockers.push(code);
+  if (!['publication', 'adoption-only'].includes(mode)) block('verification-mode-invalid');
+  const { get, verified, json, sameSubject, review } = createReviewContext({
+    artifacts,
+    block,
+    assurance,
+  });
   if (
     !exact(record, FIELDS) ||
     record.schema !== 'ai-peer-review.runtime-contract-adoption/v1' ||

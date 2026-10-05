@@ -969,3 +969,38 @@ test('[#144] owner disposition must contain its exact accepted bounded subsectio
   assert.equal(report.contractAdopted, false);
   assert.ok(report.contractBlockers.includes('owner-native-proof-invalid'));
 });
+
+test('[#144] standalone normal collateral validation preserves complete exact source transaction', () => {
+  const f = fixture();
+  const result = api.checkNormalRuntimeReview({
+    proof: f.record.amendmentReview,
+    artifacts: f.artifacts,
+    producerVersion: '0.4.0',
+  });
+  assert.equal(result.collateralComplete, true);
+  assert.equal(result.privateEventReplay, 'not-checked');
+});
+test('[#144] standalone normal collateral cannot accept unavailable exact member bytes', () => {
+  const f = fixture(),
+    proof = f.record.amendmentReview;
+  f.artifacts.delete(proof.finalResponse.revision + ':' + proof.finalResponse.path);
+  const result = api.checkNormalRuntimeReview({
+    proof,
+    artifacts: f.artifacts,
+    producerVersion: '0.4.0',
+  });
+  assert.equal(result.collateralComplete, false);
+  assert.ok(result.blockers.includes('artifact-unavailable'));
+});
+test('[#144] standalone normal collateral cannot infer terminal parent from valid trailers', () => {
+  const f = fixture(),
+    proof = f.record.amendmentReview;
+  f.artifacts.set('parent:' + proof.finalization.revision, 'b'.repeat(40));
+  const result = api.checkNormalRuntimeReview({
+    proof,
+    artifacts: f.artifacts,
+    producerVersion: '0.4.0',
+  });
+  assert.equal(result.collateralComplete, false);
+  assert.ok(result.blockers.includes('review-finalization-parent-mismatch'));
+});
