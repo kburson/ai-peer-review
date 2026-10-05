@@ -14,7 +14,8 @@
     "scripts/review/**",
     "scripts/tests/**",
     ".tmp/**",
-    ".claude/worktrees/**"
+    ".claude/worktrees/**",
+    "evidence/portable-runtime/contracts/2026-10-05-144-author-sar.md"
   ],
   "words": [
     "AITM",
@@ -104,6 +105,12 @@
     "unvalidated",
     "USERPROFILE",
     "WINDIR",
-    "repoint"
-  ]
+    "repoint",
+    "ENOENT",
+    "ECONNREFUSED",
+    "rollups",
+    "unreviewed",
+    "issuecomment"
+  ],
+  "ignoreRegExpList": ["/\"nodeId\":\\s*\"IC_[A-Za-z0-9_-]+\"/g"]
 }

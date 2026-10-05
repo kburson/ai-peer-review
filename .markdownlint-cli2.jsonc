@@ -4,6 +4,12 @@
     "MD024": { "siblings_only": true },
   },
   "ignores": [
+    // Preserve exact accepted Plan and authenticated native comment evidence bytes.
+    "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+    "evidence/portable-runtime/contracts/owners/102-adoption.md",
+    "evidence/portable-runtime/contracts/owners/30-adoption.md",
+    "evidence/portable-runtime/contracts/owners/34-adoption.md",
+    "evidence/portable-runtime/contracts/owners/109-adoption.md",
     "node_modules/**",
     "coverage/**",
     ".tmp/**",

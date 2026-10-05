@@ -19,3 +19,6 @@ evidence/portable-runtime/contracts/owners/30-adoption.md
 evidence/portable-runtime/contracts/owners/34-adoption.md
 evidence/portable-runtime/contracts/owners/102-adoption.md
 evidence/portable-runtime/contracts/owners/109-adoption.md
+
+# Preserve historical author SAR bytes from a2d80d9; this record predates independent review.
+evidence/portable-runtime/contracts/2026-10-05-144-author-sar.md
