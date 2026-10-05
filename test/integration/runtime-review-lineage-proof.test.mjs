@@ -93,3 +93,76 @@ test('[#144] identical Git objects in an independent clone cannot substitute for
     rmSync(f.p, { recursive: true, force: true });
   }
 });
+
+// These fixture journals exercise actor refusal only; they never supply adoption evidence.
+import { sequence, FINGERPRINTS, claim } from '../helpers/review-fixture.mjs';
+for (const terminalType of ['finalization-started', 'acceptance-committed'])
+  for (const [actorName, actor] of [
+    ['system', 'system'],
+    ['reviewer', FINGERPRINTS.reviewer],
+    ['foreign session', FINGERPRINTS.replacement],
+  ])
+    test('[#144] local verifier refuses ' + actorName + ' on ' + terminalType, () => {
+      const base = path.join(process.cwd(), '.scratch');
+      mkdirSync(base, { recursive: true });
+      const workspace = mkdtempSync(path.join(base, 'lineage-actor-test-'));
+      try {
+        const events = sequence(
+          [
+            'review-created',
+            'reviewer-joined',
+            'turn-claimed',
+            'reviewer-accepted',
+            'finalization-started',
+            'acceptance-committed',
+          ],
+          {
+            1: { actor: FINGERPRINTS.reviewer },
+            2: { actor: FINGERPRINTS.reviewer, payload: { claim: claim('reviewer') } },
+            3: { actor: FINGERPRINTS.reviewer },
+            4: { actor: FINGERPRINTS.author },
+            5: { actor: FINGERPRINTS.author },
+          }
+        );
+        events[0].payload.startup.context.repository_root = workspace;
+        events[0].payload.startup.runtime = {
+          schema: 'ai-peer-review.runtime/v1',
+          classification: 'XPR',
+          ownership: 'broker',
+          transport_mode: 'manual',
+          author: {
+            provider: 'openai',
+            host: 'codex',
+            model_id: 'fixture',
+            model_display: 'fixture',
+            effort: 'high',
+          },
+          reviewer: {
+            selector: 'claude',
+            provider: 'anthropic',
+            host: 'claude-code',
+            model_id: 'fixture',
+            model_display: 'fixture',
+            effort: 'high',
+          },
+          adapter_version: '1',
+          project_root_digest: 'd'.repeat(64),
+        };
+        events.find((event) => event.type === terminalType).actor = actor;
+        writeFileSync(
+          path.join(workspace, 'events.jsonl'),
+          events.map((event) => JSON.stringify(event)).join('\n') + '\n'
+        );
+        assert.throws(
+          () =>
+            verifyRuntimeReviewLineage({
+              workspace,
+              reviewReference: { ...reviewReference, reviewId: 'review-01' },
+              producerProfile: '0.4.1',
+            }),
+          /persisted-terminal-author-conflict/
+        );
+      } finally {
+        rmSync(workspace, { recursive: true, force: true });
+      }
+    });

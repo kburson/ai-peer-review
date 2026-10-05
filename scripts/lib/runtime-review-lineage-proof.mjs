@@ -171,6 +171,16 @@ export function verifyRuntimeReviewLineage({ workspace, reviewReference, produce
   const events = eventBytes.toString('utf8').slice(0, -1).split('\n').map(parseRawJson);
   const state = reduceRuntimeReviewEvents(events, producerProfile),
     p = state.protocol;
+  // The fixed producer grammar does not validate actors for these terminal events.
+  // Local proof generation must still verify the author-owned Git transaction.
+  if (
+    events.some(
+      (event) =>
+        ['finalization-started', 'acceptance-committed'].includes(event.type) &&
+        event.actor !== state.participants.author.session_fingerprint
+    )
+  )
+    fail('persisted-terminal-author-conflict');
   const root = p.startup.context.repository_root,
     git = gitReader(root);
   if (
