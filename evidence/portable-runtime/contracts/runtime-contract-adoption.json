@@ -33,33 +33,57 @@
     }
   },
   "reviewedDigests": [
-    "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405",
-    "7eb93ca43014ff4f57c3e3b93e8d2d1e996bb68b6585ff356a07cf31445e9292",
-    "744390c3aa12d92e08051054a75812a0b348787d59069d09d4f9e762ea4c76d9",
-    "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8",
-    "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
-    "e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a",
-    "208a8e54a014415cdef0dda2b6d266b7745e7126d0902a34c2b7c1041b420828",
-    "9018523174a6cf8118e71b6416b4f665fb71e7fc8eead043633291de805084e1",
-    "6ccf9ddf86a0f5f097e2608c153d33de1b72cb4f7beb96c67573614b9f1418ec",
-    "cbde9dd03599db73474944bd84123a3b441964f270c716112b0324ccb0d5488a",
-    "f8d724cc9e5602aaf268d567c3c3d4b3180d7149cd1ac1b1865647fece0079da",
-    "04caa2a1677f341a8fe06bab5090a4768b09e2b4349f8317dc3940a516320787",
-    "155fdc4c8d4ba794de0f4d758af965211aab858768483fdfd9ccf261b8940481",
-    "4d3fc800794729aecac4bab72e5560e8367cf0c1d2565361527e9b8035fe2b36",
-    "25ab2156fa4f82277119bf5735bb47db21d58112a21dd73537f06ec80ecb7987",
-    "b633a1f16d7e8464873f52ee2f69d9baac08a871dd2aaf13f31f7e14d8dabd44",
-    "9a4f51b04cbf621ffcce841054ab434b3d7c9acc89f8010913f170d133f2ff37",
-    "76a0ca687364aeac8d41d9122a203eea79c7b18cd51f1b731df4a1c21d0b4f23",
-    "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14",
-    "ba1560b9a81c0f5b2875cd2c546de84bde94020164dc7d5235cbab31102418ac",
-    "2e3a0001e7b6926ac8491bda55eef018d6cccb1f06f0e00b1f0fe966f6a654b7",
-    "f743d3911e51e188f4dc4ea56502d41060b389ec93c577a28374f9f39fbcb6b3",
-    "6e867728907a8a0a67ee5ffe145560d2fd9a39e94134d409594e540a72d71a59",
     "01f734cdcb72e6484189d4ded64334d4b05fb2cbc5a14a5d12c33f2edd90116c",
+    "04caa2a1677f341a8fe06bab5090a4768b09e2b4349f8317dc3940a516320787",
+    "05ea2c71b969d6893e9be17d0e32d3161f7810fd2a4a9bf1a62797d0654eda93",
+    "0d82e9b9377d1d6b571642d6ccc2b7007269415560063f8a3639812da3b55945",
+    "155fdc4c8d4ba794de0f4d758af965211aab858768483fdfd9ccf261b8940481",
+    "208a8e54a014415cdef0dda2b6d266b7745e7126d0902a34c2b7c1041b420828",
+    "25ab2156fa4f82277119bf5735bb47db21d58112a21dd73537f06ec80ecb7987",
+    "2d436e187e4ee2a0d22fda275d90801b67c82ad7ca8b4b688dcf105dd649ff6f",
+    "2e3a0001e7b6926ac8491bda55eef018d6cccb1f06f0e00b1f0fe966f6a654b7",
+    "2fb70b0820ad32c8efc17a7bc5105d4d1bee2bfd46d3f6dd530e0c6f036f4a51",
+    "2fdfb6635210ee77d793aa1a9779fb908b072e7801a8adbc7f7575cd59c76958",
+    "3885933db908da7cb243ecd870fb510525089c15aa440687673374f67ddd7295",
+    "395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
+    "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8",
     "45149a3afcc8e66fa487f41bece09bb35a58e7c4c0033da2c5b32a887ad07170",
+    "4a4878c34cea8f9fae8e6dfc38081d15c10e315080053183f1fb6101c66e972f",
+    "4d3fc800794729aecac4bab72e5560e8367cf0c1d2565361527e9b8035fe2b36",
+    "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405",
+    "5b0639abddd38dfd4c3d8467931bd7f70ed65afa420706049284691dcdeaec17",
+    "6ccf9ddf86a0f5f097e2608c153d33de1b72cb4f7beb96c67573614b9f1418ec",
+    "6e867728907a8a0a67ee5ffe145560d2fd9a39e94134d409594e540a72d71a59",
+    "7130694f89335165a63d29196a56f3665c605fc5b85dde73105a6766da338a4f",
+    "744390c3aa12d92e08051054a75812a0b348787d59069d09d4f9e762ea4c76d9",
+    "76a0ca687364aeac8d41d9122a203eea79c7b18cd51f1b731df4a1c21d0b4f23",
+    "7eb93ca43014ff4f57c3e3b93e8d2d1e996bb68b6585ff356a07cf31445e9292",
+    "84c1f2657824b8b7953f76b12e77df5659803cc3feb225f0d432148c697fb026",
+    "88b28fd81f33fe87340192ee903ed4224b6802c55a150be40531fa7f0321b601",
+    "8de3983dd0eeceff56e998458d1d810fd50779eec65dc0fd3807a2ed5ed8cf08",
+    "9018523174a6cf8118e71b6416b4f665fb71e7fc8eead043633291de805084e1",
+    "9a4f51b04cbf621ffcce841054ab434b3d7c9acc89f8010913f170d133f2ff37",
+    "9d83574b214bfb12368d334162fa1af8ddddc8cfc4c055f9447312be76b58b43",
+    "a3f8126b8415ac961b09c42351cff62ce76cb6580d8794be09fb2dbdf1ea135b",
     "a49f63acee0df5ba85fe9773e2835fb10b50b2e58c375db53c9d4c867e8b1d6a",
-    "b1d7a799a27ae5ec2c419ec92b275ab3160f2005cc4484497e680131b9a75d4f"
+    "afeba30341b24c594105517ef13a2d7f379ee2af54a626095037aad79804e29d",
+    "b1d7a799a27ae5ec2c419ec92b275ab3160f2005cc4484497e680131b9a75d4f",
+    "b29bdd2209341f29b6f8a8affd13576f55d58a20410b9f4aac541b468710ee94",
+    "b2b5008a358f8b7cbc0c625401d6cebbb891b0eedb51aafedef481c0ad81b274",
+    "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14",
+    "b633a1f16d7e8464873f52ee2f69d9baac08a871dd2aaf13f31f7e14d8dabd44",
+    "ba1560b9a81c0f5b2875cd2c546de84bde94020164dc7d5235cbab31102418ac",
+    "cb3e62add4a5b8757c8cd65d7771012b5ab4d1df216c7f00bd32fd3410911b06",
+    "cbde9dd03599db73474944bd84123a3b441964f270c716112b0324ccb0d5488a",
+    "ced7e2137ffac5af9cae3d150c2a59295f54a077f0f268bbdb5a07f130b44ea2",
+    "d1e2b6f00147513fecc55ff71096be125e693b8dce551b4278431835bdffa966",
+    "e00a4390cf99670061d9f873bd850161c52069f681c96142b7da29050266a79c",
+    "e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a",
+    "ee4459590ccc2d43e322ae90d339efd0448f74dbcca46453d5c3c85b1969eb4b",
+    "f1b6e0a7d03aa33e71e39ce0e08218a80bc41f01dc337a3b20a1c221f93bd62c",
+    "f743d3911e51e188f4dc4ea56502d41060b389ec93c577a28374f9f39fbcb6b3",
+    "f8d724cc9e5602aaf268d567c3c3d4b3180d7149cd1ac1b1865647fece0079da",
+    "ff16ea825925148f8ab83ee380f10796fc83c75c3c9d26fc93209383a5983efb"
   ],
   "schemas": [
     {
@@ -110,7 +134,8 @@
     "unresolvedOverlapObligations": [
       "PR139 remains draft/unmerged; required Windows CI failing. Observed interface source is not delivered.",
       "Protected registered approved contract/addendum transport and independently reviewed #130 detailed schemas remain pending.",
-      "Actual current-package installed old-family exclusion/drain/rollback conformance and Task18 activation schema/evidence remain pending."
+      "Actual current-package installed old-family exclusion/drain/rollback conformance and Task18 activation schema/evidence remain pending.",
+      "The registration reference pins #102 design intent only. The protected registration-store/receipt schema and transport contract are not frozen or implemented by this reference; independent #102/#130 review and exact installed-current conformance remain required."
     ],
     "interfaceSources": [
       {
@@ -227,7 +252,7 @@
     "preservedBaselines": [
       {
         "kind": "accepted-design",
-        "status": "accepted replacement design only; no deployed proof",
+        "status": "Accepted replacement design only: normal review-a3927de204393c987234f146101239f9 finalized at 6abc0111f4c380f68e3b590ba5b7512d48aa6f3a; no deployed proof or broad independent Plan acceptance",
         "reference": {
           "revision": "021bed7e9cc01782f0822e99fa2d3a58aadeb16e",
           "path": "docs/superpowers/specs/2026-09-29-102-primary-runtime-authority-design.md",
@@ -244,12 +269,35 @@
           "blob": "013319d69f25779bab90744eb6551e7548fc8c0c",
           "sha256": "f1b6e0a7d03aa33e71e39ce0e08218a80bc41f01dc337a3b20a1c221f93bd62c"
         }
+      },
+      {
+        "kind": "accepted-design-review-manifest",
+        "status": "Normal accepted design review review-a3927de204393c987234f146101239f9; finalization 6abc0111f4c380f68e3b590ba5b7512d48aa6f3a; manual transport and unavailable assurance; design acceptance only",
+        "reference": {
+          "revision": "6abc0111f4c380f68e3b590ba5b7512d48aa6f3a",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-01-2026-09-29-102-primary-runtime-authority-design-review-a3927de204393c987234f146101239f9/review-a3927de204393c987234f146101239f9-review-manifest.md",
+          "blob": "5bb9306906fb093f531611d6232f439df92a939b",
+          "sha256": "a3f8126b8415ac961b09c42351cff62ce76cb6580d8794be09fb2dbdf1ea135b"
+        }
+      },
+      {
+        "kind": "accepted-design-review-final-response",
+        "status": "Normal accepted design review review-a3927de204393c987234f146101239f9; finalization 6abc0111f4c380f68e3b590ba5b7512d48aa6f3a; manual transport and unavailable assurance; design acceptance only",
+        "reference": {
+          "revision": "6abc0111f4c380f68e3b590ba5b7512d48aa6f3a",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-01-2026-09-29-102-primary-runtime-authority-design-review-a3927de204393c987234f146101239f9/review-a3927de204393c987234f146101239f9-reviewer-response-3.md",
+          "blob": "11c1ef14fcb8a22a2a1679161b27d40218df695c",
+          "sha256": "afeba30341b24c594105517ef13a2d7f379ee2af54a626095037aad79804e29d"
+        }
       }
     ],
     "remainingObligations": [
       "PR139 remains draft/unmerged; required Windows CI failing. Observed interface source is not delivered.",
       "Protected registered approved contract/addendum transport and independently reviewed #130 detailed schemas remain pending.",
-      "Actual current-package installed old-family exclusion/drain/rollback conformance and Task18 activation schema/evidence remain pending."
+      "Actual current-package installed old-family exclusion/drain/rollback conformance and Task18 activation schema/evidence remain pending.",
+      "The registration reference pins #102 design intent only. The protected registration-store/receipt schema and transport contract are not frozen or implemented by this reference; independent #102/#130 review and exact installed-current conformance remain required.",
+      "This record's reviewedDigests is a non-authorizing provenance coverage inventory: the sorted unique SHA-256 values of every complete closed Git-reference object embedded in this record (exactly revision, path, blob and sha256), including drafts, historical baselines, owner bodies, receipts, normal review collateral and importer sources. Inventory membership does not mean prior normal acceptance, semantic approval of external source, implemented operational registration, activation or publication authority. The standalone checker checks digest format and required subset only; full set equality is verified for this record before normal review. Later inventory changes invalidate the exact normally accepted subject and require normal successor review, rather than gaining authority from the inventory.",
+      "The structured runtimePolicy owner disposition in this record explicitly preserves the genuine accepted #102 design review review-a3927de204393c987234f146101239f9 and finalization 6abc0111f4c380f68e3b590ba5b7512d48aa6f3a through the pinned manifest and final-response baseline entries. The original native #102 comment did not cite that review ID or finalization; that omission remains an observed historical deficiency, not rewritten history. These record-level provenance references grant neither broader #102 independent Plan acceptance nor deployed authority."
     ]
   },
   "evidence": {
@@ -340,7 +388,7 @@
       }
     ],
     "remainingObligations": [
-      "Broader30 Plan remains unaccepted; detailed lifecycle/amendment/shared evidence schemas and snapshot/patch/export implementation remain independently governed."
+      "Broader #30 Plan remains unaccepted; detailed lifecycle/amendment/shared evidence schemas and snapshot/patch/export implementation remain independently governed. Preserve the broader #30 C1/C2 transaction, setup/catalog/index and migration requirements."
     ]
   },
   "analytics": {
@@ -418,10 +466,20 @@
           "blob": "5b914e748a9ed095818cb8a260b9c0e96a4d2d67",
           "sha256": "ee4459590ccc2d43e322ae90d339efd0448f74dbcca46453d5c3c85b1969eb4b"
         }
+      },
+      {
+        "kind": "umbrella-plan-task",
+        "status": "Umbrella Task 5 retained; no accepted standalone #34 Plan",
+        "reference": {
+          "revision": "1860a95c4ab6ebf859a2fe57146c720220c62480",
+          "path": "docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md",
+          "blob": "5304fc9ca41fe3ae11cc0eb421d6423837a5ec62",
+          "sha256": "9d83574b214bfb12368d334162fa1af8ddddc8cfc4c055f9447312be76b58b43"
+        }
       }
     ],
     "remainingObligations": [
-      "Standalone34 specification/Plan,31/32 prerequisites and experiment/scoring implementation remain separately governed."
+      "Standalone #34 specification and Plan, #31/#32 prerequisites, and experiment/scoring implementation remain separately governed."
     ]
   },
   "telemetry": {
@@ -497,7 +555,7 @@
       }
     ],
     "remainingObligations": [
-      "109 Codex headless repair/controller timing remains R4P;152/153 own broader provider/controller/aggregate integration."
+      "#109 Codex headless repair and controller timing remain in Ready for Planning; #152/#153 own broader provider/controller/aggregate integration."
     ]
   },
   "governance": {
