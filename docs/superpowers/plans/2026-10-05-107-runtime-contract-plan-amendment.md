@@ -64,6 +64,23 @@ Replace the adoption interface contract with:
 - An approved-ref pins the contract record and accepted review plus, for publication, one exact activation addendum and accepted review. Git revisions, blobs, bytes, complete normal manifests, accepted members, persisted attempt/event/source identity and terminal author transaction are validated. No caller assertion, fixture or latest filename grants authority.
 - Task 8 alone owns runtime `assertContractAdoption(record):void`; it requires the complete applicable activation binding/addendum as well as contract adoption.
 
+### Contextual response compatibility and owner proof
+
+The accepted bounded owner Plan is `docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md` at `bdd842694a0494da963c538de686d1c85d689d4d`, blob `95a44172d2683c9c5b213c6e9b7be4cd7b690149`, SHA-256 `3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8`. Its normal Plan XPR `review-057079566301a0106537dde070ea518a` finalized at `674a5c967ed32122eb0c879f4e9991fa3792535b`, with authority assurance unavailable. That acceptance approves the bounded proposals, not four actual native owner dispositions, their broader plans, or implementation.
+
+Bind both response schema artifacts from `66b1a7a5fe061336bcf484d26fab3973a3b19c77`:
+
+- API artifact `schemas/api-response-v1.json`, SHA-256 `7eb93ca43014ff4f57c3e3b93e8d2d1e996bb68b6585ff356a07cf31445e9292`, schema artifact ID `ai-peer-review.api-response/v1`.
+- Historical artifact `schemas/response-v1.json`, SHA-256 `744390c3aa12d92e08051054a75812a0b348787d59069d09d4f9e762ea4c76d9`, schema artifact ID `ai-peer-review.response/v1`.
+
+Both payloads retain `ai-peer-review.response/v1`. The supported API boundary selects its API artifact through the operation registry; historical participant evidence selects its historical artifact. Never dispatch solely on the shared payload tag, reinterpret the historical reader, or weaken either closed grammar. Contract adoption requires this exact contextual rule and both byte references in the actual #30 historical-evidence and #102 runtime native dispositions and in the accepted applied #107 plan. Tests alone do not adopt it.
+
+Actual owner proof binds each genuine native owner transaction/source, exact disposition bytes, owner issue, bounded subsection, selected complete bundle, accepted Plan reference and remaining obligations. Additive pointers preserve every ordinary Implementation-plan, Governing-spec, Plan-review and approval marker. One common accepted Plan review repeated four times is not four owner transactions. The unverified broad #102 independent Plan review remains recorded provenance; this bounded adoption requires its own accepted bounded Plan reference and genuine native disposition, not invented acceptance of the broader six-slice plan.
+
+Normative target interfaces and reserved identifiers from #107 do not freeze absent field-level schema bytes. Detailed #30/#130 schema implementation and broader #34/#109/#152/#153 work retain their own gates. #109's native disposition is bounded to Codex consumption/repair; #152/#153 retain broader shared telemetry integration.
+
+Version-bound local actual-workspace lineage proof supplements and never replaces the pinned Git contract record, review bytes and terminal author transaction. The record/approved-ref identifies which verified facts require non-retained local proof and which cannot be reproduced from Git alone. Missing that actual workspace/source proof refuses; no fixture, lossy projection, copied private journal or caller claim supplies it. Raw event byte hashes and the exact producer's canonical receipt algorithm remain distinct. An approved-ref never executes untrusted pinned JavaScript.
+
 ### Task 5 verification boundary and native mapping
 
 Replace only Task 5 Verification Command 1 with the explicit contract-only command:
