@@ -44,16 +44,6 @@ const INTERFACES = [
   'resolvePrimaryAuthority',
   'inspectPrimaryReviewInventory',
 ];
-const CASES = [
-  'changed-current-selection',
-  'unsupported-active-fenced-journals',
-  'mixed-policy',
-  'old-launcher-after-probe',
-  'simultaneous-native-portable-start',
-  'pre-replacement-drain',
-  'broker-crash-window',
-  'configured-roots',
-];
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const blob = (bytes, algorithm) =>
   createHash(algorithm)
@@ -202,6 +192,7 @@ export function checkRuntimeContractAdoption({
   artifacts,
   recordReference,
   approvalReview,
+  activationAddendum,
   mode = 'publication',
 } = {}) {
   const contractBlockers = [],
@@ -460,79 +451,45 @@ export function checkRuntimeContractAdoption({
   } else {
     verified(binding.source);
     verified(binding.registration);
-    const operationalStart = contractBlockers.length;
+    if (binding.release != null || (binding.conformance?.length ?? 0) > 0)
+      block('contract-release-identity-forbidden');
     if (
       !Array.isArray(binding.unresolvedOverlapObligations) ||
       binding.unresolvedOverlapObligations.length
     )
       activationBlockers.push('activation-overlap-unresolved');
-    if (
-      !object(binding.release) ||
-      !OBJECT.test(binding.release.sourceRevision ?? '') ||
-      typeof binding.release.tag !== 'string' ||
-      !binding.release.tag.length ||
-      !binding.release.tarball
-    )
-      activationBlockers.push('release-proof-incomplete');
-    else {
-      verified(binding.release.tarball);
-      const tagTarget = get('tag:' + binding.release.tag);
-      if (tagTarget !== binding.release.sourceRevision)
-        activationBlockers.push('release-tag-mismatch');
-    }
-    if (
-      !Array.isArray(binding.conformance) ||
-      CASES.some((name) => !binding.conformance.some((c) => c.case === name))
-    )
-      activationBlockers.push('activation-proof-incomplete');
-    else
-      for (const proof of binding.conformance) {
-        if (!CASES.includes(proof.case)) {
-          activationBlockers.push('activation-proof-invalid');
-          continue;
-        }
-        const document = json(proof.artifact),
-          release = binding.release;
-        if (
-          !document ||
-          document.schema !== 'ai-peer-review.activation-conformance/v1' ||
-          document.ownerIssue !== 102 ||
-          document.case !== proof.case ||
-          document.sourceRevision !== release?.sourceRevision ||
-          document.releaseTag !== release?.tag ||
-          document.tarballSha256 !== release?.tarball?.sha256 ||
-          !Array.isArray(document.observations) ||
-          document.observations.length !== 3 ||
-          ['darwin', 'linux', 'win32'].some(
-            (platform) => document.observations.filter((o) => o.platform === platform).length !== 1
-          )
-        ) {
-          activationBlockers.push('activation-conformance-invalid');
-          continue;
-        }
-        for (const observation of document.observations) {
-          const receipt = json(observation.receipt);
-          if (
-            observation.mode !== 'genuine-installed-process' ||
-            observation.outcome !== 'passed' ||
-            !Number.isFinite(Date.parse(observation.observedAt)) ||
-            !receipt ||
-            receipt.platform !== observation.platform ||
-            receipt.case !== proof.case ||
-            receipt.sourceRevision !== release.sourceRevision ||
-            receipt.tarballSha256 !== release.tarball.sha256 ||
-            receipt.outcome !== observation.outcome ||
-            receipt.mode !== observation.mode ||
-            receipt.observedAt !== observation.observedAt
-          )
-            activationBlockers.push('activation-conformance-invalid');
-        }
-        review(proof.review, proof.artifact);
-      }
-    activationBlockers.push(
-      ...contractBlockers.splice(operationalStart).map((code) => 'activation-' + code)
-    );
   }
+  const operationalStart = contractBlockers.length;
+  if (!activationAddendum) activationBlockers.push('activation-addendum-missing');
+  else if (!exact(activationAddendum, ['record', 'ownerReviews'])) {
+    activationBlockers.push('activation-addendum-invalid');
+  } else {
+    const document = json(activationAddendum.record);
+    if (!document || document.schema !== 'ai-peer-review.runtime-activation-addendum/v1')
+      activationBlockers.push('activation-addendum-invalid');
+    if (!recordReference || document?.contractDigest !== recordReference.sha256)
+      activationBlockers.push('activation-contract-digest-mismatch');
+    const owners = activationAddendum.ownerReviews;
+    if (
+      !Array.isArray(owners) ||
+      owners.length !== 3 ||
+      [102, 107, 30].some((issue) => owners.filter((p) => p?.issue === issue).length !== 1)
+    ) {
+      activationBlockers.push('activation-owner-reviews-incomplete');
+    } else
+      for (const owner of owners) {
+        if (!exact(owner, ['issue', 'review']))
+          activationBlockers.push('activation-owner-reviews-incomplete');
+        else review(owner.review, activationAddendum.record);
+      }
+    // Task 18 owns the exact accepted activation/installed-conformance schema
+    // and executable operational proof. This Task 5 implementation has no such
+    // reviewed profile: generic JSON assertions can never authorize publication.
+    activationBlockers.push('activation-schema-owner-acceptance-pending');
+  }
+  activationBlockers.push(
+    ...contractBlockers.splice(operationalStart).map((code) => 'activation-' + code)
+  );
   const contractAdopted = contractBlockers.length === 0;
   const activationAuthorized =
     mode === 'publication' && contractAdopted && activationBlockers.length === 0;

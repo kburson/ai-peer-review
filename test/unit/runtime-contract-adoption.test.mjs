@@ -242,7 +242,7 @@ test('[#144] accepted fixture contract never manufactures pending activation pro
   assert.equal(result.contractAdopted, true);
   assert.equal(result.activationAuthorized, false);
   assert.equal(result.publicationAllowed, false);
-  assert.ok(result.activationBlockers.includes('release-proof-incomplete'));
+  assert.ok(result.activationBlockers.includes('activation-addendum-missing'));
   assert.deepEqual(result.assurance, ['unavailable']);
 });
 for (const name of cases.negativeCases.filter((x) => x !== 'pending-release')) {
@@ -391,7 +391,7 @@ function releaseFixture(f) {
   f.record.activationBinding.release = release;
   return release;
 }
-test('[#144] unrelated accepted follow-up cannot substitute for installed conformance', () => {
+test('[#144] contract release fields cannot substitute for separate installed conformance', () => {
   const f = fixture();
   releaseFixture(f);
   f.record.activationBinding.conformance = conformanceCases.map((name) => ({
@@ -400,11 +400,11 @@ test('[#144] unrelated accepted follow-up cannot substitute for installed confor
     review: f.record.amendmentReview,
   }));
   const result = api.checkRuntimeContractAdoption(f);
-  assert.equal(result.contractAdopted, true);
+  assert.equal(result.contractAdopted, false);
   assert.equal(result.activationAuthorized, false);
-  assert.ok(result.activationBlockers.includes('activation-conformance-invalid'));
+  assert.ok(result.contractBlockers.includes('contract-release-identity-forbidden'));
 });
-test('[#144] complete illustrative reviewed proof exercises activation without becoming CLI authority', () => {
+test('[#144] illustrative reviewed operational claims cannot put release identity in immutable contract', () => {
   const f = fixture(),
     release = releaseFixture(f);
   f.record.activationBinding.conformance = conformanceCases.map((name) => {
@@ -434,9 +434,10 @@ test('[#144] complete illustrative reviewed proof exercises activation without b
     return { case: name, artifact, review: f.review(artifact, name) };
   });
   const report = api.checkRuntimeContractAdoption(f);
-  assert.equal(report.contractAdopted, true);
-  assert.equal(report.activationAuthorized, true);
-  assert.equal(report.publicationAllowed, true);
+  assert.equal(report.contractAdopted, false);
+  assert.equal(report.activationAuthorized, false);
+  assert.equal(report.publicationAllowed, false);
+  assert.ok(report.contractBlockers.includes('contract-release-identity-forbidden'));
 });
 
 test('[#144] pinned conformance reports load each referenced platform receipt', () => {
@@ -617,7 +618,7 @@ function completeActivationFixture() {
 }
 test('[#144] adoption-only never grants activation even with complete illustrative operational inputs', () => {
   const report = api.checkRuntimeContractAdoption({
-    ...completeActivationFixture(),
+    ...separateActivationFixture(),
     mode: 'adoption-only',
   });
   assert.equal(report.contractAdopted, true);
@@ -626,9 +627,9 @@ test('[#144] adoption-only never grants activation even with complete illustrati
   assert.equal(report.mode, 'adoption-only');
 });
 test('[#144] default mode preserves publication requirement', () => {
-  const report = api.checkRuntimeContractAdoption(completeActivationFixture());
+  const report = api.checkRuntimeContractAdoption(separateActivationFixture());
   assert.equal(report.mode, 'publication');
-  assert.equal(report.publicationAllowed, true);
+  assert.equal(report.publicationAllowed, false);
 });
 test('[#144] unknown direct checker mode refuses instead of silently publishing', () => {
   const report = api.checkRuntimeContractAdoption({
@@ -674,4 +675,61 @@ test('[#144] complete B names alone cannot substitute for separately accepted co
   const report = api.checkRuntimeContractAdoption(f);
   assert.equal(report.contractAdopted, false);
   assert.ok(report.contractBlockers.includes('coexistence-amendment-missing'));
+});
+
+function separateActivationFixture() {
+  const f = completeActivationFixture();
+  const release = f.record.activationBinding.release;
+  const conformance = f.record.activationBinding.conformance;
+  f.record.activationBinding.release = null;
+  f.record.activationBinding.conformance = [];
+  f.recordReference = f.add('evidence/portable-runtime/contracts/adoption.json', f.record);
+  f.approvalReview = f.review(f.recordReference, 'record');
+  const addendum = f.add('evidence/portable-runtime/contracts/activation/v-fixture/addendum.json', {
+    schema: 'ai-peer-review.runtime-activation-addendum/v1',
+    contractDigest: f.recordReference.sha256,
+    release,
+    registration: f.record.activationBinding.registration,
+    conformance,
+    unresolvedOverlapObligations: [],
+  });
+  f.activationAddendum = {
+    record: addendum,
+    ownerReviews: [102, 107, 30].map((issue) => ({
+      issue,
+      review: f.review(addendum, 'activation-' + issue),
+    })),
+  };
+  return f;
+}
+test('[#144] separate activation claims await owned accepted conformance grammar', () => {
+  const f = separateActivationFixture();
+  const report = api.checkRuntimeContractAdoption(f);
+  assert.equal(report.contractAdopted, true);
+  assert.equal(report.activationAuthorized, false);
+  assert.equal(report.publicationAllowed, false);
+  assert.ok(report.activationBlockers.includes('activation-schema-owner-acceptance-pending'));
+});
+test('[#144] activation sibling with a different parent contract digest refuses', () => {
+  const f = separateActivationFixture(),
+    ref = f.activationAddendum.record;
+  const value = JSON.parse(f.artifacts.get(ref.revision + ':' + ref.path));
+  value.contractDigest = 'f'.repeat(64);
+  f.activationAddendum.record = f.add(ref.path, value);
+  f.activationAddendum.ownerReviews = [102, 107, 30].map((issue) => ({
+    issue,
+    review: f.review(f.activationAddendum.record, 'bad-parent-' + issue),
+  }));
+  const report = api.checkRuntimeContractAdoption(f);
+  assert.equal(report.contractAdopted, true);
+  assert.equal(report.publicationAllowed, false);
+  assert.ok(report.activationBlockers.includes('activation-contract-digest-mismatch'));
+});
+test('[#144] missing activation owner cannot be inferred from one common review', () => {
+  const f = separateActivationFixture();
+  f.activationAddendum.ownerReviews.pop();
+  const report = api.checkRuntimeContractAdoption(f);
+  assert.equal(report.contractAdopted, true);
+  assert.equal(report.publicationAllowed, false);
+  assert.ok(report.activationBlockers.includes('activation-owner-reviews-incomplete'));
 });
