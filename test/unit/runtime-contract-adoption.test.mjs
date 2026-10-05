@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { identityEvidence } from '../../src/identity/evidence.mjs';
 const api = await import('../../scripts/check-runtime-contract-adoption.mjs').catch(() => ({}));
 const cases = JSON.parse(
   readFileSync(new URL('../fixtures/runtime-contract-adoption.json', import.meta.url))
@@ -79,6 +80,15 @@ function fixture(assurance = 'unavailable') {
     const manifest = {
       schema: 'ai-peer-review.manifest/v1',
       review_id: reviewId,
+      record_id: reviewId,
+      residual_risk: assurance === 'unavailable' ? ['human-authority-unavailable'] : [],
+      startup_commit: revision,
+      identity_changes: [],
+      claims: [],
+      recoveries: [],
+      supplements: [],
+      authority: { policy: 'unavailable', verifier: null, acceptance_attestation: null },
+      human_decision: null,
       status: 'accepted',
       commit_mode: 'normal',
       acceptance_basis: 'reviewer-consensus',
@@ -92,13 +102,47 @@ function fixture(assurance = 'unavailable') {
           commit: revision,
           blob: subject.blob,
           digest: 'sha256:' + subject.sha256,
+          snapshot: null,
         },
       ],
       participants: {
-        author: { session_fingerprint: author },
-        reviewer: { session_fingerprint: reviewer },
+        ...Object.fromEntries(
+          [
+            ['author', author, 'codex'],
+            ['reviewer', reviewer, 'claude-code'],
+          ].map(([role, session_fingerprint, host]) => [
+            role,
+            {
+              role,
+              host,
+              provider: host,
+              model_id: 'fixture-model',
+              model_display: 'fixture-model',
+              session_fingerprint,
+              identity_source: 'fixture-only',
+              joined_at: '2026-10-01T00:00:00Z',
+              evidence: identityEvidence({
+                sessionFingerprint: session_fingerprint,
+                sessionSource: 'explicit-declaration',
+                modelId: 'fixture-model',
+                modelSource: 'explicit-declaration',
+              }),
+            },
+          ])
+        ),
       },
-      turns: [{ turn: 1, decision: 'accepted', reviewer_response: responsePointer }],
+      turns: [
+        {
+          turn: 1,
+          decision: 'accepted',
+          reviewer_response: responsePointer,
+          finding_ids: [],
+          author_response: null,
+          artifact: null,
+          commit: null,
+          snapshot: null,
+        },
+      ],
       lineage_receipt: {
         schema: 'ai-peer-review.lineage-receipt/v1',
         complete: true,
@@ -454,3 +498,87 @@ test('[#144] trailers alone cannot replace exact finalization tree and parent pr
   assert.ok(result.contractBlockers.includes('review-finalization-tree-mismatch'));
   assert.ok(result.contractBlockers.includes('review-finalization-parent-mismatch'));
 });
+
+function changeJointManifest(f, mutate) {
+  const proof = f.record.amendmentReview;
+  const original = JSON.parse(f.artifacts.get(proof.manifest.revision + ':' + proof.manifest.path));
+  mutate(original);
+  proof.manifest = f.add(proof.manifest.path, original);
+  return api.checkRuntimeContractAdoption(f);
+}
+// Missing full normal manifest fields must never be interpreted as accepted proof.
+for (const key of [
+  'record_id',
+  'residual_risk',
+  'startup_commit',
+  'identity_changes',
+  'claims',
+  'recoveries',
+  'supplements',
+  'authority',
+  'human_decision',
+]) {
+  test('[#144] review proof refuses missing closed manifest field ' + key, () => {
+    const result = changeJointManifest(fixture(), (manifest) => {
+      delete manifest[key];
+    });
+    assert.equal(result.contractAdopted, false);
+    assert.ok(result.contractBlockers.includes('review-manifest-invalid'));
+  });
+}
+for (const [label, mutate] of [
+  [
+    'unknown top-level field',
+    (m) => {
+      m.ignored_authority = true;
+    },
+  ],
+  [
+    'unknown participant field',
+    (m) => {
+      m.participants.author.raw_handle = 'forbidden';
+    },
+  ],
+  [
+    'missing participant role',
+    (m) => {
+      delete m.participants.reviewer.role;
+    },
+  ],
+  [
+    'invalid startup object',
+    (m) => {
+      m.startup_commit = null;
+    },
+  ],
+  [
+    'non-array claims',
+    (m) => {
+      m.claims = {};
+    },
+  ],
+  [
+    'missing turn finding list',
+    (m) => {
+      delete m.turns[0].finding_ids;
+    },
+  ],
+  [
+    'unknown authority field',
+    (m) => {
+      m.authority.accepted = true;
+    },
+  ],
+  [
+    'malformed lineage member',
+    (m) => {
+      m.lineage_receipt.attempts[0].extra = true;
+    },
+  ],
+]) {
+  test('[#144] full normal manifest grammar refuses ' + label, () => {
+    const result = changeJointManifest(fixture(), mutate);
+    assert.equal(result.contractAdopted, false);
+    assert.ok(result.contractBlockers.includes('review-manifest-invalid'));
+  });
+}

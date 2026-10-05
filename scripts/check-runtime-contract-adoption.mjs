@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { parseResponse } from '../src/collateral/responses.mjs';
 import { inspectRecordLineage } from '../src/protocol/record-lineage.mjs';
 import { parseRawJson } from '../src/api/canonical-json.mjs';
+import { validateContract } from '../src/api/validate.mjs';
+import { sealManifest } from '../src/manifest/render.mjs';
 
 const ASSURANCES = JSON.parse(
   readFileSync(new URL('../schemas/response-v1.json', import.meta.url), 'utf8')
@@ -68,6 +70,132 @@ const safePath = (p) =>
   !/[\0\r\n:]/.test(p) &&
   p.split('/').every((s) => s && s !== '.' && s !== '..');
 const fixturePath = (p) => /^(?:test|tests|\.scratch|node_modules)\//.test(p);
+
+const manifestSchemas = new Map();
+function schemaDocument(name) {
+  if (!manifestSchemas.has(name)) {
+    const file = name.startsWith('ai-peer-review.')
+      ? name.slice('ai-peer-review.'.length).replace('/', '-') + '.json'
+      : name;
+    if (!/^[a-z0-9-]+\.json$/.test(file)) throw Error('manifest-schema-reference-invalid');
+    const document = JSON.parse(
+      readFileSync(new URL('../schemas/' + file, import.meta.url), 'utf8')
+    );
+    manifestSchemas.set(name, document);
+  }
+  return manifestSchemas.get(name);
+}
+// Interpret only the checked-in document schema vocabulary. Unknown schema
+// keywords or unresolved references refuse rather than silently dropping rules.
+function documentValid(schema, value, root, depth = 0) {
+  if (depth > 128 || !object(schema)) return false;
+  const vocabulary = [
+    '$schema',
+    '$id',
+    '$defs',
+    '$ref',
+    'title',
+    'description',
+    'type',
+    'const',
+    'enum',
+    'required',
+    'properties',
+    'additionalProperties',
+    'items',
+    'minItems',
+    'maxItems',
+    'uniqueItems',
+    'minLength',
+    'maxLength',
+    'pattern',
+    'minimum',
+    'maximum',
+    'format',
+    'anyOf',
+    'oneOf',
+    'allOf',
+    'if',
+    'then',
+    'else',
+    'contains',
+  ];
+  if (Object.keys(schema).some((key) => !vocabulary.includes(key))) return false;
+  if (schema.$ref) {
+    const [name, fragment = ''] = schema.$ref.split('#');
+    const targetRoot = name ? schemaDocument(name) : root;
+    let target = targetRoot;
+    for (const key of fragment.split('/').slice(1))
+      target = target?.[key.replaceAll('~1', '/').replaceAll('~0', '~')];
+    if (!documentValid(target, value, targetRoot, depth + 1)) return false;
+  }
+  if (schema.anyOf && !schema.anyOf.some((s) => documentValid(s, value, root, depth + 1)))
+    return false;
+  if (
+    schema.oneOf &&
+    schema.oneOf.filter((s) => documentValid(s, value, root, depth + 1)).length !== 1
+  )
+    return false;
+  const leaf = { ...schema };
+  for (const key of [
+    '$ref',
+    'anyOf',
+    'oneOf',
+    'allOf',
+    'if',
+    'then',
+    'else',
+    'contains',
+    'properties',
+    'items',
+    'additionalProperties',
+  ])
+    delete leaf[key];
+  if (validateContract(leaf, value).length) return false;
+  if (schema.format !== undefined) {
+    if (
+      schema.format !== 'date-time' ||
+      typeof value !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ||
+      !Number.isFinite(Date.parse(value))
+    )
+      return false;
+  }
+  if (Array.isArray(value)) {
+    if (schema.items && !value.every((v) => documentValid(schema.items, v, root, depth + 1)))
+      return false;
+    if (schema.contains && !value.some((v) => documentValid(schema.contains, v, root, depth + 1)))
+      return false;
+  } else if (object(value)) {
+    for (const [key, member] of Object.entries(value)) {
+      if (Object.hasOwn(schema.properties ?? {}, key)) {
+        if (!documentValid(schema.properties[key], member, root, depth + 1)) return false;
+      } else if (schema.additionalProperties === false) return false;
+      else if (
+        object(schema.additionalProperties) &&
+        !documentValid(schema.additionalProperties, member, root, depth + 1)
+      )
+        return false;
+    }
+  }
+  for (const clause of schema.allOf ?? [])
+    if (!documentValid(clause, value, root, depth + 1)) return false;
+  if (schema.if) {
+    const branch = documentValid(schema.if, value, root, depth + 1) ? schema.then : schema.else;
+    if (branch && !documentValid(branch, value, root, depth + 1)) return false;
+  }
+  return true;
+}
+function closedManifestValid(model) {
+  try {
+    const schema = schemaDocument('manifest-v1.json');
+    if (!documentValid(schema, model, schema)) return false;
+    sealManifest(model); // Canonical normal-mode terminal coherence, not event lineage.
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function checkRuntimeContractAdoption({
   record,
@@ -147,6 +275,7 @@ export function checkRuntimeContractAdoption({
       block('review-proof-incomplete');
       return;
     }
+    if (!closedManifestValid(manifest)) block('review-manifest-invalid');
     if (
       manifest.schema !== 'ai-peer-review.manifest/v1' ||
       manifest.review_id !== proof.reviewId ||
