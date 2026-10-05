@@ -412,7 +412,7 @@ export function checkRuntimeContractAdoption({
     assurance = new Set();
   const block = (code) => contractBlockers.push(code);
   if (!['publication', 'adoption-only'].includes(mode)) block('verification-mode-invalid');
-  const { get, verified, json, sameSubject, review } = createReviewContext({
+  const { verified, json, sameSubject, review } = createReviewContext({
     artifacts,
     block,
     assurance,
