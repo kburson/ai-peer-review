@@ -80,8 +80,12 @@ test('256 authenticated sockets bound total admission and cleanup restores capac
   assert.equal((await f.request({ agent: agents[0] })).ok, true);
   const released = Object.values(agents[1].freeSockets).flat()[0];
   assert.ok(released, 'authenticated keep-alive socket exists before release');
+  // Arm this authenticated socket's genuine next-request receipt before release.
+  // Its clearing acknowledges the server close handler, not client-local close.
+  released.write('POST /rpc HTTP/1.1\r\nHost: ');
+  await f.waitForPending(1);
   agents[1].destroy();
-  await f.waitForClosed(released);
+  await f.waitForPending(0);
   const admitted = await f.rawSocket();
   await f.waitForPending(1);
   assert.equal(admitted.destroyed, false);
