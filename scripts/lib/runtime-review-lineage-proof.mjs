@@ -96,9 +96,24 @@ function gitReader(root) {
   return (args, encoding = null) =>
     execFileSync('git', args, { cwd: root, env, encoding, maxBuffer: 32 * 1024 * 1024 });
 }
-function committedVerifier(root, git) {
-  const localRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-  if (realpathSync(root) !== realpathSync(localRoot)) fail('verifier-worktree-mismatch');
+export function assertReviewVerifierRepository({ reviewRoot, verifierRoot } = {}) {
+  const common = (root) => {
+    if (typeof root !== 'string' || !path.isAbsolute(root) || realpathSync(root) !== root)
+      fail('verifier-repository-mismatch');
+    const value = gitReader(root)(['rev-parse', '--git-common-dir'], 'utf8').trim();
+    return realpathSync(path.resolve(root, value));
+  };
+  try {
+    if (common(reviewRoot) !== common(verifierRoot)) fail('verifier-repository-mismatch');
+  } catch {
+    fail('verifier-repository-mismatch');
+  }
+  return true;
+}
+function committedVerifier(reviewRoot) {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  assertReviewVerifierRepository({ reviewRoot, verifierRoot: root });
+  const git = gitReader(root);
   const revision = git(['rev-parse', 'HEAD'], 'utf8').trim();
   // Pin the actual checked-in source closure. No caller-supplied executable reference.
   const files = git(
@@ -291,7 +306,7 @@ export function verifyRuntimeReviewLineage({ workspace, reviewReference, produce
       if ('sha256:' + hash(bytes) !== r.digest) fail('review-member-conflict');
       members.push({ revision: final, path: r.path, blob, sha256: hash(bytes) });
     }
-  const verifier = committedVerifier(root, git);
+  const verifier = committedVerifier(root);
   if (!verifier.sources.some((s) => s.path === 'scripts/lib/runtime-review-lineage-proof.mjs'))
     fail('verifier-source-uncommitted');
   const result = {

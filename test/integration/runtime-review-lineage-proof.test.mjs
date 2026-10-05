@@ -40,3 +40,56 @@ for (const [name, write, want] of [
       rmSync(workspace, { recursive: true, force: true });
     }
   });
+
+// Genuine temporary Git fixtures; never touch governed branch/worktree refs.
+import { execFileSync } from 'node:child_process';
+const { assertReviewVerifierRepository } =
+  await import('../../scripts/lib/runtime-review-lineage-proof.mjs').catch(() => ({}));
+function gitFixture() {
+  const base = path.join(process.cwd(), '.scratch');
+  mkdirSync(base, { recursive: true });
+  const p = mkdtempSync(path.join(base, 'lineage-git-test-'));
+  const repository = path.join(p, 'source');
+  mkdirSync(repository);
+  const git = (args, cwd = repository) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+  git(['init', '-q']);
+  writeFileSync(path.join(repository, 'artifact.txt'), 'fixture\n');
+  git(['add', 'artifact.txt']);
+  git([
+    '-c',
+    'user.name=Fixture',
+    '-c',
+    'user.email=fixture@example.invalid',
+    'commit',
+    '-qm',
+    'fixture',
+  ]);
+  return { p, repository, git };
+}
+test('[#144] verifier source and original review may use distinct linked worktrees in one real repository', () => {
+  const f = gitFixture();
+  const linked = path.join(f.p, 'linked');
+  try {
+    f.git(['worktree', 'add', '-q', '--detach', linked]);
+    assert.equal(
+      assertReviewVerifierRepository({ reviewRoot: f.repository, verifierRoot: linked }),
+      true
+    );
+  } finally {
+    f.git(['worktree', 'remove', '--force', linked]);
+    rmSync(f.p, { recursive: true, force: true });
+  }
+});
+test('[#144] identical Git objects in an independent clone cannot substitute for shared review repository provenance', () => {
+  const f = gitFixture();
+  const clone = path.join(f.p, 'clone');
+  try {
+    f.git(['clone', '-q', f.repository, clone]);
+    assert.throws(
+      () => assertReviewVerifierRepository({ reviewRoot: f.repository, verifierRoot: clone }),
+      /verifier-repository-mismatch/
+    );
+  } finally {
+    rmSync(f.p, { recursive: true, force: true });
+  }
+});
