@@ -202,11 +202,13 @@ export function checkRuntimeContractAdoption({
   artifacts,
   recordReference,
   approvalReview,
+  mode = 'publication',
 } = {}) {
   const contractBlockers = [],
     activationBlockers = [],
     assurance = new Set();
   const block = (code) => contractBlockers.push(code);
+  if (!['publication', 'adoption-only'].includes(mode)) block('verification-mode-invalid');
   const get = (key) => (artifacts instanceof Map ? artifacts.get(key) : undefined);
   const verified = (ref) => {
     if (
@@ -380,6 +382,7 @@ export function checkRuntimeContractAdoption({
     block('record-schema-invalid');
   if (!object(record))
     return {
+      mode,
       contractAdopted: false,
       activationAuthorized: false,
       publicationAllowed: false,
@@ -427,6 +430,21 @@ export function checkRuntimeContractAdoption({
     Object.entries(DECISIONS).some(([k, values]) => !values.includes(record.decisions?.[k]))
   )
     block('decisions-incomplete');
+  const coupled = [
+    record.decisions?.runtimeInstallation,
+    record.decisions?.policyAuthority,
+    record.decisions?.legacyRecovery,
+  ];
+  const bundleA = ['current-global', 'exclusive-primary', 'drain-before-replacement'];
+  const bundleB = [
+    'reviewed-coexistence',
+    'reviewed-layered-policy',
+    'reviewed-retained-runtime-recovery',
+  ];
+  if (coupled.every((value, index) => value === bundleB[index]))
+    block('coexistence-amendment-missing'); // No accepted complete B contract is registered by this amendment.
+  else if (!coupled.every((value, index) => value === bundleA[index]))
+    block('coupled-bundle-incomplete');
   if (!Array.isArray(record.unresolvedConflicts) || record.unresolvedConflicts.length)
     block('contract-conflicts-unresolved');
   const binding = record.activationBinding;
@@ -516,8 +534,10 @@ export function checkRuntimeContractAdoption({
     );
   }
   const contractAdopted = contractBlockers.length === 0;
-  const activationAuthorized = contractAdopted && activationBlockers.length === 0;
+  const activationAuthorized =
+    mode === 'publication' && contractAdopted && activationBlockers.length === 0;
   return {
+    mode,
     contractAdopted,
     activationAuthorized,
     publicationAllowed: activationAuthorized,
@@ -532,7 +552,7 @@ export function parseAdoptionArgs(args) {
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i];
     if (
-      !['--record', '--approved-ref'].includes(key) ||
+      !['--record', '--approved-ref', '--mode'].includes(key) ||
       Object.hasOwn(result, key) ||
       typeof args[i + 1] !== 'string' ||
       args[i + 1].startsWith('--')
@@ -541,7 +561,9 @@ export function parseAdoptionArgs(args) {
     result[key] = args[i + 1];
   }
   if (!result['--record'] || !result['--approved-ref']) throw Error('usage-invalid');
-  return { record: result['--record'], approvedRef: result['--approved-ref'] };
+  const mode = result['--mode'] ?? 'publication';
+  if (!['publication', 'adoption-only'].includes(mode)) throw Error('verification-mode-invalid');
+  return { record: result['--record'], approvedRef: result['--approved-ref'], mode };
 }
 export function validateApprovedSelector(selector, recordPath) {
   if (
@@ -587,7 +609,12 @@ export function collectConformanceReceipts(record, readPinned, collect) {
     for (const observation of document.observations) collect(observation?.receipt);
   }
 }
-export function inspectApprovedAdoption({ record: recordPath, approvedRef, cwd = process.cwd() }) {
+export function inspectApprovedAdoption({
+  record: recordPath,
+  approvedRef,
+  mode = 'publication',
+  cwd = process.cwd(),
+}) {
   const git = (args, encoding = null) =>
     execFileSync('git', args, {
       cwd,
@@ -681,6 +708,7 @@ export function inspectApprovedAdoption({ record: recordPath, approvedRef, cwd =
     artifacts,
     recordReference: selector.record,
     approvalReview: selector.approvalReview,
+    mode,
   });
   return report;
 }
@@ -688,7 +716,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     const report = inspectApprovedAdoption(parseAdoptionArgs(process.argv.slice(2)));
     console.log(JSON.stringify(report));
-    process.exitCode = report.publicationAllowed ? 0 : 4;
+    process.exitCode = (
+      report.mode === 'adoption-only' ? report.contractAdopted : report.publicationAllowed
+    )
+      ? 0
+      : 4;
   } catch (error) {
     console.log(
       JSON.stringify({

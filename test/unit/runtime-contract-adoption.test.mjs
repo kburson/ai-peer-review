@@ -367,6 +367,7 @@ test('[#144] CLI refuses unknown or duplicate flags without authority effects', 
   assert.deepEqual(api.parseAdoptionArgs(['--record', 'a', '--approved-ref', 'b']), {
     record: 'a',
     approvedRef: 'b',
+    mode: 'publication',
   });
 });
 
@@ -582,3 +583,95 @@ for (const [label, mutate] of [
     assert.ok(result.contractBlockers.includes('review-manifest-invalid'));
   });
 }
+
+function completeActivationFixture() {
+  const f = fixture(),
+    release = releaseFixture(f);
+  f.record.activationBinding.conformance = conformanceCases.map((name) => {
+    const artifact = f.add('evidence/conformance/' + name + '.json', {
+      schema: 'ai-peer-review.activation-conformance/v1',
+      ownerIssue: 102,
+      case: name,
+      sourceRevision: release.sourceRevision,
+      releaseTag: release.tag,
+      tarballSha256: release.tarball.sha256,
+      observations: ['darwin', 'linux', 'win32'].map((platform) => ({
+        platform,
+        outcome: 'passed',
+        mode: 'genuine-installed-process',
+        observedAt: '2026-10-01T00:00:00Z',
+        receipt: f.add('evidence/conformance/' + name + '-' + platform + '.json', {
+          case: name,
+          platform,
+          sourceRevision: release.sourceRevision,
+          tarballSha256: release.tarball.sha256,
+          outcome: 'passed',
+          mode: 'genuine-installed-process',
+          observedAt: '2026-10-01T00:00:00Z',
+        }),
+      })),
+    });
+    return { case: name, artifact, review: f.review(artifact, name) };
+  });
+  return f;
+}
+test('[#144] adoption-only never grants activation even with complete illustrative operational inputs', () => {
+  const report = api.checkRuntimeContractAdoption({
+    ...completeActivationFixture(),
+    mode: 'adoption-only',
+  });
+  assert.equal(report.contractAdopted, true);
+  assert.equal(report.activationAuthorized, false);
+  assert.equal(report.publicationAllowed, false);
+  assert.equal(report.mode, 'adoption-only');
+});
+test('[#144] default mode preserves publication requirement', () => {
+  const report = api.checkRuntimeContractAdoption(completeActivationFixture());
+  assert.equal(report.mode, 'publication');
+  assert.equal(report.publicationAllowed, true);
+});
+test('[#144] unknown direct checker mode refuses instead of silently publishing', () => {
+  const report = api.checkRuntimeContractAdoption({
+    ...completeActivationFixture(),
+    mode: 'contract',
+  });
+  assert.equal(report.contractAdopted, false);
+  assert.equal(report.publicationAllowed, false);
+  assert.ok(report.contractBlockers.includes('verification-mode-invalid'));
+});
+test('[#144] CLI mode is explicit closed data and defaults to publication', () => {
+  assert.deepEqual(
+    api.parseAdoptionArgs(['--mode', 'adoption-only', '--record', 'a', '--approved-ref', 'b']),
+    {
+      mode: 'adoption-only',
+      record: 'a',
+      approvedRef: 'b',
+    }
+  );
+  for (const mode of ['contract', '', 'ADOPTION-ONLY']) {
+    assert.throws(
+      () => api.parseAdoptionArgs(['--record', 'a', '--approved-ref', 'b', '--mode', mode]),
+      /verification-mode-invalid/
+    );
+  }
+});
+for (let bits = 1; bits < 7; bits++) {
+  test('[#144] mixed Runtime Policy Prior-journal bundle refuses combination ' + bits, () => {
+    const f = fixture();
+    if (bits & 1) f.record.decisions.runtimeInstallation = 'reviewed-coexistence';
+    if (bits & 2) f.record.decisions.policyAuthority = 'reviewed-layered-policy';
+    if (bits & 4) f.record.decisions.legacyRecovery = 'reviewed-retained-runtime-recovery';
+    const report = api.checkRuntimeContractAdoption(f);
+    assert.equal(report.contractAdopted, false);
+    assert.ok(report.contractBlockers.includes('coupled-bundle-incomplete'));
+  });
+}
+test('[#144] complete B names alone cannot substitute for separately accepted coexistence amendment', () => {
+  const f = fixture();
+  f.record.decisions.runtimeInstallation = 'reviewed-coexistence';
+  f.record.decisions.policyAuthority = 'reviewed-layered-policy';
+  f.record.decisions.legacyRecovery = 'reviewed-retained-runtime-recovery';
+  const report = api.checkRuntimeContractAdoption(f);
+  assert.equal(report.contractAdopted, false);
+  assert.ok(report.contractBlockers.includes('coexistence-amendment-missing'));
+});
