@@ -340,10 +340,10 @@ function fixture(assurance = 'unavailable') {
 test('[#144] checker exposes its document-only boundary', () => {
   assert.equal(typeof api.checkRuntimeContractAdoption, 'function');
 });
-test('[#144] accepted fixture contract never manufactures pending activation proof', () => {
+test('[#144] structural fixture never manufactures contract or activation authority', () => {
   const f = fixture(),
     result = api.checkRuntimeContractAdoption(f);
-  assert.equal(result.contractAdopted, true);
+  assert.equal(result.contractAdopted, false);
   assert.equal(result.activationAuthorized, false);
   assert.equal(result.publicationAllowed, false);
   assert.ok(result.activationBlockers.includes('activation-addendum-missing'));
@@ -427,7 +427,7 @@ for (const name of cases.negativeCases.filter((x) => x !== 'pending-release')) {
     const result = api.checkRuntimeContractAdoption(f);
     assert.equal(result.publicationAllowed, false);
     if (name === 'overlap-obligation') {
-      assert.equal(result.contractAdopted, true);
+      assert.equal(result.contractAdopted, false);
       assert.equal(result.activationAuthorized, false);
       assert.ok(result.activationBlockers.includes('activation-overlap-unresolved'));
     } else {
@@ -578,9 +578,9 @@ test('[#144] incomplete approved selector fails before consulting Git', () => {
 });
 
 for (const strength of ['cryptographic-external', 'hardware-presence', 'host-verified']) {
-  test('[#144] actual collateral assurance is preserved: ' + strength, () => {
+  test('[#144] collateral grammar preserves assurance without adopting: ' + strength, () => {
     const result = api.checkRuntimeContractAdoption(fixture(strength));
-    assert.equal(result.contractAdopted, true);
+    assert.equal(result.contractAdopted, false);
     assert.deepEqual(result.assurance, [strength]);
   });
 }
@@ -723,7 +723,7 @@ test('[#144] adoption-only never grants activation even with complete illustrati
     ...separateActivationFixture(),
     mode: 'adoption-only',
   });
-  assert.equal(report.contractAdopted, true);
+  assert.equal(report.contractAdopted, false);
   assert.equal(report.activationAuthorized, false);
   assert.equal(report.publicationAllowed, false);
   assert.equal(report.mode, 'adoption-only');
@@ -807,7 +807,7 @@ function separateActivationFixture() {
 test('[#144] separate activation claims await owned accepted conformance grammar', () => {
   const f = separateActivationFixture();
   const report = api.checkRuntimeContractAdoption(f);
-  assert.equal(report.contractAdopted, true);
+  assert.equal(report.contractAdopted, false);
   assert.equal(report.activationAuthorized, false);
   assert.equal(report.publicationAllowed, false);
   assert.ok(report.activationBlockers.includes('activation-schema-owner-acceptance-pending'));
@@ -823,7 +823,7 @@ test('[#144] activation sibling with a different parent contract digest refuses'
     review: f.review(f.activationAddendum.record, 'bad-parent-' + issue),
   }));
   const report = api.checkRuntimeContractAdoption(f);
-  assert.equal(report.contractAdopted, true);
+  assert.equal(report.contractAdopted, false);
   assert.equal(report.publicationAllowed, false);
   assert.ok(report.activationBlockers.includes('activation-contract-digest-mismatch'));
 });
@@ -831,7 +831,7 @@ test('[#144] missing activation owner cannot be inferred from one common review'
   const f = separateActivationFixture();
   f.activationAddendum.ownerReviews.pop();
   const report = api.checkRuntimeContractAdoption(f);
-  assert.equal(report.contractAdopted, true);
+  assert.equal(report.contractAdopted, false);
   assert.equal(report.publicationAllowed, false);
   assert.ok(report.activationBlockers.includes('activation-owner-reviews-incomplete'));
 });
@@ -1003,4 +1003,19 @@ test('[#144] standalone normal collateral cannot infer terminal parent from vali
   });
   assert.equal(result.collateralComplete, false);
   assert.ok(result.blockers.includes('review-finalization-parent-mismatch'));
+});
+
+test('[#144] structural fixture cannot adopt when its own record acceptance is omitted', () => {
+  const result = api.checkRuntimeContractAdoption(fixture());
+  assert.equal(result.contractAdopted, false);
+  assert.ok(result.contractBlockers.includes('record-acceptance-required'));
+});
+test('[#144] own normal collateral cannot substitute for retained lineage and governed evidence approval', () => {
+  const f = fixture();
+  const recordReference = f.add('evidence/portable-runtime/contracts/adoption.json', f.record);
+  const approvalReview = f.review(recordReference, 'record');
+  const result = api.checkRuntimeContractAdoption({ ...f, recordReference, approvalReview });
+  assert.equal(result.contractAdopted, false);
+  assert.ok(result.contractBlockers.includes('lineage-proofs-missing'));
+  assert.ok(result.contractBlockers.includes('approved-evidence-transaction-missing'));
 });

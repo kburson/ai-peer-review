@@ -7,7 +7,8 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseResponse } from '../src/collateral/responses.mjs';
-import { inspectRecordLineage } from '../src/protocol/record-lineage.mjs';
+import { inspectRecordLineage as inspectProducer041Lineage } from './lib/review-grammar-v0.4.1/record-lineage.mjs';
+import { inspectRecordLineage as inspectProducer040Lineage } from '../src/protocol/record-lineage.mjs';
 import { parseRawJson } from '../src/api/canonical-json.mjs';
 import { validateContract } from '../src/api/validate.mjs';
 import { sealManifest } from '../src/manifest/render.mjs';
@@ -342,7 +343,9 @@ function createReviewContext({ artifacts, block, assurance, producerVersion = '0
       history?.digest !== 'sha256:' + subject.sha256
     )
       block('review-subject-mismatch');
-    const lineage = inspectRecordLineage(manifest);
+    const lineage = (
+      producerVersion === '0.4.1' ? inspectProducer041Lineage : inspectProducer040Lineage
+    )(manifest);
     if (lineage.status !== 'complete' || lineage.attempts.at(-1)?.review_id !== proof.reviewId)
       block('review-lineage-incomplete');
     if (
@@ -404,6 +407,8 @@ export function checkRuntimeContractAdoption({
   artifacts,
   recordReference,
   approvalReview,
+  lineageProofs,
+  approvedEvidenceTransaction,
   activationAddendum,
   mode = 'publication',
 } = {}) {
@@ -622,8 +627,16 @@ export function checkRuntimeContractAdoption({
   }
   verified(record.amendment);
   review(record.amendmentReview, record.amendment);
-  if (recordReference !== undefined || approvalReview !== undefined)
-    review(approvalReview, recordReference);
+  if (!recordReference || !approvalReview) block('record-acceptance-required');
+  else review(approvalReview, recordReference);
+  // These governed prerequisites remain fail-closed until their complete consumer
+  // validates source/profile/review/native authority. Collateral alone is insufficient.
+  block(lineageProofs === undefined ? 'lineage-proofs-missing' : 'lineage-proofs-unverified');
+  block(
+    approvedEvidenceTransaction === undefined
+      ? 'approved-evidence-transaction-missing'
+      : 'approved-evidence-transaction-unverified'
+  );
   if (!Array.isArray(record.schemas) || !record.schemas.length) block('schemas-missing');
   else record.schemas.forEach(verified);
   if (
