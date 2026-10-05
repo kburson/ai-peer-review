@@ -73,7 +73,12 @@ function sourceFixture() {
     observedAt: '2026-10-05T00:00:01Z',
   };
   const source = {
-    authenticatedActor: 'fixture-reader',
+    authentication: {
+      kind: 'github-api-credential',
+      host: 'github.com',
+      repository: 'kburson/ai-peer-review',
+      repositoryId: 123,
+    },
     comment: {
       id: 123,
       node_id: 'IC_fixture',
@@ -94,7 +99,7 @@ for (const [name, change] of [
   [
     'unavailable authentication',
     (x) => {
-      x.source.authenticatedActor = null;
+      x.source.authentication = null;
     },
   ],
   [
@@ -175,4 +180,10 @@ test('[#144] retained receipt consumer refuses missing original accepted member 
   assert.equal(result.receiptCoherent, false);
   assert.equal(result.originalPrivateReplay, 'unavailable');
   assert.ok(result.blockers.includes('lineage-proof-invalid'));
+});
+
+test('[#144] native source authentication does not substitute reader identity for comment author', () => {
+  const x = sourceFixture();
+  x.source.authentication.repository = 'foreign/repository';
+  assert.throws(() => api.validateNativeApprovalSource(x), /approved-evidence-source-invalid/);
 });

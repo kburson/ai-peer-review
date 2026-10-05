@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 // Retained public facts only. Original private events are never replayed by these tests.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -53,7 +54,12 @@ function actual() {
       'tree:' + p.finalization.revision + ':' + r.path,
       git(['show', p.finalization.revision + ':' + r.path])
     );
-  return { receipt, reviewReference: p, artifacts };
+  return {
+    receipt,
+    reviewReference: p,
+    artifacts,
+    approvedVerifierReference: structuredClone(receipt.verifier),
+  };
 }
 test('[#144] actual retained canonical receipt checks all public members without claiming CI original replay', () => {
   const result = checkRetainedLineageProof(actual());
@@ -130,4 +136,81 @@ for (const field of ['artifact_history', 'turns']) {
       assert.ok(result.blockers.includes('lineage-proof-normal-collateral-incomplete'));
     }
   );
+}
+
+test('[#144] historical exact verifier proof remains coherent after unrelated later application and schema changes', (t) => {
+  const x = actual();
+  const fixture = mkdtempSync(path.join(tmpdir(), 'apr-historical-proof-'));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  for (const name of ['src', 'schemas', 'scripts/lib', 'templates'])
+    cpSync(path.join(root, name), path.join(fixture, name), { recursive: true });
+  cpSync(
+    path.join(root, 'scripts/check-runtime-contract-adoption.mjs'),
+    path.join(fixture, 'scripts/check-runtime-contract-adoption.mjs')
+  );
+  for (const name of ['package.json', 'package-lock.json'])
+    cpSync(path.join(root, name), path.join(fixture, name));
+  symlinkSync(path.join(root, 'node_modules'), path.join(fixture, 'node_modules'), 'dir');
+  const localGit = (args) => execFileSync('git', args, { cwd: fixture, stdio: 'ignore' });
+  localGit(['init', '-b', 'trunk']);
+  localGit(['config', 'user.name', 'Test']);
+  localGit(['config', 'user.email', 'test@example.com']);
+  localGit(['add', 'src', 'schemas', 'scripts', 'package.json', 'package-lock.json']);
+  localGit(['commit', '-m', 'fixture']);
+  writeFileSync(
+    path.join(fixture, 'src/cli/help-data.mjs'),
+    readFileSync(path.join(fixture, 'src/cli/help-data.mjs')) +
+      '\n// Later unrelated application change.\n'
+  );
+  writeFileSync(path.join(fixture, 'schemas/later-configuration-v2.json'), '{}\n');
+  localGit(['add', 'src', 'schemas']);
+  localGit(['commit', '-m', 'later application and schema']);
+  const input = {
+    ...x,
+    artifacts: [...x.artifacts].map(([k, v]) => [
+      k,
+      Buffer.isBuffer(v) ? { bytes: v.toString('base64') } : { text: v },
+    ]),
+  };
+  writeFileSync(path.join(fixture, 'proof-input.json'), JSON.stringify(input));
+  const result = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        "import fs from 'node:fs';import {checkRetainedLineageProof} from './scripts/lib/runtime-contract-evidence.mjs';const x=JSON.parse(fs.readFileSync('proof-input.json'));x.artifacts=new Map(x.artifacts.map(([k,v])=>[k,v.bytes?Buffer.from(v.bytes,'base64'):v.text]));console.log(JSON.stringify(checkRetainedLineageProof(x)));",
+      ],
+      { cwd: fixture, encoding: 'utf8' }
+    )
+  );
+  assert.equal(result.receiptCoherent, true, JSON.stringify(result.blockers));
+  assert.equal(result.verifierPinned, true, JSON.stringify(result.blockers));
+  assert.equal(result.originalPrivateReplay, 'unavailable');
+  assert.equal(result.adoptionAuthority, false);
+});
+for (const [label, change] of [
+  ['missing approval', (x) => delete x.approvedVerifierReference],
+  ['different approved revision', (x) => (x.approvedVerifierReference.revision = 'f'.repeat(40))],
+  ['missing approved source', (x) => x.approvedVerifierReference.sources.pop()],
+  [
+    'historical source evolution',
+    (x) => {
+      const r = x.receipt.verifier.sources[0];
+      x.artifacts.set(r.revision + ':' + r.path, Buffer.from('changed historical source'));
+    },
+  ],
+  ['unsupported profile', (x) => (x.receipt.producerProfile = '0.5.0')],
+  [
+    'changed producer grammar',
+    (x) => (x.receipt.producer.sources['src/protocol/events.mjs'] = 'f'.repeat(64)),
+  ],
+]) {
+  test('[#144] historical proof refuses ' + label, () => {
+    const x = actual();
+    change(x);
+    const result = checkRetainedLineageProof(x);
+    assert.equal(result.verifierPinned, false, JSON.stringify(result.blockers));
+    assert.equal(result.adoptionAuthority, false);
+  });
 }

@@ -17,6 +17,7 @@ env:
 
 permissions:
   contents: read
+  issues: read
 
 jobs:
   node-24:
@@ -123,6 +124,8 @@ jobs:
       - name: 'Verify tests: integration'
         run: node scripts/ci/record-tests.mjs integration
         env:
+          GH_TOKEN: ${{ github.token }}
+          APR_CONTRACT_GITHUB_CONFORMANCE: '1'
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - name: 'Verify tests: mcp'
         run: node scripts/ci/record-tests.mjs mcp
@@ -175,6 +178,8 @@ jobs:
       - name: 'Verify tests: integration'
         run: node scripts/ci/record-tests.mjs integration
         env:
+          GH_TOKEN: ${{ github.token }}
+          APR_CONTRACT_GITHUB_CONFORMANCE: '1'
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - name: 'Verify tests: mcp'
         run: node scripts/ci/record-tests.mjs mcp
@@ -248,6 +253,8 @@ jobs:
       - name: 'Verify tests: integration'
         run: node scripts/ci/record-tests.mjs integration
         env:
+          GH_TOKEN: ${{ github.token }}
+          APR_CONTRACT_GITHUB_CONFORMANCE: '1'
           APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - name: 'Verify tests: mcp'
         run: node scripts/ci/record-tests.mjs mcp

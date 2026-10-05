@@ -90,8 +90,12 @@ export function validateNativeApprovalSource({ transaction: t, retainedBody, sou
     !descriptorValid(t) ||
     !Buffer.isBuffer(retainedBody) ||
     hash(retainedBody) !== t.bodySha256 ||
-    typeof source?.authenticatedActor !== 'string' ||
-    !source.authenticatedActor ||
+    !exact(source?.authentication, ['kind', 'host', 'repository', 'repositoryId']) ||
+    source.authentication.kind !== 'github-api-credential' ||
+    source.authentication.host !== 'github.com' ||
+    source.authentication.repository !== REPOSITORY ||
+    !Number.isSafeInteger(source.authentication.repositoryId) ||
+    source.authentication.repositoryId <= 0 ||
     c?.id !== t.commentDatabaseId ||
     c?.node_id !== t.commentNodeId ||
     c?.html_url !== t.url ||
@@ -124,11 +128,30 @@ export function readNativeContractSource(transaction) {
       })
     );
   try {
-    const actor = read('user');
-    if (typeof actor?.login !== 'string' || !actor.login)
+    // Resolve the same credential used by gh api, without persisting or exposing
+    // its bytes. A successful authenticated fixed repository read works for both
+    // user and Actions installation tokens; neither implies a human reader.
+    const credential = execFileSync('gh', ['auth', 'token', '--hostname', 'github.com'], {
+      env,
+      encoding: 'utf8',
+      timeout: 30000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+    if (!credential || /[\r\n]/.test(credential)) fail('approved-evidence-source-unavailable');
+    const repository = read('repos/' + REPOSITORY);
+    if (
+      repository?.full_name !== REPOSITORY ||
+      !Number.isSafeInteger(repository.id) ||
+      repository.id <= 0
+    )
       fail('approved-evidence-source-unavailable');
     return {
-      authenticatedActor: actor.login,
+      authentication: {
+        kind: 'github-api-credential',
+        host: 'github.com',
+        repository: REPOSITORY,
+        repositoryId: repository.id,
+      },
       comment: read('repos/' + REPOSITORY + '/issues/comments/' + transaction.commentDatabaseId),
       issue: read('repos/' + REPOSITORY + '/issues/144'),
     };
@@ -137,9 +160,6 @@ export function readNativeContractSource(transaction) {
   }
 }
 
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { validateRuntimeLineageProof } from './runtime-review-lineage-proof.mjs';
 import { checkNormalRuntimeReview } from '../check-runtime-contract-adoption.mjs';
 const equal = (a, b) => {
@@ -155,27 +175,6 @@ const equal = (a, b) => {
         : v;
   return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 };
-const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const sourcePaths = () =>
-  execFileSync(
-    'git',
-    [
-      'ls-files',
-      'scripts/check-runtime-contract-adoption.mjs',
-      'scripts/lib',
-      'src',
-      'schemas',
-      'package.json',
-      'package-lock.json',
-    ],
-    {
-      cwd: sourceRoot,
-      encoding: 'utf8',
-      env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))),
-    }
-  )
-    .trim()
-    .split('\n');
 function pinned(ref, artifacts) {
   if (
     !exact(ref, ['revision', 'path', 'blob', 'sha256']) ||
@@ -195,12 +194,18 @@ function pinned(ref, artifacts) {
   return blob === ref.blob ? bytes : null;
 }
 // This is retained local-verification evidence, never private journal replay on CI.
-export function checkRetainedLineageProof({ receipt, reviewReference, artifacts } = {}) {
+export function checkRetainedLineageProof({
+  receipt,
+  reviewReference,
+  artifacts,
+  approvedVerifierReference,
+} = {}) {
   const blockers = [];
   if (!validateRuntimeLineageProof(receipt))
     return {
       receiptCoherent: false,
-      verifierCurrent: false,
+      verifierPinned: false,
+      adoptionAuthority: false,
       blockers: ['lineage-proof-invalid'],
       originalPrivateReplay: 'unavailable',
     };
@@ -215,7 +220,8 @@ export function checkRetainedLineageProof({ receipt, reviewReference, artifacts 
     block('lineage-proof-normal-collateral-incomplete');
     return {
       receiptCoherent: false,
-      verifierCurrent: false,
+      verifierPinned: false,
+      adoptionAuthority: false,
       blockers: [...new Set(blockers)].sort(),
       originalPrivateReplay: 'unavailable',
     };
@@ -283,22 +289,19 @@ export function checkRetainedLineageProof({ receipt, reviewReference, artifacts 
     sourceKeys.add(ref.path);
   }
   const receiptCoherent = blockers.length === 0;
-  let verifierCurrent = false;
-  try {
-    const expected = sourcePaths();
-    verifierCurrent =
-      sourceKeys.size === expected.length &&
-      expected.every((p) => {
-        const ref = receipt.verifier.sources.find((x) => x.path === p);
-        return ref?.sha256 === hash(readFileSync(path.join(sourceRoot, p)));
-      });
-  } catch {
-    /* Missing fixed verifier closure refuses. */
-  }
-  if (!verifierCurrent) block('lineage-proof-verifier-current-source-mismatch');
+  // This exact source set must come from a separately normally reviewed record or
+  // genuine governed post-finalization approval. Passing data here checks
+  // coherence only; this helper never supplies that independent authority.
+  const verifierPinned =
+    receiptCoherent &&
+    exact(approvedVerifierReference, ['revision', 'sources']) &&
+    equal(approvedVerifierReference, receipt.verifier);
+  if (!verifierPinned) block('lineage-proof-approved-verifier-mismatch');
+
   return {
     receiptCoherent,
-    verifierCurrent,
+    verifierPinned,
+    adoptionAuthority: false,
     blockers: [...new Set(blockers)].sort(),
     originalPrivateReplay: 'unavailable',
   };
