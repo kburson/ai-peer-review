@@ -1,4 +1,5 @@
 // @story #144
+// cspell:ignore longpaths
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
@@ -15,7 +16,15 @@ const original = fs.readFileSync(path.join(root, source));
 function checkout(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apr-144-input-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  execFileSync('git', ['clone', '--shared', '--quiet', root, dir]);
+  execFileSync('git', [
+    'clone',
+    '--shared',
+    '--quiet',
+    '--config',
+    'core.longpaths=true',
+    root,
+    dir,
+  ]);
   fs.writeFileSync(path.join(dir, source), original);
   return dir;
 }
