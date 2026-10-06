@@ -1,3 +1,4 @@
+// cspell:ignore msvc
 // cspell:words devdir
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -262,33 +263,8 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.doesNotMatch(live, /needs:/);
   const minimumNode = ci.match(/node-24:[\s\S]*?\n  preferred-node:/)?.[0] ?? '';
   assert.match(minimumNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
-  assert.doesNotMatch(
-    minimumNode,
-    /runs-on: \$\{\{ matrix\.os \}\}\n    env:\n      APR_NODEDIR_BASE:/,
-    'runner.temp is unavailable in job-level env'
-  );
-  assert.match(
-    minimumNode,
-    /name: Provision native Node development files[\s\S]*node_modules\/node-gyp\/bin\/node-gyp\.js install --ensure[\s\S]*--devdir="\$\{\{ runner\.temp \}\}\/node-gyp"/
-  );
-  const namedStep = (name) => {
-    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return (
-      minimumNode.match(
-        new RegExp(`(?:      - name: |        name: )${escapedName}\\n(?:(?!      - )[\\s\\S])*`)
-      )?.[0] ?? ''
-    );
-  };
-  const normalizeWindows = namedStep('Normalize Windows import library');
-  assert.match(normalizeWindows, /if: runner\.os == 'Windows'/);
-  assert.match(
-    normalizeWindows,
-    /env:\n          APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp\n        run:/
-  );
-  assert.match(normalizeWindows, /cpSync/);
-  assert.match(normalizeWindows, /process\.arch/);
-  assert.match(normalizeWindows, /'Release'/);
   const workflow = load(ci);
+  assert.equal(workflow.env.APR_SKIP_NATIVE_BROKER_TESTS, '1');
   const requiredLanes = {
     fast: ['npm', 'test'],
     integration: ['npm', 'run', 'test:integration'],
@@ -303,8 +279,6 @@ test('workflows retain complete platform and release safety gates', () => {
       assert.equal(matches.length, 1, key + ':' + lane);
       assert.equal(matches[0].run, 'node scripts/ci/record-tests.mjs ' + lane);
       assert.deepEqual(LANES[lane].command, command);
-      if (lane === 'integration' || (key === 'node-24' && lane === 'fast'))
-        assert.equal(matches[0].env.APR_NODEDIR_BASE, '${{ runner.temp }}/node-gyp');
     }
     const uploads = steps.filter((step) => step.name === 'Publish actual test execution records');
     assert.equal(uploads.length, 1);
@@ -315,33 +289,14 @@ test('workflows retain complete platform and release safety gates', () => {
   const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';
   assert.match(preferredNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
   assert.match(preferredNode, /runs-on: \$\{\{ matrix\.os \}\}/);
-  for (const gate of [
-    '*python',
-    '*windows-compiler',
-    '*node-development',
-    '*windows-library',
-    '*warm-broker',
-    '*offline-broker',
-  ])
-    assert.ok(preferredNode.includes(gate), gate);
-  assert.match(ci, /&warm-broker\s+name: Warm npm cache for packed release/);
-  assert.ok(preferredNode.indexOf('*warm-broker') < preferredNode.indexOf('*offline-broker'));
-  const offline = namedStep('Build and verify installed broker without network');
-  for (const gate of [
-    'unshare --net',
-    'sandbox-exec',
-    'windows-offline.ps1 -Mode start',
-    'windows-offline.ps1 -Mode stop',
-    'assert-network.mjs open',
-    'assert-network.mjs blocked',
-    'build:broker-security',
-    'test/integration/broker-release.test.mjs',
-  ])
-    assert.ok(offline.includes(gate), gate);
-  const firewall = readFileSync(path.join(root, 'test/helpers/windows-offline.ps1'), 'utf8');
-  assert.match(firewall, /New-NetFirewallRule[^\n]+-Program \$Resolved/);
-  assert.match(firewall, /Get-NetFirewallRule -Group \$Group[^\n]+Remove-NetFirewallRule/);
-  assert.doesNotMatch(offline, /New-NetFirewallRule/);
+  for (const job of Object.values(workflow.jobs)) {
+    for (const step of job.steps) {
+      assert.doesNotMatch(step.run ?? '', /build:broker-security|node-gyp|warm-packed-cache/);
+      assert.doesNotMatch(step.uses ?? '', /setup-python|msvc-dev-cmd/);
+      assert.equal(step.env?.APR_NATIVE_REQUIRED, undefined);
+      assert.equal(step.env?.APR_NODEDIR_BASE, undefined);
+    }
+  }
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [preferredNode, boundary]) {
     for (const gate of ['npm run format:check', 'npm run lint', 'npm pack --dry-run'])

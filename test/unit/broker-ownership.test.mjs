@@ -1,3 +1,4 @@
+import { nativeBrokerSkipReason } from '../helpers/native-broker-policy.mjs';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import test from 'node:test';
@@ -317,7 +318,11 @@ const nativeAvailable = existsSync(
 );
 test(
   'native ownership and authenticated IPC work across the hosted platform boundary',
-  { skip: !nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED },
+  {
+    skip:
+      nativeBrokerSkipReason() ||
+      (!nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED),
+  },
   async (t) => {
     if (
       !existsSync(
