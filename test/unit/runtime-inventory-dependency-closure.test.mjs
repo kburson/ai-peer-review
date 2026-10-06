@@ -145,7 +145,7 @@ test('carried observation refuses a newly available external optional dependency
 import { unlinkSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
-test('optional manifestless ancestor directory cannot supply an unsealed index entrypoint', (t) => {
+test('optional ancestor directory without a manifest cannot supply an unsealed index entrypoint', (t) => {
   const f = transitiveFixture(t, { external: true, optional: true });
   unlinkSync(path.join(f.transitive, 'package.json'));
   const entrypoint = path.join(f.transitive, 'index.js');
