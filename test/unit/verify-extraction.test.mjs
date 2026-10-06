@@ -86,6 +86,20 @@ function validManifest(overrides = {}) {
         'test',
       ],
       exact: [
+        'docs/design/2026-09-13-30-artifact-lifecycle-review-evidence-design.md',
+        'docs/design/2026-09-13-31-clone-shared-sqlite-authority-projection-design.md',
+        'docs/design/2026-09-13-32-project-local-knowledge-retrieval-design.md',
+        'docs/design/2026-09-13-33-defect-feedback-governed-learning-design.md',
+        'docs/design/2026-09-13-34-provider-comparison-experiments-design.md',
+        'docs/peer-reviews/plan/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-review-ae95793f08da8e886f60ba09a30ce53d/review-ae95793f08da8e886f60ba09a30ce53d-author-response-1.md',
+        'docs/peer-reviews/plan/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-review-ae95793f08da8e886f60ba09a30ce53d/review-ae95793f08da8e886f60ba09a30ce53d-reviewer-response-1.md',
+        'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-author-startup.md',
+        'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-review-manifest.md',
+        'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-reviewer-invitation.md',
+        'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-reviewer-response-1.md',
+        'docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md',
+        'docs/plans/2026-09-13-30-artifact-lifecycle-review-evidence.md',
+        'evidence/portable-runtime/contracts/2026-10-05-107-canonical-plan-author-sar.md',
         '.ai-peer-review.json',
         '.claude/commands/task.md',
         '.claude/settings.json',
@@ -292,6 +306,46 @@ test('rejects a relicensing declaration without the exact grant boundary', async
     }),
     /license grant/
   );
+});
+
+test('[#107] admits pinned historical contract inputs without widening their directories', async () => {
+  const declared = [
+    'docs/design/2026-09-13-30-artifact-lifecycle-review-evidence-design.md',
+    'docs/design/2026-09-13-31-clone-shared-sqlite-authority-projection-design.md',
+    'docs/design/2026-09-13-32-project-local-knowledge-retrieval-design.md',
+    'docs/design/2026-09-13-33-defect-feedback-governed-learning-design.md',
+    'docs/design/2026-09-13-34-provider-comparison-experiments-design.md',
+    'docs/peer-reviews/plan/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-review-ae95793f08da8e886f60ba09a30ce53d/review-ae95793f08da8e886f60ba09a30ce53d-author-response-1.md',
+    'docs/peer-reviews/plan/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-review-ae95793f08da8e886f60ba09a30ce53d/review-ae95793f08da8e886f60ba09a30ce53d-reviewer-response-1.md',
+    'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-author-startup.md',
+    'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-review-manifest.md',
+    'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-reviewer-invitation.md',
+    'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-reviewer-response-1.md',
+    'docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md',
+    'docs/plans/2026-09-13-30-artifact-lifecycle-review-evidence.md',
+    'evidence/portable-runtime/contracts/2026-10-05-107-canonical-plan-author-sar.md',
+  ];
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: ['LICENSE', ...declared].join('\n') }),
+  });
+  for (const foreign of [
+    ...declared.map((file) => file + '.unregistered'),
+    'docs/design/unrelated.md',
+    'docs/plans/unrelated.md',
+    'docs/peer-reviews/unrelated.md',
+    'evidence/portable-runtime/contracts/unregistered.json',
+  ]) {
+    await assert.rejects(
+      verifyExtraction({
+        root: '/repo',
+        manifest: validManifest(),
+        runGit: fakeGit({ current: ['LICENSE', ...declared, foreign].join('\n') }),
+      }),
+      /foreign standalone paths/
+    );
+  }
 });
 
 test('executable verifier resolves the repository from its own installed path', () => {
