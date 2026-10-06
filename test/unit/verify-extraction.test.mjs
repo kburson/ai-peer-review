@@ -124,6 +124,7 @@ function validManifest(overrides = {}) {
         'native/broker-security/binding.gyp',
         'native/broker-security/posix.cc',
         'native/broker-security/windows.cc',
+        'scripts/ci/prepare-contract-adoption.mjs',
         'scripts/ci/receipt.mjs',
         'scripts/ci/record-tests.mjs',
         'scripts/ci/verify-receipts.mjs',
@@ -336,8 +337,9 @@ test('does not widen co-review globs to their containing directories', async () 
   );
 });
 
-test('admits the four declared CI evidence files and rejects neighboring foreign files', async () => {
+test('[#144] admits declared CI evidence and preparation files but rejects neighboring scripts', async () => {
   const declared = [
+    'scripts/ci/prepare-contract-adoption.mjs',
     'docs/ci-verification.md',
     'scripts/ci/receipt.mjs',
     'scripts/ci/record-tests.mjs',
@@ -348,7 +350,11 @@ test('admits the four declared CI evidence files and rejects neighboring foreign
     manifest: validManifest(),
     runGit: fakeGit({ current: ['LICENSE', ...declared].join('\n') }),
   });
-  for (const foreign of ['scripts/ci/other.mjs', 'docs/ci-other.md']) {
+  for (const foreign of [
+    'scripts/ci/prepare-contract-adoption-copy.mjs',
+    'scripts/ci/other.mjs',
+    'docs/ci-other.md',
+  ]) {
     await assert.rejects(
       verifyExtraction({
         root: '/repo',

@@ -88,6 +88,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'native/broker-security/binding.gyp',
     'native/broker-security/posix.cc',
     'native/broker-security/windows.cc',
+    'scripts/ci/prepare-contract-adoption.mjs',
     'scripts/ci/receipt.mjs',
     'scripts/ci/record-tests.mjs',
     'scripts/ci/verify-receipts.mjs',
