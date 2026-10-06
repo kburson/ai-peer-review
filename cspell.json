@@ -5,6 +5,7 @@
     "node_modules/**",
     "coverage/**",
     ".git/**",
+    "docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md",
     ".scratch/**",
     ".ai-task-manager/memory/**",
     "docs/superpowers/**",
