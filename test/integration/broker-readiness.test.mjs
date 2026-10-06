@@ -1,3 +1,4 @@
+import { nativeBrokerSkipReason } from '../helpers/native-broker-policy.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -27,7 +28,9 @@ for (const scenario of [
   test(
     `native broker ${scenario.name}`,
     {
-      skip: !nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED,
+      skip:
+        nativeBrokerSkipReason() ||
+        (!nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED),
       timeout: 45_000,
     },
     async (t) => {

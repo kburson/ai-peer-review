@@ -1,3 +1,4 @@
+import { nativeBrokerSkipReason } from '../helpers/native-broker-policy.mjs';
 // cspell:words nodedir DACL pwsh LiteralPath AccessRuleProtection
 import assert from 'node:assert/strict';
 import { execFile, execFileSync, spawn } from 'node:child_process';
@@ -125,6 +126,8 @@ function projectFixture(scratch) {
 }
 
 test('installed release preserves legacy recovery, isolated brokers and pinned runtime closure', async (t) => {
+  const nativeSkip = nativeBrokerSkipReason();
+  if (nativeSkip) return t.skip(nativeSkip);
   if (!process.env.APR_RELEASE_TEST_ROOT) {
     mkdirSync(path.join(root, '.scratch/test'), { recursive: true });
     const scratch = realpathSync(mkdtempSync(path.join(root, '.scratch/test/apr-release-')));
