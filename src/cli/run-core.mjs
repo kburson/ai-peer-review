@@ -50,10 +50,10 @@ import {
 import { setup, updateSetup } from '../config/setup.mjs';
 import { assertProjectSetupCompatible } from '../config/installation-identity.mjs';
 import {
-  createResponseDraft,
+  createResponseDraft as rawCreateResponseDraft,
   parseResponse,
   reserveCollateral,
-  sealResponse,
+  sealResponse as rawSealResponse,
 } from '../collateral/responses.mjs';
 import { AprError } from '../errors.mjs';
 import '../providers/codex.mjs';
@@ -179,7 +179,9 @@ export function createReviewOperations({
   const effectAtomicWrite = guarded(atomicWrite),
     effectAtomicCreate = guarded(atomicCreate),
     effectCommitExactPaths = guarded(commitExactPaths),
-    effectReserveCollateral = guarded(reserveCollateral);
+    effectReserveCollateral = guarded(reserveCollateral),
+    effectCreateResponseDraft = guarded(rawCreateResponseDraft),
+    effectSealResponse = guarded(rawSealResponse);
   const {
     activateStartup,
     prepareStartup,
@@ -1742,7 +1744,7 @@ export function createReviewOperations({
         const claimed = await mutateReview(values.workspace, expected(state), (current) =>
           claimRole(current, registered, input.now ?? new Date())
         );
-        const draft = createResponseDraft({ ...claimed, paths }, 'reviewer', 1);
+        const draft = effectCreateResponseDraft({ ...claimed, paths }, 'reviewer', 1);
         return joinedResult(
           'join',
           claimed,
@@ -1762,7 +1764,7 @@ export function createReviewOperations({
         claim?.session_fingerprint === input.identity.session_fingerprint
       ) {
         ensureReviewerBinding();
-        const draft = createResponseDraft({ ...state, paths }, 'reviewer', 1);
+        const draft = effectCreateResponseDraft({ ...state, paths }, 'reviewer', 1);
         return joinedResult(
           'join',
           state,
@@ -1812,7 +1814,7 @@ export function createReviewOperations({
     const claimed = await mutateReview(values.workspace, expected(joined), (current) =>
       claimRole(current, input.identity, input.now ?? new Date())
     );
-    const draft = createResponseDraft({ ...claimed, paths }, 'reviewer', 1);
+    const draft = effectCreateResponseDraft({ ...claimed, paths }, 'reviewer', 1);
     return joinedResult(
       'join',
       claimed,
@@ -1946,7 +1948,7 @@ export function createReviewOperations({
         (role === 'reviewer' && resumed.protocol.state === 'reviewer-turn') ||
         (role === 'author' && resumed.protocol.state === 'author-revision');
       if (currentTurn) {
-        response = createResponseDraft({ ...resumed, paths }, role, turn).path;
+        response = effectCreateResponseDraft({ ...resumed, paths }, role, turn).path;
       }
       return continuedResult(resumed, absolute, response, prior);
     }
@@ -2030,7 +2032,7 @@ export function createReviewOperations({
     const { paths } = sealedPaths(resumed);
     const turn =
       resumeRole === 'reviewer' ? resumed.protocol.turns_used + 1 : resumed.protocol.turns_used;
-    const response = createResponseDraft({ ...resumed, paths }, resumeRole, turn).path;
+    const response = effectCreateResponseDraft({ ...resumed, paths }, resumeRole, turn).path;
     const event = actionRetry(inspectReviewAuthority(absolute).events, grant, [
       'continued-to-reviewer',
       'continued-to-author',
@@ -2166,7 +2168,7 @@ export function createReviewOperations({
     ) {
       collision(file);
     }
-    unlinkSync(file);
+    performCurrentOperationEffect(() => unlinkSync(file));
   }
 
   async function abandonLocked(input, absolute) {
@@ -2695,7 +2697,7 @@ export function createReviewOperations({
           'Retry with the exact registered author and artifact bytes.'
         );
       }
-      const draft = createResponseDraft(
+      const draft = effectCreateResponseDraft(
         { ...state, paths, artifact_commit: prior.payload.commit ?? observed.head },
         'reviewer',
         state.protocol.turns_used + 1
@@ -2776,7 +2778,7 @@ export function createReviewOperations({
       );
     });
     checkpoint(deps, 'phase-artifact-appended');
-    const draft = createResponseDraft(
+    const draft = effectCreateResponseDraft(
       { ...current, paths, artifact_commit: observed.head },
       'reviewer',
       current.protocol.turns_used + 1
@@ -2999,7 +3001,7 @@ export function createReviewOperations({
         );
       }
       checkpoint(deps, 'author-claimed');
-      nextResponse = createResponseDraft(
+      nextResponse = effectCreateResponseDraft(
         {
           ...current,
           paths,
@@ -3128,7 +3130,7 @@ export function createReviewOperations({
         ? event.payload.finding_ids
         : []
     );
-    const sealed = sealResponse(
+    const sealed = effectSealResponse(
       { ...state, paths, now: input.now, prior_finding_ids: priorFindingIds },
       responseFile,
       input.identity
@@ -3263,7 +3265,7 @@ export function createReviewOperations({
     ).state;
     let nextResponse = null;
     if (current.protocol.state === 'reviewer-turn') {
-      nextResponse = createResponseDraft(
+      nextResponse = effectCreateResponseDraft(
         {
           ...current,
           paths,
@@ -3579,7 +3581,7 @@ export function createReviewOperations({
         'Restore the exact event-authorized reviewer response bytes.'
       );
     }
-    const sealedResponse = sealResponse(
+    const sealedResponse = effectSealResponse(
       {
         ...state,
         paths,
@@ -5283,7 +5285,12 @@ export function createReviewOperations({
         }
         return response.healthy ? 0 : 1;
       }
-      assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
+      try {
+        assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
+      } catch (error) {
+        if (parsed.command !== 'status' || !(error instanceof AprError)) throw error;
+        writeJson(io.stderr, error.toJSON());
+      }
       if (parsed.command === 'request-grant') {
         const workspace = path.isAbsolute(parsed.args[0])
           ? parsed.args[0]

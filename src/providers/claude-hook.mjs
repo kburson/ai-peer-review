@@ -12,9 +12,14 @@ export async function captureClaudeStartHook(input, ...args) {
     )
   )
     return null;
-  return withOperationAuthority({ operation: 'hook.claude', cwd: input?.event?.cwd }, () =>
-    hook.captureClaudeStartHook(input, ...args)
-  );
+  const capture = () => hook.captureClaudeStartHook(input, ...args);
+  if (
+    !/^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) (?:start|join)(?:\s|$)/.test(
+      input?.event?.tool_input?.command ?? ''
+    )
+  )
+    return capture();
+  return withOperationAuthority({ operation: 'hook.claude', cwd: input?.event?.cwd }, capture);
 }
 export async function captureClaudeStartHookWhenPresent(input, ...args) {
   if (
@@ -23,9 +28,14 @@ export async function captureClaudeStartHookWhenPresent(input, ...args) {
     )
   )
     return null;
-  return withOperationAuthority({ operation: 'hook.claude', cwd: input?.event?.cwd }, () =>
-    hook.captureClaudeStartHookWhenPresent(input, ...args)
-  );
+  const capture = () => hook.captureClaudeStartHookWhenPresent(input, ...args);
+  if (
+    !/^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) (?:start|join)(?:\s|$)/.test(
+      input?.event?.tool_input?.command ?? ''
+    )
+  )
+    return capture();
+  return withOperationAuthority({ operation: 'hook.claude', cwd: input?.event?.cwd }, capture);
 }
 export function readClaudeStartHook(...args) {
   return hook.readClaudeStartHook(...args);

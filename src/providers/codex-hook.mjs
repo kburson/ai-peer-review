@@ -12,9 +12,14 @@ export async function captureCodexStartHook(input, ...args) {
     )
   )
     return null;
-  return withOperationAuthority({ operation: 'hook.codex', cwd: input?.event?.cwd }, () =>
-    hook.captureCodexStartHook(input, ...args)
-  );
+  const capture = () => hook.captureCodexStartHook(input, ...args);
+  if (
+    !/^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) (?:start|join)(?:\s|$)/.test(
+      input?.event?.tool_input?.command ?? ''
+    )
+  )
+    return capture();
+  return withOperationAuthority({ operation: 'hook.codex', cwd: input?.event?.cwd }, capture);
 }
 export function readCodexStartHook(...args) {
   return hook.readCodexStartHook(...args);
