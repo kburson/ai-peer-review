@@ -22,8 +22,8 @@ const REVIEWER = `sha256:${'b'.repeat(64)}`;
 const AUTHOR = `sha256:${'a'.repeat(64)}`;
 const DIGEST = `sha256:${'d'.repeat(64)}`;
 
-function workspace(t) {
-  const root = path.join(process.cwd(), '.scratch', 'test');
+function workspace(t, projectRoot = process.cwd()) {
+  const root = path.join(projectRoot, '.scratch', 'test');
   mkdirSync(root, { recursive: true });
   const value = mkdtempSync(path.join(root, 'coordinator-wake-'));
   mkdirSync(path.join(value, 'deliveries'), { recursive: true });
@@ -122,12 +122,19 @@ function input(root, wakeAdapter, now = NOW) {
   };
 }
 
-function brokerIo(respond, evidence = {}) {
+function brokerProject(t) {
+  const root = mkdtempSync(path.join(tmpdir(), 'apr-coordinator-cli-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
+  return realpathSync.native(root);
+}
+
+function brokerIo(projectRoot, respond, evidence = {}) {
   const stdout = [];
   const stderr = [];
   const requests = [];
   return {
-    cwd: process.cwd(),
+    cwd: projectRoot,
     env: {},
     now: new Date(NOW),
     stdout: { write: (value) => stdout.push(String(value)) },
@@ -207,8 +214,9 @@ test('bounded coordinator status reports the latest durable outcome without sess
 });
 
 test('closed broker CLI authenticates project routing and refuses suspension without review authority', async (t) => {
-  const root = workspace(t);
-  const io = brokerIo((message) => {
+  const projectRoot = brokerProject(t);
+  const root = workspace(t, projectRoot);
+  const io = brokerIo(projectRoot, (message) => {
     if (message.command === 'status') {
       return {
         status: 'running',
@@ -248,17 +256,18 @@ test('closed broker CLI authenticates project routing and refuses suspension wit
       ['stop', null],
     ]
   );
-  assert.ok(io.brokerRequests.every(({ project }) => project.physicalRoot === process.cwd()));
+  assert.ok(io.brokerRequests.every(({ project }) => project.physicalRoot === projectRoot));
 });
 
 test('broker stop refuses runnable and unreconciled project work', async (t) => {
-  const root = workspace(t);
+  const projectRoot = brokerProject(t);
+  const root = workspace(t, projectRoot);
   const refused = () => {
     throw new AprError('APR_BROKER_STOP_REFUSED', 'Broker owns runnable work.', {
       recovery: 'Reconcile or suspend the exact review.',
     });
   };
-  const runnable = brokerIo(refused);
+  const runnable = brokerIo(projectRoot, refused);
   assert.equal(await run(['broker', 'stop', '--json'], runnable), 1);
   assert.equal(JSON.parse(runnable.stderrBytes.at(-1)).code, 'APR_BROKER_STOP_REFUSED');
   assert.deepEqual(
@@ -266,7 +275,7 @@ test('broker stop refuses runnable and unreconciled project work', async (t) => 
     ['stop']
   );
 
-  const unreconciled = brokerIo(refused, {
+  const unreconciled = brokerIo(projectRoot, refused, {
     unreconciled_workspaces: [root],
   });
   assert.equal(await run(['broker', 'stop', '--json'], unreconciled), 1);
@@ -278,8 +287,9 @@ test('broker stop refuses runnable and unreconciled project work', async (t) => 
 });
 
 test('offline broker status reports recovery evidence without starting a broker', async (t) => {
-  const root = workspace(t);
-  const io = brokerIo(() => null, {
+  const projectRoot = brokerProject(t);
+  const root = workspace(t, projectRoot);
+  const io = brokerIo(projectRoot, () => null, {
     registrations: [path.join(root, 'registration.json')],
     recovery_records: [path.join(root, 'recovery.json')],
     unreconciled_workspaces: [root],
@@ -371,8 +381,9 @@ test('offline broker status survives a real missing native security helper witho
 });
 
 test('offline broker reconcile restarts exact pinned runtime without replaying a launch', async (t) => {
-  const root = workspace(t);
-  const io = brokerIo(() => ({ status: 'recovery-only' }));
+  const projectRoot = brokerProject(t);
+  const root = workspace(t, projectRoot);
+  const io = brokerIo(projectRoot, () => ({ status: 'recovery-only' }));
   io.brokerConnect = async () => {
     throw Object.assign(new Error('missing discovery'), { code: 'APR_BROKER_STALE' });
   };

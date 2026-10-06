@@ -1125,10 +1125,12 @@ test('CLI start uses production adapters when no test registry is injected', asy
   assert.match(stdout, /awaiting-reviewer/);
 });
 
-test('CLI doctor reports the current provider adapter observation', async () => {
+test('CLI doctor reports the current provider adapter observation', async (t) => {
+  const fx = repositoryFixture('apr-provider-doctor-');
+  t.after(fx.cleanup);
   let stdout = '';
   const code = await run(['doctor', '--json'], {
-    cwd: process.cwd(),
+    cwd: fx.root,
     env: {
       CODEX_THREAD_ID: 'doctor-session',
       CODEX_MODEL_ID: 'gpt-6-astra',
@@ -1150,8 +1152,8 @@ test('CLI doctor reports the current provider adapter observation', async () => 
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: () => {} },
   });
-  const result = JSON.parse(stdout);
   assert.equal(code, 0);
+  const result = JSON.parse(stdout);
   assert.deepEqual(
     result.rows.find((entry) => entry.id === 'provider-adapter'),
     {
