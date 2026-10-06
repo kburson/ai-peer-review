@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { AprError } from '../../src/errors.mjs';
+import { setup } from '../../src/config/setup.mjs';
 import {
   openParticipantBinding,
   recordParticipantBinding,
@@ -1128,10 +1129,13 @@ test('CLI start uses production adapters when no test registry is injected', asy
 test('CLI doctor reports the current provider adapter observation', async (t) => {
   const fx = repositoryFixture('apr-provider-doctor-');
   t.after(fx.cleanup);
+  setup({ scope: 'project', agents: ['codex'], cwd: fx.root, confirmScratchExclude: true });
   let stdout = '';
   const code = await run(['doctor', '--json'], {
     cwd: fx.root,
     env: {
+      APPDATA: path.join(fx.root, '.scratch', 'user-config'),
+      XDG_CONFIG_HOME: path.join(fx.root, '.scratch', 'user-config'),
       CODEX_THREAD_ID: 'doctor-session',
       CODEX_MODEL_ID: 'gpt-6-astra',
       CODEX_MODEL_DISPLAY: 'GPT-6 Astra',
@@ -1152,7 +1156,7 @@ test('CLI doctor reports the current provider adapter observation', async (t) =>
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: () => {} },
   });
-  assert.equal(code, 0);
+  assert.equal(code, 0, stdout);
   const result = JSON.parse(stdout);
   assert.deepEqual(
     result.rows.find((entry) => entry.id === 'provider-adapter'),
