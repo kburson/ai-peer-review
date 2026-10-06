@@ -54,7 +54,7 @@ test('[#144] clean checkout recreates validated reference and keeps publication 
     ],
     { cwd, encoding: 'utf8' }
   );
-  assert.equal(check.status, 0, check.stderr);
+  assert.equal(check.status, 0, check.stdout + check.stderr);
   const report = JSON.parse(check.stdout);
   assert.equal(report.contractAdopted, true);
   assert.equal(report.activationAuthorized, false);
