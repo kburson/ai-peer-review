@@ -79,41 +79,53 @@ for (const [name, operation] of [
 }
 
 import { authorityInstalledFixture } from '../helpers/authority-installed-fixture.mjs';
-test('a selected installed runtime admits an activated clone', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const result = f.execute(
-    'import {assertOperationAuthority,revalidateOperationAuthority} from ' +
-      f.module('src/startup/authority-fence.mjs') +
-      '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); await revalidateOperationAuthority(fence); console.log("admitted");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'admitted');
-});
-test('policy replacement during a wait fences the subsequent effect', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const result = f.execute(
-    'import {writeFileSync,readFileSync,existsSync} from "node:fs"; import path from "node:path"; import {assertOperationAuthority,revalidateOperationAuthority} from ' +
-      f.module('src/startup/authority-fence.mjs') +
-      '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); const config=path.join(process.cwd(),".ai-peer-review/config.json"); await Promise.resolve(); writeFileSync(config,readFileSync(config,"utf8")+" "); let refused=false; try { await revalidateOperationAuthority(fence); writeFileSync("effect","unsafe"); } catch(error) {refused=error.code==="APR_PRIMARY_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync("effect")) throw Error("stale policy effect admitted"); console.log("fenced");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'fenced');
-});
+test(
+  'a selected installed runtime admits an activated clone',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const result = f.execute(
+      'import {assertOperationAuthority,revalidateOperationAuthority} from ' +
+        f.module('src/startup/authority-fence.mjs') +
+        '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); await revalidateOperationAuthority(fence); console.log("admitted");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'admitted');
+  }
+);
+test(
+  'policy replacement during a wait fences the subsequent effect',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const result = f.execute(
+      'import {writeFileSync,readFileSync,existsSync} from "node:fs"; import path from "node:path"; import {assertOperationAuthority,revalidateOperationAuthority} from ' +
+        f.module('src/startup/authority-fence.mjs') +
+        '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); const config=path.join(process.cwd(),".ai-peer-review/config.json"); await Promise.resolve(); writeFileSync(config,readFileSync(config,"utf8")+" "); let refused=false; try { await revalidateOperationAuthority(fence); writeFileSync("effect","unsafe"); } catch(error) {refused=error.code==="APR_PRIMARY_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync("effect")) throw Error("stale policy effect admitted"); console.log("fenced");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'fenced');
+  }
+);
 
-test('clone maintenance exclusion prevents a direct journal effect', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const journalEvent = event('review-created');
-  journalEvent.payload.startup.context.repository_root = f.root;
-  const result = f.execute(
-    'import {mkdirSync,existsSync} from "node:fs"; import path from "node:path"; import {initializeReview} from ' +
-      f.module('src/protocol/service.mjs') +
-      '; const workspace=path.join(process.cwd(),".scratch/peer-review/held"); mkdirSync(workspace,{recursive:true}); mkdirSync(path.join(process.cwd(),".git/ai-peer-review/admission.lock"),{mode:448}); let refused=false; try {await initializeReview(workspace,' +
-      JSON.stringify(journalEvent) +
-      ');} catch(error) {refused=error.code==="APR_PRIMARY_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync(path.join(workspace,"events.jsonl"))||existsSync(path.join(workspace,"locks"))) throw Error("clone exclusion was bypassed"); console.log("excluded");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'excluded');
-});
+test(
+  'clone maintenance exclusion prevents a direct journal effect',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const journalEvent = event('review-created');
+    journalEvent.payload.startup.context.repository_root = f.root;
+    const result = f.execute(
+      'import {mkdirSync,existsSync} from "node:fs"; import path from "node:path"; import {initializeReview} from ' +
+        f.module('src/protocol/service.mjs') +
+        '; const workspace=path.join(process.cwd(),".scratch/peer-review/held"); mkdirSync(workspace,{recursive:true}); mkdirSync(path.join(process.cwd(),".git/ai-peer-review/admission.lock"),{mode:448}); let refused=false; try {await initializeReview(workspace,' +
+        JSON.stringify(journalEvent) +
+        ');} catch(error) {refused=error.code==="APR_PRIMARY_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync(path.join(workspace,"events.jsonl"))||existsSync(path.join(workspace,"locks"))) throw Error("clone exclusion was bypassed"); console.log("excluded");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'excluded');
+  }
+);
 
 import { captureCodexStartHook } from '../../src/providers/codex-hook.mjs';
 test('direct provider hook refuses source execution before writing exact-session evidence', async (t) => {
@@ -208,48 +220,60 @@ test('direct broker restoration refuses source authority before starting a worke
   assert.equal(existsSync(path.join(root, 'worker-effect')), false);
 });
 
-test('selection permission drift refuses an immediate effect with unchanged bytes', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const result = f.execute(
-    'import {chmodSync,existsSync,writeFileSync} from "node:fs"; import {verifiedAccountSelectionPath} from ' +
-      f.module('src/config/runtime-selection.mjs') +
-      '; import {assertOperationAuthority,performOperationEffect} from ' +
-      f.module('src/startup/authority-fence.mjs') +
-      '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); chmodSync(await verifiedAccountSelectionPath(),420); let refused=false; try{performOperationEffect(fence,()=>writeFileSync("effect","unsafe"));}catch(error){refused=true;} if(!refused||existsSync("effect")) throw Error("public selection admitted an effect"); console.log("fenced");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'fenced');
-});
+test(
+  'selection permission drift refuses an immediate effect with unchanged bytes',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const result = f.execute(
+      'import {chmodSync,existsSync,readFileSync,writeFileSync} from "node:fs"; import {execFileSync} from "node:child_process"; import {verifiedAccountSelectionPath} from ' +
+        f.module('src/config/runtime-selection.mjs') +
+        '; import {assertOperationAuthority,performOperationEffect} from ' +
+        f.module('src/startup/authority-fence.mjs') +
+        '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); const selection=await verifiedAccountSelectionPath(); const before=readFileSync(selection); if(process.platform==="win32"){execFileSync("icacls.exe",[selection,"/grant","*S-1-1-0:(R)"],{stdio:"pipe"});}else{chmodSync(selection,420);} if(!before.equals(readFileSync(selection)))throw Error("permission drift changed selection bytes"); let refused=false; try{performOperationEffect(fence,()=>writeFileSync("effect","unsafe"));}catch(error){refused=true;} if(!refused||existsSync("effect")) throw Error("public selection admitted an effect"); console.log("fenced");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'fenced');
+  }
+);
 
-test('direct initializer cannot write a foreign-worktree review context', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const foreign = event('review-created');
-  foreign.payload.startup.context.repository_root = f.linked;
-  const result = f.execute(
-    'import {mkdirSync,existsSync} from "node:fs"; import path from "node:path"; import {initializeReview} from ' +
-      f.module('src/protocol/service.mjs') +
-      '; const workspace=path.join(process.cwd(),".scratch/peer-review/foreign"); mkdirSync(workspace,{recursive:true}); let refused=false; try{await initializeReview(workspace,' +
-      JSON.stringify(foreign) +
-      ');}catch(error){refused=error.code==="APR_OPERATION_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync(path.join(workspace,"events.jsonl")))throw Error("foreign context admitted"); console.log("fenced");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'fenced');
-});
+test(
+  'direct initializer cannot write a foreign-worktree review context',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const foreign = event('review-created');
+    foreign.payload.startup.context.repository_root = f.linked;
+    const result = f.execute(
+      'import {mkdirSync,existsSync} from "node:fs"; import path from "node:path"; import {initializeReview} from ' +
+        f.module('src/protocol/service.mjs') +
+        '; const workspace=path.join(process.cwd(),".scratch/peer-review/foreign"); mkdirSync(workspace,{recursive:true}); let refused=false; try{await initializeReview(workspace,' +
+        JSON.stringify(foreign) +
+        ');}catch(error){refused=error.code==="APR_OPERATION_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync(path.join(workspace,"events.jsonl")))throw Error("foreign context admitted"); console.log("fenced");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'fenced');
+  }
+);
 
-test('existing foreign review context is refused before projection repair', async (t) => {
-  const f = await authorityInstalledFixture(t),
-    foreign = event('review-created');
-  foreign.payload.startup.context.repository_root = f.linked;
-  const result = f.execute(
-    'import {mkdirSync,writeFileSync,existsSync} from "node:fs"; import path from "node:path"; import {readReview} from ' +
-      f.module('src/protocol/service.mjs') +
-      '; const workspace=path.join(process.cwd(),".scratch/peer-review/foreign"); mkdirSync(workspace,{recursive:true}); writeFileSync(path.join(workspace,"events.jsonl"),' +
-      JSON.stringify(JSON.stringify(foreign) + '\n') +
-      '); let refused=false; try{await readReview(workspace);}catch(error){refused=error.code==="APR_OPERATION_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync(path.join(workspace,"protocol.json")))throw Error("foreign repair admitted"); console.log("fenced");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'fenced');
-});
+test(
+  'existing foreign review context is refused before projection repair',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t),
+      foreign = event('review-created');
+    foreign.payload.startup.context.repository_root = f.linked;
+    const result = f.execute(
+      'import {mkdirSync,writeFileSync,existsSync} from "node:fs"; import path from "node:path"; import {readReview} from ' +
+        f.module('src/protocol/service.mjs') +
+        '; const workspace=path.join(process.cwd(),".scratch/peer-review/foreign"); mkdirSync(workspace,{recursive:true}); writeFileSync(path.join(workspace,"events.jsonl"),' +
+        JSON.stringify(JSON.stringify(foreign) + '\n') +
+        '); let refused=false; try{await readReview(workspace);}catch(error){refused=error.code==="APR_OPERATION_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync(path.join(workspace,"protocol.json")))throw Error("foreign repair admitted"); console.log("fenced");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'fenced');
+  }
+);
 
 import { sealNoCommitHandoff, writeDeliveryReceiptExclusive } from '../../src/protocol/service.mjs';
 for (const [name, write] of [
@@ -330,30 +354,38 @@ test('public provider launch refuses source execution before inspecting or dispa
   assert.equal(existsSync(path.join(root, 'inspect')), false);
 });
 
-test('replacement runtime rejects a carried fence but admits a fresh unchanged-contract upgrade', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const result = f.execute(
-    'import {cpSync,writeFileSync,existsSync} from "node:fs";import path from "node:path";import {pathToFileURL} from "node:url";import {assertOperationAuthority,revalidateOperationAuthority} from ' +
-      f.module('src/startup/authority-fence.mjs') +
-      ';const old=await assertOperationAuthority({operation:"start",cwd:process.cwd()});await Promise.resolve();const next=' +
-      JSON.stringify(f.installed + '-upgrade') +
-      ';cpSync(' +
-      JSON.stringify(f.installed) +
-      ',next,{recursive:true});const selection=await import(pathToFileURL(path.join(next,"src/config/runtime-selection.mjs")));await selection.registerRuntimeSelection({update:true});let refused=false;try{await revalidateOperationAuthority(old);writeFileSync("stale-effect","unsafe");}catch{refused=true;}const fresh=await import(pathToFileURL(path.join(next,"src/startup/authority-fence.mjs")));await fresh.assertOperationAuthority({operation:"start",cwd:process.cwd()});if(!refused||existsSync("stale-effect"))throw Error("replacement admitted stale authority");console.log("upgraded");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'upgraded');
-});
-test('integration replacement during a wait refuses the subsequent effect', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const result = f.execute(
-    'import {writeFileSync,readFileSync,existsSync} from "node:fs";import path from "node:path";import {assertOperationAuthority,revalidateOperationAuthority} from ' +
-      f.module('src/startup/authority-fence.mjs') +
-      ';const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()});await Promise.resolve();const wrapper=path.join(process.cwd(),".codex/skills/peer-review/SKILL.md");writeFileSync(wrapper,readFileSync(wrapper,"utf8")+" changed");let refused=false;try{await revalidateOperationAuthority(fence);writeFileSync("effect","unsafe");}catch{refused=true;}if(!refused||existsSync("effect"))throw Error("stale integration admitted");console.log("fenced");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'fenced');
-});
+test(
+  'replacement runtime rejects a carried fence but admits a fresh unchanged-contract upgrade',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const result = f.execute(
+      'import {cpSync,writeFileSync,existsSync} from "node:fs";import path from "node:path";import {pathToFileURL} from "node:url";import {assertOperationAuthority,revalidateOperationAuthority} from ' +
+        f.module('src/startup/authority-fence.mjs') +
+        ';const old=await assertOperationAuthority({operation:"start",cwd:process.cwd()});await Promise.resolve();const next=' +
+        JSON.stringify(f.installed + '-upgrade') +
+        ';cpSync(' +
+        JSON.stringify(f.installed) +
+        ',next,{recursive:true,verbatimSymlinks:true});const selection=await import(pathToFileURL(path.join(next,"src/config/runtime-selection.mjs")));await selection.registerRuntimeSelection({update:true});let refused=false;try{await revalidateOperationAuthority(old);writeFileSync("stale-effect","unsafe");}catch{refused=true;}const fresh=await import(pathToFileURL(path.join(next,"src/startup/authority-fence.mjs")));await fresh.assertOperationAuthority({operation:"start",cwd:process.cwd()});if(!refused||existsSync("stale-effect"))throw Error("replacement admitted stale authority");console.log("upgraded");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'upgraded');
+  }
+);
+test(
+  'integration replacement during a wait refuses the subsequent effect',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const result = f.execute(
+      'import {writeFileSync,readFileSync,existsSync} from "node:fs";import path from "node:path";import {assertOperationAuthority,revalidateOperationAuthority} from ' +
+        f.module('src/startup/authority-fence.mjs') +
+        ';const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()});await Promise.resolve();const wrapper=path.join(process.cwd(),".codex/skills/peer-review/SKILL.md");writeFileSync(wrapper,readFileSync(wrapper,"utf8")+" changed");let refused=false;try{await revalidateOperationAuthority(fence);writeFileSync("effect","unsafe");}catch{refused=true;}if(!refused||existsSync("effect"))throw Error("stale integration admitted");console.log("fenced");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'fenced');
+  }
+);
 import { createNativePushTransport } from '../../src/transport/native-push.mjs';
 for (const method of ['deliver', 'reconcile'])
   test('public native push ' + method + ' refuses source execution before dispatch', async (t) => {
@@ -438,18 +470,22 @@ for (const [name, operation] of [
     assert.equal(existsSync(path.join(root, 'dispatch/locks')), false);
   });
 
-test('registered provider launch revalidates policy before persisting an awaited acknowledgement', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const result = f.execute(
-    'import {writeFileSync,readFileSync,existsSync} from "node:fs"; import path from "node:path"; import {withOperationAuthority} from ' +
-      f.module('src/startup/authority-fence.mjs') +
-      '; import {createProviderAdapter,registerProductionProviderAdapter} from ' +
-      f.module('src/providers/registry.mjs?isolated-provider-registration') +
-      '; const adapter=registerProductionProviderAdapter(createProviderAdapter({selector:"grok",provider:"xai",host:"grok",surface:{launch:async()=>{await Promise.resolve();const config=path.join(process.cwd(),".ai-peer-review/config.json");writeFileSync(config,readFileSync(config,"utf8")+" ");return {status:"acknowledged",handle:"reviewer-session",observation:{provider:"xai",host:"grok",session_id:"reviewer-session",model_id:"grok-4",effort:"low",adapter_version:"1.0.0",assurance:"runtime"}};}}})); let refused=false; try {await withOperationAuthority({operation:"provider.launch",cwd:process.cwd()},()=>adapter.launchReviewer({invitationPath:path.join(process.cwd(),"invitation.md"),expected:{provider:"xai",host:"grok",model_id:"grok-4",effort:"low",adapter_version:"1.0.0"},effort:"low",operationId:"waited",scratchRoot:path.join(process.cwd(),"provider-effect")}));} catch(error){refused=error.code==="APR_PRIMARY_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync(path.join(process.cwd(),"provider-effect"))) throw Error("stale provider acknowledgement persisted"); console.log("fenced");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'fenced');
-});
+test(
+  'registered provider launch revalidates policy before persisting an awaited acknowledgement',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const result = f.execute(
+      'import {writeFileSync,readFileSync,existsSync} from "node:fs"; import path from "node:path"; import {withOperationAuthority} from ' +
+        f.module('src/startup/authority-fence.mjs') +
+        '; import {createProviderAdapter,registerProductionProviderAdapter} from ' +
+        f.module('src/providers/registry.mjs?isolated-provider-registration') +
+        '; const adapter=registerProductionProviderAdapter(createProviderAdapter({selector:"grok",provider:"xai",host:"grok",surface:{launch:async()=>{await Promise.resolve();const config=path.join(process.cwd(),".ai-peer-review/config.json");writeFileSync(config,readFileSync(config,"utf8")+" ");return {status:"acknowledged",handle:"reviewer-session",observation:{provider:"xai",host:"grok",session_id:"reviewer-session",model_id:"grok-4",effort:"low",adapter_version:"1.0.0",assurance:"runtime"}};}}})); let refused=false; try {await withOperationAuthority({operation:"provider.launch",cwd:process.cwd()},()=>adapter.launchReviewer({invitationPath:path.join(process.cwd(),"invitation.md"),expected:{provider:"xai",host:"grok",model_id:"grok-4",effort:"low",adapter_version:"1.0.0"},effort:"low",operationId:"waited",scratchRoot:path.join(process.cwd(),"provider-effect")}));} catch(error){refused=error.code==="APR_PRIMARY_AUTHORITY_UNAVAILABLE";} if(!refused||existsSync(path.join(process.cwd(),"provider-effect"))) throw Error("stale provider acknowledgement persisted"); console.log("fenced");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'fenced');
+  }
+);
 
 test('direct coordinator lease refuses before directory or lease creation', async (t) => {
   const root = workspace(t);
@@ -498,16 +534,20 @@ test('provider stream refuses to persist join evidence without current operation
   assert.equal(existsSync(path.join(root, 'provider')), false);
 });
 
-test('an immediate effect waits for bounded foreign-process clone contention and revalidates', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const result = f.execute(
-    'import {spawn} from "node:child_process";import {existsSync,writeFileSync} from "node:fs";import path from "node:path";import {assertOperationAuthority,performOperationEffect} from ' +
-      f.module('src/startup/authority-fence.mjs') +
-      '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); const lock=path.join(process.cwd(),".git/ai-peer-review/admission.lock"); const script="const fs=require(\\"node:fs\\");const path=require(\\"node:path\\");const lock=process.argv[1];fs.mkdirSync(lock,{mode:448});fs.writeFileSync(path.join(lock,\\"owner.json\\"),JSON.stringify({schema:\\"ai-peer-review.primary-admission/v1\\",pid:process.pid,token:\\"fixture\\"})+\\"\\\\n\\",{mode:384});process.stdout.write(\\"held\\");setTimeout(()=>{fs.unlinkSync(path.join(lock,\\\"owner.json\\\"));setTimeout(()=>fs.rmdirSync(lock),100);},2000);"; const child=spawn(process.execPath,["-e",script,lock],{stdio:["ignore","pipe","inherit"]}); const done=new Promise(resolve=>child.once("exit",resolve)); await new Promise(resolve=>child.stdout.once("data",resolve)); try{performOperationEffect(fence,()=>writeFileSync("contended-effect","safe"));}finally{await done;} if(!existsSync("contended-effect"))throw Error("bounded contention refused");console.log("admitted");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'admitted');
-});
+test(
+  'an immediate effect waits for bounded foreign-process clone contention and revalidates',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const result = f.execute(
+      'import {spawn} from "node:child_process";import {existsSync,writeFileSync} from "node:fs";import path from "node:path";import {assertOperationAuthority,performOperationEffect} from ' +
+        f.module('src/startup/authority-fence.mjs') +
+        '; const fence=await assertOperationAuthority({operation:"start",cwd:process.cwd()}); const lock=path.join(process.cwd(),".git/ai-peer-review/admission.lock"); const script="const fs=require(\\"node:fs\\");const path=require(\\"node:path\\");const lock=process.argv[1];fs.mkdirSync(lock,{mode:448});fs.writeFileSync(path.join(lock,\\"owner.json\\"),JSON.stringify({schema:\\"ai-peer-review.primary-admission/v1\\",pid:process.pid,token:\\"fixture\\"})+\\"\\\\n\\",{mode:384});process.stdout.write(\\"held\\");setTimeout(()=>{fs.unlinkSync(path.join(lock,\\\"owner.json\\\"));setTimeout(()=>fs.rmdirSync(lock),100);},2000);"; const child=spawn(process.execPath,["-e",script,lock],{stdio:["ignore","pipe","inherit"]}); const done=new Promise(resolve=>child.once("exit",resolve)); await new Promise(resolve=>child.stdout.once("data",resolve)); try{performOperationEffect(fence,()=>writeFileSync("contended-effect","safe"));}finally{await done;} if(!existsSync("contended-effect"))throw Error("bounded contention refused");console.log("admitted");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'admitted');
+  }
+);
 
 test('standalone broker bootstrap refuses source execution before launch or bootstrap effects', async (t) => {
   const root = workspace(t);

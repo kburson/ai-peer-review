@@ -9,6 +9,7 @@ import {
   fstatSync,
   readSync,
   constants,
+  readlinkSync,
 } from 'node:fs';
 import path from 'node:path';
 import { AprError } from '../errors.mjs';
@@ -69,9 +70,10 @@ function stableBytes(root, relative, maxBytes = 16777216) {
     invalid('Installed files changed during observation.');
   return { bytes, identity: identity(after.stat) };
 }
-function inspectExecutableCoverage(root, files) {
+function inspectExecutableCoverage(root, files, diagnosticOnly = false) {
   const declared = new Set(files.map((entry) => entry.path));
   const directories = [];
+  const links = [];
   let count = 0;
   function walk(relative = '') {
     const directory = path.join(root, relative);
@@ -82,7 +84,30 @@ function inspectExecutableCoverage(root, files) {
       if (++count > 16384) invalid('Installed inventory traversal exceeds its bound.');
       const target = relative ? `${relative}/${name}` : name;
       const stat = lstatSync(path.join(root, target));
-      if (stat.isSymbolicLink()) invalid('Installed runtime contains a linked file.');
+      if (
+        diagnosticOnly &&
+        (target === 'node_modules' || target === 'native/broker-security/build')
+      )
+        continue;
+      if (stat.isSymbolicLink()) {
+        if (!/^node_modules\/(?:.+\/node_modules\/)?\.bin\/[^/]+$/.test(target))
+          invalid('Installed runtime contains a linked file.');
+        const resolved = realpathSync(path.join(root, target));
+        const relativeTarget = path.relative(root, resolved).split(path.sep).join('/');
+        if (
+          !declared.has(relativeTarget) ||
+          !relativeTarget.startsWith('node_modules/') ||
+          readlinkSync(path.join(root, target)).startsWith('/')
+        )
+          invalid('npm command link does not target a declared dependency executable.');
+        links.push(
+          Object.freeze({
+            path: target,
+            identity: identity(lstatSync(path.join(root, target), { bigint: true })),
+          })
+        );
+        continue;
+      }
       if (stat.isDirectory()) walk(target);
       else if (
         (/\.(?:mjs|cjs|js|json|node)$/.test(name) || stat.mode & 0o111) &&
@@ -97,25 +122,35 @@ function inspectExecutableCoverage(root, files) {
     directories.push(Object.freeze({ path: relative, identity: identity(after) }));
   }
   walk();
-  return Object.freeze(directories);
+  return { directories: Object.freeze(directories), links: Object.freeze(links) };
 }
-export function verifyRuntimeInventorySync({ packageRoot, previousObservation } = {}) {
+function observeRuntimeInventory({
+  packageRoot,
+  previousObservation,
+  diagnosticOnly = false,
+} = {}) {
   try {
     const root = realpathSync(packageRoot);
     if (root !== path.resolve(packageRoot)) invalid('Runtime package root must be canonical.');
+    const matchesObservedPaths = (entries) =>
+      entries.every(
+        (entry) =>
+          identity(lstatSync(path.join(root, entry.path), { bigint: true })) === entry.identity
+      );
     if (
+      !diagnosticOnly &&
       previousObservation &&
       observations.has(previousObservation) &&
       previousObservation.packageRoot === root &&
       identity(ordinary(root, 'runtime-inventory.json').stat) ===
         previousObservation.manifestIdentity &&
-      previousObservation.entries.every(
-        (entry) => identity(ordinary(root, entry.path).stat) === entry.identity
-      ) &&
-      previousObservation.directories.every(
-        (entry) =>
-          identity(lstatSync(path.join(root, entry.path), { bigint: true })) === entry.identity
-      )
+      matchesObservedPaths(previousObservation.directories) &&
+      matchesObservedPaths(previousObservation.links) &&
+      matchesObservedPaths(previousObservation.entries) &&
+      matchesObservedPaths(previousObservation.links) &&
+      matchesObservedPaths(previousObservation.directories) &&
+      identity(ordinary(root, 'runtime-inventory.json').stat) ===
+        previousObservation.manifestIdentity
     ) {
       const renewed = Object.freeze({
         ...previousObservation,
@@ -167,13 +202,22 @@ export function verifyRuntimeInventorySync({ packageRoot, previousObservation } 
       !/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(metadata.version)
     )
       invalid('Runtime package metadata is invalid.');
+    if (!diagnosticOnly) {
+      for (const [name, version] of Object.entries(metadata.dependencies ?? {})) {
+        const dependency = 'node_modules/' + name + '/package.json';
+        if (!entries.some((entry) => entry.path === dependency))
+          invalid('Runtime dependency is outside the sealed installation closure.');
+        if (JSON.parse(stableBytes(root, dependency, 1048576).bytes).version !== version)
+          invalid('Runtime dependency disagrees with its installed metadata.');
+      }
+    }
     // Recheck every identity after the whole observation, rejecting mixed replacement.
     for (const entry of entries)
       if (identity(ordinary(root, entry.path).stat) !== entry.identity)
         invalid('Runtime inventory changed during verification.');
     if (stableBytes(root, 'runtime-inventory.json', 1048576).identity !== manifest.identity)
       invalid('Runtime manifest changed during verification.');
-    const directories = inspectExecutableCoverage(root, parsed.files);
+    const { directories, links } = inspectExecutableCoverage(root, parsed.files, diagnosticOnly);
     const inventoryDigest = hash(JSON.stringify(parsed));
     if (
       previousObservation &&
@@ -196,10 +240,11 @@ export function verifyRuntimeInventorySync({ packageRoot, previousObservation } 
       inventoryDigest,
       entries: Object.freeze(entries.map(Object.freeze)),
       directories,
+      links,
       manifestIdentity: manifest.identity,
       observedAt: new Date().toISOString(),
     });
-    observations.add(result);
+    if (!diagnosticOnly) observations.add(result);
     return result;
   } catch (error) {
     if (error instanceof AprError) throw error;
@@ -207,6 +252,13 @@ export function verifyRuntimeInventorySync({ packageRoot, previousObservation } 
   }
 }
 
+export function verifyRuntimeInventorySync({ packageRoot, previousObservation } = {}) {
+  return observeRuntimeInventory({ packageRoot, previousObservation });
+}
+// Read-only package inspection never creates an admissible authority observation.
+export function inspectPackageInventory({ packageRoot } = {}) {
+  return observeRuntimeInventory({ packageRoot, diagnosticOnly: true });
+}
 export async function verifyRuntimeInventory(options) {
   return verifyRuntimeInventorySync(options);
 }

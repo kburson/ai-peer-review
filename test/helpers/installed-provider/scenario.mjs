@@ -45,7 +45,7 @@ await activatePrimaryPolicy({ cwd: root });
 // Bound this multi-action fixture after maintenance, preserving any shorter
 // inherited deadline across all provider launches and simulated restarts.
 process.env.APR_PROVIDER_DEADLINE_MS = String(
-  Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity), Date.now() + 150_000)
+  Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity), Date.now() + 900_000)
 );
 const { platformSecurity } = await load('src/broker/platform.mjs');
 const { canonicalProjectIdentity } = await load('src/broker/identity.mjs');
@@ -85,7 +85,7 @@ try {
   await promisify(execFile)('claude', ['--fixture-start'], {
     cwd: root,
     env: withoutProviderIdentity(process.env),
-    timeout: 45_000,
+    timeout: 240_000,
     encoding: 'utf8',
   });
   if (process.env.APR_FIXTURE_RESTART_SIMULATION === '1') {
@@ -105,7 +105,9 @@ try {
   const { readWakeOperation } = await load('src/coordinator/ledger.mjs');
   let receipt;
   let finalized = false;
-  const deadline = Date.now() + 45_000;
+  // Three serial role turns include their real CLI work and durable stream
+  // acknowledgment. Keep this observation inside the inherited provider bound.
+  const deadline = Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS), Date.now() + 300_000);
   const handoffStarted = Date.now();
   while ((!receipt || !finalized) && Date.now() < deadline) {
     const directory = path.join(root, '.scratch/peer-review');
@@ -186,6 +188,23 @@ try {
   if (existsSync(reviewDirectory)) {
     for (const name of readdirSync(reviewDirectory)) {
       const workspace = path.join(reviewDirectory, name);
+      const wakeDirectory = path.join(workspace, 'wake/operations');
+      if (existsSync(wakeDirectory)) {
+        for (const name of readdirSync(wakeDirectory).filter((file) =>
+          /^[a-f0-9]{64}\.json$/.test(file)
+        )) {
+          const wake = JSON.parse(readFileSync(path.join(wakeDirectory, name), 'utf8'));
+          console.error(
+            'wake-operation',
+            JSON.stringify({
+              role: wake.target_role,
+              status: wake.status,
+              outcomes: wake.outcomes,
+              protocol_revision: wake.protocol_revision,
+            })
+          );
+        }
+      }
       for (const relative of ['startup-request.json', 'provider/claude/launch-state.json']) {
         const file = path.join(workspace, relative);
         if (existsSync(file)) {

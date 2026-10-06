@@ -1,6 +1,6 @@
 // @story #133
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, userInfo } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 export function runtimeFixture(t) {
@@ -34,6 +34,6 @@ export function runtimeFixture(t) {
     home,
     packageRoot,
     seal,
-    account: () => ({ homedir: home, uid: process.getuid() }),
+    account: () => ({ homedir: home, uid: userInfo().uid }),
   };
 }

@@ -20,6 +20,7 @@ test('runtime registration refuses caller-selected account and package roots', (
 
 import {
   chmodSync,
+  lstatSync,
   readFileSync,
   writeFileSync,
   symlinkSync,
@@ -57,7 +58,12 @@ test('one account selection is shared by clones and ignores caller environment',
   }
   assert.equal(
     await store.location(),
-    path.join(f.home, '.config/ai-peer-review/runtime-selection.json')
+    path.join(
+      f.home,
+      process.platform === 'win32'
+        ? 'AppData/Local/ai-peer-review/runtime-selection.json'
+        : '.config/ai-peer-review/runtime-selection.json'
+    )
   );
 });
 
@@ -75,7 +81,8 @@ test('unavailable account and unsafe selection bytes refuse', async (t) => {
   );
   const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
   await store.register({ dryRun: false });
-  chmodSync(await store.location(), 0o644);
+  if (process.platform === 'win32') writeFileSync(await store.location(), 'x'.repeat(8193));
+  else chmodSync(await store.location(), 0o644);
   await assert.rejects(store.read(), { code: 'APR_RUNTIME_SELECTION_INVALID' });
 });
 
@@ -211,15 +218,24 @@ test('verified Windows account uses fixed LocalAppData and private native reads'
   const { createSelectionStore } = await core();
   const f = runtimeFixture(t);
   let reads = 0;
+  const protectedFiles = new Set();
   const security = () => ({
     userId: () => 'fixture-sid',
     openPrivateDirectory(directory) {
       mkdirSync(directory, { recursive: true, mode: 0o700 });
       return {
         verify: () => true,
+        create: (name, bytes) => {
+          const file = path.join(directory, name);
+          writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
+          protectedFiles.add(lstatSync(file).ino);
+        },
         read: (name) => {
           reads++;
-          return readFileSync(path.join(directory, name));
+          const file = path.join(directory, name);
+          if (!protectedFiles.has(lstatSync(file).ino))
+            throw new Error('Windows selection file lacks a protected owner-only ACL');
+          return readFileSync(file);
         },
         close() {},
       };

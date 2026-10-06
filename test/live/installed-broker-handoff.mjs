@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { runRuntimePack } from '../helpers/npm-command.mjs';
+import { renderCommand } from '../../src/cli/help-data.mjs';
 import { withoutProviderIdentity } from '../../src/provider/preflight.mjs';
 // Opt-in release gate. Provider output stays in a private disposable directory.
 import { createHash } from 'node:crypto';
@@ -60,15 +62,19 @@ async function run() {
   const npm = (argv, cwd = host) =>
     execFileSync('npm', argv, { cwd, encoding: 'utf8', timeout: 120_000 });
   const packed = JSON.parse(
-    npm(['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], root)
+    runRuntimePack(['--json', '--pack-destination', scratch], { cwd: root, encoding: 'utf8' })
   );
   const tarball = (Array.isArray(packed) ? packed[0] : Object.values(packed)[0])?.filename;
   if (!tarball)
     throw Object.assign(new Error('npm pack returned no tarball.'), {
       code: 'APR_LIVE_PACKAGE_INVALID',
     });
+  const globalPrefix = path.join(scratch, 'global runtime prefix');
   npm([
     'install',
+    '--global',
+    '--prefix',
+    globalPrefix,
     '--offline',
     '--omit=dev',
     '--ignore-scripts',
@@ -76,7 +82,13 @@ async function run() {
     '--no-fund',
     path.join(scratch, tarball),
   ]);
-  const installed = path.join(host, 'node_modules', '@kburson', 'ai-peer-review');
+  const installed = path.join(
+    globalPrefix,
+    ...(process.platform === 'win32' ? [] : ['lib']),
+    'node_modules',
+    '@kburson',
+    'ai-peer-review'
+  );
   const headers = [
     process.env.APR_NODEDIR_BASE && path.join(process.env.APR_NODEDIR_BASE, process.versions.node),
     path.dirname(process.execPath),
@@ -123,13 +135,34 @@ async function run() {
 
   stage = 'broker-startup';
   deadline = Date.now() + 12 * 60_000;
+  const accountHome = path.join(scratch, 'runtime account');
+  mkdirSync(accountHome, { mode: 0o700 });
+  process.env.APR_FIXTURE_ACCOUNT_HOME = accountHome;
+  const profile = new URL('../helpers/installed-provider/account-profile.mjs', import.meta.url);
+  await import(profile.href);
   const env = {
     ...withoutProviderIdentity(process.env),
+    NODE_OPTIONS: (process.env.NODE_OPTIONS ?? '') + ' --import=' + profile.href,
+    PATH:
+      (process.platform === 'win32' ? globalPrefix : path.join(globalPrefix, 'bin')) +
+      path.delimiter +
+      process.env.PATH,
     APR_PROVIDER_DEADLINE_MS: String(deadline),
   };
   for (const key of ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX'])
     delete env[key];
   const load = (file) => import(pathToFileURL(path.join(installed, file)));
+  const { registerRuntimeSelection } = await load('src/config/runtime-selection.mjs');
+  await registerRuntimeSelection();
+  const { registerPrimary, activatePrimaryPolicy } = await load(
+    'src/config/primary-operations.mjs'
+  );
+  const { setup } = await load('src/config/setup.mjs');
+  await registerPrimary({ cwd: host });
+  await setup({ scope: 'project', agents: ['claude'], cwd: host, confirmScratchExclude: true });
+  git('add', '.');
+  git('commit', '-m', 'activate installed live fixture primary');
+  await activatePrimaryPolicy({ cwd: host });
   const { platformSecurity } = await load('src/broker/platform.mjs');
   const { canonicalProjectIdentity } = await load('src/broker/identity.mjs');
   const { ensureBroker, requestBroker: installedRequestBroker } =
@@ -184,8 +217,23 @@ async function run() {
     });
   await requestBroker(brokerClient, 'status');
   stage = 'author-start';
-  const command =
-    'npx peer-review start docs/spec.md --artifact-kind spec --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort low --transport-mode automatic-required --max-turns 2';
+  const command = renderCommand([
+    'peer-review',
+    'start',
+    'docs/spec.md',
+    '--artifact-kind',
+    'spec',
+    '--reviewer-provider',
+    'claude',
+    '--reviewer-model',
+    'claude-opus-5',
+    '--reviewer-effort',
+    'low',
+    '--transport-mode',
+    'automatic-required',
+    '--max-turns',
+    '2',
+  ]);
   const prompt = `Run exactly this command once: ${command}. Then stop. This is a bounded review of a disposable tiny specification. Do not retry a provider or broker error.`;
   const providerLog = path.join(scratch, 'author-stream.jsonl');
   const lifetime = spawnProviderProcess(

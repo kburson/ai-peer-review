@@ -667,7 +667,7 @@ test('Claude stream observation is persisted before the provider process exits',
     "const init={type:'system',subtype:'init',model:'claude-opus-5',session_id:'stream-session',claude_code_version:'2.1.278'};",
     "const use={type:'assistant',session_id:'stream-session',timestamp:'2026-09-21T14:35:00.000Z',message:{model:'claude-opus-5',content:[{type:'tool_use',id:'tool-stream',name:'Bash',input:{command:'peer-review join /repo/invitation.md'}}]}};",
     "process.stdout.write(JSON.stringify(init)+'\\n'+JSON.stringify(use)+'\\n');",
-    "setTimeout(()=>{if(!fs.existsSync(process.argv[1]))process.exit(42);process.stdout.write(JSON.stringify({type:'result',session_id:'stream-session',result:'done'})+'\\n');},200);",
+    "const deadline=Date.now()+5000;const wait=()=>{if(fs.existsSync(process.argv[1])){process.stdout.write(JSON.stringify({type:'result',session_id:'stream-session',result:'done'})+'\\n');return;}if(Date.now()>=deadline)process.exit(42);setTimeout(wait,20);};wait();",
   ].join('');
   const child = spawn(
     process.execPath,

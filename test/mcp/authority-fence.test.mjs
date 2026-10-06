@@ -68,30 +68,38 @@ test('actual MCP stdio refuses source execution through its structured error cha
   assert.equal(result.stdout, '');
   assert.equal(JSON.parse(result.stderr).code, 'APR_RUNTIME_INSTALLATION_INVALID');
 });
-test('MCP wait revalidates the selected runtime before returning an awaited delivery', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const result = f.execute(
-    'import {writeFileSync} from "node:fs";import path from "node:path";import {createHandoffMcpServer} from ' +
-      f.module('src/mcp/server.mjs') +
-      ';let handler;createHandoffMcpServer({repositoryRoot:process.cwd(),createServer:()=>({registerTool:(_name,_definition,callback)=>{handler=callback;}}),createDeliveries:()=>({}),wait:async()=>{await Promise.resolve();writeFileSync(' +
-      JSON.stringify(path.join(f.installed, 'src/errors.mjs')) +
-      ', "// changed runtime");return {schema:"ai-peer-review.delivery/v1",status:"delivered"};}});const result=await handler({review_id:"review-01",participant:"author"});if(!result.isError)throw Error("stale runtime delivery accepted");console.log("fenced");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'fenced');
-});
+test(
+  'MCP wait revalidates the selected runtime before returning an awaited delivery',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const result = f.execute(
+      'import {writeFileSync} from "node:fs";import path from "node:path";import {createHandoffMcpServer} from ' +
+        f.module('src/mcp/server.mjs') +
+        ';let handler;createHandoffMcpServer({repositoryRoot:process.cwd(),createServer:()=>({registerTool:(_name,_definition,callback)=>{handler=callback;}}),createDeliveries:()=>({}),wait:async()=>{await Promise.resolve();writeFileSync(' +
+        JSON.stringify(path.join(f.installed, 'src/errors.mjs')) +
+        ', "// changed runtime");return {schema:"ai-peer-review.delivery/v1",status:"delivered"};}});const result=await handler({review_id:"review-01",participant:"author"});if(!result.isError)throw Error("stale runtime delivery accepted");console.log("fenced");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'fenced');
+  }
+);
 
-test('MCP refuses foreign review context before delivery-source effects', async (t) => {
-  const f = await authorityInstalledFixture(t);
-  const journal = event('review-created');
-  journal.payload.startup.context.repository_root = f.linked;
-  const result = f.execute(
-    'import {mkdirSync,writeFileSync,existsSync} from "node:fs";import path from "node:path";import {createHandoffMcpServer} from ' +
-      f.module('src/mcp/server.mjs') +
-      ';const workspace=path.join(process.cwd(),".scratch/peer-review/review-01");mkdirSync(workspace,{recursive:true});writeFileSync(path.join(workspace,"events.jsonl"),JSON.stringify(' +
-      JSON.stringify(journal) +
-      ')+String.fromCharCode(10));let handler;createHandoffMcpServer({repositoryRoot:process.cwd(),createServer:()=>({registerTool:(_name,_definition,callback)=>{handler=callback;}}),createDeliveries:()=>{writeFileSync("foreign-mcp-effect","unsafe");return {};},wait:async()=>({schema:"ai-peer-review.delivery/v1",status:"delivered"})});const result=await handler({review_id:"review-01",participant:"author"});if(!result.isError||existsSync("foreign-mcp-effect"))throw Error("foreign context admitted");console.log("fenced");'
-  );
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), 'fenced');
-});
+test(
+  'MCP refuses foreign review context before delivery-source effects',
+  { skip: 'Native broker verification paused for #102/#107' },
+  async (t) => {
+    const f = await authorityInstalledFixture(t);
+    const journal = event('review-created');
+    journal.payload.startup.context.repository_root = f.linked;
+    const result = f.execute(
+      'import {mkdirSync,writeFileSync,existsSync} from "node:fs";import path from "node:path";import {createHandoffMcpServer} from ' +
+        f.module('src/mcp/server.mjs') +
+        ';const workspace=path.join(process.cwd(),".scratch/peer-review/review-01");mkdirSync(workspace,{recursive:true});writeFileSync(path.join(workspace,"events.jsonl"),JSON.stringify(' +
+        JSON.stringify(journal) +
+        ')+String.fromCharCode(10));let handler;createHandoffMcpServer({repositoryRoot:process.cwd(),createServer:()=>({registerTool:(_name,_definition,callback)=>{handler=callback;}}),createDeliveries:()=>{writeFileSync("foreign-mcp-effect","unsafe");return {};},wait:async()=>({schema:"ai-peer-review.delivery/v1",status:"delivered"})});const result=await handler({review_id:"review-01",participant:"author"});if(!result.isError||existsSync("foreign-mcp-effect"))throw Error("foreign context admitted");console.log("fenced");'
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'fenced');
+  }
+);

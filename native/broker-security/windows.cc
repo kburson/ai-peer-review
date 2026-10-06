@@ -17,7 +17,7 @@ struct Connection { HANDLE handle; bool server_side; bool fenced; unsigned clien
 struct PipeReadRequest { HANDLE handle; std::vector<unsigned char> bytes; LONG references; };
 struct PipeWriteRequest { HANDLE handle; std::vector<unsigned char> bytes; HANDLE written; bool flush; };
 constexpr DWORD kIpcTimeoutMilliseconds = 5000;
-constexpr DWORD kCommandReplyTimeoutMilliseconds = 30000;
+constexpr DWORD kCommandReplyTimeoutMilliseconds = 120000;
 
 bool Fail(std::string* code, std::string* message, const char* stable, const char* text) {
   *code = stable;
@@ -399,7 +399,7 @@ std::string CanonicalPath(const std::string& input, std::string* code, std::stri
 
 std::string UserId(std::string* code, std::string* message) { return CurrentSid(code, message); }
 
-void* OpenPrivateDirectory(const std::string& input, std::string* code, std::string* message) {
+void* OpenPrivateDirectory(const std::string& input, std::string* code, std::string* message, bool exclusive = false) {
   const auto path = Wide(input);
   SECURITY_ATTRIBUTES attributes {};
   PSECURITY_DESCRIPTOR descriptor = nullptr;
@@ -407,6 +407,10 @@ void* OpenPrivateDirectory(const std::string& input, std::string* code, std::str
   const bool created = CreateDirectoryW(path.c_str(), &attributes) != 0;
   const DWORD createError = created ? ERROR_SUCCESS : GetLastError();
   LocalFree(descriptor);
+  if (!created && exclusive && createError == ERROR_ALREADY_EXISTS) {
+    Fail(code, message, "EEXIST", "Exclusive private directory creation refused.");
+    return nullptr;
+  }
   if (!created && createError != ERROR_ALREADY_EXISTS) {
     Fail(code, message, "APR_BROKER_STALE", "Private broker directory cannot be created.");
     return nullptr;
@@ -619,6 +623,15 @@ void* AcceptPrivate(void* value, std::string* code, std::string* message) {
     const DWORD error = connected ? ERROR_SUCCESS : GetLastError();
     if (error == ERROR_PIPE_CONNECTED) {
       connected = true;
+    } else if (!connected && error == ERROR_NO_DATA) {
+      // A client can time out while this owner is occupied, before accept.
+      // Return that disconnected instance to listening without replacing the
+      // private owner handle or treating the client's loss as an owner failure.
+      if (!DisconnectNamedPipe(endpoint->handle)) {
+        Fail(code, message, "APR_BROKER_START_FAILED", "Abandoned named-pipe connection cannot be reset.");
+        return nullptr;
+      }
+      if (GetTickCount64() >= deadline) break;
     } else if (!connected && error == ERROR_PIPE_LISTENING && GetTickCount64() < deadline) {
       Sleep(1);
     } else if (!connected) {
@@ -644,19 +657,19 @@ void* ConnectPrivate(const std::string& input, std::string* code, std::string* m
   const auto path = Wide(input);
   if (!WaitNamedPipeW(path.c_str(), 5000)) {
     const DWORD error = GetLastError();
-    if (error != ERROR_SEM_TIMEOUT) {
-      Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" :
-           error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" : "APR_BROKER_START_FAILED",
-           "Private named pipe is unavailable.");
-      return nullptr;
-    }
+    Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" :
+         error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" :
+         (error == ERROR_SEM_TIMEOUT || error == ERROR_PIPE_BUSY) ? "EBUSY" : "APR_BROKER_START_FAILED",
+         "Private named pipe is unavailable.");
+    return nullptr;
   }
   HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     const DWORD error = GetLastError();
     Fail(code, message, error == ERROR_FILE_NOT_FOUND ? "ENOENT" :
-         error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" : "APR_BROKER_START_FAILED",
+         error == ERROR_ACCESS_DENIED ? "APR_BROKER_ACCESS_DENIED" :
+         error == ERROR_PIPE_BUSY ? "EBUSY" : "APR_BROKER_START_FAILED",
          "Private named pipe cannot be connected.");
     return nullptr;
   }

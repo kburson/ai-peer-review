@@ -1,18 +1,12 @@
 // Explicit test-only provider executable and OS-account profile substitution.
 // No registry, broker, authority or IPC mock; selection writes only the disposable account.
-import os from 'node:os';
+import './account-profile.mjs';
 import childProcess from 'node:child_process';
+import { appendFileSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-const originalUserInfo = os.userInfo;
-if (process.env.APR_FIXTURE_ACCOUNT_HOME) {
-  os.userInfo = (options) => ({
-    ...originalUserInfo(options),
-    homedir: process.env.APR_FIXTURE_ACCOUNT_HOME,
-  });
-}
 const driver = fileURLToPath(new URL('./claude.mjs', import.meta.url));
 for (const method of ['spawn', 'execFile', 'execFileSync']) {
   const original = childProcess[method];
@@ -31,9 +25,30 @@ for (const method of ['spawn', 'execFile', 'execFileSync']) {
       )
         throw new Error('Offline fixture refused an unprotected Node executable');
     }
-    return file === 'claude'
-      ? original.call(this, process.execPath, [driver, ...args], ...rest)
-      : original.call(this, file, args, ...rest);
+    const trace = process.env.APR_FIXTURE_TIMING_LOG;
+    const started = Date.now();
+    const log = (phase) => {
+      if (trace)
+        appendFileSync(
+          trace,
+          JSON.stringify({
+            pid: process.pid,
+            at: Date.now(),
+            phase,
+            executable: path.basename(file),
+            command: args?.[0],
+            elapsed: Date.now() - started,
+          }) + '\n'
+        );
+    };
+    log('begin');
+    try {
+      return file === 'claude'
+        ? original.call(this, process.execPath, [driver, ...args], ...rest)
+        : original.call(this, file, args, ...rest);
+    } finally {
+      log('returned');
+    }
   };
 }
 childProcess.execFile[promisify.custom] = (file, args, options) =>

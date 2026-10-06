@@ -1010,7 +1010,8 @@ export function createReviewOperations({
         );
       try {
         if (lstatSync(requested).isSymbolicLink()) throw new Error('linked predecessor');
-        const canonical = realpathSync(requested);
+        const canonical =
+          process.platform === 'win32' ? realpathSync.native(requested) : realpathSync(requested);
         const relative = path.relative(root, canonical);
         if (
           !relative ||
@@ -1027,7 +1028,7 @@ export function createReviewOperations({
         }
         const eventStat = lstatSync(path.join(requested, 'events.jsonl'));
         if (!eventStat.isFile() || eventStat.isSymbolicLink()) throw new Error('missing journal');
-        preservedPredecessor = realpathSync(requested);
+        preservedPredecessor = canonical;
       } catch {
         fail(
           'APR_USAGE',

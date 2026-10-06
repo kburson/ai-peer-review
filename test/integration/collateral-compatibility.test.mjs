@@ -11,6 +11,7 @@ import { parseResponse } from '../../src/collateral/responses.mjs';
 import { renderManifest, sealPhaseManifest } from '../../src/manifest/render.mjs';
 import { readStartupJournal } from '../../src/broker/registry.mjs';
 import { runBrokerEntrypoint } from '../../bin/peer-review-broker.mjs';
+import { platformSecurity } from '../../src/broker/platform.mjs';
 import { ensureBroker } from '../helpers/broker-client-api.mjs';
 import {
   createReviewWorkspace,
@@ -192,8 +193,7 @@ test('legacy broker bootstrap is readable evidence and cannot execute retained c
   const fixture = await createReviewWorkspace({ events: reviewerTurnEvents() });
   t.after(fixture.cleanup);
   const directory = path.join(fixture.root, '.scratch', 'peer-review', 'broker');
-  const { mkdirSync } = await import('node:fs');
-  mkdirSync(directory, { recursive: true });
+  const privateDirectory = platformSecurity().openPrivateDirectory(directory);
   const file = path.join(directory, 'bootstrap-a1b2.json');
   const record = {
     schema: 'ai-peer-review.broker-bootstrap/v1',
@@ -204,7 +204,7 @@ test('legacy broker bootstrap is readable evidence and cannot execute retained c
         'ai-peer-review.broker-root/v1',
         realpathSync(fixture.root),
         null,
-        String(process.getuid()),
+        String(platformSecurity().userId()),
       ],
     },
     versions: { package_version: '0.1.0', broker_protocol_version: 1, node_major: 24 },
@@ -214,7 +214,11 @@ test('legacy broker bootstrap is readable evidence and cannot execute retained c
       digest: `sha256:${'b'.repeat(64)}`,
     },
   };
-  writeFileSync(file, JSON.stringify(record), { mode: 0o600 });
+  try {
+    privateDirectory.create(path.basename(file), JSON.stringify(record));
+  } finally {
+    privateDirectory.close();
+  }
   const before = readFileSync(file);
   await assert.rejects(
     runBrokerEntrypoint(realpathSync(file)),
@@ -339,12 +343,15 @@ test('unsupported diagnostics bound large files and never follow journal links',
 test('unknown broker bootstrap schema refuses before executable or identity interpretation', async (t) => {
   const fixture = await createReviewWorkspace({ events: reviewerTurnEvents() });
   t.after(fixture.cleanup);
-  const { mkdirSync } = await import('node:fs');
   const directory = path.join(fixture.root, '.scratch/peer-review/broker');
-  mkdirSync(directory, { recursive: true });
+  const privateDirectory = platformSecurity().openPrivateDirectory(directory);
   const file = path.join(directory, 'bootstrap-a1b2.json');
   const bytes = '{"schema":"ai-peer-review.broker-bootstrap/v99"}';
-  writeFileSync(file, bytes, { mode: 0o600 });
+  try {
+    privateDirectory.create(path.basename(file), bytes);
+  } finally {
+    privateDirectory.close();
+  }
   await assert.rejects(
     runBrokerEntrypoint(realpathSync(file)),
     (error) => error.code === 'APR_REVIEW_RUNTIME_UNSUPPORTED'

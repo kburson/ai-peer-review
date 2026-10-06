@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
+import { scrubGitEnvironment } from './repository.mjs';
 import { atomicCreate } from '../protocol/store.mjs';
 
 function fail(code, message, recovery, details = {}, cause) {
@@ -65,6 +66,7 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
     try {
       return execFileSync('git', args, {
         cwd: root,
+        env: scrubGitEnvironment(),
         encoding: buffer ? null : 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
@@ -87,6 +89,7 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
       String(
         execFileSync('git', ['rev-parse', '--show-toplevel'], {
           cwd,
+          env: scrubGitEnvironment(),
           encoding: 'utf8',
           stdio: ['ignore', 'pipe', 'pipe'],
           shell: false,

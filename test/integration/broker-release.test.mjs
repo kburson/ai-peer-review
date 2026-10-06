@@ -1,12 +1,13 @@
 // cspell:words nodedir DACL pwsh LiteralPath AccessRuleProtection
-import { sealInstalledRuntimeFixture } from '../helpers/installed-runtime-inventory.mjs';
 import assert from 'node:assert/strict';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import {
   existsSync,
+  appendFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -20,11 +21,18 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { once } from 'node:events';
 import { protectWindowsRuntime } from '../helpers/windows-offline.mjs';
-import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
+import { parseNpmPackOutput, runNpm, runRuntimePack } from '../helpers/npm-command.mjs';
 import { fixtureStartupDeps, loadLegacyAuthority } from '../helpers/internal-api.mjs';
 import { identity, NOW } from '../helpers/intervention-fixture.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+// Keep the provider scenario's existing bound separate from installation,
+// clone/closure verification and required authenticated shutdown. A whole-child
+// bound must allow those later phases after a slow but valid provider scenario;
+// individual production command/readiness and owned-child exit limits remain.
+const automaticScenarioTimeoutMs = 1_020_000;
+const releaseFixtureTimeoutMs = automaticScenarioTimeoutMs + 1_200_000;
+
 const currentPackageVersion = JSON.parse(
   readFileSync(path.join(root, 'package.json'), 'utf8')
 ).version;
@@ -143,43 +151,81 @@ test('installed release preserves legacy evidence, current broker execution and 
             )
           );
     if (endpointRoot) t.after(() => rmSync(endpointRoot, { recursive: true, force: true }));
+    const externalPrefix =
+      process.platform === 'win32'
+        ? realpathSync(mkdtempSync(path.join(os.tmpdir(), 'apr global runtime ')))
+        : null;
+    if (externalPrefix)
+      t.after(() =>
+        rmSync(externalPrefix, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+      );
     const accountHome = path.join(scratch, 'account-home');
     mkdirSync(accountHome, { mode: 0o700 });
+    for (const relative of ['.config', 'AppData/Roaming', 'AppData/Local'])
+      mkdirSync(path.join(accountHome, relative), { recursive: true, mode: 0o700 });
     const accountPreload = pathToFileURL(
       path.join(root, 'test/helpers/installed-provider/preload.mjs')
     ).href;
     const env = {
       ...process.env,
       APR_RELEASE_TEST_ROOT: scratch,
+      ...(externalPrefix ? { APR_RELEASE_GLOBAL_PREFIX: externalPrefix } : {}),
+      ...(process.platform === 'win32' && process.env.APR_OFFLINE_WINDOWS_GROUP
+        ? { APR_OFFLINE_WINDOWS_NODES: JSON.stringify([realpathSync(process.execPath)]) }
+        : {}),
       ...(endpointRoot ? { AI_PEER_REVIEW_ENDPOINT_ROOT: endpointRoot } : {}),
       APR_FIXTURE_ACCOUNT_HOME: accountHome,
       HOME: accountHome,
       USERPROFILE: accountHome,
       APPDATA: path.join(accountHome, 'AppData/Roaming'),
+      LOCALAPPDATA: path.join(accountHome, 'AppData/Local'),
       XDG_CONFIG_HOME: path.join(accountHome, '.config'),
       npm_config_cache: runNpm('npm', ['config', 'get', 'cache'], { encoding: 'utf8' }).trim(),
       NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${accountPreload}`,
     };
     delete env.NODE_TEST_CONTEXT;
     try {
-      const result = await promisify(execFile)(
+      const execution = promisify(execFile)(
         process.execPath,
         ['--test', fileURLToPath(import.meta.url)],
         {
           cwd: root,
           env,
-          timeout: 240_000,
+          timeout: releaseFixtureTimeoutMs,
           maxBuffer: 4 * 1024 * 1024,
         }
       );
+      for (const stream of [execution.child.stdout, execution.child.stderr]) {
+        let pending = '';
+        stream.on('data', (chunk) => {
+          pending += chunk.toString();
+          const lines = pending.split(/\r?\n/);
+          pending = lines.pop();
+          for (const line of lines)
+            if (line.includes('[installed-release]')) process.stderr.write(line + '\n');
+        });
+      }
+      const result = await execution;
       t.diagnostic(result.stdout);
     } catch (error) {
+      const progressFile = path.join(scratch, 'stage-progress.log');
+      if (existsSync(progressFile)) t.diagnostic(readFileSync(progressFile, 'utf8').slice(-8192));
       t.diagnostic(error.stdout ?? 'Installed child produced no test output.');
       t.diagnostic(error.stderr ?? '');
       throw error;
     }
     return;
   }
+  const phaseStart = Date.now();
+  const phase = (name) => {
+    const message = '[installed-release] ' + name + ' elapsed_ms=' + (Date.now() - phaseStart);
+    appendFileSync(
+      path.join(process.env.APR_RELEASE_TEST_ROOT, 'stage-progress.log'),
+      message + '\n'
+    );
+    console.error(message);
+  };
+  phase('child-start');
   const scratch = realpathSync(process.env.APR_RELEASE_TEST_ROOT);
   const live = [];
   const projects = [];
@@ -187,7 +233,9 @@ test('installed release preserves legacy evidence, current broker execution and 
   let stopBrokers = async () => {};
   t.after(async () => {
     try {
+      phase('cleanup-start');
       await stopBrokers();
+      phase('cleanup-stopped');
       for (const child of children) {
         let timer;
         try {
@@ -214,10 +262,12 @@ test('installed release preserves legacy evidence, current broker execution and 
     }
   });
   const host = path.join(scratch, 'host');
+  const globalPrefix =
+    process.env.APR_RELEASE_GLOBAL_PREFIX ?? path.join(scratch, 'global runtime prefix');
   mkdirSync(host);
   writeFileSync(path.join(host, 'package.json'), '{"private":true}\n');
   const packed = parseNpmPackOutput(
-    runNpm('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], {
+    runRuntimePack(['--ignore-scripts', '--json', '--pack-destination', scratch], {
       cwd: root,
       encoding: 'utf8',
     }),
@@ -227,6 +277,9 @@ test('installed release preserves legacy evidence, current broker execution and 
     'npm',
     [
       'install',
+      '--global',
+      '--prefix',
+      globalPrefix,
       '--offline',
       '--omit=dev',
       '--ignore-scripts',
@@ -236,7 +289,12 @@ test('installed release preserves legacy evidence, current broker execution and 
     ],
     { cwd: host, stdio: 'pipe' }
   );
-  const installed = path.join(host, 'node_modules/@kburson/ai-peer-review');
+  const installed = path.join(
+    globalPrefix,
+    ...(process.platform === 'win32' ? [] : ['lib']),
+    'node_modules/@kburson/ai-peer-review'
+  );
+  phase('packed-installed');
   const manifest = JSON.parse(readFileSync(path.join(installed, 'package.json')));
   assert.equal(manifest.version, currentPackageVersion);
   assert.equal(existsSync(path.join(host, 'node_modules/eslint')), false);
@@ -269,11 +327,18 @@ test('installed release preserves legacy evidence, current broker execution and 
   );
   const reported = securityApi.inspectPlatformSecurity().build_command;
   assert.equal(reported, 'ai-peer-review build broker-security');
-  runNpm(
-    'npm',
-    ['--prefix', installed, 'run', 'build:broker-security', '--', '--nodedir', developmentRoot],
-    { cwd: host, stdio: 'pipe' }
-  );
+  try {
+    runNpm(
+      'npm',
+      ['--prefix', installed, 'run', 'build:broker-security', '--', '--nodedir', developmentRoot],
+      { cwd: host, stdio: 'pipe' }
+    );
+  } catch (error) {
+    t.diagnostic(
+      'Installed compiler stdout: ' + (error.stdout?.toString().slice(-8192) ?? 'absent')
+    );
+    throw error;
+  }
   assert.equal(securityApi.inspectPlatformSecurity().healthy, true);
   const platform = {
     ...securityApi.platformSecurity(),
@@ -320,7 +385,6 @@ test('installed release preserves legacy evidence, current broker execution and 
   } finally {
     idleEndpoint.close();
   }
-  sealInstalledRuntimeFixture(installed);
   const api = await load('src/cli/run.mjs');
   const protocol = await load('src/protocol/service.mjs');
   const clientApi = await load('src/broker/client.mjs');
@@ -362,6 +426,32 @@ test('installed release preserves legacy evidence, current broker execution and 
     now: NOW,
   });
   assert.ok(publicApi.statusReview(legacy.paths.workspace));
+  const verifyUnsupportedPreservation = (workspace) => {
+    const names = ['events.jsonl', 'protocol.json', 'participants.json'];
+    const before = names.map((name) =>
+      existsSync(path.join(workspace, name)) ? readFileSync(path.join(workspace, name)) : null
+    );
+    const events = before[0].toString().trim().split('\n').map(JSON.parse);
+    events[0].schema = 'ai-peer-review.event/v99';
+    const unsupportedBytes = events.map(JSON.stringify).join('\n') + '\n';
+    writeFileSync(path.join(workspace, 'events.jsonl'), unsupportedBytes);
+    try {
+      assert.throws(() => publicApi.statusReview(workspace), {
+        code: 'APR_REVIEW_RUNTIME_UNSUPPORTED',
+      });
+      assert.equal(readFileSync(path.join(workspace, 'events.jsonl'), 'utf8'), unsupportedBytes);
+      for (let i = 1; i < names.length; i++)
+        assert.deepEqual(
+          existsSync(path.join(workspace, names[i]))
+            ? readFileSync(path.join(workspace, names[i]))
+            : null,
+          before[i]
+        );
+    } finally {
+      writeFileSync(path.join(workspace, 'events.jsonl'), before[0]);
+    }
+  };
+  verifyUnsupportedPreservation(legacy.paths.workspace);
   await api.resumeReview(legacy.paths.workspace);
   const image = pinRuntimeImage({
     packageRoot: installed,
@@ -410,6 +500,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     }),
     APR_FIXTURE_CALLS: path.join(scratch, 'provider-calls.txt'),
     APR_FIXTURE_BROKER_LOG: path.join(scratch, 'automatic-broker.log'),
+    APR_FIXTURE_TIMING_LOG: path.join(scratch, 'runtime-timing.jsonl'),
     APR_FIXTURE_RESTART_SIMULATION: '1',
     APR_OFFLINE_WINDOWS_NODES: JSON.stringify([process.execPath, image.nodeExecutable]),
   };
@@ -424,17 +515,76 @@ test('installed release preserves legacy evidence, current broker execution and 
       {
         cwd: host,
         env: scenarioEnv,
-        timeout: 180_000,
+        timeout: automaticScenarioTimeoutMs,
         maxBuffer: 4 * 1024 * 1024,
       }
     );
     t.diagnostic(automatic.stdout);
   } catch (error) {
     t.diagnostic(error.stderr ?? 'Installed automatic fixture failed without stderr.');
+    for (const name of ['provider-calls.txt', 'automatic-broker.log', 'runtime-timing.jsonl']) {
+      const file = path.join(scratch, name);
+      if (existsSync(file)) t.diagnostic(name + ': ' + readFileSync(file, 'utf8').slice(-4000));
+    }
+    const traceFile = path.join(scratch, 'runtime-timing.jsonl');
+    if (existsSync(traceFile)) {
+      const traces = readFileSync(traceFile, 'utf8').trim().split('\n').map(JSON.parse);
+      const processes = new Map();
+      for (const trace of traces) {
+        const summary = processes.get(trace.pid) ?? {
+          pid: trace.pid,
+          first: trace.at,
+          last: trace.at,
+          calls: 0,
+          subprocessMs: 0,
+          lastCalls: [],
+        };
+        summary.last = trace.at;
+        if (trace.phase === 'returned') {
+          summary.calls++;
+          summary.subprocessMs += trace.elapsed;
+        }
+        summary.lastCalls = [...summary.lastCalls.slice(-5), trace];
+        processes.set(trace.pid, summary);
+      }
+      t.diagnostic('Subprocess timing summary: ' + JSON.stringify([...processes.values()]));
+    }
+    const reviewRoot = path.join(host, '.scratch/peer-review');
+    if (existsSync(reviewRoot)) {
+      for (const name of readdirSync(reviewRoot)) {
+        const directory = path.join(reviewRoot, name);
+        const journal = path.join(directory, 'startup-request.json');
+        if (existsSync(journal)) {
+          const value = JSON.parse(readFileSync(journal, 'utf8'));
+          t.diagnostic('startup stage ' + name + ': ' + value.stage);
+        }
+        const events = path.join(directory, 'events.jsonl');
+        if (existsSync(events)) {
+          const retained = readFileSync(events, 'utf8')
+            .trim()
+            .split('\n')
+            .slice(-8)
+            .map((line) => {
+              const value = JSON.parse(line);
+              return { type: value.type, sequence: value.sequence };
+            });
+          t.diagnostic('last events ' + name + ': ' + JSON.stringify(retained));
+        }
+      }
+    }
     throw error;
   }
+  phase('automatic-accepted');
+  const automaticWorkspace = readdirSync(path.join(host, '.scratch/peer-review'))
+    .map((name) => path.join(host, '.scratch/peer-review', name))
+    .find((directory) => existsSync(path.join(directory, 'events.jsonl')));
+  assert.equal(publicApi.statusReview(automaticWorkspace).state, 'accepted');
+  verifyUnsupportedPreservation(automaticWorkspace);
   stopBrokers = async () => {
-    for (const { project, paths, workspace } of live) {
+    // Stop empty clones before lengthy active-review abandonment can put their
+    // ordinary idle retirement between readiness and command authentication.
+    const emptyFirst = [...live].sort((a, b) => Boolean(a.workspace) - Boolean(b.workspace));
+    for (const { project, workspace } of emptyFirst) {
       if (workspace) {
         const state = protocol.inspectReview(workspace);
         await protocol.mutateReview(
@@ -468,11 +618,17 @@ test('installed release preserves legacy evidence, current broker execution and 
           now: NOW,
         });
       }
-      const client = await connectBroker({ identity: project, paths, versions }, platform);
+      // Readiness is not a lease. Stop through the client whose authenticated
+      // identity was checked below; requestBroker handles an unsent command
+      // after ordinary retirement under fresh authority, without command replay.
+      const client = live.find((entry) => entry.project.digest === project.digest).client;
+      assert.ok(client);
+      phase('cleanup-stop-' + project.digest.slice(0, 8));
       await clientApi.requestBroker(client, 'stop');
       client.connection?.close();
     }
   };
+  phase('isolated-clones-start');
   for (let index = 0; index < projects.length; index++) {
     const project = canonicalProjectIdentity({ cwd: projects[index].root, platform });
     const paths = brokerPaths({
@@ -507,7 +663,8 @@ test('installed release preserves legacy evidence, current broker execution and 
       );
       throw error;
     }
-    live.push({ project, paths });
+    live.push({ project, paths, client });
+    phase('clone-status-' + index);
     const status = await clientApi.requestBroker(client, 'status');
     assert.equal(status.package_version, currentPackageVersion);
     // Startup sends register then launch through one client. Each command
@@ -569,6 +726,10 @@ test('installed release preserves legacy evidence, current broker execution and 
       assurance: 'runtime',
     },
   });
+  // The runner is global. A foreign consumer dependency tree remains irrelevant
+  // to the immutable broker image, including when the consumer replaces it.
+  mkdirSync(path.join(host, 'node_modules'), { recursive: true });
+  writeFileSync(path.join(host, 'node_modules', 'foreign.txt'), 'consumer dependency');
   renameSync(path.join(host, 'node_modules'), path.join(host, 'replaced-node_modules'));
   assert.equal(verifyRuntimeImage(image), true);
   const execution = `
@@ -621,22 +782,38 @@ test('installed release preserves legacy evidence, current broker execution and 
     }
   }
   assert.equal(verifyRuntimeImage(image), true);
-  const stillLive = await connectBroker(
-    { identity: live[1].project, paths: live[1].paths, versions },
-    platform
-  );
-  assert.equal(
-    (await clientApi.requestBroker(stillLive, 'status')).package_version,
-    currentPackageVersion
-  );
-  stillLive.connection?.close();
-  const fencedStop = await connectBroker(
-    { identity: live[1].project, paths: live[1].paths, versions },
-    platform
-  );
-  await assert.rejects(clientApi.requestBroker(fencedStop, 'stop'), {
-    code: 'APR_RUNTIME_CHANGED',
+  // An empty broker legitimately idles out while the other clone's installed
+  // operations run. Reacquire through the normal lifecycle after long checks.
+  phase('empty-clone-reacquire');
+  const currentBroker = await clientApi.ensureBroker({
+    project: live[1].project,
+    versions,
+    runtimeImage: image,
+    platform,
   });
-  fencedStop.connection?.close();
+  live[1].client = currentBroker;
+  phase('empty-clone-status');
+  const currentStatus = await clientApi.requestBroker(currentBroker, 'status');
+  assert.equal(currentStatus.package_version, currentPackageVersion);
+  assert.equal(currentStatus.project_digest, live[1].project.digest);
+  phase('selected-dependency-fence-start');
+  // This authenticated client has already proved the current empty clone.
+  // Inventory admission must refuse the effect before another IPC operation;
+  // a second readiness check would race this idle broker's normal retirement.
+  const fencedStop = currentBroker;
+  // Replacing consumer dependencies above must remain irrelevant. Replacing
+  // the selected global dependency closure must fence a command with effects.
+  const selectedDependencies = path.join(installed, 'node_modules');
+  const withheldSelectedDependencies = path.join(installed, 'replaced-node_modules');
+  renameSync(selectedDependencies, withheldSelectedDependencies);
+  try {
+    await assert.rejects(clientApi.requestBroker(fencedStop, 'stop'), {
+      code: 'APR_RUNTIME_INVENTORY_INVALID',
+    });
+  } finally {
+    fencedStop.connection?.close();
+    renameSync(withheldSelectedDependencies, selectedDependencies);
+  }
   renameSync(path.join(host, 'replaced-node_modules'), path.join(host, 'node_modules'));
+  phase('assertions-complete');
 });

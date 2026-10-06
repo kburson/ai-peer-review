@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 # Native broker build and verification paused for #102/#107.
-# The test suite runner omits broker cases until #107 replaces native transport.
+# Source suites report broker exclusions until #107 replaces native transport.
 jobs:
   node-24:
     name: Node 24 / ${{ matrix.os }}
@@ -41,8 +41,7 @@ jobs:
       - run: npm run test:integration
       - run: npm run test:mcp
       - run: npm run test:packaging
-      - run: npm run test:smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
   preferred-node:
     name: Node ${{ matrix.node }} / ${{ matrix.os == 'ubuntu-latest' && 'Ubuntu' || matrix.os }}
@@ -63,12 +62,12 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint
+      - run: npm run test:smoke
       - run: npm test
       - run: npm run test:integration
       - run: npm run test:mcp
       - run: npm run test:packaging
-      - run: npm run test:smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
   npm-pack-compatibility:
     name: npm ${{ matrix.npm }} / Node ${{ matrix.node }}
@@ -117,7 +116,7 @@ jobs:
       - run: npm run test:mcp
       - run: npm run test:packaging
       - run: npm run test:smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
   live-provider-optional:
     name: Optional live-provider probe

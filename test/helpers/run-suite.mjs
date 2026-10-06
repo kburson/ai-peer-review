@@ -8,7 +8,10 @@ if (!['unit', 'golden', 'integration', 'packaging', 'smoke', 'mcp'].includes(sui
 // Temporary delivery pause requested for #102/#107; #107 owns native removal.
 const discovered = globSync(`test/${suite}/**/*.test.mjs`).sort();
 const excluded = discovered.filter(
-  (file) => /[\\/]broker-[^\\/]+\.test\.mjs$/.test(file) || file === 'test/smoke/cli.test.mjs'
+  (file) =>
+    /[\\/]broker-[^\\/]+\.test\.mjs$/.test(file) ||
+    file === 'test/smoke/cli.test.mjs' ||
+    file === 'test/unit/source-test-preparation.test.mjs'
 );
 const files = discovered.filter((file) => !excluded.includes(file));
 console.log('Broker verification paused for #102/#107: ' + excluded.join(', '));

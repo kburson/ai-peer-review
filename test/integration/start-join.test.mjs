@@ -13,6 +13,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -1275,10 +1276,24 @@ test('independent successor seals a preserved predecessor reference without chan
     testHumanAuthority: 'fixture-a',
     now: NOW,
   };
+  const foreign = repositoryFixture('apr-foreign-predecessor-');
+  t.after(foreign.cleanup);
+  writeFileSync(path.join(foreign.root, 'events.jsonl'), bytes);
+  const linkedPredecessor = path.join(fx.root, 'linked-predecessor');
+  symlinkSync(predecessor, linkedPredecessor, 'junction');
+  for (const unsafe of [foreign.root, linkedPredecessor]) {
+    await assert.rejects(
+      startReview({ ...input, preservedPredecessor: unsafe }, fixtureStartupDeps),
+      (error) => error.code === 'APR_USAGE'
+    );
+  }
   const started = await startReview(input, fixtureStartupDeps);
   const context = inspectReview(started.paths.workspace).protocol.startup.context;
   assert.equal(context.schema, 'ai-peer-review.context/v2');
-  assert.equal(context.preserved_predecessor, realpathSync(predecessor));
+  assert.equal(
+    context.preserved_predecessor,
+    process.platform === 'win32' ? realpathSync.native(predecessor) : realpathSync(predecessor)
+  );
   assert.notEqual(started.paths.workspace, predecessor);
   assert.equal(readFileSync(path.join(predecessor, 'events.jsonl'), 'utf8'), bytes);
   const retried = await startReview(input, fixtureStartupDeps);

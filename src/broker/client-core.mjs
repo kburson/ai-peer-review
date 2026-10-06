@@ -40,7 +40,11 @@ import { createGitRepository } from '../git/repository.mjs';
 import { manualLaunchProvesNonSubmission } from '../provider/manual-launch-ledger.mjs';
 
 // @story #136
-export function createBrokerClientOperations({ performCurrentOperationEffect }) {
+export function createBrokerClientOperations({
+  performCurrentOperationEffect,
+  assertCurrentOperationAuthority,
+}) {
+  const startupInputs = new WeakMap();
   const atomicCreate = (...args) => performCurrentOperationEffect(() => rawAtomicCreate(...args));
   const withReviewLock = (workspace, callback, options = {}) =>
     rawWithReviewLock(
@@ -130,11 +134,11 @@ export function createBrokerClientOperations({ performCurrentOperationEffect }) 
     return connectBroker({ identity: project, paths, versions }, platform);
   }
 
-  async function connectUntilReady(connect, platform, retryable = () => false) {
-    let last;
-    // Allow up to thirty seconds of readiness polling for recovery before
+  async function connectUntilReady(connect, platform, retryable, deadline) {
+    let last = startFailure(null, { reason: 'readiness-deadline-expired' });
+    // Allow up to two minutes of readiness polling for recovery before
     // discovery is published; established IPC keeps its short handshake bound.
-    for (let attempt = 0; attempt < 1_200; attempt += 1) {
+    while (performance.now() < deadline) {
       try {
         return await connect();
       } catch (error) {
@@ -145,8 +149,11 @@ export function createBrokerClientOperations({ performCurrentOperationEffect }) 
           throw error;
         last = error;
       }
-      if (typeof platform?.delay === 'function') await platform.delay(25);
-      else await new Promise((resolve) => setTimeout(resolve, 25));
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) break;
+      const delay = Math.min(25, remaining);
+      if (typeof platform?.delay === 'function') await platform.delay(delay);
+      else await new Promise((resolve) => setTimeout(resolve, delay));
     }
     throw last;
   }
@@ -205,7 +212,11 @@ export function createBrokerClientOperations({ performCurrentOperationEffect }) 
     });
   }
 
-  async function ensureBroker({ project, versions, runtimeImage, platform } = {}) {
+  async function ensureBroker(
+    { project, versions, runtimeImage, platform } = {},
+    acquisitionDeadline = Infinity
+  ) {
+    const deadline = Math.min(performance.now() + 120_000, acquisitionDeadline);
     if (
       !project ||
       !/^[a-f0-9]{64}$/.test(project.digest ?? '') ||
@@ -224,17 +235,27 @@ export function createBrokerClientOperations({ performCurrentOperationEffect }) 
     if (!runtimeVerified(runtimeImage)) {
       throw startFailure(null, { reason: 'runtime-image-invalid' });
     }
-    const connect = () =>
-      typeof platform?.connect === 'function'
-        ? platform.connect({ project, versions, runtimeImage })
-        : defaultConnect(project, versions, platform);
+    const connect = async () => {
+      if (performance.now() >= deadline)
+        throw startFailure(null, { reason: 'readiness-deadline-expired' });
+      const client =
+        typeof platform?.connect === 'function'
+          ? await platform.connect({ project, versions, runtimeImage })
+          : await defaultConnect(project, versions, platform);
+      if (performance.now() >= deadline) {
+        client.connection?.close?.();
+        throw startFailure(null, { reason: 'readiness-deadline-expired' });
+      }
+      startupInputs.set(client, { project, versions, runtimeImage, platform });
+      return client;
+    };
     try {
       return await connect();
     } catch (error) {
       // A Windows exclusive writer may still be publishing discovery. Wait for
       // that existing broker; never launch a second process for this condition.
       if (error?.code === 'EBUSY' || discoveryChangedDuringHandshake(error))
-        return connectUntilReady(connect, platform, discoveryPublicationPending);
+        return connectUntilReady(connect, platform, discoveryPublicationPending, deadline);
       const launchable =
         ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_OWNED'].includes(error?.code) ||
         (error?.code === 'APR_BROKER_STALE' && missingDiscovery(project, platform));
@@ -274,10 +295,53 @@ export function createBrokerClientOperations({ performCurrentOperationEffect }) 
         platform,
         (error) =>
           error?.code === 'APR_BROKER_STALE' &&
-          (missingDiscovery(project, platform) || discoveryPublicationPending(error))
+          (missingDiscovery(project, platform) || discoveryPublicationPending(error)),
+        deadline
       );
     } catch (error) {
       throw startFailure(error, { bootstrap });
+    }
+  }
+
+  async function takeCommandConnection(client, command) {
+    if (!client.takeConnection) return client.connection;
+    const deadline = performance.now() + 120_000;
+    for (;;) {
+      try {
+        const connection = await client.takeConnection();
+        if (performance.now() >= deadline) {
+          connection.close?.();
+          throw startFailure(null, { reason: 'command-acquisition-deadline-expired' });
+        }
+        return connection;
+      } catch (error) {
+        const startup = startupInputs.get(client);
+        // A readiness observation can outlive an empty broker's normal idle
+        // retirement, including between handshake and discovery reread. Reacquire
+        // only our own admitted startup when discovery is now absent.
+        // External clients, malformed discovery and submitted commands never retry.
+        if (
+          command !== 'status' &&
+          startup &&
+          error?.code === 'APR_BROKER_STALE' &&
+          (error.message === 'Broker discovery metadata is unavailable.' ||
+            discoveryChangedDuringHandshake(error)) &&
+          performance.now() < deadline
+        ) {
+          assertCurrentOperationAuthority();
+          if (!missingDiscovery(startup.project, startup.platform)) throw error;
+          client = await ensureBroker(startup, deadline);
+          continue;
+        }
+        // No command was sent. A busy owner can occupy the native endpoint or
+        // miss one short handshake window; malformed/auth failures never retry.
+        const retryable =
+          error?.code === 'EBUSY' ||
+          (error?.code === 'APR_BROKER_PROTOCOL' &&
+            error.message === 'Broker frame prefix timed out.');
+        if (!retryable || performance.now() >= deadline) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
     }
   }
 
@@ -285,9 +349,12 @@ export function createBrokerClientOperations({ performCurrentOperationEffect }) 
     const message = validateCommand({ id: randomUUID(), command, workspace });
     if (typeof client?.request === 'function') return client.request(message);
     const decoder = createFrameDecoder();
-    const connection = client.takeConnection ? await client.takeConnection() : client.connection;
+    const connection = await takeCommandConnection(client, command);
     let bytes;
     try {
+      // IPC delegates effects to the broker. Revalidate without taking the
+      // clone writer lock: broker workers must fence their own disk effects.
+      if (command !== 'status') assertCurrentOperationAuthority();
       bytes = await connection.exchange(encodeFrame(message));
     } finally {
       connection.close?.();
