@@ -140,3 +140,101 @@ test('carried observation refuses a newly available external optional dependency
   );
   assert.notEqual(observation.inventoryDigest, fresh.inventoryDigest);
 });
+
+// @story #137
+import { unlinkSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+test('optional manifestless ancestor directory cannot supply an unsealed index entrypoint', (t) => {
+  const f = transitiveFixture(t, { external: true, optional: true });
+  unlinkSync(path.join(f.transitive, 'package.json'));
+  const entrypoint = path.join(f.transitive, 'index.js');
+  const observation = verifyRuntimeInventorySync({ packageRoot: f.packageRoot });
+  writeFileSync(entrypoint, 'module.exports = 1;');
+  assert.equal(
+    createRequire(path.join(f.direct, 'index.cjs')).resolve('transitive-runtime'),
+    entrypoint
+  );
+  assert.throws(() => verifyRuntimeInventorySync({ packageRoot: f.packageRoot }), {
+    code: 'APR_RUNTIME_INVENTORY_INVALID',
+  });
+  assert.throws(() => prepareNativeInventory(f.packageRoot), {
+    code: 'APR_RUNTIME_INVENTORY_INVALID',
+  });
+  assert.throws(
+    () =>
+      verifyRuntimeInventorySync({ packageRoot: f.packageRoot, previousObservation: observation }),
+    { code: 'APR_RUNTIME_INVENTORY_INVALID' }
+  );
+});
+
+test('an internal package main cannot redirect execution to an unsealed external entrypoint', (t) => {
+  const f = transitiveFixture(t);
+  const entrypoint = path.join(f.root, 'external.js');
+  const manifest = path.join(f.transitive, 'package.json');
+  const metadata = JSON.parse(readFileSync(manifest));
+  metadata.main = entrypoint;
+  writeFileSync(manifest, JSON.stringify(metadata));
+  const inventoryFile = path.join(f.packageRoot, 'runtime-inventory.json');
+  const inventory = JSON.parse(readFileSync(inventoryFile));
+  inventory.files.find(
+    (entry) => entry.path === 'node_modules/transitive-runtime/package.json'
+  ).sha256 = createHash('sha256').update(readFileSync(manifest)).digest('hex');
+  writeFileSync(inventoryFile, JSON.stringify(inventory));
+  const observation = verifyRuntimeInventorySync({ packageRoot: f.packageRoot });
+  writeFileSync(entrypoint, 'module.exports = 1;');
+  assert.equal(
+    createRequire(path.join(f.direct, 'index.cjs')).resolve('transitive-runtime'),
+    entrypoint
+  );
+  assert.throws(() => verifyRuntimeInventorySync({ packageRoot: f.packageRoot }), {
+    code: 'APR_RUNTIME_INVENTORY_INVALID',
+  });
+  assert.throws(() => prepareNativeInventory(f.packageRoot), {
+    code: 'APR_RUNTIME_INVENTORY_INVALID',
+  });
+  assert.throws(
+    () =>
+      verifyRuntimeInventorySync({ packageRoot: f.packageRoot, previousObservation: observation }),
+    { code: 'APR_RUNTIME_INVENTORY_INVALID' }
+  );
+});
+
+for (const subpaths of [true, false]) {
+  test(
+    'sealed ' +
+      (subpaths ? 'subpath-only' : 'type-only') +
+      ' dependency need not expose a root entrypoint',
+    (t) => {
+      const f = transitiveFixture(t);
+      const manifest = path.join(f.transitive, 'package.json');
+      const metadata = JSON.parse(readFileSync(manifest));
+      delete metadata.main;
+      metadata.peerDependencies = { 'absent-optional-peer': '^1.0.0' };
+      metadata.peerDependenciesMeta = { 'absent-optional-peer': { optional: true } };
+      if (subpaths) metadata.exports = { './feature': './index.cjs' };
+      else {
+        metadata.types = './index.d.ts';
+        unlinkSync(path.join(f.transitive, 'index.cjs'));
+      }
+      writeFileSync(manifest, JSON.stringify(metadata));
+      const inventoryFile = path.join(f.packageRoot, 'runtime-inventory.json');
+      const inventory = JSON.parse(readFileSync(inventoryFile));
+      if (!subpaths)
+        inventory.files = inventory.files.filter(
+          (entry) => entry.path !== 'node_modules/transitive-runtime/index.cjs'
+        );
+      inventory.files.find(
+        (entry) => entry.path === 'node_modules/transitive-runtime/package.json'
+      ).sha256 = createHash('sha256').update(readFileSync(manifest)).digest('hex');
+      writeFileSync(inventoryFile, JSON.stringify(inventory));
+      assert.doesNotThrow(() => verifyRuntimeInventorySync({ packageRoot: f.packageRoot }));
+      assert.doesNotThrow(() => prepareNativeInventory(f.packageRoot));
+      if (subpaths)
+        assert.equal(
+          createRequire(path.join(f.direct, 'index.cjs')).resolve('transitive-runtime/feature'),
+          path.join(f.transitive, 'index.cjs')
+        );
+    }
+  );
+}

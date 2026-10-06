@@ -40,6 +40,27 @@ export function assertRuntimeDependencyClosure(packageRoot, { readMetadata, isDe
         typeof requirement.version !== 'string'
       )
         invalid('Runtime dependency metadata is invalid.');
+      let executable = null;
+      try {
+        executable = resolver.resolve(name);
+      } catch (error) {
+        // SDK/subpath-only and type-only packages need not expose a root entry.
+        if (!['MODULE_NOT_FOUND', 'ERR_PACKAGE_PATH_NOT_EXPORTED'].includes(error.code))
+          invalid('Runtime dependency entrypoint cannot be resolved safely: ' + name);
+      }
+      if (executable && path.isAbsolute(executable)) {
+        const physicalEntry = realpathSync(executable);
+        const entry = path.relative(root, physicalEntry).split(path.sep).join('/');
+        if (
+          entry === '..' ||
+          entry.startsWith('../') ||
+          path.isAbsolute(entry) ||
+          (isDeclared && !isDeclared(entry))
+        )
+          invalid(
+            'Runtime dependency entrypoint is outside the sealed installation closure: ' + name
+          );
+      }
       let candidate;
       for (const directory of resolver.resolve.paths(name) ?? []) {
         const target = path.join(directory, name);
@@ -56,6 +77,8 @@ export function assertRuntimeDependencyClosure(packageRoot, { readMetadata, isDe
         }
       }
       if (!candidate) {
+        if (executable && path.isAbsolute(executable))
+          invalid('Runtime dependency entrypoint has no sealed package metadata: ' + name);
         if (requirement.optional) continue;
         invalid('Required runtime dependency is unavailable: ' + name);
       }
