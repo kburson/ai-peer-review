@@ -87,6 +87,11 @@
           "classification": "test-cloud-complete",
           "kind": "test",
           "command": "node scripts/ci/verify-receipts.mjs"
+        },
+        {
+          "classification": "environment-contract-reference",
+          "kind": "environment",
+          "command": "node scripts/ci/prepare-contract-adoption.mjs"
         }
       ],
       "declaredCommandCoverage": [
