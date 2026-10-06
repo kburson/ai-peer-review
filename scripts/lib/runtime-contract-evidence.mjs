@@ -145,7 +145,8 @@ function nativeVerificationTail(tail) {
   return (
     new Set(names).size === names.length &&
     names.every((name) => allowed.has(name)) &&
-    ['cmd', 'exit', 'sha', 'ts'].every((name) => names.includes(name))
+    ((names.length === 1 && names[0] === 'cmd') ||
+      ['cmd', 'exit', 'sha', 'ts'].every((name) => names.includes(name)))
   );
 }
 

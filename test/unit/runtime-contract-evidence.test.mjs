@@ -488,3 +488,12 @@ test('[#144] VC1 annotations never hide duplicate commands or unsupported traili
   ])
     assert.throws(() => api.extractRuntimeContractMapping(changed), /native-mapping-invalid/);
 });
+
+test('[#144] mapping preserves VC1 declaration retained by native rework', () => {
+  const command = 'node checker.mjs --mode adoption-only';
+  const declared = body.replace(
+    '<!-- id=1 -->',
+    '<!-- id=1 --> <!-- aitm-verified cmd="' + command + '" -->'
+  );
+  assert.equal(api.extractRuntimeContractMapping(declared).vc1Sha256, sha(command));
+});
