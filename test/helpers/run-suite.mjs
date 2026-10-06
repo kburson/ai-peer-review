@@ -6,7 +6,9 @@ const suite = process.argv[2];
 if (!['unit', 'golden', 'integration', 'packaging', 'smoke', 'mcp'].includes(suite))
   throw new Error('Expected a test suite name');
 // Temporary delivery pause requested for #102/#107; #107 owns native removal.
-const discovered = globSync(`test/${suite}/**/*.test.mjs`).sort();
+const discovered = globSync(`test/${suite}/**/*.test.mjs`)
+  .map((file) => file.replaceAll('\\', '/'))
+  .sort();
 const excluded = discovered.filter(
   (file) =>
     /[\\/]broker-[^\\/]+\.test\.mjs$/.test(file) ||
