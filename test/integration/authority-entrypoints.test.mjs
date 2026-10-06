@@ -159,30 +159,39 @@ test('direct provider hook refuses source execution before writing exact-session
 import { startReview as productionStart } from '../../src/cli/run.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 import { participant } from '../helpers/review-fixture.mjs';
-test('validatedStartup and preflightOnly caller inputs cannot bypass production admission', async (t) => {
-  const f = await setupHostFixture(t);
-  f.write('.git/info/exclude', '.scratch/peer-review/\n');
-  await assert.rejects(
-    productionStart(
-      {
-        issue: 136,
-        cwd: f.root,
-        artifact: 'README.md',
-        artifactKind: 'spec',
-        identity: participant('author'),
-        reviewId: 'source-bypass',
-        now: '2026-09-08T12:00:00.000Z',
-      },
-      {
-        validatedStartup: true,
-        preflightOnly: true,
-        config: { config: { review: { transport_mode: 'manual' } } },
-      }
-    ),
-    runtimeRefusal
-  );
-  assert.equal(existsSync(path.join(f.root, '.scratch/peer-review/source-bypass')), false);
-});
+test(
+  'validatedStartup and preflightOnly caller inputs cannot bypass production admission',
+  {
+    skip:
+      process.platform === 'win32'
+        ? 'Native broker security required on Windows; paused for #102/#107'
+        : false,
+  },
+  async (t) => {
+    const f = await setupHostFixture(t);
+    f.write('.git/info/exclude', '.scratch/peer-review/\n');
+    await assert.rejects(
+      productionStart(
+        {
+          issue: 136,
+          cwd: f.root,
+          artifact: 'README.md',
+          artifactKind: 'spec',
+          identity: participant('author'),
+          reviewId: 'source-bypass',
+          now: '2026-09-08T12:00:00.000Z',
+        },
+        {
+          validatedStartup: true,
+          preflightOnly: true,
+          config: { config: { review: { transport_mode: 'manual' } } },
+        }
+      ),
+      runtimeRefusal
+    );
+    assert.equal(existsSync(path.join(f.root, '.scratch/peer-review/source-bypass')), false);
+  }
+);
 
 import { runBroker } from '../../src/broker/service.mjs';
 test('direct broker restoration refuses source authority before starting a worker', async (t) => {

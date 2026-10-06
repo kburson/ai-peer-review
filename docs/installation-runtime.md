@@ -102,3 +102,5 @@ Broker startup uses a two-minute elapsed readiness deadline, counting connection
 ## Temporary native verification pause
 
 During delivery of #102 and the JavaScript broker replacement in #107, source CI omits native compiler/header provisioning and broker builds. Default source suites omit broker tests and installed fixtures that compile the native helper, and report those exclusions explicitly. Native broker coverage is paused; these skips are not passing broker evidence. The runtime tarball still retains native source assets until #107 replaces the transport. Consumers continue to run their ordinary builds independently of ai-peer-review.
+
+On Windows, primary registration and account-selection fixtures that require the native security helper are also explicitly skipped during this pause. Their corresponding POSIX cases and independent Windows checks remain enabled. Actual Windows CI results must still be verified after the change is pushed.
