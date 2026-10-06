@@ -11,24 +11,28 @@ function row(id, status, required, details = null) {
 
 export function doctor(context = {}) {
   const requestedMode = context.requestedMode ?? 'manual';
+  const installationOnly = requestedMode === 'installation';
+  const brokerRequired = requestedMode === 'automatic-required';
   const transportViable =
-    context.transport?.healthy &&
-    (requestedMode === 'manual' ||
-      (requestedMode === 'resume-only' && context.transport.mode === 'resume-only') ||
-      (requestedMode === 'automatic-required' && context.transport.mode === 'automatic-required'));
+    installationOnly ||
+    (context.transport?.healthy &&
+      (requestedMode === 'manual' ||
+        (requestedMode === 'resume-only' && context.transport.mode === 'resume-only') ||
+        (requestedMode === 'automatic-required' &&
+          context.transport.mode === 'automatic-required')));
   const phaseOne = [
     row('package', context.packageResolved ? 'ok' : 'unavailable', true),
     row('skill', context.skillAvailable ? 'ok' : 'unavailable', true),
     row(
       'identity-source',
       context.identity?.identity_source ?? 'unavailable',
-      true,
+      !installationOnly,
       context.identity ? null : (context.identityRecovery ?? null)
     ),
     row(
       'session-fingerprint',
       context.identity?.session_fingerprint ? 'available' : 'unavailable',
-      true
+      !installationOnly
     ),
     row('git-repository', context.git?.repository ? 'ok' : 'unavailable', true),
     row('physical-worktree', context.git?.worktreeSafe ? 'ok' : 'unsafe', true),
@@ -40,8 +44,35 @@ export function doctor(context = {}) {
     ),
     row('authority-grade', context.authority?.verifier?.assurance_grade ?? 'unavailable', false),
     row('authority-policy', context.authority?.authority_policy ?? 'unavailable', false),
-    row('transport', context.transport?.healthy ? context.transport.mode : 'unavailable', true),
+    row(
+      'transport',
+      context.transport?.healthy ? context.transport.mode : 'unavailable',
+      !installationOnly
+    ),
     row('requested-mode', transportViable ? 'ok' : 'unavailable', true, requestedMode),
+    ...(context.providerAdapter
+      ? [
+          row(
+            'provider-adapter',
+            context.providerAdapter.available &&
+              (!brokerRequired || context.providerAdapter.automatic === true)
+              ? 'ok'
+              : 'unavailable',
+            context.providerRequired === true,
+            context.providerAdapter
+          ),
+        ]
+      : []),
+    ...(context.brokerSecurity || installationOnly
+      ? [
+          row(
+            'broker-security',
+            context.brokerSecurity?.healthy ? 'ok' : 'unavailable',
+            brokerRequired || installationOnly,
+            context.brokerSecurity ?? null
+          ),
+        ]
+      : []),
   ];
   const required = requestedMode === 'automatic-required';
   const phaseTwo = [

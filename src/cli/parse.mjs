@@ -1,5 +1,6 @@
 import { AprError } from '../errors.mjs';
 import { GRANT_PARAMETER_FIELDS } from '../authority/canonicalize.mjs';
+import { CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 export { GRANT_PARAMETER_FIELDS } from '../authority/canonicalize.mjs';
 
@@ -8,7 +9,16 @@ function frozenList(values) {
 }
 
 export const COMMAND_FLAGS = Object.freeze({
-  setup: frozenList(['--agent', '--scope', '--dry-run', '--remove', '--confirm-scratch-exclude']),
+  setup: frozenList([
+    '--agent',
+    '--scope',
+    '--dry-run',
+    '--remove',
+    '--update',
+    '--confirm-scratch-exclude',
+    '--json',
+  ]),
+  build: frozenList([]),
   doctor: frozenList(['--mode', '--json']),
   start: frozenList([
     '--artifact-kind',
@@ -20,6 +30,9 @@ export const COMMAND_FLAGS = Object.freeze({
     '--max-turns',
     '--claim-ttl',
     '--transport-mode',
+    '--reviewer-provider',
+    '--reviewer-model',
+    '--reviewer-effort',
     '--bootstrap-grant',
     '--no-commit',
     '--test-human-authority',
@@ -58,6 +71,7 @@ export const COMMAND_FLAGS = Object.freeze({
     '--incoming-session-fingerprint',
   ]),
   join: frozenList([]),
+  'launch-reviewer': frozenList(['--host', '--model', '--effort', '--resume', '--json']),
   status: frozenList(['--json', '--next']),
   resume: frozenList([]),
   submit: frozenList(['--decision', '--no-artifact-change', '--reason']),
@@ -68,7 +82,7 @@ export const COMMAND_FLAGS = Object.freeze({
   abandon: frozenList(['--reason']),
   supersede: frozenList(['--reason', '--by']),
   consolidate: frozenList(['--destination', '--dry-run', '--apply', '--json']),
-  coordinator: frozenList(['--json']),
+  broker: frozenList(['--json']),
   help: frozenList(['--all', '--json']),
   explain: frozenList(['--json']),
 });
@@ -76,14 +90,19 @@ export const COMMAND_FLAGS = Object.freeze({
 export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 
 export const COMMAND_USAGE = Object.freeze({
-  setup: 'peer-review setup [--agent <name>] [--scope <user|project>] [--dry-run] [--remove]',
-  doctor: 'peer-review doctor [--mode <manual|resume-only|automatic-required>] [--json]',
+  setup:
+    'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--json]',
+  build: 'peer-review build broker-security',
+  doctor:
+    'peer-review doctor [--mode <installation|manual|resume-only|automatic-required>] [--json]',
   start:
-    'peer-review start <artifact> --artifact-kind <spec|plan> [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
+    'peer-review start <artifact> --artifact-kind <spec|plan> --issue <N> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
   advance: 'peer-review advance <workspace> <artifact>',
   'request-grant':
     'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
   join: 'peer-review join <reviewer-invitation.md>',
+  'launch-reviewer':
+    'peer-review launch-reviewer <reviewer-invitation.md> --host claude [--model <id> --effort <id> | --resume] [--json]',
   status: 'peer-review status <workspace> [--json] [--next]',
   resume: 'peer-review resume <workspace>',
   submit:
@@ -100,7 +119,7 @@ export const COMMAND_USAGE = Object.freeze({
   supersede: 'peer-review supersede <workspace> --reason <text> --by <successor-review-id>',
   consolidate:
     'peer-review consolidate <workspace>... --destination <record-relative-path> (--dry-run | --apply) [--json]',
-  coordinator: 'peer-review coordinator <run|reconcile|status|stop> <workspace> [--json]',
+  broker: 'peer-review broker <status|reconcile <workspace>|suspend <workspace>|stop> [--json]',
   help: 'peer-review help [<command>] [--all] [--json] | peer-review help search <term>',
   explain: 'peer-review explain <error-code> [--json]',
 });
@@ -111,11 +130,13 @@ function grammar(min, max = min) {
 
 export const POSITIONAL_GRAMMAR = Object.freeze({
   setup: grammar(0),
+  build: grammar(1),
   doctor: grammar(0),
   start: grammar(1),
   advance: grammar(2),
   'request-grant': grammar(1),
   join: grammar(1),
+  'launch-reviewer': grammar(1),
   status: grammar(1),
   resume: grammar(1),
   submit: grammar(1),
@@ -126,7 +147,7 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
   abandon: grammar(1),
   supersede: grammar(1),
   consolidate: grammar(2, Number.MAX_SAFE_INTEGER),
-  coordinator: grammar(2),
+  broker: grammar(1, 2),
   help: grammar(0, 2),
   explain: grammar(1),
 });
@@ -135,6 +156,7 @@ const BOOLEAN_FLAGS = new Set([
   '--dry-run',
   '--apply',
   '--remove',
+  '--update',
   '--confirm-scratch-exclude',
   '--json',
   '--next',
@@ -142,6 +164,7 @@ const BOOLEAN_FLAGS = new Set([
   '--no-artifact-change',
   '--good-enough',
   '--reclaim',
+  '--resume',
   '--all',
 ]);
 const REPEATABLE_FLAGS = new Set(['--agent', '--unresolved-finding-id']);
@@ -219,6 +242,8 @@ function validateEnum(options, key, flag, values) {
 
 function validateConstraints(command, args, options) {
   if (command === 'setup') {
+    if (options.update && (options.remove || options.agent?.length))
+      usage('--update cannot be combined with --remove or --agent');
     validateEnum(options, 'scope', '--scope', ['user', 'project']);
     for (const agent of options.agent ?? []) {
       if (!['codex', 'claude', 'grok', 'generic'].includes(agent)) {
@@ -226,8 +251,16 @@ function validateConstraints(command, args, options) {
       }
     }
   }
+  if (command === 'build' && args[0] !== 'broker-security') {
+    usage('build target must be broker-security');
+  }
   if (command === 'doctor') {
-    validateEnum(options, 'mode', '--mode', ['manual', 'resume-only', 'automatic-required']);
+    validateEnum(options, 'mode', '--mode', [
+      'installation',
+      'manual',
+      'resume-only',
+      'automatic-required',
+    ]);
   }
   if (command === 'start') {
     if (!options.artifactKind) usage('start requires --artifact-kind');
@@ -240,7 +273,29 @@ function validateConstraints(command, args, options) {
       'resume-only',
       'automatic-required',
     ]);
+    validateEnum(options, 'reviewerProvider', '--reviewer-provider', ['codex', 'claude', 'grok']);
+    if (!options.reviewerProvider || !options.reviewerModel) {
+      usage('start requires --reviewer-provider and --reviewer-model');
+    }
+    if (options.reviewerEffort === undefined) options.reviewerEffort = 'medium';
+    if (!options.reviewerEffort.trim()) usage('--reviewer-effort requires a non-empty value');
+    if (options.phases !== undefined) {
+      const phases = options.phases.split(',');
+      if (
+        phases.some((phase) => !['spec', 'plan'].includes(phase)) ||
+        new Set(phases).size !== phases.length ||
+        phases[0] !== options.artifactKind
+      ) {
+        usage('--phases must be a canonical unique list beginning with --artifact-kind');
+      }
+    }
     if (options.claimTtlMs === undefined) options.claimTtlMs = 8 * 60 * 60 * 1000;
+    if (options.issue === undefined) {
+      throw new AprError('APR_ISSUE_REQUIRED', 'New reviews require --issue <positive issue ID>.', {
+        recovery: 'Supply the tracked issue number with peer-review start --issue <N>.',
+        exitCode: 2,
+      });
+    }
   }
   if (command === 'submit') {
     validateEnum(options, 'decision', '--decision', ['revisions-requested', 'accepted']);
@@ -252,6 +307,17 @@ function validateConstraints(command, args, options) {
     }
     if (options.reason !== undefined && !options.noArtifactChange) {
       usage('--reason requires --no-artifact-change');
+    }
+  }
+  if (command === 'launch-reviewer') {
+    validateEnum(options, 'host', '--host', ['claude']);
+    if (!options.host) usage('launch-reviewer requires --host claude');
+    if (options.resume) {
+      if (options.model !== undefined || options.effort !== undefined) {
+        usage('launch-reviewer --resume forbids --model and --effort');
+      }
+    } else if (!options.model || !options.effort) {
+      usage('fresh launch-reviewer requires --model and --effort');
     }
   }
   if (command === 'supplement') {
@@ -292,12 +358,15 @@ function validateConstraints(command, args, options) {
       usage('consolidate requires unique review workspaces');
     }
   }
-  if (command === 'coordinator') {
-    if (!['run', 'reconcile', 'status', 'stop'].includes(args[0])) {
-      usage('coordinator verb must be one of: run, reconcile, status, stop');
+  if (command === 'broker') {
+    if (!['status', 'reconcile', 'suspend', 'stop'].includes(args[0])) {
+      usage('broker verb must be one of: status, reconcile, suspend, stop');
     }
-    if (args[0] === 'run' && options.json) {
-      usage('--json is unavailable for coordinator run because run remains foreground');
+    if (['status', 'stop'].includes(args[0]) && args.length !== 1) {
+      usage(`broker ${args[0]} does not accept a workspace`);
+    }
+    if (['reconcile', 'suspend'].includes(args[0]) && args.length !== 2) {
+      usage(`broker ${args[0]} requires one workspace`);
     }
   }
   if (command === 'recover') {
@@ -312,7 +381,13 @@ function validateConstraints(command, args, options) {
       usage('--grant requires --replace-participant on recover');
     }
   }
-  if (command === 'help' && args[0] && args[0] !== 'search' && !COMMANDS.includes(args[0])) {
+  if (
+    command === 'help' &&
+    args[0] &&
+    args[0] !== 'search' &&
+    !COMMANDS.includes(args[0]) &&
+    !CONCEPT_HELP_TOPICS.includes(args[0])
+  ) {
     usage(`unknown help topic: ${args[0]}`);
   }
 }

@@ -38,7 +38,10 @@
     "max_turns": { "type": "integer", "minimum": 0 },
     "claim_ttl_ms": { "type": "integer", "minimum": 0 },
     "authority": { "type": ["object", "null"] },
-    "startup": { "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/startup" }] },
+    "startup": {
+      "$comment": "The referenced event startup admits optional sealed runtime-v1 authority for new records while preserving legacy records without runtime.",
+      "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/startup" }]
+    },
     "reviewer_boundary": {
       "anyOf": [{ "type": "null" }, { "$ref": "event-v1.json#/$defs/repositoryBoundary" }]
     },

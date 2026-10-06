@@ -495,7 +495,17 @@ function currentTurn(review, role) {
     (role === 'reviewer' && protocol.state === 'reviewer-turn') ||
     (role === 'author' && protocol.state === 'author-revision');
   const turn = role === 'reviewer' ? protocol.turns_used + 1 : protocol.turns_used;
-  if (!validState || !Number.isSafeInteger(turn) || turn <= 0 || turn > protocol.max_turns) {
+  const budgetTurn = protocol.phases
+    ? protocol.phases.phase_turns_used + (role === 'reviewer' ? 1 : 0)
+    : turn;
+  if (
+    !validState ||
+    !Number.isSafeInteger(turn) ||
+    turn <= 0 ||
+    !Number.isSafeInteger(budgetTurn) ||
+    budgetTurn <= 0 ||
+    budgetTurn > protocol.max_turns
+  ) {
     fail(
       'APR_RESPONSE_INVALID',
       'Response role or turn is not current in event authority.',
@@ -516,7 +526,9 @@ function requireCurrentTurn(review, role, turn) {
 }
 
 function allCollateralPaths(review, paths = review.paths) {
-  const maximum = protocolOf(review).max_turns;
+  const protocol = protocolOf(review);
+  const phaseCount = protocol.phases?.kinds?.length ?? 1;
+  const maximum = protocol.max_turns * phaseCount;
   if (!Number.isSafeInteger(maximum) || maximum <= 0) {
     fail(
       'APR_RESPONSE_INVALID',
@@ -662,18 +674,29 @@ export function createResponseDraft(review, role, turn) {
 
 function validateIdentity(review, role, identity) {
   const pinned = review.participants?.[role];
-  if (
-    !identity ||
-    identity.role !== role ||
-    identity.host !== pinned?.host ||
-    identity.provider !== pinned?.provider ||
-    identity.session_fingerprint !== pinned?.session_fingerprint ||
-    identity.identity_source !== pinned?.identity_source
-  ) {
+  const fields = [
+    ['role', role],
+    ['host', pinned?.host],
+    ['provider', pinned?.provider],
+    ['session_fingerprint', pinned?.session_fingerprint],
+    ['identity_source', pinned?.identity_source],
+  ];
+  const mismatched = fields.find(([field, expected]) => identity?.[field] !== expected)?.[0];
+  if (!identity || !pinned || mismatched) {
     fail(
       'APR_IDENTITY_CONFLICT',
-      'Response identity does not match the registered participant.',
-      'Submit from the registered participant session.'
+      `Response identity does not match the registered participant${mismatched ? ` (${mismatched})` : ''}.`,
+      mismatched === 'identity_source' && pinned?.host === 'claude-code'
+        ? 'For a legacy declared Claude reviewer, use the registered session and the model sealed in that review.'
+        : 'Submit from the registered participant session.',
+      {
+        mismatched_field: mismatched ?? (pinned ? 'identity' : 'participant'),
+        registered_identity_source: pinned?.identity_source ?? null,
+        resolved_identity_source: identity?.identity_source ?? null,
+        fingerprint_equal:
+          typeof identity?.session_fingerprint === 'string' &&
+          identity.session_fingerprint === pinned?.session_fingerprint,
+      }
     );
   }
 }

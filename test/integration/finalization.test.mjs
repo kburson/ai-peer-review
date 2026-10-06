@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -81,17 +86,23 @@ function replaceSection(file, heading, content) {
 async function acceptedReview(root, reviewId, { noCommit = false, phases } = {}) {
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId,
-    noCommit,
-    phases,
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      issue: 117,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId,
+      noCommit,
+      phases,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -155,17 +166,22 @@ async function normalIntervention(root, reviewId) {
   const fixtureId = `${reviewId}-authority`;
   const author = identity('author', `${reviewId}-author`);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await api.startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId,
-    maxTurns: 1,
-    authority: fixtureAuthority(fixtureId),
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId,
+      maxTurns: 1,
+      authority: fixtureAuthority(fixtureId),
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -217,6 +233,10 @@ test('consensus finalization commits only acceptance and deterministic manifest'
   });
   assert.equal(finalized.state, 'accepted');
   assert.notEqual(finalized.review.commit, base);
+  assert.equal(
+    git(fx.root, ['log', '-1', '--format=%s']).trim(),
+    '[#117] Finalize peer review finalize-consensus'
+  );
   const physicalRoot = git(fx.root, ['rev-parse', '--show-toplevel']).trim();
   assert.deepEqual(
     git(fx.root, ['diff-tree', '--no-commit-id', '--name-only', '-r', finalized.review.commit])
@@ -232,6 +252,8 @@ test('consensus finalization commits only acceptance and deterministic manifest'
   assert.match(manifest, /"status": "accepted"/);
   assert.match(manifest, /"acceptance_basis": "reviewer-consensus"/);
   assert.match(manifest, new RegExp(`"final_commit": "${base}"`));
+  assert.match(manifest, /"lineage_receipt": \{/);
+  assert.match(manifest, /"recovery_ordinal": 0/);
   const eventBytes = readFileSync(review.started.paths.events);
   const retried = await api.finalizeReview({
     cwd: fx.root,
@@ -298,6 +320,7 @@ test('no-commit consensus finalization writes retained manifest without Git muta
   const manifest = readFileSync(finalized.paths.manifest, 'utf8');
   assert.match(manifest, /NO-COMMIT TEST MODE/);
   assert.match(manifest, /"final_commit": null/);
+  assert.match(manifest, /"lineage_receipt": \{/);
   assert.match(api.resumeReview(review.started.paths.workspace).instructions, /terminal/);
 });
 
@@ -328,17 +351,22 @@ test('good-enough finalization rejects non-budget intervention authority', async
   t.after(fx.cleanup);
   const author = identity('author', 'stale-finalize-author');
   const reviewer = identity('reviewer', 'stale-finalize-reviewer');
-  const started = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'stale-finalize',
-    noCommit: true,
-    testHumanAuthority: 'stale-finalize-authority',
-    now: NOW,
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'stale-finalize',
+      noCommit: true,
+      testHumanAuthority: 'stale-finalize-authority',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   await api.joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,

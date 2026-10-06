@@ -33,6 +33,23 @@ function text(value) {
   return typeof value === 'string' && value.trim() === value && value.length > 0;
 }
 
+export function providerTransportCapabilities(observation) {
+  const supported = new Set(['manual', 'resume-only', 'automatic-required']);
+  if (
+    !record(observation) ||
+    observation.available !== true ||
+    !text(observation.adapter_version) ||
+    !Array.isArray(observation.transport) ||
+    observation.transport.some((mode) => !supported.has(mode))
+  ) {
+    automaticUnavailable(
+      'Provider transport capability evidence is unavailable.',
+      'provider-capability-unavailable'
+    );
+  }
+  return Object.freeze([...new Set(observation.transport)].sort());
+}
+
 export function validateAutomaticParticipant(observation, now = Date.now()) {
   if (!record(observation) || !AUTOMATIC_CAPABILITIES.has(observation.capability)) {
     automaticUnavailable(

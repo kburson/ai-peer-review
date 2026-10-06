@@ -10,7 +10,7 @@ const fixtures = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/npm-pack-report'
 );
-const options = { expectedPackageName: 'ai-peer-review' };
+const options = { expectedPackageName: '@kburson/ai-peer-review' };
 
 function fixture(name) {
   return readFileSync(path.join(fixtures, name), 'utf8');
@@ -18,15 +18,15 @@ function fixture(name) {
 
 test('accepts the observed npm 11 single-package array report', () => {
   const report = parseNpmPackOutput(fixture('npm-11-single.json'), options);
-  assert.equal(report.name, 'ai-peer-review');
-  assert.equal(report.filename, 'ai-peer-review-0.2.2.tgz');
+  assert.equal(report.name, '@kburson/ai-peer-review');
+  assert.equal(report.filename, 'kburson-ai-peer-review-0.2.2.tgz');
   assert.deepEqual(report.files, [{ path: 'package.json' }]);
 });
 
 test('accepts the observed npm 12 package-keyed object report', () => {
   const report = parseNpmPackOutput(fixture('npm-12-single.json'), options);
-  assert.equal(report.name, 'ai-peer-review');
-  assert.equal(report.filename, 'ai-peer-review-0.2.2.tgz');
+  assert.equal(report.name, '@kburson/ai-peer-review');
+  assert.equal(report.filename, 'kburson-ai-peer-review-0.2.2.tgz');
   assert.deepEqual(report.files, [{ path: 'package.json' }]);
 });
 
@@ -67,7 +67,7 @@ test('rejects unsupported outer JSON values', () => {
 test('rejects an unexpected npm 12 package key', () => {
   assert.throws(
     () => parseNpmPackOutput(fixture('unexpected-name.json'), options),
-    /Expected npm pack report for ai-peer-review, received other-package/
+    /Expected npm pack report for @kburson\/ai-peer-review, received other-package/
   );
 });
 
@@ -81,7 +81,7 @@ test('rejects an inner report for a different package', () => {
   ]);
   assert.throws(
     () => parseNpmPackOutput(output, options),
-    /Expected packed package name ai-peer-review, received other-package/
+    /Expected packed package name @kburson\/ai-peer-review, received other-package/
   );
 });
 

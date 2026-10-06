@@ -1,0 +1,75 @@
+--- a/fur.md
++++ b/fur.md
+@@ -915,9 +915,39 @@
+ review-chain aggregate views over the same attempt records. The manifest
+ summarizes those views, their coverage, currency partitions, and metrics.json
+ digest without duplicating raw provider output. Agent aggregates are keyed by
+-stable participant ID and retain role, provider, model, and effort. Review-chain
+-totals link terminal follow-up runs without rewriting prior run metrics.
++stable participant ID and retain provider, model, effort, and the ordered role
++bindings for each stage-attempt, including solo-to-author reuse. Role breakdowns
++partition the same observations; they are not additional usage entries.
++
++Controller observations use a separate opaque controller accounting ID, never
++a participant ID or submission grant. The trusted host adapter records them in
++the same measurement/receipt and amendment contracts, with a source event ID,
++run attribution and any observed stage/round links. The broker does not launch
++the controller and must not fabricate worker attempt IDs for these host turns.
++Request construction, interventions, host-forced re-entry and final reporting
++are run-owned controller overhead when attribution is observable. Unrelated
++chat work is excluded. A session total spanning unrelated work or multiple runs
++without separable observations is ambiguous-scope, not an allocatable run cost.
++Receipt replay and cumulative-counter rules apply equally to controller usage.
++
++Persist separate worker and controller subtotals and coverage in metrics.json
++and the manifest. A combined run cost/token total is complete only when both
++scopes have complete, compatible coverage; a complete worker subtotal alone
++cannot establish a complete run total. Missing host usage is null with its
++reason and source, even when all worker telemetry is complete. Usage for the
++terminal controller response may arrive after sealing and uses the existing
++late-telemetry amendment path. It never delays review correctness indefinitely.
+ 
++A review-chain view identifies its selected terminal tip, ordered predecessor
++run IDs, each input manifest and metrics digest, applied amendment IDs/digests,
++and an as-of revision. It uses each run's own accounting partition exactly once;
++previously computed chain rollups are never summed as run usage. Repeated or
++cyclic predecessor links and unverifiable inputs are reported as invalid chain
++evidence. Valid legacy records with missing telemetry contribute explicit
++unavailable coverage, not zero. An as-of view is immutable; later amendments
++or follow-ups produce a newly versioned derived view without rewriting prior
++run metrics. Status and exports disclose the same pinned accounting inputs.
++
+ Each newly dispatched critique, including a retry or fallback critique,
+ consumes a new round as specified by the cap contract. Transport reconnection
+ to an existing operation is not a new dispatch. Launch attempts before critique
+@@ -1527,7 +1557,7 @@
+ The registry supplies schemas for response
+ bodies as well as tool inputs. Offline help
+ covers commands, request schema, classes, sequences, fallbacks, permissions,
+-monitoring, evidence, broker, errors, and all six user journeys.
++monitoring, evidence, broker, errors, and all three normalized user journeys.
+ 
+ The registry also defines versioned attempt receipts, measurements, aggregate
+ coverage, response-envelope framing, manifest receipt references and telemetry
+@@ -1814,6 +1844,10 @@
+     A failed critique consumes its own round; revision retries retain theirs;
+     pre-admission attempts and continuous unallocated usage are counted once at
+     their declared stage/run owner, with incomplete per-round coverage explicit.
++    Controller receipts remain outside the participant roster, deduplicate host
++    events, and exclude unrelated chat usage. Complete worker usage with missing
++    controller usage must produce an incomplete combined run total; terminal
++    controller reporting is incorporated only by the late-amendment contract.
+ 11. Byte-offset envelope extraction reproduces submitted response bytes despite
+     delimiter-like participant text. Tampered annotations cannot alter sealed
+     receipts. Late telemetry creates an amendment without changing terminal
+@@ -1823,6 +1857,10 @@
+     concurrent durations, currencies, subscription equivalents and billing
+     corrections. Privacy fixtures reject tool arguments, query URLs and secrets;
+     missing telemetry stays distinct from failed evidence persistence.
++    Chain fixtures pin predecessor manifests, metrics and amendment revisions,
++    reject cycles/repeated inputs, and count each run once across follow-ups.
++    Legacy telemetry gaps preserve incomplete coverage; solo-to-author reuse
++    preserves role history without duplicating the agent's observations.
+ 13. Recovery fixtures cover every action and replay: unresolved acknowledgment
+     marks failed without releasing fences/leases; only verified reconciliation
+     clears obligations. Checkpoint resolution requires quiescence and produces

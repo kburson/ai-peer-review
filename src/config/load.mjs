@@ -3,6 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
+import { encodeClaudeExecutionPermissions } from '../provider/claude-launch.mjs';
+import {
+  CLAUDE_ENVIRONMENT_ALLOWLIST,
+  PROVIDER_IDENTITY_ENVIRONMENT_KEYS,
+} from '../provider/preflight.mjs';
 
 const TOP_LEVEL = new Set(['schema', 'authority', 'hosts', 'review', 'setup']);
 const AUTHORITY = new Set(['authority_policy', 'challenge_ttl_ms', 'verifier']);
@@ -32,10 +37,13 @@ const REVIEW = new Set([
   'max_turns',
   'claim_ttl_ms',
   'transport_mode',
+  'startup_transport_preference',
 ]);
 const SETUP = new Set([
   'owner',
   'version',
+  'package_version',
+  'skill_sha256',
   'agents',
   'config_created',
   'scratch_exclude_added',
@@ -215,6 +223,19 @@ export function validateConfig(value) {
       !['manual', 'resume-only', 'automatic-required'].includes(value.review.transport_mode)
     )
       invalid('review.transport_mode is invalid.');
+    if (value.review.startup_transport_preference !== undefined) {
+      const preference = value.review.startup_transport_preference;
+      if (
+        !Array.isArray(preference) ||
+        preference.length === 0 ||
+        preference.some(
+          (mode) => !['manual', 'resume-only', 'automatic-required'].includes(mode)
+        ) ||
+        new Set(preference).size !== preference.length
+      ) {
+        invalid('review.startup_transport_preference must be a non-empty unique transport list.');
+      }
+    }
   }
   if (value.setup !== undefined) {
     closed(value.setup, SETUP, 'setup');
@@ -224,6 +245,13 @@ export function validateConfig(value) {
       (value.setup.version === 2 && !Object.hasOwn(value.setup, 'automatic_adapters_added'))
     )
       invalid('setup ownership metadata is invalid.');
+    if (
+      value.setup.package_version !== undefined &&
+      !/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(value.setup.package_version)
+    )
+      invalid('setup.package_version is invalid.');
+    if (value.setup.skill_sha256 !== undefined && !/^[0-9a-f]{64}$/.test(value.setup.skill_sha256))
+      invalid('setup.skill_sha256 is invalid.');
     strings(value.setup.agents, 'setup.agents');
     if (value.setup.agents.some((agent) => !HOSTS.has(agent)))
       invalid('setup.agents contains an unknown host.');
@@ -309,5 +337,27 @@ export function loadConfig(options = {}) {
     config,
     paths,
     sources: Object.freeze({ user: Boolean(user), project: Boolean(project) }),
+  });
+}
+
+export function buildClaudeProviderCapability({ executable } = {}) {
+  if (
+    typeof executable !== 'string' ||
+    !path.isAbsolute(executable) ||
+    path.normalize(executable) !== executable
+  ) {
+    invalid('Claude provider executable must be canonical and absolute.', {
+      executable,
+    });
+  }
+  return Object.freeze({
+    schema: 'ai-peer-review.provider-capability/v1',
+    provider: 'claude',
+    executable,
+    minimum_version: '2.0.0',
+    probe_argv: Object.freeze(['--version']),
+    environment_allowlist: CLAUDE_ENVIRONMENT_ALLOWLIST,
+    identity_removal: PROVIDER_IDENTITY_ENVIRONMENT_KEYS,
+    permissionEncoder: encodeClaudeExecutionPermissions,
   });
 }

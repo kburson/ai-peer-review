@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.claude-launch-result/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "command",
+    "review_id",
+    "status",
+    "protocol_revision",
+    "response",
+    "session_fingerprint",
+    "recovery"
+  ],
+  "properties": {
+    "schema": { "const": "ai-peer-review.claude-launch-result/v1" },
+    "command": { "const": "launch-reviewer" },
+    "review_id": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": ["submitted", "permission-blocked", "failed", "outcome-unknown"]
+    },
+    "protocol_revision": { "type": "integer", "minimum": 0 },
+    "response": { "type": "string", "pattern": "^/" },
+    "session_fingerprint": {
+      "oneOf": [{ "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, { "type": "null" }]
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "exit_code", "code", "message", "next_action"],
+      "properties": {
+        "category": {
+          "enum": [
+            "spawn-failed",
+            "provider-failed",
+            "join-failed",
+            "response-permission-denied",
+            "execution-interrupted",
+            "invalid-provider-output",
+            "session-unavailable",
+            "no-submission"
+          ]
+        },
+        "exit_code": { "type": ["integer", "null"] },
+        "code": {
+          "enum": [
+            null,
+            "ENOENT",
+            "EACCES",
+            "APR_IDENTITY_REQUIRED",
+            "APR_IDENTITY_CONFLICT",
+            "APR_IDENTITY_AMBIGUOUS"
+          ]
+        },
+        "message": { "type": "string", "maxLength": 256 },
+        "next_action": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "recovery": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["command", "reason"],
+          "properties": {
+            "command": { "type": "string", "minLength": 1 },
+            "reason": { "const": "response-permission-denied" }
+          }
+        }
+      ]
+    }
+  },
+  "if": { "properties": { "status": { "const": "submitted" } }, "required": ["status"] },
+  "then": {
+    "properties": {
+      "session_fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+    }
+  }
+}

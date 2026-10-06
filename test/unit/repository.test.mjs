@@ -21,6 +21,20 @@ test('discovers canonical roots and Git paths from a linked worktree', (t) => {
   );
 });
 
+test('exposes one physical location record for linked-worktree routing', (t) => {
+  const fixture = createRepositoryFixture(t);
+  const repository = createGitRepository();
+
+  assert.deepEqual(repository.physicalLocation(fixture.root), {
+    physicalRoot: fixture.root,
+    commonDirectory: fixture.commonDir,
+  });
+  assert.deepEqual(repository.physicalLocation(fixture.linked), {
+    physicalRoot: fixture.linked,
+    commonDirectory: fixture.commonDir,
+  });
+});
+
 test('observes a clean tracked artifact without disturbing unrelated changes', (t) => {
   const fixture = createRepositoryFixture(t);
   const repository = createGitRepository();

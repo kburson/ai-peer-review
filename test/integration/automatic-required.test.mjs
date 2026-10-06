@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -318,16 +323,20 @@ test('start seals automatic-required with a current non-manual author observatio
   const fx = repositoryFixture();
   t.after(fx.cleanup);
   const author = participant('live-wait', 'codex');
-  const started = await startReview({
-    cwd: fx.root,
-    artifact: 'docs/example.md',
-    artifactKind: 'spec',
-    identity: identity('author', 'author-auto'),
-    reviewId: 'review-automatic-required',
-    transportMode: 'automatic-required',
-    transportObservation: author,
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/example.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'author-auto'),
+      reviewId: 'review-automatic-required',
+      transportMode: 'automatic-required',
+      transportObservation: author,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
 
   assert.equal(started.review.transport_mode, 'automatic-required');
   assert.equal(started.review.author_transport_capability, 'live-wait');
@@ -342,19 +351,24 @@ test('automatic-required join mutates only after current two-party health passes
   t.after(fx.cleanup);
   const author = participant('live-wait', 'codex');
   const reviewer = participant('native-push', 'codex', { adapter: 'codex-app' });
-  const started = await startReview({
-    cwd: fx.root,
-    artifact: 'docs/example.md',
-    artifactKind: 'plan',
-    identity: identity('author', 'author-auto-join'),
-    reviewId: 'review-automatic-join',
-    transportMode: 'automatic-required',
-    transportObservation: author,
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: fx.root,
+      artifact: 'docs/example.md',
+      artifactKind: 'plan',
+      identity: identity('author', 'author-auto-join'),
+      reviewId: 'review-automatic-join',
+      transportMode: 'automatic-required',
+      transportObservation: author,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
 
   await assert.rejects(
     joinReview({
+      runtimeObservation: fixtureObservation(),
       cwd: fx.root,
       invitation: started.paths.reviewer_invitation,
       identity: identity('reviewer', 'reviewer-auto-join'),
@@ -368,6 +382,7 @@ test('automatic-required join mutates only after current two-party health passes
   assert.equal(inspectReview(started.paths.workspace).protocol.state, 'awaiting-reviewer');
 
   const joined = await joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
     identity: identity('reviewer', 'reviewer-auto-join'),
@@ -387,15 +402,19 @@ test('automatic-required start and join fail closed without resident observation
   const fx = repositoryFixture();
   t.after(fx.cleanup);
   await assert.rejects(
-    startReview({
-      cwd: fx.root,
-      artifact: 'docs/example.md',
-      artifactKind: 'spec',
-      identity: identity('author', 'author-auto-missing'),
-      reviewId: 'review-automatic-missing',
-      transportMode: 'automatic-required',
-      now: NOW,
-    }),
+    startReview(
+      {
+        ...fixtureSelection('codex', 'gpt-test'),
+        cwd: fx.root,
+        artifact: 'docs/example.md',
+        artifactKind: 'spec',
+        identity: identity('author', 'author-auto-missing'),
+        reviewId: 'review-automatic-missing',
+        transportMode: 'automatic-required',
+        now: NOW,
+      },
+      fixtureStartupDeps
+    ),
     { code: 'APR_TRANSPORT_UNAVAILABLE' }
   );
 });

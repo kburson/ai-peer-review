@@ -1,6 +1,6 @@
 {
-  "ai-peer-review": {
-    "name": "ai-peer-review",
+  "@kburson/ai-peer-review": {
+    "name": "@kburson/ai-peer-review",
     "files": [{ "path": "package.json" }]
   }
 }

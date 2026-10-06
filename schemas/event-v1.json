@@ -658,7 +658,8 @@
         },
         "bootstrap": {
           "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/bootstrapEvidence" }]
-        }
+        },
+        "runtime": { "$ref": "runtime-v1.json" }
       }
     },
     "authority": {

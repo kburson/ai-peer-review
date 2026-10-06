@@ -1,16 +1,43 @@
+// cspell:words devdir
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { load } from 'js-yaml';
+import { LANES } from '../../scripts/ci/receipt.mjs';
 import { fileURLToPath } from 'node:url';
 
 import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
+import { parseCommand } from '../../src/cli/parse.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SOURCE = '4b3bcd43cba141a611da4a2b861433b915462806';
 const FILTERED = 'bfc6f9ffabd8281a815c7bd0e0824f3bacb84d9d';
 const BOOTSTRAP = 'fd2e636356b6b8049930d5dc6bddf383c6d56c8d';
+
+test('active release pins and packaged build contract match the selected minor', () => {
+  const manifest = JSON.parse(readFileSync(path.join(root, 'package.json')));
+  assert.equal(manifest.version, '0.4.0');
+  for (const file of ['README.md', 'skills/peer-review/SKILL.md']) {
+    const instructions = readFileSync(path.join(root, file), 'utf8');
+    assert.match(instructions, /npx --no-install ai-peer-review/);
+    assert.doesNotMatch(instructions, /npx --yes @kburson\/ai-peer-review@0\.3\.0/);
+  }
+  assert.equal(manifest.scripts['build:broker-security'], 'node scripts/build-broker-security.mjs');
+  for (const hook of ['install', 'preinstall', 'postinstall'])
+    assert.equal(manifest.scripts[hook], undefined);
+  assert.ok(
+    readFileSync(path.join(root, 'docs/releases/0.3.0.md'), 'utf8').includes('--reviewer-provider')
+  );
+});
+
+test('README installed-package start is a complete invocation for the current grammar', () => {
+  const readme = readFileSync(path.join(root, 'README.md'), 'utf8');
+  const command = readme.match(/^npx --no-install ai-peer-review (start .+)$/m)?.[1];
+  assert.ok(command);
+  assert.doesNotThrow(() => parseCommand(command.split(' ')));
+});
 
 function pack(t) {
   const destination = mkdtempSync(path.join(os.tmpdir(), 'apr-pack-'));
@@ -19,11 +46,16 @@ function pack(t) {
     cwd: root,
     encoding: 'utf8',
   });
-  return parseNpmPackOutput(output, { expectedPackageName: 'ai-peer-review' });
+  return parseNpmPackOutput(output, { expectedPackageName: '@kburson/ai-peer-review' });
 }
 
 test('published tarball is closed and exact-pins its audited production dependency', (t) => {
   const result = pack(t);
+  const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(packageJson.name, '@kburson/ai-peer-review');
+  assert.equal(packageJson.publishConfig.access, 'public');
+  assert.equal(result.name, '@kburson/ai-peer-review');
+  assert.equal(result.filename, `kburson-ai-peer-review-${packageJson.version}.tgz`);
   const files = result.files.map((entry) => entry.path).sort();
   const allowedPrefixes = [
     'bin/',
@@ -41,6 +73,11 @@ test('published tarball is closed and exact-pins its audited production dependen
     'package.json',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'scripts/build-broker-security.mjs',
+    'native/broker-security/binding.gyp',
+    'native/broker-security/addon.cc',
+    'native/broker-security/posix.cc',
+    'native/broker-security/windows.cc',
   ]);
   assert.ok(
     files.every(
@@ -54,13 +91,25 @@ test('published tarball is closed and exact-pins its audited production dependen
     'README.md',
     'bin/peer-review-mcp.mjs',
     'bin/peer-review.mjs',
+    'bin/peer-review-broker.mjs',
+    'src/broker/worker.mjs',
+    'src/broker/runtime-image.mjs',
+    'docs/releases/0.3.0.md',
     'schemas/config-v1.json',
+    'schemas/claude-launch-result-v1.json',
     'skills/peer-review/SKILL.md',
+    'src/provider/claude-launch.mjs',
     'provenance/extraction-manifest.json',
     'provenance/relicensing-declaration.json',
     'provenance/release-manifest.json',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'scripts/build-broker-security.mjs',
+    'native/broker-security/binding.gyp',
+    'native/broker-security/addon.cc',
+    'native/broker-security/posix.cc',
+    'native/broker-security/windows.cc',
+    'schemas/broker-v1.json',
   ])
     assert.ok(files.includes(required), `missing ${required}`);
   assert.ok(
@@ -70,9 +119,10 @@ test('published tarball is closed and exact-pins its audited production dependen
   );
   assert.ok(!files.some((file) => /(token|transcript|\.env|ai-task-manager)/i.test(file)));
 
-  const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.deepEqual(packageJson.dependencies ?? {}, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    'node-gyp': '12.4.0',
+    prettier: '3.8.3',
     zod: '4.6.2',
   });
   const dependencyTree = JSON.parse(
@@ -81,11 +131,19 @@ test('published tarball is closed and exact-pins its audited production dependen
       encoding: 'utf8',
     })
   );
-  assert.deepEqual(Object.keys(dependencyTree.dependencies ?? {}).sort(), [
+  const installedProductionDependencies = Object.entries(dependencyTree.dependencies ?? {})
+    .filter(([, dependency]) => dependency.extraneous !== true)
+    .map(([name]) => name)
+    .sort();
+  assert.deepEqual(installedProductionDependencies, [
     '@modelcontextprotocol/sdk',
+    'node-gyp',
+    'prettier',
     'zod',
   ]);
   assert.equal(dependencyTree.dependencies['@modelcontextprotocol/sdk'].version, '1.30.0');
+  assert.equal(dependencyTree.dependencies['node-gyp'].version, '12.4.0');
+  assert.equal(dependencyTree.dependencies.prettier.version, '3.8.3');
   assert.equal(dependencyTree.dependencies.zod.version, '4.6.2');
 });
 
@@ -129,16 +187,9 @@ test('public exports and command guidance remain narrow and installation-aware',
       '  renderReviewHistory,\n' +
       "} from './collateral/review-record.mjs';\n" +
       "export { statusReview } from './protocol/service.mjs';\n" +
+      "export { inspectRecordLineage, validateSuccessor } from './protocol/record-lineage.mjs';\n" +
       "export { currentPhase, isFinalPhase, isPhased, parsePhaseKinds } from './protocol/phases.mjs';\n" +
       "export { buildPhaseManifest, sealPhaseManifest } from './manifest/render.mjs';\n" +
-      "export { decideWake, canonicalWakeCapsule, wakeOperationKey } from './coordinator/decision.mjs';\n" +
-      "export { inspectCoordinatorLease, requestCoordinatorStop } from './coordinator/lease.mjs';\n" +
-      'export {\n' +
-      '  appendWakeOutcome,\n' +
-      '  readWakeOperation,\n' +
-      '  reserveWakeOperation,\n' +
-      "} from './coordinator/ledger.mjs';\n" +
-      "export { coordinatorStatus, reconcileWake, runCoordinator } from './coordinator/service.mjs';\n" +
       'export {\n' +
       '  refreshResidentLease,\n' +
       '  residentHealth,\n' +
@@ -146,7 +197,18 @@ test('public exports and command guidance remain narrow and installation-aware',
       '  validateResidentLease,\n' +
       "} from './transport/resident.mjs';\n" +
       "export { createNativePushTransport } from './transport/native-push.mjs';\n" +
-      "export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';\n"
+      "export { negotiateAutomaticRequired, validateAutomaticParticipant } from './transport/registry.mjs';\n" +
+      'export {\n' +
+      '  buildClaudeReviewerLaunch,\n' +
+      '  buildClaudeReviewerResume,\n' +
+      '  classifyClaudeReviewerOutcome,\n' +
+      '  encodeClaudeEditRule,\n' +
+      '  matchesClaudeEditRule,\n' +
+      '  runClaudeReviewerLaunch,\n' +
+      "} from './provider/claude-launch.mjs';\n" +
+      "export { buildClaudeProviderCapability } from './config/load.mjs';\n" +
+      "export { buildReviewerExecutionContract } from './provider/execution-contract.mjs';\n" +
+      "export { preflightReviewerExecution } from './provider/preflight.mjs';\n"
   );
   const sources = [
     'README.md',
@@ -154,11 +216,24 @@ test('public exports and command guidance remain narrow and installation-aware',
     'templates/author-startup.md',
     'templates/reviewer-invitation.md',
     'src/cli/help-data.mjs',
+    'src/cli/run.mjs',
   ].map((file) => [file, readFileSync(path.join(root, file), 'utf8')]);
   for (const [file, bytes] of sources) {
     assert.doesNotMatch(bytes, /npx ai-peer-review(?!@)/, file);
+    assert.doesNotMatch(bytes, /npx --yes ai-peer-review@/, file);
+    assert.doesNotMatch(bytes, /npm install --save-dev ai-peer-review(?:\s|$)/, file);
+    assert.doesNotMatch(bytes, /from ['"]ai-peer-review['"]/, file);
     if (/npx peer-review/.test(bytes)) assert.match(bytes, /confirmed local installation/, file);
   }
+  const readme = sources.find(([file]) => file === 'README.md')[1];
+  assert.match(readme, /npm install --save-dev @kburson\/ai-peer-review/);
+  assert.match(readme, /npx --no-install ai-peer-review/);
+  assert.match(readme, /from '@kburson\/ai-peer-review'/);
+  assert.match(readme, /npm uninstall ai-peer-review/);
+  const skill = sources.find(([file]) => file === 'skills/peer-review/SKILL.md')[1];
+  assert.match(skill, /npm install --save-dev @kburson\/ai-peer-review/);
+  assert.match(skill, /npx --no-install ai-peer-review/);
+  assert.match(skill, /npm uninstall ai-peer-review/);
 });
 
 test('workflows retain complete platform and release safety gates', () => {
@@ -171,35 +246,123 @@ test('workflows retain complete platform and release safety gates', () => {
     'windows-latest',
     'npm run format:check',
     'npm run lint',
-    'npm test',
-    'npm run test:integration',
-    'npm run test:mcp',
-    'npm run test:packaging',
-    'npm run test:smoke',
     'npm pack --dry-run',
     'verify-extraction.mjs --require-legacy-removed',
   ])
     assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(ci, /live-provider-optional:[\s\S]*continue-on-error: true/);
+  const live = ci.match(/live-provider-optional:[\s\S]*$/)?.[0] ?? '';
+  assert.match(live, /github\.event_name == 'workflow_dispatch'/);
+  assert.match(live, /inputs\.live_claude == true/);
+  assert.match(live, /ANTHROPIC_API_KEY: \$\{\{ secrets\.ANTHROPIC_API_KEY \}\}/);
+  assert.match(live, /env\.ANTHROPIC_API_KEY != ''/);
+  assert.match(live, /test\/live\/claude-live-conformance\.mjs/);
+  assert.match(live, /runner\.temp/);
+  assert.match(live, /upload-artifact/);
+  assert.doesNotMatch(live, /needs:/);
   const minimumNode = ci.match(/node-24:[\s\S]*?\n  preferred-node:/)?.[0] ?? '';
   assert.match(minimumNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
+  assert.doesNotMatch(
+    minimumNode,
+    /runs-on: \$\{\{ matrix\.os \}\}\n    env:\n      APR_NODEDIR_BASE:/,
+    'runner.temp is unavailable in job-level env'
+  );
+  assert.match(
+    minimumNode,
+    /name: Provision native Node development files[\s\S]*node_modules\/node-gyp\/bin\/node-gyp\.js install --ensure[\s\S]*--devdir="\$\{\{ runner\.temp \}\}\/node-gyp"/
+  );
+  const namedStep = (name) => {
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return (
+      minimumNode.match(
+        new RegExp(`(?:      - name: |        name: )${escapedName}\\n(?:(?!      - )[\\s\\S])*`)
+      )?.[0] ?? ''
+    );
+  };
+  const normalizeWindows = namedStep('Normalize Windows import library');
+  assert.match(normalizeWindows, /if: runner\.os == 'Windows'/);
+  assert.match(
+    normalizeWindows,
+    /env:\n          APR_NODEDIR_BASE: \$\{\{ runner\.temp \}\}\/node-gyp\n        run:/
+  );
+  assert.match(normalizeWindows, /cpSync/);
+  assert.match(normalizeWindows, /process\.arch/);
+  assert.match(normalizeWindows, /'Release'/);
+  const workflow = load(ci);
+  const requiredLanes = {
+    fast: ['npm', 'test'],
+    integration: ['npm', 'run', 'test:integration'],
+    mcp: ['npm', 'run', 'test:mcp'],
+    packaging: ['npm', 'run', 'test:packaging'],
+    smoke: ['npm', 'run', 'test:smoke'],
+  };
+  for (const key of ['node-24', 'preferred-node', 'phase-2-boundary']) {
+    const steps = workflow.jobs[key].steps;
+    for (const [lane, command] of Object.entries(requiredLanes)) {
+      const matches = steps.filter((step) => step.name === 'Verify tests: ' + lane);
+      assert.equal(matches.length, 1, key + ':' + lane);
+      assert.equal(matches[0].run, 'node scripts/ci/record-tests.mjs ' + lane);
+      assert.deepEqual(LANES[lane].command, command);
+      if (lane === 'integration' || (key === 'node-24' && lane === 'fast'))
+        assert.equal(matches[0].env.APR_NODEDIR_BASE, '${{ runner.temp }}/node-gyp');
+    }
+    const uploads = steps.filter((step) => step.name === 'Publish actual test execution records');
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0].if, '${{ always() }}');
+    assert.equal(uploads[0].with['if-no-files-found'], 'error');
+    assert.equal(uploads[0].with['include-hidden-files'], true);
+  }
   const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';
+  assert.match(preferredNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
+  assert.match(preferredNode, /runs-on: \$\{\{ matrix\.os \}\}/);
+  for (const gate of [
+    '*python',
+    '*windows-compiler',
+    '*node-development',
+    '*windows-library',
+    '*warm-broker',
+    '*offline-broker',
+  ])
+    assert.ok(preferredNode.includes(gate), gate);
+  assert.match(ci, /&warm-broker\s+name: Warm npm cache for packed release/);
+  assert.ok(preferredNode.indexOf('*warm-broker') < preferredNode.indexOf('*offline-broker'));
+  const offline = namedStep('Build and verify installed broker without network');
+  for (const gate of [
+    'unshare --net',
+    'sandbox-exec',
+    'windows-offline.ps1 -Mode start',
+    'windows-offline.ps1 -Mode stop',
+    'assert-network.mjs open',
+    'assert-network.mjs blocked',
+    'build:broker-security',
+    'test/integration/broker-release.test.mjs',
+  ])
+    assert.ok(offline.includes(gate), gate);
+  const firewall = readFileSync(path.join(root, 'test/helpers/windows-offline.ps1'), 'utf8');
+  assert.match(firewall, /New-NetFirewallRule[^\n]+-Program \$Resolved/);
+  assert.match(firewall, /Get-NetFirewallRule -Group \$Group[^\n]+Remove-NetFirewallRule/);
+  assert.doesNotMatch(offline, /New-NetFirewallRule/);
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [preferredNode, boundary]) {
-    for (const gate of [
-      'npm run format:check',
-      'npm run lint',
-      'npm test',
-      'npm run test:integration',
-      'npm run test:mcp',
-      'npm run test:packaging',
-      'npm run test:smoke',
-      'npm pack --dry-run',
-    ])
+    for (const gate of ['npm run format:check', 'npm run lint', 'npm pack --dry-run'])
       assert.match(job, new RegExp(gate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 
   const release = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
+  assert.doesNotMatch(release, /(?<![\w-])ai-peer-review-[^\s]*\.tgz/);
+  assert.doesNotMatch(release, /package="ai-peer-review@/);
+  assert.match(release, /@kburson\/ai-peer-review@/);
+  const artifactDefinition = /artifact="kburson-ai-peer-review-\$\{version\}\.tgz"/g;
+  assert.equal(release.match(artifactDefinition)?.length, 1);
+  const normalizedRelease = release.replace(/\\\r?\n\s*/g, ' ');
+  for (const site of [
+    /shasum -a 256 "\$artifact" > SHA256SUMS/,
+    /npm publish "\$artifact"/,
+    /gh release download.*?--pattern "\$artifact"/,
+    /cmp "\$artifact" observed-release\/"\$artifact"/,
+    /gh release create.*?"\$artifact"/,
+  ])
+    assert.match(normalizedRelease, site);
   const publishStep =
     release.match(
       /- name: Publish or verify matching npm artifact[\s\S]*?(?=\n      - name:)/

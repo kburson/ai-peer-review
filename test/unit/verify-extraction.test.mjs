@@ -75,9 +75,7 @@ function validManifest(overrides = {}) {
         '.github/workflows',
         '.codex',
         'bin',
-        'docs/design',
-        'docs/plans',
-        'docs/peer-reviews',
+        'docs/superpowers',
         'docs/releases',
         'docs/whitepapers',
         'provenance',
@@ -109,24 +107,57 @@ function validManifest(overrides = {}) {
         'NOTICE',
         'README.md',
         'cspell.json',
+        'docs/conformance/2026-09-21-88-installed-provider-surfaces.md',
+        'docs/conformance/2026-09-26-106-manual-xpr-evidence.json',
+        'docs/conformance/2026-09-26-106-manual-xpr.md',
+        'docs/ci-verification.md',
+        'docs/claude-launch-api-migration.md',
+        'docs/dependency-audit-broker-build.md',
         'docs/dependency-audit-mcp.md',
         'docs/manual-cross-provider-peer-review.md',
         'docs/spdx-policy.md',
         'eslint.config.mjs',
         'package-lock.json',
         'package.json',
+        'native/broker-security/addon.cc',
+        'native/broker-security/binding.gyp',
+        'native/broker-security/posix.cc',
+        'native/broker-security/windows.cc',
+        'scripts/ci/receipt.mjs',
+        'scripts/ci/record-tests.mjs',
+        'scripts/ci/verify-receipts.mjs',
+        'scripts/build-broker-security.mjs',
         'scripts/run-secret-scan.mjs',
+        'scripts/task-tracker/verify-epic-trail.mjs',
+        'scripts/update-template-goldens.mjs',
         'scripts/verify-extraction.mjs',
+        'scripts/verify-manual-xpr-evidence.mjs',
         'scripts/verify-release.mjs',
-        'vendors/kburson-ai-task-manager-1.0.0.tgz',
+        'vendors/kburson-ai-task-manager-0.1.0.tgz',
       ],
     },
     legacy_retained_path_rules: {
       prefixes: ['scripts/review', 'scripts/providers'],
-      globs: [
-        'scripts/tests/**/*co-review*',
-        'docs/superpowers/specs/*co-review*',
-        'docs/superpowers/plans/*co-review*',
+      globs: ['scripts/tests/**/*co-review*'],
+      exact: [
+        'docs/superpowers/plans/2026-08-15-co-review-finalization-and-turn-budget-control.md',
+        'docs/superpowers/plans/2026-08-17-co-review-fixture-cost.md',
+        'docs/superpowers/plans/2026-08-18-guided-co-review-start-and-agent-handoffs.md',
+        'docs/superpowers/plans/2026-08-19-co-review-consistent-snapshot.md',
+        'docs/superpowers/plans/2026-08-19-co-review-reference-archive.md',
+        'docs/superpowers/plans/2026-08-21-1365-reviewer-co-review-command-guard.md',
+        'docs/superpowers/plans/2026-08-21-1369-cross-worktree-co-review-handoff.md',
+        'docs/superpowers/plans/2026-08-21-1372-stale-co-review-grant.md',
+        'docs/superpowers/plans/2026-08-21-1374-co-review-archive-collision-recovery.md',
+        'docs/superpowers/specs/2026-08-15-co-review-finalization-and-turn-budget-control-design.md',
+        'docs/superpowers/specs/2026-08-15-guided-co-review-start-and-agent-handoffs-design.md',
+        'docs/superpowers/specs/2026-08-17-co-review-fixture-cost-design.md',
+        'docs/superpowers/specs/2026-08-19-co-review-consistent-snapshot-design.md',
+        'docs/superpowers/specs/2026-08-19-co-review-reference-archive-design.md',
+        'docs/superpowers/specs/2026-08-21-1365-reviewer-co-review-command-guard-design.md',
+        'docs/superpowers/specs/2026-08-21-1369-cross-worktree-co-review-handoff-design.md',
+        'docs/superpowers/specs/2026-08-21-1372-stale-co-review-grant-design.md',
+        'docs/superpowers/specs/2026-08-21-1374-co-review-archive-collision-recovery-design.md',
       ],
     },
     retained_path_inventory: {
@@ -294,6 +325,30 @@ test('does not widen co-review globs to their containing directories', async () 
   );
 });
 
+test('admits the four declared CI evidence files and rejects neighboring foreign files', async () => {
+  const declared = [
+    'docs/ci-verification.md',
+    'scripts/ci/receipt.mjs',
+    'scripts/ci/record-tests.mjs',
+    'scripts/ci/verify-receipts.mjs',
+  ];
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: ['LICENSE', ...declared].join('\n') }),
+  });
+  for (const foreign of ['scripts/ci/other.mjs', 'docs/ci-other.md']) {
+    await assert.rejects(
+      verifyExtraction({
+        root: '/repo',
+        manifest: validManifest(),
+        runGit: fakeGit({ current: ['LICENSE', ...declared, foreign].join('\n') }),
+      }),
+      /foreign standalone paths/
+    );
+  }
+});
+
 test('rejects a foreign path in standalone HEAD', async () => {
   await assert.rejects(
     verifyExtraction({
@@ -302,6 +357,39 @@ test('rejects a foreign path in standalone HEAD', async () => {
       runGit: fakeGit({ current: 'LICENSE\nprivate.txt' }),
     }),
     /foreign standalone paths: private\.txt/
+  );
+});
+
+test('accepts only the development template-golden updater in the closed standalone script inventory', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: 'LICENSE\nscripts/update-template-goldens.mjs' }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ current: 'LICENSE\nscripts/update-template-goldens-copy.mjs' }),
+    }),
+    /foreign standalone paths: scripts\/update-template-goldens-copy\.mjs/
+  );
+});
+
+test('admits only the declared epic-trail verifier adapter in the standalone script inventory', async () => {
+  const manifest = validManifest();
+  await verifyExtraction({
+    root: '/repo',
+    manifest,
+    runGit: fakeGit({ current: 'LICENSE\nscripts/task-tracker/verify-epic-trail.mjs' }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest,
+      runGit: fakeGit({ current: 'LICENSE\nscripts/task-tracker/other.mjs' }),
+    }),
+    /foreign standalone paths: scripts\/task-tracker\/other\.mjs/
   );
 });
 
@@ -318,12 +406,35 @@ test('accepts the bounded standalone white-paper documentation path', async () =
   });
 });
 
+test('accepts the exact #88 conformance record without admitting neighboring documents', async () => {
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: ['LICENSE', 'docs/conformance/2026-09-21-88-installed-provider-surfaces.md'].join(
+        '\n'
+      ),
+    }),
+  });
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({ current: ['LICENSE', 'docs/conformance/unrelated.md'].join('\n') }),
+    }),
+    /foreign standalone paths: docs\/conformance\/unrelated\.md/
+  );
+});
+
 test('accepts bounded governed implementation plans', async () => {
   await verifyExtraction({
     root: '/repo',
     manifest: validManifest(),
     runGit: fakeGit({
-      current: ['LICENSE', 'docs/plans/2026-09-13-18-claude-identity-fallback.md'].join('\n'),
+      current: [
+        'LICENSE',
+        'docs/superpowers/plans/2026-09-13-18-claude-identity-fallback.md',
+      ].join('\n'),
     }),
   });
 });
@@ -357,8 +468,8 @@ test('accepts project configuration and tracked peer-review records', async () =
         '.codex/config.json',
         '.codex/skills/peer-review/SKILL.md',
         'LICENSE',
-        'docs/peer-reviews/spec/example/00-review-history.md',
-        'docs/peer-reviews/spec/example/reviewer-response-1.md',
+        'docs/superpowers/peer-reviews/spec/example/00-review-history.md',
+        'docs/superpowers/peer-reviews/spec/example/reviewer-response-1.md',
       ].join('\n'),
     }),
   });
@@ -380,7 +491,7 @@ test('accepts bounded project-local AITM governance paths', async () => {
         '.grok/skills/task/SKILL.md',
         'AGENTS.md',
         'LICENSE',
-        'vendors/kburson-ai-task-manager-1.0.0.tgz',
+        'vendors/kburson-ai-task-manager-0.1.0.tgz',
       ].join('\n'),
     }),
   });
@@ -443,6 +554,41 @@ test('release gate rejects retained legacy paths', async () => {
     }),
     /legacy retained paths/
   );
+});
+
+test('release gate rejects an inherited AITM co-review document by exact path', async () => {
+  await assert.rejects(
+    verifyExtraction({
+      root: '/repo',
+      manifest: validManifest(),
+      runGit: fakeGit({
+        current: ['LICENSE', 'docs/superpowers/plans/2026-08-17-co-review-fixture-cost.md'].join(
+          '\n'
+        ),
+      }),
+      requireLegacyRemoved: true,
+    }),
+    /legacy retained paths/
+  );
+});
+
+test('release gate accepts this repository own co-review-named specs and plans', async () => {
+  // The inherited documents are named exactly rather than matched by a
+  // `*co-review*` glob, so this repository's own specs and plans may carry
+  // `co-review` in their filenames without being taken for legacy leftovers.
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({
+      current: [
+        'LICENSE',
+        'docs/superpowers/plans/2026-09-13-9-durable-co-review-wakeups.md',
+        'docs/superpowers/specs/2026-08-22-1377-phased-co-review-orchestration-design.md',
+        'docs/superpowers/specs/2026-09-13-9-durable-co-review-wakeups-design.md',
+      ].join('\n'),
+    }),
+    requireLegacyRemoved: true,
+  });
 });
 
 for (const [name, mutate, pattern] of [

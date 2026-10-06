@@ -1,5 +1,10 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -8,6 +13,11 @@ import assert from 'node:assert/strict';
 import { joinReview, run, startReview, submitReviewTurn } from '../helpers/internal-api.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
+import {
+  buildClaudeReviewerLaunch,
+  runClaudeReviewerLaunch,
+} from '../../src/provider/claude-launch.mjs';
+import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
 
 const NOW = '2026-09-09T02:00:00.000Z';
 
@@ -22,14 +32,20 @@ function git(cwd, args) {
 function identity(role, session, overrides = {}) {
   return participantIdentity({
     role,
-    host: 'codex',
-    provider: 'openai',
+    host: overrides.host ?? 'codex',
+    provider: overrides.provider ?? 'openai',
     modelId: overrides.modelId ?? 'gpt-test',
     modelDisplay: overrides.modelDisplay ?? 'GPT Test',
     sessionId: session,
     source: 'runtime',
     joinedAt: NOW,
   });
+}
+
+function routingFromInvitation(file) {
+  const text = readFileSync(file, 'utf8');
+  const encoded = text.match(/^<!-- ai-peer-review-invitation data="([A-Za-z0-9_-]+)" -->$/m)?.[1];
+  return JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
 }
 
 test('reviewer repository capability exposes observations but no mutation methods', () => {
@@ -64,15 +80,20 @@ function replaceSection(file, heading, content) {
 
 async function prepare(root, reviewId) {
   const reviewer = identity('reviewer', `${reviewId}-reviewer`);
-  const started = await startReview({
-    cwd: root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: identity('author', `${reviewId}-author`),
-    reviewId,
-    now: NOW,
-  });
+  const started = await startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      cwd: root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: identity('author', `${reviewId}-author`),
+      reviewId,
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
   const joined = await joinReview({
+    runtimeObservation: fixtureObservation(),
     cwd: root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -126,29 +147,151 @@ test('reviewer submit tolerates Codex checkpoint refs created after join', async
   assert.equal(result.next_action, 'finalize-acceptance');
 });
 
-test('reviewer submit rejects a retained ref and explains legacy restart without mutation', async (t) => {
+test('Claude permission recovery preserves reviewer and repository boundaries', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const started = await startReview(
+    {
+      ...fixtureSelection('claude', 'claude-opus-5', 'high'),
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: identity('author', 'claude-boundary-author'),
+      reviewId: 'claude-boundary-recovery',
+      now: NOW,
+    },
+    fixtureStartupDeps
+  );
+  const contract = buildClaudeReviewerLaunch({
+    repositoryRoot: fx.root,
+    invitation: started.paths.reviewer_invitation,
+    routing: routingFromInvitation(started.paths.reviewer_invitation),
+    model: 'claude-opus-5',
+    effort: 'high',
+  });
+  const rawSession = 'claude-boundary-reviewer';
+  const reviewer = identity('reviewer', rawSession, {
+    host: 'claude-code',
+    provider: 'anthropic',
+    modelId: 'claude-opus-5',
+    modelDisplay: 'Claude Opus 5',
+  });
+  const head = git(fx.root, ['rev-parse', 'HEAD']);
+  const branch = git(fx.root, ['branch', '--show-current']);
+  const index = git(fx.root, ['write-tree']);
+  const refs = git(fx.root, ['for-each-ref', '--format=%(refname) %(objectname)']);
+  const artifact = readFileSync(path.join(fx.root, 'docs/artifact.md'));
+  const staged = git(fx.root, ['ls-files', '--stage', '--', 'outside-staged.txt']);
+  const unstaged = readFileSync(path.join(fx.root, 'outside-working.txt'));
+  let joined;
+  const denied = await runClaudeReviewerLaunch({
+    contract,
+    execFile: async () => {
+      joined = await joinReview({
+        runtimeObservation: fixtureObservation('anthropic', 'claude-code', 'claude-opus-5', 'high'),
+        cwd: fx.root,
+        invitation: started.paths.reviewer_invitation,
+        identity: reviewer,
+        now: NOW,
+      });
+      return {
+        stdout: JSON.stringify({
+          session_id: rawSession,
+          permission_denials: [{ tool: 'Edit', path: contract.response }],
+        }),
+        stderr: '',
+        exit_code: 1,
+      };
+    },
+  });
+  assert.equal(denied.status, 'permission-blocked');
+  const beforeResume = inspectReviewAuthority(contract.workspace);
+  const recovered = await runClaudeReviewerLaunch({
+    contract,
+    resume: true,
+    execFile: async (_file, args) => {
+      assert.deepEqual(args.slice(0, 2), ['--resume', rawSession]);
+      replaceSection(joined.paths.response, 'Summary', 'Recovered without widening access.');
+      replaceSection(joined.paths.response, 'Findings', 'None.');
+      replaceSection(joined.paths.response, 'Required changes', 'None.');
+      replaceSection(joined.paths.response, 'Optional suggestions', 'None.');
+      replaceSection(joined.paths.response, 'Decision', 'accepted');
+      await submitReviewTurn({
+        cwd: fx.root,
+        workspace: contract.workspace,
+        identity: reviewer,
+        decision: 'accepted',
+        now: '2026-09-09T02:01:00.000Z',
+      });
+      return {
+        stdout: JSON.stringify({ session_id: rawSession, permission_denials: [] }),
+        stderr: '',
+      };
+    },
+  });
+  const after = inspectReviewAuthority(contract.workspace);
+  assert.equal(recovered.status, 'submitted');
+  assert.equal(recovered.session_fingerprint, reviewer.session_fingerprint);
+  assert.deepEqual(
+    after.events.slice(beforeResume.events.length).map(({ type }) => type),
+    ['reviewer-accepted', 'delivery-written']
+  );
+  assert.equal(git(fx.root, ['rev-parse', 'HEAD']), head);
+  assert.equal(git(fx.root, ['branch', '--show-current']), branch);
+  assert.equal(git(fx.root, ['write-tree']), index);
+  assert.equal(git(fx.root, ['for-each-ref', '--format=%(refname) %(objectname)']), refs);
+  assert.deepEqual(readFileSync(path.join(fx.root, 'docs/artifact.md')), artifact);
+  assert.equal(git(fx.root, ['ls-files', '--stage', '--', 'outside-staged.txt']), staged);
+  assert.deepEqual(readFileSync(path.join(fx.root, 'outside-working.txt')), unstaged);
+  assert.equal(
+    existsSync(path.join(path.dirname(contract.response), 'reviewer-response-2.md')),
+    false
+  );
+});
+
+test('reviewer submit tolerates unrelated refs created during the review', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
   const { reviewer, started, joined } = await prepare(fx.root, 'reviewer-retained-ref-control');
-  const eventsBefore = readFileSync(started.paths.events);
-  const responseBefore = readFileSync(joined.paths.response);
+  const before = createGitRepository().reviewerBoundary(fx.root, joined.paths.response);
   git(fx.root, ['update-ref', 'refs/heads/reviewer-boundary-control', 'HEAD']);
+  git(fx.root, ['update-ref', 'refs/codex/snapshots/parallel-agent', 'HEAD']);
+  const after = createGitRepository().reviewerBoundary(fx.root, joined.paths.response);
+  assert.notEqual(after.refs_digest, before.refs_digest);
 
-  await assert.rejects(
-    submitReviewTurn({
-      cwd: fx.root,
-      workspace: started.paths.workspace,
-      identity: reviewer,
-      decision: 'accepted',
-      now: '2026-09-09T02:01:00.000Z',
-    }),
-    (error) =>
-      error.code === 'APR_REVIEWER_GIT_VIOLATION' &&
-      /retained ref changed|legacy all-ref policy/i.test(error.recovery) &&
-      /preserve.*workspace.*restart/i.test(error.recovery)
-  );
-  assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
-  assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
+  const result = await submitReviewTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'accepted',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+  assert.equal(result.state, 'acceptance-pending');
+});
+
+test('reviewer submit tolerates a sibling worktree commit during the review', async (t) => {
+  const fx = fixture();
+  const { reviewer, started } = await prepare(fx.root, 'reviewer-parallel-worktree');
+  const sibling = `${fx.root}-sibling`;
+  t.after(() => {
+    git(fx.root, ['worktree', 'remove', '--force', sibling]);
+    rmSync(sibling, { recursive: true, force: true });
+    fx.cleanup();
+  });
+  git(fx.root, ['worktree', 'add', '-b', 'parallel-story', sibling]);
+  writeFileSync(path.join(sibling, 'parallel.txt'), 'other story\n');
+  git(sibling, ['add', 'parallel.txt']);
+  git(sibling, ['commit', '-m', 'parallel story']);
+
+  const result = await submitReviewTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'accepted',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+  assert.equal(result.state, 'acceptance-pending');
+  assert.equal(git(fx.root, ['branch', '--show-current']), 'trunk');
 });
 
 test('reviewer submit rejects post-join index, branch, and protocol-path drift without mutation', async (t) => {
@@ -170,6 +313,12 @@ test('reviewer submit rejects post-join index, branch, and protocol-path drift w
       name: 'artifact',
       mutate(root) {
         writeFileSync(path.join(root, 'docs/artifact.md'), '# Reviewer changed artifact\n');
+      },
+    },
+    {
+      name: 'worktree file',
+      mutate(root) {
+        writeFileSync(path.join(root, 'outside-working.txt'), 'changed during review\n');
       },
     },
     {
@@ -236,30 +385,19 @@ test('reviewer submit rejects a different physical worktree', async (t) => {
   assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
 });
 
-test('reviewer submit rejects a push that changes observed remote refs', async (t) => {
+test('reviewer submit tolerates a remote-tracking ref changing during the review', async (t) => {
   const fx = fixture();
-  const remote = mkdtempSync(path.join(tmpdir(), 'apr-reviewer-remote-'));
   t.after(fx.cleanup);
-  t.after(() => rmSync(remote, { recursive: true, force: true }));
-  git(remote, ['init', '--bare']);
-  git(fx.root, ['remote', 'add', 'origin', remote]);
-  git(fx.root, ['push', '--set-upstream', 'origin', 'trunk']);
-  const { reviewer, started, joined } = await prepare(fx.root, 'reviewer-push');
-  const eventsBefore = readFileSync(started.paths.events);
-  const responseBefore = readFileSync(joined.paths.response);
-  git(fx.root, ['push', 'origin', 'HEAD:refs/heads/reviewer-push']);
-  await assert.rejects(
-    submitReviewTurn({
-      cwd: fx.root,
-      workspace: started.paths.workspace,
-      identity: reviewer,
-      decision: 'accepted',
-      now: '2026-09-09T02:01:00.000Z',
-    }),
-    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
-  );
-  assert.deepEqual(readFileSync(started.paths.events), eventsBefore);
-  assert.deepEqual(readFileSync(joined.paths.response), responseBefore);
+  const { reviewer, started } = await prepare(fx.root, 'reviewer-remote-update');
+  git(fx.root, ['update-ref', 'refs/remotes/origin/parallel-story', 'HEAD']);
+  const result = await submitReviewTurn({
+    cwd: fx.root,
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    decision: 'accepted',
+    now: '2026-09-09T02:01:00.000Z',
+  });
+  assert.equal(result.state, 'acceptance-pending');
 });
 
 test('refreshed reviewer identity does not mutate authority before repository preflight', async (t) => {

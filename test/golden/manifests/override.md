@@ -16,6 +16,25 @@ Mode: `normal`
       "R1-F001"
     ]
   },
+  "lineage_receipt": {
+    "attempts": [
+      {
+        "consumed_grant_digest": null,
+        "event_log_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "predecessor_review_id": null,
+        "reciprocal_receipt_digest": null,
+        "record_id": "golden-review",
+        "recovery_claim_digest": null,
+        "recovery_id": null,
+        "recovery_ordinal": 0,
+        "review_id": "golden-review",
+        "root_review_id": "golden-review",
+        "successor_review_id": null
+      }
+    ],
+    "complete": true,
+    "schema": "ai-peer-review.lineage-receipt/v1"
+  },
   "residual_risk": [
     "detection-grade-authority"
   ],

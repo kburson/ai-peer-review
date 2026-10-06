@@ -8,4 +8,4 @@ user-invocable: true
 
 Load and follow the canonical Grok adapter instructions from:
 
-`node_modules/ai-task-manager/skill/adapters/grok/SKILL.md`
+`node_modules/@kburson/ai-task-manager/skill/adapters/grok/SKILL.md`

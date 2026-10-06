@@ -1,0 +1,28 @@
+--- a/fur.md
++++ b/fur.md
+@@ -939,8 +939,14 @@
+ late-telemetry amendment path. It never delays review correctness indefinitely.
+ 
+ A review-chain view identifies its selected terminal tip, ordered predecessor
+-run IDs, each input manifest and metrics digest, applied amendment IDs/digests,
+-and an as-of revision. It uses each run's own accounting partition exactly once;
++run IDs, sealed predecessor manifest and metrics digests, applied amendment
++IDs/digests, and an as-of revision. A view embedded in the current run's
++metrics.json references that run's local observations/receipts by ID; it never
++embeds its own metrics or enclosing manifest digest. The enclosing manifest
++binds those current metrics bytes. The same rule applies to locally contained
++observations in an amendment. A separately materialized view created after
++sealing can pin all input digests, including the selected tip, without a
++self-reference. It uses each run's own accounting partition exactly once;
+ previously computed chain rollups are never summed as run usage. Repeated or
+ cyclic predecessor links and unverifiable inputs are reported as invalid chain
+ evidence. Valid legacy records with missing telemetry contribute explicit
+@@ -1859,6 +1865,8 @@
+     missing telemetry stays distinct from failed evidence persistence.
+     Chain fixtures pin predecessor manifests, metrics and amendment revisions,
+     reject cycles/repeated inputs, and count each run once across follow-ups.
++    Embedded views seal without self-referential digests; post-seal derived
++    views verify every external input against its pinned digest.
+     Legacy telemetry gaps preserve incomplete coverage; solo-to-author reuse
+     preserves role history without duplicating the agent's observations.
+ 13. Recovery fixtures cover every action and replay: unresolved acknowledgment

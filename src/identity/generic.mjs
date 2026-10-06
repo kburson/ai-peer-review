@@ -4,7 +4,16 @@ function resolveDeclared({ declared } = {}) {
   if (![sessionId, modelId, modelDisplay].every((value) => typeof value === 'string' && value)) {
     return null;
   }
-  return { host, provider, sessionId, modelId, modelDisplay, source: 'declared' };
+  return {
+    host,
+    provider,
+    sessionId,
+    modelId,
+    modelDisplay,
+    source: 'declared',
+    sessionSource: 'explicit-declaration',
+    modelSource: 'explicit-declaration',
+  };
 }
 
 export const genericAdapter = Object.freeze({

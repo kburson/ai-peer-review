@@ -7,11 +7,13 @@ import { run } from '../../src/cli/run.mjs';
 
 const EXPECTED_COMMANDS = [
   'setup',
+  'build',
   'doctor',
   'start',
   'advance',
   'request-grant',
   'join',
+  'launch-reviewer',
   'status',
   'resume',
   'submit',
@@ -22,10 +24,21 @@ const EXPECTED_COMMANDS = [
   'abandon',
   'supersede',
   'consolidate',
-  'coordinator',
+  'broker',
   'help',
   'explain',
 ];
+
+test('build accepts only the package-owned broker-security target', () => {
+  assert.deepEqual(parseCommand(['build', 'broker-security']), {
+    command: 'build',
+    args: ['broker-security'],
+    options: {},
+  });
+  usage(['build'], /positional/i);
+  usage(['build', 'broker'], /broker-security/i);
+  usage(['build', 'broker-security', 'extra'], /positional/i);
+});
 
 function usage(argv, pattern) {
   assert.throws(
@@ -48,12 +61,31 @@ test('command, flag, and positional catalogs are closed and frozen', () => {
   assert.ok(Object.isFrozen(POSITIONAL_GRAMMAR));
 });
 
+test('SPR and XPR are named help concepts, never executable commands', () => {
+  for (const concept of ['spr', 'xpr']) {
+    assert.equal(COMMANDS.includes(concept), false);
+    assert.deepEqual(parseCommand(['help', concept]), {
+      command: 'help',
+      args: [concept],
+      options: {},
+    });
+    usage([concept, 'docs/example.md'], /unknown command/i);
+  }
+  usage(['help', 'unlisted-concept'], /unknown help topic/i);
+});
+
 test('start options have stable names, repeatability, and defaults', () => {
   const parsed = parseCommand([
     'start',
     'docs/spec.md',
     '--artifact-kind',
     'spec',
+    '--reviewer-provider',
+    'claude',
+    '--reviewer-model',
+    'claude-opus-5',
+    '--reviewer-effort',
+    'high',
     '--issue=1531',
     '--record-id',
     'record-1531',
@@ -72,6 +104,9 @@ test('start options have stable names, repeatability, and defaults', () => {
     args: ['docs/spec.md'],
     options: {
       artifactKind: 'spec',
+      reviewerProvider: 'claude',
+      reviewerModel: 'claude-opus-5',
+      reviewerEffort: 'high',
       issue: 1531,
       recordId: 'record-1531',
       phases: 'spec,plan',
@@ -82,13 +117,58 @@ test('start options have stable names, repeatability, and defaults', () => {
     },
   });
   assert.equal(
-    parseCommand(['start', 'x', '--artifact-kind', 'plan']).options.claimTtlMs,
+    parseCommand([
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--issue',
+      '117',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'gpt-6',
+    ]).options.claimTtlMs,
     8 * 60 * 60 * 1000
+  );
+  assert.equal(
+    parseCommand([
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--issue',
+      '117',
+      '--reviewer-provider',
+      'claude',
+      '--reviewer-model',
+      'opus',
+    ]).options.reviewerEffort,
+    'medium'
   );
   assert.deepEqual(parseCommand(['setup', '--agent', 'codex', '--agent=claude']).options.agent, [
     'codex',
     'claude',
   ]);
+});
+
+test('new reviews require an explicit issue before SPR or XPR startup', () => {
+  for (const provider of ['codex', 'claude']) {
+    assert.throws(
+      () =>
+        parseCommand([
+          'start',
+          'docs/spec.md',
+          '--artifact-kind',
+          'spec',
+          '--reviewer-provider',
+          provider,
+          '--reviewer-model',
+          'model-id',
+        ]),
+      (error) => error.code === 'APR_ISSUE_REQUIRED' && /--issue/.test(error.message)
+    );
+  }
 });
 
 test('advance accepts exactly one workspace and one artifact with no flags', () => {
@@ -102,6 +182,68 @@ test('advance accepts exactly one workspace and one artifact with no flags', () 
   usage(['advance', '/review', 'docs/plan.md', '--artifact-kind', 'plan'], /unknown flag/i);
 });
 
+test('launch-reviewer has a closed fresh and resume grammar', () => {
+  assert.deepEqual(
+    parseCommand([
+      'launch-reviewer',
+      '/repo/reviewer-invitation.md',
+      '--host',
+      'claude',
+      '--model',
+      'claude-opus-5',
+      '--effort',
+      'high',
+      '--json',
+    ]),
+    {
+      command: 'launch-reviewer',
+      args: ['/repo/reviewer-invitation.md'],
+      options: { host: 'claude', model: 'claude-opus-5', effort: 'high', json: true },
+    }
+  );
+  assert.deepEqual(
+    parseCommand([
+      'launch-reviewer',
+      '/repo/reviewer-invitation.md',
+      '--host',
+      'claude',
+      '--resume',
+    ]).options,
+    { host: 'claude', resume: true }
+  );
+  assert.equal(
+    parseCommand([
+      'launch-reviewer',
+      'invitation',
+      '--host',
+      'claude',
+      '--model',
+      'claude-opus-5-5',
+      '--effort',
+      'max',
+    ]).options.effort,
+    'max'
+  );
+  usage(
+    ['launch-reviewer', 'invitation', '--host', 'codex', '--model', 'm', '--effort', 'high'],
+    /host.*claude/i
+  );
+  usage(['launch-reviewer', 'invitation', '--host', 'claude'], /requires.*model.*effort/i);
+  usage(
+    ['launch-reviewer', 'invitation', '--host', 'claude', '--resume', '--model', 'm'],
+    /resume.*model.*effort/i
+  );
+  usage(['launch-reviewer', 'invitation', 'extra', '--host', 'claude', '--resume'], /positional/i);
+  usage(
+    ['launch-reviewer', 'invitation', '--host', 'claude', '--resume', '--session-id', 'raw'],
+    /unknown flag/i
+  );
+  usage(
+    ['launch-reviewer', 'invitation', '--host', 'claude', '--host', 'claude', '--resume'],
+    /duplicate/i
+  );
+});
+
 test('rejects unknown syntax, boolean values, duplicates, and invalid positions', () => {
   usage([], /command is required/i);
   usage(['wat'], /unknown command/i);
@@ -112,6 +254,116 @@ test('rejects unknown syntax, boolean values, duplicates, and invalid positions'
   usage(['status', 'x', '--json', '--json'], /duplicate/i);
   usage(['start', 'x', '--artifact-kind'], /requires a value/i);
   usage(['start', 'x', '--artifact-kind', 'spec', '--artifact-kind', 'plan'], /duplicate/i);
+  usage(['start', 'x', '--artifact-kind', 'plan'], /reviewer-provider.*reviewer-model/i);
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'other',
+      '--reviewer-model',
+      'm',
+    ],
+    /reviewer-provider.*codex.*claude.*grok/i
+  );
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'google',
+      '--reviewer-model',
+      'm',
+    ],
+    /reviewer-provider.*codex.*claude.*grok/i
+  );
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      '',
+    ],
+    /non-empty/i
+  );
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'm',
+      '--reviewer-effort',
+      '',
+    ],
+    /non-empty/i
+  );
+  usage(
+    [
+      'start',
+      'x',
+      '--artifact-kind',
+      'plan',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'm',
+      '--reviewer-model',
+      'n',
+    ],
+    /duplicate/i
+  );
+  for (const [flag, first, second] of [
+    ['--reviewer-provider', 'codex', 'claude'],
+    ['--reviewer-model', 'm', 'n'],
+    ['--reviewer-effort', 'medium', 'high'],
+  ]) {
+    usage(
+      [
+        'start',
+        'x',
+        '--artifact-kind',
+        'plan',
+        '--reviewer-provider',
+        'codex',
+        '--reviewer-model',
+        'm',
+        flag,
+        first,
+        flag,
+        second,
+      ],
+      /duplicate/i
+    );
+  }
+  for (const phases of ['spec,plan', 'plan,plan', 'plan,,spec', 'plan,other']) {
+    usage(
+      [
+        'start',
+        'x',
+        '--artifact-kind',
+        'plan',
+        '--reviewer-provider',
+        'codex',
+        '--reviewer-model',
+        'm',
+        '--phases',
+        phases,
+      ],
+      /phases/i
+    );
+  }
 });
 
 test('rejects invalid positive integers and accepts Phase 2 automatic-required mode', () => {
@@ -120,7 +372,21 @@ test('rejects invalid positive integers and accepts Phase 2 automatic-required m
     ['--max-turns', '-1'],
     ['--claim-ttl', '1.5'],
   ]) {
-    usage(['start', 'x', '--artifact-kind', 'spec', flag, value], /positive integer/i);
+    usage(
+      [
+        'start',
+        'x',
+        '--artifact-kind',
+        'spec',
+        '--reviewer-provider',
+        'codex',
+        '--reviewer-model',
+        'gpt-6',
+        flag,
+        value,
+      ],
+      /positive integer/i
+    );
   }
   assert.equal(
     parseCommand([
@@ -128,6 +394,12 @@ test('rejects invalid positive integers and accepts Phase 2 automatic-required m
       'x',
       '--artifact-kind',
       'spec',
+      '--issue',
+      '117',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'gpt-6',
       '--transport-mode',
       'automatic-required',
     ]).options.transportMode,
@@ -252,19 +524,32 @@ test('consolidate requires unique attempts, one destination, and exactly one mod
   );
 });
 
-test('coordinator accepts only the closed foreground command grammar', () => {
-  assert.deepEqual(parseCommand(['coordinator', 'reconcile', 'workspace', '--json']), {
-    command: 'coordinator',
+test('broker accepts only the project-local operator grammar', () => {
+  assert.deepEqual(parseCommand(['broker', 'reconcile', 'workspace', '--json']), {
+    command: 'broker',
     args: ['reconcile', 'workspace'],
     options: { json: true },
   });
-  for (const verb of ['run', 'reconcile', 'status', 'stop']) {
-    assert.equal(parseCommand(['coordinator', verb, 'workspace']).args[0], verb);
+  assert.deepEqual(parseCommand(['broker', 'suspend', 'workspace']), {
+    command: 'broker',
+    args: ['suspend', 'workspace'],
+    options: {},
+  });
+  for (const verb of ['status', 'stop']) {
+    assert.deepEqual(parseCommand(['broker', verb]), {
+      command: 'broker',
+      args: [verb],
+      options: {},
+    });
   }
-  usage(['coordinator', 'detach', 'workspace'], /run.*reconcile.*status.*stop/i);
-  usage(['coordinator', 'run', 'workspace', '--json'], /--json.*run/i);
-  usage(['coordinator', 'status', 'workspace', 'extra'], /positional/i);
-  usage(['coordinator', 'status', 'workspace', '--next'], /unknown flag/i);
+  usage(['coordinator', 'status', 'workspace'], /unknown command/i);
+  usage(['broker', 'detach'], /status.*reconcile.*suspend.*stop/i);
+  usage(['broker', 'status', 'workspace'], /does not accept.*workspace/i);
+  usage(['broker', 'stop', 'workspace'], /does not accept.*workspace/i);
+  usage(['broker', 'reconcile'], /requires.*workspace/i);
+  usage(['broker', 'suspend'], /requires.*workspace/i);
+  usage(['broker', 'reconcile', 'workspace', 'extra'], /positional/i);
+  usage(['broker', 'status', '--endpoint', '/tmp/broker.sock'], /unknown flag/i);
 });
 
 test('request-grant maps only action-owned fields to canonical snake case', () => {
@@ -299,6 +584,15 @@ test('request-grant maps only action-owned fields to canonical snake case', () =
   );
   usage(['request-grant', 'workspace', '--artifact-path', 'x'], /requires --action/i);
   usage(['request-grant', 'workspace', '--action', 'unknown'], /unknown protected action/i);
+});
+
+test('setup --update parses as a project upgrade request', () => {
+  assert.equal(parseCommand(['setup', '--update']).options.update, true);
+  assert.equal(parseCommand(['setup', '--update', '--json']).options.json, true);
+});
+
+test('doctor accepts installation mode for a session-independent package check', () => {
+  assert.equal(parseCommand(['doctor', '--mode', 'installation']).options.mode, 'installation');
 });
 
 test('top-level and command help normalize to the help command', () => {

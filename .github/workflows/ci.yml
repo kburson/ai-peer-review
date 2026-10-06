@@ -5,6 +5,15 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      live_claude:
+        description: Run the optional disposable Claude permission conformance probe
+        required: false
+        default: false
+        type: boolean
+
+env:
+  APR_CI_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
 
 permissions:
   contents: read
@@ -17,6 +26,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      APR_CI_JOB_KEY: node-24-24-${{ matrix.os }}
+      APR_CI_MATRIX_NODE: '24'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -28,20 +40,118 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint
-      - run: npm test
-      - run: npm run test:integration
-      - run: npm run test:mcp
-      - run: npm run test:packaging
-      - run: npm run test:smoke
+      - &python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - &windows-compiler
+        uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - &posix-compiler
+        name: Provision platform compiler
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update
+            sudo apt-get install -y build-essential
+          else
+            xcode-select -p
+            xcrun --find clang++
+            xcrun --show-sdk-path
+          fi
+      - &node-development
+        name: Provision native Node development files
+        run: >-
+          node node_modules/node-gyp/bin/node-gyp.js install --ensure
+          --devdir="${{ runner.temp }}/node-gyp"
+      - &windows-library
+        name: Normalize Windows import library
+        if: runner.os == 'Windows'
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+        run: >-
+          node --input-type=module -e "import { cpSync, mkdirSync } from 'node:fs';
+          import path from 'node:path';
+          const root = path.join(process.env.APR_NODEDIR_BASE, process.versions.node);
+          mkdirSync(path.join(root, 'Release'), { recursive: true });
+          cpSync(path.join(root, process.arch, 'node.lib'), path.join(root, 'Release', 'node.lib'));"
+      - &warm-broker
+        name: Warm npm cache for packed release
+        run: node test/helpers/warm-packed-cache.mjs
+      - &offline-broker
+        name: Build and verify installed broker without network
+        shell: pwsh
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+          APR_NATIVE_REQUIRED: '1'
+        run: |
+          $nodeVersion = node -p process.versions.node
+          $developmentTree = Join-Path $env:APR_NODEDIR_BASE $nodeVersion
+          $build = "npm run build:broker-security -- --nodedir '$developmentTree' && node --test test/integration/broker-release.test.mjs"
+          if ($IsLinux) {
+            # A network namespace denies IP while preserving local Unix IPC.
+            $userName = id -un
+            sudo --preserve-env unshare --net -- sudo --preserve-env -u $userName env "PATH=$env:PATH" bash -c $build
+          } elseif ($IsMacOS) {
+            # Deny IP only: authenticated Unix sockets remain available.
+            sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip "*:*"))(deny network-inbound (local ip "*:*"))' bash -c $build
+          } else {
+            $rule = 'APR-offline-release-' + [guid]::NewGuid().ToString()
+            node test/helpers/assert-network.mjs open
+            if ($LASTEXITCODE -ne 0) { throw 'Network baseline failed' }
+            $env:APR_OFFLINE_WINDOWS_GROUP = $rule
+            try {
+              ./test/helpers/windows-offline.ps1 -Mode start -Group $rule
+              node test/helpers/assert-network.mjs blocked
+              if ($LASTEXITCODE -ne 0) { throw 'Network isolation failed' }
+              npm run build:broker-security -- --nodedir $developmentTree
+              if ($LASTEXITCODE -ne 0) { throw 'Offline build failed' }
+              node --test test/integration/broker-release.test.mjs
+            } finally {
+              $result = $LASTEXITCODE
+              ./test/helpers/windows-offline.ps1 -Mode stop -Group $rule
+              Remove-Item Env:APR_OFFLINE_WINDOWS_GROUP
+              $LASTEXITCODE = $result
+            }
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: 'Verify tests: fast'
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+        run: node scripts/ci/record-tests.mjs fast
+      - name: 'Verify tests: integration'
+        run: node scripts/ci/record-tests.mjs integration
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+      - name: 'Verify tests: mcp'
+        run: node scripts/ci/record-tests.mjs mcp
+      - name: 'Verify tests: packaging'
+        run: node scripts/ci/record-tests.mjs packaging
+      - name: 'Verify tests: smoke'
+        run: node scripts/ci/record-tests.mjs smoke
       - run: npm pack --dry-run
 
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
+
   preferred-node:
-    name: Node ${{ matrix.node }} / Ubuntu
+    name: Node ${{ matrix.node }} / ${{ matrix.os == 'ubuntu-latest' && 'Ubuntu' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         node: ['26', 'current']
-    runs-on: ubuntu-latest
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      APR_CI_JOB_KEY: preferred-node-${{ matrix.node }}-${{ matrix.os }}
+      APR_CI_MATRIX_NODE: '${{ matrix.node }}'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -53,12 +163,35 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint
-      - run: npm test
-      - run: npm run test:integration
-      - run: npm run test:mcp
-      - run: npm run test:packaging
-      - run: npm run test:smoke
+      - *python
+      - *windows-compiler
+      - *posix-compiler
+      - *node-development
+      - *windows-library
+      - *warm-broker
+      - *offline-broker
+      - name: 'Verify tests: fast'
+        run: node scripts/ci/record-tests.mjs fast
+      - name: 'Verify tests: integration'
+        run: node scripts/ci/record-tests.mjs integration
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+      - name: 'Verify tests: mcp'
+        run: node scripts/ci/record-tests.mjs mcp
+      - name: 'Verify tests: packaging'
+        run: node scripts/ci/record-tests.mjs packaging
+      - name: 'Verify tests: smoke'
+        run: node scripts/ci/record-tests.mjs smoke
       - run: npm pack --dry-run
+
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
 
   npm-pack-compatibility:
     name: npm ${{ matrix.npm }} / Node ${{ matrix.node }}
@@ -82,12 +215,16 @@ jobs:
       - run: npm install --global "npm@${{ matrix.npm }}"
       - run: test "$(npm --version)" = "${{ matrix.npm }}"
       - run: npm ci
-      - run: npm run test:packaging
+      - name: Verify packed builder, dependency and source inventory
+        run: npm run test:packaging
       - run: npm run test:smoke
 
   phase-2-boundary:
     name: Phase 2 boundary
     runs-on: ubuntu-latest
+    env:
+      APR_CI_JOB_KEY: phase-2-boundary-26-ubuntu-latest
+      APR_CI_MATRIX_NODE: '26'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -97,21 +234,69 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
-      - run: node scripts/verify-extraction.mjs --require-legacy-removed
-      - run: npm ls --omit=dev --json
       - run: npm run format:check
       - run: npm run lint
-      - run: npm test
-      - run: npm run test:integration
-      - run: npm run test:mcp
-      - run: npm run test:packaging
-      - run: npm run test:smoke
+      - *python
+      - *posix-compiler
+      - *node-development
+      - *warm-broker
+      - *offline-broker
+      - run: node scripts/verify-extraction.mjs --require-legacy-removed
+      - run: npm ls --omit=dev --json
+      - name: 'Verify tests: fast'
+        run: node scripts/ci/record-tests.mjs fast
+      - name: 'Verify tests: integration'
+        run: node scripts/ci/record-tests.mjs integration
+        env:
+          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
+      - name: 'Verify tests: mcp'
+        run: node scripts/ci/record-tests.mjs mcp
+      - name: 'Verify tests: packaging'
+        run: node scripts/ci/record-tests.mjs packaging
+      - name: 'Verify tests: smoke'
+        run: node scripts/ci/record-tests.mjs smoke
       - run: npm pack --dry-run
+
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
 
   live-provider-optional:
     name: Optional live-provider probe
-    if: ${{ false }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.live_claude == true }}
     continue-on-error: true
     runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_LIVE_MODEL: ${{ vars.CLAUDE_LIVE_MODEL }}
+      CLAUDE_LIVE_EFFORT: high
     steps:
-      - run: echo 'Live provider verification is opt-in and never required.'
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Require the explicit live-provider secret
+        if: ${{ env.ANTHROPIC_API_KEY == '' }}
+        run: exit 1
+      - name: Install the optional Claude runtime
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        run: npm install --global @anthropic-ai/claude-code
+      - name: Run disposable live permission conformance
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        run: >-
+          node test/live/claude-live-conformance.mjs
+          --output "${{ runner.temp }}/claude-conformance/sanitized-result.json"
+      - name: Upload sanitized conformance evidence
+        if: ${{ always() && env.ANTHROPIC_API_KEY != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: claude-live-conformance-sanitized
+          path: ${{ runner.temp }}/claude-conformance/sanitized-result.json
+          if-no-files-found: error

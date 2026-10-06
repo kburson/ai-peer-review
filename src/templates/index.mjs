@@ -21,6 +21,10 @@ const catalog = Object.assign(Object.create(null), {
     'installed_join_display',
     'zero_install_join_display',
     'recovery_display',
+    'reviewer_selection_display',
+    'runtime_display',
+    'broker_reconcile_display',
+    'status_next_display',
   ]),
   'reviewer-invitation': fields([
     'review_id',
@@ -37,6 +41,10 @@ const catalog = Object.assign(Object.create(null), {
     'installed_join_display',
     'zero_install_join_display',
     'recovery_display',
+    'reviewer_selection_display',
+    'runtime_display',
+    'broker_reconcile_display',
+    'status_next_display',
   ]),
   'reviewer-response': fields([
     'frontmatter',

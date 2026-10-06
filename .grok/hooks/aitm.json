@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"seed\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"timing\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       },
@@ -15,16 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"timing\"];import(pathToFileURL(e).href);\""
-          }
-        ]
-      },
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"memory-index\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"memory-index\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       }
@@ -35,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"timing\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"timing\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       }
@@ -46,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"timing\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"timing\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       },
@@ -55,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"memory-index\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"memory-index\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       }
@@ -66,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"bash-guard\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"bash-guard\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       },
@@ -75,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"activity-guard\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"activity-guard\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       },
@@ -84,7 +75,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"activity-guard\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"activity-guard\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       },
@@ -93,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"source-edit-gate\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"source-edit-gate\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       },
@@ -102,7 +93,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\"node_modules/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\",\"scripts/task-tracker/hooks/grok-wire.mjs\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (node_modules + repo-relative both absent) — failing closed\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\"--handler\",\"agent-guard\"];import(pathToFileURL(e).href);\""
+            "command": "node -e \"const {existsSync,realpathSync}=require('fs');const {resolve}=require('path');const {pathToFileURL}=require('url');const c=[\\\"node_modules/@kburson/ai-task-manager/scripts/task-tracker/hooks/grok-wire.mjs\\\",\\\"scripts/task-tracker/hooks/grok-wire.mjs\\\"];const p=c.map(x=>resolve(process.cwd(),x)).find(existsSync);if(!p){const r=\\\"AITM Grok hook entrypoint is unavailable: grok-wire.mjs\\\";process.stdout.write(JSON.stringify({decision:'deny',reason:r}));process.stderr.write('aitm grok-wire.mjs: hook entrypoint unresolved (scoped package + repo-relative both absent) — failing closed\\\\n');process.exit(2);}const e=realpathSync(p);process.argv=[process.argv[0],e,\\\"--handler\\\",\\\"agent-guard\\\"];import(pathToFileURL(e).href);\""
           }
         ]
       }

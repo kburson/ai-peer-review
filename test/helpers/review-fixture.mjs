@@ -4,8 +4,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { createGitRepository } from '../../src/git/repository.mjs';
+import { identityEvidence } from '../../src/identity/evidence.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
 import { appendEvent, atomicWrite } from '../../src/protocol/store.mjs';
+import { compatibilityDeclared as createCompatibilityDeclaration } from '../../src/protocol/compatibility.mjs';
 
 export const FINGERPRINTS = Object.freeze({
   author: `sha256:${'a'.repeat(64)}`,
@@ -412,6 +414,11 @@ const payloads = {
     },
   }),
   'delivery-acknowledged': () => ({ delivery_id: 'delivery-1' }),
+  'lock-reclaimed': () => ({
+    lock_digest: `sha256:${'1'.repeat(64)}`,
+    receipt_digest: `sha256:${'2'.repeat(64)}`,
+    reason: 'operator confirmed stale owner',
+  }),
 };
 
 export const REVISION_NEUTRAL_TYPES = new Set([
@@ -422,6 +429,7 @@ export const REVISION_NEUTRAL_TYPES = new Set([
   'challenge-superseded',
   'delivery-written',
   'delivery-acknowledged',
+  'lock-reclaimed',
 ]);
 
 export function event(
@@ -457,6 +465,50 @@ export function event(
     at: new Date(Date.UTC(2026, 8, 8, 12, 0, sequence)).toISOString(),
     payload: effectivePayload,
   };
+}
+
+export function compatibilityDeclared(state, compatibility, { at } = {}) {
+  return createCompatibilityDeclaration(state, compatibility, {
+    at: at ?? new Date(Date.UTC(2026, 8, 8, 12, 0, state.sequence + 1)).toISOString(),
+  });
+}
+
+export function v2Event(type, options = {}) {
+  if (type === 'compatibility-declared') {
+    const { sequence = 1, revision = 0, reviewId = 'review-01', payload = {}, ...rest } = options;
+    return compatibilityDeclared(
+      { sequence: sequence - 1, revision, review_id: reviewId },
+      payload.compatibility ?? {
+        minimum_reader_version: '0.2.2',
+        minimum_writer_version: '0.2.2',
+        accepted_event_schemas: ['ai-peer-review.event/v1', 'ai-peer-review.event/v2'],
+      },
+      rest
+    );
+  }
+  const result = { ...event(type, options), schema: 'ai-peer-review.event/v2' };
+  const participantKey = {
+    'review-created': 'author',
+    'reviewer-joined': 'reviewer',
+    'identity-changed': 'identity',
+    'participant-replaced': 'incoming_participant',
+  }[type];
+  const identity = result.payload[participantKey];
+  if (identity && !Object.hasOwn(identity, 'evidence')) {
+    result.payload = {
+      ...result.payload,
+      [participantKey]: {
+        ...identity,
+        evidence: identityEvidence({
+          sessionFingerprint: identity.session_fingerprint,
+          sessionSource: 'legacy-unclassified',
+          modelId: identity.model_id,
+          modelSource: 'legacy-unclassified',
+        }),
+      },
+    };
+  }
+  return result;
 }
 
 export function sequence(types, overrides = {}) {

@@ -1,0 +1,201 @@
+{
+  "schema": "ai-peer-review.sar-evidence/v1",
+  "run_id": "107-runtime-api-spec-cost-metrics-sar-91249388",
+  "issue": 107,
+  "kind": "sar",
+  "execution": "user-directed single-worker SAR; not package-protocol acceptance",
+  "filepath": "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+  "baseline_commit": "bb9e6a51f091afda32f3e231b3226fbed908475b",
+  "initial_digest": "sha256:91249388adc0ac4cb8a253b764f06fd80c145e8437dbc626fce24af94412e63a",
+  "final_digest": "sha256:ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89",
+  "max_rounds": 6,
+  "status": "accepted",
+  "intervention_required": false,
+  "rounds": [
+    {
+      "round": 1,
+      "before_digest": "sha256:91249388adc0ac4cb8a253b764f06fd80c145e8437dbc626fce24af94412e63a",
+      "after_digest": "sha256:ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89",
+      "verdict": "changes-required",
+      "finding_ids": [
+        "CMSAR-001",
+        "CMSAR-002",
+        "CMSAR-003",
+        "CMSAR-004",
+        "CMSAR-005",
+        "CMSAR-006",
+        "CMSAR-007",
+        "CMSAR-008"
+      ],
+      "review": "rounds/01-review.md",
+      "author_response": "rounds/01-author-response.md",
+      "patch": "rounds/01.patch"
+    },
+    {
+      "round": 2,
+      "before_digest": "sha256:ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89",
+      "after_digest": "sha256:ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89",
+      "verdict": "accepted",
+      "finding_ids": [],
+      "review": "rounds/02-review.md",
+      "author_response": null,
+      "patch": null
+    }
+  ],
+  "requested_model": "gpt-6-astra",
+  "requested_effort": "high",
+  "observed_model": null,
+  "observed_effort": null,
+  "identity_provenance": "requested worker assignment; exact model and effort not independently observable",
+  "parent_accepted_sar": {
+    "path": "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar",
+    "manifest_digest": "sha256:a3ced16f59ff983b656756d84c67c9b663a0c0087b3b7534cc88385a715e3723",
+    "final_digest": "sha256:e36a1506a1f63c7ee29394005650e53a9a8a6d1e347e1b39a82d6ad9f4977ac7"
+  },
+  "stopped_xpr": {
+    "path": "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-xpr",
+    "manifest_digest": "sha256:ddf3d82db6207fcf26afd10e929fe0a9726fb88d31da8436a2235d85e56f60dd",
+    "metrics_digest": "sha256:17a5e598f69dd8bb43479899ce154c3bb387987d836f40e0fed632c6b5c8862d",
+    "included_in_totals": false
+  },
+  "lineage_patch": "lineage.patch",
+  "terminal_anchor": "final-fur.md",
+  "findings": [
+    {
+      "id": "CMSAR-001",
+      "originating_round": 1,
+      "severity": "high",
+      "disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "CMSAR-002",
+      "originating_round": 1,
+      "severity": "high",
+      "disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "CMSAR-003",
+      "originating_round": 1,
+      "severity": "high",
+      "disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "CMSAR-004",
+      "originating_round": 1,
+      "severity": "high",
+      "disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "CMSAR-005",
+      "originating_round": 1,
+      "severity": "high",
+      "disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "CMSAR-006",
+      "originating_round": 1,
+      "severity": "medium",
+      "disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "CMSAR-007",
+      "originating_round": 1,
+      "severity": "medium",
+      "disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_in_round": 2
+    },
+    {
+      "id": "CMSAR-008",
+      "originating_round": 1,
+      "severity": "medium",
+      "disposition": "addressed",
+      "reviewer_resolution": "resolved",
+      "resolved_in_round": 2
+    }
+  ],
+  "metrics": {
+    "path": "metrics.json",
+    "usage_provenance": "unavailable",
+    "provider_attempt_inventory_complete": false,
+    "worker_execution_ids": ["worker-execution-01"],
+    "complete_total_tokens": null,
+    "actual_cost": null
+  },
+  "raw_logs_retained": false,
+  "verification": {
+    "status": "passed",
+    "prettier": true,
+    "markdownlint": true,
+    "json": true,
+    "json_examples": 4,
+    "git_diff_check": true,
+    "round_patch_forward_reverse": true,
+    "lineage_patch_forward_reverse": true,
+    "terminal_anchor": true,
+    "prior_review_files_unchanged": 17,
+    "changed_path_scope": true,
+    "head_and_index_unchanged": true
+  },
+  "inventory": [
+    {
+      "path": "events.jsonl",
+      "bytes": 2038,
+      "digest": "sha256:c3abe488910048e6557d4f68bd01f603c1cf7b5ed7197dea7c1c1afd6478f93a"
+    },
+    {
+      "path": "final-fur.md",
+      "bytes": 70121,
+      "digest": "sha256:ee2dc3096f1324a999485a941c10ccba951dde36c707cb40d53aff37605c9a89"
+    },
+    {
+      "path": "lineage.patch",
+      "bytes": 6437,
+      "digest": "sha256:0d1aefdbd4068a097c1a5daa5f013565b6d1ea87eac2c2caffebd6948cab4351"
+    },
+    {
+      "path": "metrics.json",
+      "bytes": 14099,
+      "digest": "sha256:e1f323a5c08347d032403f58eec698423117a83ee6ba0444ed057c5b52fc7a50"
+    },
+    {
+      "path": "rounds/01-author-response.md",
+      "bytes": 1838,
+      "digest": "sha256:28163bdf45d56fc2f0fb58b15e65325f57f038b85d87339732783c836fa95aa6"
+    },
+    {
+      "path": "rounds/01-review.md",
+      "bytes": 3787,
+      "digest": "sha256:ce96267189598ef41ba4d580daa2fe8698dee1bc71d26494a41b6c5be47df94d"
+    },
+    {
+      "path": "rounds/01.patch",
+      "bytes": 12233,
+      "digest": "sha256:2f797fe5abaecf0c1c11ca8ec90a56ba09b02c987adead6f4a1e465c5f79b4c0"
+    },
+    {
+      "path": "rounds/02-review.md",
+      "bytes": 2388,
+      "digest": "sha256:f52523ef071cc5ed08f1583a1a9dd1a89f26cfdd1e751eda9d8401de5810fede"
+    }
+  ],
+  "limitations": [
+    "This evidence is produced by the worker, not a separate trusted supervisor.",
+    "Round boundaries are review phases within one worker assignment, not asserted provider invocation boundaries.",
+    "Prior manifests were inspected for lineage and evidence conventions; prior review responses were not used to establish this verdict.",
+    "Schema labels describe manual review evidence; the proposed runtime schemas are not implemented."
+  ],
+  "completed_at": "2026-09-27T08:11:54.811Z"
+}

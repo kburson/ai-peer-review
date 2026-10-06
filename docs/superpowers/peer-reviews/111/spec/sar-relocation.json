@@ -1,0 +1,21 @@
+{
+  "issue": 111,
+  "kind": "informal-sar-relocation",
+  "reason": "Keep collateral within currently supported documentation root until #111 is implemented. Historical report references resolve at source_commit.",
+  "relocations": [
+    {
+      "source_commit": "52ecedd2861c98c2f3caae55801083b8d88d4925",
+      "source_path": "docs/peer-reviews/111/spec/review-01/sar.md",
+      "destination_path": "docs/superpowers/peer-reviews/111/spec/sar-review-01/sar.md",
+      "sha256": "a8697a8be30db8f9db4a04185804f916b91069c204c6c3b9cf943a66b0d23bd7",
+      "byte_identical": true
+    },
+    {
+      "source_commit": "52ecedd2861c98c2f3caae55801083b8d88d4925",
+      "source_path": "docs/peer-reviews/111/spec/review-02/sar.md",
+      "destination_path": "docs/superpowers/peer-reviews/111/spec/sar-review-02/sar.md",
+      "sha256": "53a9b750033fbcbf627c9b5b57e024f70102b3d7c052ec07e6334b11a6afe082",
+      "byte_identical": true
+    }
+  ]
+}

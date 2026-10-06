@@ -417,6 +417,63 @@ test('only the event-authorized role may create or resume an unsealed draft', (t
   );
 });
 
+test('phased drafts preserve global turn numbers while enforcing the current phase budget', (t) => {
+  const phased = fixture();
+  t.after(phased.cleanup);
+  phased.review.protocol.max_turns = 1;
+  phased.review.protocol.turns_used = 1;
+  phased.review.protocol.phases = {
+    kinds: ['spec', 'plan'],
+    cursor: 1,
+    current_kind: 'plan',
+    phase_turns_used: 0,
+    completed: [],
+  };
+  assert.equal(createResponseDraft(phased.review, 'reviewer', 2).metadata.turn, 2);
+
+  const exhausted = fixture();
+  t.after(exhausted.cleanup);
+  exhausted.review.protocol.max_turns = 1;
+  exhausted.review.protocol.turns_used = 2;
+  exhausted.review.protocol.phases = {
+    kinds: ['spec', 'plan'],
+    cursor: 1,
+    current_kind: 'plan',
+    phase_turns_used: 1,
+    completed: [],
+  };
+  assert.throws(
+    () => createResponseDraft(exhausted.review, 'reviewer', 3),
+    (error) => error.code === 'APR_RESPONSE_INVALID'
+  );
+
+  const legacy = fixture();
+  t.after(legacy.cleanup);
+  legacy.review.protocol.max_turns = 1;
+  legacy.review.protocol.turns_used = 1;
+  assert.throws(
+    () => createResponseDraft(legacy.review, 'reviewer', 2),
+    (error) => error.code === 'APR_RESPONSE_INVALID'
+  );
+});
+
+test('phased collateral reservation covers every globally numbered phase turn', (t) => {
+  const phased = fixture();
+  t.after(phased.cleanup);
+  phased.review.protocol.max_turns = 1;
+  phased.review.protocol.phases = {
+    kinds: ['spec', 'plan'],
+    cursor: 0,
+    current_kind: 'spec',
+    phase_turns_used: 0,
+    completed: [],
+  };
+  const reservation = reserveCollateral(phased.review).reservation;
+  assert.equal(reservation.paths.length, 6);
+  assert.ok(reservation.paths.includes(phased.review.paths.reviewerResponse(2).relative));
+  assert.ok(reservation.paths.includes(phased.review.paths.authorResponse(2).relative));
+});
+
 test('collateral reservation is idempotent, refuses partial output, and derives foreign recovery', (t) => {
   const empty = fixture();
   t.after(empty.cleanup);

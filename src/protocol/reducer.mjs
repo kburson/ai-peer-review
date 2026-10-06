@@ -1,6 +1,8 @@
 import { AprError } from '../errors.mjs';
 import { digestChallenge, digestGrantParameters } from '../authority/canonicalize.mjs';
-import { eventAdvancesRevision, validateEvent } from './events.mjs';
+import { identityEvidence } from '../identity/evidence.mjs';
+import { assertReaderCompatibility, EVENT_V2_SCHEMA } from './compatibility.mjs';
+import { eventAdvancesRevision, validateVersionedEvent } from './events.mjs';
 
 export const LIFECYCLE_EVENT_TYPES = Object.freeze([
   'review-created',
@@ -62,6 +64,7 @@ const TRANSITIONS = new Map([
   ['intervention-required|participant-replaced', 'restore'],
   ['intervention-required|override-committed', 'accepted-over-objections'],
   ['intervention-required|override-sealed-no-commit', 'accepted-over-objections-uncommitted'],
+  ['awaiting-reviewer|abandoned', 'abandoned'],
   ['intervention-required|abandoned', 'abandoned'],
 ]);
 
@@ -73,6 +76,7 @@ const STATE_PRESERVING = new Set([
   'supplement-registered',
   'delivery-written',
   'delivery-acknowledged',
+  'lock-reclaimed',
 ]);
 
 function copy(value) {
@@ -400,6 +404,20 @@ function applyLifecycle(protocol, participants, event) {
   ) {
     throw transitionError(protocol.state, event, 'non-final phase cannot terminate the review');
   }
+  if (protocol.state === 'awaiting-reviewer' && event.type === 'abandoned') {
+    if (
+      protocol.startup?.runtime?.ownership !== 'broker' ||
+      participants.reviewer ||
+      event.actor !== participants.author?.session_fingerprint ||
+      event.payload.intervention_id !== 'unjoined'
+    ) {
+      throw transitionError(
+        protocol.state,
+        event,
+        'unjoined retirement requires the sealed author'
+      );
+    }
+  }
   const target = TRANSITIONS.get(`${String(protocol.state)}|${event.type}`);
   if (!target) {
     if (event.type === 'same-session-reclaim' && protocol.state !== 'intervention-required') {
@@ -491,6 +509,11 @@ function applyLifecycle(protocol, participants, event) {
 function applyProjection(state, event) {
   const protocol = state.protocol;
   const participants = state.participants;
+  if (event.type === 'compatibility-declared') {
+    protocol.sequence = event.sequence;
+    protocol.revision = event.revision;
+    return;
+  }
   if (STATE_PRESERVING.has(event.type)) ensureStatePreservingAllowed(protocol, event);
 
   if (
@@ -598,6 +621,8 @@ function applyProjection(state, event) {
     protocol.max_turns = event.payload.max_turns;
     protocol.claim_ttl_ms = event.payload.claim_ttl_ms;
     protocol.authority = copy(event.payload.authority);
+    // The closed event validator admits optional runtime authority here; copying
+    // the whole startup object preserves byte-compatible legacy authority when absent.
     protocol.startup = copy(event.payload.startup);
     protocol.transports.author = event.payload.startup.author_transport_capability;
     protocol.artifact = copy(event.payload.artifact);
@@ -770,8 +795,53 @@ function deepFreeze(value) {
 export function reduceEvents(events) {
   if (!Array.isArray(events)) throw projectionError('events must be an array');
   const state = initialProjection();
+  let compatibility = null;
+  let declarationPending = false;
+  let sawV2 = false;
   events.forEach((event, index) => {
-    validateEvent(event);
+    validateVersionedEvent(event);
+    if (
+      declarationPending &&
+      (event.schema !== EVENT_V2_SCHEMA || event.type === 'compatibility-declared')
+    ) {
+      throw new AprError(
+        'APR_READER_UPGRADE_REQUIRED',
+        'A compatibility declaration must be immediately followed by the first substantive v2 event.',
+        { recovery: 'Restore the atomic compatibility declaration and v2 event batch.' }
+      );
+    }
+    if (event.schema === EVENT_V2_SCHEMA) {
+      if (event.type === 'compatibility-declared') {
+        if (index === 0 || sawV2 || declarationPending) {
+          throw new AprError(
+            'APR_READER_UPGRADE_REQUIRED',
+            'A compatibility declaration must precede the first v2 event in a legacy log.',
+            { recovery: 'Restore the authoritative mixed-log declaration and retry.' }
+          );
+        }
+        compatibility = event.payload.compatibility;
+        assertReaderCompatibility(compatibility);
+        declarationPending = true;
+      } else {
+        if (!sawV2) {
+          const declaration = events[index - 1];
+          if (
+            declaration?.schema !== EVENT_V2_SCHEMA ||
+            declaration.type !== 'compatibility-declared'
+          ) {
+            throw new AprError(
+              'APR_READER_UPGRADE_REQUIRED',
+              'The first v2 event must be immediately preceded by compatibility authority.',
+              { recovery: 'Restore the atomic compatibility declaration and v2 event batch.' }
+            );
+          }
+          compatibility = declaration.payload.compatibility;
+        }
+        assertReaderCompatibility(compatibility);
+        declarationPending = false;
+        sawV2 = true;
+      }
+    }
     if (event.sequence !== index + 1) throw projectionError('event sequence');
     if (state.protocol.review_id !== null && event.review_id !== state.protocol.review_id) {
       throw projectionError('review ID');
@@ -780,5 +850,28 @@ export function reduceEvents(events) {
     if (event.revision !== expectedRevision) throw projectionError('event revision');
     applyProjection(state, event);
   });
+  if (declarationPending) {
+    throw new AprError(
+      'APR_READER_UPGRADE_REQUIRED',
+      'A compatibility declaration must be immediately followed by the first substantive v2 event.',
+      { recovery: 'Restore the atomic compatibility declaration and v2 event batch.' }
+    );
+  }
+  if (sawV2) {
+    state.protocol.schema = 'ai-peer-review.protocol/v2';
+    state.protocol.compatibility = copy(compatibility);
+    state.participants.schema = 'ai-peer-review.participants/v2';
+    for (const role of ['author', 'reviewer']) {
+      const participant = state.participants[role];
+      if (participant && !participant.evidence) {
+        participant.evidence = identityEvidence({
+          sessionFingerprint: participant.session_fingerprint,
+          sessionSource: 'legacy-unclassified',
+          modelId: participant.model_id,
+          modelSource: 'legacy-unclassified',
+        });
+      }
+    }
+  }
   return deepFreeze(state);
 }

@@ -320,20 +320,27 @@ export function createGitTransactionRepository(cwd, { execFileSync = nodeExecFil
   function transactionFile(trailers) {
     const reviewId = trailers['Peer-Review-ID'];
     const turn = trailers['Peer-Review-Turn'];
+    const phase = trailers['Peer-Review-Phase'];
     if (
       typeof reviewId !== 'string' ||
       !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(reviewId) ||
       typeof turn !== 'string' ||
-      !/^[1-9][0-9]*$/.test(turn)
+      !/^[1-9][0-9]*$/.test(turn) ||
+      (phase !== undefined && (typeof phase !== 'string' || !/^[1-9][0-9]*$/.test(phase)))
     ) {
       fail(
         'APR_GIT_TRANSACTION_INVALID',
         'Review identity trailers cannot name a transaction journal.',
-        'Use the event-authorized Peer-Review-ID and Peer-Review-Turn trailers.'
+        'Use the event-authorized Peer-Review-ID, Peer-Review-Turn, and optional Peer-Review-Phase trailers.'
       );
     }
+    const suffix = phase === undefined ? '' : `-phase-${phase}`;
     const value = String(
-      run(['rev-parse', '--git-path', `ai-peer-review/transactions/${reviewId}-${turn}.json`])
+      run([
+        'rev-parse',
+        '--git-path',
+        `ai-peer-review/transactions/${reviewId}-${turn}${suffix}.json`,
+      ])
     ).trim();
     return path.isAbsolute(value) ? value : path.resolve(root, value);
   }

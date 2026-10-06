@@ -6,6 +6,8 @@
   "ignores": [
     "node_modules/**",
     "coverage/**",
+    ".tmp/**",
+    ".claude/worktrees/**",
     ".scratch/**",
     ".ai-task-manager/memory/**",
     ".ai-task-manager/templates/**",
@@ -20,7 +22,10 @@
     "templates/reviewer-response.md",
     "templates/human-decision.md",
     "test/golden/templates/**",
-    "docs/peer-reviews/**/*author-response-*.md",
-    "docs/peer-reviews/**/*reviewer-response-*.md",
+    "docs/superpowers/peer-reviews/**/payloads/*.md",
+    "docs/superpowers/peer-reviews/**/rounds/*-review.md",
+    "docs/superpowers/peer-reviews/**/rounds/*-reviewer-response.md",
+    "docs/superpowers/peer-reviews/**/*author-response-*.md",
+    "docs/superpowers/peer-reviews/**/*reviewer-response-*.md",
   ],
 }

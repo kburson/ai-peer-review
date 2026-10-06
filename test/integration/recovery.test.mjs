@@ -1,3 +1,8 @@
+import {
+  fixtureSelection,
+  fixtureStartupDeps,
+  fixtureObservation,
+} from '../helpers/internal-api.mjs';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
@@ -180,6 +185,7 @@ test('different-fingerprint recovery consumes exact replacement authority and pr
   const fx = interventionFixture();
   t.after(fx.cleanup);
   const fixtureId = 'replacement-authority';
+  let suspensions = 0;
   const author = interventionIdentity('author', 'replacement-author');
   const reviewer = interventionIdentity('reviewer', 'replacement-reviewer');
   const replacement = interventionIdentity(
@@ -187,18 +193,34 @@ test('different-fingerprint recovery consumes exact replacement authority and pr
     'replacement-new-reviewer',
     '2026-09-09T03:01:00.000Z'
   );
-  const started = await api.startReview({
-    cwd: fx.root,
-    artifact: 'docs/artifact.md',
-    artifactKind: 'spec',
-    identity: author,
-    reviewId: 'replacement-review',
-    noCommit: true,
-    testHumanAuthority: fixtureId,
-    claimTtlMs: 60 * 60 * 1000,
-    now: '2026-09-09T02:00:00.000Z',
-  });
+  const started = await api.startReview(
+    {
+      ...fixtureSelection('codex', 'gpt-test'),
+      transportMode: 'resume-only',
+      transportCapability: 'resume-only',
+      cwd: fx.root,
+      artifact: 'docs/artifact.md',
+      artifactKind: 'spec',
+      identity: author,
+      reviewId: 'replacement-review',
+      noCommit: true,
+      testHumanAuthority: fixtureId,
+      claimTtlMs: 60 * 60 * 1000,
+      now: '2026-09-09T02:00:00.000Z',
+    },
+    {
+      ...fixtureStartupDeps,
+      adapters: {
+        codex: {
+          ...fixtureStartupDeps.adapters.codex,
+          capabilities: { ...fixtureStartupDeps.adapters.codex.capabilities, native: [] },
+        },
+      },
+    }
+  );
   await api.joinReview({
+    runtimeObservation: fixtureObservation(),
+    transportCapability: 'resume-only',
     cwd: fx.root,
     invitation: started.paths.reviewer_invitation,
     identity: reviewer,
@@ -255,6 +277,12 @@ test('different-fingerprint recovery consumes exact replacement authority and pr
         now: '2026-09-09T03:01:00.000Z',
       },
       {
+        connect: async () => ({
+          request: async () => {
+            suspensions++;
+            return { status: 'recovery-only' };
+          },
+        }),
         checkpoint(name) {
           if (name === 'participant-replaced') throw new Error('simulated interruption');
         },
@@ -262,6 +290,7 @@ test('different-fingerprint recovery consumes exact replacement authority and pr
     ),
     /simulated interruption/
   );
+  assert.equal(suspensions, 1);
   const interrupted = await readReview(started.paths.workspace);
   assert.equal(
     interrupted.participants.reviewer.session_fingerprint,

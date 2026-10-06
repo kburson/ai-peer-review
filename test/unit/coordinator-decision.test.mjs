@@ -166,6 +166,38 @@ test('terminal and intervention projections select bounded author pointers', () 
   assert.equal(intervention.capsule.reason, 'human-intervention-required');
 });
 
+test('phased handoffs retain exact author and reviewer receipt routing', () => {
+  const workspace = '/repo/.scratch/peer-review/review-decision-01';
+  const authorDecision = decideWake({
+    authority: authority({
+      protocol: {
+        state: 'awaiting-phase-artifact',
+        current_actor: 'author',
+        next_action: 'advance-phase-artifact',
+      },
+    }),
+    delivery: delivery({
+      delivery_id: 'phase-0-to-author',
+      recipient: 'author',
+    }),
+    observation: observation({ session_fingerprint: AUTHOR }),
+    workspace,
+    now: NOW,
+  });
+  assert.equal(authorDecision.capsule.target_role, 'author');
+  assert.equal(authorDecision.delivery.receipt_verified, true);
+
+  const reviewerDecision = decideWake({
+    authority: authority(),
+    delivery: delivery({ delivery_id: 'phase-1-to-reviewer' }),
+    observation: observation(),
+    workspace,
+    now: NOW,
+  });
+  assert.equal(reviewerDecision.capsule.target_role, 'reviewer');
+  assert.equal(reviewerDecision.delivery.receipt_verified, true);
+});
+
 test('rejects caller-selected workspace and oversized command bytes', () => {
   assert.throws(
     () =>

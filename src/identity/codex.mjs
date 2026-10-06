@@ -3,13 +3,26 @@ function frozen(values) {
 }
 
 function resolveRuntime({ runtime = {}, env = {} } = {}) {
-  const sessionId = runtime.sessionId ?? env.CODEX_THREAD_ID ?? env.CODEX_SESSION_ID;
-  const modelId = runtime.modelId ?? env.CODEX_MODEL_ID;
+  const runtimeSession = runtime.sessionId;
+  const runtimeModel = runtime.modelId;
+  const sessionId = runtimeSession ?? env.CODEX_THREAD_ID ?? env.CODEX_SESSION_ID;
+  const modelId = runtimeModel ?? env.CODEX_MODEL_ID;
   const modelDisplay = runtime.modelDisplay ?? env.CODEX_MODEL_DISPLAY ?? modelId;
   if (![sessionId, modelId, modelDisplay].every((value) => typeof value === 'string' && value)) {
     return null;
   }
-  return { host: 'codex', provider: 'openai', sessionId, modelId, modelDisplay, source: 'runtime' };
+  const sessionSource = runtimeSession ? 'official-runtime' : 'environment-declaration';
+  const modelSource = runtimeModel ? 'official-runtime' : 'environment-declaration';
+  return {
+    host: 'codex',
+    provider: 'openai',
+    sessionId,
+    modelId,
+    modelDisplay,
+    source: 'runtime',
+    sessionSource,
+    modelSource,
+  };
 }
 
 export const codexAdapter = Object.freeze({

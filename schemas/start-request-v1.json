@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.start-request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.start-request/v1"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "filepath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "sar"
+              },
+              "max_rounds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              "profile": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "prior_evidence": {
+                "enum": ["independent", "shared"]
+              },
+              "fallback_kinds": {
+                "type": "array",
+                "items": {
+                  "enum": ["sar"]
+                },
+                "minItems": 1,
+                "uniqueItems": true,
+                "contains": {
+                  "const": "sar"
+                }
+              },
+              "participants": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "solo": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "effort": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": []
+              }
+            },
+            "required": ["kind"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "spr"
+              },
+              "max_rounds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              "profile": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "prior_evidence": {
+                "enum": ["independent", "shared"]
+              },
+              "fallback_kinds": {
+                "type": "array",
+                "items": {
+                  "enum": ["spr", "xpr"]
+                },
+                "minItems": 1,
+                "uniqueItems": true,
+                "contains": {
+                  "const": "spr"
+                }
+              },
+              "participants": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "author": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "effort": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": []
+                  },
+                  "reviewer": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "effort": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": []
+              }
+            },
+            "required": ["kind"]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "xpr"
+              },
+              "max_rounds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+              },
+              "profile": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "prior_evidence": {
+                "enum": ["independent", "shared"]
+              },
+              "fallback_kinds": {
+                "type": "array",
+                "items": {
+                  "enum": ["spr", "xpr"]
+                },
+                "minItems": 1,
+                "uniqueItems": true,
+                "contains": {
+                  "const": "xpr"
+                }
+              },
+              "participants": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "author": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "effort": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": []
+                  },
+                  "reviewer": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "model": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      },
+                      "effort": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 256
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": []
+              }
+            },
+            "required": ["kind"]
+          }
+        ]
+      },
+      "minItems": 1
+    },
+    "lineage_mode": {
+      "enum": ["frontmatter", "sidecar"]
+    },
+    "unattended": {
+      "type": "boolean"
+    }
+  },
+  "required": ["schema", "request_id", "filepath", "stages"]
+}

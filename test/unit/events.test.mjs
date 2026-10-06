@@ -2,19 +2,141 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { EVENT_TYPES, eventAdvancesRevision, validateEvent } from '../../src/protocol/events.mjs';
-import { event } from '../helpers/review-fixture.mjs';
+import {
+  EVENT_TYPES,
+  eventAdvancesRevision,
+  validateEvent,
+  validateVersionedEvent,
+} from '../../src/protocol/events.mjs';
+import { event, v2Event } from '../helpers/review-fixture.mjs';
 
 test('schema artifacts identify the three closed v1 projections', () => {
   for (const [file, id] of [
     ['schemas/event-v1.json', 'ai-peer-review.event/v1'],
     ['schemas/protocol-v1.json', 'ai-peer-review.protocol/v1'],
     ['schemas/participants-v1.json', 'ai-peer-review.participants/v1'],
+    ['schemas/runtime-v1.json', 'ai-peer-review.runtime/v1'],
   ]) {
     const schema = JSON.parse(readFileSync(new URL(`../../${file}`, import.meta.url)));
     assert.equal(schema.$id, id);
     assert.equal(schema.additionalProperties, false);
   }
+});
+
+test('event-v2 compatibility artifacts are closed and independently versioned', () => {
+  for (const [file, id] of [
+    ['schemas/event-v2.json', 'ai-peer-review.event/v2'],
+    ['schemas/protocol-v2.json', 'ai-peer-review.protocol/v2'],
+    ['schemas/participants-v2.json', 'ai-peer-review.participants/v2'],
+  ]) {
+    const schema = JSON.parse(readFileSync(new URL(`../../${file}`, import.meta.url)));
+    assert.equal(schema.$id, id);
+    assert.equal(schema.additionalProperties, false);
+  }
+});
+
+test('v2 schema artifacts define the evidence-bearing participant contract', () => {
+  for (const file of ['schemas/event-v2.json', 'schemas/participants-v2.json']) {
+    const schema = JSON.parse(readFileSync(new URL(`../../${file}`, import.meta.url)));
+    assert.equal(schema.$defs.participant.required.includes('evidence'), true, file);
+    assert.deepEqual(schema.$defs.evidence.required, ['session', 'model'], file);
+    const observationRule = schema.$defs.modelEvidence.allOf[0];
+    assert.equal(
+      observationRule.if.properties.source.const,
+      'provider-result',
+      `${file} provider source`
+    );
+    assert.equal(
+      observationRule.then.properties.observed_id.type,
+      'string',
+      `${file} observed model`
+    );
+    assert.equal(observationRule.else.properties.observed_id.const, null, `${file} declared model`);
+  }
+});
+
+test('versioned validation selects the envelope schema and names a reader upgrade for unknown events', () => {
+  assert.equal(validateVersionedEvent(event('review-created')), true);
+  assert.equal(validateVersionedEvent(v2Event('compatibility-declared')), true);
+  assert.throws(
+    () =>
+      validateVersionedEvent({ ...event('review-created'), schema: 'ai-peer-review.event/v99' }),
+    (error) => error.code === 'APR_READER_UPGRADE_REQUIRED'
+  );
+});
+
+test('lock-reclaimed is a closed sequence-only v2 event and remains unavailable to v1 writers', () => {
+  const reclaimed = v2Event('lock-reclaimed', {
+    actor: 'system',
+    sequence: 3,
+    revision: 1,
+  });
+  assert.equal(validateVersionedEvent(reclaimed), true);
+  assert.equal(eventAdvancesRevision('lock-reclaimed'), false);
+  assert.throws(
+    () => validateEvent({ ...reclaimed, schema: 'ai-peer-review.event/v1' }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  assert.throws(
+    () => validateVersionedEvent({ ...reclaimed, actor: `sha256:${'a'.repeat(64)}` }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+});
+
+test('v2 participant events require exact provenance evidence while v1 remains frozen', () => {
+  const v2 = v2Event('reviewer-joined');
+  v2.payload.reviewer.evidence = {
+    session: {
+      fingerprint: v2.payload.reviewer.session_fingerprint,
+      source: 'provider-result',
+      assurance: 'observed',
+    },
+    model: {
+      requested_id: null,
+      declared_id: 'gpt-test',
+      observed_id: 'gpt-test',
+      source: 'provider-result',
+      assurance: 'observed',
+      conflict: false,
+    },
+  };
+
+  assert.equal(validateVersionedEvent(v2), true);
+  const mislabeled = structuredClone(v2);
+  mislabeled.payload.reviewer.evidence.session.assurance = 'declared';
+  assert.throws(
+    () => validateVersionedEvent(mislabeled),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  const incompleteObservation = structuredClone(v2);
+  incompleteObservation.payload.reviewer.evidence.model.observed_id = null;
+  incompleteObservation.payload.reviewer.evidence.model.conflict = false;
+  assert.throws(
+    () => validateVersionedEvent(incompleteObservation),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  const emptyObservation = structuredClone(v2);
+  emptyObservation.payload.reviewer.evidence.model.observed_id = '';
+  emptyObservation.payload.reviewer.evidence.model.conflict = false;
+  assert.throws(
+    () => validateVersionedEvent(emptyObservation),
+    (error) =>
+      error.code === 'APR_EVENT_INVALID' &&
+      error.details.reason === 'reviewer-joined reviewer model observation'
+  );
+  const inventedObservation = structuredClone(v2);
+  inventedObservation.payload.reviewer.evidence.model.source = 'environment-declaration';
+  inventedObservation.payload.reviewer.evidence.model.assurance = 'declared';
+  inventedObservation.payload.reviewer.evidence.model.declared_id = null;
+  inventedObservation.payload.reviewer.evidence.model.conflict = false;
+  assert.throws(
+    () => validateVersionedEvent(inventedObservation),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  assert.throws(
+    () => validateEvent({ ...v2, schema: 'ai-peer-review.event/v1' }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
 });
 
 test('event schema closes every event payload and nested object contract', () => {
@@ -46,6 +168,70 @@ test('rejects unknown event fields, types, and payload fields', () => {
       (error) => error.code === 'APR_EVENT_INVALID'
     );
   }
+});
+
+test('accepts optional sibling startup runtime but keeps legacy startup valid', () => {
+  const created = event('review-created');
+  const legacy = structuredClone(created);
+  const runtime = {
+    schema: 'ai-peer-review.runtime/v1',
+    classification: 'XPR',
+    ownership: 'broker',
+    transport_mode: 'manual',
+    reviewer: {
+      selector: 'claude',
+      provider: 'anthropic',
+      host: 'claude-code',
+      model_id: 'fixture-opus',
+      model_display: 'Fixture Opus',
+      effort: 'high',
+    },
+    adapter_version: '1.0.0',
+    project_root_digest: 'a'.repeat(64),
+  };
+  assert.equal(validateEvent(legacy), true);
+  assert.equal(
+    validateEvent({
+      ...created,
+      payload: { ...created.payload, startup: { ...created.payload.startup, runtime } },
+    }),
+    true
+  );
+  assert.throws(
+    () =>
+      validateEvent({
+        ...created,
+        payload: {
+          ...created.payload,
+          startup: { ...created.payload.startup, runtime: { ...runtime, unexpected: true } },
+        },
+      }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+  assert.throws(
+    () =>
+      validateEvent({
+        ...created,
+        payload: {
+          ...created.payload,
+          startup: {
+            ...created.payload.startup,
+            transport_mode: 'resume-only',
+            author_transport_capability: 'resume-only',
+            runtime,
+          },
+        },
+      }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
+});
+
+test('rejects malformed startup objects with the stable event error', () => {
+  const created = event('review-created');
+  assert.throws(
+    () => validateEvent({ ...created, payload: { ...created.payload, startup: null } }),
+    (error) => error.code === 'APR_EVENT_INVALID'
+  );
 });
 
 test('rejects prototype-key event types with the stable event error', () => {

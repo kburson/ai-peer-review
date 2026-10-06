@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.protocol/v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "review_id",
+    "sequence",
+    "revision",
+    "state",
+    "current_actor",
+    "commit_mode",
+    "max_turns",
+    "claim_ttl_ms",
+    "authority",
+    "startup",
+    "reviewer_boundary",
+    "transports",
+    "turns_used",
+    "artifact",
+    "claims",
+    "challenges",
+    "supplements",
+    "deliveries",
+    "intervention",
+    "terminal_evidence",
+    "next_action",
+    "compatibility"
+  ],
+  "properties": {
+    "schema": { "const": "ai-peer-review.protocol/v2" },
+    "review_id": { "type": ["string", "null"] },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "state": { "type": ["string", "null"] },
+    "current_actor": { "type": ["string", "null"] },
+    "commit_mode": { "type": ["string", "null"] },
+    "max_turns": { "type": "integer", "minimum": 0 },
+    "claim_ttl_ms": { "type": "integer", "minimum": 0 },
+    "authority": { "type": ["object", "null"] },
+    "startup": { "type": ["object", "null"] },
+    "reviewer_boundary": { "type": ["object", "null"] },
+    "transports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["author", "reviewer"],
+      "properties": {
+        "author": { "enum": ["manual", "resume-only", "live-wait", "native-push", null] },
+        "reviewer": { "enum": ["manual", "resume-only", "live-wait", "native-push", null] }
+      }
+    },
+    "turns_used": { "type": "integer", "minimum": 0 },
+    "artifact": { "type": ["object", "null"] },
+    "claims": { "type": "object" },
+    "challenges": { "type": "array" },
+    "supplements": { "type": "array" },
+    "deliveries": { "type": "array" },
+    "intervention": { "type": ["object", "null"] },
+    "terminal_evidence": { "type": ["object", "null"] },
+    "next_action": { "type": ["string", "null"] },
+    "phases": { "$ref": "protocol-v1.json#/properties/phases" },
+    "compatibility": {
+      "anyOf": [{ "type": "null" }, { "$ref": "event-v2.json#/$defs/compatibility" }]
+    }
+  }
+}

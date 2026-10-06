@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.provider-resource/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "resource_digest",
+    "owner_project_root_digest",
+    "instance_id",
+    "nonce_digest",
+    "acquired_at",
+    "heartbeat_at",
+    "diagnostic_at"
+  ],
+  "properties": {
+    "schema": { "const": "ai-peer-review.provider-resource/v1" },
+    "resource_digest": { "$ref": "#/$defs/digest" },
+    "owner_project_root_digest": { "$ref": "#/$defs/digest" },
+    "instance_id": { "$ref": "#/$defs/digest" },
+    "nonce_digest": { "$ref": "#/$defs/digest" },
+    "acquired_at": { "$ref": "#/$defs/time" },
+    "heartbeat_at": { "$ref": "#/$defs/time" },
+    "diagnostic_at": { "$ref": "#/$defs/time" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "time": { "type": "string", "format": "date-time" }
+  }
+}

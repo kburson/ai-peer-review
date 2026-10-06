@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
 import { AprError } from '../../src/errors.mjs';
@@ -9,29 +9,28 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     await readFile(new URL('../../package.json', import.meta.url), 'utf8')
   );
 
-  assert.equal(packageJson.name, 'ai-peer-review');
-  assert.equal(packageJson.version, '0.2.2');
+  assert.equal(packageJson.name, '@kburson/ai-peer-review');
+  assert.equal(packageJson.version, '0.4.0');
   assert.equal(packageJson.type, 'module');
   assert.equal(packageJson.engines.node, '>=24');
   assert.equal(packageJson.bin['peer-review'], './bin/peer-review.mjs');
   assert.equal(packageJson.bin['peer-review-mcp'], './bin/peer-review-mcp.mjs');
   assert.deepEqual(packageJson.dependencies, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    'node-gyp': '12.4.0',
+    prettier: '3.8.3',
     zod: '4.6.2',
   });
-  assert.deepEqual(packageJson.devDependencies, {
-    'ai-task-manager': 'file:vendors/kburson-ai-task-manager-1.0.0.tgz',
-    cspell: '8.19.4',
-    eslint: '9.39.4',
-    'markdownlint-cli2': '0.23.2',
-    prettier: '3.8.3',
-  });
   assert.deepEqual(packageJson.scripts, {
+    'build:broker-security': 'node scripts/build-broker-security.mjs',
+    'pretarball:install': 'npm uninstall -D @kburson/ai-task-manager',
+    'tarball:install': 'npm install -D file:vendors/kburson-ai-task-manager-0.1.0.tgz',
     test: 'npm run test:unit && npm run test:golden',
     'test:unit': 'node --test "test/unit/**/*.test.mjs"',
     'test:golden': 'node --test "test/golden/**/*.test.mjs"',
-    'test:integration': 'node --test "test/integration/**/*.test.mjs"',
+    'test:integration': 'node --test --test-concurrency=2 "test/integration/**/*.test.mjs"',
     'test:packaging': 'node --test "test/packaging/**/*.test.mjs"',
+    'test:live:broker-handoff': 'node test/live/installed-broker-handoff.mjs',
     'test:smoke': 'node --test "test/smoke/**/*.test.mjs"',
     'test:mcp': 'node --test "test/mcp/**/*.test.mjs"',
     'test:slow': 'npm run test:integration && npm run test:mcp && npm run test:smoke',
@@ -49,10 +48,25 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     'provenance/',
     'scripts/verify-extraction.mjs',
     'scripts/verify-release.mjs',
+    'native/broker-security/binding.gyp',
+    'native/broker-security/addon.cc',
+    'native/broker-security/posix.cc',
+    'native/broker-security/windows.cc',
+    'scripts/build-broker-security.mjs',
     'LICENSE',
     'NOTICE',
     'README.md',
   ]);
+});
+
+test('configured local AITM tarball exists', async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL('../../package.json', import.meta.url), 'utf8')
+  );
+  const dependency = packageJson.devDependencies?.['@kburson/ai-task-manager'];
+
+  assert.match(dependency, /^file:/);
+  await access(new URL(`../../${dependency.slice('file:'.length)}`, import.meta.url));
 });
 
 test('repository tooling configuration is explicit and credential-free', async () => {
@@ -70,7 +84,7 @@ test('repository tooling configuration is explicit and credential-free', async (
   for (const ignored of ['node_modules/', 'coverage/', '*.tgz', '.scratch/peer-review/']) {
     assert.match(gitignore, new RegExp(ignored.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
-  assert.match(gitignore, /!vendors\/kburson-ai-task-manager-1\.0\.0\.tgz/);
+  assert.match(gitignore, /!vendors\/kburson-ai-task-manager-0\.1\.0\.tgz/);
   assert.equal(JSON.parse(prettier).singleQuote, true);
   assert.match(markdownlint, /"MD013": false/);
   assert.equal(JSON.parse(spelling).version, '0.2');

@@ -108,8 +108,8 @@ test('Claude mixed identity fails closed without a runtime session or declared m
       }),
     (error) =>
       error.code === 'APR_IDENTITY_REQUIRED' &&
-      error.recovery.includes('hosts.claude.identity.model_id') &&
-      error.recovery.includes('hosts.claude.identity.model_display')
+      error.recovery.includes('provider hook') &&
+      error.recovery.includes('current model')
   );
 });
 
@@ -243,7 +243,7 @@ test('model refresh emits an identity-change event without exposing raw IDs', ()
   assert.equal(identityChangeEvent(review, current, { ...current }, new Date(joinedAt)), null);
 });
 
-test('participantIdentity returns a closed Task 4-compatible participant', () => {
+test('participantIdentity carries evidence while its v1 projection remains closed', () => {
   const identity = participantIdentity({
     role: 'author',
     host: 'codex',
@@ -255,6 +255,7 @@ test('participantIdentity returns a closed Task 4-compatible participant', () =>
     joinedAt,
   });
   assert.deepEqual(Object.keys(identity).sort(), [
+    'evidence',
     'host',
     'identity_source',
     'joined_at',
@@ -264,6 +265,7 @@ test('participantIdentity returns a closed Task 4-compatible participant', () =>
     'role',
     'session_fingerprint',
   ]);
+  assert.deepEqual(Object.keys(identity.evidence).sort(), ['model', 'session']);
   assert.equal(Object.isFrozen(identity), true);
 });
 
