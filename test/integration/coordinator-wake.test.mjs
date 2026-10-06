@@ -17,6 +17,8 @@ import {
   runCoordinator,
 } from '../../src/coordinator/service.mjs';
 
+import { sourceCliProject } from '../helpers/source-cli-project.mjs';
+
 const NOW = Date.parse('2026-09-13T12:00:00.000Z');
 const REVIEWER = `sha256:${'b'.repeat(64)}`;
 const AUTHOR = `sha256:${'a'.repeat(64)}`;
@@ -122,12 +124,12 @@ function input(root, wakeAdapter, now = NOW) {
   };
 }
 
-function brokerIo(respond, evidence = {}) {
+function brokerIo(cwd, respond, evidence = {}) {
   const stdout = [];
   const stderr = [];
   const requests = [];
   return {
-    cwd: process.cwd(),
+    cwd,
     env: {},
     now: new Date(NOW),
     stdout: { write: (value) => stdout.push(String(value)) },
@@ -207,8 +209,9 @@ test('bounded coordinator status reports the latest durable outcome without sess
 });
 
 test('closed broker CLI authenticates project routing and refuses suspension without review authority', async (t) => {
-  const root = workspace(t);
-  const io = brokerIo((message) => {
+  const fixture = sourceCliProject(t);
+  const root = fixture.workspace;
+  const io = brokerIo(fixture.root, (message) => {
     if (message.command === 'status') {
       return {
         status: 'running',
@@ -228,7 +231,7 @@ test('closed broker CLI authenticates project routing and refuses suspension wit
     };
   });
 
-  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0);
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0, io.stderrBytes.join(''));
   const reconciled = JSON.parse(io.stdoutBytes.at(-1));
   assert.equal(reconciled.command, 'reconcile');
   assert.equal(reconciled.status, 'automatic-wait');
@@ -248,17 +251,18 @@ test('closed broker CLI authenticates project routing and refuses suspension wit
       ['stop', null],
     ]
   );
-  assert.ok(io.brokerRequests.every(({ project }) => project.physicalRoot === process.cwd()));
+  assert.ok(io.brokerRequests.every(({ project }) => project.physicalRoot === fixture.root));
 });
 
 test('broker stop refuses runnable and unreconciled project work', async (t) => {
-  const root = workspace(t);
+  const fixture = sourceCliProject(t);
+  const root = fixture.workspace;
   const refused = () => {
     throw new AprError('APR_BROKER_STOP_REFUSED', 'Broker owns runnable work.', {
       recovery: 'Reconcile or suspend the exact review.',
     });
   };
-  const runnable = brokerIo(refused);
+  const runnable = brokerIo(fixture.root, refused);
   assert.equal(await run(['broker', 'stop', '--json'], runnable), 1);
   assert.equal(JSON.parse(runnable.stderrBytes.at(-1)).code, 'APR_BROKER_STOP_REFUSED');
   assert.deepEqual(
@@ -266,7 +270,7 @@ test('broker stop refuses runnable and unreconciled project work', async (t) => 
     ['stop']
   );
 
-  const unreconciled = brokerIo(refused, {
+  const unreconciled = brokerIo(fixture.root, refused, {
     unreconciled_workspaces: [root],
   });
   assert.equal(await run(['broker', 'stop', '--json'], unreconciled), 1);
@@ -278,8 +282,9 @@ test('broker stop refuses runnable and unreconciled project work', async (t) => 
 });
 
 test('offline broker status reports recovery evidence without starting a broker', async (t) => {
-  const root = workspace(t);
-  const io = brokerIo(() => null, {
+  const fixture = sourceCliProject(t);
+  const root = fixture.workspace;
+  const io = brokerIo(fixture.root, () => null, {
     registrations: [path.join(root, 'registration.json')],
     recovery_records: [path.join(root, 'recovery.json')],
     unreconciled_workspaces: [root],
@@ -371,8 +376,9 @@ test('offline broker status survives a real missing native security helper witho
 });
 
 test('offline broker reconcile restarts exact pinned runtime without replaying a launch', async (t) => {
-  const root = workspace(t);
-  const io = brokerIo(() => ({ status: 'recovery-only' }));
+  const fixture = sourceCliProject(t);
+  const root = fixture.workspace;
+  const io = brokerIo(fixture.root, () => ({ status: 'recovery-only' }));
   io.brokerConnect = async () => {
     throw Object.assign(new Error('missing discovery'), { code: 'APR_BROKER_STALE' });
   };

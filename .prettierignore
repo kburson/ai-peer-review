@@ -10,5 +10,15 @@ test/unit/verify-extraction.test.mjs
 test/golden/templates/*.md
 test/golden/manifests/*.md
 docs/superpowers/peer-reviews/**
+
 # Preserve immutable accepted companion Plan bytes; integrity verified against f792abd.
 docs/superpowers/plans/2026-10-05-107-runtime-contract-plan-amendment.md
+
+# Preserve exact authenticated native owner comment bytes, including absent terminal newline.
+evidence/portable-runtime/contracts/owners/30-adoption.md
+evidence/portable-runtime/contracts/owners/34-adoption.md
+evidence/portable-runtime/contracts/owners/102-adoption.md
+evidence/portable-runtime/contracts/owners/109-adoption.md
+
+# Preserve historical author SAR bytes from a2d80d9; this record predates independent review.
+evidence/portable-runtime/contracts/2026-10-05-144-author-sar.md
