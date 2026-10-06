@@ -123,6 +123,32 @@ function stableScope(scope, live) {
     .join('\n');
 }
 
+function nativeVerificationTail(tail) {
+  if (tail === '') return true;
+  // Native Test owns this annotation; it is excluded from the command identity,
+  // never interpreted as approval or verification authority by this reader.
+  const marker = tail.match(/^ <!-- aitm-verified((?: [a-z][a-z-]*="[^"\n]*")+) -->$/);
+  if (!marker) return false;
+  const names = [...marker[1].matchAll(/ ([a-z][a-z-]*)="/g)].map((match) => match[1]);
+  const allowed = new Set([
+    'cmd',
+    'exit',
+    'sha',
+    'ts',
+    'evidence',
+    'key',
+    'vc-list',
+    'worktree',
+    'branch',
+    'bound-issue',
+  ]);
+  return (
+    new Set(names).size === names.length &&
+    names.every((name) => allowed.has(name)) &&
+    ['cmd', 'exit', 'sha', 'ts'].every((name) => names.includes(name))
+  );
+}
+
 export function extractRuntimeContractMapping(body) {
   if (typeof body !== 'string') fail('native-mapping-invalid');
   const live = liveBodyLines(body);
@@ -139,8 +165,13 @@ export function extractRuntimeContractMapping(body) {
     scope = section('Scope'),
     commands = section('Verification Commands');
   const originals = [...plan.bytes.matchAll(/^- \*\*Source-plan-commit\*\*: ([a-f0-9]+)$/gm)];
-  const vc = [...commands.bytes.matchAll(/^- \[[ xX]\] `([^\n]+)` <!-- id=1 -->$/gm)];
-  if (originals.length !== 1 || originals[0][1] !== ORIGINAL || vc.length !== 1)
+  const vc = [...commands.bytes.matchAll(/^- \[[ xX]\] `([^\n]+)` <!-- id=1 -->([^\n]*)$/gm)];
+  if (
+    originals.length !== 1 ||
+    originals[0][1] !== ORIGINAL ||
+    vc.length !== 1 ||
+    !nativeVerificationTail(vc[0][2])
+  )
     fail('native-mapping-invalid');
   return {
     repository: REPOSITORY,

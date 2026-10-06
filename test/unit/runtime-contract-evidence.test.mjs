@@ -440,3 +440,51 @@ test('[#144] live section selection still refuses genuine duplicate or missing h
     );
   }
 });
+
+test('[#144] mapping preserves VC1 command digest after native Test verification stamping', () => {
+  const command = 'node checker.mjs --mode adoption-only';
+  const stamp =
+    ' <!-- aitm-verified cmd="' +
+    command +
+    '" exit="0" sha="' +
+    'd'.repeat(40) +
+    '" ts="2026-10-06T02:14:31.904Z" evidence="sandbox exit 0 (' +
+    command +
+    ')" -->';
+  const stamped = body.replace(
+    '- [ ] `' + command + '` <!-- id=1 -->',
+    '- [x] `' + command + '` <!-- id=1 -->' + stamp
+  );
+  const mapping = api.extractRuntimeContractMapping(stamped);
+  assert.equal(mapping.vc1Sha256, sha(command));
+  assert.equal(
+    mapping.scopeSha256,
+    sha('## Scope\n\n- [ ] Preserve exact normative contract.\n\n')
+  );
+  assert.equal(mapping.issue, 144);
+  assert.equal(mapping.originalSourcePlanCommit, original);
+  const changed = api.extractRuntimeContractMapping(
+    stamped.replace('`' + command + '`', '`node checker.mjs --mode publication`')
+  );
+  assert.equal(changed.vc1Sha256, sha('node checker.mjs --mode publication'));
+  assert.notEqual(changed.vc1Sha256, mapping.vc1Sha256);
+});
+
+test('[#144] VC1 annotations never hide duplicate commands or unsupported trailing text', () => {
+  const command = 'node checker.mjs --mode adoption-only';
+  const line = '- [ ] `' + command + '` <!-- id=1 -->';
+  const stamp =
+    ' <!-- aitm-verified cmd="' +
+    command +
+    '" exit="0" sha="' +
+    'd'.repeat(40) +
+    '" ts="2026-10-06T02:14:31.904Z" -->';
+  for (const changed of [
+    body.replace(line, line + stamp + '\n' + line + stamp),
+    body.replace(line, line + stamp + ' extra requirement'),
+    body.replace(line, line + ' <!-- operator-approved value="true" -->'),
+    body.replace(line, line + stamp + stamp),
+    body.replace(line, line + ' <!-- aitm-verified exit="0" unfinished -->'),
+  ])
+    assert.throws(() => api.extractRuntimeContractMapping(changed), /native-mapping-invalid/);
+});
