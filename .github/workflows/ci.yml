@@ -113,6 +113,8 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
