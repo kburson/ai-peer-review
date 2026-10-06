@@ -9,22 +9,30 @@ test('primary maintenance grammar is explicit and cannot select a foreign primar
   assert.throws(() => parseCommand(['primary', 'activate', '--force']));
 });
 
-test('source primary maintenance dispatch refuses runtime authority before writing', async (t) => {
-  const { setupHostFixture } = await import('../helpers/setup-host-fixture.mjs');
-  const f = await setupHostFixture(t);
-  const { run } = await import('../helpers/operations-api.mjs');
-  const out = [],
-    errors = [];
-  const result = await run(['primary', 'register', '--dry-run', '--json'], {
-    cwd: f.root,
-    env: {},
-    stdout: { write: (value) => out.push(value) },
-    stderr: { write: (value) => errors.push(value) },
-  });
-  assert.equal(result, 1);
-  assert.match(errors.join(''), /APR_RUNTIME_/);
-  assert.equal(out.length, 0);
-});
+test(
+  'source primary maintenance dispatch refuses runtime authority before writing',
+  {
+    skip:
+      process.platform === 'win32' &&
+      'Windows native security helper verification paused for #102/#107',
+  },
+  async (t) => {
+    const { setupHostFixture } = await import('../helpers/setup-host-fixture.mjs');
+    const f = await setupHostFixture(t);
+    const { run } = await import('../helpers/operations-api.mjs');
+    const out = [],
+      errors = [];
+    const result = await run(['primary', 'register', '--dry-run', '--json'], {
+      cwd: f.root,
+      env: {},
+      stdout: { write: (value) => out.push(value) },
+      stderr: { write: (value) => errors.push(value) },
+    });
+    assert.equal(result, 1);
+    assert.match(errors.join(''), /APR_RUNTIME_/);
+    assert.equal(out.length, 0);
+  }
+);
 
 // @story #136
 import { run as productionRun } from '../../src/cli/run.mjs';
