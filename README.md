@@ -75,14 +75,14 @@ Ask your agent to do it:
 
 Project setup writes the portable primary policy and current host integrations:
 
-| File                                  | What it is for                               |
-| ------------------------------------- | -------------------------------------------- |
-| `.ai-peer-review/config.json`         | primary project configuration                |
-| `.ai-peer-review/SKILL.md`            | shared protocol skill                        |
-| `.claude/skills/peer-review/SKILL.md` | Claude wrapper for the shared skill          |
-| `.claude/settings.json`               | owned Claude hooks, when selected            |
-| `.codex/hooks.json`                   | owned Codex hooks, when selected             |
-| `.git/info/exclude`                   | consented ignore for `.scratch/peer-review/` |
+| File                                          | What it is for                               |
+| --------------------------------------------- | -------------------------------------------- |
+| `.ai-peer-review/config.json`                 | primary project configuration                |
+| `.ai-peer-review/skills/peer-review/SKILL.md` | shared protocol skill                        |
+| `.claude/skills/peer-review/SKILL.md`         | Claude wrapper for the shared skill          |
+| `.claude/settings.json`                       | owned Claude hooks, when selected            |
+| `.codex/hooks.json`                           | owned Codex hooks, when selected             |
+| `.git/info/exclude`                           | consented ignore for `.scratch/peer-review/` |
 
 `--agent claude|codex|grok|generic` chooses the wrapper host directory:
 `.claude`, `.codex`, `.grok`, or `.agents`. Claude hook settings use

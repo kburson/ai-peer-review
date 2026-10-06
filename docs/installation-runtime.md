@@ -64,12 +64,10 @@ unsupported collateral remains intact and read-only.
 ## Source CI and releases
 
 Source maintainers run tests, lint, formatting and release verification in this
-repository. Source unit and integration commands first build the native helper
-with the existing explicit local builder. Provision Python, a compiler and
-matching Node development files before running them. When the files are not
-beside the Node installation, set `APR_NODEDIR_BASE` to the directory containing
-the versioned development tree. This source preparation never downloads headers
-and is excluded from the runtime artifact.
+repository. During the #102/#107 verification pause, source unit and integration
+commands run the retained suites without building the native helper. Broker tests
+and native-dependent installed fixtures are explicitly skipped. Native bootstrap
+remains an explicit installation operation until #107 supplies the replacement.
 
 Build the actual publishable artifact with:
 

@@ -134,6 +134,12 @@ export function createBrokerClientOperations({
     return connectBroker({ identity: project, paths, versions }, platform);
   }
 
+  function unsentHandshakeTimeout(error) {
+    return (
+      error?.code === 'APR_BROKER_PROTOCOL' && error.message === 'Broker frame prefix timed out.'
+    );
+  }
+
   async function connectUntilReady(connect, platform, retryable, deadline) {
     let last = startFailure(null, { reason: 'readiness-deadline-expired' });
     // Allow up to two minutes of readiness polling for recovery before
@@ -144,6 +150,7 @@ export function createBrokerClientOperations({
       } catch (error) {
         if (
           !['ENOENT', 'ECONNREFUSED', 'EBUSY', 'APR_BROKER_START_FAILED'].includes(error?.code) &&
+          !unsentHandshakeTimeout(error) &&
           !retryable(error)
         )
           throw error;
@@ -254,7 +261,11 @@ export function createBrokerClientOperations({
     } catch (error) {
       // A Windows exclusive writer may still be publishing discovery. Wait for
       // that existing broker; never launch a second process for this condition.
-      if (error?.code === 'EBUSY' || discoveryChangedDuringHandshake(error))
+      if (
+        error?.code === 'EBUSY' ||
+        discoveryChangedDuringHandshake(error) ||
+        unsentHandshakeTimeout(error)
+      )
         return connectUntilReady(connect, platform, discoveryPublicationPending, deadline);
       const launchable =
         ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_OWNED'].includes(error?.code) ||
@@ -335,10 +346,7 @@ export function createBrokerClientOperations({
         }
         // No command was sent. A busy owner can occupy the native endpoint or
         // miss one short handshake window; malformed/auth failures never retry.
-        const retryable =
-          error?.code === 'EBUSY' ||
-          (error?.code === 'APR_BROKER_PROTOCOL' &&
-            error.message === 'Broker frame prefix timed out.');
+        const retryable = error?.code === 'EBUSY' || unsentHandshakeTimeout(error);
         if (!retryable || performance.now() >= deadline) throw error;
         await new Promise((resolve) => setTimeout(resolve, 25));
       }

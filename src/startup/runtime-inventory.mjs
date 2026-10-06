@@ -13,6 +13,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { AprError } from '../errors.mjs';
+import { assertRuntimeDependencyClosure } from '../installed/dependency-closure.mjs';
 
 const observations = new WeakSet();
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -152,6 +153,11 @@ function observeRuntimeInventory({
       identity(ordinary(root, 'runtime-inventory.json').stat) ===
         previousObservation.manifestIdentity
     ) {
+      assertRuntimeDependencyClosure(root, {
+        readMetadata: (relative) => JSON.parse(stableBytes(root, relative, 1048576).bytes),
+        isDeclared: (relative) =>
+          previousObservation.entries.some((entry) => entry.path === relative),
+      });
       const renewed = Object.freeze({
         ...previousObservation,
         observedAt: new Date().toISOString(),
@@ -211,6 +217,11 @@ function observeRuntimeInventory({
           invalid('Runtime dependency disagrees with its installed metadata.');
       }
     }
+    if (!diagnosticOnly)
+      assertRuntimeDependencyClosure(root, {
+        readMetadata: (relative) => JSON.parse(stableBytes(root, relative, 1048576).bytes),
+        isDeclared: (relative) => entries.some((entry) => entry.path === relative),
+      });
     // Recheck every identity after the whole observation, rejecting mixed replacement.
     for (const entry of entries)
       if (identity(ordinary(root, entry.path).stat) !== entry.identity)

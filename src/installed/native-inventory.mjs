@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 import { inspectPackageInventory, readBoundedOrdinaryFile } from '../startup/runtime-inventory.mjs';
+import { assertRuntimeDependencyClosure } from './dependency-closure.mjs';
 const digest = (file) =>
   createHash('sha256').update(readBoundedOrdinaryFile(file, 16777216)).digest('hex');
 export function prepareNativeInventory(packageRoot) {
@@ -33,6 +34,10 @@ export function prepareNativeInventory(packageRoot) {
     if (JSON.parse(readBoundedOrdinaryFile(dependency, 1048576)).version !== version)
       throw new Error('Missing or mismatched installed runtime dependency: ' + name);
   }
+  assertRuntimeDependencyClosure(packageRoot, {
+    readMetadata: (relative) =>
+      JSON.parse(readBoundedOrdinaryFile(path.join(packageRoot, relative), 1048576)),
+  });
   return observed.entries.filter(
     (entry) =>
       !entry.path.startsWith('native/broker-security/build/') &&
@@ -44,6 +49,10 @@ export function finishNativeInventory(packageRoot, originalEntries) {
   for (const entry of originalEntries)
     if (digest(path.join(packageRoot, entry.path)) !== entry.sha256)
       throw new Error('Package changed during native bootstrap: ' + entry.path);
+  assertRuntimeDependencyClosure(packageRoot, {
+    readMetadata: (relative) =>
+      JSON.parse(readBoundedOrdinaryFile(path.join(packageRoot, relative), 1048576)),
+  });
   const files = originalEntries.map(({ path: name, sha256 }) => ({ path: name, sha256 }));
   const links = [];
   let visits = 0;

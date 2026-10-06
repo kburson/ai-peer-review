@@ -312,3 +312,60 @@ test(
     assert.equal(security.peerUser(accepted), security.userId());
   }
 );
+
+// @story #137
+// Retained regression specification; execution paused at user direction.
+test(
+  'a new broker invocation retries only an unsent frame-prefix timeout',
+  {
+    skip: 'Broker verification paused for #102/#107',
+  },
+  async () => {
+    const { ensureBroker } = createBrokerClientOperations({
+      performCurrentOperationEffect: (operation) => operation(),
+      assertCurrentOperationAuthority() {},
+    });
+    const client = { connection: { close() {} } };
+    let attempts = 0;
+    const timeout = Object.assign(new Error('Broker frame prefix timed out.'), {
+      code: 'APR_BROKER_PROTOCOL',
+    });
+    const input = {
+      project: { digest: 'a'.repeat(64), physicalRoot: process.cwd() },
+      versions: {},
+      runtimeImage: { root: process.cwd(), nodeExecutable: process.execPath },
+      platform: {
+        verifyRuntimeImage: () => true,
+        connect: async () => {
+          if (++attempts <= 2) throw timeout;
+          return client;
+        },
+        delay: async () => {},
+        spawn: () => {
+          throw Error('An occupied owner must not launch another broker.');
+        },
+      },
+    };
+    assert.equal(await ensureBroker(input), client);
+    assert.equal(attempts, 3);
+    for (const message of [
+      'Broker frame prefix is malformed.',
+      'Broker frame is truncated.',
+      'Broker authentication denied.',
+    ]) {
+      const terminal = Object.assign(new Error(message), { code: 'APR_BROKER_PROTOCOL' });
+      await assert.rejects(
+        ensureBroker({
+          ...input,
+          platform: {
+            ...input.platform,
+            connect: async () => {
+              throw terminal;
+            },
+          },
+        }),
+        (error) => error === terminal
+      );
+    }
+  }
+);
