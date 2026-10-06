@@ -533,3 +533,34 @@ test(
     assert.equal(f.exists('generated/content.js'), false);
   }
 );
+
+// @story #102
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+
+test('repeated host check flags refuse malformed input within a bounded validation process', (t) => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'apr-check-command-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({
+      name: 'host',
+      scripts: { lint: 'eslint ' + '--check '.repeat(32) + '!' },
+    })
+  );
+  const module = new URL('../../src/config/setup-validation.mjs', import.meta.url).href;
+  const code =
+    'import {validateSetupWriteSet} from ' +
+    JSON.stringify(module) +
+    ';try{await validateSetupWriteSet({writes:[],destinationRoot:' +
+    JSON.stringify(root) +
+    '});process.exitCode=1;}catch(error){if(!/unrecognized configured host check/.test(error.message))throw error;console.log("refused");}';
+  const observed = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
+    encoding: 'utf8',
+    timeout: 3000,
+  });
+  assert.equal(observed.error, undefined, observed.error?.message);
+  assert.equal(observed.status, 0, observed.stderr);
+  assert.equal(observed.stdout.trim(), 'refused');
+});

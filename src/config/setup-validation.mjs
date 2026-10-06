@@ -167,7 +167,7 @@ function assertKnownHostChecks(root) {
           .split(/&&/)
           .some(
             (part) =>
-              !/^\s*(?:eslint|markdownlint-cli2|cspell|prettier)(?:\s+(?:--check|--no-progress|--no-must-find-files|["'][^"']+["']|[.\w*/{}?,:-]+))*\s*$/.test(
+              !/^\s*(?:eslint|markdownlint-cli2|cspell|prettier)(?:\s+(?:["'][^"']+["']|[.\w*/{}?,:-]+))*\s*$/.test(
                 part
               )
           )

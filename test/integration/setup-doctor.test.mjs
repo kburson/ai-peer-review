@@ -383,7 +383,7 @@ test('historical setup fixture --update refuses a project with no prior package-
   });
 });
 
-test('installed CLI refuses stale setup package identity before review work', async (t) => {
+test('mutating CLI refuses stale setup package identity before review work', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const options = {
@@ -416,7 +416,7 @@ test('installed CLI refuses stale setup package identity before review work', as
   };
   config.setup.package_version = '0.0.0';
   writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
-  assert.equal(await run(['status', 'missing-review'], io), 1);
+  assert.equal(await run(['resume', 'missing-review'], io), 1);
   assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
   assert.match(JSON.parse(output.stderr).recovery, /setup --update --dry-run/i);
   output.stderr = '';
@@ -431,7 +431,7 @@ test('installed CLI refuses stale setup package identity before review work', as
   const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
   writeFileSync(skillFile, `${readFileSync(skillFile, 'utf8')}\nchanged\n`);
   output.stderr = '';
-  assert.equal(await run(['status', 'missing-review'], io), 1);
+  assert.equal(await run(['resume', 'missing-review'], io), 1);
   assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
   setup(options);
   assert.equal(setup(options).changed, false);
