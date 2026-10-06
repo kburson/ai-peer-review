@@ -116,6 +116,7 @@ function validManifest(overrides = {}) {
         'docs/dependency-audit-mcp.md',
         'docs/manual-cross-provider-peer-review.md',
         'docs/spdx-policy.md',
+        'evidence/portable-runtime/contracts/2026-10-05-107-canonical-plan-author-sar.md',
         'eslint.config.mjs',
         'package-lock.json',
         'package.json',
@@ -728,4 +729,28 @@ test('refuses to record a failed Gitleaks scan as passing', () => {
       }),
     /Gitleaks scan failed/
   );
+});
+
+test('admits only the canonical Plan SAR exact path without widening its evidence namespace', async () => {
+  const declared =
+    'evidence/portable-runtime/contracts/2026-10-05-107-canonical-plan-author-sar.md';
+  await verifyExtraction({
+    root: '/repo',
+    manifest: validManifest(),
+    runGit: fakeGit({ current: ['LICENSE', declared].join('\n') }),
+  });
+  for (const foreign of [
+    'evidence/portable-runtime/contracts/2026-10-05-107-canonical-plan-author-sar-copy.md',
+    'evidence/portable-runtime/contracts/unrelated.md',
+    'evidence/unrelated.md',
+  ]) {
+    await assert.rejects(
+      verifyExtraction({
+        root: '/repo',
+        manifest: validManifest(),
+        runGit: fakeGit({ current: ['LICENSE', declared, foreign].join('\n') }),
+      }),
+      /foreign standalone paths/
+    );
+  }
 });

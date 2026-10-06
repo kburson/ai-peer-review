@@ -80,6 +80,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'docs/dependency-audit-mcp.md',
     'docs/manual-cross-provider-peer-review.md',
     'docs/spdx-policy.md',
+    'evidence/portable-runtime/contracts/2026-10-05-107-canonical-plan-author-sar.md',
     'eslint.config.mjs',
     'package-lock.json',
     'package.json',
