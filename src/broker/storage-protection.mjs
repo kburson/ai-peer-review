@@ -900,8 +900,9 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       let caught;
       try {
         if (!observed.bytes.equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
+        await closeFile(observed.file);
         await leaseCheck();
-        await matchFile(observed, observed.file);
+        await matchFile(observed);
         budget.check();
         await unlink(target);
         try {
@@ -933,25 +934,32 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       try {
         if (!observed.bytes.equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
         temporary = await createFile('publish-' + randomUUID(), bytes, true);
+        await closeFile(observed.file);
+        await closeFile(temporary.file);
         await leaseCheck();
-        await matchFile(observed, observed.file);
-        await matchFile(temporary, temporary.file);
+        await matchFile(observed);
+        await matchFile(temporary);
         budget.check();
         attempted = true;
         await rename(path.join(r.root, temporary.name), target);
         published = true;
         temporary.name = name;
-        temporary.fileVersion = version(await temporary.file.stat({ bigint: true }));
-        await verify();
-        await matchFile(temporary, temporary.file);
+        const publishedRead = await readObserved(name);
+        try {
+          if (publishedRead.identity !== temporary.identity || !publishedRead.bytes.equals(bytes))
+            throw failure('APR_BROKER_STALE', 'private-file-changed');
+          temporary.fileVersion = publishedRead.fileVersion;
+        } finally {
+          await closeFile(publishedRead.file);
+        }
       } catch (error) {
         if (temporary) {
           let unpublished = !attempted;
           if (attempted && !published) {
             try {
               await leaseCheck();
-              await matchFile(temporary, temporary.file);
-              await matchFile(observed, observed.file);
+              await matchFile(temporary);
+              await matchFile(observed);
               unpublished = true;
             } catch {
               /* No fresh budget or inferred outcome after an uncertain effect. */

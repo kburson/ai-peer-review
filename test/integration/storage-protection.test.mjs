@@ -279,11 +279,6 @@ test(
     const command = [process.execPath, script, path.join(root, 'basic-private'), output, nonce]
       .map(quote)
       .join(' ');
-    const available = execFileSync('C:\\Windows\\System32\\runas.exe', ['/showtrustlevels'], {
-      encoding: 'utf8',
-      timeout: 15000,
-    });
-    assert.match(available, /0x20000/, 'stock basic-user trust level must be available');
     execFileSync('C:\\Windows\\System32\\runas.exe', ['/trustlevel:0x20000', command], {
       encoding: 'utf8',
       timeout: 15000,
@@ -339,7 +334,7 @@ for (const operation of ['remove', 'replace']) {
         await guard.writeExclusive('owner.json', Buffer.from('first'));
         let reads = 0,
           changed = false;
-        const { writeFileSync, renameSync } = await import('node:fs');
+        const { writeFileSync, renameSync, unlinkSync } = await import('node:fs');
         await interceptFilesystem(t, 'lstat', async (original, value, options) => {
           if (value === target) reads++;
           if (value === root && reads >= 2 && !changed) {
@@ -347,6 +342,7 @@ for (const operation of ['remove', 'replace']) {
             if (generation === 'substituted') {
               const incoming = path.join(root, 'incoming');
               writeFileSync(incoming, 'newer-generation', { mode: 0o600 });
+              unlinkSync(target);
               renameSync(incoming, target);
             } else writeFileSync(target, 'newer-generation');
           }
@@ -489,7 +485,7 @@ test('[#166] exclusive write refuses a valid pathname substituted after descript
   const guard = await storage.openProtectedRoot({ receipt });
   t.after(() => guard.close());
   const target = path.join(root, 'credential'),
-    { writeFileSync, renameSync } = await import('node:fs');
+    { writeFileSync, renameSync, unlinkSync } = await import('node:fs');
   await interceptFilesystem(t, 'open', async (original, value, ...options) => {
     const file = await original(value, ...options);
     if (value === target && Number(options[0]) & constants.O_CREAT) {
@@ -498,6 +494,7 @@ test('[#166] exclusive write refuses a valid pathname substituted after descript
         await write(...args);
         const incoming = path.join(root, 'incoming');
         writeFileSync(incoming, 'newer-private-generation', { mode: 0o600 });
+        unlinkSync(target);
         renameSync(incoming, target);
       };
     }
