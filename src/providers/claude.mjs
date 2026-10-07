@@ -125,14 +125,10 @@ export function createClaudeProviderSurface(options = {}) {
       claudeHome,
       now,
     });
-    if (snapshot.model_id !== binding.model_id || snapshot.source_version !== (await version()))
-      throw new AprError(
-        'APR_IDENTITY_CONFLICT',
-        'Claude bound session changed model or version.',
-        {
-          recovery: 'Preserve the exact session and reconcile its provider transcript.',
-        }
-      );
+    if (snapshot.source_version !== (await version()))
+      throw new AprError('APR_IDENTITY_CONFLICT', 'Claude bound session surface version changed.', {
+        recovery: 'Preserve the exact session and reconcile its provider transcript.',
+      });
     return snapshot;
   };
   const executeReview = async (request, resume) => {
@@ -302,7 +298,6 @@ export function createClaudeProviderSurface(options = {}) {
             handleLocator: binding.handle_locator,
           });
           if (
-            active.model_id !== binding.model_id ||
             active.source_version !== (await version()) ||
             new Date(now).valueOf() - Date.parse(active.observed_at) > 30_000
           )
@@ -364,7 +359,6 @@ export function createClaudeProviderSurface(options = {}) {
           projectRoot,
           binding: {
             handle_locator: prior?.session_handle,
-            model_id: inspectReview(workspace).participants[role]?.model_id,
           },
         });
       }
@@ -382,10 +376,9 @@ export function createClaudeProviderSurface(options = {}) {
       workspace,
       projectRoot,
     }) => {
-      const boundSnapshot = await currentSnapshot({ projectRoot, binding });
+      await currentSnapshot({ projectRoot, binding });
       const recorder = createClaudeWakeRecorder({
         sessionId: binding.handle_locator,
-        expectedModel: binding.model_id,
       });
       const contract = buildClaudeWakeContract({
         workspace,
@@ -417,15 +410,11 @@ export function createClaudeProviderSurface(options = {}) {
         'json',
         '--permission-mode',
         'dontAsk',
-        '--model',
-        binding.model_id,
         '--allowedTools',
         ...contract.permissions,
       ];
       const wakeEnv = {
         ...withoutProviderIdentity(process.env),
-        CLAUDE_MODEL_ID: boundSnapshot.model_id,
-        CLAUDE_MODEL_DISPLAY: boundSnapshot.model_id,
         npm_config_offline: 'true',
         npm_config_yes: 'false',
       };
@@ -455,7 +444,6 @@ export function createClaudeProviderSurface(options = {}) {
         sessionId: binding.handle_locator,
         wakeOperationId,
         capsuleDigest,
-        expectedModel: binding.model_id,
       });
     },
     reconcileDelivery: ({ binding, wakeOperationId, capsuleDigest, projectRoot }) =>
@@ -465,7 +453,6 @@ export function createClaudeProviderSurface(options = {}) {
         sessionId: binding.handle_locator,
         wakeOperationId,
         capsuleDigest,
-        expectedModel: binding.model_id,
       }),
     launch: (request) => executeReview(request, false),
     resume: (request) => executeReview(request, true),

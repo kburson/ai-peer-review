@@ -176,11 +176,10 @@ test('Claude wake rejects metadata that is not text correlated to its completed 
   }
 });
 
-test('Claude wake Skill metadata preserves session/model and unique-marker validation', (t) => {
+test('Claude wake Skill metadata preserves session and unique-marker validation', (t) => {
   const prompt = entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`);
   const terminal = entry('assistant', 'done');
   for (const extra of [
-    { ...terminal, message: { ...terminal.message, model: 'claude-sonnet-5' } },
     { ...terminal, sessionId: '22222222-2222-4222-8222-222222222222' },
     prompt,
     skillMetadata('skill', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`),
@@ -231,11 +230,20 @@ test('Claude wake never attributes an unrelated or incomplete tool exchange to i
   }
 });
 
-test('Claude wake rejects changed session/model and duplicate markers through tool exchanges', (t) => {
+test('Claude wake accepts a later model in the bound session', (t) => {
+  const prompt = entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`);
+  const terminal = entry('assistant', 'done');
+  terminal.message.model = 'claude-opus-5-5';
+  assert.deepEqual(outcome(fixture(t, [prompt, terminal])), {
+    status: 'acknowledged',
+    reason: 'provider-terminal-turn',
+  });
+});
+
+test('Claude wake rejects changed session and duplicate markers through tool exchanges', (t) => {
   const prompt = entry('user', `APR_WAKE_OPERATION ${OPERATION} ${DIGEST}`);
   const terminal = entry('assistant', 'done');
   for (const extra of [
-    { ...terminal, message: { ...terminal.message, model: 'claude-sonnet-5' } },
     { ...terminal, sessionId: '22222222-2222-4222-8222-222222222222' },
     prompt,
   ]) {
@@ -290,7 +298,7 @@ test('Claude transcript absence and incomplete turns never authorize blind retry
   );
 });
 
-test('Claude wake requires live stream initialization and assistant model for one exact session', () => {
+test('Claude wake requires live stream initialization and a model for one exact session', () => {
   const recorder = createClaudeWakeRecorder({ sessionId: SESSION, expectedModel: 'claude-opus-5' });
   recorder.accept({
     type: 'system',
@@ -311,14 +319,38 @@ test('Claude wake requires live stream initialization and assistant model for on
     source_version: '2.1.278',
   });
   const changed = createClaudeWakeRecorder({ sessionId: SESSION, expectedModel: 'claude-opus-5' });
-  assert.throws(() =>
-    changed.accept({
-      type: 'system',
-      subtype: 'init',
-      session_id: SESSION,
-      model: 'claude-sonnet-5',
-      claude_code_version: '2.1.278',
-    })
+  changed.accept({
+    type: 'system',
+    subtype: 'init',
+    session_id: SESSION,
+    model: 'claude-sonnet-5',
+    claude_code_version: '2.1.278',
+  });
+  changed.accept({
+    type: 'assistant',
+    session_id: SESSION,
+    message: { model: 'claude-sonnet-5', role: 'assistant', content: [] },
+  });
+  changed.accept({ type: 'result', session_id: SESSION, is_error: false });
+  assert.equal(changed.confirm().model_id, 'claude-sonnet-5');
+});
+
+test('Claude bound resource accepts a later model in the same session', async (t) => {
+  const terminal = entry('assistant', 'ready');
+  terminal.message.model = 'claude-opus-5-5';
+  const location = fixture(t, [terminal]);
+  const surface = createClaudeProviderSurface({
+    claudeHome: location.claudeHome,
+    execFile: async () => ({ stdout: '2.1.278 (Claude Code)\n' }),
+  });
+  assert.equal(
+    (
+      await surface.observeResource({
+        binding: { role: 'reviewer', model_id: 'claude-opus-5', handle_locator: SESSION },
+        projectRoot: location.projectRoot,
+      })
+    ).session_handle,
+    SESSION
   );
 });
 
@@ -339,9 +371,9 @@ test('Claude surface resumes only the bound session and acknowledges its streame
     }),
     runWake: async (args, { recorder, env }) => {
       assert.equal(args[args.indexOf('--resume') + 1], SESSION);
-      assert.equal(args[args.indexOf('--model') + 1], 'claude-opus-5');
-      assert.equal(env.CLAUDE_MODEL_ID, 'claude-opus-5');
-      assert.equal(env.CLAUDE_MODEL_DISPLAY, 'claude-opus-5');
+      assert.equal(args.includes('--model'), false);
+      assert.equal(env.CLAUDE_MODEL_ID, undefined);
+      assert.equal(env.CLAUDE_MODEL_DISPLAY, undefined);
       assert.equal(env.CLAUDE_CODE_SESSION_ID, undefined);
       recorder.accept({
         type: 'system',

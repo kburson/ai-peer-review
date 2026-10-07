@@ -35,6 +35,8 @@ export const COMMAND_FLAGS = Object.freeze({
     '--max-turns',
     '--claim-ttl',
     '--transport-mode',
+    '--author-model',
+    '--author-effort',
     '--reviewer-provider',
     '--reviewer-model',
     '--reviewer-effort',
@@ -103,13 +105,13 @@ export const COMMAND_USAGE = Object.freeze({
   doctor:
     'peer-review doctor [--mode <installation|manual|resume-only|automatic-required>] [--json]',
   start:
-    'peer-review start <artifact> --artifact-kind <spec|plan> --issue <N> --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
+    'peer-review start <artifact> --artifact-kind <spec|plan> --issue <N> [--author-model <id> --author-effort <effort>] --reviewer-provider <codex|claude|grok> --reviewer-model <id> [--reviewer-effort <effort>] [--phases <kind[,kind...]>] [configuration] [--bootstrap-grant <signed-grant>] [--no-commit [--test-human-authority <fixture-id>]]',
   advance: 'peer-review advance <workspace> <artifact>',
   'request-grant':
     'peer-review request-grant <workspace> --action <protected-action> [action parameters]',
   join: 'peer-review join <reviewer-invitation.md>',
   'launch-reviewer':
-    'peer-review launch-reviewer <reviewer-invitation.md> --host claude [--model <id> --effort <id> | --resume] [--json]',
+    'peer-review launch-reviewer <reviewer-invitation.md> --host claude (--model <id> --effort <id> | --resume [--model <id>] [--effort <id>]) [--json]',
   status: 'peer-review status <workspace> [--json] [--next]',
   resume: 'peer-review resume <workspace>',
   submit:
@@ -294,6 +296,12 @@ function validateConstraints(command, args, options) {
     if (!options.reviewerProvider || !options.reviewerModel) {
       usage('start requires --reviewer-provider and --reviewer-model');
     }
+    if (options.authorEffort !== undefined && !options.authorModel)
+      usage('--author-effort requires --author-model');
+    if (options.authorModel !== undefined && !options.authorModel.trim())
+      usage('--author-model requires a non-empty value');
+    if (options.authorEffort !== undefined && !options.authorEffort.trim())
+      usage('--author-effort requires a non-empty value');
     if (options.reviewerEffort === undefined) options.reviewerEffort = 'medium';
     if (!options.reviewerEffort.trim()) usage('--reviewer-effort requires a non-empty value');
     if (options.phases !== undefined) {
@@ -329,11 +337,7 @@ function validateConstraints(command, args, options) {
   if (command === 'launch-reviewer') {
     validateEnum(options, 'host', '--host', ['claude']);
     if (!options.host) usage('launch-reviewer requires --host claude');
-    if (options.resume) {
-      if (options.model !== undefined || options.effort !== undefined) {
-        usage('launch-reviewer --resume forbids --model and --effort');
-      }
-    } else if (!options.model || !options.effort) {
+    if (!options.resume && (!options.model || !options.effort)) {
       usage('fresh launch-reviewer requires --model and --effort');
     }
   }

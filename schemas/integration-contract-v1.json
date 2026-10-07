@@ -8,7 +8,7 @@
       "const": "ai-peer-review.integration-contract/v1"
     },
     "contract": {
-      "const": "ai-peer-review.integration/v1"
+      "enum": ["ai-peer-review.integration/v1", "ai-peer-review.integration/v2"]
     },
     "shared_skill_sha256": {
       "type": "string",
@@ -40,7 +40,6 @@
     "hooks": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["codex", "claude"],
       "properties": {
         "codex": {
           "type": "string",
@@ -52,5 +51,30 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "contract": {
+            "const": "ai-peer-review.integration/v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "hooks": {
+            "required": ["codex", "claude"]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "hooks": {
+            "maxProperties": 0
+          }
+        }
+      }
+    }
+  ]
 }

@@ -231,9 +231,19 @@ test('launch-reviewer has a closed fresh and resume grammar', () => {
     /host.*claude/i
   );
   usage(['launch-reviewer', 'invitation', '--host', 'claude'], /requires.*model.*effort/i);
-  usage(
-    ['launch-reviewer', 'invitation', '--host', 'claude', '--resume', '--model', 'm'],
-    /resume.*model.*effort/i
+  assert.deepEqual(
+    parseCommand([
+      'launch-reviewer',
+      'invitation',
+      '--host',
+      'claude',
+      '--resume',
+      '--model',
+      'm',
+      '--effort',
+      'max',
+    ]).options,
+    { host: 'claude', resume: true, model: 'm', effort: 'max' }
   );
   usage(['launch-reviewer', 'invitation', 'extra', '--host', 'claude', '--resume'], /positional/i);
   usage(

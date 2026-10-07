@@ -143,14 +143,29 @@ test(
   },
   async (t) => {
     const f = await setupHostFixture(t);
-    const foreign = '{ "foreign" : { "dark" : true } }\n';
-    f.write('.codex/hooks.json', foreign);
+    const foreign =
+      '{ "foreign" : { "dark" : true }, "ai_peer_review" : { "owner" : "ai-peer-review" } }\n';
+    f.write('.codex/config.json', foreign);
+    f.write(
+      '.ai-peer-review.json',
+      JSON.stringify({
+        schema: 'ai-peer-review.config/v1',
+        setup: {
+          owner: 'ai-peer-review',
+          version: 1,
+          agents: ['codex'],
+          config_created: true,
+          scratch_exclude_added: false,
+          resume_commands_added: [],
+        },
+      }) + '\n'
+    );
     f.write('.prettierrc.json', '{"tabWidth":4}\n');
     await assert.rejects(
-      Promise.resolve().then(() => f.setupApply()),
+      Promise.resolve().then(() => f.setupApply({ migrate: true })),
       /format/i
     );
-    assert.equal(f.read('.codex/hooks.json'), foreign);
+    assert.equal(f.read('.codex/config.json'), foreign);
     assert.equal(f.exists('.ai-peer-review/config.json'), false);
   }
 );
@@ -239,7 +254,7 @@ test(
     await f.core.activate({ cwd: f.root });
     assert.equal(typeof f.core.inspectIntegration, 'function');
     const first = await f.core.inspectIntegration({ cwd: f.root });
-    assert.equal(first.contract, 'ai-peer-review.integration/v1');
+    assert.equal(first.contract, 'ai-peer-review.integration/v2');
     f.write('.codex/skills/peer-review/SKILL.md', '# Obsolete copied procedure\n');
     await assert.rejects(
       f.core.inspectIntegration({ cwd: f.root }),
@@ -380,7 +395,7 @@ test(
     const activated = await f.core.activate({ cwd: f.root });
     assert.equal(activated.root, f.root);
     const current = await f.core.inspectIntegration({ cwd: f.root });
-    assert.equal(current.contract, 'ai-peer-review.integration/v1');
+    assert.equal(current.contract, 'ai-peer-review.integration/v2');
   }
 );
 
@@ -804,7 +819,7 @@ test(
       () => checker.check(primary),
       (error) => error.code === 'APR_SETUP_VERSION_MISMATCH'
     );
-    manifest.contract = 'ai-peer-review.integration/v2';
+    manifest.contract = 'ai-peer-review.integration/v999';
     writeFileSync(file, JSON.stringify(manifest));
     assert.throws(
       () => checker.check(primary),
@@ -974,7 +989,7 @@ test(
     await core.setup({ scope: 'user', agents: ['generic'] });
     assert.equal(
       JSON.parse(readFileSync(userFile)).setup.integration_contract,
-      'ai-peer-review.integration/v1'
+      'ai-peer-review.integration/v2'
     );
     assert.match(
       readFileSync(path.join(f.home, '.agents/skills/peer-review/SKILL.md'), 'utf8'),
@@ -1042,3 +1057,158 @@ function pathForUser(f) {
     env: { XDG_CONFIG_HOME: f.home + '/.config' },
   };
 }
+
+// @story #124
+test(
+  'session-handshake setup leaves model hooks uninstalled beside foreign hooks',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const f = await setupHostFixture(t);
+    const foreign = {
+      hooks: {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'foreign-hook' }] }],
+      },
+    };
+    f.write('.codex/hooks.json', JSON.stringify(foreign) + '\n');
+    await f.setupApply();
+    assert.deepEqual(JSON.parse(f.read('.codex/hooks.json')), foreign);
+    assert.equal(f.exists('.claude/settings.json'), false);
+    assert.equal((await f.setupApply()).applied, 0);
+  }
+);
+
+// @story #124
+for (const matcher of ['Bash', '^(?:Bash|functions\\.exec|exec)$']) {
+  test(
+    `session-handshake migration removes the recorded ${matcher} model hook and preserves foreign hooks`,
+    { skip: process.platform === 'win32' },
+    async (t) => {
+      const f = await setupHostFixture(t);
+      const foreign = { matcher: 'Bash', hooks: [{ type: 'command', command: 'foreign-hook' }] };
+      f.write(
+        '.ai-peer-review.json',
+        JSON.stringify({
+          schema: 'ai-peer-review.config/v1',
+          setup: {
+            owner: 'ai-peer-review',
+            version: 1,
+            agents: ['codex'],
+            config_created: true,
+            scratch_exclude_added: false,
+            resume_commands_added: [],
+          },
+        }) + '\n'
+      );
+      f.write(
+        '.codex/hooks.json',
+        JSON.stringify({
+          hooks: {
+            PreToolUse: [
+              foreign,
+              { matcher, hooks: [{ type: 'command', command: 'peer-review-codex-hook' }] },
+            ],
+          },
+        }) + '\n'
+      );
+      f.write(
+        '.codex/config.json',
+        JSON.stringify({ ai_peer_review: { owner: 'ai-peer-review', hook_added: true } }) + '\n'
+      );
+      await f.setupApply({ migrate: true });
+      assert.deepEqual(JSON.parse(f.read('.codex/hooks.json')).hooks.PreToolUse, [foreign]);
+    }
+  );
+}
+
+// @story #124
+for (const packageOwned of [true, false]) {
+  test(
+    `session-handshake migration ${packageOwned ? 'removes owned' : 'preserves user-owned'} automatic settings`,
+    { skip: process.platform === 'win32' },
+    async (t) => {
+      const f = await setupHostFixture(t);
+      const automatic = {
+        adapter_version: '2.0.0',
+        capability: 'live-wait',
+        server_command: ['peer-review-mcp'],
+        tool_timeout_ms: 28800000,
+        heartbeat_interval_ms: 15000,
+        lease_ttl_ms: 60000,
+      };
+      f.write(
+        '.ai-peer-review.json',
+        JSON.stringify({
+          schema: 'ai-peer-review.config/v1',
+          hosts: { codex: { automatic } },
+          setup: {
+            owner: 'ai-peer-review',
+            version: 2,
+            agents: ['codex'],
+            config_created: true,
+            scratch_exclude_added: false,
+            resume_commands_added: [],
+            automatic_adapters_added: packageOwned ? ['codex'] : [],
+          },
+        }) + '\n'
+      );
+      await f.setupApply({ migrate: true, migrateUser: !packageOwned });
+      const userFile = path.join(f.home, '.config/ai-peer-review/config.json');
+      if (packageOwned) assert.equal(f.exists(path.relative(f.root, userFile)), false);
+      else {
+        const { adapter_version, capability, ...machine } = automatic;
+        assert.deepEqual(JSON.parse(readFileSync(userFile)).hosts.codex.automatic, machine);
+        assert.deepEqual(JSON.parse(f.read('.ai-peer-review/config.json')).hosts.codex.automatic, {
+          adapter_version,
+          capability,
+        });
+      }
+    }
+  );
+}
+
+// @story #124
+test(
+  'session-handshake updates preserve a model hook added by the user after setup',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const f = await setupHostFixture(t);
+    await f.setupApply();
+    const userHook = {
+      hooks: {
+        PreToolUse: [
+          { matcher: 'Bash', hooks: [{ type: 'command', command: 'peer-review-codex-hook' }] },
+        ],
+      },
+    };
+    f.write('.codex/hooks.json', JSON.stringify(userHook) + '\n');
+    await f.setupApply();
+    assert.deepEqual(JSON.parse(f.read('.codex/hooks.json')), userHook);
+  }
+);
+
+// @story #124
+test(
+  'session-handshake updates preserve a v1 primary hook with no creation provenance',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const f = await setupHostFixture(t);
+    await f.setupApply();
+    const config = JSON.parse(f.read('.ai-peer-review/config.json'));
+    config.setup.integration_contract = 'ai-peer-review.integration/v1';
+    f.write('.ai-peer-review/config.json', JSON.stringify(config) + '\n');
+    const userHook = {
+      hooks: {
+        PreToolUse: [
+          { matcher: 'Custom', hooks: [{ type: 'command', command: 'peer-review-codex-hook' }] },
+        ],
+      },
+    };
+    f.write('.codex/hooks.json', JSON.stringify(userHook) + '\n');
+    await f.setupApply();
+    assert.deepEqual(JSON.parse(f.read('.codex/hooks.json')), userHook);
+    assert.equal(
+      JSON.parse(f.read('.ai-peer-review/config.json')).setup.integration_contract,
+      'ai-peer-review.integration/v2'
+    );
+  }
+);

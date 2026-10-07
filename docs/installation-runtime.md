@@ -37,6 +37,12 @@ peer-review setup --agent codex --scope project --dry-run
 peer-review setup --agent codex --scope project --confirm-scratch-exclude
 ```
 
+Setup uses startup/resume selection and registered session continuity. It does
+not install model-attestation hooks. Migration removes exact obsolete hooks only
+when package ownership is recorded, while retaining foreign hooks and existing
+review records. Package-owned automatic settings are retired; user-owned transport
+settings retain their explicit migration requirements.
+
 Commit the proposed owned primary files, then inspect and activate that policy:
 
 ```bash

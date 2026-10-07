@@ -50,6 +50,12 @@ const START_FLAG_HELP = Object.freeze({
     'Absolute path to preserved incompatible review evidence in this repository; seals a reference in an independent review without altering or settling its predecessor.',
   '--issue':
     'Required positive issue ID for every new SPR or XPR; sealed into startup authority and used in package-generated commit subjects.',
+  '--author-model':
+    'Request the author model for this review. Required when the headless host does not expose a model at startup; never stored in project config.',
+  '--author-effort':
+    'Request author effort for this review; requires --author-model and defaults to medium when omitted.',
+  '--reviewer-model': 'Request the exact reviewer model for this review.',
+  '--reviewer-effort': 'Request reviewer effort for this review; defaults to medium.',
 });
 
 const HUMAN_GATED = new Set(['supplement', 'continue']);
@@ -129,7 +135,7 @@ const PRECONDITIONS = Object.freeze({
     'A clean tracked artifact, contained available outputs, ignored scratch, and author identity.',
     'An explicit positive issue ID via --issue <N> before provider selection or broker startup.',
     'The invoking session must be the author participant; human sponsorship does not substitute for participant identity.',
-    'An explicit supported reviewer provider and model; reviewer effort defaults to medium.',
+    'An explicit reviewer provider and model; reviewer effort defaults to medium. Use --author-model and --author-effort when the headless author session does not expose its selection.',
     'Native SPR requires a supported same-provider launch capability; new XPR requires the broker even for manual transport. No automatic fallback occurs.',
     'Optional --bootstrap-grant must authorize the exact protected pin-verifier action.',
   ],
@@ -138,7 +144,7 @@ const PRECONDITIONS = Object.freeze({
   join: ['The exact sealed invitation, original physical worktree, and a distinct reviewer.'],
   'launch-reviewer': [
     'The sealed reviewer invitation and its exact single event-authorized pending response.',
-    'Fresh launch requires model and effort; resume uses only package-owned private session state.',
+    'Fresh launch requires model and effort; resume uses package-owned private session state and may request a new model or effort.',
   ],
   status: ['A readable event-authoritative review workspace.'],
   resume: ['A readable event-authoritative review workspace.'],
@@ -182,13 +188,14 @@ const EFFECTS = Object.freeze({
     'Setup never commits or activates; commit generated primary owned files, then inspect and run primary activate.',
     'Applying setup prints human-readable file locations; --json reports complete planned bytes as setup-result/v1. Teardown removes proven owned hooks and wrappers, preserves policy and foreign settings, and retains the local scratch exclude.',
     'Package currency compares declared integration contracts and normalized owned content rather than exact package versions.',
+    'Setup update removes obsolete package-owned model hooks and preserves foreign host hooks; review turns use the registered provider session handle.',
   ],
   build: [
     'Compiles only the installed package native helper; derives the Node development root from the executing Node binary.',
   ],
   doctor: [
     'Read-only inspection; changes no files, Git, configuration, or transport.',
-    'Use --mode installation from a terminal without agent identity. Review readiness remains strict; model and effort may change between operations in one session.',
+    'Use --mode installation from a terminal without an agent session. Session readiness needs a provider session handle; model and effort are startup expectations, not per-command gates.',
   ],
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
@@ -200,6 +207,7 @@ const EFFECTS = Object.freeze({
   join: ['Appends reviewer identity and claim events and creates one reviewer draft.'],
   'launch-reviewer': [
     'Launches Claude under dontAsk with one exact response Edit permission and literal model and effort identifiers.',
+    'On resume, --model and --effort may change the requested selection while the registered session and response boundary stay fixed.',
     'Bounded diagnostics distinguish failure from uncertainty; the pre-join session fingerprint may be null.',
     'A provider-coded model or effort refusal is reported distinctly; other uncertain outcomes require reconciliation.',
     'A blocked write returns an exact same-session resume action only with usable private session state.',
@@ -971,7 +979,7 @@ const ERROR_CATALOG = Object.freeze({
   APR_IDENTITY_REQUIRED: {
     message: 'The command could not establish its required participant identity.',
     recovery:
-      'Run the command from the actual Codex or Claude agent session with its provider hook installed by setup --update. Run doctor --mode installation to check package health without a current agent model; do not pin a model in project config.',
+      'Run the command from the registered provider session. At start, provide --author-model and --author-effort if the headless session does not expose its selection. On a later turn, resume the recorded session handle; no model hook or project-wide model pin is required.',
   },
   APR_REVIEWER_SELECTION_UNSUPPORTED: {
     message:
@@ -980,7 +988,7 @@ const ERROR_CATALOG = Object.freeze({
       'Choose codex, claude, or grok with safe exact model and effort identifiers; repair the local identity or adapter if it cannot preserve the request.',
   },
   APR_REVIEWER_SELECTION_REFUSED: {
-    message: 'The provider explicitly rejected the requested reviewer model or effort.',
+    message: 'The provider explicitly rejected a requested author or reviewer model or effort.',
     recovery:
       'Check available choices in the installed provider app, then start a new review with an exact supported model and effort.',
   },
@@ -1120,8 +1128,8 @@ function topic(command) {
           ? ['--update uses project scope and all recorded hosts']
           : ['stored review authority'],
     environment: [
-      'Official provider session metadata when available; declared identity is explicit.',
-      'Codex and Claude provider hooks supply the current model for each CLI invocation; project identity model fields are ignored for new operations.',
+      'The provider session handle binds the role. Startup records each requested model and effort with its evidence source.',
+      'A launch ACK confirms the provider accepted the request; it does not guarantee the model or effort of every later turn.',
     ],
     preconditions: PRECONDITIONS[command],
     effects: EFFECTS[command],
@@ -1173,7 +1181,7 @@ function topic(command) {
       ...(command === 'doctor' ? ['peer-review doctor --mode installation --json'] : []),
       ...(command === 'start'
         ? [
-            'peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium',
+            'peer-review start docs/spec.md --artifact-kind spec --issue 117 --author-model gpt-6-astra --author-effort high --reviewer-provider claude --reviewer-model claude-opus-5-5 --reviewer-effort high',
           ]
         : []),
     ],

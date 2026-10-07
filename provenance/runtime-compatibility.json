@@ -1,6 +1,6 @@
 {
   "schema": "ai-peer-review.runtime-compatibility/v1",
-  "integration_contract": "ai-peer-review.integration/v1",
+  "integration_contract": "ai-peer-review.integration/v2",
   "contracts": {
     "event": {
       "read": ["ai-peer-review.event/v1", "ai-peer-review.event/v2"],

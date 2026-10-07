@@ -179,7 +179,7 @@ test('runner applies decision, denial, failure, interruption, and uncertainty pr
       exit: 2,
       status: 'submitted',
       category: null,
-      state: true,
+      state: false,
     },
     {
       name: 'decision over denial',
@@ -192,7 +192,7 @@ test('runner applies decision, denial, failure, interruption, and uncertainty pr
       exit: 1,
       status: 'submitted',
       category: null,
-      state: true,
+      state: false,
     },
     {
       name: 'first decision without handle',
@@ -210,7 +210,7 @@ test('runner applies decision, denial, failure, interruption, and uncertainty pr
       exit: 0,
       status: 'failed',
       category: 'provider-failed',
-      state: true,
+      state: false,
     },
     {
       name: 'join failure',
@@ -218,7 +218,7 @@ test('runner applies decision, denial, failure, interruption, and uncertainty pr
       exit: 1,
       status: 'failed',
       category: 'join-failed',
-      state: true,
+      state: false,
     },
     {
       name: 'numeric failure',
@@ -776,7 +776,7 @@ test('v1 result schema accepts historical and new failures but requires identity
   );
 });
 
-test('explicit provider selection code refuses only before a session exists', async (t) => {
+test('explicit provider selection code requires no newly returned session', async (t) => {
   const fixture = launchFixture(t);
   const unchanged = launchAuthority({ joined: false });
   const refusal = execution({ error: { code: 'model_not_found', message: 'PRIVATE' } }, 1);
@@ -821,4 +821,48 @@ test('explicit provider selection code refuses only before a session exists', as
   assert.equal(ambiguous.diagnostic.category, 'provider-failed');
   const generic = normalizeClaudeExecution({ execution: execution({}, 2) });
   assert.equal(generic.selection_refusal, null);
+});
+
+test('explicit selection refusal on a registered resume is a retryable NAK', () => {
+  const joined = launchAuthority({ joined: true });
+  const providerResult = normalizeClaudeExecution({
+    execution: execution({ error: { code: 'model_not_found', message: 'PRIVATE' } }, 1),
+  });
+  assert.throws(
+    () =>
+      classifyClaudeReviewerOutcome({
+        before: joined,
+        after: joined,
+        contract: {
+          review_id: joined.state.protocol.review_id,
+          invitation: '/fixture/invitation.md',
+          response: '/fixture/reviewer-response-2.md',
+          model: 'claude-opus-5-5',
+          effort: 'high',
+        },
+        providerResult,
+        expectedSessionFingerprint: sessionFingerprint,
+        resumeAvailable: true,
+      }),
+    (error) =>
+      error.code === 'APR_REVIEWER_SELECTION_REFUSED' &&
+      error.details.provider_code === 'model_not_found' &&
+      !JSON.stringify(error.toJSON()).includes('PRIVATE')
+  );
+  const ambiguous = classifyClaudeReviewerOutcome({
+    before: joined,
+    after: joined,
+    contract: {
+      review_id: joined.state.protocol.review_id,
+      invitation: '/fixture/invitation.md',
+      response: '/fixture/reviewer-response-2.md',
+      model: 'claude-opus-5-5',
+      effort: 'high',
+    },
+    providerResult: normalizeClaudeExecution({ execution: execution({}, 2) }),
+    expectedSessionFingerprint: sessionFingerprint,
+    resumeAvailable: true,
+  });
+  assert.equal(ambiguous.status, 'failed');
+  assert.equal(ambiguous.diagnostic.category, 'provider-failed');
 });

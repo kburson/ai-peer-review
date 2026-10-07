@@ -760,7 +760,7 @@ test('doctor reports the explicit broker helper build command without blocking l
   assert.equal(doctor({ ...base, requestedMode: 'automatic-required' }).healthy, false);
 });
 
-test('doctor text distinguishes installation health from missing current-session identity', async (t) => {
+test('doctor text preserves session continuity while reporting missing primary authority', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   execFileSync('git', ['init', '-q'], { cwd: files.project });
@@ -797,8 +797,8 @@ test('doctor text distinguishes installation health from missing current-session
   const session = await invoke(['doctor']);
   assert.equal(session.code, 1);
   assert.match(session.stdout, /session readiness: unhealthy/i);
-  assert.match(session.stdout, /identity-source: unavailable/i);
-  assert.match(session.stdout, /recovery: .*model/i);
+  assert.match(session.stdout, /identity-source: session-handle/i);
+  assert.doesNotMatch(session.stdout, /recovery: .*model/i);
   assert.doesNotMatch(session.stdout, /recovery: ai-peer-review build broker-security/i);
   const installed = await invoke(['doctor', '--mode', 'installation']);
   assert.equal(installed.code, 1, installed.stderr);

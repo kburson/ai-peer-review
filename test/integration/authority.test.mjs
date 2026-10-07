@@ -509,7 +509,6 @@ test('request-grant CLI appends once under lock and emits reusable challenge byt
     cwd: fixture.root,
     env: {
       CODEX_SESSION_ID: 'cli-reviewer-session',
-      CODEX_MODEL_ID: 'gpt-test',
     },
     now,
     stdout: { write: (value) => output.push(value) },

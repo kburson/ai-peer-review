@@ -1,3 +1,4 @@
+import { safeSelectionIdentifier } from '../providers/registry.mjs';
 import { registerRuntimeSelection, inspectRuntimeSelection } from '../config/runtime-selection.mjs';
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
 import { execFile as execFileCallback } from 'node:child_process';
@@ -92,8 +93,11 @@ import {
   claimRole,
   deriveClaimStatus,
   enterStaleClaimIntervention,
+  fingerprintSession,
   identityChangeEvent,
+  participantIdentity,
   participantIdentityFromProviderObservation,
+  registeredSessionIdentity,
   reclaimRole,
   resolveIdentity,
   v1Participant,
@@ -1558,6 +1562,79 @@ export function createReviewOperations({
         workspace: values.workspace,
       },
     };
+  }
+
+  function reviewerIdentityForJoin(invitation, io, config) {
+    const state = inspectReview(invitationValues(invitation).workspace);
+    const runtime = state.protocol.startup.runtime;
+    const requested = runtime?.reviewer;
+    const handle = requested ? rawSession(io, requested.selector) : null;
+    const modelEnvironment = {
+      codex: io.env?.CODEX_MODEL_ID,
+      claude: io.env?.CLAUDE_MODEL_ID,
+      grok: io.env?.GROK_MODEL_ID,
+    };
+    const operationId = `join:${state.protocol.review_id}`;
+    const observationBase = path.join(
+      invitationValues(invitation).workspace,
+      'provider',
+      'claude',
+      'observations'
+    );
+    const observedClaudeJoin =
+      requested?.selector === 'claude' &&
+      [
+        path.join(
+          observationBase,
+          `${createHash('sha256').update(operationId).digest('hex')}.json`
+        ),
+        ...(process.platform === 'win32'
+          ? []
+          : [path.join(observationBase, `${operationId}.json`)]),
+      ].some(existsSync);
+    if (
+      runtime?.transport_mode === 'manual' &&
+      requested &&
+      handle &&
+      !observedClaudeJoin &&
+      !io.identityContext?.runtime?.sessionId &&
+      !{ codex: io.env?.APR_CODEX_HOOK_TOKEN, claude: io.env?.APR_CLAUDE_HOOK_TOKEN }[
+        requested.selector
+      ]
+    ) {
+      if (runtimeSessionCandidates(io).length !== 1)
+        fail(
+          'APR_IDENTITY_CONFLICT',
+          'Manual reviewer identity has ambiguous provider session handles.',
+          'Join from the exact requested provider session without inherited foreign identity.'
+        );
+      if (
+        modelEnvironment[requested.selector] &&
+        modelEnvironment[requested.selector] !== requested.model_id
+      )
+        fail(
+          'APR_IDENTITY_CONFLICT',
+          'The manual reviewer model declaration differs from the sealed request.',
+          'Join with the requested selection or procure a new reviewer through the governed session handshake.'
+        );
+      return participantIdentity({
+        role: 'reviewer',
+        host: requested.host,
+        provider: requested.provider,
+        modelId: requested.model_id,
+        modelDisplay: requested.model_display,
+        sessionId: handle,
+        source: 'declared',
+        sessionSource: 'environment-declaration',
+        modelSource: 'launch-request',
+        joinedAt: io.now ?? new Date(),
+      });
+    }
+    return resolveIdentity({
+      role: 'reviewer',
+      env: io.env,
+      ...configuredIdentityContext(io, config),
+    });
   }
 
   function pathsForContext(context) {
@@ -4878,11 +4955,29 @@ export function createReviewOperations({
   function commandIdentity(io, state, role = null, { allowReplacement = false, config = {} } = {}) {
     const roles = role ? [role] : ['author', 'reviewer'];
     for (const candidateRole of roles) {
-      const identity = resolveIdentity({
-        role: candidateRole,
-        env: io.env,
-        ...configuredIdentityContext(io, config),
-      });
+      const registered = state?.participants?.[candidateRole];
+      let identity;
+      try {
+        identity =
+          !allowReplacement &&
+          registered?.host !== 'other' &&
+          registered &&
+          !io.identityContext?.runtime?.sessionId
+            ? registeredSessionIdentity(registered, io.env)
+            : resolveIdentity({
+                role: candidateRole,
+                env: io.env,
+                ...configuredIdentityContext(io, config),
+              });
+      } catch (cause) {
+        if (
+          !role &&
+          cause instanceof AprError &&
+          ['APR_IDENTITY_CONFLICT', 'APR_IDENTITY_REQUIRED'].includes(cause.code)
+        )
+          continue;
+        throw cause;
+      }
       if (
         allowReplacement ||
         !state?.participants?.[candidateRole] ||
@@ -4898,23 +4993,39 @@ export function createReviewOperations({
     );
   }
 
+  function runtimeSessionCandidates(io) {
+    return [
+      ['codex', 'openai', rawSession(io, 'codex')],
+      ['claude-code', 'anthropic', rawSession(io, 'claude')],
+      ['grok', 'xai', rawSession(io, 'grok')],
+    ].filter(([, , sessionId]) => typeof sessionId === 'string' && sessionId);
+  }
+
   async function detectedDoctorContext(io, loaded, requestedMode) {
     let identity = null;
     let identityRecovery = null;
-    try {
-      if (requestedMode !== 'installation')
-        identity = resolveIdentity({
-          role: 'author',
-          env: io.env,
-          ...configuredIdentityContext(io, loaded.config),
-        });
-    } catch (cause) {
-      if (!(cause instanceof AprError)) throw cause;
-      identityRecovery = {
-        code: cause.code,
-        recovery: cause.recovery,
-        details: cause.details,
-      };
+    const sessions = runtimeSessionCandidates(io);
+    if (requestedMode !== 'installation') {
+      if (sessions.length === 1) {
+        const [host, provider, sessionId] = sessions[0];
+        identity = {
+          host,
+          provider,
+          identity_source: 'session-handle',
+          session_fingerprint: fingerprintSession(provider, sessionId),
+        };
+      } else {
+        try {
+          identity = resolveIdentity({
+            role: 'author',
+            env: io.env,
+            ...configuredIdentityContext(io, loaded.config),
+          });
+        } catch (cause) {
+          if (!(cause instanceof AprError)) throw cause;
+          identityRecovery = { code: cause.code, recovery: cause.recovery, details: cause.details };
+        }
+      }
     }
     let git = { repository: false, worktreeSafe: false, scratchIgnored: false };
     try {
@@ -5036,7 +5147,54 @@ export function createReviewOperations({
     return null;
   }
 
-  async function authorIdentityForStart(io, loaded) {
+  async function authorIdentityForStart(io, loaded, options = {}) {
+    if (options.authorModel !== undefined) {
+      if (
+        !safeSelectionIdentifier(options.authorModel) ||
+        !safeSelectionIdentifier(options.authorEffort ?? 'medium')
+      )
+        fail(
+          'APR_REVIEWER_SELECTION_UNSUPPORTED',
+          'Author model and effort require safe identifier syntax.'
+        );
+      const activeModel =
+        io.env?.CODEX_MODEL_ID ?? io.env?.CLAUDE_MODEL_ID ?? io.env?.GROK_MODEL_ID;
+      if (activeModel && activeModel !== options.authorModel)
+        fail(
+          'APR_IDENTITY_CONFLICT',
+          'The active author session reports a different model than requested.',
+          'Select the active model or start a new headless author session with the requested model.'
+        );
+      const host =
+        io.env?.CODEX_THREAD_ID || io.env?.CODEX_SESSION_ID
+          ? 'codex'
+          : io.env?.CLAUDE_CODE_SESSION_ID || io.env?.CLAUDE_SESSION_ID
+            ? 'claude'
+            : io.env?.GROK_SESSION_ID
+              ? 'grok'
+              : null;
+      const sessionId = host ? rawSession(io, host) : null;
+      if (!sessionId)
+        fail(
+          'APR_IDENTITY_REQUIRED',
+          'The requested author selection has no provider session handle.',
+          'Start a headless provider session, then retry with its requested author model and effort.'
+        );
+      return {
+        identity: resolveIdentity({
+          role: 'author',
+          env: io.env,
+          ...configuredIdentityContext(io, loaded.config),
+          runtime: {
+            sessionId,
+            modelId: options.authorModel,
+            modelDisplay: options.authorModel,
+            modelSource: 'launch-request',
+          },
+        }),
+        active: null,
+      };
+    }
     const host = io.env?.APR_CODEX_HOOK_TOKEN
       ? 'codex'
       : io.env?.APR_CLAUDE_HOOK_TOKEN
@@ -5273,7 +5431,7 @@ export function createReviewOperations({
               entry.details?.build_command
                 ? `\n  recovery: ${entry.details.build_command}`
                 : entry.id === 'identity-source' && entry.status === 'unavailable'
-                  ? '\n  recovery: Use --mode installation for package health; review startup needs current-operation provider model evidence.'
+                  ? `\n  recovery: ${entry.details?.recovery ?? 'Use --mode installation for package health; review commands need the registered provider session handle.'}`
                   : '';
             return `${entry.id}: ${entry.status}${recovery}`;
           });
@@ -5296,13 +5454,16 @@ export function createReviewOperations({
           ? parsed.args[0]
           : path.resolve(io.cwd, parsed.args[0]);
         const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const sessions = runtimeSessionCandidates(io);
         const requesterFingerprint =
           io.requesterFingerprint ??
-          resolveIdentity({
-            role: 'author',
-            env: io.env,
-            ...configuredIdentityContext(io, loaded.config),
-          }).session_fingerprint;
+          (sessions.length === 1
+            ? fingerprintSession(sessions[0][1], sessions[0][2])
+            : resolveIdentity({
+                role: 'author',
+                env: io.env,
+                ...configuredIdentityContext(io, loaded.config),
+              }).session_fingerprint);
         const challenge = await requestGrant(
           workspace,
           parsed.options.action,
@@ -5342,7 +5503,8 @@ export function createReviewOperations({
           const current = statusReview(values.workspace, { now: io.now ?? new Date() });
           if (
             current.state !== 'reviewer-turn' ||
-            current.paths.invitation !== invitation ||
+            typeof current.paths.invitation !== 'string' ||
+            path.relative(path.resolve(current.paths.invitation), invitation) !== '' ||
             typeof current.paths.response !== 'string'
           ) {
             throw new AprError(
@@ -5365,6 +5527,8 @@ export function createReviewOperations({
               invitation,
               routing,
               runtimeImage: evidence?.journal.runtime,
+              model: parsed.options.model,
+              effort: parsed.options.effort,
             })
           : buildClaudeReviewerLaunch({
               repositoryRoot,
@@ -5464,7 +5628,7 @@ export function createReviewOperations({
               ),
               path.join(observationBase, `join:${values.reviewId}.json`),
             ].some(existsSync);
-            if (!observed)
+            if (parsed.options.resume || !observed)
               await settleManualLaunch(
                 values.workspace,
                 launchDetails,
@@ -5483,7 +5647,7 @@ export function createReviewOperations({
         const loaded = loadConfig({ cwd: io.cwd, env: io.env });
         const effectiveTransportMode =
           parsed.options.transportMode ?? loaded.config.review?.transport_mode ?? 'manual';
-        const author = await authorIdentityForStart(io, loaded);
+        const author = await authorIdentityForStart(io, loaded, parsed.options);
         const identity = author.identity;
         const transportObservation =
           effectiveTransportMode === 'automatic-required' &&
@@ -5513,6 +5677,7 @@ export function createReviewOperations({
           artifact: parsed.args[0],
           artifactKind: parsed.options.artifactKind,
           identity,
+          authorEffort: parsed.options.authorEffort,
           now: io.now ?? new Date(),
           authority: io.authority,
           transportCapability,
@@ -5537,11 +5702,7 @@ export function createReviewOperations({
       } else if (parsed.command === 'join') {
         const loaded = loadConfig({ cwd: io.cwd, env: io.env });
         const invitation = path.resolve(io.cwd, parsed.args[0]);
-        const identity = resolveIdentity({
-          role: 'reviewer',
-          env: io.env,
-          ...configuredIdentityContext(io, loaded.config),
-        });
+        const identity = reviewerIdentityForJoin(invitation, io, loaded.config);
         const resumable = configuredResume(io, loaded.config, identity);
         const joinRuntime = await runtimeObservationForJoin(invitation, identity, io);
         const automaticJoin =
@@ -5646,34 +5807,13 @@ export function createReviewOperations({
             : null;
         const deliveryDeps = { transport, execFile: io.execFile };
         if (active === 'reviewer') {
-          const registeredReviewer = submitState.participants.reviewer;
-          const legacyDeclaredClaude =
-            registeredReviewer?.host === 'claude-code' &&
-            registeredReviewer.identity_source === 'declared';
-          const identityEnv = { ...(io.env ?? {}) };
-          if (legacyDeclaredClaude) {
-            delete identityEnv.CLAUDE_MODEL_ID;
-            delete identityEnv.CLAUDE_MODEL_DISPLAY;
-          }
           const decision =
             parsed.options.decision ?? decisionFromResponse(statusReview(workspace).paths.response);
           response = await submitReviewTurn(
             {
               cwd: io.cwd,
               workspace,
-              identity: resolveIdentity({
-                role: 'reviewer',
-                env: identityEnv,
-                ...configuredIdentityContext(io, loaded.config),
-                ...(legacyDeclaredClaude
-                  ? {
-                      declaredModel: {
-                        modelId: registeredReviewer.model_id,
-                        modelDisplay: registeredReviewer.model_display,
-                      },
-                    }
-                  : {}),
-              }),
+              identity: commandIdentity(io, submitState, 'reviewer', { config: loaded.config }),
               decision,
               now: io.now ?? new Date(),
             },
@@ -5684,11 +5824,7 @@ export function createReviewOperations({
             {
               cwd: io.cwd,
               workspace,
-              identity: resolveIdentity({
-                role: 'author',
-                env: io.env,
-                ...configuredIdentityContext(io, loaded.config),
-              }),
+              identity: commandIdentity(io, submitState, 'author', { config: loaded.config }),
               noArtifactChange: parsed.options.noArtifactChange,
               reason: parsed.options.reason,
               now: io.now ?? new Date(),

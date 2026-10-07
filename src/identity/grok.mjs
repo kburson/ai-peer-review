@@ -12,7 +12,8 @@ function resolveRuntime({ runtime = {}, env = {} } = {}) {
     return null;
   }
   const sessionSource = runtimeSession ? 'official-runtime' : 'environment-declaration';
-  const modelSource = runtimeModel ? 'official-runtime' : 'environment-declaration';
+  const modelSource =
+    runtime.modelSource ?? (runtimeModel ? 'official-runtime' : 'environment-declaration');
   return {
     host: 'grok',
     provider: 'xai',

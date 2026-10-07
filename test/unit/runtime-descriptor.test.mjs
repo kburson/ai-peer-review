@@ -59,6 +59,29 @@ test('validates the closed runtime descriptor without resume handles', () => {
   );
 });
 
+test('seals an optional author quality request while accepting legacy runtime records', () => {
+  const author = {
+    provider: 'openai',
+    host: 'codex',
+    model_id: 'gpt-6-astra',
+    model_display: 'GPT-6 Astra',
+    effort: 'high',
+  };
+  assert.deepEqual(validateRuntimeDescriptor({ ...runtime, author }).author, author);
+  assert.throws(
+    () => validateRuntimeDescriptor({ ...runtime, author: { ...author, extra: true } }),
+    {
+      code: 'APR_USAGE',
+    }
+  );
+  assert.throws(
+    () => validateRuntimeDescriptor({ ...runtime, author: { ...author, effort: '' } }),
+    {
+      code: 'APR_USAGE',
+    }
+  );
+});
+
 test('requires a joining reviewer to match the sealed provider, surface, model, effort, and adapter', () => {
   assert.equal(assertRequestedReviewer(runtime, reviewer, observation), true);
   for (const [identity, observed] of [

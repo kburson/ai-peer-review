@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { withPrimaryAdmissionFence } from './primary-admission.mjs';
 import { readFileSync, lstatSync, realpathSync } from 'node:fs';
-import { modify, applyEdits } from 'jsonc-parser';
+import { modify, applyEdits, parseTree, findNodeAtLocation } from 'jsonc-parser';
 import {
   inspectPrimaryReviewInventory,
   assertPrimaryInventoryObservation,
@@ -84,6 +84,7 @@ function splitLegacy(legacy) {
   for (const [host, fields] of Object.entries(legacy.hosts ?? {}))
     for (const [field, owner] of Object.entries(HOST_FIELD_OWNERS)) {
       const [group, key] = field.split('.');
+      if (group === 'automatic' && legacy.setup?.automatic_adapters_added?.includes(host)) continue;
       const value = key ? fields[group]?.[key] : fields[group];
       if (value === undefined) continue;
       const target = owner === 'primary' ? primary : user;
@@ -241,8 +242,10 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
       } else add(wrapper, hostWrapper(host), host + '-wrapper');
       const adapter = path.join(hostRoot, 'config.json'),
         adapterBytes = read(adapter);
+      const adapterMetadata =
+        adapterBytes === null ? null : parse(adapterBytes, adapter).ai_peer_review;
       if (adapterBytes !== null) {
-        const metadata = parse(adapterBytes, adapter).ai_peer_review;
+        const metadata = adapterMetadata;
         if (metadata) {
           if (metadata.owner !== 'ai-peer-review' || !legacy?.setup?.agents?.includes(host))
             conflict('Provider adapter metadata ownership is unknown.', { file: adapter });
@@ -260,30 +263,39 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
         const value = parse(before, file) ?? {};
         const groups = value.hooks?.PreToolUse ?? [];
         if (!Array.isArray(groups)) conflict('Host PreToolUse hooks must be an array.', { file });
-        const hook = { matcher: 'Bash', hooks: [{ type: 'command', command: hooks[host] }] };
+        const exactHook = (matcher) => ({
+          matcher,
+          hooks: [{ type: 'command', command: hooks[host] }],
+        });
+        const supported = [
+          exactHook('Bash'),
+          ...(host === 'codex' ? [exactHook('^(?:Bash|functions\\.exec|exec)$')] : []),
+        ];
         const owned = groups.filter((group) =>
           group?.hooks?.some((entry) => entry.command === hooks[host])
         );
+        const recorded =
+          legacy?.setup?.agents?.includes(host) && adapterMetadata?.hook_added === true;
         if (
-          owned.length > 1 ||
-          owned.some((group) => JSON.stringify(group) !== JSON.stringify(hook))
+          recorded &&
+          (owned.length > 1 ||
+            owned.some(
+              (group) => !supported.some((hook) => JSON.stringify(group) === JSON.stringify(hook))
+            ))
         )
           conflict('Owned host hook is ambiguous or modified.', { file });
-        if (options.remove) {
-          if (owned.length && current.setup?.agents?.includes(host)) {
-            const index = groups.indexOf(owned[0]);
-            const bytes = applyEdits(
-              before,
-              modify(before, ['hooks', 'PreToolUse', index], undefined, {})
-            );
-            add(file, bytes, host + '-hook', true);
-          }
-        } else if (!owned.length) {
-          const bytes =
-            before === null
-              ? stable({ hooks: { PreToolUse: [hook] } })
-              : applyEdits(before, modify(before, ['hooks', 'PreToolUse', -1], hook, {}));
-          add(file, bytes.endsWith('\n') ? bytes : bytes + '\n', host + '-hook', before !== null);
+        // Selection is negotiated at startup. Remove proven obsolete model hooks
+        // without installing new ones or deleting a user-owned hook.
+        if (owned.length && recorded) {
+          const nodes = findNodeAtLocation(parseTree(before), ['hooks', 'PreToolUse']).children;
+          const index = groups.indexOf(owned[0]);
+          const node = nodes[index];
+          // Delete only the owned node and its separator. jsonc-parser modify
+          // can remove the wrong delimiter in a compact nested object array.
+          const start = index > 0 ? nodes[index - 1].offset + nodes[index - 1].length : node.offset;
+          const end = index === 0 && nodes.length > 1 ? nodes[1].offset : node.offset + node.length;
+          const bytes = before.slice(0, start) + before.slice(end);
+          add(file, bytes, host + '-hook', true);
         }
       }
     }

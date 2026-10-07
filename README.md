@@ -136,10 +136,12 @@ end-to-end transport probe. Anything it calls out, it also tells you how to fix.
 From an ordinary terminal, run `peer-review doctor --mode installation` to
 check the installed package, skill, repository, scratch setup, and native broker
 helper without declaring a provider or model for the project. Plain `doctor`
-checks current-session review readiness and may be unhealthy when its invoking
-shell lacks current model metadata. Review startup captures the provider's
-current operation instead of pinning a model or effort to the worktree; either
-may change before a later review start in the same provider session.
+checks current-session readiness using the provider session handle. It may be
+unhealthy in a shell outside an agent session. Model and effort are requested
+at startup or on resume, never pinned to the project or rechecked on every
+review command. If a continuing command reports `APR_IDENTITY_REQUIRED`,
+resume the registered provider session and retry. Keep the review intact while
+recovering that session.
 
 Broker-dependent startup additionally requires the package-owned native
 security helper. Building it is always explicit: provide a writable package
@@ -172,19 +174,19 @@ broker-dependent startup fails with `APR_BROKER_START_FAILED`; legacy manual
 review operations remain available and never trigger a build.
 
 Claude Code must expose a genuine current session through
-`CLAUDE_CODE_SESSION_ID` (or `CLAUDE_SESSION_ID`). Project setup installs a
-provider hook that reads the model from the exact active Claude tool use and
-supplies it to each CLI invocation. Codex setup does the same from its hook
-event. Start and join also write private, token-named evidence for that exact
-operation. The provider is fixed by the active session; its model and effort
-can change between invocations without changing project configuration. Legacy
-`hosts.<provider>.identity` model fields remain readable for old configuration
-files but no longer select the current model. Rerun `peer-review setup --update`
-after upgrading so the host hooks and skill match the installed CLI.
+`CLAUDE_CODE_SESSION_ID` (or `CLAUDE_SESSION_ID`); Codex uses its thread or
+session handle. Startup seals the requested provider, model, and effort for
+both roles and records the session handle obtained at join. A provider launch
+ACK records selection acceptance at that time. It does not guarantee the model
+or effort of every later turn. Continuing commands use the registered session
+and role even if model or effort changes. `peer-review setup --update` removes
+obsolete package-owned model hooks and refreshes the skill while preserving
+foreign hooks. Legacy `hosts.<provider>.identity` model fields remain readable
+but do not select a model for new reviews.
 
-The session fingerprint derives from the genuine current provider session.
-Legacy reviews with a declared Claude identity retain that sealed identity for
-their own pending manual submission; new reviews use current provider evidence.
+The session fingerprint derives from the current provider session handle.
+Manual joins without provider model evidence label the sealed requested model
+as declared. Legacy reviews retain their recorded identity and session binding.
 
 The compatibility `identity_source` field remains for legacy readers; it is not
 an independent model-verification claim. Current manifests expose separate
@@ -194,12 +196,12 @@ be `assurance: observed`. Conflicting declared and observed model IDs are
 retained together with `conflict: true`, while legacy v1 records render as
 `legacy-unclassified` instead of being retroactively promoted.
 
-Codex and Claude Code setup install package-owned versioned settings for the
-`peer-review-mcp` server, an eight-hour tool timeout, and a lease heartbeat.
-Grok and generic hosts remain manual unless a future official adapter implements
-and passes the same contract. Setup does not install a Claude identity hook or
-status-line bridge. Preview, apply, and removal preserve all foreign hooks,
-status-line configuration, and other settings.
+Setup installs invitation-driven manual transport for every host. An update
+removes package-owned automatic adapter settings that depended on the old model
+hook. Existing reviews and user-owned adapter settings remain intact. Setup
+does not install a model identity hook or status-line bridge. Preview, apply,
+and removal preserve all foreign hooks, status-line configuration, and other
+settings.
 
 ## Running a review
 
@@ -213,12 +215,14 @@ exact blob, so a dirty file is refused rather than quietly reviewed.
 From the author session, the equivalent explicit command is:
 
 ```bash
-peer-review start docs/spec.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium
+peer-review start docs/spec.md --artifact-kind spec --issue 117 --author-model gpt-6-astra --author-effort high --reviewer-provider claude --reviewer-model claude-opus-5-5 --reviewer-effort medium
 ```
 
 Replace `117` with the tracked issue number. Every new SPR or XPR requires
 `--issue`; the sealed ID prefixes package-generated review commits as `[#N]`.
 `peer-review explain APR_ISSUE_REQUIRED` describes the missing-issue refusal.
+The author provider is the invoking headless agent's provider; `--author-model`
+and `--author-effort` state that run's requested qualities.
 
 Model and effort identifiers are passed through exactly after syntax validation.
 The package does not maintain an availability catalog. Inspect the installed
@@ -248,15 +252,12 @@ start`, `peer-review help spr`, and `peer-review help xpr` work offline.
 Your agent gets back a workspace, a brief of its own, and a reviewer invitation
 containing every path the second agent needs.
 
-For automatic Claude Code broker handoffs, install the package locally, build
-its native broker helper, and add a `PreToolUse` Bash hook to the project
-`.claude/settings.json` with command
-`node node_modules/@kburson/ai-peer-review/bin/peer-review-claude-hook.mjs`.
-Check `peer-review doctor --mode automatic-required`, then add
-`--transport-mode automatic-required` to `peer-review start`. The broker
-validates both exact sessions and can resume either role. Manual and
-resume-only operation remain choices; requested effort is not claimed as
-provider-verified.
+The generated invitation is the normal handoff. Claude can launch a headless
+reviewer from that invitation with `peer-review launch-reviewer`; a provider
+launch acknowledgement records the requested selection and its session handle.
+`automatic-required` remains available only for an explicitly configured
+provider transport that passes `peer-review doctor --mode automatic-required`.
+Requested effort is not claimed as provider-verified.
 
 ### 2. The reviewer joins
 

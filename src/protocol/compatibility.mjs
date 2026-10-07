@@ -133,7 +133,9 @@ export function validateRuntimeCompatibility(manifest) {
   if (
     !exactKeys(manifest, ['schema', 'integration_contract', 'contracts']) ||
     manifest.schema !== 'ai-peer-review.runtime-compatibility/v1' ||
-    manifest.integration_contract !== 'ai-peer-review.integration/v1' ||
+    !['ai-peer-review.integration/v1', 'ai-peer-review.integration/v2'].includes(
+      manifest.integration_contract
+    ) ||
     !exactKeys(manifest.contracts, contracts.required)
   )
     throw unsupported(

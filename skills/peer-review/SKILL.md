@@ -173,6 +173,13 @@ model turns while idle. An expired lease or changed process instance requires
 the recorded participant-loss intervention. If any automatic delivery remains
 pending, use the exact printed manual recovery command.
 
+Provider, model, and effort are startup or resumptive selection expectations.
+Continuing commands require the registered role and session handle. They do not
+re-attest the model or effort on each turn. When the author host exposes no model
+at startup, pass the run-scoped `--author-model` and `--author-effort`. Primary
+setup removes proven package-owned model hooks without installing new ones and
+preserves foreign hooks and existing review records.
+
 Start from the invoking author session with an explicit reviewer provider and
 model; print the resolved effort even when it defaults to medium. Preserve the
 user's exact model and effort identifiers instead of choosing from a

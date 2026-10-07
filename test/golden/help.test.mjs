@@ -32,6 +32,7 @@ test('setup help and explain make package upgrades and teardown discoverable', (
   assert.match(setup.effects.join(' '), /commit.*activate/i);
   assert.match(setup.effects.join(' '), /teardown.*owned hooks/i);
   assert.match(setup.effects.join(' '), /foreign hook.*bytes/i);
+  assert.match(setup.effects.join(' '), /removes obsolete package-owned model hooks/i);
   assert.match(setup.examples.join(' '), /--remove/);
   assert.match(setup.examples.join(' '), /--dry-run/);
   assert.match(setup.examples.join(' '), /setup --update/);
@@ -60,14 +61,18 @@ test('build and setup help explain explicit execution and applied output', () =>
   assert.match(helpRequest('setup', 'json').effects.join(' '), /setup-result\/v1/);
 });
 
-test('doctor help distinguishes installation from current-operation readiness', () => {
+test('doctor help distinguishes installation from session readiness', () => {
   const doctor = helpRequest('doctor', 'json');
   assert.match(doctor.usage, /installation/);
-  assert.match(doctor.effects.join(' '), /model and effort may change/i);
+  assert.match(doctor.effects.join(' '), /model and effort are startup expectations/i);
   assert.match(doctor.examples.join(' '), /doctor --mode installation/);
   assert.match(
     explainError('APR_IDENTITY_REQUIRED').recovery,
-    /do not pin a model in project config/i
+    /no model hook or project-wide model pin is required/i
+  );
+  assert.match(
+    explainError('APR_IDENTITY_REQUIRED').recovery,
+    /resume the recorded session handle/i
   );
 });
 
@@ -86,13 +91,15 @@ test('start help gives complete intent-first selection and recovery guidance', (
     assert.match(helpRequest(concept, 'json').examples[0], /--issue [0-9]+/);
   }
   assert.match(start, /--reviewer-provider/);
+  assert.match(start, /--author-model/);
+  assert.match(start, /--author-effort/);
   assert.match(start, /--reviewer-model/);
   assert.match(start, /medium/);
   assert.match(start, /invoking session.*author/i);
   assert.match(start, /broker/i);
   assert.match(
     start,
-    /peer-review start docs\/spec\.md --artifact-kind spec --issue 117 --reviewer-provider claude --reviewer-model claude-opus-5 --reviewer-effort medium/
+    /peer-review start docs\/spec\.md --artifact-kind spec --issue 117 --author-model gpt-6-astra --author-effort high --reviewer-provider claude --reviewer-model claude-opus-5-5 --reviewer-effort high/
   );
   assert.match(start, /APR_USAGE/);
   assert.doesNotMatch(start, /--runtime/);

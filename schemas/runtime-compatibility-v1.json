@@ -8,7 +8,7 @@
       "const": "ai-peer-review.runtime-compatibility/v1"
     },
     "integration_contract": {
-      "const": "ai-peer-review.integration/v1"
+      "enum": ["ai-peer-review.integration/v1", "ai-peer-review.integration/v2"]
     },
     "contracts": {
       "type": "object",
