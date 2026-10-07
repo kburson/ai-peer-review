@@ -127,6 +127,12 @@ test('source contract includes all production parser validators but excludes led
   const root = mkdtempSync(path.join(tmpdir(), 'apr-source-contract-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   for (const file of [
+    'src/broker/platform.mjs',
+    'src/config/runtime-selection.mjs',
+    'src/config/runtime-selection-core.mjs',
+    'src/errors.mjs',
+    'src/installed/dependency-closure.mjs',
+    'src/startup/runtime-inventory.mjs',
     'src/protocol/process-identity.mjs',
     'src/protocol/process-source-assurance.mjs',
     'src/api/canonical-json.mjs',
@@ -186,7 +192,7 @@ test('canonical creation intervals preserve declared UTC precision and reject lo
   );
 });
 
-test('overlap, equal, changed host/PID/boot and unverified records cannot discharge original ownership', () => {
+test('overlap, equal, changed host/PID/boot and unverified records cannot discharge original ownership', async () => {
   assert.equal(typeof api.assessOriginalProcess, 'function');
   const interval = { unit: 'utc-nanoseconds', lower: '100', upper: '200' };
   const seal = {
@@ -234,7 +240,7 @@ test('overlap, equal, changed host/PID/boot and unverified records cannot discha
   assert.equal(disjoint.candidate, 'different-process');
   assert.equal(disjoint.verified, false);
   assert.equal(typeof identity.reconcileOriginalProcess, 'function');
-  const fake = identity.reconcileOriginalProcess({
+  const fake = await identity.reconcileOriginalProcess({
     original,
     observation: { ...observation, status: 'dead', verified: true, assurance },
   });
@@ -435,17 +441,122 @@ test('a copied or foreign observation never discharges an original process', asy
     creation: { unit: 'utc-nanoseconds', lower: '1', upper: '2' },
   };
   assert.equal(
-    identity.reconcileOriginalProcess({
-      original,
-      observation: JSON.parse(JSON.stringify(observed)),
-    }).status,
+    (
+      await identity.reconcileOriginalProcess({
+        original,
+        observation: JSON.parse(JSON.stringify(observed)),
+      })
+    ).status,
     'unknown'
   );
   assert.equal(
-    identity.reconcileOriginalProcess({
-      original: { ...original, host: 'another-host' },
-      observation: observed,
-    }).status,
+    (
+      await identity.reconcileOriginalProcess({
+        original: { ...original, host: 'another-host' },
+        observation: observed,
+      })
+    ).status,
+    'unknown'
+  );
+});
+
+test('recomputed fixture ledger cannot acquire operational authority from a copied package', async (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'apr-operational-fixture-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  cpSync(path.join(ROOT, 'src'), path.join(root, 'src'), { recursive: true });
+  cpSync(path.join(ROOT, 'schemas'), path.join(root, 'schemas'), { recursive: true });
+  cpSync(path.join(ROOT, 'package.json'), path.join(root, 'package.json'));
+  const copied = await import(
+    new URL('src/protocol/process-source-assurance.mjs', new URL('file://' + root + '/'))
+  );
+  const probes = await import(
+    new URL('src/protocol/process-identity.mjs', new URL('file://' + root + '/'))
+  );
+  const actualProbe = await probes.observeProcessSourceContext();
+  assert.ok(
+    actualProbe,
+    'supported actual OS probe context must be observable for this negative control'
+  );
+  const current = {
+    platform: process.platform,
+    build: (await import('node:os')).release(),
+    architecture: process.arch,
+    nodeMajor: Number(process.versions.node.split('.')[0]),
+  };
+  const record = fixtureClass();
+  record.classId = 'recomputed-fixture-' + process.platform;
+  record.scope = {
+    platform: current.platform,
+    builds: [current.build],
+    architectures: [current.architecture],
+    nodeMajors: [current.nodeMajor],
+    probe: actualProbe,
+  };
+  record.contractDigest = await copied.processSourceContractDigest({ installation: root });
+  record.semantics = {
+    linux: 'linux-pid-directory-v1',
+    darwin: 'darwin-ps-selection-v1',
+    win32: 'windows-cim-completed-v1',
+  }[process.platform];
+  const unsealed = { ...record };
+  delete unsealed.approvalDigest;
+  record.approvalDigest =
+    'sha256:' + createHash('sha256').update(encodeRequestCanonical(unsealed)).digest('hex');
+  writeFileSync(
+    path.join(root, 'src/protocol/process-source-contracts.json'),
+    JSON.stringify(ledger([record]))
+  );
+  assert.equal(
+    copied.verifyProcessSourceClass({
+      ledger: ledger([record]),
+      host: current,
+      adapterHashes: { contractDigest: record.contractDigest },
+      probeObservation: actualProbe,
+    }).absence.status,
+    'matched'
+  );
+  const admitted = await copied.loadProcessSourceAssurance({ installation: root });
+  assert.equal(admitted.absence.status, 'unavailable');
+  assert.equal(admitted.absence.detail, 'installed-authority-unavailable');
+});
+
+test('Linux execution-host binding separates observer time namespaces before comparing start ticks', () => {
+  assert.equal(typeof identity.linuxExecutionHostBinding, 'function');
+  const context = {
+    machineId: 'a'.repeat(32),
+    bootId: '11111111-2222-4333-8444-555555555555',
+    pidNamespace: 'pid:[4026531836]',
+    timeNamespace: 'time:[4026531834]',
+  };
+  const first = identity.linuxExecutionHostBinding(context);
+  const second = identity.linuxExecutionHostBinding({
+    ...context,
+    timeNamespace: 'time:[4026533000]',
+  });
+  assert.notEqual(first, second);
+  assert.equal(identity.linuxExecutionHostBinding({ ...context, timeNamespace: undefined }), null);
+  const assurance = verify(fixtureClass('creation'));
+  const seal = {
+    classId: assurance.creation.classId,
+    contractDigest: digest,
+    approvalDigest: assurance.creation.approvalDigest,
+    precision: 'one-tick',
+  };
+  const original = {
+    host: first,
+    pid: 42,
+    creation: { unit: 'linux-ticks:' + context.bootId, lower: '100', upper: '101' },
+    creationSource: seal,
+  };
+  const observed = {
+    status: 'live',
+    host: second,
+    pid: 42,
+    creation: { unit: original.creation.unit, lower: '200', upper: '201' },
+    creationSource: seal,
+  };
+  assert.equal(
+    api.assessOriginalProcess({ original, observation: observed, assurance }).candidate,
     'unknown'
   );
 });

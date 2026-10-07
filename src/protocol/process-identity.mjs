@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import {
   loadProcessSourceAssurance,
   isInstalledProcessSourceAssurance,
+  revalidateInstalledProcessSourceAssurance,
   parseCreationStamp,
   assessOriginalProcess,
 } from './process-source-assurance.mjs';
@@ -144,6 +145,26 @@ export async function observeProcessSourceContext({ signal, deadline } = {}) {
   }
 }
 
+export function linuxExecutionHostBinding({ machineId, bootId, pidNamespace, timeNamespace } = {}) {
+  if (
+    typeof machineId !== 'string' ||
+    !/^[a-f0-9]{32}$/u.test(machineId) ||
+    /^0+$/u.test(machineId) ||
+    !BOOT.test(bootId) ||
+    typeof pidNamespace !== 'string' ||
+    !/^pid:\[\d+\]$/u.test(pidNamespace) ||
+    typeof timeNamespace !== 'string' ||
+    !/^time:\[\d+\]$/u.test(timeNamespace)
+  )
+    return null;
+  return (
+    'sha256:' +
+    createHash('sha256')
+      .update('linux:' + machineId + ':' + bootId + ':' + pidNamespace + ':' + timeNamespace)
+      .digest('hex')
+  );
+}
+
 const MAC_IOREG = '/usr/sbin/ioreg';
 const HOST_SCRIPT = [
   "$ErrorActionPreference='Stop'",
@@ -165,13 +186,19 @@ export async function observeExecutionHostIdentity(options = {}) {
     return null;
   try {
     let identifier;
-    let qualifier = '';
+    const qualifier = '';
     if (process.platform === 'linux') {
       identifier = readFileSync('/etc/machine-id', 'utf8').trim();
       if (!/^[a-f0-9]{32}$/u.test(identifier) || /^0+$/u.test(identifier)) return null;
       const boot = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
       if (!BOOT.test(boot)) return null;
-      qualifier = boot + ':' + readlinkSync('/proc/self/ns/pid');
+      const binding = linuxExecutionHostBinding({
+        machineId: identifier,
+        bootId: boot,
+        pidNamespace: readlinkSync('/proc/self/ns/pid'),
+        timeNamespace: readlinkSync('/proc/self/ns/time'),
+      });
+      return inBudget(options.signal, options.deadline) ? binding : null;
     } else if (process.platform === 'darwin') {
       if (!canonicalExecutable(MAC_IOREG) || realpathSync(MAC_IOREG) !== MAC_IOREG) return null;
       const result = await execFileAsync(
@@ -422,9 +449,22 @@ export async function observeOriginalProcess({ pid = process.pid, signal, deadli
 
 // The observation must have been produced here from actual installed material.
 // Copied JSON or fixture records cannot discharge an original process.
-export function reconcileOriginalProcess({ original, observation } = {}) {
+export async function reconcileOriginalProcess({ original, observation } = {}) {
   const registration = observations.get(observation);
   if (!registration || !inBudget(registration.signal, registration.deadline))
+    return unknown(original?.host ?? '', original?.pid, 'source-class-unavailable');
+  if (
+    !(await revalidateInstalledProcessSourceAssurance(registration.assurance, {
+      signal: registration.signal,
+      deadline: registration.deadline,
+    }))
+  )
+    return unknown(original?.host ?? '', original?.pid, 'source-class-unavailable');
+  const actualHost = await observeExecutionHostIdentity({
+    signal: registration.signal,
+    deadline: registration.deadline,
+  });
+  if (!actualHost || actualHost !== observation.host)
     return unknown(original?.host ?? '', original?.pid, 'source-class-unavailable');
   const candidate = assessOriginalProcess({
     original,

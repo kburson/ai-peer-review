@@ -4,10 +4,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { encodeRequestCanonical, parseRawJson } from '../api/canonical-json.mjs';
+import { assertSelectedRuntime } from '../config/runtime-selection.mjs';
 import { observeProcessSourceContext } from './process-identity.mjs';
 
 const INSTALLATION = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
 const CONTRACT_FILES = Object.freeze([
+  'src/broker/platform.mjs',
+  'src/config/runtime-selection.mjs',
+  'src/config/runtime-selection-core.mjs',
+  'src/errors.mjs',
+  'src/installed/dependency-closure.mjs',
+  'src/startup/runtime-inventory.mjs',
   'schemas/process-source-class-v1.json',
   'src/api/canonical-json.mjs',
   'src/protocol/process-identity.mjs',
@@ -16,6 +23,7 @@ const CONTRACT_FILES = Object.freeze([
 const HASH = /^sha256:[a-f0-9]{64}$/u;
 const BOOT = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const installedAssurances = new WeakSet();
+const installedAssuranceRecords = new WeakMap();
 
 function freeze(value) {
   if (value && typeof value === 'object') {
@@ -245,6 +253,22 @@ export async function loadProcessSourceAssurance(options = {}) {
     const ledger = parseRawJson(readFileSync(ledgerFile, 'utf8'));
     if (!Array.isArray(ledger?.classes) || !ledger.classes.length)
       return unavailable('class-missing');
+    let runtime;
+    try {
+      runtime = await assertSelectedRuntime();
+    } catch {
+      return unavailable('installed-authority-unavailable');
+    }
+    if (
+      runtime.packageRoot !== INSTALLATION ||
+      !runtime.inventory.entries.some(
+        (entry) =>
+          entry.path === 'src/protocol/process-source-contracts.json' &&
+          entry.sha256 === hash(readFileSync(ledgerFile)).slice(7)
+      )
+    )
+      return unavailable('installed-authority-unavailable');
+    const ledgerDigest = hash(readFileSync(ledgerFile));
     const context = await observeProcessSourceContext({
       signal: options.signal,
       deadline: options.deadline,
@@ -261,6 +285,13 @@ export async function loadProcessSourceAssurance(options = {}) {
       adapterHashes: { contractDigest },
       probeObservation: context,
     });
+    const fresh = await assertSelectedRuntime({ previousObservation: runtime });
+    if (
+      fresh.inventoryDigest !== runtime.inventoryDigest ||
+      (await processSourceContractDigest()) !== contractDigest ||
+      hash(readFileSync(ledgerFile)) !== ledgerDigest
+    )
+      return unavailable('installed-authority-unavailable');
     // Identity of this object, not its serializable fields, is the permission.
     const loaded = freeze({
       verified: true,
@@ -275,6 +306,7 @@ export async function loadProcessSourceAssurance(options = {}) {
       ),
     });
     installedAssurances.add(loaded);
+    installedAssuranceRecords.set(loaded, { runtime: fresh, contractDigest, ledgerDigest });
     return loaded;
   } catch {
     return unavailable('installed-observation-failed');
@@ -438,4 +470,32 @@ export function assessOriginalProcess({ original, observation, assurance } = {})
         ? 'different-process'
         : 'same-or-overlapping',
   });
+}
+
+export async function revalidateInstalledProcessSourceAssurance(assurance, options = {}) {
+  const prior = installedAssuranceRecords.get(assurance);
+  if (!prior) return false;
+  try {
+    const current = await assertSelectedRuntime({ previousObservation: prior.runtime });
+    if (
+      current.packageRoot !== INSTALLATION ||
+      current.inventoryDigest !== prior.runtime.inventoryDigest ||
+      (await processSourceContractDigest()) !== prior.contractDigest ||
+      hash(readFileSync(path.join(INSTALLATION, 'src/protocol/process-source-contracts.json'))) !==
+        prior.ledgerDigest
+    )
+      return false;
+    if (
+      options.signal?.aborted ||
+      (options.deadline !== undefined && performance.now() >= options.deadline)
+    )
+      return false;
+    const context = await observeProcessSourceContext(options);
+    return (
+      context &&
+      Object.keys(context).every((key) => context[key] === assurance.probeObservation[key])
+    );
+  } catch {
+    return false;
+  }
 }
