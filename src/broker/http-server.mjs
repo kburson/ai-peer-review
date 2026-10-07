@@ -2,7 +2,12 @@ import http from 'node:http';
 import { performance } from 'node:perf_hooks';
 import { finished } from 'node:stream/promises';
 import { AprError } from '../errors.mjs';
-import { authenticateLoopback, validatePrivateBinding } from './http-auth.mjs';
+import {
+  authenticateLoopback,
+  validatePrivateBinding,
+  authenticateOwnerProof,
+  createOwnerProof,
+} from './http-auth.mjs';
 
 export const HTTP_BODY_LIMIT = 1_048_576;
 // Shutdown never releases ownership while dispatch/drain obligations remain.
@@ -144,8 +149,28 @@ export async function createLoopbackServer({
       state.inFlight = false;
       state.response = null;
     });
-    if (req.method !== 'POST' || !['/rpc', '/wait'].includes(req.url) || req.httpVersion !== '1.1')
+    if (
+      req.method !== 'POST' ||
+      !['/rpc', '/wait', '/owner-proof'].includes(req.url) ||
+      req.httpVersion !== '1.1'
+    )
       return reject(res, 400);
+    if (req.url === '/owner-proof') {
+      const proof = authenticateOwnerProof(req.rawHeaders, expected);
+      if (!proof.ok || state.proofed || state.authenticated || expectation)
+        return reject(res, proof.status ?? 400);
+      state.proofed = true;
+      const body = bytes(createOwnerProof(expected, proof.challenge, req.socket));
+      req.resume();
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+        'Content-Length': body.length,
+      });
+      // Possession proof does not authenticate the client or clear pending/receipt/idle protection.
+      await finish(res, body);
+      return;
+    }
     const auth = authenticate(req.rawHeaders, expected);
     if (!auth?.ok) return reject(res, auth?.status ?? 401);
     if (!state.authenticated) {

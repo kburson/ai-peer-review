@@ -65,11 +65,16 @@ function open(
         ),
       })
     );
+    // A queued request has no delivery opportunity until a socket is assigned.
+    // Replacement refusal or pre-assignment cancellation is therefore known unsent.
+    req.once('socket', () => {
+      if (signal?.aborted) req.destroy();
+      else {
+        mayBeSent = true;
+        req.end(payload);
+      }
+    });
     if (signal?.aborted) req.destroy();
-    else {
-      mayBeSent = true;
-      req.end(payload);
-    }
   });
   return { response, actionId, mutation, uncertain: () => mutation && mayBeSent };
 }
