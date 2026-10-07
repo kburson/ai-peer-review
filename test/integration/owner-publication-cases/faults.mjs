@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { constants } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { open, readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
@@ -243,3 +244,63 @@ test('[#175] post-rename file flush failure retains the actual replacement and f
   assert.ok(caught.details.obligations.some((item) => item.name === 'fixture-owner'));
   await assert.rejects(publication.snapshot(), reasonIs('owned-publication-fenced'));
 });
+
+test(
+  '[#175] stock Windows replacement needs a true null backup and keeps the old descriptor',
+  { skip: process.platform !== 'win32' },
+  async (t) => {
+    const { root, guard } = await owned(t);
+    await guard.writeExclusive('fixture-owner', Buffer.from('old'));
+    await guard.writeExclusive('candidate', Buffer.from('new'));
+    const retained = await open(path.join(root, 'fixture-owner'), 'r+');
+    t.after(() => retained.close());
+    const before = await retained.stat({ bigint: true });
+    const script = String.raw`
+$ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+[Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
+$p=[Console]::In.ReadToEnd()|ConvertFrom-Json
+$first='unexpected-success'
+try { [System.IO.File]::Replace([string]$p.source,[string]$p.target,$null,$false) }
+catch { $first=$_.Exception.InnerException.GetType().Name }
+$unchanged=([System.IO.File]::ReadAllText([string]$p.target) -eq 'old') -and ([System.IO.File]::ReadAllText([string]$p.source) -eq 'new')
+[System.IO.File]::Replace([string]$p.source,[string]$p.target,[System.Management.Automation.Language.NullString]::Value,$false)
+[Console]::Out.Write((@{first=$first;unchanged=$unchanged;replaced=([System.IO.File]::ReadAllText([string]$p.target) -eq 'new')}|ConvertTo-Json -Compress))
+`;
+    const stdout = execFileSync(
+      'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-EncodedCommand',
+        Buffer.from(script, 'utf16le').toString('base64'),
+      ],
+      {
+        input: JSON.stringify({
+          source: path.join(root, 'candidate'),
+          target: path.join(root, 'fixture-owner'),
+        }),
+        encoding: 'utf8',
+        timeout: 15000,
+        windowsHide: true,
+        env: {
+          ...process.env,
+          PSModulePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
+        },
+      }
+    );
+    assert.deepEqual(JSON.parse(stdout.replace(/^\uFEFF/, '').trim()), {
+      first: 'ArgumentException',
+      unchanged: true,
+      replaced: true,
+    });
+    const after = await retained.stat({ bigint: true });
+    assert.equal(after.ino, before.ino);
+    assert.equal(retained.fd >= 0, true);
+    assert.equal((await retained.readFile()).toString(), 'old');
+    assert.equal((await readFile(path.join(root, 'fixture-owner'))).toString(), 'new');
+  }
+);

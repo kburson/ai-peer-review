@@ -262,7 +262,8 @@ $env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 try {
   $p=[Console]::In.ReadToEnd() | ConvertFrom-Json
-  [System.IO.File]::Replace([string]$p.source,[string]$p.target,$null,$false)
+  # PowerShell string binding converts ordinary $null to an empty backup path.
+  [System.IO.File]::Replace([string]$p.source,[string]$p.target,[System.Management.Automation.Language.NullString]::Value,$false)
   [Console]::Out.Write('{"schema":"apr.windows-owner-replacement/v1","status":"replaced"}')
 } catch {
   [Console]::Out.Write('{"schema":"apr.windows-owner-replacement/v1","status":"unconfirmed"}')
