@@ -12,10 +12,13 @@ import {
   isInstalledProcessSourceAssurance,
   revalidateInstalledProcessSourceAssurance,
 } from '../protocol/process-source-assurance.mjs';
+import { sameProcessOwnerFacts } from './owner-lifecycle-core.mjs';
+import { portableOwnerOperation } from './portable-owner-lifecycle.mjs';
 import { AprError } from '../errors.mjs';
 
 const pathBindings = new WeakMap();
 const productionLeases = new WeakMap();
+const coreProductionLeases = new WeakMap();
 const heldContext = new AsyncLocalStorage();
 const recordSchema = 'ai-peer-review.election-slot/v1';
 function stale(reason) {
@@ -111,7 +114,15 @@ export async function acquireOwnerElectionCore({
     return unavailable('election-input-invalid');
   const context = heldContext.getStore();
   if (context?.resourceKey === resourceKey) return unavailable('nested-resource-acquisition');
-  const { budget, check } = coreBudget({ signal, deadline, clock });
+  const initial = coreBudget({ signal, deadline, clock });
+  let budget = initial.budget;
+  let heldLease;
+  const check = () => {
+    const genuine = heldLease && coreProductionLeases.get(heldLease);
+    const admitted = genuine && portableOwnerOperation(genuine);
+    budget = admitted || initial.budget;
+    return admitted ? coreBudget({ ...admitted, clock }).check() : initial.check();
+  };
   let own = null,
     winning = false,
     creationAttempted = false;
@@ -290,6 +301,13 @@ export async function acquireOwnerElectionCore({
         contenderId,
         verified: false,
         assert: assertCurrent,
+        retainedGeneration: () =>
+          Object.freeze({
+            contenderId,
+            resourceKey,
+            version: own?.version,
+            outcome: own ? 'held-election-slot' : 'withdrawn',
+          }),
         async run(effect) {
           if (activity !== 'idle') throw stale('lease-effect-busy');
           activity = 'effect';
@@ -316,6 +334,7 @@ export async function acquireOwnerElectionCore({
           }
         },
       });
+      heldLease = lease;
       if (store.beginWinningTransaction) await store.beginWinningTransaction(lease, budget);
       const finalOwner = await observeOwner(budget);
       check();
@@ -455,6 +474,17 @@ export async function bindOwnerElectionPaths({
     throw error;
   }
 }
+export function isOwnerElectionLeaseFor(lease, { identity, source, signal, deadline } = {}) {
+  const record = productionLeases.get(lease);
+  return (
+    !!record &&
+    record.binding.resourceKind === 'broker-owner' &&
+    record.assurance === source &&
+    record.budget.signal === signal &&
+    record.budget.deadline === deadline &&
+    sameProcessOwnerFacts(record.identity, identity)
+  );
+}
 export function isOwnerElectionLease(lease) {
   return productionLeases.has(lease);
 }
@@ -462,7 +492,12 @@ export async function assertOwnerElectionLease(lease, { root, name } = {}) {
   const record = productionLeases.get(lease);
   if (!record) throw stale('genuine-election-lease-required');
   await record.core.assert();
-  if (!(await revalidateInstalledProcessSourceAssurance(record.assurance, record.budget)))
+  if (
+    !(await revalidateInstalledProcessSourceAssurance(
+      record.assurance,
+      portableOwnerOperation(lease) || record.budget
+    ))
+  )
     throw stale('source-class-unavailable');
   if (root && !record.binding.guards.has(root)) throw stale('lease-root-mismatch');
   if (name) {
@@ -558,11 +593,13 @@ export async function acquireOwnerElection(options = {}) {
         resourceKey: binding.resourceKey,
         contenderId,
         assert: (scope) => assertOwnerElectionLease(lease, scope),
+        retainedGeneration: core.retainedGeneration,
         run: async (effect) => {
           await assertOwnerElectionLease(lease);
           return core.run(effect);
         },
         async release() {
+          portableOwnerOperation(lease);
           const withdrawal = await core.release();
           productionLeases.delete(lease);
           const obligations = [...withdrawal.obligations, ...(await close())];
@@ -577,8 +614,10 @@ export async function acquireOwnerElection(options = {}) {
         core,
         binding: transaction,
         assurance: current.assurance,
+        identity: current,
         budget,
       });
+      coreProductionLeases.set(core, lease);
       operationalLease = lease;
       return lease;
     };
@@ -624,7 +663,7 @@ export async function acquireOwnerElection(options = {}) {
 }
 export async function ownerElectionBudget(lease, { root } = {}) {
   await assertOwnerElectionLease(lease, { root });
-  return productionLeases.get(lease).budget;
+  return portableOwnerOperation(lease) || productionLeases.get(lease).budget;
 }
 function protectedStore(binding, ownId, lift, heldLease) {
   const name = (id) => binding.prefix + id + '.json';

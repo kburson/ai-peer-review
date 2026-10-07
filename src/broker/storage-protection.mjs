@@ -21,6 +21,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
+import { portableOwnerRootOperation } from './portable-owner-lifecycle.mjs';
 import { AprError } from '../errors.mjs';
 
 const execute = promisify(execFile);
@@ -221,21 +222,31 @@ $records = foreach ($entry in $paths) {
   exit 1
 }
 `;
-function operationBudget({ signal, deadline = Infinity, clock = performance } = {}) {
+function operationBudget(
+  { signal, deadline = Infinity, clock = performance } = {},
+  admitted = () => null
+) {
   const now = typeof clock === 'function' ? clock : () => clock.now();
   function check() {
     const value = now();
-    if (signal?.aborted) throw failure('APR_BROKER_STALE', 'operation-aborted');
-    if (!Number.isFinite(value) || !(deadline === Infinity || Number.isFinite(deadline)))
+    const current = admitted() || { signal, deadline };
+    if (current.signal?.aborted) throw failure('APR_BROKER_STALE', 'operation-aborted');
+    if (
+      !Number.isFinite(value) ||
+      !(current.deadline === Infinity || Number.isFinite(current.deadline))
+    )
       throw failure('APR_BROKER_STALE', 'operation-clock-unproved');
-    if (value >= deadline) throw failure('APR_BROKER_STALE', 'operation-deadline');
-    return deadline - value;
+    if (value >= current.deadline) throw failure('APR_BROKER_STALE', 'operation-deadline');
+    return current.deadline - value;
   }
   return {
     check,
     options(maximum) {
       const remaining = check();
-      return { signal, timeout: Math.max(1, Math.min(maximum, Math.floor(remaining))) };
+      return {
+        signal: (admitted() || { signal }).signal,
+        timeout: Math.max(1, Math.min(maximum, Math.floor(remaining))),
+      };
     },
   };
 }
@@ -735,7 +746,12 @@ function safeBytes(value) {
   return Buffer.from(value);
 }
 export async function openProtectedRoot({ receipt: r, signal, deadline, clock } = {}) {
-  const budget = operationBudget({ signal, deadline, clock });
+  const admitted = () => {
+    const current = portableOwnerRootOperation(r?.root, { signal, deadline });
+    if (current && clock !== undefined) throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
+    return current;
+  };
+  const budget = operationBudget({ signal, deadline, clock }, admitted);
   budget.check();
   const binding = receipts.get(r);
   if (!binding || r.verified !== true)
@@ -1167,7 +1183,11 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       busy = false,
       publicationClosed = false;
     function contextCheck(context) {
-      if (context !== undefined && (context?.signal !== signal || context?.deadline !== deadline))
+      const current = admitted() || { signal, deadline };
+      if (
+        context !== undefined &&
+        (context?.signal !== current.signal || context?.deadline !== current.deadline)
+      )
         throw failure('APR_BROKER_STALE', 'publication-budget-mismatch');
       budget.check();
     }
@@ -1571,8 +1591,8 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
   async function withElectionLease(lease) {
     const original = await ownerElectionBudget(lease, { root: r.root });
     if (
-      (signal !== undefined && signal !== original.signal) ||
-      (deadline !== undefined && deadline !== original.deadline) ||
+      (!admitted() && signal !== undefined && signal !== original.signal) ||
+      (!admitted() && deadline !== undefined && deadline !== original.deadline) ||
       clock !== undefined
     )
       throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
@@ -1601,6 +1621,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     replace,
     verify,
     async close() {
+      admitted();
       closed = true;
       let caught;
       for (const [file, entry] of heldFiles) {
@@ -1640,6 +1661,10 @@ const ownerNames = new Set([
   'registry.json',
   'manual-suspension.json',
 ]);
+export function isHeldPrivatePublicationFor(value, { lease, name } = {}) {
+  const record = heldPublications.get(value);
+  return !!record && record.lease === lease && record.name === name;
+}
 export function isHeldPrivatePublication(value) {
   return heldPublications.has(value);
 }
@@ -1656,8 +1681,8 @@ async function ownerGuard(guard, lease, name, context) {
     !Number.isFinite(context.deadline) ||
     context.signal !== original.signal ||
     context.deadline !== original.deadline ||
-    context.signal !== record.signal ||
-    context.deadline !== record.deadline
+    (!portableOwnerRootOperation(record.root, record) && context.signal !== record.signal) ||
+    (!portableOwnerRootOperation(record.root, record) && context.deadline !== record.deadline)
   )
     throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
   return record;

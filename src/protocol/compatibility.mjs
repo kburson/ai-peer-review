@@ -6,6 +6,8 @@ import {
   isVerifiedRuntimeInventory,
   verifyRuntimeInventorySync,
 } from '../startup/runtime-inventory.mjs';
+import { verifyCleanupOwnerCore } from './cleanup-ownership-core.mjs';
+import { isPortableBrokerOwner } from '../broker/portable-owner-lifecycle.mjs';
 import { isAuthenticatedBrokerOwner } from '../broker/ownership.mjs';
 import runtimeCompatibility from '../../provenance/runtime-compatibility.json' with { type: 'json' };
 import compatibilitySchema from '../../schemas/runtime-compatibility-v1.json' with { type: 'json' };
@@ -254,11 +256,17 @@ export function inspectUnsupportedReview({ workspace } = {}) {
   });
 }
 
-export function assertCurrentCleanupOwnership({ owner, protocol, runtime } = {}) {
+export async function assertCurrentCleanupOwnership({ owner, protocol, runtime, context } = {}) {
   if (
     !isAuthenticatedBrokerOwner(owner) ||
-    !owner.verify() ||
+    (isPortableBrokerOwner(owner) && context === undefined) ||
+    !(await verifyCleanupOwnerCore(owner, context)) ||
     protocol !== 1 ||
+    Object.keys(owner.handshake?.versions || {})
+      .sort()
+      .join(',') !== 'broker_protocol_version,node_major,package_version' ||
+    !Number.isSafeInteger(owner.handshake?.versions?.node_major) ||
+    owner.handshake.versions.node_major < 24 ||
     !isVerifiedRuntimeInventory(runtime) ||
     owner.handshake?.versions?.broker_protocol_version !== protocol ||
     owner.handshake?.versions?.package_version !== runtime.packageVersion

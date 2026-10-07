@@ -149,6 +149,23 @@ export function isVerifiedOwnerConnection(connection) {
     performance.now() < record.context.deadline
   );
 }
+export function isOwnerConnectionFor(
+  connection,
+  { credential, expected, endpoint, signal, deadline } = {}
+) {
+  const record = connections.get(connection);
+  return (
+    isVerifiedOwnerConnection(connection) &&
+    record.publication === credential &&
+    record.context.signal === signal &&
+    record.context.deadline === deadline &&
+    ['instanceId', 'worktree', 'ownerVersion'].every(
+      (key) => record.expected[key] === expected?.[key]
+    ) &&
+    record.endpoint.host === endpoint?.host &&
+    record.endpoint.port === endpoint?.port
+  );
+}
 async function observe(input, genuine) {
   let agent, timer, stop, publicationFailure;
   // Only privately registered publication methods enter this boundary.
@@ -304,7 +321,15 @@ async function observe(input, genuine) {
         return Object.freeze({ closed: true });
       },
     });
-    if (genuine) connections.set(handle, { socket, context, closed: () => closed });
+    if (genuine)
+      connections.set(handle, {
+        socket,
+        context,
+        publication,
+        expected,
+        endpoint,
+        closed: () => closed,
+      });
     return Object.freeze({
       kind: genuine ? 'verified-live' : 'core-live',
       verified: genuine,

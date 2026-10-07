@@ -252,7 +252,7 @@ export async function runBrokerEntrypoint(file, { transport = 'legacy' } = {}) {
         versions: bootstrap.versions,
         cleanupGuard: async () => {
           const current = await assertSelectedRuntime({ previousObservation: runtimeObservation });
-          assertCurrentCleanupOwnership({
+          await assertCurrentCleanupOwnership({
             owner,
             protocol: bootstrap.versions.broker_protocol_version,
             runtime: current.inventory,

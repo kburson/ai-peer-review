@@ -943,3 +943,19 @@ test('unknown post-create readback failure without supplied obligations still pr
   assert.ok(out.obligations.some((item) => item.contenderId === 'mine'));
   assert.ok(await store.read('mine'));
 });
+
+test('[#177] held slot metadata remains exact until withdrawal and never grants production authority', async () => {
+  const store = memoryStore();
+  const out = await api.acquireOwnerElectionCore(input(store));
+  assert.equal(out.kind, 'won');
+  const current = await store.read('mine');
+  assert.deepEqual(out.lease.retainedGeneration(), {
+    contenderId: 'mine',
+    resourceKey: 'owner',
+    version: current.version,
+    outcome: 'held-election-slot',
+  });
+  assert.equal(api.isOwnerElectionLeaseFor(out.lease, { identity: identity(42) }), false);
+  await out.lease.release();
+  assert.equal(out.lease.retainedGeneration().outcome, 'withdrawn');
+});

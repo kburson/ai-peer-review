@@ -2,8 +2,10 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { brokerError, validateHandshake } from './ipc.mjs';
 
+import { isPortableBrokerOwner } from './portable-owner-lifecycle.mjs';
 const authenticatedOwners = new WeakSet();
-export const isAuthenticatedBrokerOwner = (owner) => authenticatedOwners.has(owner);
+export const isAuthenticatedBrokerOwner = (owner) =>
+  authenticatedOwners.has(owner) || isPortableBrokerOwner(owner);
 
 function provisionDirectories(values, platform, { keepLast = false } = {}) {
   const directories = [];

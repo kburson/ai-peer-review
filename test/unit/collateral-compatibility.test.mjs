@@ -122,8 +122,8 @@ test('incomplete or open manifest and invalid operation refuse rather than widen
   );
 });
 
-test('a plain owner or guessed runtime is not cleanup authority', () => {
-  assert.throws(
+test('a plain owner or guessed runtime is not cleanup authority', async () => {
+  await assert.rejects(
     () =>
       invoke('assertCurrentCleanupOwnership', {
         owner: { verify: () => true },
@@ -134,7 +134,7 @@ test('a plain owner or guessed runtime is not cleanup authority', () => {
   );
 });
 
-test('authenticated owned cleanup admits the verified runtime and refuses changed proof', (t) => {
+test('authenticated owned cleanup admits the verified runtime and refuses changed proof', async (t) => {
   const fx = runtimeFixture(t);
   const runtime = verifyRuntimeInventorySync({ packageRoot: fx.packageRoot });
   let valid = true;
@@ -165,20 +165,20 @@ test('authenticated owned cleanup admits the verified runtime and refuses change
       listenPrivate: () => ({ verify: () => valid, close() {} }),
     }
   );
-  assert.doesNotThrow(() =>
+  await assert.doesNotReject(() =>
     compatibility.assertCurrentCleanupOwnership({ owner, protocol: 1, runtime })
   );
-  assert.throws(
+  await assert.rejects(
     () => compatibility.assertCurrentCleanupOwnership({ owner, protocol: 999, runtime }),
     unsupported
   );
-  assert.throws(
+  await assert.rejects(
     () =>
       compatibility.assertCurrentCleanupOwnership({ owner: { ...owner }, protocol: 1, runtime }),
     unsupported
   );
   valid = false;
-  assert.throws(
+  await assert.rejects(
     () => compatibility.assertCurrentCleanupOwnership({ owner, protocol: 1, runtime }),
     unsupported
   );
