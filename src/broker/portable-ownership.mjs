@@ -4,7 +4,10 @@ import { createHash, randomBytes } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseRawJson, encodeRequestCanonical } from '../api/canonical-json.mjs';
-import { createPortableOwnerReadiness } from './owner-readiness.mjs';
+import {
+  portableOwnerReadinessObligations,
+  createPortableOwnerReadiness,
+} from './owner-readiness.mjs';
 import {
   createPortableOwnerLifecycle,
   isPortableBrokerOwner,
@@ -16,6 +19,7 @@ import packageJson from '../../package.json' with { type: 'json' };
 import { portableBrokerPaths } from './portable-paths.mjs';
 import {
   acquireOwnerElection,
+  inspectOwnerElectionLease,
   bindOwnerElectionPaths,
   inspectOwnerElectionPaths,
 } from './ownership-election.mjs';
@@ -25,12 +29,18 @@ import {
   assertQuarantineReceipt,
   observeProtectedCredential,
 } from './storage-protection.mjs';
-import { observeLoopbackOwner, isVerifiedOwnerConnection } from './owner-connection.mjs';
+import {
+  ownerConnectionObligations,
+  observeLoopbackOwner,
+  isVerifiedOwnerConnection,
+} from './owner-connection.mjs';
 import { observeOriginalProcess, reconcileOriginalProcess } from '../protocol/process-identity.mjs';
 import { isInstalledProcessSourceAssurance } from '../protocol/process-source-assurance.mjs';
 import { assertLifecycleBoundary } from './owner-lifecycle-core.mjs';
 import {
   acquirePortableOwnerCore,
+  retainQuarantineReceiptCore,
+  ownerTransactionObligationsCore,
   createJoinedBrokerClientCore,
   assessOwnerEvidenceCore,
   closeOwnerObservationCore,
@@ -45,6 +55,7 @@ const obligationFields = new Set([
   'root',
   'identity',
   'fileVersion',
+  'previousFileVersion',
   'rootIdentity',
   'parentIdentity',
   'alternateName',
@@ -56,6 +67,15 @@ const obligationFields = new Set([
   'originalLocator',
   'quarantineLocator',
   'status',
+  'host',
+  'port',
+  'instanceId',
+  'worktree',
+  'ownerVersion',
+  'localAddress',
+  'localPort',
+  'remoteAddress',
+  'remotePort',
 ]);
 function metadata(value) {
   const result = {};
@@ -183,7 +203,7 @@ export async function observeAuthenticatedOwner(input = {}) {
       });
       if (!isInstalledProcessSourceAssurance(processObservation.assurance))
         return unknownOwner('source-class-unavailable');
-      const process = await reconcileOriginalProcess({
+      const originalProcess = await reconcileOriginalProcess({
         original: owner.identity,
         observation: processObservation,
       });
@@ -200,7 +220,7 @@ export async function observeAuthenticatedOwner(input = {}) {
         ...context,
       });
       connection = proof.connection; // Capture before any conflicting-evidence branch.
-      const decision = assessOwnerEvidenceCore({ process, endpoint: proof });
+      const decision = assessOwnerEvidenceCore({ process: originalProcess, endpoint: proof });
       if (decision.status === 'dead') {
         if (!sameOwnerState(state, await readOwnerState(view)))
           throw boundedOwnershipError('owner-generation-changed');
@@ -210,7 +230,12 @@ export async function observeAuthenticatedOwner(input = {}) {
           identity: owner.identity,
           outstandingObligations: Object.freeze([]),
         });
-        observations.set(observed, { paths: input.paths, state, process, context });
+        observations.set(observed, {
+          paths: input.paths,
+          state,
+          process: originalProcess,
+          context,
+        });
         return observed;
       }
       if (decision.status !== 'authenticated-live') return unknownOwner(decision.reason);
@@ -263,7 +288,7 @@ export async function observeAuthenticatedOwner(input = {}) {
         owner: Object.freeze({ binding }),
         outstandingObligations: Object.freeze([]),
       });
-      observations.set(observed, { paths: input.paths, state, process, binding });
+      observations.set(observed, { paths: input.paths, state, process: originalProcess, binding });
       credential = null;
       connection = null; // The privately bound client now owns their cleanup.
       return observed;
@@ -321,7 +346,8 @@ export async function acquirePortableOwner(input = {}) {
     const view = await inspectOwnerElectionPaths({ paths: bound, ...context });
     if (view.privateRoot !== canonical.privateRoot || view.runtimeRoot !== canonical.runtimeRoot)
       throw boundedOwnershipError('owner-paths-unproved');
-    const identity = await observeOriginalProcess(context);
+    let identity = await observeOriginalProcess(context);
+    let source = identity.assurance;
     if (identity.status !== 'live' || !isInstalledProcessSourceAssurance(identity.assurance))
       throw boundedOwnershipError('source-class-unavailable');
     record.bound = bound;
@@ -333,6 +359,9 @@ export async function acquirePortableOwner(input = {}) {
           if (outcome.kind === 'won') {
             lease = outcome.lease;
             record.lease = lease;
+            const electedFacts = await inspectOwnerElectionLease({ lease, ...current });
+            identity = electedFacts.identity;
+            source = electedFacts.source;
           }
           return outcome;
         },
@@ -403,20 +432,16 @@ export async function acquirePortableOwner(input = {}) {
               lease,
               ...current,
             });
-            await assertQuarantineReceipt({ guard, receipt, lease, ...current });
             const root = key === 'endpoint' ? view.runtimeRoot : view.privateRoot;
-            const mapped = {
-              name: snapshot.name,
+            const mapped = retainQuarantineReceiptCore({
+              records: receipts,
+              snapshot,
+              receipt,
               root,
-              originalLocator: path.join(root, snapshot.name),
-              quarantineLocator: path.join(root, receipt.name),
-              identity: receipt.identity,
-              fileVersion: receipt.fileVersion,
-              rootIdentity: receipt.rootIdentity,
-              bytes: Buffer.from(receipt.bytes),
-            };
-            receipts.push(mapped);
-            record.quarantined = receipts;
+            });
+            record.quarantined = receipts; // Capture completed effect before any fallible assertion.
+            await assertQuarantineReceipt({ guard, receipt, lease, ...current });
+            mapped.outcome = 'quarantined-generation-retained';
           }
           return { status: 'quarantined', verified: true, receipts };
         },
@@ -519,7 +544,7 @@ export async function acquirePortableOwner(input = {}) {
             endpointPublication: value.endpointPublication,
             lease,
             identity,
-            source: identity.assurance,
+            source,
             connection: value.connection,
             runtime: value.runtime,
             readinessServer: value.readinessServer,
@@ -533,12 +558,19 @@ export async function acquirePortableOwner(input = {}) {
             release: (options) => genuineOwner.release(options),
           });
         },
-        outstandingObligations: () => [
-          ...[candidate?.publication, candidate?.credential, candidate?.endpointPublication]
-            .filter(Boolean)
-            .map((value) => value.retainedGeneration()),
-          ...(record.quarantined || []),
-        ],
+        outstandingObligations: () =>
+          ownerTransactionObligationsCore({
+            files: [candidate?.publication, candidate?.credential, candidate?.endpointPublication]
+              .filter(Boolean)
+              .map((value) => value.retainedGeneration()),
+            quarantines: record.quarantined || [],
+            transports: [
+              ...(candidate?.readinessServer
+                ? portableOwnerReadinessObligations(candidate.readinessServer)
+                : []),
+              ...(candidate?.connection ? ownerConnectionObligations(candidate.connection) : []),
+            ],
+          }),
       },
     });
     if (joinedClient) {

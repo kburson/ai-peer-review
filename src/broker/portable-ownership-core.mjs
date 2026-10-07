@@ -1,5 +1,6 @@
 // @story #178
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 import { encodeRequestCanonical, parseRawJson } from '../api/canonical-json.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { performance } from 'node:perf_hooks';
@@ -484,4 +485,41 @@ export function inspectOwnerRecordsCore({ state, worktree, versions } = {}) {
   )
     throw boundedOwnershipError('owner-binding-unproved');
   return Object.freeze({ verified: false, owner, endpoint, ownerVersion });
+}
+export function retainQuarantineReceiptCore({ records, snapshot, receipt, root } = {}) {
+  if (
+    !Array.isArray(records) ||
+    !snapshot ||
+    typeof root !== 'string' ||
+    snapshot.root !== root ||
+    snapshot.location !== path.join(root, snapshot.name) ||
+    typeof receipt?.name !== 'string' ||
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(receipt.name) ||
+    !Buffer.isBuffer(receipt.bytes)
+  )
+    throw boundedOwnershipError('owner-quarantine-unproved');
+  const mapped = {
+    name: snapshot.name,
+    root,
+    originalLocator: snapshot.location,
+    quarantineLocator: path.join(root, receipt.name),
+    identity: receipt.identity,
+    fileVersion: receipt.fileVersion,
+    previousFileVersion: snapshot.fileVersion,
+    rootIdentity: receipt.rootIdentity,
+    parentIdentity: snapshot.parentIdentity,
+    bytes: Buffer.from(receipt.bytes),
+    outcome: 'quarantine-verification-pending',
+  };
+  records.push(mapped);
+  return mapped;
+}
+export function ownerTransactionObligationsCore({
+  files = [],
+  quarantines = [],
+  transports = [],
+} = {}) {
+  if (![files, quarantines, transports].every(Array.isArray))
+    throw boundedOwnershipError('transaction-obligations-unproved');
+  return [...files, ...quarantines, ...transports];
 }

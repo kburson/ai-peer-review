@@ -6,6 +6,7 @@ import { portableOwnerOperation } from './portable-owner-lifecycle.mjs';
 import { assertLifecycleBoundary } from './owner-lifecycle-core.mjs';
 import { boundedOwnershipError } from './portable-ownership.mjs';
 const servers = new WeakMap();
+const retainedServers = new Set();
 const exact = (value, keys) =>
   value && Object.keys(value).sort().join(',') === keys.slice().sort().join(',');
 function budget(context, expected = context) {
@@ -65,9 +66,10 @@ export async function createPortableOwnerReadiness(input = {}) {
       await server.close();
       record.closed = true;
     } catch (cleanup) {
+      retainedServers.add(record);
       throw boundedOwnershipError(error?.details?.reason || 'readiness-unproved', {
         outstandingObligations: [
-          { name: 'readiness-server', outcome: 'shutdown-unproved' },
+          ...portableOwnerReadinessObligations(handle),
           ...(cleanup?.details?.outstandingObligations || []),
         ],
       });
@@ -115,13 +117,23 @@ export async function closePortableOwnerReadiness({ readiness, signal, deadline 
   } catch (error) {
     throw boundedOwnershipError('owner-transport-close-unproved', {
       outstandingObligations: [
-        {
-          name: 'readiness-server',
-          root: record.credential.retainedGeneration().root,
-          outcome: 'shutdown-unproved',
-        },
+        ...portableOwnerReadinessObligations(readiness),
         ...(error?.details?.outstandingObligations || []),
       ],
     });
   }
+}
+export function portableOwnerReadinessObligations(readiness) {
+  const record = servers.get(readiness);
+  if (!record) throw boundedOwnershipError('genuine-readiness-producers-required');
+  if (record.closed) return Object.freeze([]);
+  return Object.freeze([
+    Object.freeze({
+      name: 'owner-readiness-server',
+      root: record.credential.retainedGeneration().root,
+      ...readiness.endpoint,
+      ...record.expected,
+      outcome: 'server-shutdown-pending',
+    }),
+  ]);
 }

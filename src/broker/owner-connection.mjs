@@ -212,11 +212,10 @@ async function observe(input, genuine) {
     const recheck = async () => {
       contextCheck(context, context);
       if (!genuine) return;
-      if (
-        !(isHeldPrivatePublication(publication) || isProtectedCredentialObservation(publication)) ||
-        (await readPublication(() => publication.verify(context))) !== true
-      )
+      if (!(isHeldPrivatePublication(publication) || isProtectedCredentialObservation(publication)))
         throw refusal('credential-publication-changed');
+      // Genuine snapshot already verifies protection, retained descriptor,
+      // exact generation and original budget before and after its read.
       const current = await readPublication(() => publication.snapshot(context));
       const held = publication.retainedGeneration();
       if (
@@ -327,6 +326,12 @@ async function observe(input, genuine) {
     if (genuine)
       connections.set(handle, {
         socket,
+        tuple: Object.freeze({
+          localAddress: socket.localAddress,
+          localPort: socket.localPort,
+          remoteAddress: socket.remoteAddress,
+          remotePort: socket.remotePort,
+        }),
         context,
         publication,
         expected,
@@ -358,3 +363,18 @@ async function observe(input, genuine) {
 export const observeLoopbackOwner = (input = {}) => observe(input, true);
 // Explicit fixture protocol only; it never registers a production connection.
 export const observeLoopbackOwnerCore = (input = {}) => observe(input, false);
+export function ownerConnectionObligations(connection) {
+  const record = connections.get(connection);
+  if (!record) throw refusal('genuine-connection-required');
+  if (record.closed()) return Object.freeze([]);
+  return Object.freeze([
+    Object.freeze({
+      name: 'proved-owner-socket',
+      host: record.endpoint.host,
+      port: record.endpoint.port,
+      ...record.expected,
+      ...record.tuple,
+      outcome: 'socket-shutdown-pending',
+    }),
+  ]);
+}

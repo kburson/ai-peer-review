@@ -274,13 +274,13 @@ test('changed-generation-preserved between death proof and quarantine never reac
     scope: 'original-process-only',
   });
   f.ports.reconcile = async () => {
-    const { rename } = await import('node:fs/promises');
+    const { replaceFixtureFile } = await import('../helpers/portable-owner-replacement.mjs');
     const replacement = path.join(path.dirname(old.location), 'newcomer');
     const file = await open(replacement, 'wx', 0o600);
     await file.writeFile('live newcomer');
     await file.sync();
     await file.close();
-    await rename(replacement, old.location);
+    await replaceFixtureFile(replacement, old.location, f.startup);
     return { status: 'clear', outstandingObligations: [] };
   };
   await assert.rejects(
@@ -1406,4 +1406,372 @@ test('joined client cleanup still closes a genuine read descriptor when socket c
   );
   assert.equal(f.storage.isProtectedCredentialObservation(credential), false);
   assert.equal((await readFile(path.join(f.root, 'credential'))).length, 32);
+});
+
+test('complete genuine protected owner records reach the actual unavailable source producer', async (t) => {
+  const { createHash } = await import('node:crypto'),
+    { encodeRequestCanonical } = await import('../../src/api/canonical-json.mjs'),
+    storage = await import('../../src/broker/storage-protection.mjs'),
+    election = await import('../../src/broker/ownership-election.mjs'),
+    { portableBrokerPaths } = await import('../../src/broker/portable-paths.mjs'),
+    { rename } = await import('node:fs/promises');
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-observer-review-178-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const canonical = await portableBrokerPaths({ worktree: root }),
+    setup = { signal: new AbortController().signal, deadline: performance.now() + 180000 };
+  const privateReceipt = await storage.provisionProtectedRoot({
+      root: canonical.privateRoot,
+      ...setup,
+    }),
+    runtimeReceipt = await storage.provisionProtectedRoot({
+      root: canonical.runtimeRoot,
+      ...setup,
+    });
+  const privateSeed = await storage.openProtectedRoot({ receipt: privateReceipt, ...setup }),
+    runtimeSeed = await storage.openProtectedRoot({ receipt: runtimeReceipt, ...setup });
+  t.after(() => privateSeed.close());
+  t.after(() => runtimeSeed.close());
+  const versions = {
+    package_version: '0.4.0',
+    broker_protocol_version: 1,
+    node_major: Number(process.versions.node.split('.')[0]),
+  };
+  const owner = {
+      schema: 'ai-peer-review.portable-owner/v1',
+      instanceId: 'b'.repeat(64),
+      worktree: createHash('sha256').update(root).digest('hex'),
+      identity: { host: 'fixture-host', pid: process.pid },
+      versions,
+    },
+    ownerBytes = encodeRequestCanonical(owner),
+    ownerVersion = createHash('sha256').update(ownerBytes).digest('hex');
+  const subject = {
+    instanceId: owner.instanceId,
+    worktree: owner.worktree,
+    ownerVersion,
+    host: '127.0.0.1',
+    port: 12345,
+    versions,
+  };
+  const endpoint = {
+    schema: 'ai-peer-review.portable-endpoint/v1',
+    ...subject,
+    digest: createHash('sha256').update(encodeRequestCanonical(subject)).digest('hex'),
+    heartbeat: Date.now(),
+  };
+  for (const [guard, root, name, bytes] of [
+    [privateSeed, canonical.privateRoot, 'owner.json', ownerBytes],
+    [privateSeed, canonical.privateRoot, 'credential', Buffer.alloc(32, 7)],
+    [runtimeSeed, canonical.runtimeRoot, 'endpoint.json', encodeRequestCanonical(endpoint)],
+  ]) {
+    await guard.writeExclusive('fixture-' + name, bytes);
+    await rename(path.join(root, 'fixture-' + name), path.join(root, name));
+  }
+  await privateSeed.close();
+  await runtimeSeed.close();
+  const context = budget(),
+    paths = await election.bindOwnerElectionPaths({
+      receipt: privateReceipt,
+      effectReceipts: [runtimeReceipt],
+      resource: { kind: 'broker-owner' },
+      ...context,
+    });
+  t.after(() => paths.close());
+  const observed = await production.observeAuthenticatedOwner({ paths, ...context });
+  assert.equal(observed.status, 'unknown');
+  assert.equal(observed.reason, 'source-class-unavailable');
+  assert.equal(production.isAuthenticatedOwnerObservation(observed), false);
+  assert.ok((await readFile(path.join(canonical.privateRoot, 'owner.json'))).equals(ownerBytes));
+});
+
+test('actual C1 snapshot carries protected root and exact original locator for quarantine composition', async (t) => {
+  const f = await protectedCredential(t),
+    snapshot = await f.guard.readSnapshot('credential');
+  assert.equal(snapshot.root, f.root);
+  assert.equal(snapshot.location, path.join(f.root, 'credential'));
+  const parent = await lstat(path.dirname(f.root), { bigint: true });
+  assert.equal(snapshot.parentIdentity, parent.dev + ':' + parent.ino);
+  assert.ok(snapshot.bytes.equals(Buffer.alloc(32, 7)));
+});
+
+test('read-only election relation refuses an actual unverified core lease and copied producers', async (t) => {
+  const api = await import('../../src/broker/ownership-election.mjs');
+  assert.equal(
+    typeof api.inspectOwnerElectionLease,
+    'function',
+    'actual elected source relation is missing'
+  );
+  const f = await transactionFixture(t),
+    { actualElection } = await import('../helpers/portable-owner-election.mjs');
+  const elected = await actualElection(t, { root: f.privateRoot, budget: f.startup });
+  assert.equal(elected.kind, 'won');
+  t.after(() => elected.lease.release());
+  await assert.rejects(
+    api.inspectOwnerElectionLease({ lease: elected.lease, ...f.startup }),
+    (error) => error.code === 'APR_BROKER_STALE'
+  );
+  let effects = 0;
+  await assert.rejects(
+    api.inspectOwnerElectionLease({
+      lease: {
+        assert() {
+          effects++;
+        },
+      },
+      ...f.startup,
+    }),
+    (error) => error.code === 'APR_BROKER_STALE'
+  );
+  assert.equal(effects, 0);
+});
+
+test('quarantine root policy binds runtime destinations only to endpoint source generations', async (t) => {
+  const api = await import('../../src/broker/ownership-election.mjs');
+  assert.equal(
+    typeof api.ownerPublicationRootMatchesCore,
+    'function',
+    'exact quarantine root policy is missing'
+  );
+  const f = await transactionFixture(t),
+    { randomUUID } = await import('node:crypto'),
+    name = 'apr-owner-quarantine-' + 'a'.repeat(64) + '-' + randomUUID() + '.json';
+  assert.equal(
+    api.ownerPublicationRootMatchesCore({
+      root: f.runtimeRoot,
+      privateRoot: f.privateRoot,
+      name,
+      quarantineOf: 'endpoint.json',
+    }),
+    true
+  );
+  for (const options of [
+    { root: f.privateRoot, quarantineOf: 'endpoint.json' },
+    { root: f.runtimeRoot, quarantineOf: 'credential' },
+    { root: f.runtimeRoot },
+    { root: f.privateRoot, quarantineOf: 'unknown' },
+  ])
+    assert.equal(
+      api.ownerPublicationRootMatchesCore({ privateRoot: f.privateRoot, name, ...options }),
+      false
+    );
+  assert.equal(
+    api.ownerPublicationRootMatchesCore({
+      root: f.runtimeRoot,
+      privateRoot: f.privateRoot,
+      name: 'credential',
+    }),
+    false
+  );
+  assert.equal(api.isOwnerElectionLease({ verified: true }), false);
+});
+
+test('completed actual quarantine receipt is retained before a later protection verification fails', async (t) => {
+  assert.equal(
+    typeof core.retainQuarantineReceiptCore,
+    'function',
+    'immediate receipt retention is missing'
+  );
+  const storage = await import('../../src/broker/storage-protection.mjs'),
+    { chmod } = await import('node:fs/promises');
+  const base = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-q-review-178-')));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const root = path.join(base, 'private'),
+    context = { signal: new AbortController().signal, deadline: performance.now() + 180000 };
+  const receipt = await storage.provisionProtectedRoot({ root, ...context }),
+    guard = await storage.openProtectedRoot({ receipt, ...context });
+  t.after(() => guard.close());
+  await guard.writeExclusive('fixture-owner', Buffer.from('retained old generation'));
+  const snapshot = await guard.readSnapshot('fixture-owner');
+  const moved = await guard.quarantine('fixture-owner', snapshot, {
+    destination: 'fixture-quarantined',
+  });
+  const records = [];
+  core.retainQuarantineReceiptCore({ records, snapshot, receipt: moved, root });
+  // A later check can fail; the completed receipt must already be retained.
+  if (process.platform !== 'win32') {
+    await chmod(root, 0o755);
+    await assert.rejects(guard.verify(), (error) => error.code === 'APR_BROKER_STALE');
+    await chmod(root, 0o700);
+  } else
+    await assert.rejects(guard.readSnapshot('missing-proof'), (error) => error.code === 'ENOENT');
+  assert.equal(records.length, 1);
+  assert.equal(records[0].originalLocator, path.join(root, 'fixture-owner'));
+  assert.equal(records[0].quarantineLocator, path.join(root, 'fixture-quarantined'));
+  assert.equal(records[0].identity, snapshot.identity);
+  assert.equal(records[0].outcome, 'quarantine-verification-pending');
+  assert.equal(
+    (await readFile(records[0].quarantineLocator)).toString(),
+    'retained old generation'
+  );
+  const error = production.boundedOwnershipError('owner-quarantine-unproved', {
+    outstandingObligations: records,
+  });
+  assert.equal(
+    error.details.outstandingObligations[0].quarantineLocator,
+    records[0].quarantineLocator
+  );
+  assert.equal(JSON.stringify(error.details).includes('retained old generation'), false);
+});
+
+test('actual verified socket cleanup metadata retains the proved tuple without credential material', async (t) => {
+  const api = await import('../../src/broker/owner-connection.mjs');
+  assert.equal(
+    typeof api.ownerConnectionObligations,
+    'function',
+    'actual socket obligation producer is missing'
+  );
+  const f = await protectedCredential(t),
+    credential = await f.storage.observeProtectedCredential({ guard: f.guard, ...f.context });
+  t.after(() => credential.close(f.context));
+  const binding = {
+    credential: Buffer.alloc(32, 7).toString('hex'),
+    instanceId: 'b'.repeat(64),
+    worktree: 'c'.repeat(64),
+    ownerVersion: 'd'.repeat(64),
+  };
+  const server = await createLoopbackServer({
+    binding,
+    dispatch: async () => ({ schema: 'ai-peer-review.response/v1', ok: true }),
+  });
+  t.after(() => server.close());
+  const proof = await api.observeLoopbackOwner({
+    endpoint: { host: '127.0.0.1', port: server.port },
+    privateBinding: credential,
+    expected: {
+      instanceId: binding.instanceId,
+      worktree: binding.worktree,
+      ownerVersion: binding.ownerVersion,
+    },
+    ...f.context,
+  });
+  t.after(() => proof.connection?.close(f.context));
+  assert.equal(proof.kind, 'verified-live');
+  const obligations = api.ownerConnectionObligations(proof.connection);
+  assert.equal(obligations.length, 1);
+  assert.equal(obligations[0].remotePort, server.port);
+  assert.ok(obligations[0].localPort > 0);
+  const error = production.boundedOwnershipError('owner-effect-unproved', {
+    outstandingObligations: obligations,
+  });
+  assert.equal(error.details.outstandingObligations[0].port, server.port);
+  assert.equal(error.details.outstandingObligations[0].localPort, obligations[0].localPort);
+  assert.equal(JSON.stringify(error.details).includes(binding.credential), false);
+  assert.throws(
+    () => api.ownerConnectionObligations({ ...proof.connection }),
+    (error) => error.code === 'APR_BROKER_STALE'
+  );
+  await proof.connection.close(f.context);
+  assert.deepEqual(api.ownerConnectionObligations(proof.connection), []);
+});
+
+test('startup endpoint flush failure retains its actual listening server and socket shutdown obligations', async (t) => {
+  assert.equal(
+    typeof core.ownerTransactionObligationsCore,
+    'function',
+    'startup transport obligation aggregation is missing'
+  );
+  const f = await transactionFixture(t),
+    files = f.ports.outstandingObligations;
+  f.ports.outstandingObligations = () =>
+    core.ownerTransactionObligationsCore({
+      files: files(),
+      transports: f.readyEndpoint()
+        ? [
+            { name: 'owner-readiness-server', ...f.readyEndpoint(), outcome: 'shutdown-pending' },
+            { name: 'proved-owner-socket', ...f.readyEndpoint(), outcome: 'shutdown-pending' },
+          ]
+        : [],
+    });
+  const fsApi = (await import('node:fs/promises')).default,
+    { syncBuiltinESMExports } = await import('node:module'),
+    actualOpen = fsApi.open;
+  fsApi.open = async (...args) => {
+    const file = await actualOpen(...args);
+    if (path.basename(String(args[0])) === 'endpoint.json')
+      file.sync = async () => {
+        throw Object.assign(Error('test-owned endpoint fsync failure'), { code: 'EIO' });
+      };
+    return file;
+  };
+  syncBuiltinESMExports();
+  t.after(() => {
+    fsApi.open = actualOpen;
+    syncBuiltinESMExports();
+  });
+  const owner = await core.acquirePortableOwnerCore({ ports: f.ports, budget: f.startup });
+  let caught;
+  await assert.rejects(owner.publish(), (error) => {
+    caught = error;
+    return error.code === 'APR_BROKER_STALE';
+  });
+  const endpoint = f.readyEndpoint();
+  for (const name of ['owner-readiness-server', 'proved-owner-socket'])
+    assert.ok(
+      caught.details.outstandingObligations.some(
+        (item) =>
+          item.name === name && item.port === endpoint.port && item.outcome === 'shutdown-pending'
+      )
+    );
+  const candidate = f.candidate(),
+    binding = { ...candidate.binding, ownerVersion: candidate.ownerVersion };
+  const proof = await observeLoopbackOwnerCore({
+    endpoint,
+    privateBinding: binding,
+    expected: {
+      instanceId: binding.instanceId,
+      worktree: binding.worktree,
+      ownerVersion: binding.ownerVersion,
+    },
+    ...f.startup,
+  });
+  t.after(() => proof.connection?.close(f.startup));
+  assert.equal(proof.kind, 'core-live');
+  assert.equal(proof.verified, false);
+  assert.equal(
+    (await proof.connection.request({ operation: 'status', body: {}, ...f.startup })).ok,
+    true
+  );
+  assert.equal(JSON.stringify(caught.details).includes(binding.credential), false);
+});
+
+test('genuine connection rejects a changed credential generation before any bearer dispatch', async (t) => {
+  const api = await import('../../src/broker/owner-connection.mjs'),
+    { writeFile } = await import('node:fs/promises');
+  const f = await protectedCredential(t),
+    credential = await f.storage.observeProtectedCredential({ guard: f.guard, ...f.context });
+  t.after(() => credential.close(f.context));
+  let dispatches = 0;
+  const binding = {
+    credential: Buffer.alloc(32, 7).toString('hex'),
+    instanceId: 'b'.repeat(64),
+    worktree: 'c'.repeat(64),
+    ownerVersion: 'd'.repeat(64),
+  };
+  const server = await createLoopbackServer({
+    binding,
+    dispatch: async () => {
+      dispatches++;
+      return { schema: 'ai-peer-review.response/v1', ok: true };
+    },
+  });
+  t.after(() => server.close());
+  const proof = await api.observeLoopbackOwner({
+    endpoint: { host: '127.0.0.1', port: server.port },
+    privateBinding: credential,
+    expected: {
+      instanceId: binding.instanceId,
+      worktree: binding.worktree,
+      ownerVersion: binding.ownerVersion,
+    },
+    ...f.context,
+  });
+  t.after(() => proof.connection?.close(f.context));
+  assert.equal(proof.kind, 'verified-live');
+  await writeFile(path.join(f.root, 'credential'), Buffer.alloc(32, 8), { flag: 'r+' });
+  await assert.rejects(
+    proof.connection.request({ operation: 'status', body: {}, ...f.context }),
+    (error) => error.code === 'APR_BROKER_STALE'
+  );
+  assert.equal(dispatches, 0);
+  assert.ok((await readFile(path.join(f.root, 'credential'))).equals(Buffer.alloc(32, 8)));
 });

@@ -502,7 +502,26 @@ export function isOwnerElectionLeaseFor(lease, { identity, source, signal, deadl
 export function isOwnerElectionLease(lease) {
   return productionLeases.has(lease);
 }
-export async function assertOwnerElectionLease(lease, { root, name } = {}) {
+export async function inspectOwnerElectionLease(input = {}) {
+  const record = productionLeases.get(input.lease);
+  if (
+    !record ||
+    record.binding.resourceKind !== 'broker-owner' ||
+    Object.keys(input).sort().join(',') !== 'deadline,lease,signal'
+  )
+    throw stale('genuine-election-lease-required');
+  const current = portableOwnerOperation(input.lease) || record.budget;
+  if (
+    !(input.signal instanceof AbortSignal) ||
+    input.signal !== current.signal ||
+    input.deadline !== current.deadline ||
+    !Number.isFinite(input.deadline)
+  )
+    throw stale('owner-lease-budget-mismatch');
+  await assertOwnerElectionLease(input.lease);
+  return Object.freeze({ identity: record.identity, source: record.assurance });
+}
+export async function assertOwnerElectionLease(lease, { root, name, quarantineOf } = {}) {
   const record = productionLeases.get(lease);
   if (!record) throw stale('genuine-election-lease-required');
   await record.core.assert();
@@ -544,7 +563,7 @@ export async function assertOwnerElectionLease(lease, { root, name } = {}) {
     if (
       binding.guards.size > 1 &&
       !ownSlot &&
-      (name === 'endpoint.json' ? root === binding.root : root !== binding.root)
+      !ownerPublicationRootMatchesCore({ root, privateRoot: binding.root, name, quarantineOf })
     )
       throw stale('lease-root-mismatch');
   }
@@ -794,4 +813,24 @@ export async function inspectOwnerElectionPaths({ paths, signal, deadline } = {}
     privateGuard: binding.guard,
     runtimeGuard: binding.guards.get(runtimeRoot).guard,
   });
+}
+// Pure root-policy comparison; this cannot mint a lease or authorize an effect.
+export function ownerPublicationRootMatchesCore({ root, privateRoot, name, quarantineOf } = {}) {
+  const names = [
+    'owner.json',
+    'credential',
+    'endpoint.json',
+    'registry.json',
+    'manual-suspension.json',
+  ];
+  const quarantine = /^apr-owner-quarantine-[a-f0-9]{64}-[a-f0-9-]{36}\.json$/u.test(name ?? '');
+  const source = quarantine ? quarantineOf : name;
+  if (
+    typeof root !== 'string' ||
+    typeof privateRoot !== 'string' ||
+    !names.includes(source) ||
+    (quarantineOf !== undefined && !quarantine)
+  )
+    return false;
+  return source === 'endpoint.json' ? root !== privateRoot : root === privateRoot;
 }

@@ -1124,6 +1124,9 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     try {
       return Object.freeze({
         name,
+        root: r.root,
+        location: path.join(r.root, name),
+        parentIdentity: r.ancestry.find((entry) => entry.path === path.dirname(r.root))?.identity,
         identity: observed.identity,
         fileVersion: observed.fileVersion,
         rootIdentity: r.identity,
@@ -1451,7 +1454,11 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       resourceName(name);
       resourceName(destination);
       await assertOwnerElectionLease(resourceLease, { root: r.root, name });
-      await assertOwnerElectionLease(resourceLease, { root: r.root, name: destination });
+      await assertOwnerElectionLease(resourceLease, {
+        root: r.root,
+        name: destination,
+        quarantineOf: name,
+      });
     } else {
       retainedOrdinaryName(name);
       retainedOrdinaryName(destination);

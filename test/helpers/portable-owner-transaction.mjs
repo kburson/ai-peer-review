@@ -83,9 +83,13 @@ export async function transactionFixture(t, options = {}) {
     const location = path.join(base, name);
     try {
       const stat = await lstat(location, { bigint: true });
+      const rootStat = await lstat(base, { bigint: true }),
+        parentStat = await lstat(path.dirname(base), { bigint: true });
       return {
         name,
         root: base,
+        rootIdentity: rootStat.dev + ':' + rootStat.ino,
+        parentIdentity: parentStat.dev + ':' + parentStat.ino,
         identity: stat.dev + ':' + stat.ino,
         fileVersion: [stat.size, stat.mtimeNs, stat.ctimeNs].map(String).join(':'),
         bytes: await readFile(location),
