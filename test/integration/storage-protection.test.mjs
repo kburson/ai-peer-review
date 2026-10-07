@@ -609,3 +609,34 @@ test(
     }
   }
 );
+
+test(
+  '[#166] insufficient protection on a substituted file is stale during an already-open guarded write',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const root = await temporary(t),
+      receipt = await storage.provisionProtectedRoot({ root }),
+      guard = await storage.openProtectedRoot({ receipt });
+    t.after(() => guard.close());
+    const target = path.join(root, 'credential'),
+      { writeFileSync, renameSync, unlinkSync } = await import('node:fs');
+    await interceptFilesystem(t, 'open', async (original, value, ...options) => {
+      const file = await original(value, ...options);
+      if (value === target && Number(options[0]) & constants.O_CREAT) {
+        const write = file.writeFile.bind(file);
+        file.writeFile = async (...args) => {
+          await write(...args);
+          const incoming = path.join(root, 'incoming');
+          writeFileSync(incoming, 'other-generation', { mode: 0o644 });
+          unlinkSync(target);
+          renameSync(incoming, target);
+        };
+      }
+      return file;
+    });
+    await assert.rejects(guard.writeExclusive('credential', Buffer.from('original')), {
+      code: 'APR_BROKER_STALE',
+    });
+    assert.equal(await readFile(target, 'utf8'), 'other-generation');
+  }
+);

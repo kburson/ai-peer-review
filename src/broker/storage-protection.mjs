@@ -708,7 +708,9 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
   }
   function report(error, obligations = []) {
     const result = failure(
-      error?.code?.startsWith('APR_') ? error.code : 'APR_BROKER_STALE',
+      error?.code?.startsWith('APR_') && error.code !== 'APR_BROKER_START_FAILED'
+        ? error.code
+        : 'APR_BROKER_STALE',
       error?.details?.reason || boundedReason(error)
     );
     result.details = freeze({
@@ -860,7 +862,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       await leaseCheck();
       result = await action(leaseCheck);
     } catch (error) {
-      caught = error;
+      caught = report(error);
     }
     try {
       await verify();
