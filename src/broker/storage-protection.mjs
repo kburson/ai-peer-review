@@ -1126,12 +1126,15 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
         throw failure('APR_BROKER_STALE', 'owned-publication-generation-changed');
       return observed;
     }
-    async function exclusive(operation) {
+    async function exclusive(operation, mutating = false) {
       if (busy) throw failure('APR_BROKER_STALE', 'owned-publication-busy');
       busy = true;
       try {
-        return await operation();
+        return await (mutating && retainAcrossRename
+          ? mutate(operation, resourceLease)
+          : operation());
       } catch (error) {
+        if (mutating && retainAcrossRename && error.details?.mutationOccurred) fenced = true;
         throw report(
           error,
           [...retained]
@@ -1245,7 +1248,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
                 .map((item) => obligation(item, 'descriptor-close-pending')),
             ]);
           }
-        }),
+        }, true),
       withdraw: (expected, context) =>
         exclusive(async () => {
           contextCheck(context);
@@ -1273,7 +1276,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
           } catch (error) {
             throw report(error, [obligation(entry, 'owned-withdrawal-unproved')]);
           }
-        }),
+        }, true),
       close: (context) =>
         exclusive(async () => {
           if (context !== undefined) contextCheck(context);
@@ -1304,7 +1307,15 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
   }
   async function createRetainedPublication(name, value) {
     retainedOrdinaryName(name);
-    return retainedPublication(name, value, true);
+    let publication;
+    try {
+      return await mutate(async () => {
+        publication = await retainedPublication(name, value, true);
+        return publication;
+      });
+    } catch (error) {
+      throw report(error, publication ? [publication.retainedGeneration()] : []);
+    }
   }
   function exactSnapshot(expected, observed) {
     if (
@@ -1335,7 +1346,9 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       return await mutate(async (leaseCheck) => {
         const observed = await readObserved(name);
         retainedSource = observed;
-        let attempted = false,
+        heldFiles.set(observed.file, observed);
+        let moved,
+          attempted = false,
           exact = false;
         try {
           exactSnapshot(expected, observed);
@@ -1358,7 +1371,8 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
           await rename(path.join(r.root, name), path.join(r.root, destination));
           // Rename changes ctime on real substrates. Bind the post-effect descriptor
           // to the moved path, allowing only that owned version transition.
-          const moved = await readObserved(destination);
+          moved = await readObserved(destination);
+          heldFiles.set(moved.file, moved);
           try {
             const stat = await observed.file.stat({ bigint: true });
             if (
@@ -1386,13 +1400,22 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
               obligations: Object.freeze([]),
             });
           } finally {
-            await closeOwnedFile(moved);
+            if (exact) await closeOwnedFile(moved);
           }
         } catch (error) {
           if (attempted)
             throw report(error, [
               { ...obligation(observed, 'quarantine-unconfirmed'), alternateName: destination },
               obligation(observed, 'descriptor-close-pending'),
+              ...(moved
+                ? [
+                    {
+                      ...obligation(moved, 'displaced-generation-retained'),
+                      alternateName: name,
+                    },
+                    obligation(moved, 'descriptor-close-pending'),
+                  ]
+                : []),
             ]);
           throw error;
         } finally {
@@ -1506,6 +1529,8 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     root: r.root,
     signal,
     deadline,
+    clockInjected: clock !== undefined,
+    outcomes: new Set(),
     create: (name, bytes, lease) => retainedPublication(name, bytes, true, lease),
     quarantine,
   });
@@ -1525,6 +1550,7 @@ export function isHeldPrivatePublication(value) {
 async function ownerGuard(guard, lease, name, context) {
   const record = guards.get(guard);
   if (!record) throw failure('APR_BROKER_STALE', 'genuine-protected-guard-required');
+  if (record.clockInjected) throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
   await assertOwnerElectionLease(lease, { root: record.root, name });
   if (!ownerNames.has(name))
     throw failure('APR_BROKER_PATH_INVALID', 'owner-publication-name-invalid');
@@ -1540,6 +1566,19 @@ async function ownerGuard(guard, lease, name, context) {
     throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
   return record;
 }
+function retainedOutcomeError(error, obligations, mutationOccurred = false) {
+  const result = failure(
+    error?.code?.startsWith('APR_') ? error.code : 'APR_BROKER_STALE',
+    error?.details?.reason || boundedReason(error)
+  );
+  result.details = freeze({
+    ...result.details,
+    mutationOccurred: mutationOccurred || error?.details?.mutationOccurred === true,
+    retrySafe: false,
+    obligations: [...(error?.details?.obligations || []), ...obligations],
+  });
+  return result;
+}
 export async function createHeldPrivatePublication({
   guard,
   name,
@@ -1550,10 +1589,27 @@ export async function createHeldPrivatePublication({
 } = {}) {
   const context = { signal, deadline };
   const record = await ownerGuard(guard, lease, name, context);
-  const engine = await lease.run(() => record.create(name, bytes, lease));
-  const run = async (context, effect) => {
-    await ownerGuard(guard, lease, name, context || {});
-    return lease.run(effect);
+  let engine;
+  try {
+    await lease.run(async () => {
+      engine = await record.create(name, bytes, lease);
+    });
+  } catch (error) {
+    if (engine) record.outcomes.add(engine);
+    throw retainedOutcomeError(error, engine ? [engine.retainedGeneration()] : [], !!engine);
+  }
+  const run = async (context, effect, mutating = false) => {
+    let completed = false;
+    try {
+      await ownerGuard(guard, lease, name, context || {});
+      return await lease.run(async () => {
+        const result = await effect();
+        completed = true;
+        return result;
+      });
+    } catch (error) {
+      throw retainedOutcomeError(error, [engine.retainedGeneration()], completed && mutating);
+    }
   };
   const handle = Object.freeze({
     snapshot: (context) => run(context, () => engine.snapshot(context)),
@@ -1563,9 +1619,9 @@ export async function createHeldPrivatePublication({
         return true;
       }),
     replace: (expected, bytes, context) =>
-      run(context, () => engine.publish(expected, bytes, context)),
-    withdraw: (expected, context) => run(context, () => engine.withdraw(expected, context)),
-    close: (context) => run(context, () => engine.close(context)),
+      run(context, () => engine.publish(expected, bytes, context), true),
+    withdraw: (expected, context) => run(context, () => engine.withdraw(expected, context), true),
+    close: (context) => run(context, () => engine.close(context), true),
     retainedGeneration: engine.retainedGeneration,
   });
   heldPublications.set(handle, { guard, lease, name });
@@ -1582,7 +1638,30 @@ export async function quarantinePrivateFile({
   const context = { signal, deadline };
   const record = await ownerGuard(guard, lease, name, context);
   const destination = 'apr-owner-quarantine-' + lease.resourceKey + '-' + randomUUID() + '.json';
-  const receipt = await lease.run(() => record.quarantine(name, expected, { destination }, lease));
+  let receipt;
+  try {
+    await lease.run(async () => {
+      receipt = await record.quarantine(name, expected, { destination }, lease);
+    });
+  } catch (error) {
+    if (receipt) record.outcomes.add(receipt);
+    throw retainedOutcomeError(
+      error,
+      receipt
+        ? [
+            {
+              name: receipt.name,
+              alternateName: receipt.originalName,
+              identity: receipt.identity,
+              fileVersion: receipt.fileVersion,
+              rootIdentity: receipt.rootIdentity,
+              outcome: 'quarantine-unconfirmed',
+            },
+          ]
+        : [],
+      !!receipt
+    );
+  }
   quarantineReceipts.set(receipt, { guard, lease, name, context });
   return receipt;
 }

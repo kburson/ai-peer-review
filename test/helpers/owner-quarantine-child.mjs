@@ -4,7 +4,10 @@ import { provisionProtectedRoot, openProtectedRoot } from '../../src/broker/stor
 
 // Actual owned-filesystem crash control; no production owner capability is claimed.
 const root = process.argv[2];
-const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+const context = {
+  signal: new AbortController().signal,
+  deadline: performance.now() + (process.platform === 'win32' ? 180000 : 30000),
+};
 const receipt = await provisionProtectedRoot({ root, ...context });
 const guard = await openProtectedRoot({ receipt, ...context });
 await guard.writeExclusive('fixture-owner', Buffer.from('retained-through-crash'));
