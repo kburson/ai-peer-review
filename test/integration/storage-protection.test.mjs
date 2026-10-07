@@ -164,6 +164,8 @@ test('[#166] aborted protection effects never create a file or start a fresh bud
 async function alterWindowsDescriptor(target, action) {
   const script = String.raw`
 $ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
 $p=[Console]::In.ReadToEnd()|ConvertFrom-Json
 $a=Get-Acl -LiteralPath $p.path -ErrorAction Stop
 if($p.action -eq 'foreign-read') {
@@ -510,7 +512,7 @@ test('[#166] deadline after file creation retains the outstanding owned identity
   const root = await temporary(t),
     receipt = await storage.provisionProtectedRoot({ root });
   let now = 0;
-  const guard = await storage.openProtectedRoot({ receipt, clock: () => now, deadline: 10 });
+  const guard = await storage.openProtectedRoot({ receipt, clock: () => now, deadline: 100000 });
   t.after(() => guard.close());
   await interceptFilesystem(t, 'open', async (original, value, ...options) => {
     const file = await original(value, ...options);
@@ -518,7 +520,7 @@ test('[#166] deadline after file creation retains the outstanding owned identity
       const write = file.writeFile.bind(file);
       file.writeFile = async (...args) => {
         await write(...args);
-        now = 10;
+        now = 100000;
       };
     }
     return file;
@@ -559,4 +561,32 @@ test('[#166] guard close retries a failed owned descriptor close instead of losi
   assert.ok(await retained.stat(), 'failed close leaves a real owned descriptor to discharge');
   await guard.close();
   await assert.rejects(retained.stat(), { code: 'EBADF' });
+});
+
+test('[#166] a rename that takes effect before reporting failure remains an uncertain publication with both locators', async (t) => {
+  const root = await temporary(t),
+    receipt = await storage.provisionProtectedRoot({ root });
+  const guard = await storage.openProtectedRoot({ receipt });
+  t.after(() => guard.close());
+  await guard.writeExclusive('owner.json', Buffer.from('old'));
+  await interceptFilesystem(t, 'rename', async (original, ...args) => {
+    await original(...args);
+    throw Object.assign(new Error('controlled uncertain rename result'), { code: 'EIO' });
+  });
+  let caught;
+  try {
+    await guard.replace('owner.json', Buffer.from('old'), Buffer.from('new'));
+  } catch (error) {
+    caught = error;
+  }
+  assert.ok(caught);
+  assert.equal(await readFile(path.join(root, 'owner.json'), 'utf8'), 'new');
+  const obligation = caught.details?.obligations?.find(
+    (x) => x.outcome === 'publication-unconfirmed'
+  );
+  assert.ok(obligation, 'an error alone must not certify that rename had no effect');
+  assert.ok(obligation.name === 'owner.json' || obligation.alternateName === 'owner.json');
+  const { lstat } = await import('node:fs/promises'),
+    stat = await lstat(path.join(root, 'owner.json'), { bigint: true });
+  assert.equal(obligation.identity, [stat.dev, stat.ino].map(String).join(':'));
 });

@@ -127,6 +127,8 @@ export function assessWindowsProtection(value = {}) {
 
 const windowsScript = String.raw`
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
 try {
 $stage='input'
 [Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)
@@ -275,6 +277,8 @@ async function windowsProbe(targets, provision = false, budget = operationBudget
                 '-line-' +
                 diagnostic.line +
                 (/^[a-z-]{1,40}$/.test(diagnostic.stage || '') ? '-stage-' + diagnostic.stage : '');
+            else if (diagnostic.schema === 'ai-peer-review.windows-protection-observation/v1')
+              reason += error ? '-error-after-result' : '-unexpected-stderr';
           } catch {
             /* Raw probe output can contain paths and is never exposed. */
           }
@@ -879,6 +883,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       const observed = await readObserved(name);
       let temporary,
         published = false,
+        attempted = false,
         caught;
       try {
         if (!observed.bytes.equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
@@ -887,20 +892,33 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
         await matchFile(observed, observed.file);
         await matchFile(temporary, temporary.file);
         budget.check();
+        attempted = true;
         await rename(path.join(r.root, temporary.name), target);
         published = true;
+        temporary.name = name;
         temporary.fileVersion = version(await temporary.file.stat({ bigint: true }));
         await verify();
-        await matchFile({ ...temporary, name }, temporary.file);
+        await matchFile(temporary, temporary.file);
       } catch (error) {
-        caught = temporary
-          ? report(error, [
-              obligation(
-                published ? { ...temporary, name } : temporary,
-                published ? 'publication-unconfirmed' : 'unpublished'
-              ),
-            ])
-          : error;
+        if (temporary) {
+          let unpublished = !attempted;
+          if (attempted && !published) {
+            try {
+              await leaseCheck();
+              await matchFile(temporary, temporary.file);
+              await matchFile(observed, observed.file);
+              unpublished = true;
+            } catch {
+              /* No fresh budget or inferred outcome after an uncertain effect. */
+            }
+          }
+          const outstanding = obligation(
+            temporary,
+            unpublished ? 'unpublished' : 'publication-unconfirmed'
+          );
+          if (!unpublished && !published) outstanding.alternateName = name;
+          caught = report(error, [outstanding]);
+        } else caught = error;
       }
       if (temporary) {
         try {
