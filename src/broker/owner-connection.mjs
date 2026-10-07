@@ -197,6 +197,13 @@ async function observe(input, genuine) {
       const snapshot = await readPublication(() => publication.snapshot(context));
       if (!Buffer.isBuffer(snapshot.bytes) || snapshot.bytes.length !== 32)
         return unknown('credential-publication-invalid');
+      const held = publication.retainedGeneration();
+      if (
+        ['name', 'root', 'rootIdentity', 'identity', 'fileVersion'].some(
+          (key) => held[key] !== generation[key]
+        )
+      )
+        throw refusal('credential-publication-changed');
       credentialBytes = Buffer.from(snapshot.bytes);
       privateBinding = Object.freeze({ ...expected, credential: credentialBytes.toString('hex') });
     } else {
@@ -227,7 +234,10 @@ async function observe(input, genuine) {
         throw refusal('credential-publication-changed');
       contextCheck(context, context);
     };
-    await recheck();
+    // The initial genuine snapshot above is the complete pre-proof read.
+    // Preserve its exact held generation and budget; re-read after proof and
+    // before each bearer dispatch, with no cached protection observation.
+    contextCheck(context, context);
     const controller = new AbortController();
     agent = new OperationAgent();
     stop = () => {
