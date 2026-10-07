@@ -1,6 +1,7 @@
 // @story #166
 // cspell:words readback hardlink showtrustlevels trustlevel nonadministrator
 import test from 'node:test';
+import { constants } from 'node:fs';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import {
@@ -187,7 +188,15 @@ Set-Acl -LiteralPath $p.path -AclObject $a -ErrorAction Stop
       '-EncodedCommand',
       Buffer.from(script, 'utf16le').toString('base64'),
     ],
-    { input: JSON.stringify({ path: target, action }), encoding: 'utf8', timeout: 15000 }
+    {
+      input: JSON.stringify({ path: target, action }),
+      encoding: 'utf8',
+      timeout: 15000,
+      env: {
+        ...process.env,
+        PSModulePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
+      },
+    }
   );
 }
 test(
@@ -298,5 +307,176 @@ test(
       'the actual stock probe must prove a nonadministrator token'
     );
     assert.equal(result.control, 'actual basic token');
+  }
+);
+
+async function interceptFilesystem(t, name, implementation) {
+  const fs = (await import('node:fs/promises')).default;
+  const { syncBuiltinESMExports } = await import('node:module');
+  const original = fs[name];
+  const mock = t.mock.method(fs, name, (...args) => implementation(original, ...args));
+  syncBuiltinESMExports();
+  t.after(() => {
+    mock.mock.restore();
+    syncBuiltinESMExports();
+  });
+}
+for (const operation of ['remove', 'replace']) {
+  for (const generation of ['substituted', 'updated']) {
+    test(
+      '[#166] ' +
+        operation +
+        ' retains the generation supplying expected bytes after it is ' +
+        generation,
+      async (t) => {
+        const root = await temporary(t),
+          target = path.join(root, 'owner.json');
+        const receipt = await storage.provisionProtectedRoot({ root });
+        const guard = await storage.openProtectedRoot({ receipt });
+        t.after(() => guard.close());
+        await guard.writeExclusive('owner.json', Buffer.from('first'));
+        let reads = 0,
+          changed = false;
+        const { writeFileSync, renameSync } = await import('node:fs');
+        await interceptFilesystem(t, 'lstat', async (original, value, options) => {
+          if (value === target) reads++;
+          if (value === root && reads >= 2 && !changed) {
+            changed = true;
+            if (generation === 'substituted') {
+              const incoming = path.join(root, 'incoming');
+              writeFileSync(incoming, 'newer-generation', { mode: 0o600 });
+              renameSync(incoming, target);
+            } else writeFileSync(target, 'newer-generation');
+          }
+          return original(value, options);
+        });
+        await assert.rejects(
+          operation === 'remove'
+            ? guard.remove('owner.json', Buffer.from('first'))
+            : guard.replace('owner.json', Buffer.from('first'), Buffer.from('replacement')),
+          { code: 'APR_BROKER_STALE' }
+        );
+        assert.equal(
+          changed,
+          true,
+          'real filesystem generation changed at the read/effect boundary'
+        );
+        assert.equal(await readFile(target, 'utf8'), 'newer-generation');
+      }
+    );
+  }
+}
+test('[#166] failed publication reports the exact outstanding private temporary generation without secret bytes', async (t) => {
+  const root = await temporary(t),
+    receipt = await storage.provisionProtectedRoot({ root });
+  const guard = await storage.openProtectedRoot({ receipt });
+  t.after(() => guard.close());
+  await guard.writeExclusive('owner.json', Buffer.from('first'));
+  await interceptFilesystem(t, 'rename', async () => {
+    throw Object.assign(new Error('controlled rename failure'), { code: 'EIO' });
+  });
+  let caught;
+  try {
+    await guard.replace(
+      'owner.json',
+      Buffer.from('first'),
+      Buffer.from('private-unpublished-secret')
+    );
+  } catch (error) {
+    caught = error;
+  }
+  assert.ok(caught);
+  assert.equal(await readFile(path.join(root, 'owner.json'), 'utf8'), 'first');
+  const obligation = caught.details?.obligations?.find((x) => x.name.startsWith('publish-'));
+  assert.ok(obligation, 'failure must retain the identity of its created temporary');
+  const { lstat } = await import('node:fs/promises');
+  const stat = await lstat(path.join(root, obligation.name), { bigint: true });
+  assert.equal(obligation.identity, [stat.dev, stat.ino].map(String).join(':'));
+  assert.equal(obligation.outcome, 'unpublished');
+  assert.equal(JSON.stringify(caught).includes('private-unpublished-secret'), false);
+});
+test('[#166] abort after file creation reports an exact owned cleanup obligation', async (t) => {
+  const root = await temporary(t),
+    receipt = await storage.provisionProtectedRoot({ root });
+  const controller = new AbortController();
+  const guard = await storage.openProtectedRoot({ receipt, signal: controller.signal });
+  t.after(() => guard.close());
+  await interceptFilesystem(t, 'open', async (original, value, ...options) => {
+    const handle = await original(value, ...options);
+    if (value === path.join(root, 'credential') && Number(options[0]) & constants.O_CREAT) {
+      const write = handle.writeFile.bind(handle);
+      handle.writeFile = async (...args) => {
+        await write(...args);
+        controller.abort();
+      };
+    }
+    return handle;
+  });
+  let caught;
+  try {
+    await guard.writeExclusive('credential', Buffer.from('unpublished-secret'));
+  } catch (error) {
+    caught = error;
+  }
+  assert.equal(caught?.code, 'APR_BROKER_STALE');
+  assert.ok(caught.details?.obligations?.some((x) => x.name === 'credential' && x.identity));
+  assert.equal(JSON.stringify(caught).includes('unpublished-secret'), false);
+});
+test('[#166] a retained mutation lease refuses a concurrent guarded removal across guard instances', async (t) => {
+  const root = await temporary(t),
+    receipt = await storage.provisionProtectedRoot({ root });
+  const first = await storage.openProtectedRoot({ receipt }),
+    second = await storage.openProtectedRoot({ receipt });
+  t.after(async () => {
+    await first.close();
+    await second.close();
+  });
+  await first.writeExclusive('owner.json', Buffer.from('retained'));
+  let entered, release;
+  const ready = new Promise((resolve) => (entered = resolve)),
+    barrier = new Promise((resolve) => (release = resolve));
+  await interceptFilesystem(t, 'open', async (original, value, ...options) => {
+    const handle = await original(value, ...options);
+    if (value === path.join(root, 'lease.json') && Number(options[0]) & constants.O_CREAT) {
+      const write = handle.writeFile.bind(handle);
+      handle.writeFile = async (...args) => {
+        entered();
+        await barrier;
+        return write(...args);
+      };
+    }
+    return handle;
+  });
+  const pending = first.writeExclusive('lease.json', Buffer.from('held'));
+  await ready;
+  try {
+    await assert.rejects(second.remove('owner.json', Buffer.from('retained')), {
+      code: 'APR_BROKER_STALE',
+    });
+    assert.equal(await readFile(path.join(root, 'owner.json'), 'utf8'), 'retained');
+  } finally {
+    release();
+    await pending;
+  }
+});
+
+test(
+  '[#166] Windows stock probe ignores inherited module discovery paths',
+  { skip: process.platform !== 'win32' },
+  async (t) => {
+    const root = await temporary(t),
+      previous = process.env.PSModulePath;
+    try {
+      process.env.PSModulePath = path.join(root, 'untrusted-modules');
+      const receipt = await storage.provisionProtectedRoot({ root });
+      assert.equal(receipt.verified, true, JSON.stringify(receipt.reasons));
+      const guard = await storage.openProtectedRoot({ receipt });
+      t.after(() => guard.close());
+      await guard.writeExclusive('control.json', Buffer.from('fixed stock module discovery'));
+      assert.equal((await guard.read('control.json')).toString(), 'fixed stock module discovery');
+    } finally {
+      if (previous === undefined) delete process.env.PSModulePath;
+      else process.env.PSModulePath = previous;
+    }
   }
 );

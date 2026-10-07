@@ -242,7 +242,16 @@ async function windowsProbe(targets, provision = false, budget = operationBudget
     const child = execFile(
       executable,
       ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
-      { encoding: 'utf8', maxBuffer: 1048576, ...budget.options(15000), windowsHide: true },
+      {
+        encoding: 'utf8',
+        maxBuffer: 1048576,
+        ...budget.options(15000),
+        windowsHide: true,
+        env: {
+          ...process.env,
+          PSModulePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
+        },
+      },
       (error, stdout, stderr) => {
         if (error || stderr.trim()) {
           let reason = 'stock-acl-probe-unavailable';
@@ -626,33 +635,103 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       throw failure('APR_BROKER_STALE', 'root-protection-changed');
     }
   }
-  async function read(name) {
-    const target = path.join(r.root, safeName(name));
+
+  const heldFiles = new Map();
+  let directoryClosed = false;
+  const version = (stat) => [stat.size, stat.mtimeNs, stat.ctimeNs].map(String).join(':');
+  const lockName = 'apr-mutation-lock';
+  function resourceName(name) {
+    if (safeName(name) === lockName)
+      throw failure('APR_BROKER_PATH_INVALID', 'reserved-mutation-resource');
+    return name;
+  }
+  function report(error, obligations = []) {
+    const result = failure(
+      error?.code?.startsWith('APR_') ? error.code : 'APR_BROKER_STALE',
+      error?.details?.reason || boundedReason(error)
+    );
+    result.details = freeze({
+      ...result.details,
+      mutationOccurred: obligations.length > 0 || error?.details?.mutationOccurred === true,
+      retrySafe: false,
+      obligations: [...(error?.details?.obligations || []), ...obligations],
+    });
+    return result;
+  }
+  function obligation(entry, outcome) {
+    return {
+      name: entry.name,
+      identity: entry.identity,
+      fileVersion: entry.fileVersion,
+      rootIdentity: r.identity,
+      outcome,
+    };
+  }
+  async function closeFile(file) {
+    await file.close();
+    heldFiles.delete(file);
+  }
+  async function matchFile(entry, file = null) {
+    const fresh = await inspect(path.join(r.root, entry.name), 'file', budget);
+    if (
+      fresh.observation.identity !== entry.identity ||
+      fresh.observation.fileVersion !== entry.fileVersion ||
+      (file &&
+        (identity(await file.stat({ bigint: true })) !== entry.identity ||
+          version(await file.stat({ bigint: true })) !== entry.fileVersion))
+    )
+      throw failure('APR_BROKER_STALE', 'private-file-changed');
+  }
+  async function readObserved(name) {
+    const target = path.join(r.root, resourceName(name));
     await verify();
     let file;
     try {
       const before = await inspect(target, 'file', budget);
       file = await open(target, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
       const stat = await file.stat({ bigint: true });
-      if (identity(stat) !== before.observation.identity || stat.size > BigInt(MAX_BYTES))
-        throw failure('APR_BROKER_STALE', 'private-file-changed');
-      const bytes = await file.readFile();
-      const after = await inspect(target, 'file', budget);
+      const entry = {
+        name,
+        identity: before.observation.identity,
+        fileVersion: before.observation.fileVersion,
+        file,
+      };
+      heldFiles.set(file, entry);
       if (
-        after.fingerprint !== before.fingerprint ||
-        identity(await file.stat({ bigint: true })) !== before.observation.identity
+        identity(stat) !== entry.identity ||
+        version(stat) !== entry.fileVersion ||
+        stat.size > BigInt(MAX_BYTES)
       )
         throw failure('APR_BROKER_STALE', 'private-file-changed');
+      const bytes = await file.readFile();
       await verify();
-      return bytes;
+      await matchFile(entry, file);
+      return { ...entry, bytes };
     } catch (error) {
+      if (file) {
+        try {
+          await closeFile(file);
+        } catch {
+          throw report(error, [obligation(heldFiles.get(file), 'descriptor-close-pending')]);
+        }
+      }
       if (error.code === 'ENOENT') throw error;
-      throw failure('APR_BROKER_STALE', 'private-file-unproved');
-    } finally {
-      await file?.close();
+      throw report(failure('APR_BROKER_STALE', 'private-file-unproved'));
     }
   }
-  async function writeExclusive(name, value) {
+  async function read(name) {
+    const observed = await readObserved(name);
+    try {
+      return observed.bytes;
+    } finally {
+      try {
+        await closeFile(observed.file);
+      } catch (error) {
+        throw report(error, [obligation(observed, 'descriptor-close-pending')]);
+      }
+    }
+  }
+  async function createFile(name, value, retain = false) {
     const bytes = safeBytes(value),
       target = path.join(r.root, safeName(name));
     await verify();
@@ -662,47 +741,169 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW || 0),
       0o600
     );
+    const entry = { name, identity: null, fileVersion: null, file };
+    heldFiles.set(file, entry);
+    let caught;
     try {
+      const created = await file.stat({ bigint: true });
+      entry.identity = identity(created);
+      entry.fileVersion = version(created);
       if (process.platform === 'win32') await windowsProbe([target], true, budget);
       const observation = await inspect(target, 'file', budget);
-      if (identity(await file.stat({ bigint: true })) !== observation.observation.identity)
+      if (entry.identity !== observation.observation.identity)
         throw failure('APR_BROKER_STALE', 'private-file-changed');
       budget.check();
       await file.writeFile(bytes);
       budget.check();
       await file.sync();
-      await inspect(target, 'file', budget);
+      const written = await file.stat({ bigint: true });
+      entry.fileVersion = version(written);
       await verify();
-    } finally {
-      await file.close();
+      await matchFile(entry, file);
+    } catch (error) {
+      caught = error;
     }
+    if (!retain || caught) {
+      try {
+        await closeFile(file);
+      } catch (error) {
+        throw report(caught || error, [
+          obligation(entry, 'descriptor-close-pending'),
+          obligation(entry, 'created-unconfirmed'),
+        ]);
+      }
+    }
+    if (caught) throw report(caught, [obligation(entry, 'created-unconfirmed')]);
+    return entry;
+  }
+  // All cooperative mutations of this root acquire the same exclusive resource.
+  // No abandoned lock is reclaimed here: ownership/recovery belongs to C3/C4.
+  // An arbitrary same-user pathname writer cannot be made safe by lstat alone.
+  async function mutate(action) {
+    let lease;
+    try {
+      lease = await createFile(lockName, Buffer.from(randomUUID()), true);
+    } catch (error) {
+      if (error.code === 'EEXIST') throw failure('APR_BROKER_STALE', 'mutation-resource-busy');
+      throw error;
+    }
+    let result,
+      caught,
+      released = false;
+    try {
+      const leaseCheck = async () => {
+        await verify();
+        await matchFile(lease, lease.file);
+        budget.check();
+      };
+      await leaseCheck();
+      result = await action(leaseCheck);
+    } catch (error) {
+      caught = error;
+    }
+    try {
+      await verify();
+      await matchFile(lease, lease.file);
+      budget.check();
+      await unlink(path.join(r.root, lockName));
+      released = true;
+    } catch (error) {
+      caught = report(caught || error, [obligation(lease, 'mutation-lease-outstanding')]);
+    }
+    try {
+      await closeFile(lease.file);
+    } catch (error) {
+      caught = report(caught || error, [obligation(lease, 'descriptor-close-pending')]);
+    }
+    if (caught) throw caught;
+    if (!released) throw failure('APR_BROKER_STALE', 'mutation-release-unproved');
+    return result;
+  }
+  async function writeExclusive(name, value) {
+    resourceName(name);
+    return mutate(async (leaseCheck) => {
+      const created = await createFile(name, value);
+      try {
+        await leaseCheck();
+        await matchFile(created);
+      } catch (error) {
+        throw report(error, [obligation(created, 'created-unconfirmed')]);
+      }
+    });
   }
   async function remove(name, expected) {
-    const target = path.join(r.root, safeName(name)),
+    const target = path.join(r.root, resourceName(name)),
       old = safeBytes(expected);
-    if (!(await read(name)).equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
-    const before = await lstat(target, { bigint: true });
-    await verify();
-    if (identity(await lstat(target, { bigint: true })) !== identity(before))
-      throw failure('APR_BROKER_STALE', 'private-file-changed');
-    budget.check();
-    await unlink(target);
-    await verify();
+    return mutate(async (leaseCheck) => {
+      const observed = await readObserved(name);
+      let caught;
+      try {
+        if (!observed.bytes.equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
+        await leaseCheck();
+        await matchFile(observed, observed.file);
+        budget.check();
+        await unlink(target);
+        try {
+          await verify();
+        } catch (error) {
+          throw report(error, [obligation(observed, 'removal-unconfirmed')]);
+        }
+      } catch (error) {
+        caught = error;
+      }
+      try {
+        await closeFile(observed.file);
+      } catch (error) {
+        caught = report(caught || error, [obligation(observed, 'descriptor-close-pending')]);
+      }
+      if (caught) throw caught;
+    });
   }
   async function replace(name, expected, value) {
-    const target = path.join(r.root, safeName(name)),
+    const target = path.join(r.root, resourceName(name)),
       old = safeBytes(expected),
       bytes = safeBytes(value);
-    if (!(await read(name)).equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
-    const before = await lstat(target, { bigint: true }),
-      temporary = 'publish-' + randomUUID();
-    await writeExclusive(temporary, bytes);
-    await verify();
-    if (identity(await lstat(target, { bigint: true })) !== identity(before))
-      throw failure('APR_BROKER_STALE', 'private-file-changed');
-    budget.check();
-    await rename(path.join(r.root, temporary), target);
-    await verify();
+    return mutate(async (leaseCheck) => {
+      const observed = await readObserved(name);
+      let temporary,
+        published = false,
+        caught;
+      try {
+        if (!observed.bytes.equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
+        temporary = await createFile('publish-' + randomUUID(), bytes, true);
+        await leaseCheck();
+        await matchFile(observed, observed.file);
+        await matchFile(temporary, temporary.file);
+        budget.check();
+        await rename(path.join(r.root, temporary.name), target);
+        published = true;
+        temporary.fileVersion = version(await temporary.file.stat({ bigint: true }));
+        await verify();
+        await matchFile({ ...temporary, name }, temporary.file);
+      } catch (error) {
+        caught = temporary
+          ? report(error, [
+              obligation(
+                published ? { ...temporary, name } : temporary,
+                published ? 'publication-unconfirmed' : 'unpublished'
+              ),
+            ])
+          : error;
+      }
+      if (temporary) {
+        try {
+          await closeFile(temporary.file);
+        } catch (error) {
+          caught = report(caught || error, [obligation(temporary, 'descriptor-close-pending')]);
+        }
+      }
+      try {
+        await closeFile(observed.file);
+      } catch (error) {
+        caught = report(caught || error, [obligation(observed, 'descriptor-close-pending')]);
+      }
+      if (caught) throw caught;
+    });
   }
   return Object.freeze({
     read,
@@ -711,9 +912,24 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     replace,
     verify,
     async close() {
-      if (closed) return;
       closed = true;
-      await directory.close();
+      let caught;
+      for (const [file, entry] of heldFiles) {
+        try {
+          await closeFile(file);
+        } catch (error) {
+          caught = report(caught || error, [obligation(entry, 'descriptor-close-pending')]);
+        }
+      }
+      if (!directoryClosed) {
+        try {
+          await directory.close();
+          directoryClosed = true;
+        } catch (error) {
+          caught = report(caught || error);
+        }
+      }
+      if (caught) throw caught;
     },
   });
 }
