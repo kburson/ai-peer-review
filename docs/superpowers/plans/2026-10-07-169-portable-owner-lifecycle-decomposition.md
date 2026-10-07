@@ -84,7 +84,7 @@ Named original factories remain; signal and deadline are additive required budge
 
 **Interfaces:** Produce the HeldPrivatePublication and QuarantineReceipt interfaces above. Consume genuine C1 guards and C3 held owner lease. The operation context is explicit; startup only accepts the original lease budget until Task3 genuine completion.
 
-- [ ] Core-on-real-substrate RED for retained ordinary fixture descriptor/generation; production-refusal RED for copied/wrong-resource leases and copied/wrong-resource lease, old generation, symlink/hardlink/parent/ACL replacement and simultaneous writer refusal. Assert actual retained descriptor remains open until exact owned release.
+- [ ] Core-on-real-substrate RED for retained ordinary fixture descriptor/generation, old generation, symlink/hardlink/parent/ACL replacement and simultaneous writer refusal, asserting the specific substitution reason rather than an unrelated lease refusal. Production-refusal RED for copied/wrong-resource/core leases. Assert actual retained descriptor remains open until exact owned release.
 - [ ] Core-on-real-substrate RED for quarantine followed by crash and displaced-generation-retained; production-refusal RED for fake quarantine receipts. Cover uncertain rename/flush/close and destination collision. Inspect retained bytes and exact locators; no new generation is overwritten and no failed cleanup is reported absent.
 - [ ] Implement exclusive create/write/fsync and private handle registration. Before each mutation verify actual lease scope, roots/principal/ACL/type/identity, current bytes and retained descriptor generation. Quarantine under the held lease to a fresh bounded owner-only locator; preserve both locators if outcome is uncertain.
 - [ ] Define context-bearing operations without permitting arbitrary future deadline renewal. Until genuine lifecycle completion exists, alternate contexts refuse. Fixture cores expose unverified schedule behavior only.
@@ -187,7 +187,7 @@ node --test test/integration/owner-connection.test.mjs test/unit/broker-http.tes
 
 **Size and estimate:** M/4base human hours; native child estimate remains authoritative.
 
-**Files:** Create src/broker/portable-owner-lifecycle.mjs, test/unit/portable-owner-lifecycle.test.mjs and test/unit/portable-cleanup-ownership.test.mjs. Extend src/broker/ownership-election.mjs, src/broker/storage-protection.mjs, src/broker/ownership.mjs and src/protocol/compatibility.mjs at their genuine producer seams. Update every current assertCurrentCleanupOwnership test/call to await its result, including test/unit/collateral-compatibility.test.mjs.
+**Files:** Create src/broker/portable-owner-lifecycle.mjs, test/unit/portable-owner-lifecycle.test.mjs and test/unit/portable-cleanup-ownership.test.mjs. Extend src/broker/ownership-election.mjs, src/broker/storage-protection.mjs, src/broker/ownership.mjs and src/protocol/compatibility.mjs at their genuine producer seams. Extend bin/peer-review-broker.mjs with await assertCurrentCleanupOwnership inside its actual cleanupGuard, before C6 broad migration of that file. Update every current test/call to await its result, including test/unit/collateral-compatibility.test.mjs.
 
 **Interfaces:** Produce createPortableOwnerLifecycle and isPortableBrokerOwner above. Consume genuine Task1 publications, Task2 verified connection, actual C2 observations and actual C3 lease. The genuine completion transition is privately registered, not a caller boolean or registration function.
 
@@ -208,6 +208,7 @@ await assert.rejects(
     identity: {},
     source: {},
     connection: {},
+    runtime: {},
     signal: new AbortController().signal,
     deadline: performance.now() + 1000,
   }),
@@ -224,6 +225,8 @@ After genuine completion, admit verify/release at the lifecycle's public top-lev
 Core-on-real-substrate RED pins long-lived verify and clean release after original expiry (same slot and descriptor until release; then withdrawn/closed, zero obligations), nested renewal, Infinity/NaN/over30000ms deadlines, non-AbortSignal, and release/effect overlap. Core factory drives ready/publication ports before marking protocol completion; verified is always false. Production-refusal tests pin every fake producer and incomplete readiness. Genuine portable-positive tests are deferred to170/171cumulative execution, not skipped into an alleged genuine success now.
 
 The synchronous cleanup consumer cannot accept a Promise as proof. Task3 changes assertCurrentCleanupOwnership to async, requires (await owner.verify(context))===true, maps rejection to the existing bounded unsupported refusal, then revalidates genuine runtime inventory and strict handshake.versions. Native owners keep their genuine membership and exact synchronous verification result, awaited by the async gate. Portable handshake.versions is immutable and derives from the genuine runtime argument (isVerifiedRuntimeInventory plus fresh exact inventory verification) and protected owner versions, not a supplied dictionary. Task4 passes the actual loaded candidate inventory; copied/runtime-shaped objects refuse. assertCurrentCleanupOwnership({owner,protocol,runtime,context}) receives the bounded context explicitly for a portable owner; missing portable context refuses. All existing consumers/call sites are awaited before effects; synchronous native owners retain their exact verification semantics. Pin Promise-resolves-false, rejects and nonboolean refusal in an explicitly unverified cleanup-check core plus actual production fake/copy/refusal controls; run genuine portable false/rejected verification controls cumulatively once170can produce genuine owners. No unverified core grant reaches cleanup.
+
+The shipped-composition-awaits-refusal control in test/unit/portable-cleanup-ownership.test.mjs must exercise the actual bin/peer-review-broker.mjs cleanupGuard body through a bounded source-to-executable harness, or an extracted production-used guard. A deferred refusing gate keeps cleanup pending until rejection, then no worker close/release occurs. An un-awaited gate makes this RED fail; a copied fixture closure is not evidence. This narrow caller fix precedes C6’s broader entrypoint migration. Regenerate candidate runtime inventory/pack against actual changed source bytes; protected inventory/contract preflights must pass before acceptance. If any changed byte is covered by the process source-contract digest,170must capture/review the new exact bytes. No old tested package is relabeled and no ordinary activation occurs.
 
 **Verification Commands:**
 
@@ -265,22 +268,21 @@ assert.equal(isPortableBrokerOwner(result), false);
 const released = await result.release();
 assert.equal(released.released, true);
 assert.deepEqual(released.outstandingObligations, []);
-const production = await acquirePortableOwner({
-  worktree,
-  paths,
-  reconcile,
-  protection,
-  signal,
-  deadline,
-});
-assert.equal(production.kind, 'indeterminate');
-assert.equal(production.reason, 'source-class-unavailable');
+await assert.rejects(
+  acquirePortableOwner({ worktree, paths, reconcile, protection, signal, deadline }),
+  (error) => {
+    assert.equal(error.code, 'APR_BROKER_STALE');
+    assert.equal(error.details.reason, 'source-class-unavailable');
+    assert.ok(Array.isArray(error.details.outstandingObligations));
+    return true;
+  }
+);
 assert.equal(await testStore.ownerExists(), false);
 ```
 
 ##### Concrete Safety and Verification Boundary
 
-All positive schedules before170use acquirePortableOwnerCore, actual test-owned storage/sockets and verified:false. The testStore fixture owns `ownerExists():Promise<boolean>` by actual lstat of its test-owned owner pathname. It supplies all named ports from the explicit core interface; no missing future method or production capability is assumed. Separately exercise acquirePortableOwner production source-class-unavailable/indeterminate and prove no reserved owner file created. Production observes/fences genuine storage substitutions even when source assurance is unavailable.
+All positive schedules before170use acquirePortableOwnerCore, actual test-owned storage/sockets and verified:false. The testStore fixture owns `ownerExists():Promise<boolean>` by actual lstat of its test-owned owner pathname. It supplies all named ports from the explicit core interface; no missing future method or production capability is assumed. Separately exercise acquirePortableOwner production APR_BROKER_STALE rejection with details.reason source-class-unavailable and exact bounded obligations, and prove no reserved owner file created. Production observes/fences genuine storage substitutions even when source assurance is unavailable.
 
 boundedOwnershipError returns APR_BROKER_STALE with exact bounded blocker/withdrawal obligations. Credential is exclusively in .scratch/peer-review/private/; endpoint is in the sibling runtime/endpoint.json. Post-quarantine mismatch or uncertainty never reaches create. After169lands its bounded transaction seam, whole141acceptance under170/171must execute genuine admitted-class/installed composition and portable cleanup controls using these169test paths in cumulative verifiers. Native169delivery covers the original C4 seam/protocol and production refusals; genuine positive class/installed acceptance remains original C5/C6, avoiding a circular169→170→169delivery gate. Retain all original Scope/ACs and protocol limitations.
 
