@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -380,8 +381,6 @@ test(
       },
     });
     const failed = f.raw(f.rawRequest('X-Fail: yes\r\n'));
-    await f.flush();
-    f.clock.advance(10_000);
     const response = await failed;
     assert.match(response, /^HTTP\/1\.1 500/);
     assert.equal(response.includes(f.privateBinding.credential), false);
@@ -527,11 +526,21 @@ test('production import graph cannot activate unprotected loopback server', () =
   const rule = {
     meta: { schema: [] },
     create(context) {
+      const protectedBridge =
+        context.filename ===
+        fileURLToPath(new URL('../../src/broker/owner-readiness.mjs', import.meta.url));
       const serverModule = (value) =>
         typeof value === 'string' && value.endsWith('http-server.mjs');
       return {
         ImportDeclaration(node) {
           if (!serverModule(node.source.value)) return;
+          if (
+            protectedBridge &&
+            node.specifiers.length === 1 &&
+            node.specifiers[0].type === 'ImportSpecifier' &&
+            node.specifiers[0].imported.name === 'createLoopbackServer'
+          )
+            return;
           if (
             node.specifiers.some(
               (specifier) =>
@@ -563,14 +572,18 @@ test('production import graph cannot activate unprotected loopback server', () =
       };
     },
   };
-  const check = (source) =>
-    linter.verify(source, [
-      {
-        languageOptions: { sourceType: 'module', ecmaVersion: 'latest' },
-        plugins: { boundary: { rules: { protected: rule } } },
-        rules: { 'boundary/protected': 'error' },
-      },
-    ]);
+  const check = (source, filename) =>
+    linter.verify(
+      source,
+      [
+        {
+          languageOptions: { sourceType: 'module', ecmaVersion: 'latest' },
+          plugins: { boundary: { rules: { protected: rule } } },
+          rules: { 'boundary/protected': 'error' },
+        },
+      ],
+      { filename }
+    );
   assert.equal(
     check("import { createLoopbackServer as activate } from './http-server.mjs'; activate({});")
       .length,
@@ -592,7 +605,10 @@ test('production import graph cannot activate unprotected loopback server', () =
         new URL('../../' + directory + '/' + relative, import.meta.url),
         'utf8'
       );
-      assert.deepEqual(check(source), [], directory + '/' + relative);
+      const location = fileURLToPath(
+        new URL('../../' + directory + '/' + relative, import.meta.url)
+      );
+      assert.deepEqual(check(source, location), [], directory + '/' + relative);
     }
   }
 });

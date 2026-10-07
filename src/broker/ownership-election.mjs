@@ -429,11 +429,24 @@ export async function bindOwnerElectionPaths({
   let closed = false;
   async function close() {
     closed = true;
-    const outcomes = await Promise.allSettled(
-      [...guards.values()].map((item) => item.guard.close())
-    );
-    const failed = outcomes.find((item) => item.status === 'rejected');
-    if (failed) throw failed.reason;
+    const entries = [...guards];
+    const outcomes = await Promise.allSettled(entries.map(([, item]) => item.guard.close()));
+    const obligations = outcomes.flatMap((result, index) => {
+      if (result.status === 'fulfilled') return [];
+      const [root, item] = entries[index];
+      return [
+        ...(result.reason?.details?.obligations ||
+          result.reason?.details?.outstandingObligations ||
+          []),
+        { root, identity: item.identity, outcome: 'root-descriptor-close-pending' },
+      ];
+    });
+    if (obligations.length)
+      throw new AprError('APR_BROKER_STALE', 'Protected root descriptors could not be closed.', {
+        recovery:
+          'Preserve each exact protected root descriptor and reconcile closure before retrying.',
+        details: { reason: 'binding-close-unproved', obligations },
+      });
   }
   try {
     for (const item of all) {

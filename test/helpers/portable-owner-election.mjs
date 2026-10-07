@@ -1,21 +1,30 @@
 // @story #178
 // Test-owned actual filesystem adapter; no production lease or source admission.
-import { open, readFile, readdir, lstat, rename, unlink } from 'node:fs/promises';
+import { open, readFile, readdir, lstat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 import { acquireOwnerElectionCore } from '../../src/broker/ownership-election.mjs';
+import { replaceFixtureFile } from './portable-owner-replacement.mjs';
 
 export async function actualElection(
   t,
-  { root, budget, observeOwner = async () => null, afterWinning = async () => {} }
+  {
+    root,
+    budget,
+    observeOwner = async () => null,
+    afterWinning = async () => {},
+    onTransition = async () => {},
+  }
 ) {
   const rootStat = await lstat(root, { bigint: true }),
     key = createHash('sha256').update(root).digest('hex'),
     prefix = 'apr-election-' + key + '-',
     id = randomUUID();
-  const handles = new Map();
+  const handles = new Map(),
+    allHandles = new Set(),
+    locations = new Map();
   t.after(async () => {
-    for (const file of handles.values()) await file.close().catch(() => {});
+    for (const file of allHandles) await file.close().catch(() => {});
   });
   const snapshot = async (subject) => {
     const location = path.join(root, prefix + subject + '.json');
@@ -45,6 +54,8 @@ export async function actualElection(
     },
     async create(subject, record) {
       const file = await open(path.join(root, prefix + subject + '.json'), 'wx+', 0o600);
+      allHandles.add(file);
+      locations.set(file, path.join(root, prefix + subject + '.json'));
       handles.set(subject, file);
       await file.writeFile(JSON.stringify(record));
       await file.sync();
@@ -54,11 +65,30 @@ export async function actualElection(
       if ((await snapshot(subject))?.version !== expected.version) throw Error('slot changed');
       const temporary = path.join(root, 'pending-' + randomUUID()),
         file = await open(temporary, 'wx+', 0o600);
+      allHandles.add(file);
+      locations.set(file, temporary);
       await file.writeFile(JSON.stringify(record));
       await file.sync();
       const original = handles.get(subject);
-      await rename(temporary, path.join(root, prefix + subject + '.json'));
-      handles.set(subject, file);
+      if (process.platform === 'win32') await file.close();
+      await replaceFixtureFile(temporary, path.join(root, prefix + subject + '.json'), budget);
+      const current =
+        process.platform === 'win32'
+          ? await open(path.join(root, prefix + subject + '.json'), 'r+')
+          : file;
+      allHandles.add(current);
+      locations.set(current, path.join(root, prefix + subject + '.json'));
+      const actual = await current.stat({ bigint: true }),
+        visible = await lstat(path.join(root, prefix + subject + '.json'), { bigint: true });
+      if (
+        actual.dev !== visible.dev ||
+        actual.ino !== visible.ino ||
+        !(await readFile(path.join(root, prefix + subject + '.json'))).equals(
+          Buffer.from(JSON.stringify(record))
+        )
+      )
+        throw Error('replacement generation changed');
+      handles.set(subject, current);
       await original.close();
       return snapshot(subject);
     },
@@ -69,11 +99,13 @@ export async function actualElection(
       handles.delete(subject);
     },
     ownedObligations: () =>
-      [...handles].map(([subject, file]) => ({
-        name: prefix + subject + '.json',
-        root,
-        outcome: file.fd >= 0 ? 'held' : 'closed',
-      })),
+      [...allHandles]
+        .filter((file) => file.fd >= 0)
+        .map((file) => ({
+          name: path.basename(locations.get(file) || 'unproved-descriptor'),
+          root,
+          outcome: 'held',
+        })),
   };
   const outcome = await acquireOwnerElectionCore({
     store,
@@ -87,6 +119,7 @@ export async function actualElection(
       pid,
     }),
     observeOwner,
+    onTransition,
   });
   if (outcome.kind === 'won')
     return {

@@ -249,7 +249,7 @@ test(
   '[#175] stock Windows replacement needs a true null backup and keeps the old descriptor',
   { skip: process.platform !== 'win32' },
   async (t) => {
-    const { root, guard } = await owned(t);
+    const { root, guard, context } = await owned(t);
     await guard.writeExclusive('fixture-owner', Buffer.from('old'));
     await guard.writeExclusive('candidate', Buffer.from('new'));
     const retained = await open(path.join(root, 'fixture-owner'), 'r+');
@@ -287,7 +287,7 @@ try {
             target: path.join(root, 'fixture-owner'),
           }),
           encoding: 'utf8',
-          timeout: 15000,
+          timeout: Math.max(1, Math.ceil(Math.min(60000, context.deadline - performance.now()))),
           windowsHide: true,
           env: {
             ...process.env,

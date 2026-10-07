@@ -134,6 +134,11 @@ export async function createOwnerLifecycleCore({ ports, budget } = {}) {
     release: (context) =>
       operate('release', context, async (admitted) => {
         await prove(admitted);
+        if (
+          ports.transport &&
+          (await checked(admitted, () => ports.transport.stop(admitted))) !== true
+        )
+          throw refusal('owner-transport-close-unproved');
         for (const item of publications) await checked(admitted, () => item.withdraw(admitted));
         for (const item of publications) await checked(admitted, () => item.close(admitted));
         if (ports.lease) {

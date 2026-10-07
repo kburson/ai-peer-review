@@ -1,18 +1,43 @@
 // @story #178
 import { AprError } from '../errors.mjs';
-import { createHash } from 'node:crypto';
-import { parseRawJson } from '../api/canonical-json.mjs';
+import { createHash, randomBytes } from 'node:crypto';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { parseRawJson, encodeRequestCanonical } from '../api/canonical-json.mjs';
+import { createPortableOwnerReadiness } from './owner-readiness.mjs';
+import {
+  createPortableOwnerLifecycle,
+  isPortableBrokerOwner,
+} from './portable-owner-lifecycle.mjs';
+import { observePortableReconciliation } from './portable-reconciliation.mjs';
+import { verifyRuntimeInventorySync } from '../startup/runtime-inventory.mjs';
+import path from 'node:path';
+import packageJson from '../../package.json' with { type: 'json' };
 import { portableBrokerPaths } from './portable-paths.mjs';
-import { bindOwnerElectionPaths, inspectOwnerElectionPaths } from './ownership-election.mjs';
-import { observeProtectedCredential } from './storage-protection.mjs';
+import {
+  acquireOwnerElection,
+  bindOwnerElectionPaths,
+  inspectOwnerElectionPaths,
+} from './ownership-election.mjs';
+import {
+  createHeldPrivatePublication,
+  quarantinePrivateFile,
+  assertQuarantineReceipt,
+  observeProtectedCredential,
+} from './storage-protection.mjs';
 import { observeLoopbackOwner, isVerifiedOwnerConnection } from './owner-connection.mjs';
 import { observeOriginalProcess, reconcileOriginalProcess } from '../protocol/process-identity.mjs';
 import { isInstalledProcessSourceAssurance } from '../protocol/process-source-assurance.mjs';
 import { assertLifecycleBoundary } from './owner-lifecycle-core.mjs';
 import {
+  acquirePortableOwnerCore,
   createJoinedBrokerClientCore,
   assessOwnerEvidenceCore,
+  closeOwnerObservationCore,
+  inspectOwnerRecordsCore,
 } from './portable-ownership-core.mjs';
+const loadedInstallation = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
+const retainedTransactions = new Set();
 const observations = new WeakMap();
 const bindings = new WeakMap();
 const obligationFields = new Set([
@@ -122,157 +147,155 @@ function sameOwnerState(a, b) {
   return ['owner', 'credential', 'endpoint'].every((key) => {
     if (!a[key] || !b[key]) return a[key] === b[key];
     return (
-      ['name', 'identity', 'fileVersion', 'rootIdentity'].every(
+      ['name', 'root', 'identity', 'fileVersion', 'rootIdentity', 'parentIdentity'].every(
         (field) => a[key][field] === b[key][field]
       ) && a[key].bytes.equals(b[key].bytes)
     );
   });
 }
 export async function observeAuthenticatedOwner(input = {}) {
-  let credential, connection;
+  let credential, connection, result;
   try {
-    const context = ownerBudget(input);
-    const view = await inspectOwnerElectionPaths({ paths: input.paths, ...context });
-    const state = await readOwnerState(view);
-    if (!state.owner || !state.credential || !state.endpoint)
-      return unknownOwner('owner-state-incomplete');
-    const owner = parseRawJson(new TextDecoder('utf-8', { fatal: true }).decode(state.owner.bytes));
-    const endpoint = parseRawJson(
-      new TextDecoder('utf-8', { fatal: true }).decode(state.endpoint.bytes)
-    );
-    const exact = (value, keys) =>
-      value && Object.keys(value).sort().join(',') === keys.slice().sort().join(',');
-    if (
-      !exact(owner, ['schema', 'instanceId', 'worktree', 'identity', 'versions']) ||
-      owner.schema !== 'ai-peer-review.portable-owner/v1' ||
-      !/^[a-f0-9]{64}$/u.test(owner.instanceId) ||
-      !/^[a-f0-9]{64}$/u.test(owner.worktree) ||
-      !exact(endpoint, [
-        'schema',
-        'instanceId',
-        'worktree',
-        'ownerVersion',
-        'host',
-        'port',
-        'digest',
-        'heartbeat',
-        'versions',
-      ]) ||
-      endpoint.schema !== 'ai-peer-review.portable-endpoint/v1'
-    )
-      return unknownOwner('owner-state-format-unproved');
-    const ownerVersion = createHash('sha256').update(state.owner.bytes).digest('hex');
-    if (
-      endpoint.instanceId !== owner.instanceId ||
-      endpoint.worktree !== owner.worktree ||
-      endpoint.ownerVersion !== ownerVersion ||
-      endpoint.host !== '127.0.0.1' ||
-      !Number.isInteger(endpoint.port) ||
-      endpoint.port < 1 ||
-      endpoint.port > 65535
-    )
-      return unknownOwner('owner-binding-unproved');
-    const processObservation = await observeOriginalProcess({
-      pid: owner.identity?.pid,
-      ...context,
-    });
-    if (!isInstalledProcessSourceAssurance(processObservation.assurance))
-      return unknownOwner('source-class-unavailable');
-    const process = await reconcileOriginalProcess({
-      original: owner.identity,
-      observation: processObservation,
-    });
-    credential = await observeProtectedCredential({ guard: view.privateGuard, ...context });
-    const expected = Object.freeze({
-      instanceId: owner.instanceId,
-      worktree: owner.worktree,
-      ownerVersion,
-    });
-    const proof = await observeLoopbackOwner({
-      endpoint: { host: endpoint.host, port: endpoint.port },
-      privateBinding: credential,
-      expected,
-      ...context,
-    });
-    const decision = assessOwnerEvidenceCore({ process, endpoint: proof });
-    if (decision.status === 'dead') {
-      if (!sameOwnerState(state, await readOwnerState(view)))
-        throw boundedOwnershipError('owner-generation-changed');
-      const observed = Object.freeze({
-        status: 'dead',
-        scope: 'original-process-only',
-        identity: owner.identity,
-        outstandingObligations: Object.freeze([]),
+    result = await (async () => {
+      const context = ownerBudget(input);
+      const view = await inspectOwnerElectionPaths({ paths: input.paths, ...context });
+      const state = await readOwnerState(view);
+      if (!state.owner || !state.credential || !state.endpoint)
+        return unknownOwner('owner-state-incomplete');
+      const canonical = await portableBrokerPaths({
+        worktree: path.resolve(view.privateRoot, '../../..'),
       });
-      observations.set(observed, { paths: input.paths, state, process, context });
-      return observed;
-    }
-    if (decision.status !== 'authenticated-live') return unknownOwner(decision.reason);
-    if (proof.kind !== 'verified-live' || !isVerifiedOwnerConnection(proof.connection))
-      return unknownOwner('owner-authentication-unproved');
-    connection = proof.connection;
-    if (!sameOwnerState(state, await readOwnerState(view)))
-      throw boundedOwnershipError('owner-generation-changed');
-    const binding = Object.freeze({});
-    const heldConnection = connection;
-    const client = createJoinedBrokerClientCore({
-      connection,
-      credential,
-      context,
-      handshake: { instance_id: owner.instanceId, versions: owner.versions },
-    });
-    const record = {
-      async reread(next) {
-        await inspectOwnerElectionPaths({ paths: input.paths, ...next });
+      if (canonical.privateRoot !== view.privateRoot || canonical.runtimeRoot !== view.runtimeRoot)
+        throw boundedOwnershipError('owner-paths-unproved');
+      const worktree = createHash('sha256').update(canonical.worktree).digest('hex');
+      const { owner, endpoint, ownerVersion } = inspectOwnerRecordsCore({
+        state,
+        worktree,
+        versions: {
+          package_version: packageJson.version,
+          broker_protocol_version: 1,
+          node_major: Number(process.versions.node.split('.')[0]),
+        },
+      });
+      const processObservation = await observeOriginalProcess({
+        pid: owner.identity?.pid,
+        ...context,
+      });
+      if (!isInstalledProcessSourceAssurance(processObservation.assurance))
+        return unknownOwner('source-class-unavailable');
+      const process = await reconcileOriginalProcess({
+        original: owner.identity,
+        observation: processObservation,
+      });
+      credential = await observeProtectedCredential({ guard: view.privateGuard, ...context });
+      const expected = Object.freeze({
+        instanceId: owner.instanceId,
+        worktree: owner.worktree,
+        ownerVersion,
+      });
+      const proof = await observeLoopbackOwner({
+        endpoint: { host: endpoint.host, port: endpoint.port },
+        privateBinding: credential,
+        expected,
+        ...context,
+      });
+      connection = proof.connection; // Capture before any conflicting-evidence branch.
+      const decision = assessOwnerEvidenceCore({ process, endpoint: proof });
+      if (decision.status === 'dead') {
         if (!sameOwnerState(state, await readOwnerState(view)))
           throw boundedOwnershipError('owner-generation-changed');
-        const current = await observeOriginalProcess({ pid: owner.identity.pid, ...next });
-        if (
-          (await reconcileOriginalProcess({ original: owner.identity, observation: current }))
-            .status !== 'live'
-        )
-          throw boundedOwnershipError('original-process-unproved');
-      },
-      async connect(next) {
-        if (
-          next.signal !== context.signal ||
-          next.deadline !== context.deadline ||
-          !isVerifiedOwnerConnection(heldConnection)
-        )
-          throw boundedOwnershipError('proved-socket-lost');
-        return Object.freeze({
-          ...client,
-          verified: true,
-          async close(options) {
-            const result = await client.close(options);
-            bindings.delete(binding);
-            return result;
-          },
+        const observed = Object.freeze({
+          status: 'dead',
+          scope: 'original-process-only',
+          identity: owner.identity,
+          outstandingObligations: Object.freeze([]),
         });
-      },
-    };
-    bindings.set(binding, record);
-    const observed = Object.freeze({
-      status: 'authenticated-live',
-      owner: Object.freeze({ binding }),
-      outstandingObligations: Object.freeze([]),
-    });
-    observations.set(observed, { paths: input.paths, state, process, binding });
-    credential = null;
-    connection = null; // The privately bound client now owns their cleanup.
-    return observed;
+        observations.set(observed, { paths: input.paths, state, process, context });
+        return observed;
+      }
+      if (decision.status !== 'authenticated-live') return unknownOwner(decision.reason);
+      if (proof.kind !== 'verified-live' || !isVerifiedOwnerConnection(proof.connection))
+        return unknownOwner('owner-authentication-unproved');
+      connection = proof.connection;
+      if (!sameOwnerState(state, await readOwnerState(view)))
+        throw boundedOwnershipError('owner-generation-changed');
+      const binding = Object.freeze({});
+      const heldConnection = connection;
+      const client = createJoinedBrokerClientCore({
+        connection,
+        credential,
+        context,
+        handshake: { instance_id: owner.instanceId, versions: owner.versions },
+      });
+      const record = {
+        async reread(next) {
+          await inspectOwnerElectionPaths({ paths: input.paths, ...next });
+          if (!sameOwnerState(state, await readOwnerState(view)))
+            throw boundedOwnershipError('owner-generation-changed');
+          const current = await observeOriginalProcess({ pid: owner.identity.pid, ...next });
+          if (
+            (await reconcileOriginalProcess({ original: owner.identity, observation: current }))
+              .status !== 'live'
+          )
+            throw boundedOwnershipError('original-process-unproved');
+        },
+        async connect(next) {
+          if (
+            next.signal !== context.signal ||
+            next.deadline !== context.deadline ||
+            !isVerifiedOwnerConnection(heldConnection)
+          )
+            throw boundedOwnershipError('proved-socket-lost');
+          return Object.freeze({
+            ...client,
+            verified: true,
+            async close(options) {
+              const result = await client.close(options);
+              bindings.delete(binding);
+              return result;
+            },
+          });
+        },
+      };
+      bindings.set(binding, record);
+      const observed = Object.freeze({
+        status: 'authenticated-live',
+        owner: Object.freeze({ binding }),
+        outstandingObligations: Object.freeze([]),
+      });
+      observations.set(observed, { paths: input.paths, state, process, binding });
+      credential = null;
+      connection = null; // The privately bound client now owns their cleanup.
+      return observed;
+    })();
   } catch (error) {
-    return unknownOwner(
+    result = unknownOwner(
       error?.details?.reason || 'owner-observation-unproved',
       error?.details || {}
     );
-  } finally {
-    if (connection) await connection.close(input).catch(() => {});
-    if (credential) await credential.close(input).catch(() => {});
   }
+  try {
+    await closeOwnerObservationCore({ connection, credential, context: input });
+  } catch (cleanup) {
+    return unknownOwner(cleanup.details.reason, {
+      outstandingObligations: [
+        ...(result?.outstandingObligations || []),
+        ...(cleanup.details?.outstandingObligations || []),
+      ],
+    });
+  }
+  return result;
 }
 export async function acquirePortableOwner(input = {}) {
-  let bound;
+  let bound,
+    lease,
+    candidate,
+    genuineOwner,
+    joinedClient,
+    failure,
+    transferred = false,
+    effectStarted = false;
+  const record = { input, lease: null, candidate: null };
   try {
     assertLifecycleBoundary();
     const context = ownerBudget(input);
@@ -295,19 +318,303 @@ export async function acquirePortableOwner(input = {}) {
       resource: { kind: 'broker-owner' },
       ...context,
     });
-    await inspectOwnerElectionPaths({ paths: bound, ...context });
+    const view = await inspectOwnerElectionPaths({ paths: bound, ...context });
+    if (view.privateRoot !== canonical.privateRoot || view.runtimeRoot !== canonical.runtimeRoot)
+      throw boundedOwnershipError('owner-paths-unproved');
     const identity = await observeOriginalProcess(context);
     if (identity.status !== 'live' || !isInstalledProcessSourceAssurance(identity.assurance))
       throw boundedOwnershipError('source-class-unavailable');
-    // Portable guarded consumer recovery is a later producer. Caller callbacks
-    // and absence of cached records are never its provenance or discharge proof.
-    throw boundedOwnershipError('guarded-reconciliation-unavailable');
+    record.bound = bound;
+    const protocol = await acquirePortableOwnerCore({
+      budget: context,
+      ports: {
+        async elect(current) {
+          const outcome = await acquireOwnerElection({ paths: bound, ...current });
+          if (outcome.kind === 'won') {
+            lease = outcome.lease;
+            record.lease = lease;
+          }
+          return outcome;
+        },
+        async join(owner, current) {
+          joinedClient = await joinVerifiedBroker({ binding: owner.owner?.binding, ...current });
+          return Object.freeze({ ...joinedClient, verified: false });
+        },
+        async readState() {
+          const state = await readOwnerState(view);
+          if (state.owner) {
+            try {
+              state.original = parseRawJson(
+                new TextDecoder('utf-8', { fatal: true }).decode(state.owner.bytes)
+              ).identity;
+            } catch {
+              throw boundedOwnershipError('owner-state-format-unproved');
+            }
+          }
+          record.state = state;
+          return state;
+        },
+        async observeProcess(state, current) {
+          const observation = await observeOriginalProcess({
+            pid: state.original?.pid,
+            ...current,
+          });
+          return reconcileOriginalProcess({ original: state.original, observation });
+        },
+        async observeEndpoint(state, current) {
+          const observation = await observeAuthenticatedOwner({ paths: bound, ...current });
+          if (observation.status === 'dead' && isAuthenticatedOwnerObservation(observation))
+            return { kind: 'absent', verified: true };
+          if (
+            observation.status === 'authenticated-live' &&
+            isAuthenticatedOwnerObservation(observation)
+          ) {
+            // This route conflicts with the separate original-death proof. Retire
+            // the real temporary joining resources without touching owner names.
+            const client = await joinVerifiedBroker({
+              binding: observation.owner.binding,
+              ...current,
+            });
+            await client.close(current);
+            return { kind: 'verified-live', verified: true };
+          }
+          return {
+            kind: 'unknown',
+            reason: observation.reason,
+            outstandingObligations: observation.outstandingObligations,
+          };
+        },
+        reconcile: ({ context: current }) =>
+          observePortableReconciliation({ paths: bound, ...current }),
+        async quarantine(state, current) {
+          const receipts = [];
+          for (const [key, guard] of [
+            ['owner', view.privateGuard],
+            ['credential', view.privateGuard],
+            ['endpoint', view.runtimeGuard],
+          ]) {
+            const snapshot = state[key];
+            if (!snapshot) continue;
+            effectStarted = true;
+            const receipt = await quarantinePrivateFile({
+              guard,
+              name: snapshot.name,
+              expected: snapshot,
+              lease,
+              ...current,
+            });
+            await assertQuarantineReceipt({ guard, receipt, lease, ...current });
+            const root = key === 'endpoint' ? view.runtimeRoot : view.privateRoot;
+            const mapped = {
+              name: snapshot.name,
+              root,
+              originalLocator: path.join(root, snapshot.name),
+              quarantineLocator: path.join(root, receipt.name),
+              identity: receipt.identity,
+              fileVersion: receipt.fileVersion,
+              rootIdentity: receipt.rootIdentity,
+              bytes: Buffer.from(receipt.bytes),
+            };
+            receipts.push(mapped);
+            record.quarantined = receipts;
+          }
+          return { status: 'quarantined', verified: true, receipts };
+        },
+        async create(current) {
+          effectStarted = true;
+          const runtime = verifyRuntimeInventorySync({ packageRoot: loadedInstallation });
+          const versions = Object.freeze({
+            package_version: runtime.packageVersion,
+            broker_protocol_version: 1,
+            node_major: Number(process.versions.node.split('.')[0]),
+          });
+          const facts = {
+            schema: 'ai-peer-review.portable-owner/v1',
+            instanceId: randomBytes(32).toString('hex'),
+            worktree: createHash('sha256').update(canonical.worktree).digest('hex'),
+            identity: Object.fromEntries(
+              ['host', 'pid', 'creation', 'creationSource']
+                .filter((key) => identity[key] !== undefined)
+                .map((key) => [key, identity[key]])
+            ),
+            versions,
+          };
+          const bytes = encodeRequestCanonical(facts);
+          candidate = {
+            facts,
+            runtime,
+            ownerVersion: createHash('sha256').update(bytes).digest('hex'),
+          };
+          record.candidate = candidate;
+          candidate.publication = await createHeldPrivatePublication({
+            guard: view.privateGuard,
+            name: 'owner.json',
+            bytes,
+            lease,
+            ...current,
+          });
+          const secret = randomBytes(32);
+          try {
+            candidate.credential = await createHeldPrivatePublication({
+              guard: view.privateGuard,
+              name: 'credential',
+              bytes: secret,
+              lease,
+              ...current,
+            });
+          } finally {
+            secret.fill(0);
+          }
+          return candidate;
+        },
+        async ready(value, current) {
+          const expected = {
+            instanceId: value.facts.instanceId,
+            worktree: value.facts.worktree,
+            ownerVersion: value.ownerVersion,
+          };
+          value.readinessServer = await createPortableOwnerReadiness({
+            credential: value.credential,
+            expected,
+            ...current,
+          });
+          const proof = await observeLoopbackOwner({
+            endpoint: value.readinessServer.endpoint,
+            privateBinding: value.credential,
+            expected,
+            ...current,
+          });
+          value.connection = proof.connection;
+          if (proof.kind !== 'verified-live' || !isVerifiedOwnerConnection(proof.connection))
+            throw boundedOwnershipError('owner-readiness-unproved', proof);
+          return value.readinessServer;
+        },
+        async publishEndpoint(value, ready, current) {
+          const subject = {
+            instanceId: value.facts.instanceId,
+            worktree: value.facts.worktree,
+            ownerVersion: value.ownerVersion,
+            host: ready.endpoint.host,
+            port: ready.endpoint.port,
+            versions: value.facts.versions,
+          };
+          const endpoint = {
+            schema: 'ai-peer-review.portable-endpoint/v1',
+            ...subject,
+            digest: createHash('sha256').update(encodeRequestCanonical(subject)).digest('hex'),
+            heartbeat: Date.now(),
+          };
+          value.endpointPublication = await createHeldPrivatePublication({
+            guard: view.runtimeGuard,
+            name: 'endpoint.json',
+            bytes: encodeRequestCanonical(endpoint),
+            lease,
+            ...current,
+          });
+        },
+        async lifecycle(value, current) {
+          genuineOwner = await createPortableOwnerLifecycle({
+            publication: value.publication,
+            credential: value.credential,
+            endpointPublication: value.endpointPublication,
+            lease,
+            identity,
+            source: identity.assurance,
+            connection: value.connection,
+            runtime: value.runtime,
+            readinessServer: value.readinessServer,
+            paths: bound,
+            ...current,
+          });
+          return Object.freeze({
+            verified: false,
+            publish: () => genuineOwner.publish(),
+            verify: (options) => genuineOwner.verify(options),
+            release: (options) => genuineOwner.release(options),
+          });
+        },
+        outstandingObligations: () => [
+          ...[candidate?.publication, candidate?.credential, candidate?.endpointPublication]
+            .filter(Boolean)
+            .map((value) => value.retainedGeneration()),
+          ...(record.quarantined || []),
+        ],
+      },
+    });
+    if (joinedClient) {
+      transferred = true;
+      const retainedBound = bound;
+      return Object.freeze({
+        ...joinedClient,
+        async close(options) {
+          let error;
+          try {
+            await joinedClient.close(options);
+          } catch (caught) {
+            error = caught;
+          }
+          try {
+            await retainedBound.close();
+          } catch (cleanup) {
+            throw boundedOwnershipError(error?.details?.reason || 'binding-close-unproved', {
+              outstandingObligations: [
+                ...(error?.details?.outstandingObligations || []),
+                ...(cleanup?.details?.obligations || []),
+              ],
+            });
+          }
+          if (error) throw error;
+          return Object.freeze({ closed: true, outstandingObligations: Object.freeze([]) });
+        },
+      });
+    }
+    // Public production acquisition completes the one bounded startup itself.
+    // The injected protocol object is never returned as genuine ownership.
+    await protocol.publish();
+    if (!isPortableBrokerOwner(genuineOwner))
+      throw boundedOwnershipError('genuine-owner-completion-unproved');
+    transferred = true;
+    return genuineOwner;
   } catch (error) {
-    throw boundedOwnershipError(
+    failure = boundedOwnershipError(
       error?.details?.reason || 'owner-acquisition-unproved',
       error?.details || {}
     );
+    if (effectStarted) {
+      retainedTransactions.add(record);
+      transferred = true;
+    } else if (lease) {
+      try {
+        const withdrawal = await lease.release();
+        if (withdrawal.status !== 'withdrawn' || withdrawal.obligations?.length)
+          throw boundedOwnershipError('slot-withdrawal-unproved', withdrawal);
+      } catch (cleanup) {
+        retainedTransactions.add(record);
+        transferred = true;
+        failure = boundedOwnershipError(failure.details.reason, {
+          mutationOccurred: true,
+          outstandingObligations: [
+            ...failure.details.outstandingObligations,
+            ...(cleanup?.details?.outstandingObligations || cleanup?.details?.obligations || []),
+            lease.retainedGeneration(),
+          ],
+        });
+      }
+    }
+    throw failure;
   } finally {
-    if (bound) await bound.close();
+    if (bound && !transferred) {
+      try {
+        await bound.close();
+      } catch (cleanup) {
+        throw boundedOwnershipError(failure?.details?.reason || 'binding-close-unproved', {
+          mutationOccurred: failure?.details?.mutationOccurred === true,
+          outstandingObligations: [
+            ...(failure?.details?.outstandingObligations || []),
+            ...(cleanup?.details?.obligations || []),
+          ],
+        });
+      }
+    }
   }
 }

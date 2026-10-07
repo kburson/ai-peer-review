@@ -6,7 +6,7 @@ import { performance } from 'node:perf_hooks';
 import { encodeRequestCanonical, parseRawJson } from '../api/canonical-json.mjs';
 import { AprError } from '../errors.mjs';
 import { isHeldPrivatePublicationFor } from './storage-protection.mjs';
-import { isOwnerElectionLeaseFor } from './ownership-election.mjs';
+import { inspectOwnerElectionPaths, isOwnerElectionLeaseFor } from './ownership-election.mjs';
 import { isOwnerConnectionFor, observeLoopbackOwner } from './owner-connection.mjs';
 import { observeOriginalProcess, reconcileOriginalProcess } from '../protocol/process-identity.mjs';
 import {
@@ -24,6 +24,12 @@ import {
   assertLifecycleBoundary,
   sameProcessOwnerFacts,
 } from './owner-lifecycle-core.mjs';
+
+import {
+  assertPortableOwnerReadiness,
+  closePortableOwnerReadiness,
+  isPortableOwnerReadiness,
+} from './owner-readiness.mjs';
 
 const loadedInstallation = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
 export function isLoadedOwnerRuntime(runtime) {
@@ -84,6 +90,8 @@ export async function createPortableOwnerLifecycle(input = {}) {
   assertLifecycleBoundary();
   if (
     !exactKeys(input, [
+      ...(input.readinessServer !== undefined ? ['readinessServer'] : []),
+      ...(input.paths !== undefined ? ['paths'] : []),
       'publication',
       'credential',
       'endpointPublication',
@@ -110,6 +118,7 @@ export async function createPortableOwnerLifecycle(input = {}) {
   const startup = Object.freeze({ signal: input.signal, deadline: input.deadline });
   bounded(startup);
   if (
+    !isPortableOwnerReadiness(input.readinessServer) ||
     !isHeldPrivatePublicationFor(publication, { lease, name: 'owner.json' }) ||
     !isHeldPrivatePublicationFor(credential, { lease, name: 'credential' }) ||
     !isHeldPrivatePublicationFor(endpointPublication, { lease, name: 'endpoint.json' }) ||
@@ -125,6 +134,13 @@ export async function createPortableOwnerLifecycle(input = {}) {
     throw stale('genuine-original-process-required');
   if (!(await revalidateInstalledProcessSourceAssurance(source, startup)))
     throw stale('source-class-unavailable');
+  const pathView = await inspectOwnerElectionPaths({ paths: input.paths, ...startup });
+  if (
+    publication.retainedGeneration().root !== pathView.privateRoot ||
+    credential.retainedGeneration().root !== pathView.privateRoot ||
+    endpointPublication.retainedGeneration().root !== pathView.runtimeRoot
+  )
+    throw stale('owner-paths-unproved');
   const snapshots = [];
   for (const handle of [publication, credential, endpointPublication])
     snapshots.push(await handle.snapshot(startup));
@@ -209,6 +225,13 @@ export async function createPortableOwnerLifecycle(input = {}) {
   const endpoint = Object.freeze({ host: endpointFacts.host, port: endpointFacts.port });
   if (!isOwnerConnectionFor(connection, { credential, expected, endpoint, ...startup }))
     throw stale('genuine-owner-connection-required');
+  await assertPortableOwnerReadiness({
+    readiness: input.readinessServer,
+    credential,
+    expected,
+    endpoint,
+    ...startup,
+  });
   verifyRuntimeInventorySync({ packageRoot: runtime.packageRoot, previousObservation: runtime });
   const versions = Object.freeze({ ...facts.versions });
   const same = (before, after) =>
@@ -231,6 +254,13 @@ export async function createPortableOwnerLifecycle(input = {}) {
     retainedGeneration: handle.retainedGeneration,
   });
   const readiness = async (context) => {
+    await assertPortableOwnerReadiness({
+      readiness: input.readinessServer,
+      credential,
+      expected,
+      endpoint,
+      ...context,
+    });
     verifyRuntimeInventorySync({ packageRoot: runtime.packageRoot, previousObservation: runtime });
     if (!ownerLifecycleCompleted(core))
       return isOwnerConnectionFor(connection, { credential, expected, endpoint, ...context });
@@ -254,7 +284,20 @@ export async function createPortableOwnerLifecycle(input = {}) {
       publication: wrap(publication, ownerSnapshot),
       credential: wrap(credential, credentialSnapshot),
       endpoint: wrap(endpointPublication, endpointSnapshot),
-      lease,
+      lease: {
+        assert: lease.assert,
+        retainedGeneration: lease.retainedGeneration,
+        async release() {
+          await input.paths.close();
+          return lease.release();
+        },
+      },
+      transport: {
+        async stop(context) {
+          await connection.close(startup);
+          return closePortableOwnerReadiness({ readiness: input.readinessServer, ...context });
+        },
+      },
       source: {
         async observe(context) {
           if (!(await revalidateInstalledProcessSourceAssurance(source, context))) return false;

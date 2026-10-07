@@ -1,4 +1,6 @@
 // @story #178
+import { createHash } from 'node:crypto';
+import { encodeRequestCanonical, parseRawJson } from '../api/canonical-json.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { performance } from 'node:perf_hooks';
 import { boundedOwnershipError } from './portable-ownership.mjs';
@@ -309,24 +311,11 @@ export function createJoinedBrokerClientCore({ connection, credential, context, 
         return Object.freeze({ closed: true, outstandingObligations: Object.freeze([]) });
       phase = 'close';
       try {
-        const results = await Promise.allSettled([
-          connection.close(original),
-          credential.close(original),
-        ]);
-        const failed = results.filter((item) => item.status === 'rejected');
-        if (failed.length) {
+        try {
+          await closeOwnerObservationCore({ connection, credential, context: original });
+        } catch (error) {
           fenced = true;
-          throw boundedOwnershipError('joined-client-close-unproved', {
-            outstandingObligations: [
-              ...failed.flatMap(
-                (item) =>
-                  item.reason?.details?.outstandingObligations ||
-                  item.reason?.details?.obligations ||
-                  []
-              ),
-              credential.retainedGeneration?.() || { outcome: 'read-descriptor-close-pending' },
-            ],
-          });
+          throw boundedOwnershipError('joined-client-close-unproved', error.details || {});
         }
         retired = true;
         return Object.freeze({ closed: true, outstandingObligations: Object.freeze([]) });
@@ -363,4 +352,136 @@ export function assessOwnerEvidenceCore({ process, endpoint } = {}) {
       process?.status === 'unknown' ? 'original-process-unproved' : 'owner-authentication-unproved',
     verified: false,
   });
+}
+
+export async function closeOwnerObservationCore({ connection, credential, context } = {}) {
+  const resources = [
+    ['proved-socket', connection],
+    ['credential-read-descriptor', credential],
+  ].filter(([, resource]) => resource);
+  const results = await Promise.allSettled(
+    resources.map(([, resource]) => Promise.resolve().then(() => resource.close(context)))
+  );
+  const outstandingObligations = results.flatMap((result, index) => {
+    if (result.status === 'fulfilled') return [];
+    const [name, resource] = resources[index];
+    return [
+      ...(result.reason?.details?.outstandingObligations ||
+        result.reason?.details?.obligations ||
+        []),
+      resource.retainedGeneration?.() || { name, outcome: 'descriptor-close-pending' },
+    ];
+  });
+  if (outstandingObligations.length)
+    throw boundedOwnershipError('owner-observation-close-unproved', { outstandingObligations });
+  return Object.freeze({
+    closed: true,
+    verified: false,
+    outstandingObligations: Object.freeze([]),
+  });
+}
+
+export function inspectOwnerRecordsCore({ state, worktree, versions } = {}) {
+  const exact = (value, keys) =>
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value).sort().join(',') === keys.slice().sort().join(',');
+  const hex = (value) => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
+  const decode = (bytes) => {
+    if (!Buffer.isBuffer(bytes) || bytes.length > 8192)
+      throw boundedOwnershipError('owner-state-format-unproved');
+    try {
+      return parseRawJson(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+    } catch {
+      throw boundedOwnershipError('owner-state-format-unproved');
+    }
+  };
+  const owner = decode(state?.owner?.bytes),
+    endpoint = decode(state?.endpoint?.bytes);
+  const identity = owner?.identity,
+    ownedVersions = owner?.versions;
+  const hasCreation = identity && Object.hasOwn(identity, 'creation');
+  const interval = identity?.creation,
+    seal = identity?.creationSource;
+  const validCreation =
+    !hasCreation ||
+    (exact(interval, ['unit', 'lower', 'upper']) &&
+      typeof interval.unit === 'string' &&
+      /^(utc-nanoseconds|linux-ticks:[a-f0-9-]{36})$/u.test(interval.unit) &&
+      typeof interval.lower === 'string' &&
+      typeof interval.upper === 'string' &&
+      /^-?\d{1,30}$/u.test(interval.lower) &&
+      /^-?\d{1,30}$/u.test(interval.upper) &&
+      BigInt(interval.upper) > BigInt(interval.lower) &&
+      exact(seal, ['classId', 'contractDigest', 'approvalDigest', 'precision']) &&
+      typeof seal.classId === 'string' &&
+      /^[a-z0-9][a-z0-9-]{0,95}$/u.test(seal.classId) &&
+      typeof seal.contractDigest === 'string' &&
+      /^sha256:[a-f0-9]{64}$/u.test(seal.contractDigest) &&
+      typeof seal.approvalDigest === 'string' &&
+      /^sha256:[a-f0-9]{64}$/u.test(seal.approvalDigest) &&
+      ['one-tick', 'one-second', 'one-hundred-nanoseconds'].includes(seal.precision));
+  if (
+    !exact(owner, ['schema', 'instanceId', 'worktree', 'identity', 'versions']) ||
+    owner.schema !== 'ai-peer-review.portable-owner/v1' ||
+    !hex(owner.instanceId) ||
+    !hex(worktree) ||
+    owner.worktree !== worktree ||
+    !exact(identity, ['host', 'pid', ...(hasCreation ? ['creation', 'creationSource'] : [])]) ||
+    typeof identity.host !== 'string' ||
+    !identity.host ||
+    identity.host.length > 256 ||
+    !Number.isSafeInteger(identity.pid) ||
+    identity.pid < 1 ||
+    !validCreation ||
+    !exact(ownedVersions, ['package_version', 'broker_protocol_version', 'node_major']) ||
+    !exact(versions, ['package_version', 'broker_protocol_version', 'node_major']) ||
+    typeof ownedVersions.package_version !== 'string' ||
+    !ownedVersions.package_version ||
+    ownedVersions.broker_protocol_version !== 1 ||
+    !Number.isSafeInteger(ownedVersions.node_major) ||
+    ownedVersions.node_major < 24 ||
+    !encodeRequestCanonical(ownedVersions).equals(encodeRequestCanonical(versions)) ||
+    !Buffer.isBuffer(state?.credential?.bytes) ||
+    state.credential.bytes.length !== 32 ||
+    !exact(endpoint, [
+      'schema',
+      'instanceId',
+      'worktree',
+      'ownerVersion',
+      'host',
+      'port',
+      'digest',
+      'heartbeat',
+      'versions',
+    ]) ||
+    endpoint.schema !== 'ai-peer-review.portable-endpoint/v1' ||
+    !Number.isFinite(endpoint.heartbeat) ||
+    endpoint.heartbeat < 0 ||
+    endpoint.host !== '127.0.0.1' ||
+    !Number.isInteger(endpoint.port) ||
+    endpoint.port < 1 ||
+    endpoint.port > 65535
+  )
+    throw boundedOwnershipError('owner-state-format-unproved');
+  const ownerVersion = createHash('sha256').update(state.owner.bytes).digest('hex');
+  const subject = {
+    instanceId: owner.instanceId,
+    worktree,
+    ownerVersion,
+    host: endpoint.host,
+    port: endpoint.port,
+    versions: ownedVersions,
+  };
+  if (
+    endpoint.instanceId !== owner.instanceId ||
+    endpoint.worktree !== worktree ||
+    endpoint.ownerVersion !== ownerVersion ||
+    !exact(endpoint.versions, ['package_version', 'broker_protocol_version', 'node_major']) ||
+    !encodeRequestCanonical(endpoint.versions).equals(encodeRequestCanonical(ownedVersions)) ||
+    endpoint.digest !== createHash('sha256').update(encodeRequestCanonical(subject)).digest('hex')
+  )
+    throw boundedOwnershipError('owner-binding-unproved');
+  return Object.freeze({ verified: false, owner, endpoint, ownerVersion });
 }
