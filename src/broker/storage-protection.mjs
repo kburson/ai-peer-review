@@ -1,5 +1,6 @@
 // @story #166
 // @story #168
+// @story #175
 // cspell:words notin DACL SID SIDFullControl Win32PowerShell fsync nlink ino lstat reparse ldne rwxst readattr writeattr readextattr writeextattr readsecurity writesecurity statfs hardlink readback
 import { constants } from 'node:fs';
 import {
@@ -24,6 +25,9 @@ import { AprError } from '../errors.mjs';
 
 const execute = promisify(execFile);
 const receipts = new WeakMap();
+const guards = new WeakMap();
+const heldPublications = new WeakMap();
+const quarantineReceipts = new WeakMap();
 const SYSTEM = 'S-1-5-18';
 const ADMIN = 'S-1-5-32-544';
 const INSTALLER = 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464';
@@ -804,10 +808,10 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       }
     }
   }
-  async function createFile(name, value, retain = false) {
+  async function createFile(name, value, retain = false, effectCheck = verify) {
     const bytes = safeBytes(value),
       target = path.join(r.root, safeName(name));
-    await verify();
+    await effectCheck();
     budget.check();
     const file = await open(
       target,
@@ -826,8 +830,10 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       if (entry.identity !== observation.observation.identity)
         throw failure('APR_BROKER_STALE', 'private-file-changed');
       budget.check();
+      await effectCheck();
       await file.writeFile(bytes);
       budget.check();
+      await effectCheck();
       await file.sync();
       const written = await file.stat({ bigint: true });
       entry.fileVersion = version(written);
@@ -1063,13 +1069,31 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     await verify();
     return Object.freeze(names);
   }
-  async function createOwnedPublication(name, value) {
-    ownedName(name);
-    let entry = await createFile(name, value, true);
+
+  // The election and ordinary/private wrappers share this retained-generation engine.
+  async function retainedPublication(
+    name,
+    value,
+    retainAcrossRename = false,
+    resourceLease = null
+  ) {
+    const effectCheck = async () => {
+      if (resourceLease) await assertOwnerElectionLease(resourceLease, { root: r.root, name });
+      await verify();
+    };
+    let entry = await createFile(name, value, true, effectCheck);
+    const retained = new Set([entry]);
     let publishedBytes = safeBytes(value),
       retired = false,
+      withdrawalConfirmed = false,
+      fenced = false,
       busy = false,
       publicationClosed = false;
+    function contextCheck(context) {
+      if (context !== undefined && (context?.signal !== signal || context?.deadline !== deadline))
+        throw failure('APR_BROKER_STALE', 'publication-budget-mismatch');
+      budget.check();
+    }
     const sameExpected = (expected) => {
       if (
         !expected ||
@@ -1082,11 +1106,17 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       )
         throw failure('APR_BROKER_STALE', 'owned-publication-generation-changed');
     };
-    async function current() {
+    async function current(context) {
+      contextCheck(context);
       if (retired || publicationClosed)
         throw failure('APR_BROKER_STALE', 'owned-publication-retired');
-      await verify();
-      await matchFile(entry);
+      if (fenced) throw failure('APR_BROKER_STALE', 'owned-publication-fenced');
+      await effectCheck();
+      try {
+        await matchFile(entry, retainAcrossRename ? entry.file : null);
+      } catch (error) {
+        throw failure('APR_BROKER_STALE', error.details?.reason || boundedReason(error));
+      }
       const observed = await readSnapshot(name);
       if (
         observed.identity !== entry.identity ||
@@ -1101,44 +1131,87 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       busy = true;
       try {
         return await operation();
+      } catch (error) {
+        throw report(
+          error,
+          [...retained]
+            .filter((item) => item.file.fd >= 0)
+            .map((item) => obligation(item, 'descriptor-close-pending'))
+        );
       } finally {
         busy = false;
       }
     }
+    async function closeRetained() {
+      let caught;
+      for (const item of retained) {
+        try {
+          await closeOwnedFile(item);
+          retained.delete(item);
+        } catch (error) {
+          caught = report(caught || error, error.details?.obligations || []);
+        }
+      }
+      if (caught) throw caught;
+    }
     const publication = Object.freeze({
-      // Last retained identity only; no fresh presence/death claim or permission.
       retainedGeneration: () =>
         Object.freeze({ ...obligation(entry, 'owned-publication-unconfirmed'), root: r.root }),
-      snapshot: current,
-      publish: async (expected, value) =>
+      snapshot: (context) => exclusive(() => current(context)),
+      publish: (expected, value, context) =>
         exclusive(async () => {
+          contextCheck(context);
           sameExpected(expected);
-          await current();
+          await current(context);
           const bytes = safeBytes(value);
+          const previous = entry;
           let temporary,
             published = false,
-            attempted = false,
-            caught;
+            attempted = false;
           try {
-            temporary = await createFile('publish-' + randomUUID(), bytes, true);
-            await closeOwnedFile(entry);
-            await closeOwnedFile(temporary);
-            await verify();
-            await matchFile(entry);
-            await matchFile(temporary);
+            temporary = await createFile('publish-' + randomUUID(), bytes, true, effectCheck);
+            retained.add(temporary);
+            if (!retainAcrossRename) {
+              await closeOwnedFile(entry);
+              await closeOwnedFile(temporary);
+            }
+            await effectCheck();
+            await matchFile(entry, retainAcrossRename ? entry.file : null);
+            await matchFile(temporary, retainAcrossRename ? temporary.file : null);
             budget.check();
             attempted = true;
             await rename(path.join(r.root, temporary.name), path.join(r.root, name));
             published = true;
+            const oldTemporaryName = temporary.name;
             temporary.name = name;
             const readback = await readObserved(name);
-            if (readback.identity !== temporary.identity || !readback.bytes.equals(bytes)) {
-              await closeOwnedFile(readback);
-              throw failure('APR_BROKER_STALE', 'owned-publication-changed');
+            retained.add(readback);
+            if (
+              readback.identity !== temporary.identity ||
+              !readback.bytes.equals(bytes) ||
+              (retainAcrossRename &&
+                (identity(await temporary.file.stat({ bigint: true })) !== readback.identity ||
+                  version(await temporary.file.stat({ bigint: true })) !== readback.fileVersion ||
+                  readback.fileVersion.split(':').slice(0, 2).join(':') !==
+                    temporary.fileVersion.split(':').slice(0, 2).join(':')))
+            ) {
+              throw report(failure('APR_BROKER_STALE', 'owned-publication-changed'), [
+                {
+                  ...obligation(temporary, 'publication-unconfirmed'),
+                  alternateName: oldTemporaryName,
+                },
+              ]);
             }
             entry = { ...readback, name };
+            retained.delete(readback);
+            retained.add(entry);
             publishedBytes = Buffer.from(bytes);
-            await verify();
+            await effectCheck();
+            if (retainAcrossRename) await directory.sync();
+            await closeOwnedFile(previous);
+            retained.delete(previous);
+            await closeOwnedFile(temporary);
+            retained.delete(temporary);
             return Object.freeze({
               name,
               identity: entry.identity,
@@ -1147,54 +1220,200 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
               bytes: Buffer.from(bytes),
             });
           } catch (error) {
-            if (temporary) {
-              let unpublished = !attempted;
-              if (attempted && !published) {
-                try {
-                  await verify();
-                  await matchFile(entry);
-                  await matchFile(temporary);
-                  unpublished = true;
-                } catch {
-                  /* Preserve uncertain publication. */
-                }
+            if (retainAcrossRename && (attempted || error.details?.mutationOccurred)) fenced = true;
+            if (!temporary) throw error;
+            let unpublished = !attempted;
+            if (attempted && !published) {
+              try {
+                await effectCheck();
+                await matchFile(previous, retainAcrossRename ? previous.file : null);
+                await matchFile(temporary, retainAcrossRename ? temporary.file : null);
+                unpublished = true;
+              } catch {
+                /* No retry or inferred outcome after uncertainty. */
               }
-              const outstanding = obligation(
-                temporary,
-                unpublished ? 'unpublished' : 'publication-unconfirmed'
-              );
-              if (!unpublished && !published) outstanding.alternateName = name;
-              caught = report(error, [outstanding]);
-            } else caught = error;
-            throw caught;
+            }
+            const pending = obligation(
+              temporary,
+              unpublished ? 'unpublished' : 'publication-unconfirmed'
+            );
+            if (!unpublished && !published) pending.alternateName = name;
+            throw report(error, [
+              pending,
+              ...[...retained]
+                .filter((item) => item.file.fd >= 0)
+                .map((item) => obligation(item, 'descriptor-close-pending')),
+            ]);
           }
         }),
-      withdraw: async (expected) =>
+      withdraw: (expected, context) =>
         exclusive(async () => {
-          if (retired) return Object.freeze({ status: 'withdrawn' });
-          const observed = await current();
+          contextCheck(context);
+          if (retired) {
+            if (!withdrawalConfirmed)
+              throw report(failure('APR_BROKER_STALE', 'owned-withdrawal-unproved'), [
+                obligation(entry, 'owned-withdrawal-unproved'),
+              ]);
+            return Object.freeze({ status: 'withdrawn' });
+          }
+          await current(context);
           if (expected) sameExpected(expected);
           try {
-            await closeOwnedFile(entry);
-            await verify();
-            await matchFile(entry);
+            if (!retainAcrossRename) await closeOwnedFile(entry);
+            await effectCheck();
+            await matchFile(entry, retainAcrossRename ? entry.file : null);
             budget.check();
             await unlink(path.join(r.root, name));
             retired = true;
-            await verify();
+            await effectCheck();
+            if (retainAcrossRename) await directory.sync();
+            await closeRetained();
+            withdrawalConfirmed = true;
             return Object.freeze({ status: 'withdrawn' });
           } catch (error) {
             throw report(error, [obligation(entry, 'owned-withdrawal-unproved')]);
-          } finally {
-            void observed;
           }
         }),
-      async close() {
-        publicationClosed = true;
-        await closeOwnedFile(entry);
-      },
+      close: (context) =>
+        exclusive(async () => {
+          if (context !== undefined) contextCheck(context);
+          publicationClosed = true;
+          await closeRetained();
+        }),
     });
     return publication;
+  }
+  async function createOwnedPublication(name, value) {
+    ownedName(name);
+    return retainedPublication(name, value);
+  }
+  function retainedOrdinaryName(name) {
+    ordinaryMutationName(name);
+    if (
+      [
+        'owner.json',
+        'credential',
+        'endpoint.json',
+        'registry.json',
+        'manual-suspension.json',
+      ].includes(name) ||
+      name.startsWith('apr-owner-quarantine-')
+    )
+      throw failure('APR_BROKER_PATH_INVALID', 'owner-publication-requires-lease');
+    return name;
+  }
+  async function createRetainedPublication(name, value) {
+    retainedOrdinaryName(name);
+    return retainedPublication(name, value, true);
+  }
+  function exactSnapshot(expected, observed) {
+    if (
+      !expected ||
+      expected.name !== observed.name ||
+      expected.rootIdentity !== r.identity ||
+      expected.identity !== observed.identity ||
+      expected.fileVersion !== observed.fileVersion ||
+      !Buffer.isBuffer(expected.bytes) ||
+      !expected.bytes.equals(observed.bytes)
+    )
+      throw failure('APR_BROKER_STALE', 'owned-publication-generation-changed');
+  }
+  async function quarantine(name, expected, { destination } = {}, resourceLease = null) {
+    if (resourceLease) {
+      resourceName(name);
+      resourceName(destination);
+      await assertOwnerElectionLease(resourceLease, { root: r.root, name });
+      await assertOwnerElectionLease(resourceLease, { root: r.root, name: destination });
+    } else {
+      retainedOrdinaryName(name);
+      retainedOrdinaryName(destination);
+    }
+    if (name === destination) throw failure('APR_BROKER_PATH_INVALID', 'quarantine-name-invalid');
+    let retainedSource = null,
+      renameAttempted = false;
+    try {
+      return await mutate(async (leaseCheck) => {
+        const observed = await readObserved(name);
+        retainedSource = observed;
+        let attempted = false,
+          exact = false;
+        try {
+          exactSnapshot(expected, observed);
+          const ensureFresh = async () => {
+            try {
+              await lstat(path.join(r.root, destination));
+            } catch (error) {
+              if (error.code === 'ENOENT') return;
+              throw error;
+            }
+            throw failure('APR_BROKER_STALE', 'quarantine-destination-occupied');
+          };
+          await ensureFresh();
+          await leaseCheck();
+          await matchFile(observed, observed.file);
+          await ensureFresh();
+          budget.check();
+          attempted = true;
+          renameAttempted = true;
+          await rename(path.join(r.root, name), path.join(r.root, destination));
+          // Rename changes ctime on real substrates. Bind the post-effect descriptor
+          // to the moved path, allowing only that owned version transition.
+          const moved = await readObserved(destination);
+          try {
+            const stat = await observed.file.stat({ bigint: true });
+            if (
+              moved.identity !== observed.identity ||
+              identity(stat) !== observed.identity ||
+              version(stat) !== moved.fileVersion ||
+              moved.fileVersion.split(':').slice(0, 2).join(':') !==
+                observed.fileVersion.split(':').slice(0, 2).join(':') ||
+              !moved.bytes.equals(observed.bytes)
+            )
+              throw failure('APR_BROKER_STALE', 'quarantine-generation-changed');
+            await leaseCheck();
+            await matchFile(moved, moved.file);
+            await directory.sync();
+            exact = true;
+            return Object.freeze({
+              status: 'quarantined',
+              originalName: name,
+              name: destination,
+              identity: moved.identity,
+              fileVersion: moved.fileVersion,
+              previousFileVersion: observed.fileVersion,
+              rootIdentity: r.identity,
+              bytes: Buffer.from(moved.bytes),
+              obligations: Object.freeze([]),
+            });
+          } finally {
+            await closeOwnedFile(moved);
+          }
+        } catch (error) {
+          if (attempted)
+            throw report(error, [
+              { ...obligation(observed, 'quarantine-unconfirmed'), alternateName: destination },
+              obligation(observed, 'descriptor-close-pending'),
+            ]);
+          throw error;
+        } finally {
+          // On uncertain rename, retain the original descriptor for exact recovery.
+          if (!attempted || exact) {
+            try {
+              await closeOwnedFile(observed);
+            } catch (error) {
+              throw report(error, [
+                { ...obligation(observed, 'descriptor-close-pending'), alternateName: destination },
+              ]);
+            }
+          }
+        }
+      }, resourceLease);
+    } catch (error) {
+      if (!renameAttempted) throw error;
+      throw report(error, [
+        { ...obligation(retainedSource, 'quarantine-unconfirmed'), alternateName: destination },
+      ]);
+    }
   }
   async function removeRetiredPublication(name, expected, lease) {
     ownedName(name);
@@ -1249,11 +1468,13 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       replace: (name, expected, value) => scoped.replace(name, expected, value, lease),
     });
   }
-  return Object.freeze({
+  const guard = Object.freeze({
     read,
     readSnapshot,
     listOwnedPublications,
     createOwnedPublication,
+    createRetainedPublication,
+    quarantine,
     removeRetiredPublication,
     withElectionLease,
     writeExclusive,
@@ -1281,4 +1502,106 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       if (caught) throw caught;
     },
   });
+  guards.set(guard, {
+    root: r.root,
+    signal,
+    deadline,
+    create: (name, bytes, lease) => retainedPublication(name, bytes, true, lease),
+    quarantine,
+  });
+  return guard;
 }
+
+const ownerNames = new Set([
+  'owner.json',
+  'credential',
+  'endpoint.json',
+  'registry.json',
+  'manual-suspension.json',
+]);
+export function isHeldPrivatePublication(value) {
+  return heldPublications.has(value);
+}
+async function ownerGuard(guard, lease, name, context) {
+  const record = guards.get(guard);
+  if (!record) throw failure('APR_BROKER_STALE', 'genuine-protected-guard-required');
+  await assertOwnerElectionLease(lease, { root: record.root, name });
+  if (!ownerNames.has(name))
+    throw failure('APR_BROKER_PATH_INVALID', 'owner-publication-name-invalid');
+  const original = await ownerElectionBudget(lease, { root: record.root });
+  if (
+    !(context.signal instanceof AbortSignal) ||
+    !Number.isFinite(context.deadline) ||
+    context.signal !== original.signal ||
+    context.deadline !== original.deadline ||
+    context.signal !== record.signal ||
+    context.deadline !== record.deadline
+  )
+    throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
+  return record;
+}
+export async function createHeldPrivatePublication({
+  guard,
+  name,
+  bytes,
+  lease,
+  signal,
+  deadline,
+} = {}) {
+  const context = { signal, deadline };
+  const record = await ownerGuard(guard, lease, name, context);
+  const engine = await lease.run(() => record.create(name, bytes, lease));
+  const run = async (context, effect) => {
+    await ownerGuard(guard, lease, name, context || {});
+    return lease.run(effect);
+  };
+  const handle = Object.freeze({
+    snapshot: (context) => run(context, () => engine.snapshot(context)),
+    verify: (context) =>
+      run(context, async () => {
+        await engine.snapshot(context);
+        return true;
+      }),
+    replace: (expected, bytes, context) =>
+      run(context, () => engine.publish(expected, bytes, context)),
+    withdraw: (expected, context) => run(context, () => engine.withdraw(expected, context)),
+    close: (context) => run(context, () => engine.close(context)),
+    retainedGeneration: engine.retainedGeneration,
+  });
+  heldPublications.set(handle, { guard, lease, name });
+  return handle;
+}
+export async function quarantinePrivateFile({
+  guard,
+  name,
+  expected,
+  lease,
+  signal,
+  deadline,
+} = {}) {
+  const context = { signal, deadline };
+  const record = await ownerGuard(guard, lease, name, context);
+  const destination = 'apr-owner-quarantine-' + lease.resourceKey + '-' + randomUUID() + '.json';
+  const receipt = await lease.run(() => record.quarantine(name, expected, { destination }, lease));
+  quarantineReceipts.set(receipt, { guard, lease, name, context });
+  return receipt;
+}
+export async function assertQuarantineReceipt({ guard, receipt, lease, signal, deadline } = {}) {
+  const held = quarantineReceipts.get(receipt);
+  if (!held || held.guard !== guard || held.lease !== lease)
+    throw failure('APR_BROKER_STALE', 'genuine-quarantine-receipt-required');
+  await ownerGuard(guard, lease, held.name, { signal, deadline });
+  return lease.run(async () => {
+    const actual = await guard.readSnapshot(receipt.name);
+    if (
+      actual.identity !== receipt.identity ||
+      actual.fileVersion !== receipt.fileVersion ||
+      actual.rootIdentity !== receipt.rootIdentity ||
+      !actual.bytes.equals(receipt.bytes)
+    )
+      throw failure('APR_BROKER_STALE', 'quarantine-generation-changed');
+    await guard.verify();
+    return true;
+  });
+}
+export { createHeldPrivatePublicationCore } from './owner-publication-core.mjs';

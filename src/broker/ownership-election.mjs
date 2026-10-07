@@ -1,4 +1,5 @@
 // @story #168
+// @story #175
 import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import path from 'node:path';
@@ -485,7 +486,11 @@ export async function assertOwnerElectionLease(lease, { root, name } = {}) {
                 'runtime-selection.json',
               ]
           ).includes(name);
-    if (!ownSlot && !effectName) throw stale('lease-resource-mismatch');
+    const quarantineName =
+      binding.resourceKind === 'broker-owner' &&
+      name.startsWith('apr-owner-quarantine-' + binding.resourceKey + '-') &&
+      /^apr-owner-quarantine-[a-f0-9]{64}-[a-f0-9-]{36}\.json$/u.test(name);
+    if (!ownSlot && !effectName && !quarantineName) throw stale('lease-resource-mismatch');
     if (ownSlot && root && root !== binding.root) throw stale('lease-root-mismatch');
     if (
       binding.guards.size > 1 &&
