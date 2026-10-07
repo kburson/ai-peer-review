@@ -1,4 +1,6 @@
 // @story #177
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { encodeRequestCanonical, parseRawJson } from '../api/canonical-json.mjs';
@@ -23,6 +25,10 @@ import {
   sameProcessOwnerFacts,
 } from './owner-lifecycle-core.mjs';
 
+const loadedInstallation = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
+export function isLoadedOwnerRuntime(runtime) {
+  return isVerifiedRuntimeInventory(runtime) && runtime.packageRoot === loadedInstallation;
+}
 const owners = new WeakMap();
 const resources = new WeakMap();
 const protectedRoots = new Map();
@@ -109,7 +115,7 @@ export async function createPortableOwnerLifecycle(input = {}) {
     !isHeldPrivatePublicationFor(endpointPublication, { lease, name: 'endpoint.json' }) ||
     !isOwnerElectionLeaseFor(lease, { identity, source, ...startup }) ||
     !isInstalledProcessSourceAssurance(source) ||
-    !isVerifiedRuntimeInventory(runtime)
+    !isLoadedOwnerRuntime(runtime)
   )
     throw stale('genuine-owner-producers-required');
   if (
