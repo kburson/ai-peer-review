@@ -53,6 +53,12 @@ export async function failOneMutationFlush(t, root) {
       return result;
     });
   }
+  if (process.platform === 'win32')
+    await observePublicationReplacement(t, {
+      after: () => {
+        mutated = true;
+      },
+    });
   t.mock.method(prototype, 'sync', async function () {
     const stat = await this.stat();
     if (mutated && !failed && (process.platform === 'win32' ? stat.isFile() : stat.isDirectory())) {
@@ -124,4 +130,56 @@ Set-Acl -LiteralPath $p.path -AclObject $a -ErrorAction Stop
       },
     }
   );
+}
+
+export async function observePublicationReplacement(t, { before, after } = {}) {
+  if (process.platform !== 'win32') {
+    return interceptFilesystem(t, 'rename', async (actual, from, to) => {
+      await before?.(from, to);
+      const result = await actual(from, to);
+      await after?.(from, to);
+      return result;
+    });
+  }
+  const cp = (await import('node:child_process')).default;
+  const { syncBuiltinESMExports } = await import('node:module');
+  const original = cp.execFile;
+  const mocked = t.mock.method(cp, 'execFile', (executable, args, options, callback) => {
+    const encoded = args?.at(-1);
+    const script =
+      typeof encoded === 'string' ? Buffer.from(encoded, 'base64').toString('utf16le') : '';
+    if (!script.includes('apr.windows-owner-replacement/v1'))
+      return original(executable, args, options, callback);
+    let payload,
+      settled = false;
+    const finish = async (error, stdout, stderr) => {
+      if (settled) return;
+      settled = true;
+      try {
+        if (!error) await after?.(payload.source, payload.target);
+      } catch (caught) {
+        error = caught;
+      }
+      callback(error, stdout, stderr);
+    };
+    const child = original(executable, args, options, finish);
+    const end = child.stdin.end;
+    child.stdin.end = function (value, ...rest) {
+      payload = JSON.parse(value);
+      Promise.resolve()
+        .then(() => before?.(payload.source, payload.target))
+        .then(() => end.call(this, value, ...rest))
+        .catch((error) => {
+          child.kill();
+          finish(error, '', '');
+        });
+      return this;
+    };
+    return child;
+  });
+  syncBuiltinESMExports();
+  t.after(() => {
+    mocked.mock.restore();
+    syncBuiltinESMExports();
+  });
 }

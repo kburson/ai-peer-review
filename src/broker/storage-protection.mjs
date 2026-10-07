@@ -240,8 +240,7 @@ function operationBudget({ signal, deadline = Infinity, clock = performance } = 
   };
 }
 
-async function windowsProbe(targets, provision = false, budget = operationBudget()) {
-  budget.check();
+async function stockWindowsExecutable() {
   // A fixed stock probe; alternate system-root/probe classes stay unsupported.
   if ((process.env.SystemRoot || '').toLowerCase() !== 'c:\\windows')
     throw failure('APR_BROKER_START_FAILED', 'stock-system-root-unproved');
@@ -253,6 +252,71 @@ async function windowsProbe(targets, provision = false, budget = operationBudget
     (await realpath(executable)).toLowerCase() !== executable.toLowerCase()
   )
     throw failure('APR_BROKER_START_FAILED', 'stock-probe-alias');
+  return executable;
+}
+const windowsReplacementScript = String.raw`
+$ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+[Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
+try {
+  $p=[Console]::In.ReadToEnd() | ConvertFrom-Json
+  [System.IO.File]::Replace([string]$p.source,[string]$p.target,$null,$false)
+  [Console]::Out.Write('{"schema":"apr.windows-owner-replacement/v1","status":"replaced"}')
+} catch {
+  [Console]::Out.Write('{"schema":"apr.windows-owner-replacement/v1","status":"unconfirmed"}')
+  exit 1
+}
+`;
+async function windowsReplaceFile(source, target, budget) {
+  budget.check();
+  const executable = await stockWindowsExecutable();
+  budget.check();
+  const stdout = await new Promise((resolve, reject) => {
+    const child = execFile(
+      executable,
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-EncodedCommand',
+        Buffer.from(windowsReplacementScript, 'utf16le').toString('base64'),
+      ],
+      {
+        encoding: 'utf8',
+        maxBuffer: 65536,
+        ...budget.options(15000),
+        windowsHide: true,
+        env: {
+          ...process.env,
+          PSModulePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
+        },
+      },
+      (error, output, stderr) => {
+        if (error || stderr.trim())
+          reject(failure('APR_BROKER_STALE', 'stock-replacement-unconfirmed'));
+        else resolve(output);
+      }
+    );
+    child.stdin.on('error', () =>
+      reject(failure('APR_BROKER_STALE', 'stock-replacement-unconfirmed'))
+    );
+    child.stdin.end(JSON.stringify({ source, target }));
+  });
+  budget.check();
+  let result;
+  try {
+    result = JSON.parse(stdout.replace(/^\uFEFF/, '').trim());
+  } catch {
+    throw failure('APR_BROKER_STALE', 'stock-replacement-unconfirmed');
+  }
+  if (result.schema !== 'apr.windows-owner-replacement/v1' || result.status !== 'replaced')
+    throw failure('APR_BROKER_STALE', 'stock-replacement-unconfirmed');
+}
+async function windowsProbe(targets, provision = false, budget = operationBudget()) {
+  budget.check();
+  const executable = await stockWindowsExecutable();
   const payload = JSON.stringify({ mode: provision ? 'provision' : 'observe', paths: targets });
   const encoded = Buffer.from(windowsScript, 'utf16le').toString('base64');
   const result = await new Promise((resolve, reject) => {
@@ -1193,9 +1257,25 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
             await effectCheck();
             await matchFile(entry, retainAcrossRename ? entry.file : null);
             await matchFile(temporary, retainAcrossRename ? temporary.file : null);
+            const windowsRetained = retainAcrossRename && process.platform === 'win32';
+            if (windowsRetained) {
+              // ReplaceFileW requires exclusive access to the unpublished input.
+              // The original owner descriptor remains held until new readback.
+              await closeOwnedFile(temporary);
+              retained.delete(temporary);
+              await effectCheck();
+              await matchFile(entry, entry.file);
+              await matchFile(temporary);
+            }
             budget.check();
             attempted = true;
-            await rename(path.join(r.root, temporary.name), path.join(r.root, name));
+            if (windowsRetained)
+              await windowsReplaceFile(
+                path.join(r.root, temporary.name),
+                path.join(r.root, name),
+                budget
+              );
+            else await rename(path.join(r.root, temporary.name), path.join(r.root, name));
             published = true;
             const oldTemporaryName = temporary.name;
             temporary.name = name;
@@ -1205,8 +1285,10 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
               readback.identity !== temporary.identity ||
               !readback.bytes.equals(bytes) ||
               (retainAcrossRename &&
-                (identity(await temporary.file.stat({ bigint: true })) !== readback.identity ||
-                  version(await temporary.file.stat({ bigint: true })) !== readback.fileVersion ||
+                ((temporary.file.fd >= 0 &&
+                  (identity(await temporary.file.stat({ bigint: true })) !== readback.identity ||
+                    version(await temporary.file.stat({ bigint: true })) !==
+                      readback.fileVersion)) ||
                   readback.fileVersion.split(':').slice(0, 2).join(':') !==
                     temporary.fileVersion.split(':').slice(0, 2).join(':')))
             ) {
@@ -1222,10 +1304,11 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
             retained.add(entry);
             publishedBytes = Buffer.from(bytes);
             await effectCheck();
-            if (retainAcrossRename) await flushMutation(temporary.file);
+            if (retainAcrossRename)
+              await flushMutation(temporary.file.fd >= 0 ? temporary.file : entry.file);
             await closeOwnedFile(previous);
             retained.delete(previous);
-            await closeOwnedFile(temporary);
+            if (temporary.file.fd >= 0) await closeOwnedFile(temporary);
             retained.delete(temporary);
             return Object.freeze({
               name,

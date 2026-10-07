@@ -5,7 +5,13 @@ import path from 'node:path';
 import { constants } from 'node:fs';
 import { open, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { owned, interceptFilesystem, failOneMutationFlush, reasonIs } from './fixtures.mjs';
+import {
+  owned,
+  interceptFilesystem,
+  failOneMutationFlush,
+  reasonIs,
+  observePublicationReplacement,
+} from './fixtures.mjs';
 test('[#175] retained ordinary publication keeps its actual creation descriptor until close', async (t) => {
   const { root, guard } = await owned(t);
   const probe = await open(path.join(root, 'probe'), 'wx', 0o600);
@@ -98,11 +104,16 @@ test('[#175] actual creation descriptor remains held across the replacement rena
   const publication = await guard.createRetainedPublication('fixture-owner', Buffer.from('one'));
   const first = await publication.snapshot();
   let observed = false;
-  await interceptFilesystem(t, 'rename', async (actual, ...args) => {
-    assert.ok(creator.fd >= 0, 'original descriptor is held before actual rename');
+  const stillHeld = async () => {
+    assert.ok(creator.fd >= 0, 'original owner descriptor remains held across actual replacement');
     assert.ok(await creator.stat());
-    observed = true;
-    return actual(...args);
+  };
+  await observePublicationReplacement(t, {
+    before: stillHeld,
+    after: async () => {
+      await stillHeld();
+      observed = true;
+    },
   });
   await publication.publish(first, Buffer.from('two'));
   assert.ok(observed);
@@ -203,13 +214,15 @@ test('[#175] post-rename file flush failure retains the actual replacement and f
     }
   }
   let renamed = false;
-  await interceptFilesystem(t, 'rename', async (actual, ...args) => {
-    await actual(...args);
-    renamed = true;
+  await observePublicationReplacement(t, {
+    after: () => {
+      renamed = true;
+    },
   });
+
   await interceptFilesystem(t, 'open', async (actual, target, ...args) => {
     const file = await actual(target, ...args);
-    if (path.basename(target).startsWith('publish-')) {
+    if (path.basename(target).startsWith('publish-') || path.basename(target) === 'fixture-owner') {
       const sync = file.sync.bind(file);
       file.sync = async () => {
         if (renamed)

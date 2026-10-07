@@ -4,7 +4,12 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { owned, interceptFilesystem, reasonIs, alterWindowsRootProtection } from './fixtures.mjs';
+import {
+  owned,
+  observePublicationReplacement,
+  reasonIs,
+  alterWindowsRootProtection,
+} from './fixtures.mjs';
 test('[#175] stale exact bytes refuse replacement without changing the protected file', async (t) => {
   const { root, guard } = await owned(t);
   assert.equal(typeof guard.createRetainedPublication, 'function');
@@ -92,12 +97,11 @@ test('[#175] retained publication revalidates its creation descriptor after repl
   const publication = await guard.createRetainedPublication('fixture-owner', Buffer.from('one'));
   const before = await publication.snapshot();
   let heldAtRename = false;
-  await interceptFilesystem(t, 'rename', async (actual, from, to) => {
-    // The retained engine must keep at least the original descriptor during replacement.
-    const held = publication.retainedGeneration();
-    assert.equal(held.identity, before.identity);
-    await actual(from, to);
-    heldAtRename = true;
+  await observePublicationReplacement(t, {
+    before: () => assert.equal(publication.retainedGeneration().identity, before.identity),
+    after: () => {
+      heldAtRename = true;
+    },
   });
   const after = await publication.publish(before, Buffer.from('two'));
   assert.ok(heldAtRename);
