@@ -1,5 +1,6 @@
 // @story #166
-// cspell:words notin DACL SID SIDFullControl Win32PowerShell fsync nlink ino lstat reparse ldne rwxst readattr writeattr readextattr writeextattr readsecurity writesecurity statfs hardlink
+// @story #168
+// cspell:words notin DACL SID SIDFullControl Win32PowerShell fsync nlink ino lstat reparse ldne rwxst readattr writeattr readextattr writeextattr readsecurity writesecurity statfs hardlink readback
 import { constants } from 'node:fs';
 import {
   access,
@@ -12,6 +13,8 @@ import {
   unlink,
   statfs,
 } from 'node:fs/promises';
+import { assertOwnerElectionLease, ownerElectionBudget } from './ownership-election.mjs';
+import { opendir } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -734,6 +737,13 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     await file.close();
     heldFiles.delete(file);
   }
+  async function closeOwnedFile(entry) {
+    try {
+      await closeFile(entry.file);
+    } catch (error) {
+      throw report(error, [obligation(entry, 'descriptor-close-pending')]);
+    }
+  }
   async function matchFile(entry, file = null) {
     const fresh = await inspect(path.join(r.root, entry.name), 'file', budget);
     if (
@@ -842,7 +852,22 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
   // All cooperative mutations of this root acquire the same exclusive resource.
   // No abandoned lock is reclaimed here: ownership/recovery belongs to C3/C4.
   // An arbitrary same-user pathname writer cannot be made safe by lstat alone.
-  async function mutate(action) {
+  async function mutate(action, resourceLease = null) {
+    if (resourceLease) {
+      const leaseCheck = async () => {
+        await verify();
+        await assertOwnerElectionLease(resourceLease, { root: r.root });
+        budget.check();
+      };
+      await leaseCheck();
+      try {
+        const result = await action(leaseCheck);
+        await leaseCheck();
+        return result;
+      } catch (error) {
+        throw report(error);
+      }
+    }
     let lease;
     try {
       lease = await createFile(lockName, Buffer.from(randomUUID()), true);
@@ -882,8 +907,9 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     if (!released) throw failure('APR_BROKER_STALE', 'mutation-release-unproved');
     return result;
   }
-  async function writeExclusive(name, value) {
-    resourceName(name);
+  async function writeExclusive(name, value, resourceLease = null) {
+    ordinaryMutationName(name);
+    if (resourceLease) await assertOwnerElectionLease(resourceLease, { root: r.root, name });
     return mutate(async (leaseCheck) => {
       const created = await createFile(name, value);
       try {
@@ -892,11 +918,12 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       } catch (error) {
         throw report(error, [obligation(created, 'created-unconfirmed')]);
       }
-    });
+    }, resourceLease);
   }
-  async function remove(name, expected) {
-    const target = path.join(r.root, resourceName(name)),
+  async function remove(name, expected, resourceLease = null) {
+    const target = path.join(r.root, ordinaryMutationName(name)),
       old = safeBytes(expected);
+    if (resourceLease) await assertOwnerElectionLease(resourceLease, { root: r.root, name });
     return mutate(async (leaseCheck) => {
       const observed = await readObserved(name);
       let caught;
@@ -921,12 +948,13 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
         caught = report(caught || error, [obligation(observed, 'descriptor-close-pending')]);
       }
       if (caught) throw caught;
-    });
+    }, resourceLease);
   }
-  async function replace(name, expected, value) {
-    const target = path.join(r.root, resourceName(name)),
+  async function replace(name, expected, value, resourceLease = null) {
+    const target = path.join(r.root, ordinaryMutationName(name)),
       old = safeBytes(expected),
       bytes = safeBytes(value);
+    if (resourceLease) await assertOwnerElectionLease(resourceLease, { root: r.root, name });
     return mutate(async (leaseCheck) => {
       const observed = await readObserved(name);
       let temporary,
@@ -988,10 +1016,243 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
         caught = report(caught || error, [obligation(observed, 'descriptor-close-pending')]);
       }
       if (caught) throw caught;
+    }, resourceLease);
+  }
+
+  async function readSnapshot(name) {
+    const observed = await readObserved(name);
+    try {
+      return Object.freeze({
+        name,
+        identity: observed.identity,
+        fileVersion: observed.fileVersion,
+        rootIdentity: r.identity,
+        bytes: Buffer.from(observed.bytes),
+      });
+    } finally {
+      await closeOwnedFile(observed);
+    }
+  }
+  const ownedPrefix = 'apr-election-';
+  function ownedName(name) {
+    resourceName(name);
+    if (!/^apr-election-[a-f0-9]{64}-[a-f0-9-]{36}\.json$/u.test(name))
+      throw failure('APR_BROKER_PATH_INVALID', 'owned-publication-name-invalid');
+    return name;
+  }
+  function ordinaryMutationName(name) {
+    resourceName(name);
+    if (name.startsWith(ownedPrefix))
+      throw failure('APR_BROKER_PATH_INVALID', 'owned-publication-requires-owner');
+    return name;
+  }
+  async function listOwnedPublications(prefix) {
+    if (typeof prefix !== 'string' || !/^apr-election-[a-f0-9]{64}-$/u.test(prefix))
+      throw failure('APR_BROKER_PATH_INVALID', 'owned-publication-prefix-invalid');
+    await verify();
+    const names = [];
+    let count = 0;
+    const entries = await opendir(r.root);
+    for await (const entry of entries) {
+      budget.check();
+      if (++count > 4096) throw failure('APR_BROKER_STALE', 'slot-count-unproved');
+      if (entry.name.startsWith(prefix)) names.push(entry.name);
+    }
+    names.sort();
+    for (const name of names) ownedName(name);
+    await verify();
+    return Object.freeze(names);
+  }
+  async function createOwnedPublication(name, value) {
+    ownedName(name);
+    let entry = await createFile(name, value, true);
+    let publishedBytes = safeBytes(value),
+      retired = false,
+      busy = false,
+      publicationClosed = false;
+    const sameExpected = (expected) => {
+      if (
+        !expected ||
+        expected.name !== name ||
+        expected.rootIdentity !== r.identity ||
+        expected.identity !== entry.identity ||
+        expected.fileVersion !== entry.fileVersion ||
+        !Buffer.isBuffer(expected.bytes) ||
+        !expected.bytes.equals(publishedBytes)
+      )
+        throw failure('APR_BROKER_STALE', 'owned-publication-generation-changed');
+    };
+    async function current() {
+      if (retired || publicationClosed)
+        throw failure('APR_BROKER_STALE', 'owned-publication-retired');
+      await verify();
+      await matchFile(entry);
+      const observed = await readSnapshot(name);
+      if (
+        observed.identity !== entry.identity ||
+        observed.fileVersion !== entry.fileVersion ||
+        !observed.bytes.equals(publishedBytes)
+      )
+        throw failure('APR_BROKER_STALE', 'owned-publication-generation-changed');
+      return observed;
+    }
+    async function exclusive(operation) {
+      if (busy) throw failure('APR_BROKER_STALE', 'owned-publication-busy');
+      busy = true;
+      try {
+        return await operation();
+      } finally {
+        busy = false;
+      }
+    }
+    const publication = Object.freeze({
+      snapshot: current,
+      publish: async (expected, value) =>
+        exclusive(async () => {
+          sameExpected(expected);
+          await current();
+          const bytes = safeBytes(value);
+          let temporary,
+            published = false,
+            attempted = false,
+            caught;
+          try {
+            temporary = await createFile('publish-' + randomUUID(), bytes, true);
+            await closeOwnedFile(entry);
+            await closeOwnedFile(temporary);
+            await verify();
+            await matchFile(entry);
+            await matchFile(temporary);
+            budget.check();
+            attempted = true;
+            await rename(path.join(r.root, temporary.name), path.join(r.root, name));
+            published = true;
+            temporary.name = name;
+            const readback = await readObserved(name);
+            if (readback.identity !== temporary.identity || !readback.bytes.equals(bytes)) {
+              await closeOwnedFile(readback);
+              throw failure('APR_BROKER_STALE', 'owned-publication-changed');
+            }
+            entry = { ...readback, name };
+            publishedBytes = Buffer.from(bytes);
+            await verify();
+            return Object.freeze({
+              name,
+              identity: entry.identity,
+              fileVersion: entry.fileVersion,
+              rootIdentity: r.identity,
+              bytes: Buffer.from(bytes),
+            });
+          } catch (error) {
+            if (temporary) {
+              let unpublished = !attempted;
+              if (attempted && !published) {
+                try {
+                  await verify();
+                  await matchFile(entry);
+                  await matchFile(temporary);
+                  unpublished = true;
+                } catch {
+                  /* Preserve uncertain publication. */
+                }
+              }
+              const outstanding = obligation(
+                temporary,
+                unpublished ? 'unpublished' : 'publication-unconfirmed'
+              );
+              if (!unpublished && !published) outstanding.alternateName = name;
+              caught = report(error, [outstanding]);
+            } else caught = error;
+            throw caught;
+          }
+        }),
+      withdraw: async (expected) =>
+        exclusive(async () => {
+          if (retired) return Object.freeze({ status: 'withdrawn' });
+          const observed = await current();
+          if (expected) sameExpected(expected);
+          try {
+            await closeOwnedFile(entry);
+            await verify();
+            await matchFile(entry);
+            budget.check();
+            await unlink(path.join(r.root, name));
+            retired = true;
+            await verify();
+            return Object.freeze({ status: 'withdrawn' });
+          } catch (error) {
+            throw report(error, [obligation(entry, 'owned-withdrawal-unproved')]);
+          } finally {
+            void observed;
+          }
+        }),
+      async close() {
+        publicationClosed = true;
+        await closeOwnedFile(entry);
+      },
+    });
+    return publication;
+  }
+  async function removeRetiredPublication(name, expected, lease) {
+    ownedName(name);
+    await assertOwnerElectionLease(lease, { root: r.root, name });
+    const current = await readSnapshot(name);
+    if (
+      !expected ||
+      current.identity !== expected.identity ||
+      current.fileVersion !== expected.fileVersion ||
+      current.rootIdentity !== expected.rootIdentity ||
+      !current.bytes.equals(expected.bytes)
+    )
+      throw failure('APR_BROKER_STALE', 'retired-publication-generation-changed');
+    await verify();
+    await assertOwnerElectionLease(lease, { root: r.root, name });
+    const observed = await readObserved(name);
+    try {
+      if (
+        observed.identity !== expected.identity ||
+        observed.fileVersion !== expected.fileVersion ||
+        !observed.bytes.equals(expected.bytes)
+      )
+        throw failure('APR_BROKER_STALE', 'retired-publication-generation-changed');
+      await closeFile(observed.file);
+      await verify();
+      await matchFile(observed);
+      budget.check();
+      await unlink(path.join(r.root, name));
+      await verify();
+    } catch (error) {
+      throw report(error, [obligation(observed, 'retired-withdrawal-unproved')]);
+    } finally {
+      await closeFile(observed.file);
+    }
+  }
+  async function withElectionLease(lease) {
+    const original = await ownerElectionBudget(lease, { root: r.root });
+    if (
+      (signal !== undefined && signal !== original.signal) ||
+      (deadline !== undefined && deadline !== original.deadline) ||
+      clock !== undefined
+    )
+      throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
+    const scoped = await openProtectedRoot({ receipt: r, ...original });
+    return Object.freeze({
+      read: scoped.read,
+      readSnapshot: scoped.readSnapshot,
+      verify: scoped.verify,
+      close: scoped.close,
+      writeExclusive: (name, value) => scoped.writeExclusive(name, value, lease),
+      remove: (name, expected) => scoped.remove(name, expected, lease),
+      replace: (name, expected, value) => scoped.replace(name, expected, value, lease),
     });
   }
   return Object.freeze({
     read,
+    readSnapshot,
+    listOwnedPublications,
+    createOwnedPublication,
+    removeRetiredPublication,
+    withElectionLease,
     writeExclusive,
     remove,
     replace,
