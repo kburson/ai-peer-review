@@ -1106,6 +1106,9 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       }
     }
     const publication = Object.freeze({
+      // Last retained identity only; no fresh presence/death claim or permission.
+      retainedGeneration: () =>
+        Object.freeze({ ...obligation(entry, 'owned-publication-unconfirmed'), root: r.root }),
       snapshot: current,
       publish: async (expected, value) =>
         exclusive(async () => {

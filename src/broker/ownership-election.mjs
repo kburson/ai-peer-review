@@ -136,8 +136,27 @@ export async function acquireOwnerElectionCore({
     }
     throw stale('sharing-exhausted');
   };
+  const retained = () => {
+    try {
+      const entries = store.ownedObligations?.() || [];
+      if (!Array.isArray(entries) || entries.length > 1)
+        throw stale('retained-generation-unavailable');
+      return entries;
+    } catch {
+      return [{ contenderId, resourceKey, reason: 'retained-generation-unavailable' }];
+    }
+  };
   const withdraw = async () => {
-    if (!own) return { status: 'not-created', obligations: [] };
+    if (!own)
+      return creationAttempted
+        ? {
+            status: 'unresolved',
+            obligations: [
+              ...retained(),
+              { contenderId, resourceKey, reason: 'own-publication-unconfirmed' },
+            ],
+          }
+        : { status: 'not-created', obligations: [] };
     try {
       check();
       await store.assertBound(budget);
@@ -145,11 +164,14 @@ export async function acquireOwnerElectionCore({
       if (!sameSnapshot(own, current)) throw stale('own-slot-generation-changed');
       await sharing(() => store.remove(contenderId, current, budget));
       own = null;
+      creationAttempted = false;
       return { status: 'withdrawn', obligations: [] };
     } catch (error) {
       return {
         status: 'unresolved',
         obligations: [
+          ...(error.details?.obligations || []),
+          ...retained(),
           {
             contenderId,
             resourceKey,
@@ -172,8 +194,15 @@ export async function acquireOwnerElectionCore({
       choosing: true,
       ticket: null,
     };
-    creationAttempted = true;
-    own = await sharing(() => store.create(contenderId, choosing, budget));
+    try {
+      own = await sharing(() => {
+        creationAttempted = true;
+        return store.create(contenderId, choosing, budget);
+      });
+    } catch (error) {
+      if (error.code === 'EEXIST') creationAttempted = false;
+      throw error;
+    }
     await transition('choosing-published');
     const initial = await sharing(() => store.list(budget));
     if (!Array.isArray(initial) || initial.length > 4096) throw stale('slot-count-unproved');
@@ -254,32 +283,36 @@ export async function acquireOwnerElectionCore({
         if (!sameSnapshot(snapshot, own)) throw stale('held-slot-generation-changed');
         check();
       };
-      let effectActive = false;
+      let activity = 'idle';
       const lease = Object.freeze({
         resourceKey,
         contenderId,
         verified: false,
         assert: assertCurrent,
         async run(effect) {
-          await assertCurrent();
-          if (effectActive) throw stale('lease-effect-busy');
-          effectActive = true;
+          if (activity !== 'idle') throw stale('lease-effect-busy');
+          activity = 'effect';
           try {
+            await assertCurrent();
             return await heldContext.run({ store, resourceKey }, async () => {
               const result = await effect(budget);
               await assertCurrent();
               return result;
             });
           } finally {
-            effectActive = false;
+            activity = 'idle';
           }
         },
         async release() {
-          if (effectActive) throw stale('lease-effect-busy');
+          if (activity !== 'idle') throw stale('lease-effect-busy');
           if (!own) return Object.freeze({ status: 'withdrawn', obligations: [] });
-          const result = await withdraw();
-          if (result.status === 'withdrawn') winning = false;
-          return Object.freeze(result);
+          activity = 'release';
+          winning = false;
+          try {
+            return Object.freeze(await withdraw());
+          } finally {
+            activity = 'idle';
+          }
         },
       });
       if (store.beginWinningTransaction) await store.beginWinningTransaction(lease, budget);
@@ -324,8 +357,7 @@ export async function acquireOwnerElectionCore({
     winning = false;
     const withdrawal = await withdraw();
     const obligations = [...(error.details?.obligations || []), ...withdrawal.obligations];
-    if (creationAttempted && !own && withdrawal.status === 'not-created' && obligations.length)
-      obligations.push({ contenderId, resourceKey, reason: 'own-publication-unconfirmed' });
+
     return unavailable(error.details?.reason || error.code || 'election-unproved', {
       withdrawal,
       obligations,
@@ -609,6 +641,8 @@ function protectedStore(binding, ownId, lift, heldLease) {
   };
   return {
     resourceKey: binding.resourceKey,
+    ownedObligations: () =>
+      [...publications.values()].map((publication) => publication.retainedGeneration()),
     beginWinningTransaction: async (core) => {
       const lease = lift(core);
       await assertOwnerElectionLease(lease);

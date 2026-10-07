@@ -1,4 +1,4 @@
-// cspell:words reclaimers
+// cspell:words reclaimers readback
 // @story #168
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -817,4 +817,129 @@ test('an active manual effect keeps its winning slot until the effect completes'
     await effect;
     await out.lease.release();
   }
+});
+
+test('release reserves the lease before awaiting removal and rejects a new manual effect', async () => {
+  const store = memoryStore(),
+    out = await api.acquireOwnerElectionCore(input(store));
+  let entered, finish;
+  const ready = new Promise((resolve) => {
+      entered = resolve;
+    }),
+    barrier = new Promise((resolve) => {
+      finish = resolve;
+    });
+  const remove = store.remove;
+  store.remove = async (...args) => {
+    entered();
+    await barrier;
+    return remove(...args);
+  };
+  const releasing = out.lease.release();
+  await ready;
+  let ran = false;
+  try {
+    await assert.rejects(
+      out.lease.run(async () => {
+        ran = true;
+      }),
+      { code: 'APR_BROKER_STALE' }
+    );
+  } finally {
+    finish();
+    await releasing;
+  }
+  assert.equal(ran, false);
+  assert.equal(await store.read('mine'), null);
+});
+
+test('simultaneous release calls do not withdraw a slot twice', async () => {
+  const store = memoryStore(),
+    out = await api.acquireOwnerElectionCore(input(store));
+  let entered,
+    finish,
+    calls = 0;
+  const ready = new Promise((resolve) => {
+      entered = resolve;
+    }),
+    barrier = new Promise((resolve) => {
+      finish = resolve;
+    });
+  const remove = store.remove;
+  store.remove = async (...args) => {
+    calls++;
+    entered();
+    await barrier;
+    return remove(...args);
+  };
+  const first = out.lease.release();
+  await ready;
+  const second = out.lease.release().then(
+    (value) => ({ value }),
+    (error) => ({ error })
+  );
+  let result;
+  try {
+    await delay(1);
+    assert.equal(calls, 1);
+  } finally {
+    finish();
+    await first;
+    result = await second;
+  }
+  assert.equal(result.error?.code, 'APR_BROKER_STALE');
+  assert.equal((await out.lease.release()).status, 'withdrawn');
+});
+
+test('actual choosing publication followed by aborted readback retains its exact generation obligation', async (t) => {
+  const storage = await import('../../src/broker/storage-protection.mjs');
+  const { randomUUID } = await import('node:crypto');
+  const { lstat, readFile } = await import('node:fs/promises');
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-election-readback-168-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const receipt = await provisionProtectedRoot({ root }),
+    controller = new AbortController();
+  const guard = await storage.openProtectedRoot({ receipt, signal: controller.signal });
+  t.after(() => guard.close());
+  const id = randomUUID(),
+    key = 'f'.repeat(64),
+    name = 'apr-election-' + key + '-' + id + '.json';
+  let publication;
+  const store = {
+    resourceKey: key,
+    assertBound: () => guard.verify(),
+    ownedObligations: () => (publication ? [publication.retainedGeneration()] : []),
+    async create(_id, record) {
+      publication = await guard.createOwnedPublication(name, Buffer.from(JSON.stringify(record)));
+      controller.abort();
+      return guard.readSnapshot(name);
+    },
+  };
+  const out = await api.acquireOwnerElectionCore(
+    input(store, id, process.pid, { signal: controller.signal })
+  );
+  assert.equal(out.kind, 'indeterminate');
+  assert.equal(out.reason, 'operation-aborted');
+  assert.equal(out.withdrawal.status, 'unresolved');
+  const pending = out.obligations.find((item) => item.name === name);
+  assert.ok(pending, 'the actual created locator must remain in failure output');
+  const stat = await lstat(path.join(root, name), { bigint: true });
+  assert.equal(pending.identity, [stat.dev, stat.ino].map(String).join(':'));
+  assert.equal(pending.rootIdentity, receipt.identity);
+  assert.equal(JSON.parse(await readFile(path.join(root, name))).choosing, true);
+  assert.equal(out.lease, undefined);
+});
+
+test('unknown post-create readback failure without supplied obligations still preserves uncertainty', async () => {
+  const store = memoryStore(),
+    create = store.create;
+  store.create = async (...args) => {
+    await create(...args);
+    throw Object.assign(new Error('readback failed'), { code: 'EIO' });
+  };
+  const out = await api.acquireOwnerElectionCore(input(store));
+  assert.equal(out.kind, 'indeterminate');
+  assert.equal(out.withdrawal.status, 'unresolved');
+  assert.ok(out.obligations.some((item) => item.contenderId === 'mine'));
+  assert.ok(await store.read('mine'));
 });
