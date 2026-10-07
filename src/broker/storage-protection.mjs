@@ -373,7 +373,12 @@ function windowsAncestor(record, volumeRoot) {
     throw failure('APR_BROKER_START_FAILED', 'ancestor-acl-unproved');
   const allowed = [record.principalSid, SYSTEM, ADMIN];
   if (!allowed.includes(record.ownerSid))
-    throw failure('APR_BROKER_START_FAILED', 'ancestor-owner-unproved');
+    throw failure(
+      'APR_BROKER_START_FAILED',
+      'ancestor-owner-unproved-' +
+        (SID.test(record.ownerSid || '') ? record.ownerSid : 'invalid') +
+        (volumeRoot ? '-volume-root' : '-directory')
+    );
   for (const ace of record.aces) {
     if (
       !['allow', 'deny'].includes(ace.type) ||
