@@ -262,41 +262,49 @@ $env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
 [Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 $p=[Console]::In.ReadToEnd()|ConvertFrom-Json
-$first='unexpected-success'
-try { [System.IO.File]::Replace([string]$p.source,[string]$p.target,$null,$false) }
-catch { $first=$_.Exception.InnerException.GetType().Name }
-$unchanged=([System.IO.File]::ReadAllText([string]$p.target) -eq 'old') -and ([System.IO.File]::ReadAllText([string]$p.source) -eq 'new')
-[System.IO.File]::Replace([string]$p.source,[string]$p.target,[System.Management.Automation.Language.NullString]::Value,$false)
-[Console]::Out.Write((@{first=$first;unchanged=$unchanged;replaced=([System.IO.File]::ReadAllText([string]$p.target) -eq 'new')}|ConvertTo-Json -Compress))
+try {
+  if ($p.phase -eq 'ordinary') { [System.IO.File]::Replace([string]$p.source,[string]$p.target,$null,$false) }
+  else { [System.IO.File]::Replace([string]$p.source,[string]$p.target,[System.Management.Automation.Language.NullString]::Value,$false) }
+  [Console]::Out.Write('{"status":"replaced"}')
+} catch {
+  [Console]::Out.Write((@{status='refused';exception=$_.Exception.InnerException.GetType().Name}|ConvertTo-Json -Compress))
+}
 `;
-    const stdout = execFileSync(
-      'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
-      [
-        '-NoLogo',
-        '-NoProfile',
-        '-NonInteractive',
-        '-EncodedCommand',
-        Buffer.from(script, 'utf16le').toString('base64'),
-      ],
-      {
-        input: JSON.stringify({
-          source: path.join(root, 'candidate'),
-          target: path.join(root, 'fixture-owner'),
-        }),
-        encoding: 'utf8',
-        timeout: 15000,
-        windowsHide: true,
-        env: {
-          ...process.env,
-          PSModulePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
-        },
-      }
-    );
-    assert.deepEqual(JSON.parse(stdout.replace(/^\uFEFF/, '').trim()), {
-      first: 'ArgumentException',
-      unchanged: true,
-      replaced: true,
-    });
+    const invoke = (phase) =>
+      execFileSync(
+        'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+        [
+          '-NoLogo',
+          '-NoProfile',
+          '-NonInteractive',
+          '-EncodedCommand',
+          Buffer.from(script, 'utf16le').toString('base64'),
+        ],
+        {
+          input: JSON.stringify({
+            phase,
+            source: path.join(root, 'candidate'),
+            target: path.join(root, 'fixture-owner'),
+          }),
+          encoding: 'utf8',
+          timeout: 15000,
+          windowsHide: true,
+          env: {
+            ...process.env,
+            PSModulePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
+          },
+        }
+      );
+    const outcome = (phase) =>
+      JSON.parse(
+        invoke(phase)
+          .replace(/^\uFEFF/, '')
+          .trim()
+      );
+    assert.deepEqual(outcome('ordinary'), { status: 'refused', exception: 'ArgumentException' });
+    assert.equal((await readFile(path.join(root, 'fixture-owner'))).toString(), 'old');
+    assert.equal((await readFile(path.join(root, 'candidate'))).toString(), 'new');
+    assert.deepEqual(outcome('true-null'), { status: 'replaced' });
     const after = await retained.stat({ bigint: true });
     assert.equal(after.ino, before.ino);
     assert.equal(retained.fd >= 0, true);
