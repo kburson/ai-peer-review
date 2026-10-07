@@ -2,13 +2,25 @@
 import { globSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 
-const suite = process.argv[2];
+const [suite, ...extra] = process.argv.slice(2);
+const excludeOwners = extra.length === 1 && extra[0] === '--exclude-owner-publication';
+if (
+  extra.length &&
+  !(
+    excludeOwners &&
+    suite === 'integration' &&
+    process.env.CI === 'true' &&
+    process.env.GITHUB_ACTIONS === 'true'
+  )
+)
+  throw new Error('Unexpected test selector');
 if (!['unit', 'golden', 'integration', 'packaging', 'smoke', 'mcp'].includes(suite))
   throw new Error('Expected a test suite name');
 // Temporary delivery pause requested for #102/#107; #107 owns native removal.
 const discovered = globSync(`test/${suite}/**/*.test.mjs`)
   .map((file) => file.replaceAll('\\', '/'))
-  .sort();
+  .sort()
+  .filter((file) => !(excludeOwners && file === 'test/integration/owner-publication.test.mjs'));
 // #107 portable tests do not load/build the retired native broker. Run these
 // without the legacy name filter, which would otherwise hide their broker cases.
 const portable = discovered.filter(

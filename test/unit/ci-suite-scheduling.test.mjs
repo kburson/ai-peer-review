@@ -63,3 +63,36 @@ for (const group of ['primary', 'portable'])
     assert.equal(existsSync(path.join(root, 'primary-ready')), true);
     assert.equal(existsSync(path.join(root, 'portable-ready')), true);
   });
+
+test('[#175] explicit hosted baseline selector omits only separately recorded owner cases', (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'apr-ci-owner-shard-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(path.join(root, 'test/integration'), { recursive: true });
+  copyFileSync(runner, path.join(root, 'runner.mjs'));
+  for (const [file, marker] of [
+    ['ordinary.test.mjs', 'baseline-executed'],
+    ['owner-publication.test.mjs', 'owners-executed'],
+  ])
+    writeFileSync(
+      path.join(root, 'test/integration', file),
+      "import test from 'node:test';import {writeFileSync} from 'node:fs';test('actual shard case',()=>writeFileSync(" +
+        JSON.stringify(marker) +
+        ",'yes'));"
+    );
+  const env = { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true' };
+  delete env.NODE_TEST_CONTEXT;
+  const invoke = (args) =>
+    spawnSync(process.execPath, ['runner.mjs', 'integration', ...args], {
+      cwd: root,
+      env,
+      encoding: 'utf8',
+      timeout: 15000,
+    });
+  const baseline = invoke(['--exclude-owner-publication']);
+  assert.equal(baseline.status, 0, baseline.stdout + baseline.stderr);
+  assert.equal(existsSync(path.join(root, 'baseline-executed')), true);
+  assert.equal(existsSync(path.join(root, 'owners-executed')), false);
+  const full = invoke([]);
+  assert.equal(full.status, 0, full.stdout + full.stderr);
+  assert.equal(existsSync(path.join(root, 'owners-executed')), true);
+});

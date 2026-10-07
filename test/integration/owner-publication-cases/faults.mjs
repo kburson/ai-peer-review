@@ -124,10 +124,11 @@ test('[#175] actual creation descriptor remains held across the replacement rena
 test('[#175] expired original storage context cannot replace or silently renew', async (t) => {
   let now = 1000;
   const clock = () => now;
-  const { root, guard } = await owned(t, { deadline: 2000, clock });
+  const deadline = now + (process.platform === 'win32' ? 180000 : 30000);
+  const { root, guard } = await owned(t, { deadline, clock });
   const publication = await guard.createRetainedPublication('fixture-owner', Buffer.from('old'));
   const expected = await publication.snapshot();
-  now = 2001;
+  now = deadline + 1;
   await assert.rejects(
     publication.publish(expected, Buffer.from('stolen')),
     reasonIs('operation-deadline')

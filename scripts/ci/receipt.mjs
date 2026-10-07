@@ -10,7 +10,37 @@ export const LANES = Object.freeze({
   mcp: { command: ['npm', 'run', 'test:mcp'], directories: ['mcp'] },
   packaging: { command: ['npm', 'run', 'test:packaging'], directories: ['packaging'] },
   smoke: { command: ['npm', 'run', 'test:smoke'], directories: ['smoke'] },
+  'owner-publication': {
+    command: ['node', '--test', 'test/integration/owner-publication.test.mjs'],
+    files: ['test/integration/owner-publication.test.mjs'],
+  },
 });
+// Windows keeps the existing baseline on its own runner. Both partitions bind
+// their actual command and exact inventory to the same complete source fingerprint.
+export function laneCommand(lane, runnerOS) {
+  if (!LANES[lane]) fail('lane');
+  return lane === 'integration' && runnerOS === 'Windows'
+    ? ['node', 'test/helpers/run-suite.mjs', 'integration', '--exclude-owner-publication']
+    : LANES[lane].command;
+}
+export function laneInventory(files, lane, runnerOS) {
+  const definition = LANES[lane];
+  if (!definition) fail('lane');
+  return Object.fromEntries(
+    Object.entries(files).filter(([file]) =>
+      definition.files
+        ? definition.files.includes(file)
+        : definition.directories.some(
+            (dir) => file.startsWith('test/' + dir + '/') && file.endsWith('.test.mjs')
+          ) &&
+          !(
+            lane === 'integration' &&
+            runnerOS === 'Windows' &&
+            file === 'test/integration/owner-publication.test.mjs'
+          )
+    )
+  );
+}
 export function fail(reason) {
   throw new Error('ci-receipt: ' + reason);
 }
@@ -54,7 +84,7 @@ export function validateLaneReceipt(record, expected) {
   ])
     if (record[key] !== expected[key]) fail('identity ' + key);
   if (
-    !isDeepStrictEqual(record.command, LANES[expected.lane].command) ||
+    !isDeepStrictEqual(record.command, laneCommand(expected.lane, expected.runnerOS)) ||
     !isDeepStrictEqual(record.fingerprint, expected.fingerprint) ||
     !isDeepStrictEqual(record.inventory, expected.inventory) ||
     !Object.keys(record.inventory).length
@@ -119,16 +149,7 @@ export function projectState(projectDir = process.cwd()) {
   );
   const fingerprint = files;
   const inventories = Object.fromEntries(
-    Object.entries(LANES).map(([lane, definition]) => [
-      lane,
-      Object.fromEntries(
-        Object.entries(files).filter(([file]) =>
-          definition.directories.some(
-            (dir) => file.startsWith('test/' + dir + '/') && file.endsWith('.test.mjs')
-          )
-        )
-      ),
-    ])
+    Object.keys(LANES).map((lane) => [lane, laneInventory(files, lane)])
   );
   if (Object.values(inventories).some((inventory) => !Object.keys(inventory).length))
     fail('empty lane inventory');

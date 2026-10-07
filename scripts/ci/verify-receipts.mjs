@@ -6,6 +6,7 @@ import { readFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import {
   LANES,
+  laneInventory,
   fail,
   projectState,
   validateCloudRun,
@@ -15,7 +16,8 @@ import {
 } from './receipt.mjs';
 
 const OS = { 'ubuntu-latest': 'Linux', 'macos-latest': 'macOS', 'windows-latest': 'Windows' };
-function workers() {
+const baselineLanes = ['fast', 'integration', 'mcp', 'packaging', 'smoke'];
+export function workers() {
   const result = [];
   for (const [os, runnerOS] of Object.entries(OS)) {
     result.push({ key: 'node-24-24-' + os, name: 'Node 24 / ' + os, matrixNode: '24', runnerOS });
@@ -33,6 +35,15 @@ function workers() {
     matrixNode: '26',
     runnerOS: 'Linux',
   });
+  for (const worker of result) worker.lanes = baselineLanes;
+  for (const node of ['24', '26', 'current'])
+    result.push({
+      key: 'owner-publication-' + node + '-windows-latest',
+      name: 'Owner publication / Node ' + node + ' / windows-latest',
+      matrixNode: node,
+      runnerOS: 'Windows',
+      lanes: ['owner-publication'],
+    });
   return result;
 }
 export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' } = {}) {
@@ -41,7 +52,7 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
     mode === 'fast'
       ? ['fast']
       : mode === 'slow'
-        ? ['integration', 'mcp', 'packaging', 'smoke']
+        ? ['integration', 'mcp', 'packaging', 'smoke', 'owner-publication']
         : Object.keys(LANES);
   const execute = (command, args) =>
     execFileSync(command, args, { cwd: projectDir, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
@@ -74,7 +85,7 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
   if (jobs.total_count !== jobs.jobs.length) fail('incomplete job inventory');
   const expectedWorkers = workers();
   for (const worker of expectedWorkers)
-    validateRequiredJob(jobs.jobs, { name: worker.name, lanes: Object.keys(LANES) });
+    validateRequiredJob(jobs.jobs, { name: worker.name, lanes: worker.lanes });
   const artifacts = api('actions', 'runs', run.id, 'artifacts?per_page=100');
   if (artifacts.total_count !== artifacts.artifacts.length) fail('incomplete artifact inventory');
   const names = expectedWorkers.map((worker) => 'apr-ci-' + worker.key + '-' + run.run_attempt);
@@ -101,8 +112,9 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
     ...names.flatMap((name) => ['--name', name]),
   ]);
   let commit;
+  let records = 0;
   for (const worker of expectedWorkers) {
-    for (const lane of lanes) {
+    for (const lane of worker.lanes.filter((lane) => lanes.includes(lane))) {
       const location = path.join(dir, 'apr-ci-' + worker.key + '-' + run.run_attempt);
       const record = JSON.parse(readFileSync(path.join(location, lane + '.json'), 'utf8'));
       if (commit === undefined) commit = record.testedCommit;
@@ -117,9 +129,10 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
         runnerOS: worker.runnerOS,
         lane,
         fingerprint: state.fingerprint,
-        inventory: state.inventories[lane],
+        inventory: laneInventory(state.fingerprint, lane, worker.runnerOS),
         log: readFileSync(path.join(location, lane + '.log')),
       });
+      records++;
     }
   }
   validateTestedCommit(commit, {
@@ -133,6 +146,7 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
     runId: run.id,
     runAttempt: run.run_attempt,
     workers: expectedWorkers.length,
+    records,
     lanes,
     runUrl: run.html_url,
     artifactDirectory: dir,

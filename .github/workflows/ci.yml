@@ -120,6 +120,38 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
 
+  # Dedicated machines retain every owner case without loading the baseline's
+  # expensive stock Windows probes at the same time. Both jobs publish receipts.
+  owner-publication-windows:
+    name: Owner publication / Node ${{ matrix.node }} / windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26', 'current']
+    runs-on: windows-latest
+    env:
+      APR_CI_JOB_KEY: owner-publication-${{ matrix.node }}-windows-latest
+      APR_CI_MATRIX_NODE: '${{ matrix.node }}'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: 'Verify tests: owner-publication'
+        run: node scripts/ci/record-tests.mjs owner-publication
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
+
   npm-pack-compatibility:
     name: npm ${{ matrix.npm }} / Node ${{ matrix.node }}
     strategy:

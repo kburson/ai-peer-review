@@ -2,7 +2,15 @@
 import path from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { isDeepStrictEqual } from 'node:util';
-import { LANES, fail, sha256, captureCommand, projectState } from './receipt.mjs';
+import {
+  LANES,
+  fail,
+  sha256,
+  captureCommand,
+  projectState,
+  laneCommand,
+  laneInventory,
+} from './receipt.mjs';
 
 const [lane, ...extra] = process.argv.slice(2);
 if (!LANES[lane] || extra.length || process.env.GITHUB_ACTIONS !== 'true')
@@ -26,7 +34,8 @@ if (
   identity.repository !== 'kburson/ai-peer-review'
 )
   fail('CI identity');
-const [command, ...args] = LANES[lane].command;
+const actualCommand = laneCommand(lane, identity.runnerOS);
+const [command, ...args] = actualCommand;
 const result = captureCommand(command, args);
 const dir = path.resolve('.scratch/ci-results');
 mkdirSync(dir, { recursive: true });
@@ -39,12 +48,12 @@ writeFileSync(
       schema: 'apr.ci-test-lane/v1',
       lane,
       ...identity,
-      command: LANES[lane].command,
+      command: actualCommand,
       node: process.version,
       platform: process.platform,
       arch: process.arch,
       fingerprint: before.fingerprint,
-      inventory: before.inventories[lane],
+      inventory: laneInventory(before.fingerprint, lane, identity.runnerOS),
       ...execution,
       logSha256: sha256(output),
     },

@@ -8,7 +8,11 @@ import {
   captureCommand,
   validateRequiredJob,
   validateTestedCommit,
+  laneInventory,
+  laneCommand,
 } from '../../scripts/ci/receipt.mjs';
+
+import { workers } from '../../scripts/ci/verify-receipts.mjs';
 
 const log = Buffer.from('TAP version 13\n1..1\nok 1 - actual child output\n');
 const expected = {
@@ -242,5 +246,109 @@ test('accepts only actual source checkout or GitHub-proven PR merge with source 
     },
   ]) {
     assert.throws(() => validateTestedCommit(expected.testedCommit, changed), /ci-receipt:/);
+  }
+});
+
+test('[#175] Windows baseline and owner inventories cover all integration cases once', () => {
+  const files = {
+    'test/integration/ordinary.test.mjs': '1',
+    'test/integration/owner-publication.test.mjs': '2',
+  };
+  const baseline = laneInventory(files, 'integration', 'Windows');
+  const owners = laneInventory(files, 'owner-publication', 'Windows');
+  assert.deepEqual(baseline, { 'test/integration/ordinary.test.mjs': '1' });
+  assert.deepEqual(owners, { 'test/integration/owner-publication.test.mjs': '2' });
+  assert.deepEqual({ ...baseline, ...owners }, files);
+  assert.deepEqual(laneInventory(files, 'integration', 'Linux'), files);
+  assert.deepEqual(laneCommand('integration', 'Windows'), [
+    'node',
+    'test/helpers/run-suite.mjs',
+    'integration',
+    '--exclude-owner-publication',
+  ]);
+});
+test('[#175] dedicated owner receipts require actual owner command and exact owner inventory', () => {
+  const owner = { 'test/integration/owner-publication.test.mjs': '2' };
+  const want = {
+    ...expected,
+    runnerOS: 'Windows',
+    jobKey: 'owner-publication-24-windows-latest',
+    lane: 'owner-publication',
+    inventory: owner,
+    log,
+  };
+  const record = {
+    ...receipt(),
+    ...want,
+    platform: 'win32',
+    command: ['node', '--test', 'test/integration/owner-publication.test.mjs'],
+  };
+  assert.equal(validateLaneReceipt(record, want), true);
+  assert.throws(() => validateLaneReceipt({ ...record, inventory: {} }, want), /ci-receipt:/);
+  assert.throws(
+    () =>
+      validateLaneReceipt(
+        { ...record, command: ['node', '--test', 'test/integration/ordinary.test.mjs'] },
+        want
+      ),
+    /ci-receipt:/
+  );
+});
+
+test('[#175] Windows baseline receipt cannot substitute the full-suite command or inventory', () => {
+  const inventory = { 'test/integration/ordinary.test.mjs': '1' };
+  const want = { ...expected, runnerOS: 'Windows', lane: 'integration', inventory, log };
+  const record = {
+    ...receipt(),
+    ...want,
+    platform: 'win32',
+    command: ['node', 'test/helpers/run-suite.mjs', 'integration', '--exclude-owner-publication'],
+  };
+  assert.equal(validateLaneReceipt(record, want), true);
+  assert.throws(
+    () => validateLaneReceipt({ ...record, command: ['npm', 'run', 'test:integration'] }, want),
+    /ci-receipt:/
+  );
+  assert.throws(
+    () =>
+      validateLaneReceipt(
+        {
+          ...record,
+          inventory: { ...inventory, 'test/integration/owner-publication.test.mjs': '2' },
+        },
+        want
+      ),
+    /ci-receipt:/
+  );
+});
+test('[#175] hosted proof requires independent successful owner jobs for each Windows runtime', () => {
+  const required = workers();
+  for (const node of ['24', '26', 'current']) {
+    const owner = required.filter(
+      (w) =>
+        w.runnerOS === 'Windows' && w.matrixNode === node && w.lanes.includes('owner-publication')
+    );
+    assert.equal(owner.length, 1);
+    assert.deepEqual(owner[0].lanes, ['owner-publication']);
+    const job = {
+      name: owner[0].name,
+      status: 'completed',
+      conclusion: 'success',
+      steps: [{ name: 'Verify tests: owner-publication', conclusion: 'success' }],
+    };
+    assert.equal(validateRequiredJob([job], owner[0]), true);
+    assert.throws(() => validateRequiredJob([], owner[0]), /ci-receipt:/);
+    assert.throws(
+      () =>
+        validateRequiredJob(
+          [{ ...job, steps: [{ name: 'Verify tests: integration', conclusion: 'success' }] }],
+          owner[0]
+        ),
+      /ci-receipt:/
+    );
+    assert.throws(
+      () => validateRequiredJob([{ ...job, conclusion: 'failure' }], owner[0]),
+      /ci-receipt:/
+    );
   }
 });
