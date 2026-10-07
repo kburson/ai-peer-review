@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { encodeClaudeEditRule } from '../../src/provider/claude-launch.mjs';
+import { encodeClaudeEditRule } from '../helpers/claude-launch-api.mjs';
 import {
   buildProviderChildEnvironment,
   CLAUDE_ENVIRONMENT_ALLOWLIST,

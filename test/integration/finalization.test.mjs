@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import * as api from '../helpers/internal-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
-import { inspectReviewAuthority, mutateReview } from '../../src/protocol/service.mjs';
+import { inspectReviewAuthority, mutateReview } from '../helpers/protocol-api.mjs';
 import {
   budgetIntervention,
   fixtureAuthority,
@@ -23,7 +23,7 @@ import {
 
 const NOW = '2026-09-09T12:00:00.000Z';
 const RATIONALE = Buffer.from('Accept this bounded residual risk for the release.\n');
-const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../bin/peer-review.mjs');
+const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../helpers/source-cli.mjs');
 
 function git(root, args, options = {}) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', ...options });
@@ -265,7 +265,7 @@ test('consensus finalization commits only acceptance and deterministic manifest'
   assert.deepEqual(readFileSync(review.started.paths.events), eventBytes);
 });
 
-test('terminal finalization CLI renders success and preserves idempotent retry', async (t) => {
+test('source command engine finalization renders success and preserves idempotent retry', async (t) => {
   const fx = fixture();
   t.after(fx.cleanup);
   const review = await acceptedReview(fx.root, 'finalize-cli');

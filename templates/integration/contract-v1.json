@@ -1,0 +1,12 @@
+{
+  "schema": "ai-peer-review.integration-contract/v1",
+  "contract": "ai-peer-review.integration/v2",
+  "shared_skill_sha256": "545b5b019a5c065043069239de9b236cfa15257204272daa9a1a08270d58ceb5",
+  "wrappers": {
+    "codex": "de7d8353c37973be7f0796273ebae3c0135e5d5ae9373a382fb650a4a87e0986",
+    "claude": "fa8ab5abac29969c4495004edcf49faf052dc775e6888f281dae214e3ab2bcf3",
+    "grok": "bb38c2298a830f81929dc7e5fa9a4564b575c4e30a609d1737cdc56375dcc6eb",
+    "generic": "0b5e7e430f879fb8f9fcecbe614a1f53bcae80f31a2d2e335b42f5b81f353d5a"
+  },
+  "hooks": {}
+}

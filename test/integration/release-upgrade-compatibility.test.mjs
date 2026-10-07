@@ -9,7 +9,7 @@ import {
   reviewerTurnEvents,
   v2Event,
 } from '../helpers/review-fixture.mjs';
-import { inspectReview } from '../../src/protocol/service.mjs';
+import { inspectReview } from '../helpers/protocol-api.mjs';
 
 const COMPATIBILITY = Object.freeze({
   minimum_reader_version: '0.2.2',

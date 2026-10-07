@@ -14,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { statusReview } from '../helpers/internal-api.mjs';
 import {
@@ -180,7 +180,11 @@ test('doctor reports Claude session readiness without relying on project model c
     'claude-opus-5-5'
   );
 
-  assert.equal(result.code, 0, JSON.stringify(result.stderr));
+  assert.equal(result.code, 1, JSON.stringify(result.stderr));
+  assert.equal(
+    result.stdout.rows.find((row) => row.id === 'primary-registration').status,
+    'unavailable'
+  );
   const source = result.stdout.rows.find((row) => row.id === 'identity-source');
   assert.equal(source.status, 'session-handle');
   assert.equal(result.stdout.input.identity.model_id, undefined);
@@ -190,13 +194,17 @@ test('doctor reports Claude session readiness without relying on project model c
   );
 });
 
-test('doctor remains ready when Claude runtime model metadata is absent', async (t) => {
+test('doctor reports session readiness without model metadata while refusing an unregistered primary', async (t) => {
   const fx = fixture({ configured: false });
   t.after(fx.cleanup);
 
   const result = await runJson(['doctor', '--mode', 'manual'], fx.root, 'claude-session');
 
-  assert.equal(result.code, 0);
+  assert.equal(result.code, 1, JSON.stringify(result));
+  assert.equal(
+    result.stdout.rows.find((row) => row.id === 'primary-registration').status,
+    'unavailable'
+  );
   const source = result.stdout.rows.find((row) => row.id === 'identity-source');
   assert.equal(source.status, 'session-handle');
   assert.equal(source.details, null);

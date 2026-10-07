@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { assertRequestedReviewer, validateRuntimeDescriptor } from '../../src/startup/runtime.mjs';
+import { assertRequestedReviewer, validateRuntimeDescriptor } from '../helpers/operations-api.mjs';
 
 const runtime = Object.freeze({
   schema: 'ai-peer-review.runtime/v1',

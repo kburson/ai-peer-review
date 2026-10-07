@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import * as stream from '../../src/providers/claude-stream.mjs';
+import * as stream from '../helpers/claude-stream-api.mjs';
 
 function setup(t) {
   const workspace = mkdtempSync(path.join(os.tmpdir(), 'apr-observation-wait-'));

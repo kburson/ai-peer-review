@@ -3,10 +3,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'n
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-  createClaudeWakeRecorder,
-  readClaudeWakeOutcome,
-} from '../../src/providers/claude-stream.mjs';
+import { createClaudeWakeRecorder, readClaudeWakeOutcome } from '../helpers/claude-stream-api.mjs';
 import { createClaudeProviderSurface } from '../../src/providers/claude.mjs';
 
 const SESSION = '11111111-1111-4111-8111-111111111111';

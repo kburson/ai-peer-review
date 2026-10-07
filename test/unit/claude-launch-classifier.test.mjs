@@ -9,8 +9,8 @@ import {
   buildClaudeLaunchDiagnostic,
   normalizeClaudeExecution,
 } from '../../src/provider/claude-launch-diagnostics.mjs';
-import { runClaudeReviewerLaunch } from '../../src/provider/claude-launch.mjs';
-import { classifyClaudeReviewerOutcome } from '../../src/provider/claude-launch.mjs';
+import { runClaudeReviewerLaunch } from '../helpers/claude-launch-api.mjs';
+import { classifyClaudeReviewerOutcome } from '../helpers/claude-launch-api.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { launchAuthority, launchFixture } from '../helpers/claude-launch-fixture.mjs';
 import { exerciseClaudeLaunchDiagnostics } from '../helpers/claude-launch-cli-regression.mjs';

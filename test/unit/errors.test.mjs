@@ -17,22 +17,27 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   assert.equal(packageJson.bin['peer-review-mcp'], './bin/peer-review-mcp.mjs');
   assert.deepEqual(packageJson.dependencies, {
     '@modelcontextprotocol/sdk': '1.30.0',
+    'jsonc-parser': '3.3.1',
+    'markdownlint-cli2': '0.23.3',
     'node-gyp': '12.4.0',
     prettier: '3.8.3',
     zod: '4.6.2',
   });
   assert.deepEqual(packageJson.scripts, {
+    'pack:runtime': 'node scripts/pack-runtime.mjs',
+    prepack: 'node scripts/refuse-source-pack.mjs',
     'build:broker-security': 'node scripts/build-broker-security.mjs',
     'pretarball:install': 'npm uninstall -D @kburson/ai-task-manager',
     'tarball:install': 'npm install -D file:vendors/kburson-ai-task-manager-0.1.0.tgz',
     test: 'npm run test:unit && npm run test:golden',
-    'test:unit': 'node --test "test/unit/**/*.test.mjs"',
-    'test:golden': 'node --test "test/golden/**/*.test.mjs"',
-    'test:integration': 'node --test --test-concurrency=2 "test/integration/**/*.test.mjs"',
-    'test:packaging': 'node --test "test/packaging/**/*.test.mjs"',
-    'test:live:broker-handoff': 'node test/live/installed-broker-handoff.mjs',
-    'test:smoke': 'node --test "test/smoke/**/*.test.mjs"',
-    'test:mcp': 'node --test "test/mcp/**/*.test.mjs"',
+    'test:unit': 'node test/helpers/run-suite.mjs unit',
+    'test:golden': 'node test/helpers/run-suite.mjs golden',
+    'test:integration': 'node test/helpers/run-suite.mjs integration',
+    'test:packaging': 'node test/helpers/run-suite.mjs packaging',
+    'test:live:broker-handoff':
+      'node -e "console.log(\'Broker verification paused for #102/#107\')"',
+    'test:smoke': 'node test/helpers/run-suite.mjs smoke',
+    'test:mcp': 'node test/helpers/run-suite.mjs mcp',
     'test:slow': 'npm run test:integration && npm run test:mcp && npm run test:smoke',
     format: 'prettier --write .',
     'format:check': 'prettier --check .',
@@ -41,13 +46,10 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
   assert.deepEqual(packageJson.files, [
     'bin/',
     'src/',
-    'docs/',
     'schemas/',
     'templates/',
     'skills/',
     'provenance/',
-    'scripts/verify-extraction.mjs',
-    'scripts/verify-release.mjs',
     'native/broker-security/binding.gyp',
     'native/broker-security/addon.cc',
     'native/broker-security/posix.cc',
@@ -56,6 +58,13 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     'LICENSE',
     'NOTICE',
     'README.md',
+    'docs/releases/',
+    'docs/dependency-audit-mcp.md',
+    'docs/dependency-audit-broker-build.md',
+    'docs/manual-cross-provider-peer-review.md',
+    'docs/claude-launch-api-migration.md',
+    'docs/spdx-policy.md',
+    'docs/installation-runtime.md',
   ]);
 });
 

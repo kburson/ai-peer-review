@@ -14,10 +14,10 @@ import {
   requestChallenge,
 } from '../../src/authority/challenge.mjs';
 import { effectiveAuthorityStrength, verifyAndConsumeGrant } from '../../src/authority/verify.mjs';
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
-import { readReview } from '../../src/protocol/service.mjs';
+import { readReview, mutateProtectedReview } from '../helpers/protocol-api.mjs';
 import {
   FINGERPRINTS,
   claim,
@@ -597,4 +597,63 @@ test('unavailable authority blocks protected challenges but not ordinary consens
   );
   assert.equal(reduceEvents(consensus).protocol.state, 'acceptance-pending');
   assert.equal(participant('author').role, 'author');
+});
+
+// @story #136
+test('protected mutation waits for preflight refusal before consuming grant or writing events', async (t) => {
+  const { events, state, challenge } = stateWithChallenge();
+  const fixture = await createReviewWorkspace({ repository: null, events });
+  t.after(fixture.cleanup);
+  const before = readFileSync(fixture.events);
+  const refusal = new Error('Preflight refused the event-derived output.');
+  let startedPreflight;
+  const started = new Promise((resolve) => {
+    startedPreflight = resolve;
+  });
+  let rejectPreflight;
+  const pending = new Promise((_resolve, reject) => {
+    rejectPreflight = reject;
+  });
+  pending.catch(() => {});
+  let settled = false;
+  const mutation = mutateProtectedReview(
+    fixture.workspace,
+    {
+      reviewId: state.protocol.review_id,
+      sequence: state.protocol.sequence,
+      revision: state.protocol.revision,
+      actor: state.protocol.current_actor,
+    },
+    {
+      action: 'continue',
+      parameters: continueParameters,
+      grant: detachedGrant(challenge),
+      now,
+      preflight: () => {
+        startedPreflight();
+        return pending;
+      },
+      createEvent: () => {
+        throw new Error('Event factory ran before preflight completed.');
+      },
+    }
+  ).then(
+    () => {
+      settled = true;
+      return null;
+    },
+    (error) => {
+      settled = true;
+      return error;
+    }
+  );
+  try {
+    await started;
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settled, false, 'mutation must remain pending until its preflight settles');
+  } finally {
+    rejectPreflight(refusal);
+  }
+  assert.equal(await mutation, refusal);
+  assert.deepEqual(readFileSync(fixture.events), before);
 });

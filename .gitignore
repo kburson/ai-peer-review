@@ -15,3 +15,6 @@ native/broker-security/build/
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .tmp/
+
+# Generated inline execution workspace
+.superpowers/

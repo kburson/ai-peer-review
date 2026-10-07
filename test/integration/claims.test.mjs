@@ -13,12 +13,13 @@ import {
   claimRole,
   deriveClaimStatus,
   enterStaleClaimIntervention,
-  recordStaleClaimIntervention,
+  createStaleClaimRecorder,
   reclaimRole,
 } from '../../src/identity/registry.mjs';
 import { parseCommand } from '../../src/cli/parse.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
-import { readReview } from '../../src/protocol/service.mjs';
+import { readReview, mutateReview } from '../helpers/protocol-api.mjs';
+const recordStaleClaimIntervention = createStaleClaimRecorder(mutateReview);
 import {
   claim,
   createReviewWorkspace,

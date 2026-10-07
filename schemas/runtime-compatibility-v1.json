@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "integration_contract", "contracts"],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.runtime-compatibility/v1"
+    },
+    "integration_contract": {
+      "enum": ["ai-peer-review.integration/v1", "ai-peer-review.integration/v2"]
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event",
+        "protocol",
+        "participants",
+        "manifest",
+        "phaseManifest",
+        "response",
+        "context",
+        "runtime",
+        "startup",
+        "runtimeImage",
+        "brokerRegistration",
+        "brokerBootstrap",
+        "reservation",
+        "lineage",
+        "invitation",
+        "archive"
+      ],
+      "properties": {
+        "event": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.event/v1", "ai-peer-review.event/v2"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.event/v1", "ai-peer-review.event/v2"]
+              }
+            }
+          }
+        },
+        "protocol": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.protocol/v1", "ai-peer-review.protocol/v2"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.protocol/v1", "ai-peer-review.protocol/v2"]
+              }
+            }
+          }
+        },
+        "participants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.participants/v1", "ai-peer-review.participants/v2"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.participants/v1", "ai-peer-review.participants/v2"]
+              }
+            }
+          }
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.manifest/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.manifest/v1"]
+              }
+            }
+          }
+        },
+        "phaseManifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.phase-manifest/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.phase-manifest/v1"]
+              }
+            }
+          }
+        },
+        "response": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.response/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.response/v1"]
+              }
+            }
+          }
+        },
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.context/v1", "ai-peer-review.context/v2"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.context/v1", "ai-peer-review.context/v2"]
+              }
+            }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.runtime/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.runtime/v1"]
+              }
+            }
+          }
+        },
+        "startup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.startup-request/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.startup-request/v1"]
+              }
+            }
+          }
+        },
+        "runtimeImage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.runtime-image/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.runtime-image/v1"]
+              }
+            }
+          }
+        },
+        "brokerRegistration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.broker-registration/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.broker-registration/v1"]
+              }
+            }
+          }
+        },
+        "brokerBootstrap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.broker-bootstrap/v1", "ai-peer-review.broker-bootstrap/v2"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.broker-bootstrap/v2"]
+              }
+            }
+          }
+        },
+        "reservation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.collateral-reservation/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.collateral-reservation/v1"]
+              }
+            }
+          }
+        },
+        "lineage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.lineage-receipt/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.lineage-receipt/v1"]
+              }
+            }
+          }
+        },
+        "invitation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.invitation-routing/v1"]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["ai-peer-review.invitation-routing/v1"]
+              }
+            }
+          }
+        },
+        "archive": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "write"],
+          "properties": {
+            "read": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "ai-peer-review.relocation-plan/v1",
+                  "ai-peer-review.relocation-receipt/v1"
+                ]
+              }
+            },
+            "write": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "ai-peer-review.relocation-plan/v1",
+                  "ai-peer-review.relocation-receipt/v1"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

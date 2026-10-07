@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createAuthenticatedBrokerServer, runBroker } from '../../src/broker/service.mjs';
+import { createAuthenticatedBrokerServer, runBroker } from '../helpers/broker-service-api.mjs';
 import { encodeFrame } from '../../src/broker/ipc.mjs';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
 import { recoveryWorkerFixture } from '../helpers/recovery-worker-fixture.mjs';

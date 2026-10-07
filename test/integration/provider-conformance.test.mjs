@@ -26,8 +26,8 @@ import {
   collectClaudeStream,
   readClaudeStreamObservation,
   readClaudeSessionSnapshot,
-} from '../../src/providers/claude-stream.mjs';
-import { run, startReview } from '../../src/cli/run.mjs';
+} from '../helpers/claude-stream-api.mjs';
+import { run, startReview } from '../helpers/operations-api.mjs';
 import {
   fingerprintSession,
   participantIdentity,
@@ -36,8 +36,8 @@ import {
 import { createClaudeAdapter } from '../../src/providers/claude.mjs';
 import { createCodexProviderSurface } from '../../src/providers/codex.mjs';
 import { readCodexSessionSnapshot } from '../../src/providers/codex-session.mjs';
-import { captureCodexStartHook, readCodexStartHook } from '../../src/providers/codex-hook.mjs';
-import { activateStartup, prepareStartup } from '../../src/startup/runtime.mjs';
+import { captureCodexStartHook, readCodexStartHook } from '../helpers/codex-hook-api.mjs';
+import { activateStartup, prepareStartup } from '../helpers/operations-api.mjs';
 import { fixtureStartupDeps } from '../helpers/internal-api.mjs';
 
 const NOW = '2026-09-21T00:00:00.000Z';
@@ -1008,7 +1008,7 @@ test('Claude stream observation is persisted before the provider process exits',
     "const init={type:'system',subtype:'init',model:'claude-opus-5',session_id:'stream-session',claude_code_version:'2.1.278'};",
     "const use={type:'assistant',session_id:'stream-session',timestamp:'2026-09-21T14:35:00.000Z',message:{model:'claude-opus-5',content:[{type:'tool_use',id:'tool-stream',name:'Bash',input:{command:'peer-review join /repo/invitation.md'}}]}};",
     "process.stdout.write(JSON.stringify(init)+'\\n'+JSON.stringify(use)+'\\n');",
-    "setTimeout(()=>{if(!fs.existsSync(process.argv[1]))process.exit(42);process.stdout.write(JSON.stringify({type:'result',session_id:'stream-session',result:'done'})+'\\n');},200);",
+    "const deadline=Date.now()+5000;const wait=()=>{if(fs.existsSync(process.argv[1])){process.stdout.write(JSON.stringify({type:'result',session_id:'stream-session',result:'done'})+'\\n');return;}if(Date.now()>=deadline)process.exit(42);setTimeout(wait,20);};wait();",
   ].join('');
   const child = spawn(
     process.execPath,
@@ -1467,7 +1467,7 @@ test('CLI start uses production adapters when no test registry is injected', asy
 });
 
 test('CLI doctor reports the current provider adapter observation', async (t) => {
-  const fixture = repositoryFixture('apr-provider-cli-doctor-');
+  const fixture = repositoryFixture('apr-provider-doctor-');
   t.after(fixture.cleanup);
   let stdout = '';
   const code = await run(['doctor', '--json'], {
@@ -1495,7 +1495,8 @@ test('CLI doctor reports the current provider adapter observation', async (t) =>
     stderr: { write: () => {} },
   });
   const result = JSON.parse(stdout);
-  assert.equal(code, 0);
+  assert.equal(code, 1);
+  assert.equal(result.rows.find((row) => row.id === 'primary-registration').status, 'unavailable');
   assert.deepEqual(
     result.rows.find((entry) => entry.id === 'provider-adapter'),
     {
@@ -1507,7 +1508,7 @@ test('CLI doctor reports the current provider adapter observation', async (t) =>
   );
 });
 
-test('CLI join refuses runtime identity derived only from sealed request values', async (t) => {
+test('CLI join refuses an explicit hook token without exact provider evidence', async (t) => {
   const fx = repositoryFixture('apr-provider-cli-join-');
   t.after(fx.cleanup);
   const input = {
@@ -1531,6 +1532,7 @@ test('CLI join refuses runtime identity derived only from sealed request values'
     cwd: fx.root,
     env: {
       CODEX_THREAD_ID: 'reviewer-session',
+      APR_CODEX_HOOK_TOKEN: 'd'.repeat(32),
       CODEX_MODEL_ID: 'gpt-6-astra',
       CODEX_MODEL_DISPLAY: 'GPT-6 Astra',
     },
@@ -1542,104 +1544,115 @@ test('CLI join refuses runtime identity derived only from sealed request values'
   assert.match(stderr, /APR_CODEX_HOOK_INVALID/);
 });
 
-test('CLI join binds provider stream observation with the executing Claude adapter', async (t) => {
-  const fx = repositoryFixture('apr-provider-cli-verified-join-');
-  t.after(fx.cleanup);
-  const adapter = createClaudeAdapter({
-    surface: {
-      available: async () => true,
-      version: async () => '2.1.278',
-      observeCurrentSession: readClaudeStreamObservation,
-    },
-  });
-  const reviewId = 'provider-cli-verified-join';
-  const prepared = await prepareStartup(
-    {
-      issue: 117,
-      reviewerProvider: 'claude',
-      reviewerModel: 'claude-opus-5',
-      reviewerEffort: 'medium',
-      transportMode: 'manual',
+for (const observedModel of ['claude-opus-5', 'different-observed-model']) {
+  test(`CLI join verifies live provider stream model=${observedModel}`, async (t) => {
+    const fx = repositoryFixture('apr-provider-cli-verified-join-');
+    t.after(fx.cleanup);
+    const adapter = createClaudeAdapter({
+      surface: {
+        available: async () => true,
+        version: async () => '2.1.278',
+        observeCurrentSession: readClaudeStreamObservation,
+      },
+    });
+    const reviewId = 'provider-cli-verified-join';
+    const prepared = await prepareStartup(
+      {
+        issue: 117,
+        reviewerProvider: 'claude',
+        reviewerModel: 'claude-opus-5',
+        reviewerEffort: 'medium',
+        transportMode: 'manual',
+        cwd: fx.root,
+        artifact: 'docs/example.md',
+        artifactKind: 'spec',
+        identity: identity('author', 'verified-author'),
+        now: NOW,
+        reviewId,
+      },
+      { ...fixtureStartupDeps, adapters: { claude: adapter } }
+    );
+    const started = await activateStartup(prepared, {
+      ...fixtureStartupDeps,
+      adapters: { claude: adapter },
+    });
+    const recorder = createClaudeStreamRecorder({
+      workspace: started.paths.workspace,
+      operationId: `join:${reviewId}`,
+      expectedCommand: `peer-review join ${started.paths.reviewer_invitation}`,
+    });
+    recorder.accept({
+      type: 'system',
+      subtype: 'init',
+      model: observedModel,
+      session_id: 'verified-reviewer',
+      claude_code_version: '2.1.278',
+    });
+    recorder.accept({
+      type: 'assistant',
+      session_id: 'verified-reviewer',
+      timestamp: NOW,
+      message: {
+        model: observedModel,
+        content: [
+          {
+            type: 'tool_use',
+            id: 'tool-join-verified',
+            name: 'Bash',
+            input: { command: `peer-review join ${started.paths.reviewer_invitation}` },
+          },
+        ],
+      },
+    });
+    let stdout = '';
+    let stderr = '';
+    const code = await run(['join', started.paths.reviewer_invitation], {
       cwd: fx.root,
-      artifact: 'docs/example.md',
-      artifactKind: 'spec',
-      identity: identity('author', 'verified-author'),
-      now: NOW,
-      reviewId,
-    },
-    { ...fixtureStartupDeps, adapters: { claude: adapter } }
-  );
-  const started = await activateStartup(prepared, {
-    ...fixtureStartupDeps,
-    adapters: { claude: adapter },
+      env: {
+        CLAUDE_CODE_SESSION_ID: 'verified-reviewer',
+        CLAUDE_MODEL_ID: 'claude-opus-5',
+        CLAUDE_MODEL_DISPLAY: 'Claude Opus 5',
+      },
+      adapters: { claude: adapter },
+      now: new Date(NOW),
+      stdout: { write: (value) => (stdout += value) },
+      stderr: { write: (value) => (stderr += value) },
+    });
+    if (observedModel !== 'claude-opus-5') {
+      assert.equal(code, 1);
+      assert.match(stderr, /APR_IDENTITY_CONFLICT/);
+      assert.equal(
+        JSON.parse(readFileSync(path.join(started.paths.workspace, 'participants.json'))).reviewer,
+        null
+      );
+      return;
+    }
+    assert.equal(code, 0, stderr);
+    assert.match(stdout, /reviewer-turn/);
+    const binding = JSON.parse(
+      readFileSync(path.join(started.paths.workspace, 'provider/bindings/reviewer.json'), 'utf8')
+    );
+    assert.equal(binding.provider, 'anthropic');
+    assert.equal(binding.handle_locator, 'verified-reviewer');
+    const bindingFile = path.join(started.paths.workspace, 'provider/bindings/reviewer.json');
+    unlinkSync(bindingFile);
+    stderr = '';
+    const retry = await run(['join', started.paths.reviewer_invitation], {
+      cwd: fx.root,
+      env: {
+        CLAUDE_CODE_SESSION_ID: 'verified-reviewer',
+        CLAUDE_MODEL_ID: 'claude-opus-5',
+        CLAUDE_MODEL_DISPLAY: 'Claude Opus 5',
+      },
+      adapters: { claude: adapter },
+      now: new Date(NOW),
+      stdout: { write: () => {} },
+      stderr: { write: (value) => (stderr += value) },
+    });
+    assert.equal(retry, 0, stderr);
+    assert.equal(JSON.parse(readFileSync(bindingFile, 'utf8')).handle_locator, 'verified-reviewer');
   });
-  const recorder = createClaudeStreamRecorder({
-    workspace: started.paths.workspace,
-    operationId: `join:${reviewId}`,
-    expectedCommand: `peer-review join ${started.paths.reviewer_invitation}`,
-  });
-  recorder.accept({
-    type: 'system',
-    subtype: 'init',
-    model: 'claude-opus-5',
-    session_id: 'verified-reviewer',
-    claude_code_version: '2.1.278',
-  });
-  recorder.accept({
-    type: 'assistant',
-    session_id: 'verified-reviewer',
-    timestamp: NOW,
-    message: {
-      model: 'claude-opus-5',
-      content: [
-        {
-          type: 'tool_use',
-          id: 'tool-join-verified',
-          name: 'Bash',
-          input: { command: `peer-review join ${started.paths.reviewer_invitation}` },
-        },
-      ],
-    },
-  });
-  let stdout = '';
-  let stderr = '';
-  const code = await run(['join', started.paths.reviewer_invitation], {
-    cwd: fx.root,
-    env: {
-      CLAUDE_CODE_SESSION_ID: 'verified-reviewer',
-      CLAUDE_MODEL_ID: 'claude-opus-5',
-      CLAUDE_MODEL_DISPLAY: 'Claude Opus 5',
-    },
-    adapters: { claude: adapter },
-    now: new Date(NOW),
-    stdout: { write: (value) => (stdout += value) },
-    stderr: { write: (value) => (stderr += value) },
-  });
-  assert.equal(code, 0, stderr);
-  assert.match(stdout, /reviewer-turn/);
-  const binding = JSON.parse(
-    readFileSync(path.join(started.paths.workspace, 'provider/bindings/reviewer.json'), 'utf8')
-  );
-  assert.equal(binding.provider, 'anthropic');
-  assert.equal(binding.handle_locator, 'verified-reviewer');
-  const bindingFile = path.join(started.paths.workspace, 'provider/bindings/reviewer.json');
-  unlinkSync(bindingFile);
-  stderr = '';
-  const retry = await run(['join', started.paths.reviewer_invitation], {
-    cwd: fx.root,
-    env: {
-      CLAUDE_CODE_SESSION_ID: 'verified-reviewer',
-      CLAUDE_MODEL_ID: 'claude-opus-5',
-      CLAUDE_MODEL_DISPLAY: 'Claude Opus 5',
-    },
-    adapters: { claude: adapter },
-    now: new Date(NOW),
-    stdout: { write: () => {} },
-    stderr: { write: (value) => (stderr += value) },
-  });
-  assert.equal(retry, 0, stderr);
-  assert.equal(JSON.parse(readFileSync(bindingFile, 'utf8')).handle_locator, 'verified-reviewer');
-});
+}
 
 test('startup preserves definitely-not-submitted and stable provider failures', async (t) => {
   for (const failure of [

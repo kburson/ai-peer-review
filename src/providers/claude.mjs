@@ -430,7 +430,9 @@ export function createClaudeProviderSurface(options = {}) {
             }
           ))
       )(args, { recorder, projectRoot, workspace, env: wakeEnv });
-      if (execution?.exit_code !== 0) return { status: 'outcome-unknown', reason: 'provider-exit' };
+      if (execution?.exit_code !== 0) {
+        return { status: 'outcome-unknown', reason: 'provider-exit' };
+      }
       const observed = recorder.confirm();
       if (observed.source_version !== (await version()))
         throw new AprError('APR_IDENTITY_CONFLICT', 'Claude wake surface version changed.', {

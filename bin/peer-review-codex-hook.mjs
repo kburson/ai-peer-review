@@ -16,13 +16,15 @@ for await (const chunk of process.stdin) {
 const event = JSON.parse(input);
 if (!isCodexPeerReviewCommand(event?.tool_input?.command) && !isCodexPeerReviewCodeModeEvent(event))
   process.exit(0);
-const version = execFileSync('codex', ['--version'], { encoding: 'utf8' })
-  .trim()
-  .match(/^codex-cli (.+)$/)?.[1];
-const output = captureCodexStartHook({
-  event,
-  hookRuntimeSessionId: process.env.CODEX_THREAD_ID ?? null,
-  sourceVersion: version,
-  token: randomBytes(16).toString('hex'),
-});
+const output = await (async () => {
+  const version = execFileSync('codex', ['--version'], { encoding: 'utf8' })
+    .trim()
+    .match(/^codex-cli (.+)$/)?.[1];
+  return captureCodexStartHook({
+    event,
+    hookRuntimeSessionId: process.env.CODEX_THREAD_ID ?? null,
+    sourceVersion: version,
+    token: randomBytes(16).toString('hex'),
+  });
+})();
 if (output) process.stdout.write(`${JSON.stringify(output)}\n`);

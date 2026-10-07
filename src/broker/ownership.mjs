@@ -2,6 +2,9 @@ import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { brokerError, validateHandshake } from './ipc.mjs';
 
+const authenticatedOwners = new WeakSet();
+export const isAuthenticatedBrokerOwner = (owner) => authenticatedOwners.has(owner);
+
 function provisionDirectories(values, platform, { keepLast = false } = {}) {
   const directories = [];
   try {
@@ -125,6 +128,7 @@ export function acquireBrokerOwnership(
     if (!deferPublication) owner.publish();
     if (!owner.verify())
       throw brokerError('APR_BROKER_STALE', 'Broker evidence changed during acquisition.');
+    authenticatedOwners.add(owner);
     return Object.freeze(owner);
   } catch (error) {
     endpoint?.close();

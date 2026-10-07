@@ -12,13 +12,10 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 import { createClaudeAdapter } from '../../src/providers/claude.mjs';
-import {
-  createClaudeStreamRecorder,
-  readClaudeStreamObservation,
-} from '../../src/providers/claude-stream.mjs';
+import { createClaudeStreamRecorder, readClaudeStreamObservation } from './claude-stream-api.mjs';
 import { fixtureObservation, fixtureStartupDeps, statusReview } from './internal-api.mjs';
 
 const PROVIDER_KEYS = [

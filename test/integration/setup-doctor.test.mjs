@@ -1,4 +1,3 @@
-import { fixtureSelection, fixtureStartupDeps } from '../helpers/internal-api.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -8,10 +7,9 @@ import test from 'node:test';
 import { format, resolveConfig } from 'prettier';
 
 import { configPaths, loadConfig, validateConfig } from '../../src/config/load.mjs';
-import { planSetup, setup, updateSetup } from '../../src/config/setup.mjs';
+import { planSetup, setup, updateSetup } from '../helpers/legacy-setup-fixture.mjs';
 import { doctor } from '../../src/doctor.mjs';
-import { run, startReview } from '../../src/cli/run.mjs';
-import { participantIdentity } from '../../src/identity/registry.mjs';
+import { run } from '../helpers/operations-api.mjs';
 
 function fixture() {
   const root = mkdtempSync(path.join(os.tmpdir(), 'apr-setup-'));
@@ -40,7 +38,7 @@ test('Windows configuration falls back to the supplied home when APPDATA is abse
 });
 
 for (const host of ['codex', 'claude', 'grok', 'generic']) {
-  test(`setup preview is idempotent and reversible for ${host}`, () => {
+  test(`historical setup fixture preview is idempotent and reversible for ${host}`, () => {
     const files = fixture();
     const adapterFile = path.join(
       files.project,
@@ -69,8 +67,16 @@ for (const host of ['codex', 'claude', 'grok', 'generic']) {
     assert.deepEqual(configuredAdapter.preserved, { value: host });
     assert.equal(configuredAdapter.ai_peer_review.version, 2);
     assert.equal(configuredAdapter.ai_peer_review.adapter_version, '2.0.0');
-    assert.equal(configuredAdapter.ai_peer_review.mcp, null);
-    assert.equal(configuredAdapter.ai_peer_review.transport, 'manual');
+    if (['codex', 'claude'].includes(host)) {
+      assert.deepEqual(configuredAdapter.ai_peer_review.mcp.server_command, ['peer-review-mcp']);
+      assert.equal(configuredAdapter.ai_peer_review.mcp.tool_timeout_ms, 28_800_000);
+      assert.equal(configuredAdapter.ai_peer_review.mcp.heartbeat_interval_ms, 15_000);
+      assert.equal(configuredAdapter.ai_peer_review.mcp.lease_ttl_ms, 60_000);
+      assert.equal(configuredAdapter.ai_peer_review.transport, 'live-wait');
+    } else {
+      assert.equal(configuredAdapter.ai_peer_review.mcp, null);
+      assert.equal(configuredAdapter.ai_peer_review.transport, 'manual');
+    }
     assert.match(readFileSync(files.exclude, 'utf8'), /\.scratch\/peer-review\//);
     assert.equal(readFileSync(path.join(files.project, '.gitignore'), 'utf8'), 'dist/\n');
     assert.equal(setup({ ...preview.input, dryRun: false }).changed, false);
@@ -112,14 +118,14 @@ test('Claude setup preview, apply, and removal preserve foreign hooks and status
   const installed = JSON.parse(readFileSync(settingsFile, 'utf8'));
   assert.deepEqual(installed.hooks.SessionStart, [{ command: 'user-owned-session-hook' }]);
   assert.equal(installed.statusLine.command, 'user-owned-status-line');
-  assert.equal(installed.hooks.PreToolUse, undefined);
+  assert.equal(installed.hooks.PreToolUse[0].hooks[0].command, 'peer-review-claude-hook');
   setup({ ...options, remove: true, dryRun: true });
   assert.deepEqual(JSON.parse(readFileSync(settingsFile, 'utf8')), installed);
   setup({ ...options, remove: true });
   assert.equal(readFileSync(settingsFile, 'utf8'), foreignSettings);
 });
 
-test('setup requires explicit scratch-exclude confirmation and exposes deterministic plans', () => {
+test('historical setup fixture requires explicit scratch-exclude confirmation and exposes deterministic plans', () => {
   const files = fixture();
   assert.throws(
     () =>
@@ -172,11 +178,18 @@ test('fresh setup removes only its own files and refuses foreign provider owners
   );
   const adapterFile = path.join(files.project, '.codex', 'config.json');
   const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
-  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.transport, 'manual');
-  assert.equal(
+  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.transport, 'live-wait');
+  assert.deepEqual(
     JSON.parse(readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')).hosts.codex
       .automatic,
-    undefined
+    {
+      adapter_version: '2.0.0',
+      capability: 'live-wait',
+      server_command: ['peer-review-mcp'],
+      tool_timeout_ms: 28_800_000,
+      heartbeat_interval_ms: 15_000,
+      lease_ttl_ms: 60_000,
+    }
   );
   const removal = setup({ ...options, remove: true, dryRun: true });
   assert.ok(
@@ -219,7 +232,7 @@ test('removal preserves a pre-existing exact skill while removing provider owner
   assert.equal(existsSync(adapterFile), false);
 });
 
-test('setup automatically replaces an older package-owned skill and keeps the previous bytes', (t) => {
+test('historical setup fixture automatically replaces an older package-owned skill and keeps the previous bytes', (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const options = {
@@ -272,7 +285,7 @@ test('teardown removes an older package-owned skill idempotently with a backup',
   assert.equal(setup({ ...options, remove: true }).changed, false);
 });
 
-test('setup refuses a foreign differing skill without ownership evidence', (t) => {
+test('historical setup fixture refuses a foreign differing skill without ownership evidence', (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
@@ -290,7 +303,7 @@ test('setup refuses a foreign differing skill without ownership evidence', (t) =
   assert.equal(readFileSync(skillFile, 'utf8'), 'foreign skill\n');
 });
 
-test('setup --update refreshes every recorded project host and is idempotent', async (t) => {
+test('historical setup fixture --update refreshes every recorded project host and is idempotent', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const options = {
@@ -335,63 +348,24 @@ test('setup --update refreshes every recorded project host and is idempotent', a
     ({ file }) => path.basename(path.dirname(path.dirname(path.dirname(file)))) === '.codex'
   ).file;
   writeFileSync(codexSkill, `${readFileSync(codexSkill, 'utf8')}\nprevious package\n`);
-  const cliOutput = [];
-  const cliErrors = [];
-  assert.equal(
-    await run(['setup', '--update'], {
-      cwd: files.project,
-      env: {},
-      stdout: { write: (value) => cliOutput.push(String(value)) },
-      stderr: { write: (value) => cliErrors.push(String(value)) },
-    }),
-    0,
-    cliErrors.join('')
-  );
-  assert.match(cliOutput.join(''), /Setup applied/i);
-  assert.match(cliOutput.join(''), /SKILL\.md/);
-  assert.match(cliOutput.join(''), /\.bak/);
-  assert.doesNotMatch(cliOutput.join(''), /"schema"/);
-  const jsonOutput = [];
-  assert.equal(
-    await run(['setup', '--update', '--json'], {
-      cwd: files.project,
-      env: {},
-      stdout: { write: (value) => jsonOutput.push(String(value)) },
-      stderr: { write: (value) => cliErrors.push(String(value)) },
-    }),
-    0,
-    cliErrors.join('')
-  );
-  const cliResult = JSON.parse(jsonOutput.at(-1));
-  assert.equal(cliResult.schema, 'ai-peer-review.setup-result/v1');
-  assert.equal(cliResult.status, 'no-changes');
-  const noChangesOutput = [];
-  await run(['setup', '--update'], {
-    cwd: files.project,
-    env: {},
-    stdout: { write: (value) => noChangesOutput.push(String(value)) },
-    stderr: { write: (value) => cliErrors.push(String(value)) },
-  });
-  assert.match(noChangesOutput.join(''), /already up to date/i);
-  writeFileSync(codexSkill, `${readFileSync(codexSkill, 'utf8')}\nprevious package again\n`);
-  const appliedJsonOutput = [];
-  await run(['setup', '--update', '--json'], {
-    cwd: files.project,
-    env: {},
-    stdout: { write: (value) => appliedJsonOutput.push(String(value)) },
-    stderr: { write: (value) => cliErrors.push(String(value)) },
-  });
-  const appliedJson = JSON.parse(appliedJsonOutput.at(-1));
-  assert.equal(appliedJson.status, 'applied');
-  assert.deepEqual(appliedJson.backups, [`${codexSkill}.bak`]);
-  const previewOutput = [];
-  await run(['setup', '--update', '--dry-run'], {
-    cwd: files.project,
-    env: {},
-    stdout: { write: (value) => previewOutput.push(String(value)) },
-    stderr: { write: (value) => cliErrors.push(String(value)) },
-  });
-  assert.match(previewOutput.join(''), /Preview only/i);
+  // Production maintenance no longer accepts a source checkout as authority.
+  const beforeCli = readFileSync(codexSkill, 'utf8');
+  for (const flags of [[], ['--json'], ['--dry-run']]) {
+    const output = [],
+      errors = [];
+    assert.equal(
+      await run(['setup', '--update', ...flags], {
+        cwd: files.project,
+        env: {},
+        stdout: { write: (value) => output.push(value) },
+        stderr: { write: (value) => errors.push(value) },
+      }),
+      1
+    );
+    assert.match(errors.join(''), /APR_RUNTIME_/);
+    assert.equal(output.length, 0);
+    assert.equal(readFileSync(codexSkill, 'utf8'), beforeCli);
+  }
 
   assert.throws(() => updateSetup({ ...updateOptions, remove: true }), {
     code: 'APR_SETUP_INVALID',
@@ -401,7 +375,7 @@ test('setup --update refreshes every recorded project host and is idempotent', a
   });
 });
 
-test('setup --update refuses a project with no prior package-owned setup', (t) => {
+test('historical setup fixture --update refuses a project with no prior package-owned setup', (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   assert.throws(() => updateSetup({ cwd: files.project, home: files.home }), {
@@ -409,7 +383,7 @@ test('setup --update refuses a project with no prior package-owned setup', (t) =
   });
 });
 
-test('installed CLI refuses stale setup package identity before review work', async (t) => {
+test('mutating CLI refuses stale setup package identity before review work', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const options = {
@@ -442,7 +416,7 @@ test('installed CLI refuses stale setup package identity before review work', as
   };
   config.setup.package_version = '0.0.0';
   writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
-  assert.equal(await run(['status', 'missing-review'], io), 1);
+  assert.equal(await run(['resume', 'missing-review'], io), 1);
   assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
   assert.match(JSON.parse(output.stderr).recovery, /setup --update --dry-run/i);
   output.stderr = '';
@@ -457,7 +431,7 @@ test('installed CLI refuses stale setup package identity before review work', as
   const skillFile = path.join(files.project, '.codex', 'skills', 'peer-review', 'SKILL.md');
   writeFileSync(skillFile, `${readFileSync(skillFile, 'utf8')}\nchanged\n`);
   output.stderr = '';
-  assert.equal(await run(['status', 'missing-review'], io), 1);
+  assert.equal(await run(['resume', 'missing-review'], io), 1);
   assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
   setup(options);
   assert.equal(setup(options).changed, false);
@@ -499,7 +473,7 @@ test('runtime and published schema share authority and setup invariants', () => 
   ]);
 });
 
-test('setup composes agents and preserves a pre-existing scratch exclusion', () => {
+test('historical setup fixture composes agents and preserves a pre-existing scratch exclusion', () => {
   const files = fixture();
   writeFileSync(files.exclude, '# local excludes\n.scratch/peer-review/\n');
   const base = {
@@ -525,7 +499,7 @@ test('setup composes agents and preserves a pre-existing scratch exclusion', () 
   assert.match(readFileSync(files.exclude, 'utf8'), /\.scratch\/peer-review\//);
 });
 
-test('setup migrates an owned v1 installation to reversible Phase 2 adapters', () => {
+test('historical setup fixture migrates an owned v1 installation to reversible Phase 2 adapters', () => {
   const files = fixture();
   writeFileSync(
     path.join(files.project, '.ai-peer-review.json'),
@@ -556,8 +530,8 @@ test('setup migrates an owned v1 installation to reversible Phase 2 adapters', (
     readFileSync(path.join(files.project, '.ai-peer-review.json'), 'utf8')
   );
   assert.equal(migrated.setup.version, 2);
-  assert.deepEqual(migrated.setup.automatic_adapters_added, []);
-  assert.equal(migrated.hosts.codex.automatic, undefined);
+  assert.deepEqual(migrated.setup.automatic_adapters_added, ['codex']);
+  assert.equal(migrated.hosts.codex.automatic.capability, 'live-wait');
 
   setup({ ...options, remove: true });
   const removed = JSON.parse(
@@ -691,17 +665,15 @@ test('installation doctor does not require a session model or transport but requ
   );
 });
 
-test('new setup leaves model hooks uninstalled and preserves foreign host hooks', (t) => {
+test('historical setup fixture installs and removes only its exact start hook beside foreign host hooks', (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const codexHooks = path.join(files.project, '.codex', 'hooks.json');
   mkdirSync(path.dirname(codexHooks), { recursive: true });
-  const foreign = {
-    hooks: {
-      PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'foreign-hook' }] }],
-    },
-  };
-  writeFileSync(codexHooks, `${JSON.stringify(foreign)}\n`);
+  writeFileSync(
+    codexHooks,
+    `${JSON.stringify({ hooks: { SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: 'foreign-hook' }] }] } }, null, 2)}\n`
+  );
   const options = {
     scope: 'project',
     agents: ['codex', 'claude'],
@@ -710,188 +682,24 @@ test('new setup leaves model hooks uninstalled and preserves foreign host hooks'
     confirmScratchExclude: true,
     gitExcludePath: files.exclude,
   };
-  setup(options);
-  assert.deepEqual(JSON.parse(readFileSync(codexHooks, 'utf8')), foreign);
-  assert.equal(existsSync(path.join(files.project, '.claude', 'settings.json')), false);
+  const first = setup(options);
+  const codex = JSON.parse(readFileSync(codexHooks, 'utf8'));
+  const claudeSettings = path.join(files.project, '.claude', 'settings.json');
+  const claude = JSON.parse(readFileSync(claudeSettings, 'utf8'));
+  assert.equal(codex.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
+  assert.equal(codex.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-codex-hook');
+  assert.equal(claude.hooks.PreToolUse.at(-1).hooks[0].command, 'peer-review-claude-hook');
+  assert.ok(first.backups.includes(`${codexHooks}.bak`));
   assert.equal(setup(options).changed, false);
-});
-
-test('doctor accepts a headless provider session handle without a model hook', async (t) => {
-  const files = fixture();
-  t.after(() => rmSync(files.root, { recursive: true, force: true }));
-  execFileSync('git', ['init', '-q'], { cwd: files.project });
-  setup({
-    scope: 'project',
-    agents: ['codex'],
-    cwd: files.project,
-    home: files.home,
-    confirmScratchExclude: true,
-    gitExcludePath: files.exclude,
-  });
-  let stdout = '';
-  const code = await run(['doctor', '--json'], {
-    cwd: files.project,
-    env: { CODEX_THREAD_ID: 'headless-doctor-session' },
-    brokerSecurity: { healthy: true },
-    stdout: { write: (value) => (stdout += value) },
-    stderr: { write: () => {} },
-  });
-  const report = JSON.parse(stdout);
-  assert.equal(code, 0);
-  assert.equal(
-    report.rows.find((entry) => entry.id === 'identity-source').status,
-    'session-handle'
-  );
-  assert.equal(report.rows.find((entry) => entry.id === 'session-fingerprint').status, 'available');
-});
-
-test('setup update tears down an owned legacy Codex hook and preserves foreign hooks', (t) => {
-  const files = fixture();
-  t.after(() => rmSync(files.root, { recursive: true, force: true }));
-  const options = {
-    scope: 'project',
-    agents: ['codex'],
-    cwd: files.project,
-    home: files.home,
-    confirmScratchExclude: true,
-    gitExcludePath: files.exclude,
-  };
-  setup(options);
-  const adapterFile = path.join(files.project, '.codex', 'config.json');
-  const adapter = JSON.parse(readFileSync(adapterFile, 'utf8'));
-  adapter.ai_peer_review.hook_added = true;
-  adapter.ai_peer_review.hook_file_created = false;
-  writeFileSync(adapterFile, `${JSON.stringify(adapter, null, 2)}\n`);
-  const hooksFile = path.join(files.project, '.codex', 'hooks.json');
-  const foreign = { matcher: 'Bash', hooks: [{ type: 'command', command: 'foreign-hook' }] };
-  writeFileSync(
-    hooksFile,
-    `${JSON.stringify(
-      {
-        hooks: {
-          PreToolUse: [
-            foreign,
-            {
-              matcher: '^(?:Bash|functions\\.exec|exec)$',
-              hooks: [{ type: 'command', command: 'peer-review-codex-hook' }],
-            },
-          ],
-        },
-      },
-      null,
-      2
-    )}\n`
-  );
-  assert.equal(setup({ ...options, update: true }).changed, true);
-  assert.deepEqual(JSON.parse(readFileSync(hooksFile, 'utf8')).hooks.PreToolUse, [foreign]);
-  assert.equal(JSON.parse(readFileSync(adapterFile, 'utf8')).ai_peer_review.hook_added, false);
-  assert.equal(setup({ ...options, update: true }).changed, false);
   setup({ ...options, remove: true });
-  assert.deepEqual(JSON.parse(readFileSync(hooksFile, 'utf8')).hooks.PreToolUse, [foreign]);
+  const restored = JSON.parse(readFileSync(codexHooks, 'utf8'));
+  assert.equal(restored.hooks.SessionStart[0].hooks[0].command, 'foreign-hook');
+  assert.equal(restored.hooks.PreToolUse, undefined);
+  assert.equal(existsSync(claudeSettings), false);
+  assert.equal(setup({ ...options, remove: true }).changed, false);
 });
 
-test('setup update removes a package-owned automatic adapter with the obsolete hook', (t) => {
-  const files = fixture();
-  t.after(() => rmSync(files.root, { recursive: true, force: true }));
-  const options = {
-    scope: 'project',
-    agents: ['codex'],
-    cwd: files.project,
-    home: files.home,
-    confirmScratchExclude: true,
-    gitExcludePath: files.exclude,
-  };
-  setup(options);
-  const file = path.join(files.project, '.ai-peer-review.json');
-  const config = JSON.parse(readFileSync(file, 'utf8'));
-  config.hosts.codex.automatic = {
-    adapter_version: '2.0.0',
-    capability: 'live-wait',
-    server_command: ['peer-review-mcp'],
-    tool_timeout_ms: 28_800_000,
-    heartbeat_interval_ms: 15_000,
-    lease_ttl_ms: 60_000,
-  };
-  config.setup.automatic_adapters_added = ['codex'];
-  writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
-  assert.equal(
-    updateSetup({ cwd: files.project, home: files.home, gitExcludePath: files.exclude }).changed,
-    true
-  );
-  const updated = JSON.parse(readFileSync(file, 'utf8'));
-  assert.equal(updated.hosts.codex.automatic, undefined);
-  assert.deepEqual(updated.setup.automatic_adapters_added, []);
-});
-
-test('setup update preserves an explicitly configured automatic adapter', (t) => {
-  const files = fixture();
-  t.after(() => rmSync(files.root, { recursive: true, force: true }));
-  const options = {
-    scope: 'project',
-    agents: ['codex'],
-    cwd: files.project,
-    home: files.home,
-    confirmScratchExclude: true,
-    gitExcludePath: files.exclude,
-  };
-  setup(options);
-  const file = path.join(files.project, '.ai-peer-review.json');
-  const config = JSON.parse(readFileSync(file, 'utf8'));
-  const custom = {
-    adapter_version: '2.0.0',
-    capability: 'live-wait',
-    server_command: ['custom-peer-review-mcp'],
-    tool_timeout_ms: 28_800_000,
-    heartbeat_interval_ms: 15_000,
-    lease_ttl_ms: 60_000,
-  };
-  config.hosts.codex.automatic = custom;
-  writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
-  updateSetup({ cwd: files.project, home: files.home, gitExcludePath: files.exclude });
-  assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')).hosts.codex.automatic, custom);
-  const host = JSON.parse(readFileSync(path.join(files.project, '.codex/config.json'), 'utf8'));
-  assert.equal(host.ai_peer_review.transport, 'live-wait');
-  assert.deepEqual(host.ai_peer_review.mcp, custom);
-});
-
-test('setup update removes an owned legacy hook file idempotently', (t) => {
-  const files = fixture();
-  t.after(() => rmSync(files.root, { recursive: true, force: true }));
-  const options = {
-    scope: 'project',
-    agents: ['codex'],
-    cwd: files.project,
-    home: files.home,
-    confirmScratchExclude: true,
-    gitExcludePath: files.exclude,
-  };
-  setup(options);
-  const adapterFile = path.join(files.project, '.codex', 'config.json');
-  const adapter = JSON.parse(readFileSync(adapterFile, 'utf8'));
-  adapter.ai_peer_review.hook_added = true;
-  adapter.ai_peer_review.hook_file_created = true;
-  writeFileSync(adapterFile, `${JSON.stringify(adapter, null, 2)}\n`);
-  const hooksFile = path.join(files.project, '.codex', 'hooks.json');
-  writeFileSync(
-    hooksFile,
-    `${JSON.stringify(
-      {
-        hooks: {
-          PreToolUse: [
-            { matcher: 'Bash', hooks: [{ type: 'command', command: 'peer-review-codex-hook' }] },
-          ],
-        },
-      },
-      null,
-      2
-    )}\n`
-  );
-  assert.equal(setup({ ...options, update: true }).changed, true);
-  assert.equal(existsSync(hooksFile), false);
-  assert.equal(setup({ ...options, update: true }).changed, false);
-});
-
-test('setup preserves a pre-existing local Claude start hook without adding a duplicate', (t) => {
+test('historical setup fixture preserves a pre-existing local Claude start hook without adding a duplicate', (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const settingsFile = path.join(files.project, '.claude', 'settings.json');
@@ -952,7 +760,7 @@ test('doctor reports the explicit broker helper build command without blocking l
   assert.equal(doctor({ ...base, requestedMode: 'automatic-required' }).healthy, false);
 });
 
-test('doctor text accepts a session handle without model evidence', async (t) => {
+test('doctor text preserves session continuity while reporting missing primary authority', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   execFileSync('git', ['init', '-q'], { cwd: files.project });
@@ -966,6 +774,7 @@ test('doctor text accepts a session handle without model evidence', async (t) =>
   });
   const configFile = path.join(files.project, '.ai-peer-review.json');
   const legacyConfig = JSON.parse(readFileSync(configFile, 'utf8'));
+  delete legacyConfig.setup; // This test isolates read-only identity diagnostics from copied setup migration.
   legacyConfig.hosts.codex.identity = {
     provider: 'openai',
     host: 'codex',
@@ -986,19 +795,19 @@ test('doctor text accepts a session handle without model evidence', async (t) =>
     return { code, stdout, stderr };
   };
   const session = await invoke(['doctor']);
-  assert.equal(session.code, 0);
-  assert.match(session.stdout, /session readiness: healthy/i);
+  assert.equal(session.code, 1);
+  assert.match(session.stdout, /session readiness: unhealthy/i);
   assert.match(session.stdout, /identity-source: session-handle/i);
-  assert.match(session.stdout, /session-fingerprint: available/i);
-  assert.doesNotMatch(session.stdout, /\/hooks/);
+  assert.doesNotMatch(session.stdout, /recovery: .*model/i);
   assert.doesNotMatch(session.stdout, /recovery: ai-peer-review build broker-security/i);
   const installed = await invoke(['doctor', '--mode', 'installation']);
-  assert.equal(installed.code, 0, installed.stderr);
-  assert.match(installed.stdout, /installation: healthy/i);
+  assert.equal(installed.code, 1, installed.stderr);
+  assert.match(installed.stdout, /installation: unhealthy/i);
+  assert.match(installed.stdout, /primary-registration: unavailable/);
   assert.doesNotMatch(installed.stdout, /recovery: ai-peer-review build broker-security/i);
 });
 
-test('setup-only project configuration keeps consensus startup and resume diagnostics available', async (t) => {
+test('historical copied setup refuses review startup and reports migration diagnostics', async (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'apr-setup-start-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
@@ -1022,8 +831,9 @@ test('setup-only project configuration keeps consensus startup and resume diagno
     stderr: { write: (value) => (doctorError += value) },
     brokerSecurity: { healthy: true, build_command: 'already-built' },
   });
-  assert.equal(doctorCode, 0, doctorError);
-  assert.equal(JSON.parse(doctorOutput).healthy, true);
+  assert.equal(doctorCode, 1);
+  assert.equal(JSON.parse(doctorError).code, 'APR_SETUP_VERSION_MISMATCH');
+  assert.ok(JSON.parse(doctorOutput).rows.some((row) => row.id === 'primary-registration'));
   const configFile = path.join(root, '.ai-peer-review.json');
   const config = JSON.parse(readFileSync(configFile, 'utf8'));
   config.hosts.codex.resume.command = ['sh', '-c'];
@@ -1043,29 +853,34 @@ test('setup-only project configuration keeps consensus startup and resume diagno
   config.hosts.codex.resume.command = ['codex', 'resume'];
   config.review = { reviews_root: 'docs/custom-reviews', max_turns: 4 };
   writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
-  const started = await startReview(
+  let startupError = '';
+  const startupCode = await run(
+    [
+      'start',
+      'docs/plan.md',
+      '--artifact-kind',
+      'plan',
+      '--issue',
+      '134',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'gpt-test',
+    ],
     {
-      ...fixtureSelection('codex', 'gpt-test'),
       cwd: root,
-      artifact: 'docs/plan.md',
-      artifactKind: 'plan',
-      identity: participantIdentity({
-        role: 'author',
-        host: 'codex',
-        provider: 'openai',
-        modelId: 'test',
-        modelDisplay: 'Test',
-        sessionId: 'setup-start',
-        source: 'declared',
-        joinedAt: '2026-09-09T12:00:00.000Z',
-      }),
-      now: '2026-09-09T12:00:00.000Z',
-    },
-    fixtureStartupDeps
+      env: {},
+      stdout: { write() {} },
+      stderr: {
+        write(value) {
+          startupError += value;
+        },
+      },
+    }
   );
-  assert.equal(started.review.authority.authority_policy, 'unavailable');
-  assert.equal(started.review.max_turns, 4);
-  assert.match(started.paths.reviewer_invitation, /docs[\\/]custom-reviews/);
+  assert.equal(startupCode, 1, startupError);
+  assert.match(startupError, /APR_SETUP_VERSION_MISMATCH/);
+  assert.equal(existsSync(path.join(root, '.scratch/peer-review')), false);
 });
 
 function formattingOptions(files) {
@@ -1083,7 +898,7 @@ async function expectedJson(file, contents) {
   return format(contents, { ...(await resolveConfig(file)), parser: 'json', filepath: file });
 }
 
-test('setup JSON formatting matches Prettier for every generated JSON file', async (t) => {
+test('historical setup fixture JSON formatting matches Prettier for every generated JSON file', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const options = formattingOptions(files);
@@ -1101,7 +916,7 @@ test('setup JSON formatting matches Prettier for every generated JSON file', asy
   assert.equal(setup(options).changed, false);
 });
 
-test('setup JSON formatting repairs existing bytes once with exact backup and project style', async (t) => {
+test('historical setup fixture JSON formatting repairs existing bytes once with exact backup and project style', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const options = formattingOptions(files);
@@ -1128,7 +943,7 @@ test('setup JSON formatting repairs existing bytes once with exact backup and pr
   assert.equal(updateSetup(updateOptions).changed, false);
 });
 
-test('setup JSON formatting errors refuse before any setup mutation', (t) => {
+test('historical setup fixture JSON formatting errors refuse before any setup mutation', (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   writeFileSync(path.join(files.project, '.prettierrc.json'), '{');
@@ -1139,7 +954,7 @@ test('setup JSON formatting errors refuse before any setup mutation', (t) => {
   assert.equal(readFileSync(files.exclude, 'utf8'), '# local excludes\n');
 });
 
-test('setup JSON formatting ignores caller ignore rules for explicitly authored JSON', async (t) => {
+test('historical setup fixture JSON formatting ignores caller ignore rules for explicitly authored JSON', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   writeFileSync(path.join(files.project, '.prettierignore'), '**/*.json\n');
@@ -1149,7 +964,7 @@ test('setup JSON formatting ignores caller ignore rules for explicitly authored 
     [
       '--input-type=module',
       '-e',
-      `import { setup } from ${JSON.stringify(new URL('../../src/config/setup.mjs', import.meta.url).href)}; setup(${JSON.stringify(formattingOptions(files))});`,
+      `import { setup } from ${JSON.stringify(new URL('../helpers/legacy-setup-fixture.mjs', import.meta.url).href)}; setup(${JSON.stringify(formattingOptions(files))});`,
     ],
     { cwd: files.project }
   );
@@ -1158,7 +973,7 @@ test('setup JSON formatting ignores caller ignore rules for explicitly authored 
   assert.equal(contents, await expectedJson(file, contents));
 });
 
-test('setup JSON formatting does not consult formatter for absent installation removal', (t) => {
+test('historical setup fixture JSON formatting does not consult formatter for absent installation removal', (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   writeFileSync(path.join(files.project, '.prettierrc.json'), '{');

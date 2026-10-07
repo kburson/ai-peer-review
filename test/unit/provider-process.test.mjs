@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createClaudeStreamingExec } from '../../src/providers/claude-stream.mjs';
+import { createClaudeStreamingExec } from '../helpers/claude-stream-api.mjs';
 
 const args = (source) => ['--eval', source, '--', '--output-format', 'json'];
 const recorder = { accept() {} };

@@ -29,8 +29,9 @@ test('setup help and explain make package upgrades and teardown discoverable', (
   const setup = helpRequest('setup', 'json');
   assert.match(setup.purpose, /upgrade/i);
   assert.match(setup.preconditions.join(' '), /same scope/i);
-  assert.match(setup.effects.join(' '), /package-owned skill.*backs up/i);
-  assert.match(setup.effects.join(' '), /idempotent teardown/i);
+  assert.match(setup.effects.join(' '), /commit.*activate/i);
+  assert.match(setup.effects.join(' '), /teardown.*owned hooks/i);
+  assert.match(setup.effects.join(' '), /foreign hook.*bytes/i);
   assert.match(setup.effects.join(' '), /removes obsolete package-owned model hooks/i);
   assert.match(setup.examples.join(' '), /--remove/);
   assert.match(setup.examples.join(' '), /--dry-run/);

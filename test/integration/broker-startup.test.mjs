@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createReviewWorker } from '../../src/broker/worker.mjs';
-import { launchReviewerOperation, reconcileReviewerLaunch } from '../../src/broker/launch.mjs';
-import { runBroker } from '../../src/broker/service.mjs';
+import { launchReviewerOperation, reconcileReviewerLaunch } from '../helpers/broker-launch-api.mjs';
+import { runBroker } from '../helpers/broker-service-api.mjs';
 import {
   existsSync,
   mkdirSync,
@@ -22,24 +22,24 @@ import {
   submitReviewTurn,
   abandonReview,
   run,
-} from '../../src/cli/run.mjs';
+} from '../helpers/operations-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import { AprError } from '../../src/errors.mjs';
 import { fixtureStartupDeps } from '../helpers/internal-api.mjs';
-import { activateStartup, prepareStartup } from '../../src/startup/runtime.mjs';
-import * as brokerClient from '../../src/broker/client.mjs';
-import { statusReview } from '../../src/cli/run.mjs';
+import { activateStartup, prepareStartup } from '../helpers/operations-api.mjs';
+import * as brokerClient from '../helpers/broker-client-api.mjs';
+import { statusReview } from '../helpers/operations-api.mjs';
 import * as registry from '../../src/broker/registry.mjs';
 import {
   latestWakeOperation,
   reserveWakeOperation,
   appendWakeOutcome,
-} from '../../src/coordinator/ledger.mjs';
+} from '../helpers/coordinator-ledger-api.mjs';
 import {
   inspectReviewAuthority,
   mutateReview,
   initializeReview,
-} from '../../src/protocol/service.mjs';
+} from '../helpers/protocol-api.mjs';
 import { withReviewLock } from '../../src/protocol/store.mjs';
 import { reserveManualLaunch } from '../../src/provider/manual-launch-ledger.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';

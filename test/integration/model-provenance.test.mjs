@@ -9,7 +9,7 @@ import {
   v1Participant,
 } from '../../src/identity/registry.mjs';
 import { buildManifest } from '../../src/manifest/render.mjs';
-import { inspectReview } from '../../src/protocol/service.mjs';
+import { inspectReview } from '../helpers/protocol-api.mjs';
 import * as api from '../helpers/internal-api.mjs';
 import { fixture as repositoryFixture } from '../helpers/intervention-fixture.mjs';
 import {

@@ -191,8 +191,8 @@ export function platformSecurity({
     userId() {
       return native.userId();
     },
-    openPrivateDirectory(value) {
-      const handle = native.openPrivateDirectory(value);
+    openPrivateDirectory(value, { exclusive = false } = {}) {
+      const handle = native.openPrivateDirectory(value, exclusive);
       let closed = false;
       return Object.freeze({
         verify: () => !closed && native.verifyDirectory(handle),

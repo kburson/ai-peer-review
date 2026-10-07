@@ -10,7 +10,7 @@ import {
   inspectInstalledHandoffWorkspaces,
 } from '../helpers/installed-handoff-evidence.mjs';
 import { authorRevisionEvents, event, FINGERPRINTS } from '../helpers/review-fixture.mjs';
-import { appendWakeOutcome, reserveWakeOperation } from '../../src/coordinator/ledger.mjs';
+import { appendWakeOutcome, reserveWakeOperation } from '../helpers/coordinator-ledger-api.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 

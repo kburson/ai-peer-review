@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { canonicalChallengeBytes } from '../../src/authority/canonicalize.mjs';
-import { requestGrant } from '../../src/authority/challenge.mjs';
+import { requestGrant } from './challenge-api.mjs';
 import * as api from './internal-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 

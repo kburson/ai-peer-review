@@ -15,7 +15,7 @@ import {
   mutateReview,
   readReview,
   writeDeliveryReceiptExclusive,
-} from '../../src/protocol/service.mjs';
+} from '../helpers/protocol-api.mjs';
 import { withReviewLock } from '../../src/protocol/store.mjs';
 import {
   FINGERPRINTS,

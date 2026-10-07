@@ -13,13 +13,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { run } from '../../src/cli/run.mjs';
+import { discoverAuthorityRepository } from '../../src/git/repository.mjs';
+import { run } from '../helpers/operations-api.mjs';
 import { fingerprintSession, participantIdentity } from '../../src/identity/registry.mjs';
 import {
   buildClaudeReviewerLaunch,
   buildClaudeReviewerResume,
   runClaudeReviewerLaunch,
-} from '../../src/provider/claude-launch.mjs';
+} from '../helpers/claude-launch-api.mjs';
 import { launchAuthority, launchFixture } from '../helpers/claude-launch-fixture.mjs';
 import {
   fixtureObservation,
@@ -141,6 +142,17 @@ async function preparedTurnTwo(t) {
     identity: author,
     now: '2026-09-17T12:02:00.000Z',
   });
+  try {
+    const physical = discoverAuthorityRepository(root);
+    assert.equal(physical.root, realpathSync.native(root));
+    assert.equal(physical.gitDir, realpathSync.native(path.join(root, '.git')));
+  } catch (error) {
+    const causes = [];
+    for (let cause = error; cause; cause = cause.cause)
+      causes.push({ code: cause.code, message: cause.message, stderr: String(cause.stderr ?? '') });
+    t.diagnostic(JSON.stringify({ fixture: 'reviewer physical Git discovery', root, causes }));
+    throw error;
+  }
   const pending = statusReview(workspace).paths.response;
   assert.match(pending, /reviewer-response-2\.md$/u);
   return {
