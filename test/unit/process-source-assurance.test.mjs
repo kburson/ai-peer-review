@@ -1,4 +1,4 @@
-// cspell:ignore hidepid
+// cspell:ignore hidepid statfs
 // @story 167
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -473,10 +473,26 @@ test('recomputed fixture ledger cannot acquire operational authority from a copi
     new URL('src/protocol/process-identity.mjs', new URL('file://' + root + '/'))
   );
   const actualProbe = await probes.observeProcessSourceContext();
-  assert.ok(
-    actualProbe,
-    'supported actual OS probe context must be observable for this negative control'
-  );
+  const diagnostic = { platform: process.platform };
+  if (process.platform === 'linux') {
+    const fsProbe = await import('node:fs');
+    diagnostic.procfsType = Number(fsProbe.statfsSync('/proc').type);
+    const status = fsProbe.readFileSync('/proc/self/status', 'utf8');
+    diagnostic.selfPidMatches = Number(status.match(/^Pid:\s+(\d+)$/mu)?.[1]) === process.pid;
+    diagnostic.namespacePidCount = (
+      status
+        .match(/^NSpid:\s+([^\n]+)$/mu)?.[1]
+        ?.trim()
+        .split(/\s+/u) ?? []
+    ).length;
+    try {
+      fsProbe.readlinkSync('/proc/1/ns/pid');
+      diagnostic.pidOneNamespace = 'readable';
+    } catch (error) {
+      diagnostic.pidOneNamespace = error.code;
+    }
+  }
+  assert.ok(actualProbe, 'actual probe prerequisite refusal: ' + JSON.stringify(diagnostic));
   const current = {
     platform: process.platform,
     build: (await import('node:os')).release(),
