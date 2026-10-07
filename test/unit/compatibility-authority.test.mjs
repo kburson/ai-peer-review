@@ -16,7 +16,7 @@ import {
   reviewerTurnEvents,
   v2Event,
 } from '../helpers/review-fixture.mjs';
-import { inspectReview, mutateReview } from '../../src/protocol/service.mjs';
+import { inspectReview, mutateReview } from '../helpers/protocol-api.mjs';
 import { reduceEvents } from '../../src/protocol/reducer.mjs';
 
 const COMPATIBILITY = Object.freeze({
@@ -60,9 +60,8 @@ test('mixed logs accept a v2 line only when its adjacent declaration seals it', 
   });
 
   assert.equal(reduceEvents([v1, declaration, joined]).protocol.state, 'reviewer-turn');
-  assert.throws(
-    () => assertReaderWriterCompatibility(COMPATIBILITY, { readerVersion: '0.2.1' }),
-    (error) => error.code === 'APR_READER_UPGRADE_REQUIRED'
+  assert.doesNotThrow(() =>
+    assertReaderWriterCompatibility(COMPATIBILITY, { readerVersion: '0.2.1' })
   );
   assert.doesNotThrow(() => assertReaderWriterCompatibility(COMPATIBILITY));
   assert.deepEqual(
@@ -71,19 +70,22 @@ test('mixed logs accept a v2 line only when its adjacent declaration seals it', 
   );
 });
 
-test('a sealed v2 minimum refuses a writer below its required version', () => {
+test('historical reader and writer version floors remain provenance rather than executable selection', () => {
+  assert.doesNotThrow(() =>
+    assertReaderWriterCompatibility(COMPATIBILITY, {
+      readerVersion: '0.2.1',
+      writerVersion: '0.2.1',
+    })
+  );
   assert.throws(
     () =>
-      assertReaderWriterCompatibility(COMPATIBILITY, {
-        readerVersion: '0.2.2',
-        writerVersion: '0.2.1',
-      }),
-    (error) => error.code === 'APR_WRITER_UPGRADE_REQUIRED'
+      assertReaderWriterCompatibility({ ...COMPATIBILITY, minimum_writer_version: 'malformed' }),
+    (error) => error.code === 'APR_EVENT_INVALID'
   );
 });
 
 for (const mutation of ['single', 'batch']) {
-  test(`sealed writer minimum rejects a ${mutation} v1 append before invoking its factory`, async (t) => {
+  test(`supported ${mutation} append preserves the historical writer floor as provenance`, async (t) => {
     const prefix = reviewerTurnEvents();
     const declaration = compatibilityDeclared(
       { sequence: 2, revision: 2, review_id: prefix[0].review_id },
@@ -110,42 +112,40 @@ for (const mutation of ['single', 'batch']) {
     const bytes = snapshot();
     let factoryCalled = false;
     const mutate = mutation === 'single' ? mutateReview : mutateReviewBatch;
-    await assert.rejects(
-      mutate(fixture.workspace, expected(before), () => {
-        factoryCalled = true;
-        const next = event('identity-changed', {
-          sequence: 5,
-          revision: 2,
-          actor: FINGERPRINTS.reviewer,
-          payload: { identity: participant('reviewer') },
-        });
-        return mutation === 'single' ? next : [next];
-      }),
-      (error) => error.code === 'APR_WRITER_UPGRADE_REQUIRED'
-    );
-    assert.equal(factoryCalled, false);
-    assert.deepEqual(snapshot(), bytes);
+    const result = await mutate(fixture.workspace, expected(before), () => {
+      factoryCalled = true;
+      const next = event('identity-changed', {
+        sequence: 5,
+        revision: 2,
+        actor: FINGERPRINTS.reviewer,
+        payload: { identity: participant('reviewer') },
+      });
+      return mutation === 'single' ? next : [next];
+    });
+    assert.equal(factoryCalled, true);
+    assert.equal(result.protocol.sequence, 5);
+    assert.equal(result.protocol.compatibility.minimum_writer_version, '999.0.0');
+    assert.notDeepEqual(snapshot(), bytes);
   });
 }
 
-test('a batch introducing an unsupported writer minimum publishes no authority', async (t) => {
+test('a supported batch seals a historical high writer version without demanding that executable', async (t) => {
   const fixture = await createReviewWorkspace({ events: reviewerTurnEvents() });
   t.after(fixture.cleanup);
   const before = inspectReview(fixture.workspace);
   const bytes = fixture.readEvents();
-  await assert.rejects(
-    mutateReviewBatch(fixture.workspace, expected(before), (state) => [
-      compatibilityDeclared(state, { ...COMPATIBILITY, minimum_writer_version: '999.0.0' }),
-      v2Event('identity-changed', {
-        sequence: state.sequence + 2,
-        revision: state.revision,
-        actor: FINGERPRINTS.reviewer,
-        payload: { identity: participant('reviewer') },
-      }),
-    ]),
-    (error) => error.code === 'APR_WRITER_UPGRADE_REQUIRED'
-  );
-  assert.equal(fixture.readEvents(), bytes);
+  const result = await mutateReviewBatch(fixture.workspace, expected(before), (state) => [
+    compatibilityDeclared(state, { ...COMPATIBILITY, minimum_writer_version: '999.0.0' }),
+    v2Event('identity-changed', {
+      sequence: state.sequence + 2,
+      revision: state.revision,
+      actor: FINGERPRINTS.reviewer,
+      payload: { identity: participant('reviewer') },
+    }),
+  ]);
+  assert.equal(result.protocol.sequence, 4);
+  assert.equal(result.protocol.compatibility.minimum_writer_version, '999.0.0');
+  assert.notEqual(fixture.readEvents(), bytes);
 });
 
 test('batch mutation publishes declaration and first v2 event as one ordered authority update', async (t) => {

@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.primary-config/v2",
+  "title": "AI Peer Review primary configuration v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema"],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.primary-config/v2"
+    },
+    "hosts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codex": {
+          "$ref": "#/$defs/host"
+        },
+        "claude": {
+          "$ref": "#/$defs/host"
+        },
+        "grok": {
+          "$ref": "#/$defs/host"
+        },
+        "generic": {
+          "$ref": "#/$defs/host"
+        }
+      }
+    },
+    "setup": {
+      "$ref": "#/$defs/setup"
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_policy", "challenge_ttl_ms", "verifier"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "authority_policy": {
+                "const": "unavailable"
+              }
+            },
+            "required": ["authority_policy"]
+          },
+          "then": {
+            "properties": {
+              "verifier": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "verifier": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "authority_policy": {
+          "enum": ["unavailable", "prevention-required", "detection-allowed"]
+        },
+        "challenge_ttl_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "verifier": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "host"
+                      }
+                    },
+                    "required": ["kind"]
+                  },
+                  "then": {
+                    "properties": {
+                      "public_key": {
+                        "type": "null"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "public_key": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              ],
+              "required": [
+                "kind",
+                "verifier_id",
+                "verifier_fingerprint",
+                "public_key",
+                "assurance_grade",
+                "signer_strength"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": ["ed25519", "host"]
+                },
+                "verifier_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "verifier_fingerprint": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "public_key": {
+                  "type": ["string", "null"],
+                  "minLength": 1
+                },
+                "assurance_grade": {
+                  "enum": ["hardened", "mutable-local", "test-fixture"]
+                },
+                "signer_strength": {
+                  "enum": [
+                    "cryptographic-external",
+                    "hardware-presence",
+                    "host-verified",
+                    "cryptographic-local",
+                    "unverified-test"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reviews_root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review_path_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_turns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "claim_ttl_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "transport_mode": {
+          "enum": ["manual", "resume-only", "automatic-required"]
+        },
+        "startup_transport_preference": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["manual", "resume-only", "automatic-required"]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reviewer_guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "automatic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["adapter_version", "capability"],
+          "properties": {
+            "adapter_version": {
+              "const": "2.0.0"
+            },
+            "capability": {
+              "const": "live-wait"
+            }
+          }
+        }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "version", "agents"],
+      "properties": {
+        "owner": {
+          "const": "ai-peer-review"
+        },
+        "version": {
+          "const": 3
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "enum": ["codex", "claude", "grok", "generic"]
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "skill_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "integration_contract": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

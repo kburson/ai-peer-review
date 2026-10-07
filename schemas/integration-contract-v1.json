@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "contract", "shared_skill_sha256", "wrappers", "hooks"],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.integration-contract/v1"
+    },
+    "contract": {
+      "const": "ai-peer-review.integration/v1"
+    },
+    "shared_skill_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "wrappers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codex", "claude", "grok", "generic"],
+      "properties": {
+        "codex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "claude": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "grok": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "generic": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codex", "claude"],
+      "properties": {
+        "codex": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "claude": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

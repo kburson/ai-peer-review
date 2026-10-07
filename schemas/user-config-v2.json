@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.user-config/v2",
+  "title": "AI Peer Review user configuration v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema"],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.user-config/v2"
+    },
+    "hosts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codex": {
+          "$ref": "#/$defs/host"
+        },
+        "claude": {
+          "$ref": "#/$defs/host"
+        },
+        "grok": {
+          "$ref": "#/$defs/host"
+        },
+        "generic": {
+          "$ref": "#/$defs/host"
+        }
+      }
+    },
+    "setup": {
+      "$ref": "#/$defs/setup"
+    }
+  },
+  "$defs": {
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "host", "model_id", "model_display"],
+          "properties": {
+            "provider": {
+              "enum": ["openai", "anthropic", "xai", "other"]
+            },
+            "host": {
+              "enum": ["codex", "claude-code", "grok", "other"]
+            },
+            "model_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model_display": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "resume": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["command"],
+          "properties": {
+            "command": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          }
+        },
+        "reviewer_guard": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            }
+          }
+        },
+        "automatic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "server_command",
+            "tool_timeout_ms",
+            "heartbeat_interval_ms",
+            "lease_ttl_ms"
+          ],
+          "description": "Runtime validation also requires lease_ttl_ms greater than heartbeat_interval_ms.",
+          "properties": {
+            "server_command": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "tool_timeout_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "heartbeat_interval_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "lease_ttl_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "version", "agents"],
+      "properties": {
+        "owner": {
+          "const": "ai-peer-review"
+        },
+        "version": {
+          "const": 3
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "enum": ["codex", "claude", "grok", "generic"]
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        },
+        "skill_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "integration_contract": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

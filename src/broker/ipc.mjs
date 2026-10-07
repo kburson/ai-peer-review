@@ -188,18 +188,15 @@ export async function connectBroker({ identity, paths, versions, transport = 'le
     const current = directory.read(metadataName);
     if (!Buffer.isBuffer(current) || !current.equals(bytes))
       throw brokerError('APR_BROKER_STALE', 'Broker discovery changed during handshake.');
-    let available = connection;
     return Object.freeze({
       handshake: responses[0],
       connection,
       async takeConnection() {
-        if (available) {
-          const first = available;
-          available = null;
-          return first;
-        }
-        // The server admits exactly one command after each handshake. Do not
-        // retry a sent command; authenticate a new connection for the next one.
+        // Readiness is an observation, not a command reservation. Authority
+        // validation may outlast the server's bounded command-input deadline.
+        // Discard the readiness connection before authenticating a command;
+        // never retry a command that has already been sent.
+        connection.close?.();
         return (await connectBroker({ identity, paths, versions }, platform)).connection;
       },
     });

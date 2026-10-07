@@ -5,12 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { setup } from '../../src/config/setup.mjs';
+import { setup } from '../helpers/legacy-setup-fixture.mjs';
 import { doctor } from '../../src/doctor.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('Phase 2 setup installs a runnable package MCP entrypoint and keeps generic manual', (t) => {
+test('Historical Phase 2 setup fixture records a runnable package MCP entrypoint and keeps generic manual', (t) => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'apr-transport-smoke-'));
   t.after(() => rmSync(fixture, { recursive: true, force: true }));
   const project = path.join(fixture, 'project');

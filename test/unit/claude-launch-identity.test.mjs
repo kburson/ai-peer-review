@@ -5,7 +5,7 @@ import test from 'node:test';
 import {
   buildClaudeLaunchEnvironment,
   runClaudeReviewerLaunch,
-} from '../../src/provider/claude-launch.mjs';
+} from '../helpers/claude-launch-api.mjs';
 import {
   launchAuthority,
   launchFixture,

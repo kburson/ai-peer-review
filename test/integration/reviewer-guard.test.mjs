@@ -5,10 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { deriveReviewerGuard } from '../../src/config/guards.mjs';
-import {
-  buildClaudeReviewerLaunch,
-  matchesClaudeEditRule,
-} from '../../src/provider/claude-launch.mjs';
+import { buildClaudeReviewerLaunch, matchesClaudeEditRule } from '../helpers/claude-launch-api.mjs';
 
 function fixture() {
   const repositoryRoot = mkdtempSync(path.join(os.tmpdir(), 'apr-guard-'));

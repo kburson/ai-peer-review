@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { discoverAuthorityRepository } from '../git/repository.mjs';
+import { primaryRegistrationPath, resolvePrimaryAuthoritySync } from './primary-authority.mjs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -94,6 +96,15 @@ function optionalTextFields(value, keys, label) {
 }
 
 export function validateConfig(value) {
+  if (value?.schema === 'ai-peer-review.primary-config/v2') return validatePrimaryStore(value);
+  if (value?.schema === 'ai-peer-review.user-config/v2') return validateUserStore(value);
+  if (value?.schema === 'ai-peer-review.config/v2') {
+    const projected = { ...value, schema: 'ai-peer-review.config/v1' };
+    if (value.setup !== undefined) portableSetup(value.setup, 'setup');
+    delete projected.setup;
+    validateConfig(projected);
+    return value;
+  }
   closed(value, TOP_LEVEL, 'configuration');
   if (value.schema !== 'ai-peer-review.config/v1') invalid('Configuration schema is invalid.');
   if (value.authority !== undefined) {
@@ -279,6 +290,140 @@ export function validateConfig(value) {
   return value;
 }
 
+// Every host field has exactly one owner. This table is also the schema boundary
+// for partial stores; assembled automatic objects still use the complete v1 contract.
+export const HOST_FIELD_OWNERS = Object.freeze({
+  identity: 'user',
+  'resume.command': 'user',
+  'reviewer_guard.enabled': 'primary',
+  'reviewer_guard.command': 'user',
+  'automatic.adapter_version': 'primary',
+  'automatic.capability': 'primary',
+  'automatic.server_command': 'user',
+  'automatic.tool_timeout_ms': 'user',
+  'automatic.heartbeat_interval_ms': 'user',
+  'automatic.lease_ttl_ms': 'user',
+});
+
+function portableSetup(value, label) {
+  closed(
+    value,
+    new Set(['owner', 'version', 'agents', 'skill_sha256', 'integration_contract']),
+    label
+  );
+  required(value, ['owner', 'version', 'agents'], label);
+  if (value.owner !== 'ai-peer-review' || value.version !== 3)
+    invalid(`${label} ownership metadata is invalid.`);
+  strings(value.agents, `${label}.agents`);
+  if (
+    value.agents.some((agent) => !HOSTS.has(agent)) ||
+    new Set(value.agents).size !== value.agents.length
+  )
+    invalid(`${label}.agents is invalid.`);
+  if (value.skill_sha256 !== undefined && !/^[0-9a-f]{64}$/.test(value.skill_sha256))
+    invalid(`${label}.skill_sha256 is invalid.`);
+  optionalTextFields(value, ['integration_contract'], label);
+}
+
+function validateStore(value, owner) {
+  const primary = owner === 'primary';
+  closed(
+    value,
+    primary ? TOP_LEVEL : new Set(['schema', 'hosts', 'setup']),
+    `${owner} configuration`
+  );
+  if (value.schema !== `ai-peer-review.${owner}-config/v2`)
+    invalid(`${owner} configuration schema is invalid.`);
+  const projected = { schema: 'ai-peer-review.config/v1' };
+  for (const key of ['authority', 'review'])
+    if (value[key] !== undefined) projected[key] = value[key];
+  if (value.setup !== undefined) portableSetup(value.setup, `${owner}.setup`);
+  if (value.hosts !== undefined) {
+    closed(value.hosts, HOSTS, `${owner}.hosts`);
+    projected.hosts = {};
+    for (const [name, host] of Object.entries(value.hosts)) {
+      closed(host, HOST, `${owner}.hosts.${name}`);
+      const out = {};
+      for (const [group, fields] of Object.entries(host)) {
+        if (group === 'identity') {
+          if (primary) invalid('Primary configuration cannot contain identity hints.');
+          out.identity = fields;
+          continue;
+        }
+        record(fields, `${owner}.hosts.${name}.${group}`);
+        const allowed = new Set(
+          Object.entries(HOST_FIELD_OWNERS)
+            .filter(([field, source]) => source === owner && field.startsWith(`${group}.`))
+            .map(([field]) => field.slice(group.length + 1))
+        );
+        closed(fields, allowed, `${owner}.hosts.${name}.${group}`);
+        if (!allowed.size) invalid(`${group} is owned by the user.`);
+        required(
+          fields,
+          [...allowed].filter((field) => !(group === 'reviewer_guard' && field === 'command')),
+          `${owner}.hosts.${name}.${group}`
+        );
+        if (group === 'automatic') {
+          out.automatic = primary
+            ? {
+                ...fields,
+                server_command: ['validation-only'],
+                tool_timeout_ms: 1,
+                heartbeat_interval_ms: 1,
+                lease_ttl_ms: 2,
+              }
+            : { adapter_version: '2.0.0', capability: 'live-wait', ...fields };
+        } else if (group === 'reviewer_guard') {
+          out.reviewer_guard = primary ? fields : { enabled: true, ...fields };
+        } else out[group] = fields;
+      }
+      projected.hosts[name] = out;
+    }
+  }
+  validateConfig(projected);
+  return value;
+}
+
+export function validatePrimaryStore(value) {
+  return validateStore(value, 'primary');
+}
+export function validateUserStore(value) {
+  return validateStore(value, 'user');
+}
+
+export function resolveConfigFields({ primary, user = null, explicitIdentity = {} }) {
+  validatePrimaryStore(primary);
+  if (user !== null) validateUserStore(user);
+  closed(explicitIdentity, HOSTS, 'explicit identity selections');
+  const resolved = { schema: 'ai-peer-review.config/v2' };
+  for (const key of ['authority', 'review'])
+    if (primary[key] !== undefined) resolved[key] = structuredClone(primary[key]);
+  const names = new Set([
+    ...Object.keys(primary.hosts ?? {}),
+    ...Object.keys(user?.hosts ?? {}),
+    ...Object.keys(explicitIdentity),
+  ]);
+  if (names.size) resolved.hosts = {};
+  for (const name of names) {
+    const host = {};
+    for (const [field, owner] of Object.entries(HOST_FIELD_OWNERS)) {
+      if (field === 'identity') continue;
+      const [group, key] = field.split('.');
+      const value = (owner === 'primary' ? primary : user)?.hosts?.[name]?.[group]?.[key];
+      if (value !== undefined) (host[group] ??= {})[key] = structuredClone(value);
+    }
+    const identity = explicitIdentity[name] ?? user?.hosts?.[name]?.identity;
+    if (identity !== undefined) host.identity = structuredClone(identity);
+    // Missing guard policy uses the documented existing permissive default.
+    if (host.reviewer_guard && host.reviewer_guard.enabled === undefined)
+      host.reviewer_guard.enabled = false;
+    resolved.hosts[name] = host;
+  }
+  validateConfig(resolved);
+  if (primary.setup !== undefined) resolved.setup = structuredClone(primary.setup);
+  return resolved;
+}
+
 function readConfig(file) {
   try {
     const value = JSON.parse(readFileSync(file, 'utf8'));
@@ -309,8 +454,7 @@ function merge(left, right) {
   return output;
 }
 
-export function configPaths({
-  cwd = process.cwd(),
+export function userConfigPath({
   env = process.env,
   platform = process.platform,
   home = os.homedir(),
@@ -320,23 +464,131 @@ export function configPaths({
       ? (env.APPDATA ?? env.XDG_CONFIG_HOME ?? path.join(home, '.config'))
       : (env.XDG_CONFIG_HOME ?? path.join(home, '.config'));
   if (!userRoot) invalid('A platform configuration directory is unavailable.');
+  return path.join(userRoot, 'ai-peer-review', 'config.json');
+}
+
+export function configPaths({
+  cwd = process.cwd(),
+  env = process.env,
+  platform = process.platform,
+  home = os.homedir(),
+} = {}) {
+  const user = userConfigPath({ env, platform, home });
+  let location;
+  try {
+    location = discoverAuthorityRepository(cwd);
+  } catch (cause) {
+    if (cause.code !== 'APR_REPOSITORY_NOT_FOUND' && cause.code !== 'ENOENT') throw cause;
+    // Legacy uninitialized setup directories remain readable until setup migration.
+    // A broken physical Git marker must never be mistaken for outside-Git setup.
+    let directory = path.resolve(cwd);
+    let legacy = false;
+    while (true) {
+      const marker = path.join(directory, '.git');
+      let metadata;
+      try {
+        metadata = lstatSync(marker);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+      if (metadata) {
+        legacy =
+          directory === path.resolve(cwd) &&
+          metadata.isDirectory() &&
+          !existsSync(path.join(marker, 'HEAD')) &&
+          !existsSync(path.join(marker, 'config'));
+        if (!legacy)
+          throw new AprError(
+            'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+            'Physical repository discovery is unavailable; legacy loading is refused.',
+            {
+              recovery:
+                'Restore the registered primary and physical Git membership before project work.',
+            }
+          );
+        break;
+      }
+      const parent = path.dirname(directory);
+      if (parent === directory) break;
+      directory = parent;
+    }
+    return Object.freeze({
+      user,
+      project: legacy ? path.join(path.resolve(cwd), '.ai-peer-review.json') : null,
+      primaryRoot: null,
+      activeWorktreeRoot: null,
+    });
+  }
+  if (
+    existsSync(primaryRegistrationPath(location.commonDir)) ||
+    existsSync(path.join(location.mainRoot ?? location.commonDir, '.ai-peer-review/config.json'))
+  ) {
+    const primary = resolvePrimaryAuthoritySync({ cwd });
+    return Object.freeze({
+      user,
+      project: primary.configPath,
+      primaryRoot: primary.root,
+      activeWorktreeRoot: location.root,
+    });
+  }
   return Object.freeze({
-    user: path.join(userRoot, 'ai-peer-review', 'config.json'),
-    project: path.join(path.resolve(cwd), '.ai-peer-review.json'),
+    user,
+    project: path.join(location.root, '.ai-peer-review.json'),
+    primaryRoot: null,
+    activeWorktreeRoot: location.root,
   });
 }
 
 export function loadConfig(options = {}) {
   const paths = configPaths(options);
   const user = readConfig(paths.user);
-  const project = readConfig(paths.project);
-  const config = merge(user, project) ?? { schema: 'ai-peer-review.config/v1' };
+  const project =
+    paths.primaryRoot !== null
+      ? resolvePrimaryAuthoritySync({ cwd: options.cwd }).config
+      : paths.project === null
+        ? null
+        : readConfig(paths.project);
+  const legacyProject =
+    paths.primaryRoot === null && project?.schema === 'ai-peer-review.config/v1';
+  let legacyUser = user;
+  if (legacyProject && user?.schema === 'ai-peer-review.user-config/v2') {
+    validateUserStore(user);
+    // Read-only legacy inspection uses preferences, not the migrated user's setup receipt.
+    // The project integration guard still requires explicit primary migration before execution.
+    legacyUser = {
+      schema: 'ai-peer-review.config/v1',
+      ...(user.hosts ? { hosts: user.hosts } : {}),
+    };
+  }
+  const classified =
+    paths.primaryRoot !== null ||
+    (!legacyProject && user?.schema === 'ai-peer-review.user-config/v2');
+  const config = classified
+    ? resolveConfigFields({
+        primary: project ?? { schema: 'ai-peer-review.primary-config/v2' },
+        user,
+        explicitIdentity: options.explicitIdentity,
+      })
+    : (merge(legacyUser, project) ?? { schema: 'ai-peer-review.config/v1' });
   validateConfig(config);
+  const diagnostics = [];
+  if (
+    paths.primaryRoot &&
+    paths.activeWorktreeRoot !== paths.primaryRoot &&
+    existsSync(path.join(paths.activeWorktreeRoot, '.ai-peer-review.json'))
+  )
+    diagnostics.push(
+      Object.freeze({
+        code: 'linked-config-ignored',
+        path: path.join(paths.activeWorktreeRoot, '.ai-peer-review.json'),
+      })
+    );
   return Object.freeze({
     schema: 'ai-peer-review.loaded-config/v1',
     config,
     paths,
     sources: Object.freeze({ user: Boolean(user), project: Boolean(project) }),
+    diagnostics: Object.freeze(diagnostics),
   });
 }
 

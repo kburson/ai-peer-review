@@ -94,6 +94,25 @@ export function createProviderAdapter({
   ) {
     throw new TypeError('provider-adapter: invalid closed identity');
   }
+  let performCurrentOperationEffect;
+  const effect = (operation) => {
+    if (registeredProductionAdapters.get(selector) !== adapter) return operation();
+    if (!performCurrentOperationEffect)
+      throw new AprError(
+        'APR_OPERATION_AUTHORITY_UNAVAILABLE',
+        'Production provider effect has no admitted context.'
+      );
+    return performCurrentOperationEffect(operation);
+  };
+  const dispatch = async (operation) => {
+    if (registeredProductionAdapters.get(selector) === adapter) {
+      ({ performCurrentOperationEffect } = await import('../startup/authority-fence.mjs'));
+    }
+    const { pending } = effect(() => ({ pending: operation() }));
+    const result = await pending;
+    effect(() => {});
+    return result;
+  };
   const operations = new Map();
   const exactNative =
     typeof surface?.observeBoundSession === 'function' &&
@@ -170,15 +189,17 @@ export function createProviderAdapter({
 
   const persistOperation = (scratchRoot, operationId, operation) => {
     if (scratchRoot === undefined) return;
-    atomicWrite(
-      operationFile(scratchRoot, operationId),
-      `${JSON.stringify({
-        schema: 'ai-peer-review.provider-operation/v1',
-        selector,
-        operation_id: operationId,
-        handle: operation.handle,
-        session_fingerprint: operation.fingerprint,
-      })}\n`
+    effect(() =>
+      atomicWrite(
+        operationFile(scratchRoot, operationId),
+        `${JSON.stringify({
+          schema: 'ai-peer-review.provider-operation/v1',
+          selector,
+          operation_id: operationId,
+          handle: operation.handle,
+          session_fingerprint: operation.fingerprint,
+        })}\n`
+      )
     );
   };
 
@@ -340,13 +361,15 @@ export function createProviderAdapter({
         identityConflict('Provider launch request conflicts with sealed reviewer intent.');
       if (typeof surface?.launch !== 'function')
         unavailable('Provider launch surface is unavailable.');
-      const result = await surface.launch(
-        Object.freeze({
-          invitationPath,
-          model: expected.model_id,
-          effort,
-          operationId,
-        })
+      const result = await dispatch(() =>
+        surface.launch(
+          Object.freeze({
+            invitationPath,
+            model: expected.model_id,
+            effort,
+            operationId,
+          })
+        )
       );
       if (!['acknowledged', 'definitely-not-submitted', 'outcome-unknown'].includes(result?.status))
         unavailable('Provider launch returned an invalid outcome.');
@@ -400,7 +423,7 @@ export function createProviderAdapter({
       const operation = storedOperation(scratchRoot, operationId);
       if (!operation || typeof surface?.observe !== 'function')
         unavailable('Provider session observation is unavailable.');
-      const observed = await surface.observe(operation.handle);
+      const observed = await dispatch(() => surface.observe(operation.handle));
       return validateObservation(
         observed,
         expected,
@@ -411,24 +434,25 @@ export function createProviderAdapter({
     async deliver(input) {
       if (typeof surface?.deliver !== 'function') unavailable('Provider delivery is unavailable.');
       const operation = storedOperation(input?.scratchRoot, input?.operationId);
-      return surface.deliver({ ...input, handle: operation?.handle });
+      return dispatch(() => surface.deliver({ ...input, handle: operation?.handle }));
     },
     async reconcile(input) {
       if (typeof surface?.reconcile !== 'function')
         unavailable('Provider reconciliation is unavailable.');
       const operation = storedOperation(input?.scratchRoot, input?.operationId);
-      return surface.reconcile({ ...input, handle: operation?.handle });
+      return dispatch(() => surface.reconcile({ ...input, handle: operation?.handle }));
     },
     async close(input) {
       const operation = storedOperation(input?.scratchRoot, input?.operationId);
       const result =
         typeof surface?.close === 'function'
-          ? await surface.close({ ...input, handle: operation?.handle })
+          ? await dispatch(() => surface.close({ ...input, handle: operation?.handle }))
           : undefined;
+      effect(() => {});
       operations.delete(input?.operationId);
       if (input?.scratchRoot !== undefined) {
         const file = existingOperationFile(input.scratchRoot, input.operationId);
-        if (existsSync(file)) unlinkSync(file);
+        if (existsSync(file)) effect(() => unlinkSync(file));
       }
       return result;
     },
@@ -460,7 +484,9 @@ export function createProviderAdapter({
         !text(binding.handle_locator)
       )
         identityConflict('Role wake lacks its exact bound provider session.');
-      return surface.deliverToSession({ ...input, binding, handle: binding.handle_locator });
+      return dispatch(() =>
+        surface.deliverToSession({ ...input, binding, handle: binding.handle_locator })
+      );
     };
   }
   if (typeof surface?.reconcileDelivery === 'function') {
@@ -472,7 +498,9 @@ export function createProviderAdapter({
         !text(binding.handle_locator)
       )
         identityConflict('Role reconciliation lacks its exact bound provider session.');
-      return surface.reconcileDelivery({ ...input, binding, handle: binding.handle_locator });
+      return dispatch(() =>
+        surface.reconcileDelivery({ ...input, binding, handle: binding.handle_locator })
+      );
     };
   }
   if (typeof surface?.version === 'function') {

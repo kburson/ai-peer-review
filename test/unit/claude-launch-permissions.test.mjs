@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import {
@@ -13,7 +14,7 @@ import {
   encodeClaudeEditRule,
   matchesClaudeEditRule,
   runClaudeReviewerLaunch,
-} from '../../src/provider/claude-launch.mjs';
+} from '../helpers/claude-launch-api.mjs';
 import { normalizeClaudeExecution } from '../../src/provider/claude-launch-diagnostics.mjs';
 import { fingerprintSession } from '../../src/identity/registry.mjs';
 
@@ -238,7 +239,7 @@ test('unsealed PATH aliases never replace the package command', (t) => {
   assert.match(claudeJoinCommand(unsafe), /peer-review\.mjs join /);
 });
 
-test('broker review launches through its verified pinned image inside the project', (t) => {
+test('broker reviewer commands use current code while retaining verified image evidence', (t) => {
   const fx = fixture('claude pinned image ');
   t.after(fx.cleanup);
   const root = path.join(fx.repositoryRoot, '.scratch', 'peer-review', 'runtimes', 'image');
@@ -259,8 +260,10 @@ test('broker review launches through its verified pinned image inside the projec
     verifyImage: () => true,
   };
   const contract = buildClaudeReviewerLaunch(input);
-  const commandNode = nodeExecutable.replaceAll('\\', '/');
-  const commandEntrypoint = entrypoint.replaceAll('\\', '/');
+  const commandNode = process.execPath.replaceAll('\\', '/');
+  const commandEntrypoint = fileURLToPath(
+    new URL('../../bin/peer-review.mjs', import.meta.url)
+  ).replaceAll('\\', '/');
   assert.ok(claudeJoinCommand(contract).includes(commandNode));
   assert.ok(claudeJoinCommand(contract).includes(commandEntrypoint));
   assert.ok(claudeJoinCommand(contract).includes(' join '));

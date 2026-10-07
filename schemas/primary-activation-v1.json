@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.primary-activation/v1",
+  "title": "Clone-local primary activation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "primary_root",
+    "common_dir",
+    "primary_initialized",
+    "integration_contract",
+    "owned_blobs"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.primary-activation/v1"
+    },
+    "primary_root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "common_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "primary_initialized": {
+      "type": "boolean"
+    },
+    "integration_contract": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "owned_blobs": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["config", "skill"],
+          "properties": {
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "blob"],
+              "properties": {
+                "path": {
+                  "const": ".ai-peer-review/config.json"
+                },
+                "blob": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                }
+              }
+            },
+            "skill": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "blob"],
+              "properties": {
+                "path": {
+                  "const": ".ai-peer-review/skills/peer-review/SKILL.md"
+                },
+                "blob": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "primary_initialized": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "owned_blobs": {
+            "type": "object"
+          },
+          "integration_contract": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "owned_blobs": {
+            "type": "null"
+          },
+          "integration_contract": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

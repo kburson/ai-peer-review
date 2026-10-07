@@ -157,37 +157,46 @@ export function challengeSupersededEvent(review, challengeId, actor, now = new D
   });
 }
 
-export async function requestGrant(
-  workspace,
-  action,
-  parameters,
-  { requesterFingerprint, now = new Date() } = {}
-) {
-  if (typeof requesterFingerprint !== 'string') {
-    authorityError(
-      'APR_IDENTITY_REQUIRED',
-      'The challenge requester session fingerprint is required.',
-      'Resolve the current participant identity and retry.'
-    );
-  }
-  const before = await readReview(workspace);
-  const challenge = requestChallenge(before, action, parameters, now);
-  if (
-    before.protocol.challenges.some(
-      (candidate) => candidate.challenge_id === challenge.challenge_id
-    )
+// @story #136
+export function createGrantRequester({ readReview, mutateReview }) {
+  if (typeof readReview !== 'function' || typeof mutateReview !== 'function')
+    throw new TypeError('Explicit protocol dependencies required');
+  async function requestGrant(
+    workspace,
+    action,
+    parameters,
+    { requesterFingerprint, now = new Date() } = {}
   ) {
-    return challenge;
+    if (typeof requesterFingerprint !== 'string') {
+      authorityError(
+        'APR_IDENTITY_REQUIRED',
+        'The challenge requester session fingerprint is required.',
+        'Resolve the current participant identity and retry.'
+      );
+    }
+    const before = await readReview(workspace);
+    const challenge = requestChallenge(before, action, parameters, now);
+    if (
+      before.protocol.challenges.some(
+        (candidate) => candidate.challenge_id === challenge.challenge_id
+      )
+    ) {
+      return challenge;
+    }
+    const expected = {
+      reviewId: before.protocol.review_id,
+      revision: before.protocol.revision,
+      sequence: before.protocol.sequence,
+      actor: before.protocol.current_actor,
+    };
+    const next = await mutateReview(workspace, expected, (current) => {
+      const locked = requestChallenge(current, action, parameters, now);
+      return challengeRequestedEvent(current, locked, requesterFingerprint, now);
+    });
+    return Object.freeze(challengeCore(next.protocol.challenges.at(-1)));
   }
-  const expected = {
-    reviewId: before.protocol.review_id,
-    revision: before.protocol.revision,
-    sequence: before.protocol.sequence,
-    actor: before.protocol.current_actor,
-  };
-  const next = await mutateReview(workspace, expected, (current) => {
-    const locked = requestChallenge(current, action, parameters, now);
-    return challengeRequestedEvent(current, locked, requesterFingerprint, now);
-  });
-  return Object.freeze(challengeCore(next.protocol.challenges.at(-1)));
+
+  return requestGrant;
 }
+const productionRequester = createGrantRequester({ readReview, mutateReview });
+export const requestGrant = (...args) => productionRequester(...args);

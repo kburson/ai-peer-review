@@ -6,7 +6,7 @@ import path from 'node:path';
 import { pinRuntimeImage } from '../../src/broker/runtime-image.mjs';
 import { createHash } from 'node:crypto';
 import { event } from './review-fixture.mjs';
-import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { canonicalProjection } from '../helpers/protocol-api.mjs';
 import { appendEvent } from '../../src/protocol/store.mjs';
 import { v1Participant } from '../../src/identity/registry.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
@@ -150,11 +150,11 @@ export {
   supersedeReview,
   submitAuthorTurn,
   submitReviewTurn,
-} from '../../src/cli/run.mjs';
+} from '../helpers/operations-api.mjs';
 export { parseCommand } from '../../src/cli/parse.mjs';
 export { commitExactPaths, createGitTransactionRepository } from '../../src/git/transaction.mjs';
-export { reclaimReviewLock, sealNoCommitHandoff } from '../../src/protocol/service.mjs';
-export { mutateReviewBatch } from '../../src/protocol/service.mjs';
+export { reclaimReviewLock, sealNoCommitHandoff } from '../helpers/protocol-api.mjs';
+export { mutateReviewBatch } from '../helpers/protocol-api.mjs';
 export {
   assertReaderWriterCompatibility,
   compatibilityDeclared,
@@ -166,4 +166,4 @@ export {
   buildClaudeReviewerResume,
   classifyClaudeReviewerOutcome,
   runClaudeReviewerLaunch,
-} from '../../src/provider/claude-launch.mjs';
+} from '../helpers/claude-launch-api.mjs';

@@ -12,9 +12,10 @@ import assert from 'node:assert/strict';
 
 import * as api from '../helpers/internal-api.mjs';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
-import { latestWakeOperation } from '../../src/coordinator/ledger.mjs';
+import { reconcileWake } from '../helpers/coordinator-service-api.mjs';
+import { latestWakeOperation } from '../helpers/coordinator-ledger-api.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
-import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
+import { inspectReviewAuthority } from '../helpers/protocol-api.mjs';
 
 const NOW = '2026-09-09T12:00:00.000Z';
 
@@ -215,6 +216,7 @@ test('legacy phased terminal finalization retry retains original journal and tra
 
 async function reconcileThroughWorker(workspace, participant, now, calls) {
   const worker = createReviewWorker({
+    reconcile: reconcileWake,
     registration: { workspace },
     adapter: {
       automatic: true,

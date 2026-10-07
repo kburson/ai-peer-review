@@ -44,6 +44,21 @@ for (const format of ['npm-11-single.json', 'npm-12-single.json', 'missing-filen
         ],
         cwd: path.join(scratch, 'host'),
       });
+      assert.deepEqual(calls[2], {
+        tool: 'npm',
+        args: [
+          'install',
+          '--global',
+          '--prefix',
+          path.join(scratch, 'global prefix'),
+          '--omit=dev',
+          '--ignore-scripts',
+          '--no-audit',
+          '--no-fund',
+          path.join(scratch, filename),
+        ],
+        cwd: path.join(scratch, 'host'),
+      });
     }
   });
 }

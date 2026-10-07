@@ -76,6 +76,7 @@
       "docs/dependency-audit-mcp.md",
       "docs/manual-cross-provider-peer-review.md",
       "docs/spdx-policy.md",
+      "docs/installation-runtime.md",
       "eslint.config.mjs",
       "package-lock.json",
       "package.json",
@@ -98,12 +99,15 @@
       "scripts/lib/review-grammar-v0.4.1/runtime-descriptor.mjs",
       "scripts/lib/review-grammar-v0.4.1/runtime-v1.json",
       "scripts/build-broker-security.mjs",
+      "scripts/prepare-source-tests.mjs",
       "scripts/run-secret-scan.mjs",
       "scripts/task-tracker/verify-epic-trail.mjs",
       "scripts/update-template-goldens.mjs",
       "scripts/verify-extraction.mjs",
       "scripts/verify-manual-xpr-evidence.mjs",
       "scripts/verify-release.mjs",
+      "scripts/pack-runtime.mjs",
+      "scripts/refuse-source-pack.mjs",
       "vendors/kburson-ai-task-manager-0.1.0.tgz"
     ]
   },

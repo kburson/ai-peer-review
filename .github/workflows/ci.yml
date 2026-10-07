@@ -22,6 +22,8 @@ permissions:
   contents: read
   issues: read
 
+# Native broker build and verification paused for #102/#107.
+# Source suites report broker exclusions until #107 replaces native transport.
 jobs:
   node-24:
     name: Node 24 / ${{ matrix.os }}
@@ -42,6 +44,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
       - name: 'Verify tests: fast'
@@ -57,7 +61,7 @@ jobs:
         run: node scripts/ci/record-tests.mjs packaging
       - name: 'Verify tests: smoke'
         run: node scripts/ci/record-tests.mjs smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
       - name: Publish actual test execution records
         if: ${{ always() }}
@@ -88,6 +92,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
       - name: 'Verify tests: fast'
@@ -103,7 +109,7 @@ jobs:
         run: node scripts/ci/record-tests.mjs packaging
       - name: 'Verify tests: smoke'
         run: node scripts/ci/record-tests.mjs smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
       - name: Publish actual test execution records
         if: ${{ always() }}
@@ -136,6 +142,8 @@ jobs:
       - run: npm install --global "npm@${{ matrix.npm }}"
       - run: test "$(npm --version)" = "${{ matrix.npm }}"
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - name: Verify packed builder, dependency and source inventory
         run: npm run test:packaging
       - run: npm run test:smoke
@@ -155,6 +163,8 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
@@ -172,7 +182,7 @@ jobs:
         run: node scripts/ci/record-tests.mjs packaging
       - name: 'Verify tests: smoke'
         run: node scripts/ci/record-tests.mjs smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
       - name: Publish actual test execution records
         if: ${{ always() }}

@@ -21,3 +21,6 @@ native/broker-security/build/
 .scratch/ci-receipts/
 # Disposable CI fixture and packed-cache runtime
 .scratch/test/
+
+# Generated inline execution workspace
+.superpowers/

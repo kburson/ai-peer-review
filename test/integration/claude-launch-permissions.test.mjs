@@ -14,12 +14,12 @@ import {
   claudeJoinCommand,
   classifyClaudeReviewerOutcome,
   matchesClaudeEditRule,
-} from '../../src/provider/claude-launch.mjs';
+} from '../helpers/claude-launch-api.mjs';
 import { normalizeClaudeExecution } from '../../src/provider/claude-launch-diagnostics.mjs';
 import { participantIdentity } from '../../src/identity/registry.mjs';
-import { inspectReviewAuthority } from '../../src/protocol/service.mjs';
+import { inspectReviewAuthority } from '../helpers/protocol-api.mjs';
 import { joinReview, startReview, submitReviewTurn } from '../helpers/internal-api.mjs';
-import { run } from '../../src/cli/run.mjs';
+import { run } from '../helpers/operations-api.mjs';
 
 const NOW = '2026-09-14T12:00:00.000Z';
 

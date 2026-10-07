@@ -1,14 +1,20 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseNpmPackOutput, runNpm } from './npm-command.mjs';
+import { parseNpmPackOutput, runNpm, runRuntimePack } from './npm-command.mjs';
 
 export function warmPackedCache({ root, scratch, npm = runNpm }) {
   mkdirSync(scratch, { recursive: true });
-  const output = npm('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch], {
-    cwd: root,
-    encoding: 'utf8',
-  });
+  const pack =
+    npm === runNpm ? (_tool, args, options) => runRuntimePack(args.slice(1), options) : npm;
+  const output = pack(
+    'npm',
+    ['pack', '--ignore-scripts', '--json', '--pack-destination', scratch],
+    {
+      cwd: root,
+      encoding: 'utf8',
+    }
+  );
   const packed = parseNpmPackOutput(output, {
     expectedPackageName: '@kburson/ai-peer-review',
     requireFilename: true,
@@ -22,6 +28,21 @@ export function warmPackedCache({ root, scratch, npm = runNpm }) {
     cwd: host,
     stdio: 'inherit',
   });
+  npm(
+    'npm',
+    [
+      'install',
+      '--global',
+      '--prefix',
+      path.join(scratch, 'global prefix'),
+      '--omit=dev',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      tarball,
+    ],
+    { cwd: host, stdio: 'inherit' }
+  );
   return tarball;
 }
 
