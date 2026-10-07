@@ -128,6 +128,7 @@ export function assessWindowsProtection(value = {}) {
 const windowsScript = String.raw`
 $ErrorActionPreference = 'Stop'
 try {
+$stage='input'
 [Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 $OutputEncoding=[Console]::OutputEncoding
@@ -181,12 +182,18 @@ $records = foreach ($entry in $paths) {
     } elseif ($known -and $ace.AceType -eq [System.Security.AccessControl.AceType]::AccessDenied) {
       'deny'
     } else { 'unknown' }
-    $mask = if ($known) { [long]$ace.AccessMask -band 4294967295 } else { 0 }
+    $stage='ace-mask'
+    $mask = if ($known) { [System.BitConverter]::ToUInt32([System.BitConverter]::GetBytes([int]$ace.AccessMask),0) } else { 0 }
+    $stage='ace-sid'
+    $aceSid = if ($known) { [string]$ace.SecurityIdentifier.Value } else { '' }
+    $stage='ace-flags'
+    $aceFlags=[int]$ace.AceFlags
+    $stage='ace-record'
     $aces += [ordered]@{
-      sid = if ($known) { $ace.SecurityIdentifier.Value } else { '' }
+      sid = $aceSid
       type = $type; rights = $mask
-      inherited = ($ace.AceFlags -band [System.Security.AccessControl.AceFlags]::Inherited) -ne 0
-      inheritOnly = ($ace.AceFlags -band [System.Security.AccessControl.AceFlags]::InheritOnly) -ne 0
+      inherited = ($aceFlags -band 16) -ne 0
+      inheritOnly = ($aceFlags -band 8) -ne 0
     }
   }
   [ordered]@{ path = $entry; principalSid = $user
@@ -200,7 +207,7 @@ $records = foreach ($entry in $paths) {
 }
 [ordered]@{schema='ai-peer-review.windows-protection-observation/v1'; records=@($records)} | ConvertTo-Json -Depth 8 -Compress
 } catch {
-  [ordered]@{schema='ai-peer-review.windows-protection-error/v1'; exception=$_.Exception.GetType().Name; line=$_.InvocationInfo.ScriptLineNumber} | ConvertTo-Json -Compress
+  [ordered]@{schema='ai-peer-review.windows-protection-error/v1'; exception=$_.Exception.GetType().Name; line=$_.InvocationInfo.ScriptLineNumber; stage=$stage} | ConvertTo-Json -Compress
   exit 1
 }
 `;
@@ -262,7 +269,12 @@ async function windowsProbe(targets, provision = false, budget = operationBudget
               /^[A-Za-z]{1,80}$/.test(diagnostic.exception) &&
               Number.isSafeInteger(diagnostic.line)
             )
-              reason += '-' + diagnostic.exception + '-line-' + diagnostic.line;
+              reason +=
+                '-' +
+                diagnostic.exception +
+                '-line-' +
+                diagnostic.line +
+                (/^[a-z-]{1,40}$/.test(diagnostic.stage || '') ? '-stage-' + diagnostic.stage : '');
           } catch {
             /* Raw probe output can contain paths and is never exposed. */
           }

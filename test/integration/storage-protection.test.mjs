@@ -480,3 +480,83 @@ test(
     }
   }
 );
+
+test('[#166] exclusive write refuses a valid pathname substituted after descriptor write', async (t) => {
+  const root = await temporary(t),
+    receipt = await storage.provisionProtectedRoot({ root });
+  const guard = await storage.openProtectedRoot({ receipt });
+  t.after(() => guard.close());
+  const target = path.join(root, 'credential'),
+    { writeFileSync, renameSync } = await import('node:fs');
+  await interceptFilesystem(t, 'open', async (original, value, ...options) => {
+    const file = await original(value, ...options);
+    if (value === target && Number(options[0]) & constants.O_CREAT) {
+      const write = file.writeFile.bind(file);
+      file.writeFile = async (...args) => {
+        await write(...args);
+        const incoming = path.join(root, 'incoming');
+        writeFileSync(incoming, 'newer-private-generation', { mode: 0o600 });
+        renameSync(incoming, target);
+      };
+    }
+    return file;
+  });
+  await assert.rejects(guard.writeExclusive('credential', Buffer.from('original-secret')), {
+    code: 'APR_BROKER_STALE',
+  });
+  assert.equal(await readFile(target, 'utf8'), 'newer-private-generation');
+});
+test('[#166] deadline after file creation retains the outstanding owned identity', async (t) => {
+  const root = await temporary(t),
+    receipt = await storage.provisionProtectedRoot({ root });
+  let now = 0;
+  const guard = await storage.openProtectedRoot({ receipt, clock: () => now, deadline: 10 });
+  t.after(() => guard.close());
+  await interceptFilesystem(t, 'open', async (original, value, ...options) => {
+    const file = await original(value, ...options);
+    if (value === path.join(root, 'credential') && Number(options[0]) & constants.O_CREAT) {
+      const write = file.writeFile.bind(file);
+      file.writeFile = async (...args) => {
+        await write(...args);
+        now = 10;
+      };
+    }
+    return file;
+  });
+  let caught;
+  try {
+    await guard.writeExclusive('credential', Buffer.from('deadline-secret'));
+  } catch (error) {
+    caught = error;
+  }
+  assert.equal(caught?.code, 'APR_BROKER_STALE');
+  assert.ok(caught.details?.obligations?.some((x) => x.name === 'credential' && x.identity));
+  assert.equal(JSON.stringify(caught).includes('deadline-secret'), false);
+});
+test('[#166] guard close retries a failed owned descriptor close instead of losing it', async (t) => {
+  const root = await temporary(t),
+    receipt = await storage.provisionProtectedRoot({ root });
+  const guard = await storage.openProtectedRoot({ receipt });
+  t.after(() => guard.close());
+  let retained,
+    first = true;
+  await interceptFilesystem(t, 'open', async (original, value, ...options) => {
+    const file = await original(value, ...options);
+    if (value === path.join(root, 'credential') && Number(options[0]) & constants.O_CREAT) {
+      retained = file;
+      const close = file.close.bind(file);
+      file.close = async () => {
+        if (first) {
+          first = false;
+          throw Object.assign(new Error('controlled close failure'), { code: 'EIO' });
+        }
+        return close();
+      };
+    }
+    return file;
+  });
+  await assert.rejects(guard.writeExclusive('credential', Buffer.from('owned')));
+  assert.ok(await retained.stat(), 'failed close leaves a real owned descriptor to discharge');
+  await guard.close();
+  await assert.rejects(retained.stat(), { code: 'EBADF' });
+});
