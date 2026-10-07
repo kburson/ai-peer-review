@@ -13,7 +13,7 @@ import {
   revalidateInstalledProcessSourceAssurance,
 } from '../protocol/process-source-assurance.mjs';
 import { sameProcessOwnerFacts } from './owner-lifecycle-core.mjs';
-import { portableOwnerOperation } from './portable-owner-lifecycle.mjs';
+import { portableOwnerOperation, portableOwnerRootOperation } from './portable-owner-lifecycle.mjs';
 import { AprError } from '../errors.mjs';
 
 const pathBindings = new WeakMap();
@@ -448,6 +448,7 @@ export async function bindOwnerElectionPaths({
     });
     pathBindings.set(paths, {
       ...binding,
+      budget: Object.freeze({ signal, deadline }),
       root: receipt.root,
       guard: guards.get(receipt.root).guard,
       guards,
@@ -743,4 +744,41 @@ async function observeOwner(binding, options) {
   } catch {
     return { status: 'unknown' };
   }
+}
+
+export async function inspectOwnerElectionPaths({ paths, signal, deadline } = {}) {
+  const binding = pathBindings.get(paths);
+  if (
+    !binding ||
+    binding.isClosed() ||
+    binding.resourceKind !== 'broker-owner' ||
+    binding.guards.size !== 2
+  )
+    throw stale('unverified-owner-paths');
+  const current = portableOwnerRootOperation(binding.root, binding.budget) || binding.budget;
+  if (
+    !(signal instanceof AbortSignal) ||
+    signal.aborted ||
+    !Number.isFinite(deadline) ||
+    deadline <= performance.now() ||
+    deadline - performance.now() > 30000 ||
+    signal !== current.signal ||
+    deadline !== current.deadline
+  )
+    throw stale('owner-path-budget-mismatch');
+  const runtimeRoot = [...binding.guards.keys()].find((root) => root !== binding.root);
+  if (
+    path.basename(binding.root) !== 'private' ||
+    path.basename(runtimeRoot) !== 'runtime' ||
+    path.dirname(binding.root) !== path.dirname(runtimeRoot)
+  )
+    throw stale('owner-path-roots-unproved');
+  for (const entry of binding.guards.values()) await entry.guard.verify();
+  return Object.freeze({
+    resourceKey: binding.resourceKey,
+    privateRoot: binding.root,
+    runtimeRoot,
+    privateGuard: binding.guard,
+    runtimeGuard: binding.guards.get(runtimeRoot).guard,
+  });
 }

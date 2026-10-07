@@ -5,7 +5,10 @@ import { performance } from 'node:perf_hooks';
 import { AprError } from '../errors.mjs';
 import { validatePrivateBinding, verifyOwnerProof } from './http-auth.mjs';
 import { requestLoopback, waitLoopback } from './http-client.mjs';
-import { isHeldPrivatePublication } from './storage-protection.mjs';
+import {
+  isHeldPrivatePublication,
+  isProtectedCredentialObservation,
+} from './storage-protection.mjs';
 
 const connections = new WeakMap();
 const HEX = /^[a-f0-9]{64}$/;
@@ -187,7 +190,7 @@ async function observe(input, genuine) {
     let privateBinding, generation, credentialBytes;
     const publication = input.privateBinding;
     if (genuine) {
-      if (!isHeldPrivatePublication(publication))
+      if (!(isHeldPrivatePublication(publication) || isProtectedCredentialObservation(publication)))
         return unknown('genuine-credential-publication-required');
       generation = { ...publication.retainedGeneration() };
       if (generation.name !== 'credential') return unknown('credential-publication-name-invalid');
@@ -210,7 +213,7 @@ async function observe(input, genuine) {
       contextCheck(context, context);
       if (!genuine) return;
       if (
-        !isHeldPrivatePublication(publication) ||
+        !(isHeldPrivatePublication(publication) || isProtectedCredentialObservation(publication)) ||
         (await readPublication(() => publication.verify(context))) !== true
       )
         throw refusal('credential-publication-changed');

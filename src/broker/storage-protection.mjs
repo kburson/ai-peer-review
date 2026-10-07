@@ -28,6 +28,7 @@ const execute = promisify(execFile);
 const receipts = new WeakMap();
 const guards = new WeakMap();
 const heldPublications = new WeakMap();
+const credentialObservations = new WeakMap();
 const quarantineReceipts = new WeakMap();
 const SYSTEM = 'S-1-5-18';
 const ADMIN = 'S-1-5-32-544';
@@ -1607,6 +1608,95 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       replace: (name, expected, value) => scoped.replace(name, expected, value, lease),
     });
   }
+  async function retainCredential() {
+    const observed = await readObserved('credential');
+    if (observed.bytes.length !== 32) {
+      await closeOwnedFile(observed);
+      throw failure('APR_BROKER_STALE', 'credential-publication-invalid');
+    }
+    let retired = false,
+      fenced = false,
+      busy = false;
+    const generation = (outcome = retired ? 'closed' : fenced ? 'read-fenced' : 'held-read') => ({
+      name: 'credential',
+      root: r.root,
+      rootIdentity: r.identity,
+      identity: observed.identity,
+      fileVersion: observed.fileVersion,
+      outcome,
+    });
+    const checkContext = (context, expiry = true) => {
+      if (
+        !(context?.signal instanceof AbortSignal) ||
+        context.signal !== signal ||
+        context.deadline !== deadline
+      )
+        throw failure('APR_BROKER_STALE', 'credential-observation-budget-mismatch');
+      if (expiry) budget.check();
+    };
+    const snapshot = async (context) => {
+      checkContext(context);
+      if (retired || fenced || busy)
+        throw report(failure('APR_BROKER_STALE', 'credential-observation-unavailable'), [
+          generation(),
+        ]);
+      busy = true;
+      try {
+        await verify();
+        await matchFile(observed, observed.file);
+        const bytes = Buffer.alloc(32);
+        const read = await observed.file.read(bytes, 0, 32, 0);
+        budget.check();
+        if (read.bytesRead !== 32 || !bytes.equals(observed.bytes))
+          throw failure('APR_BROKER_STALE', 'credential-observation-changed');
+        await verify();
+        await matchFile(observed, observed.file);
+        budget.check();
+        return Object.freeze({
+          name: 'credential',
+          root: r.root,
+          rootIdentity: r.identity,
+          identity: observed.identity,
+          fileVersion: observed.fileVersion,
+          bytes: Buffer.from(bytes),
+        });
+      } catch (error) {
+        fenced = true;
+        throw report(error, [generation()]);
+      } finally {
+        busy = false;
+      }
+    };
+    const handle = Object.freeze({
+      snapshot,
+      verify: async (context) => {
+        await snapshot(context);
+        return true;
+      },
+      retainedGeneration: () => Object.freeze(generation()),
+      async close(context) {
+        checkContext(context, false);
+        if (busy)
+          throw report(failure('APR_BROKER_STALE', 'credential-observation-busy'), [generation()]);
+        if (retired) return;
+        busy = true;
+        try {
+          await closeOwnedFile(observed);
+          retired = true;
+        } catch (error) {
+          fenced = true;
+          throw report(error, [generation('descriptor-close-pending')]);
+        } finally {
+          busy = false;
+        }
+      },
+    });
+    credentialObservations.set(handle, {
+      valid: () => !retired && !fenced && observed.file.fd >= 0,
+    });
+    return handle;
+  }
+
   const guard = Object.freeze({
     read,
     readSnapshot,
@@ -1648,6 +1738,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     deadline,
     clockInjected: clock !== undefined,
     outcomes: new Set(),
+    retainCredential,
     create: (name, bytes, lease) => retainedPublication(name, bytes, true, lease),
     quarantine,
   });
@@ -1805,3 +1896,25 @@ export async function assertQuarantineReceipt({ guard, receipt, lease, signal, d
   });
 }
 export { createHeldPrivatePublicationCore } from './owner-publication-core.mjs';
+
+export function isProtectedCredentialObservation(value) {
+  return credentialObservations.get(value)?.valid() === true;
+}
+export async function observeProtectedCredential(input = {}) {
+  if (!input || Object.keys(input).sort().join(',') !== 'deadline,guard,signal')
+    throw failure('APR_BROKER_STALE', 'credential-observation-options-invalid');
+  const record = guards.get(input.guard);
+  if (!record || record.clockInjected || path.basename(record.root) !== 'private')
+    throw failure('APR_BROKER_STALE', 'genuine-private-guard-required');
+  if (
+    !(input.signal instanceof AbortSignal) ||
+    !Number.isFinite(input.deadline) ||
+    input.signal.aborted ||
+    input.deadline <= performance.now() ||
+    input.deadline - performance.now() > 30000 ||
+    input.signal !== record.signal ||
+    input.deadline !== record.deadline
+  )
+    throw failure('APR_BROKER_STALE', 'credential-observation-budget-mismatch');
+  return record.retainCredential();
+}
