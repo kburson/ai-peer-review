@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { AprError } from '../errors.mjs';
 import { validateRuntimeDescriptor } from '../startup/runtime.mjs';
 import {
@@ -453,8 +454,18 @@ function validateStartup(value) {
     'issue',
   ];
   if (Object.hasOwn(context, 'record_id')) contextFields.push('record_id');
+  if (context.schema === 'ai-peer-review.context/v2') contextFields.push('preserved_predecessor');
   exactKeys(context, contextFields, 'review-created startup context');
-  if (context.schema !== 'ai-peer-review.context/v1') throw invalid('startup context schema');
+  if (!['ai-peer-review.context/v1', 'ai-peer-review.context/v2'].includes(context.schema))
+    throw invalid('startup context schema');
+  if (context.schema === 'ai-peer-review.context/v2') {
+    assertString(context.preserved_predecessor, 'preserved predecessor');
+    if (
+      context.preserved_predecessor.length > 4096 ||
+      !path.isAbsolute(context.preserved_predecessor)
+    )
+      throw invalid('preserved predecessor path');
+  }
   assertIdentifier(context.review_id, 'startup context review_id');
   if (context.record_id !== undefined) {
     assertIdentifier(context.record_id, 'startup context record_id');

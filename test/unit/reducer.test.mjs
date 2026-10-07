@@ -7,7 +7,7 @@ import participantsV2Schema from '../../schemas/participants-v2.json' with { typ
 
 import { digestChallenge, digestGrantParameters } from '../../src/authority/canonicalize.mjs';
 import { LIFECYCLE_EVENT_TYPES, reduceEvents } from '../../src/protocol/reducer.mjs';
-import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { canonicalProjection } from '../helpers/protocol-api.mjs';
 import { compatibilityDeclared, participant, v2Event } from '../helpers/review-fixture.mjs';
 import {
   acceptancePendingEvents,

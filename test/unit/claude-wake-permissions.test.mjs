@@ -2,10 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import {
-  buildClaudeWakePermissions,
-  encodeClaudeEditRule,
-} from '../../src/provider/claude-launch.mjs';
+import { buildClaudeWakePermissions, encodeClaudeEditRule } from '../helpers/claude-launch-api.mjs';
 import {
   withoutProviderIdentity,
   PROVIDER_IDENTITY_ENVIRONMENT_KEYS,

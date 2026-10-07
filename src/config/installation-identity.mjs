@@ -1,18 +1,16 @@
+import { assertSelectedRuntime } from './runtime-selection.mjs';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
+import { userInfo } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { resolvePrimaryAuthoritySync } from './primary-authority.mjs';
+import { createIntegrationChecker } from './integration-contract-core.mjs';
 
 import { AprError } from '../errors.mjs';
 import { configPaths, loadConfig } from './load.mjs';
 
 const PACKAGE_FILE = new URL('../../package.json', import.meta.url);
 const SKILL_FILE = new URL('../../skills/peer-review/SKILL.md', import.meta.url);
-const HOST_DIR = Object.freeze({
-  codex: '.codex',
-  claude: '.claude',
-  grok: '.grok',
-  generic: '.agents',
-});
 
 function digest(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -26,44 +24,32 @@ export function installedPackageIdentity() {
 }
 
 export function assertProjectSetupCompatible({ cwd = process.cwd(), env = process.env } = {}) {
-  const file = configPaths({ cwd, env }).project;
-  if (!existsSync(file)) return;
-  // Keep malformed legacy configuration on the normal APR_CONFIG_INVALID path.
+  const paths = configPaths({ cwd, env });
+  if (paths.primaryRoot) {
+    const primary = resolvePrimaryAuthoritySync({ cwd });
+    return createIntegrationChecker({
+      packageRoot: fileURLToPath(new URL('../..', import.meta.url)),
+      home: userInfo().homedir,
+    }).check(primary);
+  }
+  const file = paths.project;
+  if (!file || !existsSync(file)) return;
   loadConfig({ cwd, env });
   const config = JSON.parse(readFileSync(file, 'utf8'));
-  const setup = config.setup;
-  if (!setup) return;
-  const expected = installedPackageIdentity();
-  const staleFiles = setup.agents.filter((host) => {
-    const skillFile = path.join(
-      path.resolve(cwd),
-      HOST_DIR[host],
-      'skills',
-      'peer-review',
-      'SKILL.md'
-    );
-    return !existsSync(skillFile) || digest(readFileSync(skillFile)) !== expected.skill_sha256;
-  });
-  if (
-    setup.package_version !== expected.package_version ||
-    setup.skill_sha256 !== expected.skill_sha256 ||
-    staleFiles.length
-  ) {
-    throw new AprError(
-      'APR_SETUP_VERSION_MISMATCH',
-      'The project peer-review setup does not match the installed CLI and skill.',
-      {
-        recovery:
-          'Run peer-review setup --update --dry-run, then peer-review setup --update in the affected project. Run peer-review doctor afterward.',
-        details: {
-          expected,
-          configured: {
-            package_version: setup.package_version ?? null,
-            skill_sha256: setup.skill_sha256 ?? null,
-          },
-          stale_hosts: staleFiles,
-        },
-      }
-    );
-  }
+  if (!config.setup) return;
+  throw new AprError(
+    'APR_SETUP_VERSION_MISMATCH',
+    'Legacy copied integrations require primary migration.',
+    {
+      recovery:
+        'Run peer-review primary register --dry-run in the physical primary; inspect and register it, then run peer-review setup --update --dry-run --migrate and peer-review setup --update --migrate. Commit and explicitly activate the migrated owned files.',
+      details: {
+        observed_package_version: config.setup.package_version ?? null,
+        migration_required: true,
+      },
+    }
+  );
 }
+
+// Locator selection is independent of legacy setup-version compatibility.
+export const selectedInstallationIdentity = (input) => assertSelectedRuntime(input);

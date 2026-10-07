@@ -4,10 +4,9 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { fixtureStartupDeps } from '../helpers/internal-api.mjs';
+import { fileURLToPath } from 'node:url';
 
-import { parseNpmPackOutput, runNpm } from '../helpers/npm-command.mjs';
+import { parseNpmPackOutput, runNpm, runRuntimePack } from '../helpers/npm-command.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -19,7 +18,7 @@ test('packed CLI installs into a non-Node host and starts a review through injec
   mkdirSync(packDir);
   mkdirSync(host);
   const packed = parseNpmPackOutput(
-    runNpm('npm', ['pack', '--json', '--pack-destination', packDir], {
+    runRuntimePack(['--json', '--pack-destination', packDir], {
       cwd: root,
       encoding: 'utf8',
     }),
@@ -70,6 +69,41 @@ test('packed CLI installs into a non-Node host and starts a review through injec
   });
   assert.match(installedPeerHelp, /Commands:/);
 
+  const globalPrefix = path.join(fixture, 'global runtime prefix');
+  runNpm(
+    'npm',
+    [
+      'install',
+      '--global',
+      '--prefix',
+      globalPrefix,
+      '--offline',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      tarball,
+    ],
+    { stdio: 'pipe' }
+  );
+  const installed = path.join(
+    globalPrefix,
+    ...(process.platform === 'win32' ? [] : ['lib']),
+    'node_modules/@kburson/ai-peer-review'
+  );
+  const developmentRoot = [
+    process.env.APR_NODEDIR_BASE && path.join(process.env.APR_NODEDIR_BASE, process.versions.node),
+    path.dirname(process.execPath),
+    path.dirname(path.dirname(process.execPath)),
+  ].find((candidate) => candidate && existsSync(path.join(candidate, 'include/node/node_api.h')));
+  assert.ok(developmentRoot, 'matching Node development headers must be provisioned');
+  runNpm(
+    'npm',
+    ['--prefix', installed, 'run', 'build:broker-security', '--', '--nodedir', developmentRoot],
+    { stdio: 'pipe' }
+  );
+  const accountHome = path.join(fixture, 'account-home');
+  mkdirSync(accountHome, { mode: 0o700 });
+  writeFileSync(path.join(host, '.gitignore'), 'node_modules/\npackage*.json\n.scratch/\n');
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: host, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: host });
   execFileSync('git', ['config', 'user.name', 'Test'], { cwd: host });
@@ -78,51 +112,29 @@ test('packed CLI installs into a non-Node host and starts a review through injec
   writeFileSync(path.join(host, '.git/info/exclude'), '.scratch/peer-review/\n');
   execFileSync('git', ['add', 'docs/spec.md'], { cwd: host });
   execFileSync('git', ['commit', '-m', 'fixture'], { cwd: host, stdio: 'ignore' });
-  const { run } = await import(
-    pathToFileURL(path.join(host, 'node_modules/@kburson/ai-peer-review/src/cli/run.mjs'))
-  );
-  let started = '';
-  let errors = '';
-  const code = await run(
+  const started = execFileSync(
+    process.execPath,
     [
-      'start',
-      'docs/spec.md',
-      '--artifact-kind',
-      'spec',
-      '--issue',
-      '117',
-      '--reviewer-provider',
-      'claude',
-      '--reviewer-model',
-      'claude-opus-5',
-      '--reviewer-effort',
-      'medium',
-      '--transport-mode',
-      'manual',
+      '--import',
+      new URL('../helpers/installed-provider/preload.mjs', import.meta.url).href,
+      fileURLToPath(new URL('../helpers/installed-smoke.mjs', import.meta.url)),
     ],
     {
-      ...fixtureStartupDeps,
-      stdout: {
-        write: (value) => {
-          started += value;
-        },
-      },
-      stderr: {
-        write: (value) => {
-          errors += value;
-        },
-      },
       cwd: host,
       encoding: 'utf8',
+      timeout: 60_000,
       env: {
         ...process.env,
-        CODEX_THREAD_ID: 'installed-smoke-author',
-        CODEX_MODEL_ID: 'gpt-test',
-        CODEX_MODEL_DISPLAY: 'GPT Test',
+        APR_FIXTURE_PACKAGE: installed,
+        APR_FIXTURE_ACCOUNT_HOME: accountHome,
+        HOME: accountHome,
+        USERPROFILE: accountHome,
+        APPDATA: path.join(accountHome, 'AppData/Roaming'),
+        XDG_CONFIG_HOME: path.join(accountHome, '.config'),
+        npm_config_cache: runNpm('npm', ['config', 'get', 'cache'], { encoding: 'utf8' }).trim(),
       },
     }
   );
-  assert.equal(code, 0, errors);
   assert.match(started, /Review .*: awaiting-reviewer/);
   assert.match(started, /Next:/);
   assert.match(started, /Runtime: XPR via project-local broker/);

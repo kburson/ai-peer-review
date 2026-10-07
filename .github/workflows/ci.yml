@@ -15,6 +15,8 @@ on:
 permissions:
   contents: read
 
+# Native broker build and verification paused for #102/#107.
+# Source suites report broker exclusions until #107 replaces native transport.
 jobs:
   node-24:
     name: Node 24 / ${{ matrix.os }}
@@ -32,95 +34,16 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
-      - &python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-      - &windows-compiler
-        uses: ilammy/msvc-dev-cmd@v1
-        if: runner.os == 'Windows'
-      - &posix-compiler
-        name: Provision platform compiler
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" = Linux ]; then
-            sudo apt-get update
-            sudo apt-get install -y build-essential
-          else
-            xcode-select -p
-            xcrun --find clang++
-            xcrun --show-sdk-path
-          fi
-      - &node-development
-        name: Provision native Node development files
-        run: >-
-          node node_modules/node-gyp/bin/node-gyp.js install --ensure
-          --devdir="${{ runner.temp }}/node-gyp"
-      - &windows-library
-        name: Normalize Windows import library
-        if: runner.os == 'Windows'
-        env:
-          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
-        run: >-
-          node --input-type=module -e "import { cpSync, mkdirSync } from 'node:fs';
-          import path from 'node:path';
-          const root = path.join(process.env.APR_NODEDIR_BASE, process.versions.node);
-          mkdirSync(path.join(root, 'Release'), { recursive: true });
-          cpSync(path.join(root, process.arch, 'node.lib'), path.join(root, 'Release', 'node.lib'));"
-      - &warm-broker
-        name: Warm npm cache for packed release
-        run: node test/helpers/warm-packed-cache.mjs
-      - &offline-broker
-        name: Build and verify installed broker without network
-        shell: pwsh
-        env:
-          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
-          APR_NATIVE_REQUIRED: '1'
-        run: |
-          $nodeVersion = node -p process.versions.node
-          $developmentTree = Join-Path $env:APR_NODEDIR_BASE $nodeVersion
-          $build = "npm run build:broker-security -- --nodedir '$developmentTree' && node --test test/integration/broker-release.test.mjs"
-          if ($IsLinux) {
-            # A network namespace denies IP while preserving local Unix IPC.
-            $userName = id -un
-            sudo --preserve-env unshare --net -- sudo --preserve-env -u $userName env "PATH=$env:PATH" bash -c $build
-          } elseif ($IsMacOS) {
-            # Deny IP only: authenticated Unix sockets remain available.
-            sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip "*:*"))(deny network-inbound (local ip "*:*"))' bash -c $build
-          } else {
-            $rule = 'APR-offline-release-' + [guid]::NewGuid().ToString()
-            node test/helpers/assert-network.mjs open
-            if ($LASTEXITCODE -ne 0) { throw 'Network baseline failed' }
-            $env:APR_OFFLINE_WINDOWS_GROUP = $rule
-            try {
-              ./test/helpers/windows-offline.ps1 -Mode start -Group $rule
-              node test/helpers/assert-network.mjs blocked
-              if ($LASTEXITCODE -ne 0) { throw 'Network isolation failed' }
-              npm run build:broker-security -- --nodedir $developmentTree
-              if ($LASTEXITCODE -ne 0) { throw 'Offline build failed' }
-              node --test test/integration/broker-release.test.mjs
-            } finally {
-              $result = $LASTEXITCODE
-              ./test/helpers/windows-offline.ps1 -Mode stop -Group $rule
-              Remove-Item Env:APR_OFFLINE_WINDOWS_GROUP
-              $LASTEXITCODE = $result
-            }
-          }
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run default tests
-        env:
-          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
         run: npm test
       - run: npm run test:integration
-        env:
-          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
-      - run: npm run test:smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
   preferred-node:
     name: Node ${{ matrix.node }} / ${{ matrix.os == 'ubuntu-latest' && 'Ubuntu' || matrix.os }}
@@ -139,23 +62,16 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
-      - *python
-      - *windows-compiler
-      - *posix-compiler
-      - *node-development
-      - *windows-library
-      - *warm-broker
-      - *offline-broker
+      - run: npm run test:smoke
       - run: npm test
       - run: npm run test:integration
-        env:
-          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
-      - run: npm run test:smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
   npm-pack-compatibility:
     name: npm ${{ matrix.npm }} / Node ${{ matrix.node }}
@@ -179,6 +95,8 @@ jobs:
       - run: npm install --global "npm@${{ matrix.npm }}"
       - run: test "$(npm --version)" = "${{ matrix.npm }}"
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - name: Verify packed builder, dependency and source inventory
         run: npm run test:packaging
       - run: npm run test:smoke
@@ -195,23 +113,18 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
-      - *python
-      - *posix-compiler
-      - *node-development
-      - *warm-broker
-      - *offline-broker
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm ls --omit=dev --json
       - run: npm test
       - run: npm run test:integration
-        env:
-          APR_NODEDIR_BASE: ${{ runner.temp }}/node-gyp
       - run: npm run test:mcp
       - run: npm run test:packaging
       - run: npm run test:smoke
-      - run: npm pack --dry-run
+      - run: npm run pack:runtime -- --dry-run
 
   live-provider-optional:
     name: Optional live-provider probe

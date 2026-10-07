@@ -5,6 +5,13 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { createHash } from 'node:crypto';
+import { assertSelectedRuntime } from '../src/config/runtime-selection.mjs';
+import {
+  assertCollateralCompatible,
+  readRuntimeCompatibility,
+  assertCurrentCleanupOwnership,
+} from '../src/protocol/compatibility.mjs';
 import { AprError } from '../src/errors.mjs';
 import { canonicalProjectIdentity } from '../src/broker/identity.mjs';
 import { acquireBrokerOwnership } from '../src/broker/ownership.mjs';
@@ -14,6 +21,7 @@ import { inspectStartupAuthority, reconcileRegistrations } from '../src/broker/r
 import { verifyRuntimeImage } from '../src/broker/runtime-image.mjs';
 import { createAuthenticatedBrokerServer, runBroker } from '../src/broker/service.mjs';
 import { createProductionReviewWorker } from '../src/broker/worker-factory.mjs';
+import { withOperationAuthority, performOperationEffect } from '../src/startup/authority-fence.mjs';
 import { createGitRepository } from '../src/git/repository.mjs';
 
 function exact(value, fields) {
@@ -71,9 +79,28 @@ export function readBrokerBootstrap(file, { platform = null } = {}) {
     bytes = readFileSync(file, 'utf8');
   }
   const value = JSON.parse(bytes);
+  if (typeof value?.schema === 'string')
+    assertCollateralCompatible({
+      manifest: readRuntimeCompatibility(),
+      operation: 'read',
+      metadata: [{ contract: 'brokerBootstrap', schema: value.schema }],
+    });
   if (
-    !exact(value, ['project', 'runtimeImage', 'schema', 'versions']) ||
-    value.schema !== 'ai-peer-review.broker-bootstrap/v1' ||
+    !exact(value, [
+      'project',
+      'runtimeImage',
+      'schema',
+      'versions',
+      ...(value?.schema === 'ai-peer-review.broker-bootstrap/v2' ? ['execution'] : []),
+    ]) ||
+    !['ai-peer-review.broker-bootstrap/v1', 'ai-peer-review.broker-bootstrap/v2'].includes(
+      value.schema
+    ) ||
+    (value.schema === 'ai-peer-review.broker-bootstrap/v2' &&
+      (!exact(value.execution, ['package_root', 'node_executable', 'package_digest']) ||
+        !path.isAbsolute(value.execution.package_root ?? '') ||
+        !path.isAbsolute(value.execution.node_executable ?? '') ||
+        !/^[a-f0-9]{64}$/.test(value.execution.package_digest ?? ''))) ||
     !exact(value.project, ['digest', 'physicalRoot', 'tuple']) ||
     !exact(value.runtimeImage, ['digest', 'nodeExecutable', 'root']) ||
     !exact(value.versions, ['broker_protocol_version', 'node_major', 'package_version']) ||
@@ -106,32 +133,35 @@ function sameIdentity(actual, expected) {
   );
 }
 
-function assertExecutingRuntime(bootstrap) {
-  const packageRoot = path.join(bootstrap.runtimeImage.root, 'package');
-  const expectedEntrypoint = path.join(packageRoot, 'bin', 'peer-review-broker.mjs');
-  let manifest;
-  try {
-    manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
-  } catch (cause) {
-    throw new AprError('APR_BROKER_START_FAILED', 'Pinned package manifest is unavailable.', {
-      recovery: 'Restore the exact immutable runtime image and retry.',
-      cause,
-    });
-  }
+async function assertExecutingRuntime(bootstrap) {
+  const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
+  const currentNode = realpathSync(process.execPath);
+  const bytes = readFileSync(path.join(root, 'package.json'));
   if (
-    realpathSync(fileURLToPath(import.meta.url)) !== realpathSync(expectedEntrypoint) ||
-    realpathSync(process.execPath) !== realpathSync(bootstrap.runtimeImage.nodeExecutable) ||
-    manifest.version !== bootstrap.versions.package_version ||
-    Number(process.versions.node.split('.')[0]) !== bootstrap.versions.node_major
-  ) {
+    bootstrap.execution.package_root !== root ||
+    bootstrap.execution.node_executable !== currentNode ||
+    bootstrap.execution.package_digest !== createHash('sha256').update(bytes).digest('hex')
+  )
     throw new AprError(
-      'APR_BROKER_START_FAILED',
-      'Executing broker runtime differs from bootstrap.',
+      'APR_RUNTIME_CHANGED',
+      'Broker bootstrap does not identify the executing current installation.',
       {
-        recovery: 'Launch only the broker and Node executable from the verified pinned image.',
+        recovery:
+          'Start a fresh broker with the current selected global installation; retain old images as evidence.',
       }
     );
-  }
+  const observation = await assertSelectedRuntime();
+  if (
+    bootstrap.versions.package_version !== observation.packageVersion ||
+    bootstrap.versions.broker_protocol_version !== 1 ||
+    bootstrap.versions.node_major !== Number(process.versions.node.split('.')[0])
+  )
+    throw new AprError(
+      'APR_REVIEW_RUNTIME_UNSUPPORTED',
+      'Broker protocol or current execution provenance is unsupported.',
+      { recovery: 'Preserve broker evidence and restart the current selected global broker.' }
+    );
+  return observation;
 }
 
 function registrationSnapshotCurrent(store, registrations) {
@@ -156,79 +186,105 @@ function registrationSnapshotCurrent(store, registrations) {
 
 export async function runBrokerEntrypoint(file) {
   const bootstrap = readBrokerBootstrap(file);
-  if (!verifyRuntimeImage(bootstrap.runtimeImage)) {
-    throw new AprError('APR_BROKER_START_FAILED', 'Pinned broker runtime is incomplete.', {
-      recovery: 'Restore the exact immutable runtime image and retry.',
-    });
-  }
-  assertExecutingRuntime(bootstrap);
-  const packageRoot = path.join(bootstrap.runtimeImage.root, 'package');
-  const security = platformSecurity({ root: packageRoot });
-  const platform = Object.freeze({ ...security, repository: createGitRepository() });
-  const identity = canonicalProjectIdentity({ cwd: bootstrap.project.physicalRoot, platform });
-  if (!sameIdentity(identity, bootstrap.project)) {
-    throw new AprError('APR_BROKER_AUTH_FAILED', 'Bootstrap project identity changed.', {
-      recovery: 'Discard the bootstrap and restart from the canonical project root.',
-    });
-  }
-  const store = {
-    root: path.join(identity.physicalRoot, '.scratch', 'peer-review', 'broker', 'registrations'),
-  };
-  const loadRegistrations = () =>
-    reconcileRegistrations({
-      project: identity,
-      store,
-      inspectAuthority: inspectStartupAuthority,
-    });
-  const registrations = await loadRegistrations();
-  const paths = brokerPaths({
-    identity,
-    platform,
-    env: process.env,
-    home: homedir(),
+  assertCollateralCompatible({
+    manifest: readRuntimeCompatibility(),
+    operation: 'write',
+    metadata: [{ contract: 'brokerBootstrap', schema: bootstrap.schema }],
   });
-  const owner = acquireBrokerOwnership(
-    {
-      identity,
-      paths,
-      versions: bootstrap.versions,
-      deferPublication: true,
-      reconcile: () => registrationSnapshotCurrent(store, registrations),
-    },
-    platform
-  );
-  const server = createAuthenticatedBrokerServer(owner, platform);
-  await runBroker({
-    identity,
-    owner,
-    versions: bootstrap.versions,
-    registry: {
-      list: loadRegistrations,
-      async get(workspace) {
-        const current = await loadRegistrations();
-        return current.find((entry) => entry.workspace === workspace) ?? null;
-      },
-    },
-    workerFactory: (registration) =>
-      createProductionReviewWorker({
-        registration,
-        project: identity,
-        runtimeImage: bootstrap.runtimeImage,
-        owner,
+  return withOperationAuthority(
+    { operation: 'broker.start', cwd: bootstrap.project.physicalRoot },
+    async (fence) => {
+      const runtimeObservation = await assertExecutingRuntime(bootstrap);
+      if (!verifyRuntimeImage(bootstrap.runtimeImage)) {
+        throw new AprError('APR_BROKER_START_FAILED', 'Pinned broker runtime is incomplete.', {
+          recovery: 'Restore the exact immutable runtime image and retry.',
+        });
+      }
+      const packageRoot = runtimeObservation.packageRoot;
+      const security = platformSecurity({ root: packageRoot });
+      const platform = Object.freeze({ ...security, repository: createGitRepository() });
+      const identity = canonicalProjectIdentity({ cwd: bootstrap.project.physicalRoot, platform });
+      if (!sameIdentity(identity, bootstrap.project)) {
+        throw new AprError('APR_BROKER_AUTH_FAILED', 'Bootstrap project identity changed.', {
+          recovery: 'Discard the bootstrap and restart from the canonical project root.',
+        });
+      }
+      const store = {
+        root: path.join(
+          identity.physicalRoot,
+          '.scratch',
+          'peer-review',
+          'broker',
+          'registrations'
+        ),
+      };
+      const loadRegistrations = () =>
+        reconcileRegistrations({
+          project: identity,
+          store,
+          inspectAuthority: inspectStartupAuthority,
+        });
+      const registrations = await loadRegistrations();
+      const paths = brokerPaths({
+        identity,
         platform,
+        env: process.env,
+        home: homedir(),
+      });
+      const owner = performOperationEffect(fence, () =>
+        acquireBrokerOwnership(
+          {
+            identity,
+            paths,
+            versions: bootstrap.versions,
+            deferPublication: true,
+            reconcile: () => registrationSnapshotCurrent(store, registrations),
+          },
+          platform
+        )
+      );
+      const server = createAuthenticatedBrokerServer(owner, platform);
+      await runBroker({
+        identity,
+        owner,
+        versions: bootstrap.versions,
+        cleanupGuard: async () => {
+          const current = await assertSelectedRuntime({ previousObservation: runtimeObservation });
+          assertCurrentCleanupOwnership({
+            owner,
+            protocol: bootstrap.versions.broker_protocol_version,
+            runtime: current.inventory,
+          });
+        },
+        registry: {
+          list: loadRegistrations,
+          async get(workspace) {
+            const current = await loadRegistrations();
+            return current.find((entry) => entry.workspace === workspace) ?? null;
+          },
+        },
+        workerFactory: (registration) =>
+          createProductionReviewWorker({
+            registration,
+            project: identity,
+            runtimeImage: bootstrap.runtimeImage,
+            owner,
+            platform,
+            clock: {
+              now: () => Date.now(),
+              setTimeout: (callback, delay) => setTimeout(callback, delay),
+              clearTimeout: (timer) => clearTimeout(timer),
+            },
+          }),
         clock: {
           now: () => Date.now(),
           setTimeout: (callback, delay) => setTimeout(callback, delay),
           clearTimeout: (timer) => clearTimeout(timer),
         },
-      }),
-    clock: {
-      now: () => Date.now(),
-      setTimeout: (callback, delay) => setTimeout(callback, delay),
-      clearTimeout: (timer) => clearTimeout(timer),
-    },
-    server,
-  });
+        server,
+      });
+    }
+  );
 }
 
 async function main(argv = process.argv.slice(2)) {

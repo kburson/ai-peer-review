@@ -3,6 +3,9 @@ import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './pa
 import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
+  primary: 'Inspect or explicitly register and activate the physical primary integration.',
+  'register-runtime':
+    'Register the executing global runtime and Node once for the verified OS account.',
   setup: 'Install, upgrade, or remove reversible peer-review agent integration.',
   build: 'Compile the package-owned broker security helper for the current Node installation.',
   doctor: 'Inspect installation or current-operation peer-review readiness without mutation.',
@@ -28,6 +31,9 @@ const PURPOSE = Object.freeze({
 });
 
 const SETUP_FLAG_HELP = Object.freeze({
+  '--migrate': 'Explicitly migrate owned legacy primary config; conflicting copies refuse.',
+  '--migrate-user':
+    'Consent to migrating classified machine bindings into the invoking account preferences; collisions refuse.',
   '--agent': 'Choose one host for initial setup or teardown; repeat to select several hosts.',
   '--scope': 'Choose user or project configuration. Setup --update defaults to project scope.',
   '--dry-run': 'Preview exact operations and backup requirements without changing files.',
@@ -40,12 +46,16 @@ const SETUP_FLAG_HELP = Object.freeze({
 });
 
 const START_FLAG_HELP = Object.freeze({
+  '--preserved-predecessor':
+    'Absolute path to preserved incompatible review evidence in this repository; seals a reference in an independent review without altering or settling its predecessor.',
   '--issue':
     'Required positive issue ID for every new SPR or XPR; sealed into startup authority and used in package-generated commit subjects.',
 });
 
 const HUMAN_GATED = new Set(['supplement', 'continue']);
 const ROLES = Object.freeze({
+  primary: ['human'],
+  'register-runtime': ['human'],
   setup: ['human'],
   build: ['human'],
   doctor: ['author', 'reviewer', 'human'],
@@ -69,6 +79,8 @@ const ROLES = Object.freeze({
   explain: ['author', 'reviewer', 'human'],
 });
 const STATES = Object.freeze({
+  primary: ['outside-review'],
+  'register-runtime': ['outside-review'],
   setup: ['outside-review'],
   build: ['outside-review'],
   doctor: ['any'],
@@ -99,9 +111,15 @@ const STATES = Object.freeze({
   explain: ['any'],
 });
 const PRECONDITIONS = Object.freeze({
+  primary: [
+    'Physical main-worktree identity; clean committed owned blobs and safe actual-clone review inventory for activation.',
+  ],
+  'register-runtime': [
+    'An installed global package with valid runtime inventory, Node >=24 and a verified OS account directory.',
+  ],
   setup: [
     'Choose the same scope (user or project) and host agent used by the previous installation.',
-    'After a global npm upgrade, run setup --update in each prior scope; it discovers recorded hosts without --agent.',
+    'An unchanged integration contract requires no refresh after a package upgrade; a mismatch reports the exact scope to update.',
   ],
   build: [
     'Matching local Node development headers, a C++ compiler, Python, and package-local node-gyp.',
@@ -149,12 +167,21 @@ const PRECONDITIONS = Object.freeze({
   explain: ['A known stable APR error code.'],
 });
 const EFFECTS = Object.freeze({
+  primary: [
+    'register and activate write private clone receipts only; inspect is read-only; no commits or provider launch.',
+  ],
+  'register-runtime': [
+    'Dry-run inspects without writes; apply records private account-wide locators atomically with read back.',
+    'Explicit --update replaces a relocated package or Node locator for every clone; an in-place upgrade keeps the selection generation.',
+  ],
   setup: [
-    'Dry-run previews exact owned changes without mutation; apply automatically replaces a prior package-owned skill and backs up its previous bytes as SKILL.md.bak.',
-    'Setup --remove is an idempotent teardown for the selected host and scope; foreign skills remain untouched.',
-    'Applying setup prints a human-readable applied or already-up-to-date result with changed files and backup paths. Add --json for the setup-result/v1 machine result; --dry-run previews without applying changes.',
-    'Codex and Claude setup install provider hooks that observe the active model for each CLI invocation; teardown removes only package-owned hooks and preserves foreign host hooks.',
-    'Global npm installation updates the command but does not refresh copied skills until setup runs again.',
+    'Dry-run reports planned before/after bytes and digests, primary branch and review inventory without applying writes.',
+    'Project setup requires the registered physical primary; linked apply refuses with its exact maintenance command. User setup is separate.',
+    'Explicit --migrate moves legacy primary configuration; --migrate-user consents to invoking-account machine-field migration and refuses collisions.',
+    'All destinations pass effective host formatting and lint before atomic application. Foreign hook and adapter property bytes are retained.',
+    'Setup never commits or activates; commit generated primary owned files, then inspect and run primary activate.',
+    'Applying setup prints human-readable file locations; --json reports complete planned bytes as setup-result/v1. Teardown removes proven owned hooks and wrappers, preserves policy and foreign settings, and retains the local scratch exclude.',
+    'Package currency compares declared integration contracts and normalized owned content rather than exact package versions.',
   ],
   build: [
     'Compiles only the installed package native helper; derives the Node development root from the executing Node binary.',
@@ -166,7 +193,7 @@ const EFFECTS = Object.freeze({
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
     'Seals the requested issue ID; author revisions and finalization use [#N] commit subjects in normal mode.',
-    'A fresh --reviews-root or --review-path-template can create an independent review when an older attempt remains uncertain; verify the new review ID, invitation, and output paths. --record-id alone is insufficient.',
+    'A fresh --reviews-root or --review-path-template can create an independent review when an older attempt remains uncertain; verify the new review ID, invitation, and output paths. --record-id alone is insufficient. Use --preserved-predecessor <absolute-workspace> to seal the reference to preserved incompatible collateral.',
   ],
   advance: ['Appends one next-artifact event, reviewer draft, and durable delivery.'],
   'request-grant': ['Appends or reuses one challenge event; performs no Git operation.'],
@@ -205,6 +232,19 @@ const EFFECTS = Object.freeze({
   explain: ['Read-only offline error rendering.'],
 });
 const ERRORS = Object.freeze({
+  primary: [
+    'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+    'APR_SETUP_CONFLICT',
+    'APR_RUNTIME_NOT_SELECTED',
+    'APR_RUNTIME_CHANGED',
+  ],
+  'register-runtime': [
+    'APR_USAGE',
+    'APR_RUNTIME_ACCOUNT_UNAVAILABLE',
+    'APR_RUNTIME_INSTALLATION_INVALID',
+    'APR_RUNTIME_SELECTION_INVALID',
+    'APR_RUNTIME_INVENTORY_INVALID',
+  ],
   setup: [
     'APR_USAGE',
     'APR_SETUP_INVALID',
@@ -790,7 +830,7 @@ const ERROR_CATALOG = Object.freeze({
   APR_LINEAGE_UNAVAILABLE: {
     message: 'The exact lineage receipt required for supersession is unavailable.',
     recovery:
-      'Preserve the unresolved attempt. For an independent fresh review, choose a fresh --reviews-root or --review-path-template and verify that its review ID and invitation differ; --record-id alone is insufficient.',
+      'Preserve the unresolved attempt. For an independent fresh review, choose a fresh --reviews-root or --review-path-template and verify that its review ID and invitation differ; --record-id alone is insufficient. Use --preserved-predecessor <absolute-workspace> to seal the reference to preserved incompatible collateral.',
   },
   APR_BROKER_BUILD_FAILED: {
     message: 'The explicit local broker security build failed.',
@@ -850,6 +890,17 @@ const ERROR_CATALOG = Object.freeze({
     recovery:
       'Use peer-review start --issue <N> with the tracked issue number; run peer-review help start for the complete command.',
   },
+  APR_OPERATION_AUTHORITY_UNAVAILABLE: {
+    message:
+      'The operation is unclassified or its current runtime, primary or review fence changed.',
+    recovery:
+      'Retry the named operation through the selected global runtime with current primary activation and integration.',
+  },
+  APR_PRIMARY_AUTHORITY_UNAVAILABLE: {
+    message: 'The physical clone primary or its activated committed policy is unavailable.',
+    recovery:
+      'Inspect the actual main worktree, preserve old and new blob diagnostics, settle active review inventory, then explicitly register or activate from the primary.',
+  },
   APR_SETUP_INVALID: {
     message: 'Setup scope, host selection, or existing provider configuration is invalid.',
     recovery: 'Repair the named input or configuration and preview setup again.',
@@ -859,9 +910,37 @@ const ERROR_CATALOG = Object.freeze({
     recovery:
       'The skill or provider key is foreign to this package. Preserve or relocate it, then rerun peer-review setup --dry-run for the same host and scope; package-owned earlier skills upgrade automatically.',
   },
+  APR_RUNTIME_ACCOUNT_UNAVAILABLE: {
+    message: 'The OS account profile or ownership verifier is unavailable.',
+    recovery:
+      'Restore the account profile and installed native ownership helper; environment overrides cannot select authority.',
+  },
+  APR_RUNTIME_INSTALLATION_INVALID: {
+    message: 'Runtime registration requires an installed package and Node >=24.',
+    recovery:
+      'Invoke register-runtime from the actual global installation; source checkouts cannot register.',
+  },
+  APR_RUNTIME_SELECTION_INVALID: {
+    message: 'The private account runtime selection is missing, unsafe or malformed.',
+    recovery:
+      'Inspect retained bytes and use global register-runtime --dry-run, then explicit --update for locator replacement.',
+  },
+  APR_RUNTIME_INVENTORY_INVALID: {
+    message: 'The installed runtime inventory is missing, unsafe, mixed or incomplete.',
+    recovery: 'Complete or reinstall the global package and retry from a fresh invocation.',
+  },
+  APR_RUNTIME_NOT_SELECTED: {
+    message: 'Executing package or Node does not match the account selection.',
+    recovery:
+      'Invoke the selected global CLI and Node; use explicit register-runtime --update for relocation.',
+  },
+  APR_RUNTIME_CHANGED: {
+    message: 'The selected installation or generation changed after observation.',
+    recovery:
+      'Restart from the selected current installation; retained old images do not authorize continued effects.',
+  },
   APR_SETUP_VERSION_MISMATCH: {
-    message:
-      'The project setup package version or copied skill digest differs from the installed CLI.',
+    message: 'Owned integration content differs from the selected installation contract.',
     recovery:
       'Run peer-review help setup, then peer-review setup --update --dry-run and peer-review setup --update in the affected project. Run peer-review doctor afterward.',
   },
@@ -1086,6 +1165,9 @@ function topic(command) {
             'peer-review setup --update --dry-run',
             'peer-review setup --update',
             'peer-review setup --update --json',
+            'peer-review primary register --dry-run',
+            'peer-review setup --update --dry-run --migrate',
+            'peer-review primary activate --dry-run',
           ]
         : []),
       ...(command === 'doctor' ? ['peer-review doctor --mode installation --json'] : []),
@@ -1105,7 +1187,7 @@ function topic(command) {
       command === 'build'
         ? 'Run peer-review doctor --mode automatic-required --json to verify the native helper.'
         : command === 'setup'
-          ? 'After initial setup, run peer-review doctor --json. After a package upgrade, run peer-review setup --update --dry-run and then peer-review setup --update in each prior scope, followed by doctor.'
+          ? 'After initial setup, run peer-review doctor --json. For an integration mismatch, inspect the reported scope with setup --update --dry-run, apply from the physical primary or user scope, commit changed primary owned files and explicitly activate them.'
           : command === 'launch-reviewer'
             ? 'On permission-blocked with usable private session state, run the exact printed peer-review launch-reviewer invitation --host claude --resume command; otherwise inspect review status before retrying.'
             : command === 'broker'

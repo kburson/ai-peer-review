@@ -6,7 +6,7 @@ import {
   buildClaudeReviewerLaunch,
   buildClaudeReviewerLaunchFromExecution,
   encodeClaudeExecutionPermissions,
-} from '../../src/provider/claude-launch.mjs';
+} from '../helpers/claude-launch-api.mjs';
 
 export function launchFixture(t) {
   const scratch = path.join(process.cwd(), '.scratch', 'test');

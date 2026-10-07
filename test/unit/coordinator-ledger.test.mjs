@@ -7,7 +7,7 @@ import {
   appendWakeOutcome,
   readWakeOperation,
   reserveWakeOperation,
-} from '../../src/coordinator/ledger.mjs';
+} from '../helpers/coordinator-ledger-api.mjs';
 
 const NOW = new Date('2026-09-13T12:00:00.000Z');
 

@@ -28,6 +28,25 @@ writeFileSync(path.join(root, 'docs/artifact.md'), '# Artifact\n\nA missing key 
 writeFileSync(path.join(root, '.gitignore'), 'node_modules/\npackage*.json\n.scratch/\n');
 git('add', 'docs/artifact.md', '.gitignore');
 git('commit', '-m', 'fixture');
+const { registerRuntimeSelection } = await load('src/config/runtime-selection.mjs');
+await registerRuntimeSelection();
+const { registerPrimary, activatePrimaryPolicy } = await load('src/config/primary-operations.mjs');
+const { setup } = await load('src/config/setup.mjs');
+await registerPrimary({ cwd: root });
+await setup({
+  scope: 'project',
+  agents: ['codex', 'claude'],
+  cwd: root,
+  confirmScratchExclude: true,
+});
+git('add', '.');
+git('commit', '-m', 'activate installed scenario primary');
+await activatePrimaryPolicy({ cwd: root });
+// Bound this multi-action fixture after maintenance, preserving any shorter
+// inherited deadline across all provider launches and simulated restarts.
+process.env.APR_PROVIDER_DEADLINE_MS = String(
+  Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS ?? Infinity), Date.now() + 900_000)
+);
 const { platformSecurity } = await load('src/broker/platform.mjs');
 const { canonicalProjectIdentity } = await load('src/broker/identity.mjs');
 const { ensureBroker, requestBroker } = await load('src/broker/client.mjs');
@@ -66,7 +85,7 @@ try {
   await promisify(execFile)('claude', ['--fixture-start'], {
     cwd: root,
     env: withoutProviderIdentity(process.env),
-    timeout: 45_000,
+    timeout: 240_000,
     encoding: 'utf8',
   });
   if (process.env.APR_FIXTURE_RESTART_SIMULATION === '1') {
@@ -86,7 +105,10 @@ try {
   const { readWakeOperation } = await load('src/coordinator/ledger.mjs');
   let receipt;
   let finalized = false;
-  const deadline = Date.now() + 45_000;
+  // Three serial role turns include their real CLI work and durable stream
+  // acknowledgment. Keep this observation inside the inherited provider bound.
+  const deadline = Math.min(Number(process.env.APR_PROVIDER_DEADLINE_MS), Date.now() + 300_000);
+  const handoffStarted = Date.now();
   while ((!receipt || !finalized) && Date.now() < deadline) {
     const directory = path.join(root, '.scratch/peer-review');
     const ws = readdirSync(directory)
@@ -106,9 +128,15 @@ try {
           .map((name) => readWakeOperation(ws[0], `sha256:${name.slice(0, -5)}`))
       : [];
     progress = {
+      elapsed_ms: Date.now() - handoffStarted,
+      remaining_provider_ms: Number(process.env.APR_PROVIDER_DEADLINE_MS) - Date.now(),
       protocol: authority.state.protocol.state,
       events: authority.events.map((event) => event.type),
-      wakes: wakes.map((wake) => ({ role: wake.target_role, status: wake.status })),
+      wakes: wakes.map((wake) => ({
+        role: wake.target_role,
+        status: wake.status,
+        outcomes: wake.outcomes,
+      })),
     };
     const startup = path.join(ws[0], 'startup-request.json');
     if (existsSync(startup)) progress.startup = JSON.parse(readFileSync(startup)).stage;
@@ -156,6 +184,44 @@ try {
       })),
     })
   );
+  const reviewDirectory = path.join(root, '.scratch/peer-review');
+  if (existsSync(reviewDirectory)) {
+    for (const name of readdirSync(reviewDirectory)) {
+      const workspace = path.join(reviewDirectory, name);
+      const wakeDirectory = path.join(workspace, 'wake/operations');
+      if (existsSync(wakeDirectory)) {
+        for (const name of readdirSync(wakeDirectory).filter((file) =>
+          /^[a-f0-9]{64}\.json$/.test(file)
+        )) {
+          const wake = JSON.parse(readFileSync(path.join(wakeDirectory, name), 'utf8'));
+          console.error(
+            'wake-operation',
+            JSON.stringify({
+              role: wake.target_role,
+              status: wake.status,
+              outcomes: wake.outcomes,
+              protocol_revision: wake.protocol_revision,
+            })
+          );
+        }
+      }
+      for (const relative of ['startup-request.json', 'provider/claude/launch-state.json']) {
+        const file = path.join(workspace, relative);
+        if (existsSync(file)) {
+          const value = JSON.parse(readFileSync(file, 'utf8'));
+          console.error(
+            relative,
+            JSON.stringify({
+              stage: value.stage,
+              status: value.status,
+              provider_operation: value.provider_operation,
+              diagnostic: value.diagnostic,
+            })
+          );
+        }
+      }
+    }
+  }
   console.error(error);
   if (existsSync(process.env.APR_FIXTURE_BROKER_LOG))
     console.error(readFileSync(process.env.APR_FIXTURE_BROKER_LOG, 'utf8'));

@@ -1,5 +1,31 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": []
+      },
+      {
+        "matcher": "",
+        "hooks": []
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": []
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": []
+      },
+      {
+        "matcher": "",
+        "hooks": []
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -9,6 +35,56 @@
             "command": "node bin/peer-review-claude-hook.mjs"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": []
+      },
+      {
+        "matcher": "Agent",
+        "hooks": []
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": []
+      },
+      {
+        "matcher": "Bash",
+        "hooks": []
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": []
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": []
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": []
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": []
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": []
+      },
+      {
+        "matcher": "",
+        "hooks": []
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": []
       }
     ]
   },

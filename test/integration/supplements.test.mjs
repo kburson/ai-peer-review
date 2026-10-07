@@ -7,7 +7,7 @@ import * as api from '../helpers/internal-api.mjs';
 import { parseResponse } from '../../src/collateral/responses.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
-import { inspectReview } from '../../src/protocol/service.mjs';
+import { inspectReview } from '../helpers/protocol-api.mjs';
 import {
   budgetIntervention,
   fixture,

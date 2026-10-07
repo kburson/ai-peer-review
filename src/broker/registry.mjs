@@ -5,6 +5,10 @@ import { canonicalProjection, inspectReviewAuthority } from '../protocol/service
 import { reserveCollateral } from '../collateral/responses.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 
+import {
+  assertCollateralCompatible,
+  readRuntimeCompatibility,
+} from '../protocol/compatibility.mjs';
 import { AprError } from '../errors.mjs';
 import { atomicCreate } from '../protocol/store.mjs';
 import { verifyRuntimeImage } from './runtime-image.mjs';
@@ -30,6 +34,11 @@ export function readStartupJournal(workspace) {
     const stat = lstatSync(file);
     if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('unsafe journal');
     const journal = JSON.parse(readFileSync(file, 'utf8'));
+    assertCollateralCompatible({
+      manifest: readRuntimeCompatibility(),
+      operation: 'read',
+      metadata: [{ contract: 'startup', schema: journal?.schema }],
+    });
     const fields = [
       'schema',
       'request_digest',
@@ -83,6 +92,7 @@ export function readStartupJournal(workspace) {
       throw new Error('journal authority');
     return journal;
   } catch (cause) {
+    if (cause?.code === 'APR_REVIEW_RUNTIME_UNSUPPORTED') throw cause;
     authorityFailure(
       'Startup journal is unreadable or contradicts its reserved request.',
       { file },
@@ -409,6 +419,11 @@ function transactionWorkspace(project, workspace) {
     const stat = lstatSync(file);
     if (!stat.isFile() || stat.isSymbolicLink()) return false;
     const journal = JSON.parse(readFileSync(file, 'utf8'));
+    assertCollateralCompatible({
+      manifest: readRuntimeCompatibility(),
+      operation: 'read',
+      metadata: [{ contract: 'startup', schema: journal?.schema }],
+    });
     return (
       journal.schema === 'ai-peer-review.startup-request/v1' &&
       journal.workspace === workspace &&

@@ -526,6 +526,9 @@
       }
     },
     "startupContext": {
+      "oneOf": [{ "$ref": "#/$defs/startupContextV1" }, { "$ref": "#/$defs/startupContextV2" }]
+    },
+    "startupContextV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -542,6 +545,7 @@
       "properties": {
         "schema": { "const": "ai-peer-review.context/v1" },
         "review_id": { "$ref": "#/$defs/id" },
+        "record_id": { "$ref": "#/$defs/id" },
         "repository_root": { "type": "string", "minLength": 1 },
         "artifact_kind": { "enum": ["spec", "plan"] },
         "artifact_name": { "$ref": "#/$defs/id" },
@@ -549,6 +553,69 @@
         "reviews_root": { "$ref": "#/$defs/path" },
         "review_path_template": { "type": "string", "minLength": 1 },
         "issue": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/positive" }] }
+      }
+    },
+    "startupContextV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "review_id",
+        "repository_root",
+        "artifact_kind",
+        "artifact_name",
+        "review_date",
+        "reviews_root",
+        "review_path_template",
+        "issue",
+        "preserved_predecessor"
+      ],
+      "properties": {
+        "schema": {
+          "const": "ai-peer-review.context/v2"
+        },
+        "review_id": {
+          "$ref": "#/$defs/id"
+        },
+        "repository_root": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_kind": {
+          "enum": ["spec", "plan"]
+        },
+        "artifact_name": {
+          "$ref": "#/$defs/id"
+        },
+        "review_date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "reviews_root": {
+          "$ref": "#/$defs/path"
+        },
+        "review_path_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issue": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/positive"
+            }
+          ]
+        },
+        "record_id": {
+          "$ref": "#/$defs/id"
+        },
+        "preserved_predecessor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
       }
     },
     "noCommitBaseline": {

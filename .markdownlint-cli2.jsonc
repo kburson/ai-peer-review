@@ -7,6 +7,7 @@
     "node_modules/**",
     "coverage/**",
     ".scratch/**",
+    ".superpowers/**",
     ".ai-task-manager/memory/**",
     ".ai-task-manager/templates/**",
     ".claude/commands/task.md",

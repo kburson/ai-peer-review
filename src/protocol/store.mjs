@@ -231,6 +231,7 @@ export async function reclaimReviewLock({
   lockDigest,
   reason,
   confirmReclaim,
+  effect = (operation) => operation(),
   now = new Date().toISOString(),
 } = {}) {
   if (confirmReclaim !== true) {
@@ -257,7 +258,9 @@ export async function reclaimReviewLock({
       { expected: lockDigest, actual: inspection.digest }
     );
   }
-  return retainLock(inspection, { reason: normalizedReason, now: new Date(now).toISOString() });
+  return effect(() =>
+    retainLock(inspection, { reason: normalizedReason, now: new Date(now).toISOString() })
+  );
 }
 
 export function atomicWrite(file, bytes) {
@@ -345,6 +348,7 @@ export function atomicCreate(file, bytes) {
 }
 
 export async function withReviewLock(workspace, operation, options = {}) {
+  const effect = options.effect ?? ((operation) => operation());
   const lockDirectory = path.join(workspace, 'locks');
   const lockFile = path.join(lockDirectory, 'review.lock');
   const token = randomUUID();
@@ -355,19 +359,21 @@ export async function withReviewLock(workspace, operation, options = {}) {
   for (let attempt = 0; attempt < 3 && !created; attempt += 1) {
     let attemptedOpen = false;
     try {
-      mkdirSync(lockDirectory, { recursive: true });
-      attemptedOpen = true;
-      descriptor = openSync(lockFile, 'wx', 0o600);
-      created = true;
-      writeFileSync(
-        descriptor,
-        `${canonicalJson({ schema: 'ai-peer-review.lock/v2', token, pid: ownerIdentity.pid, host: ownerIdentity.host, boot_id: ownerIdentity.boot_id, process_start: ownerIdentity.process_start, acquired_at: new Date().toISOString() })}\n`
-      );
-      fsyncSync(descriptor);
-      closeSync(descriptor);
-      descriptor = undefined;
-      syncDirectory(lockDirectory);
-      ACTIVE_LOCK_TOKENS.add(token);
+      effect(() => {
+        mkdirSync(lockDirectory, { recursive: true });
+        attemptedOpen = true;
+        descriptor = openSync(lockFile, 'wx', 0o600);
+        created = true;
+        writeFileSync(
+          descriptor,
+          `${canonicalJson({ schema: 'ai-peer-review.lock/v2', token, pid: ownerIdentity.pid, host: ownerIdentity.host, boot_id: ownerIdentity.boot_id, process_start: ownerIdentity.process_start, acquired_at: new Date().toISOString() })}\n`
+        );
+        fsyncSync(descriptor);
+        closeSync(descriptor);
+        descriptor = undefined;
+        syncDirectory(lockDirectory);
+        ACTIVE_LOCK_TOKENS.add(token);
+      });
     } catch (cause) {
       if (descriptor !== undefined) {
         try {
@@ -385,6 +391,7 @@ export async function withReviewLock(workspace, operation, options = {}) {
         }
         created = false;
       }
+      if (cause instanceof AprError && !attemptedOpen) throw cause;
       if (cause?.code !== 'EEXIST' || !attemptedOpen) {
         const error = reviewLockError(
           'APR_REVIEW_LOCK_FAILED',
@@ -410,10 +417,12 @@ export async function withReviewLock(workspace, operation, options = {}) {
         observeProcessIdentity,
       });
       if (inspection.status === 'stale') {
-        retainLock(inspection, {
-          reason: `automatic-${inspection.reason}`,
-          now: new Date().toISOString(),
-        });
+        effect(() =>
+          retainLock(inspection, {
+            reason: `automatic-${inspection.reason}`,
+            now: new Date().toISOString(),
+          })
+        );
         continue;
       }
       if (inspection.status === 'live') {
@@ -447,7 +456,7 @@ export async function withReviewLock(workspace, operation, options = {}) {
     ACTIVE_LOCK_TOKENS.delete(token);
     try {
       const owner = JSON.parse(readFileSync(lockFile, 'utf8'));
-      if (owner?.token === token) unlinkSync(lockFile);
+      if (owner?.token === token) effect(() => unlinkSync(lockFile));
     } catch (cause) {
       if (cause?.code !== 'ENOENT') {
         // A missing, malformed, or foreign lock is preserved for explicit recovery.

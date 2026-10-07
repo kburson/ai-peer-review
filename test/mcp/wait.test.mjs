@@ -10,12 +10,9 @@ import {
 import path from 'node:path';
 import test from 'node:test';
 
-import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { canonicalProjection } from '../helpers/protocol-api.mjs';
 import { appendEvent } from '../../src/protocol/store.mjs';
-import {
-  createLiveDeliverySource,
-  createLiveWaitTransport,
-} from '../../src/transport/live-wait.mjs';
+import { createLiveDeliverySource, createLiveWaitTransport } from '../helpers/live-wait-api.mjs';
 import { createTransportRegistry } from '../../src/transport/registry.mjs';
 import { waitForHandoff } from '../../src/mcp/wait.mjs';
 import { createReviewWorkspace, event, reviewerTurnEvents } from '../helpers/review-fixture.mjs';

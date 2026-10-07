@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { promisify } from 'node:util';
 
 import { buildClaudeProviderCapability } from '../../src/config/load.mjs';
-import { buildClaudeReviewerLaunchFromExecution } from '../../src/provider/claude-launch.mjs';
+import { buildClaudeReviewerLaunchFromExecution } from '../helpers/claude-launch-api.mjs';
 import { buildReviewerExecutionContract } from '../../src/provider/execution-contract.mjs';
 import { preflightReviewerExecution } from '../../src/provider/preflight.mjs';
 
