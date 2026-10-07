@@ -127,6 +127,7 @@ export function assessWindowsProtection(value = {}) {
 
 const windowsScript = String.raw`
 $ErrorActionPreference = 'Stop'
+try {
 [Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 $OutputEncoding=[Console]::OutputEncoding
@@ -198,6 +199,10 @@ $records = foreach ($entry in $paths) {
   }
 }
 [ordered]@{schema='ai-peer-review.windows-protection-observation/v1'; records=@($records)} | ConvertTo-Json -Depth 8 -Compress
+} catch {
+  [ordered]@{schema='ai-peer-review.windows-protection-error/v1'; exception=$_.Exception.GetType().Name; line=$_.InvocationInfo.ScriptLineNumber} | ConvertTo-Json -Compress
+  exit 1
+}
 `;
 function operationBudget({ signal, deadline = Infinity, clock = performance } = {}) {
   const now = typeof clock === 'function' ? clock : () => clock.now();
@@ -239,9 +244,21 @@ async function windowsProbe(targets, provision = false, budget = operationBudget
       ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
       { encoding: 'utf8', maxBuffer: 1048576, ...budget.options(15000), windowsHide: true },
       (error, stdout, stderr) => {
-        if (error || stderr.trim())
-          reject(failure('APR_BROKER_START_FAILED', 'stock-acl-probe-unavailable'));
-        else resolve(stdout);
+        if (error || stderr.trim()) {
+          let reason = 'stock-acl-probe-unavailable';
+          try {
+            const diagnostic = JSON.parse(stdout.replace(/^\uFEFF/, '').trim());
+            if (
+              diagnostic.schema === 'ai-peer-review.windows-protection-error/v1' &&
+              /^[A-Za-z]{1,80}$/.test(diagnostic.exception) &&
+              Number.isSafeInteger(diagnostic.line)
+            )
+              reason += '-' + diagnostic.exception + '-line-' + diagnostic.line;
+          } catch {
+            /* Raw probe output can contain paths and is never exposed. */
+          }
+          reject(failure('APR_BROKER_START_FAILED', reason));
+        } else resolve(stdout);
       }
     );
     child.stdin.on('error', reject);
@@ -406,13 +423,13 @@ async function inspectAncestors(
 async function inspect(value, type = 'directory', budget = operationBudget()) {
   budget.check();
   const { uid, stats, chain } = await inspectAncestors(value, false, budget, true);
+  const stat = await sameCanonical(value);
   if (process.platform === 'linux') {
     const filesystem = await statfs(value, { bigint: true });
     const supported = [0xef53n, 0x58465342n, 0x9123683en, 0x01021994n, 0x794c7630n];
     if (!supported.includes(filesystem.type))
       throw failure('APR_BROKER_START_FAILED', 'filesystem-protection-unproved');
   }
-  const stat = await sameCanonical(value);
   if (type === 'directory' ? !stat.isDirectory() : !stat.isFile())
     throw failure('APR_BROKER_START_FAILED', 'storage-type-unproved');
   if (type === 'file' && stat.nlink !== 1n)
