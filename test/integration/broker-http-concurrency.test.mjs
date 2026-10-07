@@ -13,7 +13,7 @@ test('64 slow sockets preserve authenticated status and cancellation under one s
   assert.equal((await f.request({ operation: 'cancel' })).ok, true);
   assert.ok(performance.now() - started < 1_000);
   f.clock.advance(5_000);
-  await f.flush();
+  await Promise.all(sockets.map((socket) => f.waitForClosed(socket)));
   assert.equal(
     sockets.every((socket) => socket.destroyed),
     true

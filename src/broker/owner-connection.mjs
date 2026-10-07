@@ -1,6 +1,6 @@
 // @story #176
 import http from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { AprError } from '../errors.mjs';
 import { validatePrivateBinding, verifyOwnerProof } from './http-auth.mjs';
@@ -150,7 +150,18 @@ export function isVerifiedOwnerConnection(connection) {
   );
 }
 async function observe(input, genuine) {
-  let agent, timer, stop;
+  let agent, timer, stop, publicationFailure;
+  // Only privately registered publication methods enter this boundary.
+  // Preserve their bounded errors, including exact C1 cleanup obligations.
+  const readPublication = async (operation) => {
+    try {
+      return await operation();
+    } catch (error) {
+      publicationFailure =
+        error instanceof AprError ? error : refusal('credential-publication-unproved');
+      throw publicationFailure;
+    }
+  };
   try {
     preflight(input);
     const endpoint = Object.freeze({ ...input.endpoint });
@@ -163,7 +174,7 @@ async function observe(input, genuine) {
         return unknown('genuine-credential-publication-required');
       generation = { ...publication.retainedGeneration() };
       if (generation.name !== 'credential') return unknown('credential-publication-name-invalid');
-      const snapshot = await publication.snapshot(context);
+      const snapshot = await readPublication(() => publication.snapshot(context));
       if (!Buffer.isBuffer(snapshot.bytes) || snapshot.bytes.length !== 32)
         return unknown('credential-publication-invalid');
       credentialBytes = Buffer.from(snapshot.bytes);
@@ -181,9 +192,12 @@ async function observe(input, genuine) {
     const recheck = async () => {
       contextCheck(context, context);
       if (!genuine) return;
-      if (!isHeldPrivatePublication(publication) || (await publication.verify(context)) !== true)
+      if (
+        !isHeldPrivatePublication(publication) ||
+        (await readPublication(() => publication.verify(context))) !== true
+      )
         throw refusal('credential-publication-changed');
-      const current = await publication.snapshot(context);
+      const current = await readPublication(() => publication.snapshot(context));
       const held = publication.retainedGeneration();
       if (
         ['name', 'root', 'rootIdentity', 'identity', 'fileVersion'].some(
@@ -202,7 +216,17 @@ async function observe(input, genuine) {
       agent.destroy();
     };
     context.signal.addEventListener('abort', stop, { once: true });
-    timer = setTimeout(stop, Math.max(0, context.deadline - performance.now()));
+    const expire = () => {
+      const remaining = context.deadline - performance.now();
+      if (remaining > 0) {
+        // Timer resolution cannot renew the captured absolute budget or expire it early.
+        timer = setTimeout(expire, Math.max(1, Math.ceil(remaining)));
+        timer.unref();
+        return;
+      }
+      stop();
+    };
+    timer = setTimeout(expire, Math.max(1, Math.ceil(context.deadline - performance.now())));
     timer.unref();
     if (context.signal.aborted || performance.now() >= context.deadline) stop();
     const socket = await exchange(
@@ -233,17 +257,20 @@ async function observe(input, genuine) {
       async request(options) {
         validate(this, options, ['operation', 'body', 'actionId']);
         if (busy) throw refusal('connection-busy');
-        if (closed || socket.destroyed || controller.signal.aborted) return lost(options.actionId);
+        const actionId = options.actionId === undefined ? randomUUID() : options.actionId;
+        if (closed || socket.destroyed || controller.signal.aborted) return lost(actionId);
         busy = true;
         try {
           await recheck();
-          if (socket.destroyed || controller.signal.aborted) return lost(options.actionId);
+          if (socket.destroyed || controller.signal.aborted) return lost(actionId);
           return await requestLoopback({
             endpoint,
             privateBinding,
             agent,
             ...options,
+            actionId,
             signal: controller.signal,
+            deadline: context.deadline,
           });
         } finally {
           busy = false;
@@ -264,6 +291,7 @@ async function observe(input, genuine) {
             agent,
             afterCursor: options.afterCursor,
             signal: controller.signal,
+            deadline: context.deadline,
             body: {},
           });
         } finally {
@@ -286,6 +314,7 @@ async function observe(input, genuine) {
     clearTimeout(timer);
     if (stop) input.signal.removeEventListener('abort', stop);
     agent?.destroy();
+    if (publicationFailure) throw publicationFailure;
     if (error.code === 'ECONNREFUSED')
       return Object.freeze({ kind: 'absent', verified: false, reason: 'transport-absent' });
     return unknown(

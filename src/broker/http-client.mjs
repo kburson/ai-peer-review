@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { performance } from 'node:perf_hooks';
 import { randomUUID } from 'node:crypto';
 import { HTTP_BODY_LIMIT } from './http-server.mjs';
 import { validatePrivateBinding } from './http-auth.mjs';
@@ -19,7 +20,7 @@ function envelope(code, actionId, uncertain) {
 }
 
 function open(
-  { endpoint, privateBinding, operation, body, signal, agent, actionId = randomUUID() },
+  { endpoint, privateBinding, operation, body, signal, deadline, agent, actionId = randomUUID() },
   route
 ) {
   if (
@@ -35,8 +36,15 @@ function open(
   );
   if (payload.length > HTTP_BODY_LIMIT) throw new TypeError('Broker body exceeds its bound.');
   const mutation = !['status', 'wait'].includes(operation);
+  if (deadline !== undefined && !Number.isFinite(deadline))
+    throw new TypeError('Invalid broker deadline.');
+  const expired = () => deadline !== undefined && performance.now() >= deadline;
   let mayBeSent = false;
   const response = new Promise((resolve) => {
+    if (signal?.aborted || expired()) {
+      resolve({ failure: envelope('APR_BROKER_ABORTED', actionId, false) });
+      return;
+    }
     const req = http.request(
       {
         host: endpoint.host,
@@ -59,7 +67,7 @@ function open(
     req.once('error', (error) =>
       resolve({
         failure: envelope(
-          signal?.aborted ? 'APR_BROKER_ABORTED' : 'APR_BROKER_DELIVERY_UNKNOWN',
+          signal?.aborted || expired() ? 'APR_BROKER_ABORTED' : 'APR_BROKER_DELIVERY_UNKNOWN',
           actionId,
           mutation && mayBeSent && error.code !== 'ECONNREFUSED'
         ),
@@ -68,7 +76,7 @@ function open(
     // A queued request has no delivery opportunity until a socket is assigned.
     // Replacement refusal or pre-assignment cancellation is therefore known unsent.
     req.once('socket', () => {
-      if (signal?.aborted) req.destroy();
+      if (signal?.aborted || expired()) req.destroy();
       else {
         mayBeSent = true;
         req.end(payload);

@@ -149,7 +149,12 @@ async function ownerModule() {
 }
 async function core(t, f, overrides = {}) {
   const m = await ownerModule();
-  const context = budget();
+  const context = {
+    ...budget(),
+    ...Object.fromEntries(
+      Object.entries(overrides).filter(([key]) => ['signal', 'deadline'].includes(key))
+    ),
+  };
   const result = await m.observeLoopbackOwnerCore({
     endpoint: f.endpoint,
     privateBinding: binding,
@@ -216,7 +221,7 @@ for (const [label, change, reason] of [
   });
 test('production factory refuses ordinary and copied publications before opening a peer socket', async (t) => {
   const m = await ownerModule();
-  const f = await fixture(t);
+  const f = await listenPeer(t, sendProof);
   for (const value of [
     binding,
     {},
@@ -234,7 +239,8 @@ test('production factory refuses ordinary and copied publications before opening
       reason: 'genuine-credential-publication-required',
     });
   }
-  assert.deepEqual(f.dispatches, []);
+  assert.equal(f.connections.length, 0);
+  assert.equal(f.requests.length, 0);
 });
 test('later or overlapping operation contexts cannot borrow the admitted connection', async (t) => {
   let release;
@@ -738,3 +744,61 @@ for (const key of ['instanceId', 'worktree'])
     assert.equal(peer.connections.length, 0);
     assert.equal(peer.requests.length, 0);
   });
+
+test('serialization crossing the original deadline cannot submit an operational request', async (t) => {
+  const peer = await listenPeer(t, async (req, res) => {
+    if (req.url === '/owner-proof') return sendProof(req, res);
+    req.resume();
+    res.end(JSON.stringify({ schema: 'ai-peer-review.response/v1', ok: true }));
+  });
+  const { result, context } = await core(t, peer, budget(1000));
+  assert.equal(result.kind, 'core-live');
+  const body = {
+    toJSON() {
+      while (performance.now() < context.deadline + 30) {
+        /* Delayed actual serialization. */
+      }
+      return {};
+    },
+  };
+  const response = await result.connection.request({
+    operation: 'cancel',
+    body,
+    actionId: 'expired-unsent',
+    ...context,
+  });
+  assert.equal(response.ok, false);
+  assert.equal(response.action_id, 'expired-unsent');
+  assert.equal(response.mutation_occurred, false);
+  assert.equal(response.retry_safe, true);
+  assert.equal(response.next_action, null);
+  assert.equal(peer.requests.length, 1);
+});
+test('early channel loss preserves one default UUID action identity on a known-unsent response', async (t) => {
+  const peer = await listenPeer(t, sendProof);
+  const { result, context } = await core(t, peer);
+  await result.connection.close(context);
+  const response = await result.connection.request({ operation: 'cancel', body: {}, ...context });
+  assert.match(
+    response.action_id ?? '',
+    /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/
+  );
+  assert.equal(JSON.parse(JSON.stringify(response)).action_id, response.action_id);
+  assert.equal(response.mutation_occurred, false);
+  assert.equal(response.retry_safe, true);
+  assert.equal(peer.requests.length, 1);
+});
+
+test('fractional original deadlines end hung proofs at the captured bound with a truthful reason', async (t) => {
+  const peer = await listenPeer(t, () => {});
+  for (let i = 0; i < 20; i += 1) {
+    const context = budget(40.75);
+    const { result } = await core(t, peer, context);
+    assert.deepEqual(result, { kind: 'unknown', verified: false, reason: 'operation-deadline' });
+    assert.ok(performance.now() >= context.deadline);
+  }
+  assert.equal(
+    peer.requests.every((req) => req.headers.authorization === undefined),
+    true
+  );
+});
