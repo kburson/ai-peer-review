@@ -2,6 +2,7 @@
 // cspell:words hardlink readback
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { mkdtemp, realpath, rm, open } from 'node:fs/promises';
 import * as storage from '../../../src/broker/storage-protection.mjs';
@@ -38,14 +39,23 @@ export const reasonIs = (reason) => (error) => {
   return true;
 };
 
-export async function failOneDirectoryFlush(t, root) {
+export async function failOneMutationFlush(t, root) {
   const probe = await open(path.join(root, 'probe'), 'wx', 0o600);
   const prototype = Object.getPrototypeOf(probe);
   await probe.close();
   const sync = prototype.sync;
-  let failed = false;
+  let failed = false,
+    mutated = false;
+  for (const effect of ['rename', 'unlink']) {
+    await interceptFilesystem(t, effect, async (actual, ...args) => {
+      const result = await actual(...args);
+      if (effect === 'rename' || path.basename(args[0]) === 'fixture-owner') mutated = true;
+      return result;
+    });
+  }
   t.mock.method(prototype, 'sync', async function () {
-    if (!failed && (await this.stat()).isDirectory()) {
+    const stat = await this.stat();
+    if (mutated && !failed && (process.platform === 'win32' ? stat.isFile() : stat.isDirectory())) {
       failed = true;
       throw Object.assign(new Error('durability unproved'), { code: 'EIO' });
     }
@@ -83,4 +93,35 @@ export async function realCore(t, { afterCreate, afterReplace, beforeReplace } =
         budget: fixture.context,
       }),
   };
+}
+
+export function alterWindowsRootProtection(root) {
+  const script = String.raw`
+$ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
+$env:PSModulePath='C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+$p=[Console]::In.ReadToEnd()|ConvertFrom-Json
+$a=Get-Acl -LiteralPath $p.path -ErrorAction Stop
+$a.SetAccessRuleProtection($false, $true)
+Set-Acl -LiteralPath $p.path -AclObject $a -ErrorAction Stop
+`;
+  execFileSync(
+    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+    [
+      '-NoLogo',
+      '-NoProfile',
+      '-NonInteractive',
+      '-EncodedCommand',
+      Buffer.from(script, 'utf16le').toString('base64'),
+    ],
+    {
+      input: JSON.stringify({ path: root }),
+      encoding: 'utf8',
+      timeout: 15000,
+      env: {
+        ...process.env,
+        PSModulePath: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules',
+      },
+    }
+  );
 }

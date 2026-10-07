@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { owned, interceptFilesystem, reasonIs } from './fixtures.mjs';
+import { owned, interceptFilesystem, reasonIs, alterWindowsRootProtection } from './fixtures.mjs';
 test('[#175] stale exact bytes refuse replacement without changing the protected file', async (t) => {
   const { root, guard } = await owned(t);
   assert.equal(typeof guard.createRetainedPublication, 'function');
@@ -43,10 +43,12 @@ for (const [kind, want] of [
       );
       const before = await publication.snapshot();
       const fs = await import('node:fs/promises');
+      let actualRoot = root;
       if (kind === 'bytes') await fs.writeFile(path.join(root, 'fixture-owner'), 'foreign');
       if (kind === 'replacement') {
+        await guard.writeExclusive('replacement-candidate', Buffer.from('foreign'));
         await fs.rename(path.join(root, 'fixture-owner'), path.join(root, 'retained-old'));
-        await fs.writeFile(path.join(root, 'fixture-owner'), 'foreign', { mode: 0o600 });
+        await fs.rename(path.join(root, 'replacement-candidate'), path.join(root, 'fixture-owner'));
       }
       if (kind === 'symlink') {
         await fs.rename(path.join(root, 'fixture-owner'), path.join(root, 'retained-old'));
@@ -60,12 +62,22 @@ for (const [kind, want] of [
           await fs.link(path.join(root, 'fixture-owner'), path.join(root, 'alias'));
         } else await fs.chmod(path.join(root, 'fixture-owner'), 0o644);
       }
-      if (kind === 'parent') await fs.rename(root, root + '-moved');
+      if (kind === 'parent') {
+        if (process.platform === 'win32') {
+          // Windows refuses renaming this held directory. Keep the real handle
+          // held and substitute its actual protection instead of fabricating a path.
+          await assert.rejects(fs.rename(root, root + '-moved'), { code: 'EPERM' });
+          alterWindowsRootProtection(root);
+          t.diagnostic('Held parent rename refused; actual parent ACL substitution exercised.');
+        } else {
+          await fs.rename(root, root + '-moved');
+          actualRoot = root + '-moved';
+        }
+      }
       await assert.rejects(
         publication.publish(before, Buffer.from('stolen')),
         reasonIs(kind === 'mode' && process.platform === 'win32' ? 'storage-hardlink' : want)
       );
-      const actualRoot = kind === 'parent' ? root + '-moved' : root;
       assert.equal(
         (await fs.readFile(path.join(actualRoot, 'fixture-owner'))).toString(),
         kind === 'bytes' || kind === 'replacement' ? 'foreign' : 'old'

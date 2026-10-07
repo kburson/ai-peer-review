@@ -759,13 +759,16 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     )
       throw failure('APR_BROKER_STALE', 'private-file-changed');
   }
-  async function readObserved(name) {
+  async function readObserved(name, writable = false) {
     const target = path.join(r.root, resourceName(name));
     await verify();
     let file;
     try {
       const before = await inspect(target, 'file', budget);
-      file = await open(target, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+      file = await open(
+        target,
+        (writable ? constants.O_RDWR : constants.O_RDONLY) | (constants.O_NOFOLLOW || 0)
+      );
       const stat = await file.stat({ bigint: true });
       const entry = {
         name,
@@ -795,6 +798,15 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       if (error.code === 'ENOENT') throw error;
       throw report(failure('APR_BROKER_STALE', 'private-file-unproved'));
     }
+  }
+  async function flushMutation(file) {
+    // Windows FlushFileBuffers requires a writable file handle. Stock Node
+    // cannot flush this read-only directory handle. Exact namespace readback
+    // proves the observed effect; it does not assert power-loss durability.
+    budget.check();
+    await file.sync();
+    budget.check();
+    if (process.platform !== 'win32') await directory.sync();
   }
   async function read(name) {
     const observed = await readObserved(name);
@@ -1187,7 +1199,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
             published = true;
             const oldTemporaryName = temporary.name;
             temporary.name = name;
-            const readback = await readObserved(name);
+            const readback = await readObserved(name, retainAcrossRename);
             retained.add(readback);
             if (
               readback.identity !== temporary.identity ||
@@ -1210,7 +1222,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
             retained.add(entry);
             publishedBytes = Buffer.from(bytes);
             await effectCheck();
-            if (retainAcrossRename) await directory.sync();
+            if (retainAcrossRename) await flushMutation(temporary.file);
             await closeOwnedFile(previous);
             retained.delete(previous);
             await closeOwnedFile(temporary);
@@ -1269,7 +1281,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
             await unlink(path.join(r.root, name));
             retired = true;
             await effectCheck();
-            if (retainAcrossRename) await directory.sync();
+            if (retainAcrossRename) await flushMutation(entry.file);
             await closeRetained();
             withdrawalConfirmed = true;
             return Object.freeze({ status: 'withdrawn' });
@@ -1344,7 +1356,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       renameAttempted = false;
     try {
       return await mutate(async (leaseCheck) => {
-        const observed = await readObserved(name);
+        const observed = await readObserved(name, true);
         retainedSource = observed;
         heldFiles.set(observed.file, observed);
         let moved,
@@ -1371,7 +1383,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
           await rename(path.join(r.root, name), path.join(r.root, destination));
           // Rename changes ctime on real substrates. Bind the post-effect descriptor
           // to the moved path, allowing only that owned version transition.
-          moved = await readObserved(destination);
+          moved = await readObserved(destination, true);
           heldFiles.set(moved.file, moved);
           try {
             const stat = await observed.file.stat({ bigint: true });
@@ -1386,7 +1398,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
               throw failure('APR_BROKER_STALE', 'quarantine-generation-changed');
             await leaseCheck();
             await matchFile(moved, moved.file);
-            await directory.sync();
+            await flushMutation(observed.file);
             exact = true;
             return Object.freeze({
               status: 'quarantined',

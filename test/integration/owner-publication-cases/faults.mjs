@@ -5,7 +5,7 @@ import path from 'node:path';
 import { constants } from 'node:fs';
 import { open, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { owned, interceptFilesystem, failOneDirectoryFlush, reasonIs } from './fixtures.mjs';
+import { owned, interceptFilesystem, failOneMutationFlush, reasonIs } from './fixtures.mjs';
 test('[#175] retained ordinary publication keeps its actual creation descriptor until close', async (t) => {
   const { root, guard } = await owned(t);
   const probe = await open(path.join(root, 'probe'), 'wx', 0o600);
@@ -164,7 +164,7 @@ test('[#175] unconfirmed replacement remains fenced despite an exact visible new
   const { root, guard } = await owned(t);
   const publication = await guard.createRetainedPublication('fixture-owner', Buffer.from('one'));
   const first = await publication.snapshot();
-  await failOneDirectoryFlush(t, root);
+  await failOneMutationFlush(t, root);
   await assert.rejects(publication.publish(first, Buffer.from('two')), {
     code: 'APR_BROKER_STALE',
   });
@@ -181,9 +181,51 @@ test('[#175] retry cannot relabel an unconfirmed withdrawal as successful absenc
   const { root, guard } = await owned(t);
   const publication = await guard.createRetainedPublication('fixture-owner', Buffer.from('one'));
   const first = await publication.snapshot();
-  await failOneDirectoryFlush(t, root);
+  await failOneMutationFlush(t, root);
   await assert.rejects(publication.withdraw(first), { code: 'APR_BROKER_STALE' });
   await assert.rejects(readFile(path.join(root, 'fixture-owner')), { code: 'ENOENT' });
   await assert.rejects(publication.withdraw(first), reasonIs('owned-withdrawal-unproved'));
   await publication.close();
+});
+
+test('[#175] post-rename file flush failure retains the actual replacement and fences retries', async (t) => {
+  const { root, guard } = await owned(t);
+  const publication = await guard.createRetainedPublication('fixture-owner', Buffer.from('old'));
+  const expected = await publication.snapshot();
+  if (process.platform === 'win32') {
+    const { open } = await import('node:fs/promises');
+    const directory = await open(root, 'r');
+    try {
+      await assert.rejects(directory.sync(), { code: 'EPERM' });
+      t.diagnostic('Actual read-only Windows directory cannot provide FlushFileBuffers.');
+    } finally {
+      await directory.close();
+    }
+  }
+  let renamed = false;
+  await interceptFilesystem(t, 'rename', async (actual, ...args) => {
+    await actual(...args);
+    renamed = true;
+  });
+  await interceptFilesystem(t, 'open', async (actual, target, ...args) => {
+    const file = await actual(target, ...args);
+    if (path.basename(target).startsWith('publish-')) {
+      const sync = file.sync.bind(file);
+      file.sync = async () => {
+        if (renamed)
+          throw Object.assign(new Error('post-rename flush unavailable'), { code: 'EIO' });
+        return sync();
+      };
+    }
+    return file;
+  });
+  let caught;
+  await assert.rejects(publication.publish(expected, Buffer.from('new')), (error) => {
+    caught = error;
+    return reasonIs('observation-EIO')(error);
+  });
+  assert.equal((await readFile(path.join(root, 'fixture-owner'))).toString(), 'new');
+  assert.equal(caught.details.retrySafe, false);
+  assert.ok(caught.details.obligations.some((item) => item.name === 'fixture-owner'));
+  await assert.rejects(publication.snapshot(), reasonIs('owned-publication-fenced'));
 });

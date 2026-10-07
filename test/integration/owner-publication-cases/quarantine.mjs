@@ -2,7 +2,7 @@
 // cspell:words hardlink readback
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { readdir, readFile, writeFile, lstat } from 'node:fs/promises';
+import { readdir, readFile, lstat } from 'node:fs/promises';
 import * as storage from '../../../src/broker/storage-protection.mjs';
 import test from 'node:test';
 import { owned, interceptFilesystem, reasonIs } from './fixtures.mjs';
@@ -51,10 +51,11 @@ test('[#175] displaced generation between final check and quarantine is preserve
   await guard.writeExclusive('fixture-owner', Buffer.from('old'));
   const expected = await guard.readSnapshot('fixture-owner');
   assert.equal(typeof guard.quarantine, 'function');
+  await guard.writeExclusive('replacement-candidate', Buffer.from('new-owner'));
   await interceptFilesystem(t, 'rename', async (actual, from, to) => {
     if (path.basename(from) === 'fixture-owner') {
       await actual(from, path.join(root, 'preserved-old'));
-      await writeFile(from, 'new-owner', { mode: 0o600 });
+      await actual(path.join(root, 'replacement-candidate'), from);
     }
     await actual(from, to);
   });
@@ -145,7 +146,7 @@ test('[#175] copied quarantine receipt cannot authorize subsequent production ow
   assert.deepEqual(await readdir(root), []);
 });
 
-test('[#175] quarantine directory flush failure preserves the actual moved generation', async (t) => {
+test('[#175] quarantine mutation flush failure preserves the actual moved generation', async (t) => {
   const { root, guard } = await owned(t);
   await guard.writeExclusive('fixture-owner', Buffer.from('old'));
   const expected = await guard.readSnapshot('fixture-owner');
@@ -158,7 +159,7 @@ test('[#175] quarantine directory flush failure preserves the actual moved gener
       const sync = prototype.sync;
       t.mock.method(prototype, 'sync', async function () {
         const stat = await this.stat();
-        if (stat.isDirectory() && !failed) {
+        if ((process.platform === 'win32' ? stat.isFile() : stat.isDirectory()) && !failed) {
           failed = true;
           throw Object.assign(new Error('directory flush unavailable'), { code: 'EIO' });
         }
