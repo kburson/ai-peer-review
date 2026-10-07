@@ -1,6 +1,6 @@
 // @story #102
 import { globSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 const suite = process.argv[2];
 if (!['unit', 'golden', 'integration', 'packaging', 'smoke', 'mcp'].includes(suite))
@@ -29,28 +29,50 @@ const excluded = discovered.filter(
 const files = discovered.filter((file) => !excluded.includes(file) && !portable.includes(file));
 console.log('Broker verification paused for #102/#107: ' + excluded.join(', '));
 if (!files.length && !portable.length) throw new Error(`No tests found for ${suite}`);
-for (const [selected, filtered] of [
+
+const groups = [
   [files, true],
   [portable, false],
-]) {
-  if (!selected.length) continue;
-  const result = spawnSync(
-    process.execPath,
-    [
-      '--test',
-      ...(filtered
-        ? [
-            '--test-skip-pattern=/broker|native helper|native exclusive|standalone production worker/i',
-          ]
-        : []),
-      ...(suite === 'integration' ? ['--test-concurrency=2'] : []),
-      ...selected,
-    ],
-    { stdio: 'inherit' }
+].filter(([selected]) => selected.length);
+function argumentsFor([selected, filtered]) {
+  return [
+    '--test',
+    ...(filtered
+      ? [
+          '--test-skip-pattern=/broker|native helper|native exclusive|standalone production worker/i',
+        ]
+      : []),
+    ...(suite === 'integration' ? ['--test-concurrency=2'] : []),
+    ...selected,
+  ];
+}
+// Both disjoint groups execute every discovered active test. Hosted integration
+// runs two independent Node processes; each keeps its existing two-file limit.
+if (suite === 'integration' && process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true') {
+  const results = await Promise.all(
+    groups.map(
+      (group) =>
+        new Promise((resolve) => {
+          const child = spawn(process.execPath, argumentsFor(group), { stdio: 'inherit' });
+          let error;
+          child.on('error', (value) => {
+            error = value;
+          });
+          child.on('close', (status, signal) => resolve({ status, signal, error }));
+        })
+    )
   );
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    process.exitCode = result.status ?? 1;
-    break;
+  for (const result of results) {
+    if (result.error) throw result.error;
+    if (result.status !== 0 || result.signal !== null) process.exitCode = result.status || 1;
+  }
+} else {
+  for (const group of groups) {
+    const result = spawnSync(process.execPath, argumentsFor(group), { stdio: 'inherit' });
+    if (result.error) throw result.error;
+    if (result.status !== 0) {
+      process.exitCode = result.status ?? 1;
+      break;
+    }
   }
 }
