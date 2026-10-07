@@ -160,3 +160,37 @@ test('[#166] symbolic root and overlapping private/runtime paths refuse without 
   assert.equal(layout.privateRoot, path.join(root, '.scratch', 'peer-review', 'private'));
   assert.equal(layout.runtimeRoot, path.join(root, '.scratch', 'peer-review', 'runtime'));
 });
+
+const INSTALLER = 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464';
+test('[#166] stock volume ancestry records TrustedInstaller while private ownership and grants still refuse it', () => {
+  const record = windows();
+  record.ownerSid = INSTALLER;
+  assert.equal(storage.assessWindowsProtection(record).verified, false);
+  const result = storage.assessWindowsAncestry(record, { volumeRoot: true });
+  assert.equal(result.verified, true);
+  assert.ok(result.trustedAllowances.includes(INSTALLER));
+  assert.equal(storage.assessWindowsAncestry(record, { volumeRoot: false }).verified, false);
+  record.ownerSid = USER;
+  record.aces.push({
+    sid: INSTALLER,
+    type: 'allow',
+    rights: FULL,
+    inherited: false,
+    inheritOnly: false,
+  });
+  assert.equal(storage.assessWindowsProtection(record).verified, false);
+});
+for (const [label, rights, inheritOnly, want] of [
+  ['foreign generic-all', 0x10000000, false, false],
+  ['foreign generic-write', 0x40000000, false, false],
+  ['foreign delete-child', 0x40, false, false],
+  ['foreign DACL-write', 0x40000, false, false],
+  ['unrelated volume child creation', 4, false, true],
+  ['inherit-only foreign mutation', FULL, true, true],
+]) {
+  test('[#166] Windows volume ancestry handles ' + label, () => {
+    const record = windows();
+    record.aces.push({ sid: 'S-1-1-0', type: 'allow', rights, inherited: false, inheritOnly });
+    assert.equal(storage.assessWindowsAncestry(record, { volumeRoot: true }).verified, want);
+  });
+}

@@ -23,6 +23,7 @@ const execute = promisify(execFile);
 const receipts = new WeakMap();
 const SYSTEM = 'S-1-5-18';
 const ADMIN = 'S-1-5-32-544';
+const INSTALLER = 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464';
 const FULL = 0x1f01ff;
 const MAX_BYTES = 1048576;
 const SID = /^S-1-(?:[0-9]+-)+[0-9]+$/;
@@ -368,31 +369,68 @@ async function macAcl(value, ancestor = false, budget = operationBudget()) {
   }
   return rules;
 }
+
+/** Closed readonly ancestry policy; caller data cannot mint an operational receipt. */
+export function assessWindowsAncestry(record = {}, { volumeRoot = false } = {}) {
+  const reasons = [],
+    allowed = [record.principalSid, SYSTEM, ADMIN];
+  if (volumeRoot === true) allowed.push(INSTALLER);
+  if (!SID.test(record.principalSid || '') || !SID.test(record.ownerSid || ''))
+    reasons.push('ancestor-principal-unproved');
+  if (record.reparsePoint !== false || record.canonical !== true)
+    reasons.push('ancestor-acl-unproved');
+  if (!allowed.includes(record.ownerSid)) reasons.push('ancestor-owner-unproved');
+  if (!Array.isArray(record.aces) || !record.aces.length || record.aces.length > 128)
+    reasons.push('ancestor-acl-unavailable');
+  else
+    for (const ace of record.aces) {
+      if (
+        !ace ||
+        !['allow', 'deny'].includes(ace.type) ||
+        !SID.test(ace.sid || '') ||
+        !Number.isSafeInteger(ace.rights) ||
+        ace.rights < 0 ||
+        ace.rights > 0xffffffff ||
+        typeof ace.inherited !== 'boolean' ||
+        typeof ace.inheritOnly !== 'boolean'
+      ) {
+        reasons.push('ancestor-rule-unproved');
+        continue;
+      }
+      if (ace.type === 'allow' && !ace.inheritOnly && !allowed.includes(ace.sid)) {
+        const mutationMask = volumeRoot ? 0x500d0040 : 0x500d0156;
+        if (ace.rights & mutationMask) reasons.push('foreign-ancestor-writer');
+      }
+    }
+  return freeze({
+    verified: reasons.length === 0,
+    reasons: [...new Set(reasons)],
+    trustedAllowances: allowed
+      .slice(1)
+      .filter(
+        (sid) =>
+          record.ownerSid === sid ||
+          record.aces?.some(
+            (ace) => ace?.type === 'allow' && ace.sid === sid && ace.inheritOnly === false
+          )
+      ),
+  });
+}
 function windowsAncestor(record, volumeRoot) {
-  if (record.reparsePoint !== false || record.canonical !== true || !Array.isArray(record.aces))
-    throw failure('APR_BROKER_START_FAILED', 'ancestor-acl-unproved');
-  const allowed = [record.principalSid, SYSTEM, ADMIN];
-  if (!allowed.includes(record.ownerSid))
+  const policy = assessWindowsAncestry(record, { volumeRoot });
+  if (!policy.verified) {
+    const reason = policy.reasons[0];
     throw failure(
       'APR_BROKER_START_FAILED',
-      'ancestor-owner-unproved-' +
-        (SID.test(record.ownerSid || '') ? record.ownerSid : 'invalid') +
-        (volumeRoot ? '-volume-root' : '-directory')
+      reason === 'ancestor-owner-unproved'
+        ? reason +
+            '-' +
+            (SID.test(record.ownerSid || '') ? record.ownerSid : 'invalid') +
+            (volumeRoot ? '-volume-root' : '-directory')
+        : reason
     );
-  for (const ace of record.aces) {
-    if (
-      !['allow', 'deny'].includes(ace.type) ||
-      !SID.test(ace.sid) ||
-      !Number.isSafeInteger(ace.rights)
-    )
-      throw failure('APR_BROKER_START_FAILED', 'ancestor-rule-unproved');
-    if (ace.type === 'allow' && !ace.inheritOnly && !allowed.includes(ace.sid)) {
-      // Volume roots permit creation of unrelated children; existing protected ancestry stays immutable.
-      const mutationMask = volumeRoot ? 0xd0040 : 0xd0156;
-      if (ace.rights & mutationMask)
-        throw failure('APR_BROKER_START_FAILED', 'foreign-ancestor-writer');
-    }
   }
+  return { ...record, trustedAllowances: policy.trustedAllowances };
 }
 async function inspectAncestors(
   value,
@@ -443,9 +481,11 @@ async function inspectAncestors(
       false,
       budget
     );
-    records.forEach((x, i) => windowsAncestor(x, stats[i].path === path.parse(stats[i].path).root));
+    records.forEach((x, i) => {
+      stats[i].acl = windowsAncestor(x, stats[i].path === path.parse(stats[i].path).root);
+    });
   } else if (process.platform === 'darwin') {
-    for (const item of stats) await macAcl(item.path, true, budget);
+    for (const item of stats) item.acl = await macAcl(item.path, true, budget);
   }
   return { uid, stats, chain: stats.map((x) => x.path) };
 }
@@ -469,9 +509,9 @@ async function inspect(value, type = 'directory', budget = operationBudget()) {
     allowances = [];
   if (process.platform === 'win32') {
     const records = await windowsProbe([...chain, value], false, budget);
-    records
-      .slice(0, -1)
-      .forEach((x, i) => windowsAncestor(x, chain[i] === path.parse(chain[i]).root));
+    records.slice(0, -1).forEach((x, i) => {
+      stats[i].acl = windowsAncestor(x, chain[i] === path.parse(chain[i]).root);
+    });
     const r = records.at(-1);
     const result = assessWindowsProtection(r);
     if (!result.verified) throw failure('APR_BROKER_START_FAILED', result.reasons[0]);

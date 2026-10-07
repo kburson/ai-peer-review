@@ -590,3 +590,25 @@ test('[#166] a rename that takes effect before reporting failure remains an unce
     stat = await lstat(path.join(root, 'owner.json'), { bigint: true });
   assert.equal(obligation.identity, [stat.dev, stat.ino].map(String).join(':'));
 });
+
+test(
+  '[#166] an observed ancestor ACL change invalidates a held receipt even when it adds no foreign grant',
+  { skip: process.platform !== 'darwin' },
+  async (t) => {
+    const parent = await temporary(t),
+      root = path.join(parent, 'private');
+    const receipt = await storage.provisionProtectedRoot({ root }),
+      guard = await storage.openProtectedRoot({ receipt });
+    t.after(() => guard.close());
+    execFileSync('/bin/chmod', ['+a', 'everyone deny delete', parent]);
+    try {
+      assert.equal((await storage.observeStorageProtection({ root })).verified, true);
+      await assert.rejects(guard.writeExclusive('credential', Buffer.from('must be fenced')), {
+        code: 'APR_BROKER_STALE',
+      });
+      await assert.rejects(readFile(path.join(root, 'credential')), { code: 'ENOENT' });
+    } finally {
+      execFileSync('/bin/chmod', ['-N', parent]);
+    }
+  }
+);
