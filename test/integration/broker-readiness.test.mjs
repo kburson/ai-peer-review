@@ -256,7 +256,11 @@ for (const scenario of [
 
 test(
   'native private directory creation can atomically refuse an existing admission directory',
-  { skip: !nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED },
+  {
+    skip:
+      nativeBrokerSkipReason() ||
+      (!nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED),
+  },
   async (t) => {
     const { platformSecurity } = await import('../../src/broker/platform.mjs');
     const security = platformSecurity();
@@ -282,7 +286,7 @@ test(
 // @story #137
 test(
   'native Windows endpoint accepts an authenticated client after an abandoned connection',
-  { skip: process.platform !== 'win32', timeout: 15_000 },
+  { skip: nativeBrokerSkipReason() || process.platform !== 'win32', timeout: 15_000 },
   async (t) => {
     const { platformSecurity } = await import('../../src/broker/platform.mjs');
     const security = platformSecurity();

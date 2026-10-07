@@ -13,6 +13,7 @@ const discovered = globSync(`test/${suite}/**/*.test.mjs`)
 // without the legacy name filter, which would otherwise hide their broker cases.
 const portable = discovered.filter(
   (file) =>
+    file === 'test/unit/ci-native-build-policy.test.mjs' ||
     /[\/]broker-http(?:-concurrency)?\.test\.mjs$/.test(file) ||
     /[\/](?:portable-[^\/]+|windows-portable-bootstrap|storage-protection|ownership-election|process-source-[^\/]+)\.test\.mjs$/.test(
       file

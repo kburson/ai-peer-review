@@ -31,6 +31,11 @@ test('delivery suites omit retired files before loading and omit mixed transport
     "import test from 'node:test';\n" +
       "test('portable broker protects storage', () => console.log('portable storage executed'));\n"
   );
+  writeFileSync(
+    path.join(root, 'test/unit/ci-native-build-policy.test.mjs'),
+    "import test from 'node:test';\n" +
+      "test('broker build suspension policy stays enforced', () => console.log('native policy executed'));\n"
+  );
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
   const result = spawnSync(
@@ -42,5 +47,6 @@ test('delivery suites omit retired files before loading and omit mixed transport
   assert.match(result.stdout, /authority executed/);
   assert.match(result.stdout, /portable HTTP executed/);
   assert.match(result.stdout, /portable storage executed/);
+  assert.match(result.stdout, /native policy executed/);
   assert.match(result.stdout, /Broker verification paused/);
 });

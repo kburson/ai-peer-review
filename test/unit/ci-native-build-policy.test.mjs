@@ -23,12 +23,15 @@ test('CI suspends native compilation while retaining every JavaScript receipt la
   }
   for (const job of Object.values(workflow.jobs)) {
     for (const step of job.steps) {
-      assert.doesNotMatch(step.run ?? '', /build:broker-security|node-gyp|warm-packed-cache/);
+      assert.doesNotMatch(step.run ?? '', /build:broker-security|node-gyp/);
       assert.doesNotMatch(step.uses ?? '', /setup-python|msvc-dev-cmd/);
       assert.equal(step.env?.APR_NATIVE_REQUIRED, undefined);
       assert.equal(step.env?.APR_NODEDIR_BASE, undefined);
     }
   }
+  const cacheWarm = readFileSync(new URL('test/helpers/warm-packed-cache.mjs', root), 'utf8');
+  assert.doesNotMatch(cacheWarm, /build:broker-security|node-gyp|APR_NATIVE_REQUIRED/);
+  assert.match(cacheWarm, /--ignore-scripts/);
 });
 
 test('CI native readiness bodies explicitly skip even when native verification was requested', () => {
@@ -53,10 +56,10 @@ test('CI native readiness bodies explicitly skip even when native verification w
   assert.equal(result.signal, null);
   assert.equal(
     result.stdout.split('# SKIP ' + reason).length - 1,
-    2,
+    10,
     result.stdout + result.stderr
   );
-  assert.match(result.stdout, /# skipped 2/);
+  assert.match(result.stdout, /# skipped 11/);
 });
 
 test('native suspension preserves defaults and rejects other opt-in values', () => {
@@ -80,7 +83,7 @@ for (const [file, name] of [
     'native broker connection distinguishes denied socket access',
   ],
   ['test/unit/broker-ownership.test.mjs', 'native ownership and authenticated IPC'],
-  ['test/integration/broker-release.test.mjs', 'installed release preserves legacy recovery'],
+  ['test/integration/broker-release.test.mjs', 'installed release preserves legacy evidence'],
 ]) {
   test('CI skips build-dependent case before setup: ' + file, () => {
     const env = {
