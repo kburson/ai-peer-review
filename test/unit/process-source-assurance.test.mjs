@@ -1,4 +1,4 @@
-// cspell:ignore hidepid statfs
+// cspell:ignore hidepid statfs nosuid nodev noexec relatime
 // @story 167
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -575,4 +575,28 @@ test('Linux execution-host binding separates observer time namespaces before com
     api.assessOriginalProcess({ original, observation: observed, assurance }).candidate,
     'unknown'
   );
+});
+
+test('Linux procfs visibility requires one matching namespace PID and refuses hidden, partial or mismatched mounts', () => {
+  assert.equal(typeof identity.assessLinuxProcfsVisibility, 'function');
+  const context = {
+    pid: 42,
+    filesystemType: 0x9fa0,
+    canonicalRoot: '/proc',
+    mountInfo: '24 1 0:22 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw\n',
+    status: 'Name:\tnode\nPid:\t42\nNSpid:\t42\n',
+  };
+  assert.equal(identity.assessLinuxProcfsVisibility(context).visibility, 'full-pid-namespace');
+  assert.equal(identity.assessLinuxProcfsVisibility(context).verified, false);
+  for (const changed of [
+    { ...context, filesystemType: 0x1234 },
+    { ...context, canonicalRoot: '/other-proc' },
+    { ...context, mountInfo: context.mountInfo.replace('proc rw', 'proc rw,hidepid=2') },
+    { ...context, mountInfo: context.mountInfo.replace('proc rw', 'proc rw,subset=pid') },
+    { ...context, mountInfo: context.mountInfo + context.mountInfo },
+    { ...context, status: 'Pid:\t42\nNSpid:\t99\t42\n' },
+    { ...context, status: 'Pid:\t99\nNSpid:\t42\n' },
+    { ...context, status: 'Pid:\t42\n' },
+  ])
+    assert.equal(identity.assessLinuxProcfsVisibility(changed).visibility, 'unknown');
 });

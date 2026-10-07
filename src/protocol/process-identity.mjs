@@ -90,6 +90,50 @@ function matchesProbe(platform, probe) {
   );
 }
 
+export function assessLinuxProcfsVisibility({
+  pid,
+  filesystemType,
+  canonicalRoot,
+  mountInfo,
+  status,
+} = {}) {
+  const unavailable = () => Object.freeze({ verified: false, visibility: 'unknown' });
+  if (
+    !Number.isSafeInteger(pid) ||
+    pid <= 0 ||
+    filesystemType !== 0x9fa0 ||
+    canonicalRoot !== '/proc' ||
+    typeof mountInfo !== 'string' ||
+    mountInfo.length > 1048576 ||
+    typeof status !== 'string' ||
+    status.length > 65536
+  )
+    return unavailable();
+  const mounts = mountInfo.split('\n').filter((line) => line.split(' ')[4] === '/proc');
+  if (mounts.length !== 1) return unavailable();
+  const parts = mounts[0].split(' - ');
+  if (parts.length !== 2 || parts[1].split(' ')[0] !== 'proc' || mounts[0].split(' ')[3] !== '/')
+    return unavailable();
+  const options = (parts[0].split(' ')[5] + ',' + parts[1].split(' ')[2]).split(',');
+  if (
+    options.some(
+      (option) =>
+        (option.startsWith('hidepid') && option !== 'hidepid=0') ||
+        (option.startsWith('subset') && option !== 'subset=all')
+    )
+  )
+    return unavailable();
+  const own = [...status.matchAll(/^Pid:[ \t]+([1-9]\d*)[ \t]*$/gmu)];
+  const nested = [...status.matchAll(/^NSpid:[ \t]+([1-9]\d*(?:[ \t]+[1-9]\d*)*)[ \t]*$/gmu)];
+  if (own.length !== 1 || Number(own[0][1]) !== pid || nested.length !== 1) return unavailable();
+  const pidChain = nested[0][1].trim().split(/[ \t]+/u);
+  // Kernel emits NSpid from the procfs mount's namespace level through the
+  // task's own level. Exactly one matching entry proves the same PID view;
+  // reading root-owned /proc/1/ns/pid would need unrelated ptrace rights.
+  if (pidChain.length !== 1 || Number(pidChain[0]) !== pid) return unavailable();
+  return Object.freeze({ verified: false, visibility: 'full-pid-namespace' });
+}
+
 // Read-only actual context. A caller-supplied object never replaces this probe.
 export async function observeProcessSourceContext({ signal, deadline } = {}) {
   if (!inBudget(signal, deadline)) return null;
@@ -98,28 +142,14 @@ export async function observeProcessSourceContext({ signal, deadline } = {}) {
     const expected = expectedProbe(platform);
     if (!expected) return null;
     if (platform === 'linux') {
-      if (Number(statfsSync('/proc').type) !== 0x9fa0 || realpathSync('/proc') !== '/proc')
-        return null;
-      const mounts = readFileSync('/proc/self/mountinfo', 'utf8')
-        .split('\n')
-        .filter((line) => line.split(' ')[4] === '/proc');
-      if (mounts.length !== 1) return null;
-      const parts = mounts[0].split(' - ');
-      if (
-        parts.length !== 2 ||
-        parts[1].split(' ')[0] !== 'proc' ||
-        mounts[0].split(' ')[3] !== '/'
-      )
-        return null;
-      const opts = parts[0].split(' ')[5] + ',' + parts[1].split(' ')[2];
-      if (/(?:^|,)hidepid=(?!0(?:,|$))|(?:^|,)subset=pid(?:,|$)/u.test(opts)) return null;
-      const own = readFileSync('/proc/self/status', 'utf8').match(/^Pid:\s+(\d+)$/mu);
-      if (
-        !own ||
-        Number(own[1]) !== process.pid ||
-        readlinkSync('/proc/self/ns/pid') !== readlinkSync('/proc/1/ns/pid')
-      )
-        return null;
+      const visibility = assessLinuxProcfsVisibility({
+        pid: process.pid,
+        filesystemType: Number(statfsSync('/proc').type),
+        canonicalRoot: realpathSync('/proc'),
+        mountInfo: readFileSync('/proc/self/mountinfo', 'utf8'),
+        status: readFileSync('/proc/self/status', 'utf8'),
+      });
+      if (visibility.visibility !== 'full-pid-namespace') return null;
       const boot = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
       if (!BOOT.test(boot)) return null;
       return Object.freeze({ ...expected, version: 'procfs-v1' });
@@ -496,10 +526,9 @@ export async function observeProcessIdentity(options = {}) {
   const observed = await observeOriginalProcess(options);
   if (options.original)
     return reconcileOriginalProcess({ original: options.original, observation: observed });
-  if (observed.status === 'absent' && observed.assurance.absence.status === 'available')
-    return Object.freeze({ status: 'dead', host, pid, reason: 'process-absent' });
   // The old lock consumer compares raw strings. Until C6 integrates the
-  // interval seam, do not expose another-process live stamps to that consumer.
+  // host/interval seam, neither bare absence nor another-process live stamps
+  // can discharge the legacy hostname-only owner record.
   return observed.status === 'unknown'
     ? observed
     : unknown(host, pid, 'creation-stamp-unavailable');
