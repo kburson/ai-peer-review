@@ -151,7 +151,7 @@ test('[#144] historical exact verifier proof remains coherent after unrelated la
   const x = actual();
   const fixture = mkdtempSync(path.join(tmpdir(), 'apr-historical-proof-'));
   t.after(() => rmSync(fixture, { recursive: true, force: true }));
-  for (const name of ['src', 'schemas', 'scripts/lib', 'templates'])
+  for (const name of ['src', 'schemas', 'scripts/lib', 'templates', 'provenance'])
     cpSync(path.join(root, name), path.join(fixture, name), { recursive: true });
   cpSync(
     path.join(root, 'scripts/check-runtime-contract-adoption.mjs'),
@@ -164,7 +164,7 @@ test('[#144] historical exact verifier proof remains coherent after unrelated la
   localGit(['init', '-b', 'trunk']);
   localGit(['config', 'user.name', 'Test']);
   localGit(['config', 'user.email', 'test@example.com']);
-  localGit(['add', 'src', 'schemas', 'scripts', 'package.json', 'package-lock.json']);
+  localGit(['add', 'src', 'schemas', 'scripts', 'provenance', 'package.json', 'package-lock.json']);
   localGit(['commit', '-m', 'fixture']);
   writeFileSync(
     path.join(fixture, 'src/cli/help-data.mjs'),
