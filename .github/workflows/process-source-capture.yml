@@ -3,7 +3,10 @@ name: Process source conformance capture
 on:
   push:
     branches: [codex/170-source-conformance]
-    paths: [.github/workflows/process-source-capture.yml]
+    paths:
+      - .github/workflows/process-source-capture.yml
+      - test/helpers/process-source-ci-host.mjs
+      - src/protocol/process-identity.mjs
   workflow_dispatch:
 
 permissions:
