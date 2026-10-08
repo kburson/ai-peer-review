@@ -1829,3 +1829,35 @@ test('verified owner proof authenticates its same socket before slow protected r
   assert.equal(result.ok, true);
   assert.equal(dispatches, 1);
 });
+
+for (const [phase, enumeration] of [
+  ['initial ticket scan', 1],
+  ['winning scan', 2],
+]) {
+  test('actual withdrawn slot between enumeration and read permits ' + phase, async (t) => {
+    const f = await transactionFixture(t);
+    const { actualElection } = await import('../helpers/portable-owner-election.mjs');
+    const first = await actualElection(t, { root: f.privateRoot, budget: f.startup });
+    assert.equal(first.kind, 'won');
+    let lists = 0,
+      withdrew = false;
+    const second = await actualElection(t, {
+      root: f.privateRoot,
+      budget: f.startup,
+      onEnumerated: async (names) => {
+        if (++lists === enumeration) {
+          assert.equal(names.length, 2);
+          const outcome = await first.lease.release();
+          assert.equal(outcome.status, 'withdrawn');
+          withdrew = true;
+        }
+      },
+    });
+    assert.equal(withdrew, true);
+    assert.equal(second.kind, 'won', JSON.stringify(second));
+    assert.equal(second.verified, false);
+    await second.lease.release();
+    const names = await (await import('node:fs/promises')).readdir(f.privateRoot);
+    assert.equal(names.filter((name) => name.startsWith('apr-election-')).length, 0);
+  });
+}

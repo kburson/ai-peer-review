@@ -14,6 +14,7 @@ export async function actualElection(
     observeOwner = async () => null,
     afterWinning = async () => {},
     onTransition = async () => {},
+    onEnumerated = async () => {},
   }
 ) {
   const rootStat = await lstat(root, { bigint: true }),
@@ -50,6 +51,7 @@ export async function actualElection(
       const names = (await readdir(root)).filter(
         (name) => name.startsWith(prefix) && name.endsWith('.json')
       );
+      await onEnumerated(names);
       return Promise.all(names.map((name) => snapshot(name.slice(prefix.length, -5))));
     },
     async create(subject, record) {

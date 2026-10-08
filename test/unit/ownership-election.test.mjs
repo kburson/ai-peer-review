@@ -959,3 +959,28 @@ test('[#177] held slot metadata remains exact until withdrawal and never grants 
   await out.lease.release();
   assert.equal(out.lease.retainedGeneration().outcome, 'withdrawn');
 });
+
+for (const [phase, enumeration] of [
+  ['initial scan', 1],
+  ['winning scan', 2],
+]) {
+  for (const [name, record] of [
+    ['undefined read', undefined],
+    ['malformed present record', {}],
+  ]) {
+    test(phase + ' refuses ' + name + ' rather than treating it as withdrawn', async () => {
+      const store = memoryStore(),
+        actualList = store.list;
+      let calls = 0;
+      store.list = async () => {
+        const entries = await actualList();
+        return ++calls === enumeration ? [...entries, record] : entries;
+      };
+      const outcome = await api.acquireOwnerElectionCore(input(store));
+      assert.equal(outcome.kind, 'indeterminate');
+      assert.equal(outcome.reason, 'slot-record-unproved');
+      assert.equal(outcome.lease, undefined);
+      assert.equal(await store.read('mine'), null);
+    });
+  }
+}

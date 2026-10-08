@@ -220,6 +220,9 @@ export async function acquireOwnerElectionCore({
     if (!Array.isArray(initial) || initial.length > 4096) throw stale('slot-count-unproved');
     let maximum = 0n;
     for (const item of initial) {
+      // A guarded read may prove ENOENT after a listed slot was withdrawn.
+      // Only that explicit absence is omitted; malformed/unreadable entries refuse.
+      if (item === null) continue;
       if (!validRecord(item, resourceKey)) throw stale('slot-record-unproved');
       if (!item.record.choosing)
         maximum = maximum > BigInt(item.record.ticket) ? maximum : BigInt(item.record.ticket);
@@ -258,6 +261,7 @@ export async function acquireOwnerElectionCore({
       const dead = [];
       let waiting = false;
       for (const entry of entries) {
+        if (entry === null) continue;
         if (!validRecord(entry, resourceKey)) throw stale('slot-record-unproved');
         if (entry.id === contenderId) continue;
         const observed = await observeProcessIdentity({
