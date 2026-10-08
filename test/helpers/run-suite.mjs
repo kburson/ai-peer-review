@@ -64,15 +64,15 @@ function argumentsFor([selected, filtered]) {
           '--test-skip-pattern=/broker|native helper|native exclusive|standalone production worker/i',
         ]
       : []),
-    // Stock Windows ACL probes retain their 15-second bound. Limit simultaneous
-    // portable unit files on hosted Windows rather than extending that bound.
-    ...(suite === 'integration' ||
-    (suite === 'unit' &&
-      !filtered &&
-      process.platform === 'win32' &&
-      process.env.CI === 'true' &&
-      process.env.GITHUB_ACTIONS === 'true')
-      ? ['--test-concurrency=2']
+    ...(suite === 'integration' ? ['--test-concurrency=2'] : []),
+    // Serialize portable unit files on hosted Windows: each may run multiple
+    // stock ACL probes, whose original 15-second bound must remain intact.
+    ...(suite === 'unit' &&
+    !filtered &&
+    process.platform === 'win32' &&
+    process.env.CI === 'true' &&
+    process.env.GITHUB_ACTIONS === 'true'
+      ? ['--test-concurrency=1']
       : []),
     ...selected,
   ];
