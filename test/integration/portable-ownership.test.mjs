@@ -1861,3 +1861,207 @@ for (const [phase, enumeration] of [
     assert.equal(names.filter((name) => name.startsWith('apr-election-')).length, 0);
   });
 }
+
+test('failed join reread closes the actual proved socket and retained credential without losing changed bytes', async (t) => {
+  assert.equal(
+    typeof core.completeOwnerJoinCore,
+    'function',
+    'bounded join handoff transition missing'
+  );
+  const f = await protectedCredential(t);
+  const credential = await f.storage.observeProtectedCredential({ guard: f.guard, ...f.context });
+  t.after(() => credential.close(f.context));
+  const binding = {
+    credential: Buffer.alloc(32, 7).toString('hex'),
+    instanceId: 'b'.repeat(64),
+    worktree: 'c'.repeat(64),
+    ownerVersion: 'd'.repeat(64),
+  };
+  const server = await createLoopbackServer({
+    binding,
+    dispatch: async () => ({ schema: 'ai-peer-review.response/v1', ok: true }),
+  });
+  t.after(() => server.close());
+  const { observeLoopbackOwner } = await import('../../src/broker/owner-connection.mjs');
+  const proof = await observeLoopbackOwner({
+    endpoint: { host: '127.0.0.1', port: server.port },
+    privateBinding: credential,
+    expected: {
+      instanceId: binding.instanceId,
+      worktree: binding.worktree,
+      ownerVersion: binding.ownerVersion,
+    },
+    ...f.context,
+  });
+  t.after(() => proof.connection?.close(f.context));
+  assert.equal(proof.kind, 'verified-live');
+  const client = core.createJoinedBrokerClientCore({
+    connection: proof.connection,
+    credential,
+    context: f.context,
+  });
+  await (
+    await import('node:fs/promises')
+  ).writeFile(path.join(f.root, 'credential'), Buffer.alloc(32, 8), { flag: 'r+' });
+  let connected = false;
+  await assert.rejects(
+    core.completeOwnerJoinCore({
+      context: f.context,
+      reread: async () => credential.verify(f.context),
+      connect: async () => {
+        connected = true;
+        return client;
+      },
+      dispose: () => client.close(f.context),
+    }),
+    (error) => error.code === 'APR_BROKER_STALE'
+  );
+  assert.equal(connected, false);
+  assert.equal(credential.retainedGeneration().outcome, 'closed');
+  const { ownerConnectionObligations } = await import('../../src/broker/owner-connection.mjs');
+  assert.deepEqual(ownerConnectionObligations(proof.connection), []);
+  assert.equal((await readFile(path.join(f.root, 'credential'))).equals(Buffer.alloc(32, 8)), true);
+});
+
+test('failed handoff preserves exact cleanup obligations while still closing the actual socket', async (t) => {
+  assert.equal(typeof core.completeOwnerJoinCore, 'function');
+  const f = await protectedCredential(t),
+    credential = await f.storage.observeProtectedCredential({ guard: f.guard, ...f.context });
+  t.after(() => credential.close(f.context));
+  const binding = {
+    credential: Buffer.alloc(32, 7).toString('hex'),
+    instanceId: 'b'.repeat(64),
+    worktree: 'c'.repeat(64),
+    ownerVersion: 'd'.repeat(64),
+  };
+  const server = await createLoopbackServer({
+    binding,
+    dispatch: async () => ({ schema: 'ai-peer-review.response/v1', ok: true }),
+  });
+  t.after(() => server.close());
+  const { observeLoopbackOwner } = await import('../../src/broker/owner-connection.mjs');
+  const proof = await observeLoopbackOwner({
+    endpoint: { host: '127.0.0.1', port: server.port },
+    privateBinding: credential,
+    expected: {
+      instanceId: binding.instanceId,
+      worktree: binding.worktree,
+      ownerVersion: binding.ownerVersion,
+    },
+    ...f.context,
+  });
+  t.after(() => proof.connection?.close(f.context));
+  const original = credential.retainedGeneration();
+  await assert.rejects(
+    core.completeOwnerJoinCore({
+      context: f.context,
+      reread: async () => {
+        throw Object.assign(Error('changed generation'), {
+          details: { reason: 'owner-generation-changed' },
+        });
+      },
+      connect: async () => {
+        throw Error('must not connect');
+      },
+      dispose: () =>
+        core.closeOwnerObservationCore({
+          connection: proof.connection,
+          context: f.context,
+          credential: {
+            retainedGeneration: credential.retainedGeneration,
+            close: async () => {
+              throw Error('fixture descriptor close failure');
+            },
+          },
+        }),
+    }),
+    (error) => {
+      assert.equal(error.details.reason, 'owner-generation-changed');
+      assert.ok(Array.isArray(error.details.outstandingObligations));
+      assert.ok(
+        error.details.outstandingObligations.some(
+          (item) => item.root === original.root && item.identity === original.identity
+        )
+      );
+      assert.equal(JSON.stringify(error.details).includes(binding.credential), false);
+      return true;
+    }
+  );
+  const { ownerConnectionObligations } = await import('../../src/broker/owner-connection.mjs');
+  assert.deepEqual(ownerConnectionObligations(proof.connection), []);
+  assert.equal(f.storage.isProtectedCredentialObservation(credential), true);
+});
+
+test('election abandonment closes the actual observed socket after failed exact withdrawal', async (t) => {
+  const f = await transactionFixture(t);
+  const { actualElection } = await import('../helpers/portable-owner-election.mjs');
+  const binding = {
+    credential: 'a'.repeat(64),
+    instanceId: 'b'.repeat(64),
+    worktree: 'c'.repeat(64),
+    ownerVersion: 'd'.repeat(64),
+  };
+  const server = await createLoopbackServer({
+    binding,
+    dispatch: async () => ({ schema: 'ai-peer-review.response/v1', ok: true }),
+  });
+  t.after(() => server.close());
+  const proof = await observeLoopbackOwnerCore({
+    endpoint: { host: '127.0.0.1', port: server.port },
+    privateBinding: binding,
+    expected: {
+      instanceId: binding.instanceId,
+      worktree: binding.worktree,
+      ownerVersion: binding.ownerVersion,
+    },
+    ...f.startup,
+  });
+  t.after(() => proof.connection?.close(f.startup));
+  const observed = { status: 'authenticated-live', verified: false };
+  let changed;
+  const result = await actualElection(t, {
+    root: f.privateRoot,
+    budget: f.startup,
+    observeOwner: async () => {
+      const names = await (await import('node:fs/promises')).readdir(f.privateRoot);
+      changed = path.join(
+        f.privateRoot,
+        names.find((name) => name.startsWith('apr-election-'))
+      );
+      await (
+        await import('node:fs/promises')
+      ).writeFile(changed, 'changed generation', { flag: 'w' });
+      return observed;
+    },
+    disposeOwner: async (owner, context) => {
+      assert.equal(owner, observed);
+      await proof.connection.close({ signal: context.signal, deadline: context.deadline });
+      return { disposed: true, outstandingObligations: [] };
+    },
+  });
+  assert.equal(result.kind, 'indeterminate');
+  assert.equal(result.reason, 'withdrawal-unproved');
+  assert.equal((await readFile(changed)).toString(), 'changed generation');
+  assert.equal(
+    (await proof.connection.request({ operation: 'status', body: {}, ...f.startup })).ok,
+    false
+  );
+});
+
+test('plain or copied owner observations cannot dispose any producer resource', async () => {
+  const api = await import('../../src/broker/portable-ownership.mjs');
+  let effects = 0;
+  const fake = {
+    status: 'authenticated-live',
+    owner: { binding: {} },
+    dispose: async () => {
+      effects++;
+    },
+  };
+  for (const observation of [fake, { ...fake }, {}])
+    await assert.rejects(
+      api.disposeAuthenticatedOwnerObservation({ observation }),
+      (error) => error.code === 'APR_BROKER_STALE'
+    );
+  assert.equal(effects, 0);
+});

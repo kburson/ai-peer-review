@@ -4,6 +4,7 @@ import path from 'node:path';
 import { encodeRequestCanonical, parseRawJson } from '../api/canonical-json.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { performance } from 'node:perf_hooks';
+import { ownerConnectionObligations } from './owner-connection.mjs';
 import { boundedOwnershipError } from './portable-ownership.mjs';
 const transaction = new AsyncLocalStorage();
 
@@ -366,11 +367,22 @@ export async function closeOwnerObservationCore({ connection, credential, contex
   const outstandingObligations = results.flatMap((result, index) => {
     if (result.status === 'fulfilled') return [];
     const [name, resource] = resources[index];
+    let retained;
+    try {
+      retained =
+        name === 'proved-socket'
+          ? ownerConnectionObligations(resource)
+          : [resource.retainedGeneration?.()];
+    } catch {
+      retained = [];
+    }
+    retained = retained.filter(Boolean);
+    if (!retained.length) retained = [{ name, outcome: 'descriptor-close-pending' }];
     return [
       ...(result.reason?.details?.outstandingObligations ||
         result.reason?.details?.obligations ||
         []),
-      resource.retainedGeneration?.() || { name, outcome: 'descriptor-close-pending' },
+      ...retained,
     ];
   });
   if (outstandingObligations.length)
@@ -522,4 +534,35 @@ export function ownerTransactionObligationsCore({
   if (![files, quarantines, transports].every(Array.isArray))
     throw boundedOwnershipError('transaction-obligations-unproved');
   return [...files, ...quarantines, ...transports];
+}
+
+// Explicit unverified transition only; the genuine factory owns binding admission.
+export async function completeOwnerJoinCore({ reread, connect, dispose, context } = {}) {
+  try {
+    await reread(context);
+    return Object.freeze({ verified: false, client: await connect(context) });
+  } catch (error) {
+    let cleanup = [],
+      cleanupFailed = false;
+    try {
+      const result = await dispose(context);
+      if (result?.closed !== true || result.outstandingObligations?.length)
+        throw boundedOwnershipError('owner-observation-close-unproved', result || {});
+    } catch (failure) {
+      cleanupFailed = true;
+      cleanup = failure?.details?.outstandingObligations ||
+        failure?.details?.obligations || [
+          { name: 'owner-observation', outcome: 'disposal-unproved' },
+        ];
+    }
+    if (cleanup.length === 0 && cleanupFailed)
+      cleanup = [{ name: 'owner-observation', outcome: 'disposal-unproved' }];
+    throw boundedOwnershipError(error?.details?.reason || 'owner-join-unproved', {
+      mutationOccurred: error?.details?.mutationOccurred === true,
+      outstandingObligations: [
+        ...(error?.details?.outstandingObligations || error?.details?.obligations || []),
+        ...cleanup,
+      ],
+    });
+  }
 }

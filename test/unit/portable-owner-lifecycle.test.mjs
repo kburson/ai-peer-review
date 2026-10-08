@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const stale = (error) => error.code === 'APR_BROKER_STALE';
-async function fixture(t) {
+async function fixture(t, { transport } = {}) {
   const { createOwnerLifecycleCore } = await import('../../src/broker/owner-lifecycle-core.mjs');
   const root = await mkdtemp(path.join(tmpdir(), 'apr-lifecycle-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -59,6 +59,7 @@ async function fixture(t) {
   const owner = await createOwnerLifecycleCore({
     budget,
     ports: {
+      transport,
       publication: ports.owner,
       credential: ports.credential,
       endpoint: ports.endpoint,
@@ -372,4 +373,81 @@ test('retained descriptor closed early is fenced despite unchanged pathname and 
   await fx.ports.owner.close();
   await assert.rejects(fx.owner.verify(fx.context()), stale);
   assert.equal(await readFile(path.join(fx.root, 'owner'), 'utf8'), 'owner');
+});
+
+test('post-publication proof failure reports the actual retained server and socket on failure and fenced release', async (t) => {
+  const { createLoopbackServer } = await import('../../src/broker/http-server.mjs');
+  const { observeLoopbackOwner, ownerConnectionObligations } =
+    await import('../../src/broker/owner-connection.mjs');
+  const { protectedCredential } = await import('../helpers/portable-owner-transaction.mjs');
+  const f = await protectedCredential(t),
+    credential = await f.storage.observeProtectedCredential({ guard: f.guard, ...f.context });
+  t.after(() => credential.close(f.context));
+  const binding = {
+    credential: Buffer.alloc(32, 7).toString('hex'),
+    instanceId: 'b'.repeat(64),
+    worktree: 'c'.repeat(64),
+    ownerVersion: 'd'.repeat(64),
+  };
+  const server = await createLoopbackServer({
+    binding,
+    dispatch: async () => ({ schema: 'ai-peer-review.response/v1', ok: true }),
+  });
+  t.after(() => server.close());
+  const context = f.context;
+  const proof = await observeLoopbackOwner({
+    endpoint: { host: '127.0.0.1', port: server.port },
+    privateBinding: credential,
+    expected: {
+      instanceId: binding.instanceId,
+      worktree: binding.worktree,
+      ownerVersion: binding.ownerVersion,
+    },
+    ...context,
+  });
+  t.after(() => proof.connection?.close(context));
+  assert.equal(proof.kind, 'verified-live');
+  const fx = await fixture(t, {
+    transport: {
+      stop: async () => {
+        await proof.connection.close(context);
+        await server.close();
+        return true;
+      },
+      obligations: () => [
+        {
+          name: 'readiness-server',
+          host: '127.0.0.1',
+          port: server.port,
+          instanceId: binding.instanceId,
+          worktree: binding.worktree,
+          outcome: 'listening',
+        },
+        ...ownerConnectionObligations(proof.connection),
+      ],
+    },
+  });
+  await fx.owner.publish();
+  fx.source(async () => false);
+  for (const action of [() => fx.owner.verify(fx.context()), () => fx.owner.release(fx.context())])
+    await assert.rejects(action(), (error) => {
+      assert.ok(
+        error.details.outstandingObligations.some(
+          (item) => item.name === 'readiness-server' && item.port === server.port
+        )
+      );
+      assert.ok(
+        error.details.outstandingObligations.some(
+          (item) => item.localPort && item.remotePort === server.port
+        )
+      );
+      assert.equal(JSON.stringify(error.details).includes(binding.credential), false);
+      return true;
+    });
+  await fx.inspectDescriptors();
+  assert.equal(
+    (await proof.connection.request({ operation: 'status', body: {}, ...context })).ok,
+    true
+  );
+  assert.equal(fx.owner.verified, false);
 });

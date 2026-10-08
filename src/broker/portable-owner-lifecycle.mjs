@@ -7,7 +7,11 @@ import { encodeRequestCanonical, parseRawJson } from '../api/canonical-json.mjs'
 import { AprError } from '../errors.mjs';
 import { isHeldPrivatePublicationFor } from './storage-protection.mjs';
 import { inspectOwnerElectionPaths, isOwnerElectionLeaseFor } from './ownership-election.mjs';
-import { isOwnerConnectionFor, observeLoopbackOwner } from './owner-connection.mjs';
+import {
+  isOwnerConnectionFor,
+  observeLoopbackOwner,
+  ownerConnectionObligations,
+} from './owner-connection.mjs';
 import { observeOriginalProcess, reconcileOriginalProcess } from '../protocol/process-identity.mjs';
 import {
   isInstalledProcessSourceAssurance,
@@ -29,6 +33,7 @@ import {
   assertPortableOwnerReadiness,
   closePortableOwnerReadiness,
   isPortableOwnerReadiness,
+  portableOwnerReadinessObligations,
 } from './owner-readiness.mjs';
 
 const loadedInstallation = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
@@ -253,6 +258,7 @@ export async function createPortableOwnerLifecycle(input = {}) {
     close: (context) => handle.close(context),
     retainedGeneration: handle.retainedGeneration,
   });
+  const retainedConnections = new Map([[connection, startup]]);
   const readiness = async (context) => {
     await assertPortableOwnerReadiness({
       readiness: input.readinessServer,
@@ -270,12 +276,14 @@ export async function createPortableOwnerLifecycle(input = {}) {
       expected,
       ...context,
     });
+    if (observed.connection) retainedConnections.set(observed.connection, context);
     if (
       observed.kind !== 'verified-live' ||
       !isOwnerConnectionFor(observed.connection, { credential, expected, endpoint, ...context })
     )
       throw stale('owner-readiness-unproved');
     await observed.connection.close(context);
+    retainedConnections.delete(observed.connection);
     return true;
   };
   const core = await createOwnerLifecycleCore({
@@ -293,8 +301,15 @@ export async function createPortableOwnerLifecycle(input = {}) {
         },
       },
       transport: {
+        obligations: () => [
+          ...portableOwnerReadinessObligations(input.readinessServer),
+          ...[...retainedConnections.keys()].flatMap(ownerConnectionObligations),
+        ],
         async stop(context) {
-          await connection.close(startup);
+          for (const [held, originalContext] of retainedConnections) {
+            await held.close(originalContext);
+            retainedConnections.delete(held);
+          }
           return closePortableOwnerReadiness({ readiness: input.readinessServer, ...context });
         },
       },

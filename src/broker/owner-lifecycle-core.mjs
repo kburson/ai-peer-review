@@ -57,11 +57,22 @@ export async function createOwnerLifecycleCore({ ports, budget } = {}) {
   )
     throw refusal('lifecycle-ports-unproved');
   const state = { completed: false, phase: 'idle', retired: false, fenced: false };
-  const obligations = () =>
-    [
+  const obligations = () => {
+    let transport = [];
+    if (ports.transport) {
+      try {
+        transport = ports.transport.obligations?.();
+        if (!Array.isArray(transport)) throw Error('unavailable transport metadata');
+      } catch {
+        transport = [{ name: 'owner-transport', outcome: 'transport-obligations-unavailable' }];
+      }
+    }
+    return [
       ...publications.map((item) => item.retainedGeneration?.()).filter(Boolean),
       ports.lease?.retainedGeneration?.(),
+      ...transport,
     ].filter(Boolean);
+  };
   const check = (context) => {
     const value = now();
     if (
@@ -92,8 +103,8 @@ export async function createOwnerLifecycleCore({ ports, budget } = {}) {
       throw refusal('owner-readiness-unproved');
   };
   const operate = async (phase, supplied, effect) => {
-    if (operation.getStore()) throw refusal('nested-lifecycle-operation');
-    if (state.phase !== 'idle') throw refusal('owner-operation-busy');
+    if (operation.getStore()) throw refusal('nested-lifecycle-operation', obligations());
+    if (state.phase !== 'idle') throw refusal('owner-operation-busy', obligations());
     if (state.retired || state.fenced)
       throw refusal(state.retired ? 'owner-retired' : 'owner-fenced', obligations());
     if (phase !== 'publish' && !state.completed && supplied !== undefined)
@@ -102,7 +113,11 @@ export async function createOwnerLifecycleCore({ ports, budget } = {}) {
       phase === 'publish' || !state.completed
         ? original
         : Object.freeze({ signal: supplied?.signal, deadline: supplied?.deadline });
-    check(context);
+    try {
+      check(context);
+    } catch (error) {
+      throw refusal(error.details.reason, obligations());
+    }
     state.phase = phase; // Reserve before the first await, including release.
     const frame = { owner, context, active: true };
     try {

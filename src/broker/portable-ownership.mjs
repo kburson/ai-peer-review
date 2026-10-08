@@ -42,6 +42,7 @@ import {
   retainQuarantineReceiptCore,
   ownerTransactionObligationsCore,
   createJoinedBrokerClientCore,
+  completeOwnerJoinCore,
   assessOwnerEvidenceCore,
   closeOwnerObservationCore,
   inspectOwnerRecordsCore,
@@ -118,18 +119,29 @@ export function isAuthenticatedOwnerObservation(value) {
 }
 export async function joinVerifiedBroker({ binding, signal, deadline } = {}) {
   const record = bindings.get(binding);
-  if (
-    !record ||
-    !(signal instanceof AbortSignal) ||
-    signal.aborted ||
-    !Number.isFinite(deadline) ||
-    deadline <= performance.now() ||
-    deadline - performance.now() > 30000
-  )
+  if (!record || signal !== record.context.signal || deadline !== record.context.deadline)
     throw boundedOwnershipError('genuine-owner-binding-required');
-  // Only the actual observer's private record can provide these producer operations.
-  await record.reread({ signal, deadline });
-  return record.connect({ signal, deadline });
+  // Consume the private handoff synchronously before any asynchronous reread.
+  bindings.delete(binding);
+  const result = await completeOwnerJoinCore({
+    context: record.context,
+    reread: async (context) => {
+      ownerBudget(context);
+      await record.reread(context);
+    },
+    connect: record.connect,
+    dispose: record.dispose,
+  });
+  return result.client;
+}
+export async function disposeAuthenticatedOwnerObservation({ observation } = {}) {
+  const held = observations.get(observation);
+  if (!held) throw boundedOwnershipError('genuine-owner-observation-required');
+  observations.delete(observation);
+  const record = held.binding && bindings.get(held.binding);
+  if (!record) return Object.freeze({ disposed: true, outstandingObligations: Object.freeze([]) });
+  await record.dispose();
+  return Object.freeze({ disposed: true, outstandingObligations: Object.freeze([]) });
 }
 
 function ownerBudget(input) {
@@ -253,6 +265,12 @@ export async function observeAuthenticatedOwner(input = {}) {
         handshake: { instance_id: owner.instanceId, versions: owner.versions },
       });
       const record = {
+        context,
+        async dispose() {
+          bindings.delete(binding);
+          observations.delete(observed);
+          return client.close(context);
+        },
         async reread(next) {
           await inspectOwnerElectionPaths({ paths: input.paths, ...next });
           if (!sameOwnerState(state, await readOwnerState(view)))
@@ -271,6 +289,7 @@ export async function observeAuthenticatedOwner(input = {}) {
             !isVerifiedOwnerConnection(heldConnection)
           )
             throw boundedOwnershipError('proved-socket-lost');
+          observations.delete(observed);
           return Object.freeze({
             ...client,
             verified: true,

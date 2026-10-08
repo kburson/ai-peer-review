@@ -21,11 +21,11 @@ const productionLeases = new WeakMap();
 const coreProductionLeases = new WeakMap();
 const heldContext = new AsyncLocalStorage();
 const recordSchema = 'ai-peer-review.election-slot/v1';
-function stale(reason) {
+function stale(reason, obligations = []) {
   return new AprError('APR_BROKER_STALE', 'Resource election could not be established.', {
     recovery:
       'Preserve unresolved slots and obligations; inspect actual protection and process-source support before retrying.',
-    details: { reason },
+    details: { reason, obligations },
   });
 }
 function unavailable(reason, extra = {}) {
@@ -97,6 +97,7 @@ export async function acquireOwnerElectionCore({
   contenderIdentity,
   observeProcessIdentity,
   observeOwner = async () => null,
+  disposeOwner,
   signal,
   deadline,
   clock = performance,
@@ -125,7 +126,26 @@ export async function acquireOwnerElectionCore({
   };
   let own = null,
     winning = false,
-    creationAttempted = false;
+    creationAttempted = false,
+    pendingOwner = null;
+  const abandonOwner = async () => {
+    if (!pendingOwner) return [];
+    const owner = pendingOwner;
+    pendingOwner = null;
+    if (typeof disposeOwner !== 'function')
+      return [{ name: 'observed-owner', outcome: 'disposal-unavailable' }];
+    try {
+      const result = await disposeOwner(owner, initial.budget);
+      return result?.disposed === true
+        ? result.outstandingObligations || []
+        : [{ name: 'observed-owner', outcome: 'disposal-unproved' }];
+    } catch (error) {
+      return (
+        error?.details?.outstandingObligations ||
+        error?.details?.obligations || [{ name: 'observed-owner', outcome: 'disposal-unproved' }]
+      );
+    }
+  };
   const transition = async (name) => {
     check();
     await onTransition(name, budget);
@@ -240,13 +260,15 @@ export async function acquireOwnerElectionCore({
       const current = await sharing(() => store.read(contenderId, budget));
       if (!sameSnapshot(current, own)) throw stale('own-slot-generation-changed');
       const owner = await observeOwner(budget);
+      if (owner?.status === 'authenticated-live') pendingOwner = owner;
       if (owner?.status === 'authenticated-live') {
         const withdrawal = await withdraw();
         if (withdrawal.status !== 'withdrawn')
           return unavailable('withdrawal-unproved', {
             withdrawal,
-            obligations: withdrawal.obligations,
+            obligations: [...withdrawal.obligations, ...(await abandonOwner())],
           });
+        pendingOwner = null; // The caller now owns the authenticated observation.
         return Object.freeze({
           kind: 'owner-live',
           verified: false,
@@ -255,7 +277,8 @@ export async function acquireOwnerElectionCore({
           obligations: [],
         });
       }
-      if (owner?.status === 'unknown') throw stale('owner-authentication-unavailable');
+      if (owner?.status === 'unknown')
+        throw stale('owner-authentication-unavailable', owner.outstandingObligations || []);
       const entries = await sharing(() => store.list(budget));
       if (!Array.isArray(entries) || entries.length > 4096) throw stale('slot-count-unproved');
       const dead = [];
@@ -341,6 +364,7 @@ export async function acquireOwnerElectionCore({
       heldLease = lease;
       if (store.beginWinningTransaction) await store.beginWinningTransaction(lease, budget);
       const finalOwner = await observeOwner(budget);
+      if (finalOwner?.status === 'authenticated-live') pendingOwner = finalOwner;
       check();
       if (finalOwner?.status === 'authenticated-live') {
         const withdrawal = await withdraw();
@@ -348,8 +372,9 @@ export async function acquireOwnerElectionCore({
         if (withdrawal.status !== 'withdrawn')
           return unavailable('withdrawal-unproved', {
             withdrawal,
-            obligations: withdrawal.obligations,
+            obligations: [...withdrawal.obligations, ...(await abandonOwner())],
           });
+        pendingOwner = null; // The caller now owns the authenticated observation.
         return Object.freeze({
           kind: 'owner-live',
           verified: false,
@@ -380,7 +405,11 @@ export async function acquireOwnerElectionCore({
   } catch (error) {
     winning = false;
     const withdrawal = await withdraw();
-    const obligations = [...(error.details?.obligations || []), ...withdrawal.obligations];
+    const obligations = [
+      ...(error.details?.obligations || []),
+      ...withdrawal.obligations,
+      ...(await abandonOwner()),
+    ];
 
     return unavailable(error.details?.reason || error.code || 'election-unproved', {
       withdrawal,
@@ -675,6 +704,10 @@ export async function acquireOwnerElection(options = {}) {
         return reconcileOriginalProcess({ original, observation: observed });
       },
       observeOwner: () => observeOwner(transaction, options),
+      disposeOwner: async (observation) => {
+        const owner = await import('./portable-ownership.mjs');
+        return owner.disposeAuthenticatedOwnerObservation({ observation });
+      },
     });
     if (outcome.kind === 'won') {
       await assertOwnerElectionLease(operationalLease);
@@ -776,7 +809,9 @@ async function observeOwner(binding, options) {
       signal: options.signal,
       deadline: options.deadline,
     });
-    return owner.isAuthenticatedOwnerObservation(observation) ? observation : { status: 'unknown' };
+    return owner.isAuthenticatedOwnerObservation(observation)
+      ? observation
+      : { status: 'unknown', outstandingObligations: observation.outstandingObligations || [] };
   } catch {
     return { status: 'unknown' };
   }

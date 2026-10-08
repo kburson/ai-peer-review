@@ -15,6 +15,7 @@ export async function actualElection(
     afterWinning = async () => {},
     onTransition = async () => {},
     onEnumerated = async () => {},
+    disposeOwner,
   }
 ) {
   const rootStat = await lstat(root, { bigint: true }),
@@ -121,6 +122,7 @@ export async function actualElection(
       pid,
     }),
     observeOwner,
+    disposeOwner,
     onTransition,
   });
   if (outcome.kind === 'won')
