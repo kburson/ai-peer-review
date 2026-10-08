@@ -77,6 +77,12 @@ try {
     paths = 0;
     await system.canonicalPath(cwd);
     assert.equal(observations, 2);
+  } else if (mode === 'rendering') {
+    const packageRoot = path.join(cwd, 'Mixed Case Package');
+    await fsp.mkdir(packageRoot);
+    const input = process.platform === 'win32' ? packageRoot.toLowerCase() : packageRoot;
+    const expected = await rawRealpath(input);
+    assert.equal(await system.canonicalPath(input), expected);
   } else if (mode === 'replacement') {
     await assert.rejects(system.canonicalPath(cwd), /path|replaced|identity/i);
     assert.equal(replaced, true);

@@ -55117,7 +55117,7 @@
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
-        "target": "realpathSync",
+        "target": "native",
         "origins": ["builtin"],
         "owner": 186
       },

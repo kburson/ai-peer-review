@@ -289,3 +289,12 @@ test('[#187] path replacement during the final actual principal observation refu
   );
   assert.equal(JSON.parse(result).replaced, true);
 });
+
+test('[#187] final path integrity uses the same native canonical rendering as awaited observations', () => {
+  const result = execFileSync(
+    process.execPath,
+    ['test/helpers/canonical-principal-observation.mjs', 'rendering'],
+    { encoding: 'utf8', timeout: 35000 }
+  );
+  assert.equal(JSON.parse(result).actualStock, true);
+});

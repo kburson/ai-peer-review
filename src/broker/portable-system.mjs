@@ -145,7 +145,7 @@ export async function initializePortableSystem(input = {}) {
     // The final awaited principal probe cannot leave the path generation stale.
     // This integrity check supplies no principal or permission observation.
     if (
-      realpathSync(value) !== resolved ||
+      realpathSync.native(value) !== resolved ||
       fileIdentity(lstatSync(resolved, { bigint: true })) !== fileIdentity(after)
     )
       refuse('canonical-path-replaced');
