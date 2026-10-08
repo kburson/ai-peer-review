@@ -48,10 +48,6 @@ jobs:
         run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
-      - name: Trace bounded Windows selection authority
-        if: runner.os == 'Windows'
-        continue-on-error: true
-        run: node --import ./test/helpers/windows-authority-trace.mjs --test --test-name-pattern="one account selection is shared by clones" test/unit/runtime-selection.test.mjs
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
@@ -100,10 +96,6 @@ jobs:
         run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
-      - name: Trace bounded Windows selection authority
-        if: runner.os == 'Windows'
-        continue-on-error: true
-        run: node --import ./test/helpers/windows-authority-trace.mjs --test --test-name-pattern="one account selection is shared by clones" test/unit/runtime-selection.test.mjs
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
@@ -300,27 +292,3 @@ jobs:
           name: claude-live-conformance-sanitized
           path: ${{ runner.temp }}/claude-conformance/sanitized-result.json
           if-no-files-found: error
-
-  windows-selection-diagnostic:
-    name: Windows selection stock-observation timing
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: npm
-      - run: npm ci
-      # Diagnostic failure is expected while measuring. Required complete test
-      # jobs and their receipt checks remain mandatory and fail independently.
-      - name: Inspect actual final principal and path controls
-        continue-on-error: true
-        run: node --test --test-name-pattern="two fresh actual principals|final actual principal observation|same native canonical rendering" test/unit/portable-identity.test.mjs
-      - name: Trace one bounded genuine selection control
-        continue-on-error: true
-        run: node --import ./test/helpers/windows-authority-trace.mjs --test --test-name-pattern="one account selection is shared by clones" test/unit/runtime-selection.test.mjs
-      - name: Inspect actual bounded protected-read control
-        continue-on-error: true
-        run: node --test --test-name-pattern="selection protected reads enforce" test/unit/portable-authority-fences.test.mjs
