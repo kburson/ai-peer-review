@@ -5,10 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
 // Isolate filesystem fault schedules and retain every case in the declared
-// verifier. Isolated processes bound probe overhead without weakening checks.
+// verifier. Windows groups run serially so fixed stock ACL budgets are not
+// consumed by competing probe schedules. Every case and production budget stays intact.
 test(
   '[#175] retained publication and quarantine controls',
-  { concurrency: process.platform === 'win32' ? 4 : 2 },
+  { concurrency: process.platform === 'win32' ? 1 : 2 },
   async (t) => {
     await Promise.all(
       ['generations', 'quarantine', 'budget', 'faults'].map((group) =>
