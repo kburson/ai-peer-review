@@ -315,6 +315,9 @@ jobs:
       - run: npm ci
       # Diagnostic failure is expected while measuring. Required complete test
       # jobs and their receipt checks remain mandatory and fail independently.
+      - name: Inspect actual final principal and path controls
+        continue-on-error: true
+        run: node --test --test-name-pattern="two fresh actual principals|final actual principal observation" test/unit/portable-identity.test.mjs
       - name: Trace one bounded genuine selection control
         continue-on-error: true
         run: node --import ./test/helpers/windows-authority-trace.mjs --test --test-name-pattern="one account selection is shared by clones" test/unit/runtime-selection.test.mjs

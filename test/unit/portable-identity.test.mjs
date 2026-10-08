@@ -272,3 +272,20 @@ test(
     await assert.rejects(system.userId(), (error) => error.details?.reason === 'operation-aborted');
   }
 );
+
+test('[#187] canonical paths bracket filesystem observations with two fresh actual principals', () => {
+  const result = execFileSync(
+    process.execPath,
+    ['test/helpers/canonical-principal-observation.mjs', 'count'],
+    { encoding: 'utf8', timeout: 35000 }
+  );
+  assert.equal(JSON.parse(result).observations, 2);
+});
+test('[#187] path replacement during the final actual principal observation refuses', () => {
+  const result = execFileSync(
+    process.execPath,
+    ['test/helpers/canonical-principal-observation.mjs', 'replacement'],
+    { encoding: 'utf8', timeout: 35000 }
+  );
+  assert.equal(JSON.parse(result).replaced, true);
+});

@@ -3,6 +3,7 @@
 // @story #186
 // cspell:words SID SIDs Win32PowerShell reparse
 import { lstat, realpath, readFile } from 'node:fs/promises';
+import { lstatSync, realpathSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { performance } from 'node:perf_hooks';
@@ -137,11 +138,18 @@ export async function initializePortableSystem(input = {}) {
     const resolved = await realpath(value);
     const before = await lstat(resolved, { bigint: true });
     if (before.isSymbolicLink()) refuse('canonical-path-alias');
-    await check();
     const after = await lstat(resolved, { bigint: true });
     if ((await realpath(value)) !== resolved || fileIdentity(before) !== fileIdentity(after))
       refuse('canonical-path-replaced');
     await check();
+    // The final awaited principal probe cannot leave the path generation stale.
+    // This integrity check supplies no principal or permission observation.
+    if (
+      realpathSync(value) !== resolved ||
+      fileIdentity(lstatSync(resolved, { bigint: true })) !== fileIdentity(after)
+    )
+      refuse('canonical-path-replaced');
+    validateContext(context);
     const key = path.resolve(value);
     const seen = paths.get(key);
     // Contents/mtime of a directory can change; its physical object identity cannot.
