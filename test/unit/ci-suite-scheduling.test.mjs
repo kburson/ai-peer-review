@@ -96,3 +96,41 @@ test('[#175] explicit hosted baseline selector omits only separately recorded ow
   assert.equal(full.status, 0, full.stdout + full.stderr);
   assert.equal(existsSync(path.join(root, 'owners-executed')), true);
 });
+
+test('[#169] hosted Windows baseline executes ordinary cases and delegates both expensive owner files', (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'apr-ci-composition-shard-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(path.join(root, 'test/integration'), { recursive: true });
+  copyFileSync(runner, path.join(root, 'runner.mjs'));
+  for (const [file, marker] of [
+    ['ordinary.test.mjs', 'baseline'],
+    ['owner-publication.test.mjs', 'publication'],
+    ['portable-ownership.test.mjs', 'composition'],
+  ])
+    writeFileSync(
+      path.join(root, 'test/integration', file),
+      "import test from 'node:test';import{writeFileSync}from'node:fs';test('actual case',()=>writeFileSync(" +
+        JSON.stringify(marker) +
+        ",'yes'));"
+    );
+  const env = { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true' };
+  delete env.NODE_TEST_CONTEXT;
+  const result = spawnSync(
+    process.execPath,
+    ['runner.mjs', 'integration', '--exclude-owner-publication', '--exclude-portable-ownership'],
+    { cwd: root, env, encoding: 'utf8', timeout: 15000 }
+  );
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(existsSync(path.join(root, 'baseline')), true);
+  assert.equal(existsSync(path.join(root, 'publication')), false);
+  assert.equal(existsSync(path.join(root, 'composition')), false);
+  const full = spawnSync(process.execPath, ['runner.mjs', 'integration'], {
+    cwd: root,
+    env,
+    encoding: 'utf8',
+    timeout: 15000,
+  });
+  assert.equal(full.status, 0, full.stdout + full.stderr);
+  assert.equal(existsSync(path.join(root, 'publication')), true);
+  assert.equal(existsSync(path.join(root, 'composition')), true);
+});

@@ -3,10 +3,17 @@ import { globSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 
 const [suite, ...extra] = process.argv.slice(2);
-const excludeOwners = extra.length === 1 && extra[0] === '--exclude-owner-publication';
+const excludeOwners = extra.includes('--exclude-owner-publication');
+const excludeComposition = extra.includes('--exclude-portable-ownership');
+const knownSelectors =
+  extra.length === new Set(extra).size &&
+  extra.every((value) =>
+    ['--exclude-owner-publication', '--exclude-portable-ownership'].includes(value)
+  );
 if (
   extra.length &&
   !(
+    knownSelectors &&
     excludeOwners &&
     suite === 'integration' &&
     process.env.CI === 'true' &&
@@ -20,7 +27,10 @@ if (!['unit', 'golden', 'integration', 'packaging', 'smoke', 'mcp'].includes(sui
 const discovered = globSync(`test/${suite}/**/*.test.mjs`)
   .map((file) => file.replaceAll('\\', '/'))
   .sort()
-  .filter((file) => !(excludeOwners && file === 'test/integration/owner-publication.test.mjs'));
+  .filter((file) => !(excludeOwners && file === 'test/integration/owner-publication.test.mjs'))
+  .filter(
+    (file) => !(excludeComposition && file === 'test/integration/portable-ownership.test.mjs')
+  );
 // #107 portable tests do not load/build the retired native broker. Run these
 // without the legacy name filter, which would otherwise hide their broker cases.
 const portable = discovered.filter(

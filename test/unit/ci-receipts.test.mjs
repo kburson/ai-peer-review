@@ -265,6 +265,7 @@ test('[#175] Windows baseline and owner inventories cover all integration cases 
     'test/helpers/run-suite.mjs',
     'integration',
     '--exclude-owner-publication',
+    '--exclude-portable-ownership',
   ]);
 });
 test('[#175] dedicated owner receipts require actual owner command and exact owner inventory', () => {
@@ -302,7 +303,13 @@ test('[#175] Windows baseline receipt cannot substitute the full-suite command o
     ...receipt(),
     ...want,
     platform: 'win32',
-    command: ['node', 'test/helpers/run-suite.mjs', 'integration', '--exclude-owner-publication'],
+    command: [
+      'node',
+      'test/helpers/run-suite.mjs',
+      'integration',
+      '--exclude-owner-publication',
+      '--exclude-portable-ownership',
+    ],
   };
   assert.equal(validateLaneReceipt(record, want), true);
   assert.throws(
@@ -351,4 +358,78 @@ test('[#175] hosted proof requires independent successful owner jobs for each Wi
       /ci-receipt:/
     );
   }
+});
+
+test('[#169] three Windows integration partitions cover every test exactly once', () => {
+  const files = {
+    'test/integration/ordinary.test.mjs': '1',
+    'test/integration/owner-publication.test.mjs': '2',
+    'test/integration/portable-ownership.test.mjs': '3',
+  };
+  const baseline = laneInventory(files, 'integration', 'Windows'),
+    publications = laneInventory(files, 'owner-publication', 'Windows'),
+    composition = laneInventory(files, 'portable-ownership', 'Windows');
+  assert.deepEqual(baseline, { 'test/integration/ordinary.test.mjs': '1' });
+  assert.deepEqual(composition, { 'test/integration/portable-ownership.test.mjs': '3' });
+  assert.deepEqual({ ...baseline, ...publications, ...composition }, files);
+  assert.equal(
+    Object.keys(baseline).length +
+      Object.keys(publications).length +
+      Object.keys(composition).length,
+    3
+  );
+  assert.deepEqual(laneInventory(files, 'integration', 'Linux'), files);
+  assert.deepEqual(laneInventory(files, 'integration', 'macOS'), files);
+});
+test('[#169] each Windows runtime requires a separately successful portable ownership worker', () => {
+  for (const node of ['24', '26', 'current']) {
+    const matches = workers().filter(
+      (w) =>
+        w.runnerOS === 'Windows' && w.matrixNode === node && w.lanes.includes('portable-ownership')
+    );
+    assert.equal(matches.length, 1);
+    const worker = matches[0],
+      job = {
+        name: worker.name,
+        status: 'completed',
+        conclusion: 'success',
+        steps: [{ name: 'Verify tests: portable-ownership', conclusion: 'success' }],
+      };
+    assert.equal(validateRequiredJob([job], worker), true);
+    assert.throws(() => validateRequiredJob([], worker), /ci-receipt:/);
+    assert.throws(
+      () => validateRequiredJob([{ ...job, conclusion: 'failure' }], worker),
+      /ci-receipt:/
+    );
+    assert.throws(
+      () =>
+        validateRequiredJob(
+          [{ ...job, steps: [{ name: 'Verify tests: integration', conclusion: 'success' }] }],
+          worker
+        ),
+      /ci-receipt:/
+    );
+  }
+});
+test('[#169] portable composition receipts refuse substituted commands and inventories', () => {
+  const want = {
+    ...expected,
+    runnerOS: 'Windows',
+    jobKey: 'portable-ownership-24-windows-latest',
+    lane: 'portable-ownership',
+    inventory: { 'test/integration/portable-ownership.test.mjs': '3' },
+    log,
+  };
+  const record = {
+    ...receipt(),
+    ...want,
+    platform: 'win32',
+    command: ['node', '--test', 'test/integration/portable-ownership.test.mjs'],
+  };
+  assert.equal(validateLaneReceipt(record, want), true);
+  assert.throws(() => validateLaneReceipt({ ...record, inventory: {} }, want), /ci-receipt:/);
+  assert.throws(
+    () => validateLaneReceipt({ ...record, command: ['npm', 'run', 'test:integration'] }, want),
+    /ci-receipt:/
+  );
 });

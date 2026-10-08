@@ -10,17 +10,27 @@ export const LANES = Object.freeze({
   mcp: { command: ['npm', 'run', 'test:mcp'], directories: ['mcp'] },
   packaging: { command: ['npm', 'run', 'test:packaging'], directories: ['packaging'] },
   smoke: { command: ['npm', 'run', 'test:smoke'], directories: ['smoke'] },
+  'portable-ownership': {
+    command: ['node', '--test', 'test/integration/portable-ownership.test.mjs'],
+    files: ['test/integration/portable-ownership.test.mjs'],
+  },
   'owner-publication': {
     command: ['node', '--test', 'test/integration/owner-publication.test.mjs'],
     files: ['test/integration/owner-publication.test.mjs'],
   },
 });
-// Windows keeps the existing baseline on its own runner. Both partitions bind
+// Windows keeps the existing baseline on its own runner. Every partition binds
 // their actual command and exact inventory to the same complete source fingerprint.
 export function laneCommand(lane, runnerOS) {
   if (!LANES[lane]) fail('lane');
   return lane === 'integration' && runnerOS === 'Windows'
-    ? ['node', 'test/helpers/run-suite.mjs', 'integration', '--exclude-owner-publication']
+    ? [
+        'node',
+        'test/helpers/run-suite.mjs',
+        'integration',
+        '--exclude-owner-publication',
+        '--exclude-portable-ownership',
+      ]
     : LANES[lane].command;
 }
 export function laneInventory(files, lane, runnerOS) {
@@ -36,7 +46,10 @@ export function laneInventory(files, lane, runnerOS) {
           !(
             lane === 'integration' &&
             runnerOS === 'Windows' &&
-            file === 'test/integration/owner-publication.test.mjs'
+            [
+              'test/integration/owner-publication.test.mjs',
+              'test/integration/portable-ownership.test.mjs',
+            ].includes(file)
           )
     )
   );

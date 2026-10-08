@@ -44,6 +44,14 @@ export function workers() {
       runnerOS: 'Windows',
       lanes: ['owner-publication'],
     });
+  for (const node of ['24', '26', 'current'])
+    result.push({
+      key: 'portable-ownership-' + node + '-windows-latest',
+      name: 'Portable ownership / Node ' + node + ' / windows-latest',
+      matrixNode: node,
+      runnerOS: 'Windows',
+      lanes: ['portable-ownership'],
+    });
   return result;
 }
 export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' } = {}) {
@@ -52,7 +60,7 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
     mode === 'fast'
       ? ['fast']
       : mode === 'slow'
-        ? ['integration', 'mcp', 'packaging', 'smoke', 'owner-publication']
+        ? ['integration', 'mcp', 'packaging', 'smoke', 'owner-publication', 'portable-ownership']
         : Object.keys(LANES);
   const execute = (command, args) =>
     execFileSync(command, args, { cwd: projectDir, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
