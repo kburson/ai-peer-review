@@ -4,6 +4,12 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { isDeepStrictEqual } from 'node:util';
 
+export const OWNER_PUBLICATION_GROUPS = Object.freeze([
+  'generations',
+  'quarantine',
+  'budget',
+  'faults',
+]);
 export const LANES = Object.freeze({
   fast: { command: ['npm', 'test'], directories: ['unit', 'golden'] },
   integration: { command: ['npm', 'run', 'test:integration'], directories: ['integration'] },
@@ -14,6 +20,16 @@ export const LANES = Object.freeze({
     command: ['node', '--test', 'test/integration/portable-ownership.test.mjs'],
     files: ['test/integration/portable-ownership.test.mjs'],
   },
+  ...Object.fromEntries(
+    OWNER_PUBLICATION_GROUPS.map((group) => [
+      'owner-publication-' + group,
+      {
+        command: ['node', '--test', 'test/integration/owner-publication-cases/' + group + '.mjs'],
+        files: ['test/integration/owner-publication-cases/' + group + '.mjs'],
+      },
+    ])
+  ),
+  // Retain legacy receipt parsing; current workers require every separate group.
   'owner-publication': {
     command: ['node', '--test', 'test/integration/owner-publication.test.mjs'],
     files: ['test/integration/owner-publication.test.mjs'],

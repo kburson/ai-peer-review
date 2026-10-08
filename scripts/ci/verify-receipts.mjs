@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import {
-  LANES,
+  OWNER_PUBLICATION_GROUPS,
   laneInventory,
   fail,
   projectState,
@@ -37,13 +37,14 @@ export function workers() {
   });
   for (const worker of result) worker.lanes = baselineLanes;
   for (const node of ['24', '26', 'current'])
-    result.push({
-      key: 'owner-publication-' + node + '-windows-latest',
-      name: 'Owner publication / Node ' + node + ' / windows-latest',
-      matrixNode: node,
-      runnerOS: 'Windows',
-      lanes: ['owner-publication'],
-    });
+    for (const group of OWNER_PUBLICATION_GROUPS)
+      result.push({
+        key: 'owner-publication-' + group + '-' + node + '-windows-latest',
+        name: 'Owner publication ' + group + ' / Node ' + node + ' / windows-latest',
+        matrixNode: node,
+        runnerOS: 'Windows',
+        lanes: ['owner-publication-' + group],
+      });
   for (const node of ['24', '26', 'current'])
     result.push({
       key: 'portable-ownership-' + node + '-windows-latest',
@@ -56,12 +57,13 @@ export function workers() {
 }
 export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' } = {}) {
   if (!['all', 'fast', 'slow'].includes(mode)) fail('mode');
+  const requiredLanes = [...new Set(workers().flatMap((worker) => worker.lanes))];
   const lanes =
     mode === 'fast'
       ? ['fast']
       : mode === 'slow'
-        ? ['integration', 'mcp', 'packaging', 'smoke', 'owner-publication', 'portable-ownership']
-        : Object.keys(LANES);
+        ? requiredLanes.filter((lane) => lane !== 'fast')
+        : requiredLanes;
   const execute = (command, args) =>
     execFileSync(command, args, { cwd: projectDir, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   const state = projectState(projectDir);
