@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.process-source-registration/v1",
+  "title": "Registered process source registration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "captureId",
+    "hostId",
+    "publicKey",
+    "keyId",
+    "package",
+    "scope",
+    "kinds",
+    "transitions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.process-source-registration/v1"
+    },
+    "captureId": {
+      "$ref": "#/$defs/captureId"
+    },
+    "hostId": {
+      "$ref": "#/$defs/digest"
+    },
+    "publicKey": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]+={0,2}$",
+      "maxLength": 128,
+      "minLength": 1
+    },
+    "keyId": {
+      "$ref": "#/$defs/digest"
+    },
+    "package": {
+      "$ref": "#/$defs/package"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "enum": ["absence", "creation"]
+      },
+      "minItems": 1,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "enum": ["clock-forward", "clock-backward", "timezone", "dst"]
+      },
+      "minItems": 0,
+      "maxItems": 4,
+      "uniqueItems": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kinds": {
+            "contains": {
+              "const": "creation"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "transitions": {
+            "minItems": 4,
+            "maxItems": 4
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "transitions": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "maxLength": 71,
+      "minLength": 1
+    },
+    "captureId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,95}$",
+      "maxLength": 96,
+      "minLength": 1
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$",
+      "maxLength": 40,
+      "minLength": 1
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "sourceCommit", "tarballDigest", "inventoryDigest", "contractDigest"],
+      "properties": {
+        "schema": {
+          "const": "ai-peer-review.process-source-package/v1"
+        },
+        "sourceCommit": {
+          "$ref": "#/$defs/revision"
+        },
+        "tarballDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "inventoryDigest": {
+          "$ref": "#/$defs/digest"
+        },
+        "contractDigest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "version", "visibility", "errorContract"],
+      "properties": {
+        "path": {
+          "enum": [
+            "/proc",
+            "/bin/ps",
+            "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "visibility": {
+          "enum": ["full-pid-namespace", "same-user-full-selection", "local-cim-query"]
+        },
+        "errorContract": {
+          "enum": ["exact-pid-directory-v1", "exact-ps-selection-v1", "completed-cim-query-v1"]
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "build", "architecture", "nodeMajor", "probe"],
+      "properties": {
+        "platform": {
+          "enum": ["linux", "darwin", "win32"]
+        },
+        "build": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "architecture": {
+          "enum": ["x64", "arm64"]
+        },
+        "nodeMajor": {
+          "type": "integer",
+          "minimum": 24,
+          "maximum": 128
+        },
+        "probe": {
+          "$ref": "#/$defs/probe"
+        }
+      }
+    },
+    "creation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit", "lower", "upper"],
+      "properties": {
+        "unit": {
+          "type": "string",
+          "pattern": "^(utc-nanoseconds|linux-ticks:[a-f0-9-]{36})$",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "lower": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,29})$",
+          "maxLength": 30,
+          "minLength": 1
+        },
+        "upper": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,29})$",
+          "maxLength": 30,
+          "minLength": 1
+        }
+      }
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "nonce": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "maxLength": 64,
+      "minLength": 1
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["monotonicNs", "utcNs", "zone", "dst", "pid", "nonce", "creation"],
+      "properties": {
+        "monotonicNs": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,29})$",
+          "maxLength": 30,
+          "minLength": 1
+        },
+        "utcNs": {
+          "type": "string",
+          "pattern": "^-?(0|[1-9][0-9]{0,29})$",
+          "maxLength": 31,
+          "minLength": 1
+        },
+        "zone": {
+          "type": "string",
+          "pattern": "^.+$",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "dst": {
+          "type": "boolean"
+        },
+        "pid": {
+          "$ref": "#/$defs/pid"
+        },
+        "nonce": {
+          "$ref": "#/$defs/nonce"
+        },
+        "creation": {
+          "$ref": "#/$defs/creation"
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "before", "during", "after"],
+      "properties": {
+        "kind": {
+          "enum": ["clock-forward", "clock-backward", "timezone", "dst"]
+        },
+        "before": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sample"
+          },
+          "minItems": 5,
+          "maxItems": 256,
+          "uniqueItems": true
+        },
+        "during": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sample"
+          },
+          "minItems": 5,
+          "maxItems": 256,
+          "uniqueItems": true
+        },
+        "after": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sample"
+          },
+          "minItems": 5,
+          "maxItems": 256,
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

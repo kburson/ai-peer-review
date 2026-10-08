@@ -8,6 +8,10 @@ import {
 } from './process-source/package.mjs';
 
 import { verifyRegisteredProcessSources } from './process-source/verify.mjs';
+import {
+  reviewProcessSourceClasses,
+  verifyProposedSourceClass,
+} from './process-source/class-review.mjs';
 import { captureRegisteredAbsence, captureRegisteredCreation } from './process-source/capture.mjs';
 
 export async function runProcessSourceConformance(options = {}) {
@@ -43,6 +47,28 @@ export async function runProcessSourceConformance(options = {}) {
     )
   )
     return verifyRegisteredProcessSources(options);
+  if (
+    options.mode === 'review-class' &&
+    Object.keys(options).every((k) =>
+      ['mode', 'receiptRoot', 'registrationIndex', 'approvedRef', 'output'].includes(k)
+    )
+  )
+    return reviewProcessSourceClasses(options);
+  if (
+    options.mode === 'verify-class' &&
+    Object.keys(options).every((k) =>
+      [
+        'mode',
+        'receiptRoot',
+        'registrationIndex',
+        'approvedRef',
+        'classFile',
+        'packagePath',
+        'installation',
+      ].includes(k)
+    )
+  )
+    return verifyProposedSourceClass(options);
   throw Error('driver-mode-unavailable');
 }
 function args(values) {
@@ -68,7 +94,23 @@ function args(values) {
                 '--approved-ref': 'approvedRef',
                 '--package-receipt': 'packageReceipt',
               }
-            : {};
+            : mode === 'review-class'
+              ? {
+                  '--receipt-root': 'receiptRoot',
+                  '--registration-index': 'registrationIndex',
+                  '--approved-ref': 'approvedRef',
+                  '--output': 'output',
+                }
+              : mode === 'verify-class'
+                ? {
+                    '--receipt-root': 'receiptRoot',
+                    '--registration-index': 'registrationIndex',
+                    '--approved-ref': 'approvedRef',
+                    '--class': 'classFile',
+                    '--package': 'packagePath',
+                    '--installation': 'installation',
+                  }
+                : {};
   for (let i = 0; i < rest.length; i += 2) {
     const name = names[rest[i]],
       value = rest[i + 1];

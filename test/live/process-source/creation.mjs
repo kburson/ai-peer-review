@@ -75,7 +75,7 @@ export async function captureCreationControlsCore(options = {}) {
     )
       throw fail('creation-child-source-changed');
     if (!original) original = { pid: live.pid, nonce: owned.nonce, creation: live.creation };
-    const clock = await observeSystemClockCore();
+    const clock = await observeSystemClockCore(context);
     latest = {
       monotonicNs: clock.monotonicNs,
       utcNs: clock.utcNs,

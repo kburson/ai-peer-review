@@ -834,3 +834,58 @@ test('current class applicability separates historical package bytes from covere
     /proposal-mismatch/
   );
 });
+
+test('public registration and capture schemas require closed signed evidence shapes', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { AjvJsonSchemaValidator } =
+    await import('@modelcontextprotocol/sdk/validation/ajv-provider.js');
+  const f = fixture();
+  const validator = new AjvJsonSchemaValidator();
+  for (const [name, value] of [
+    ['process-source-registration-v1.json', f.registration],
+    ['process-source-conformance-v1.json', f.receipt],
+  ]) {
+    const schema = JSON.parse(readFileSync(new URL('../../schemas/' + name, import.meta.url)));
+    const validate = validator.getValidator(schema);
+    assert.equal(validate(value).valid, true);
+    assert.equal(validate({ ...value, accepted: true }).valid, false);
+    const missing = { ...value };
+    delete missing.schema;
+    assert.equal(validate(missing).valid, false);
+    assert.equal(validate({ ...value, scope: { ...value.scope, nodeMajor: 0 } }).valid, false);
+  }
+});
+
+test('class review and verification modes require ordinary registration authority before effects', async (t) => {
+  const fs = await import('node:fs'),
+    path = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const root = fileURLToPath(new URL('../..', import.meta.url));
+  const base = path.join(root, '.scratch/peer-review');
+  fs.mkdirSync(base, { recursive: true });
+  const scratch = fs.mkdtempSync(path.join(base, 'class-approval-'));
+  t.after(() => fs.rmSync(scratch, { recursive: true, force: true }));
+  const approvedRef = path.join(scratch, 'fake-approval.json');
+  fs.writeFileSync(approvedRef, JSON.stringify({ accepted: true }));
+  const { runProcessSourceConformance } = await import('../live/process-source-conformance.mjs');
+  const common = {
+    registrationIndex: 'evidence/portable-runtime/process-source/registration-index.json',
+    approvedRef,
+    receiptRoot: scratch,
+  };
+  for (const options of [
+    { ...common, mode: 'review-class', output: path.join(scratch, 'proposal.json') },
+    {
+      ...common,
+      mode: 'verify-class',
+      classFile: path.join(scratch, 'proposal.json'),
+      packagePath: path.join(scratch, 'candidate.tgz'),
+      installation: path.join(scratch, 'installation'),
+    },
+  ])
+    await assert.rejects(
+      () => runProcessSourceConformance(options),
+      /registration-approved-ref-invalid/
+    );
+  assert.equal(fs.existsSync(path.join(scratch, 'proposal.json')), false);
+});
