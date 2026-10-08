@@ -208,3 +208,67 @@ test(
     }
   }
 );
+
+test(
+  'review: canonical path refuses cancellation at its final filesystem observation',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { faultedPortableSystem } = await import('../helpers/portable-consumer-fixtures.mjs');
+    const cwd = await directory(t);
+    const controller = new AbortController();
+    const key = Symbol.for('apr-186-final-path-abort');
+    globalThis[key] = controller;
+    t.after(() => delete globalThis[key]);
+    const filesystemModule =
+      'data:text/javascript;base64,' +
+      Buffer.from(
+        "import * as fs from 'node:fs/promises'; export const lstat = fs.lstat, readFile = fs.readFile; let calls=0; export async function realpath(value){const result=await fs.realpath(value); if(++calls===2)globalThis[Symbol.for('apr-186-final-path-abort')].abort(); return result;}"
+      ).toString('base64');
+    const module = await faultedPortableSystem({ filesystemModule });
+    const system = await module.initializePortableSystem({
+      signal: controller.signal,
+      deadline: performance.now() + 30000,
+    });
+    await assert.rejects(
+      system.canonicalPath(cwd),
+      (error) => error.details?.reason === 'operation-aborted'
+    );
+  }
+);
+test(
+  'review: failed post-open cleanup retains only retry authority until closure succeeds',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const { faultedPortableSystem } = await import('../helpers/portable-consumer-fixtures.mjs');
+    const controller = new AbortController();
+    const state = { controller, closed: false, attempts: 0 };
+    const key = Symbol.for('apr-186-close-retry');
+    globalThis[key] = state;
+    t.after(() => delete globalThis[key]);
+    const protectionModule =
+      'data:text/javascript;base64,' +
+      Buffer.from(
+        "export async function openProtectedRoot(){const state=globalThis[Symbol.for('apr-186-close-retry')]; state.controller.abort(); return Object.freeze({async close(){if(++state.attempts===1)throw new Error('descriptor-close-failed'); state.closed=true;}, async verify(){throw new Error('must-not-grant-authority');}});}"
+      ).toString('base64');
+    const module = await faultedPortableSystem({ protectionModule });
+    const system = await module.initializePortableSystem({
+      signal: controller.signal,
+      deadline: performance.now() + 30000,
+    });
+    let failure;
+    try {
+      await system.openProtectedRoot({ receipt: {} });
+    } catch (error) {
+      failure = error;
+    }
+    assert.equal(failure?.details?.reason, 'operation-aborted', String(failure));
+    assert.equal(state.closed, false);
+    assert.equal(typeof failure.retryCleanup, 'function');
+    assert.equal(failure.guard, undefined);
+    await failure.retryCleanup();
+    assert.equal(state.closed, true);
+    await failure.retryCleanup();
+    assert.equal(state.attempts, 2);
+    await assert.rejects(system.userId(), (error) => error.details?.reason === 'operation-aborted');
+  }
+);

@@ -1,5 +1,5 @@
 // @story #186
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -22,4 +22,29 @@ export function consumerFixture(t, files, { entries = ['bin/peer-review.mjs'], o
       })),
   };
   return { root, inventory };
+}
+
+export async function faultedPortableSystem({ filesystemModule, protectionModule }) {
+  const source = readFileSync(
+    new URL('../../src/broker/portable-system.mjs', import.meta.url),
+    'utf8'
+  )
+    .replace(
+      "from 'node:fs/promises'",
+      'from ' + JSON.stringify(filesystemModule ?? 'node:fs/promises')
+    )
+    .replace(
+      "from '../errors.mjs'",
+      'from ' + JSON.stringify(new URL('../../src/errors.mjs', import.meta.url).href)
+    )
+    .replaceAll(
+      "import('./storage-protection.mjs')",
+      'import(' +
+        JSON.stringify(
+          protectionModule ??
+            new URL('../../src/broker/storage-protection.mjs', import.meta.url).href
+        ) +
+        ')'
+    );
+  return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 }

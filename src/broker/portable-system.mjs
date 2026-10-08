@@ -102,6 +102,13 @@ export async function initializePortableSystem(input = {}) {
   const context = Object.freeze({ signal: input.signal, deadline: input.deadline });
   const originalPrincipal = await principal(context);
   const paths = new Map();
+  const pendingCleanup = new Set();
+  async function retryCleanup() {
+    for (const guard of pendingCleanup) {
+      await guard.close();
+      pendingCleanup.delete(guard);
+    }
+  }
   async function check() {
     validateContext(context);
     if ((await principal(context)) !== originalPrincipal) refuse('effective-principal-replaced');
@@ -122,6 +129,7 @@ export async function initializePortableSystem(input = {}) {
     const after = await lstat(resolved, { bigint: true });
     if ((await realpath(value)) !== resolved || fileIdentity(before) !== fileIdentity(after))
       refuse('canonical-path-replaced');
+    await check();
     const key = path.resolve(value);
     const seen = paths.get(key);
     // Contents/mtime of a directory can change; its physical object identity cannot.
@@ -171,6 +179,7 @@ export async function initializePortableSystem(input = {}) {
     kind: process.platform,
     canonicalPath,
     physicalLocation,
+    retryCleanup,
     async userId() {
       await check();
       return originalPrincipal;
@@ -198,7 +207,9 @@ export async function initializePortableSystem(input = {}) {
         try {
           await guard.close();
         } catch (cause) {
+          pendingCleanup.add(guard);
           error.cause = cause;
+          Object.defineProperty(error, 'retryCleanup', { value: retryCleanup });
         }
         throw error;
       }

@@ -6,6 +6,7 @@ import { readFileSync, readdirSync, lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Linter } from 'eslint';
+import { isBuiltin } from 'node:module';
 
 const SCHEMA = 'ai-peer-review.portable-consumer-inventory/v1';
 const MAX_FILES = 512,
@@ -106,7 +107,8 @@ function ordinary(root, file) {
   return readFileSync(absolute, 'utf8');
 }
 function resolveTarget(file, value) {
-  if (value.startsWith('node:')) return { kind: 'builtin', target: value };
+  if (isBuiltin(value))
+    return { kind: 'builtin', target: value.startsWith('node:') ? value : 'node:' + value };
   if (!value.startsWith('.')) return { kind: 'external', target: value };
   const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), value));
   if (target.startsWith('../') || target.startsWith('/')) throw new Error('source-root-escape');
@@ -239,7 +241,13 @@ function prepareScopes(module) {
       }
     }
 }
-function expand(values, modules, final = false, visited = new Set(), memo = new Map()) {
+function expand(
+  values,
+  modules,
+  final = false,
+  visited = new Set(),
+  memo = modules.expansionMemo?.[final ? 1 : 0] ?? new Map()
+) {
   const index = (modules.parameterIndex ??= new Map(
     [...modules.values()].flatMap((module) =>
       [...module.parameters.keys()].map((tag) => [tag, module])
@@ -262,6 +270,12 @@ function expand(values, modules, final = false, visited = new Set(), memo = new 
       else
         for (const item of expand(incoming, modules, final, new Set([...visited, value]), memo))
           resolvedValues.add(item);
+    } else if (value.startsWith('return:')) {
+      const incoming = modules.returnOrigins?.get(value.slice(7));
+      if (incoming?.size)
+        for (const item of expand(incoming, modules, final, new Set([...visited, value]), memo))
+          resolvedValues.add(item);
+      else resolvedValues.add(final ? 'unknown' : value);
     } else if (value.startsWith('function:')) {
       const key = value.slice(9),
         split = key.lastIndexOf(':');
@@ -350,6 +364,18 @@ function graph(root, initial) {
           edges.push(edge);
           if (resolved.kind === 'module' && /\.(?:mjs|js)$/u.test(resolved.target))
             queue.push(resolved.target);
+          else if (resolved.kind === 'module')
+            problems.push({
+              code: 'unsupported-module-dependency',
+              path: file,
+              target: resolved.target,
+            });
+          else if (resolved.kind === 'external')
+            problems.push({
+              code: 'external-implementation-dependency',
+              path: file,
+              target: resolved.target,
+            });
           if (node.type === 'ImportDeclaration')
             for (const specifier of node.specifiers) {
               const name = specifier.imported?.name ?? specifier.imported?.value ?? 'default';
@@ -426,14 +452,14 @@ function joinedOrigins(argumentsOrigins, method) {
 }
 
 function evaluate(module, node, modules, returns, depth = 0) {
-  if (!node || depth > 32) return new Set();
+  if (!node || depth > 32) return new Set(['unknown']);
   const next = (value) => evaluate(module, value, modules, returns, depth + 1);
   if (node.type === 'Identifier')
     return bindingScope(module, node, node.name)?.bindings.get(node.name) ?? new Set(['unknown']);
   if (node.type === 'AwaitExpression' || node.type === 'ChainExpression')
     return next(node.argument ?? node.expression);
   if (node.type === 'Literal')
-    return typeof node.value === 'string' ? new Set(['literal:' + node.value]) : new Set();
+    return typeof node.value === 'string' ? new Set(['literal:' + node.value]) : new Set(['data']);
   if (node.type === 'ArrayExpression') return union(...node.elements.map(next));
   if (node.type === 'ObjectExpression')
     return union(...node.properties.map((p) => next(p.value ?? p.argument)));
@@ -473,9 +499,12 @@ function evaluate(module, node, modules, returns, depth = 0) {
   }
   if (node.type === 'CallExpression') {
     const callee = expand(next(node.callee), modules);
-    if (callee.has('builtin:createRequire')) return new Set(['native-loader']);
-    if (callee.has('native-factory')) return new Set(['native']);
-    if (callee.has('stock-factory')) return new Set(['stock']);
+    if (callee.has('builtin:createRequire'))
+      return callee.size === 1 ? new Set(['native-loader']) : new Set(['native-loader', 'unknown']);
+    if (callee.has('native-factory'))
+      return callee.size === 1 ? new Set(['native']) : new Set(['native', 'unknown']);
+    if (callee.has('stock-factory'))
+      return callee.size === 1 ? new Set(['stock']) : new Set(['stock', 'unknown']);
     const name = node.callee.name ?? memberName(node.callee);
     if (
       name === 'fileURLToPath' ||
@@ -503,17 +532,59 @@ function evaluate(module, node, modules, returns, depth = 0) {
         const target = modules.get(key.slice(0, index)),
           exported = key.slice(index + 1);
         if (target?.bindings.get(exported)?.has('native-factory')) result.add('native');
-        else for (const item of returns.get(key) ?? []) result.add(item);
-      }
-    return result;
+        else if (returns.has(key)) for (const item of returns.get(key)) result.add(item);
+        else result.add('return:' + key);
+      } else result.add('unknown');
+    return result.size ? result : new Set(['unknown']);
   }
-  return new Set();
+  if (FUNCTION_TYPES.has(node.type))
+    return new Set(['function:' + module.path + ':' + module.functionKeys.get(node)]);
+  return new Set(['unknown']);
 }
-function analyze(data) {
+function analyze(data, entries) {
   const returns = new Map();
+  data.modules.returnOrigins = returns;
+  const reached = reachable(data, entries);
+  for (const file of entries) {
+    const module = data.modules.get(file);
+    if (!module) continue;
+    // Public entry parameters remain externally supplied, even beside known internal calls.
+    for (const node of module.nodes)
+      if (
+        ['ExportNamedDeclaration', 'ExportDefaultDeclaration', 'ExportAllDeclaration'].includes(
+          node.type
+        )
+      ) {
+        if (node.source) {
+          const target = data.modules.get(resolveTarget(file, literal(node.source)).target);
+          if (target) for (const incoming of target.parameters.values()) incoming.add('unknown');
+        } else {
+          const declarations = node.declaration ? [node.declaration] : [];
+          for (const spec of node.specifiers ?? []) {
+            const values = module.bindings.get(spec.local.name);
+            for (const value of values ?? [])
+              if (value.startsWith('function:')) {
+                const key = value.slice(value.lastIndexOf(':') + 1);
+                const fn = module.functions.get(key);
+                if (fn) declarations.push(fn);
+              }
+          }
+          for (const fn of declarations)
+            if (FUNCTION_TYPES.has(fn.type))
+              for (const param of fn.params)
+                for (const name of patternNames(param))
+                  module.parameters
+                    .get(
+                      'parameter:' + module.path + ':' + module.functionKeys.get(fn) + ':' + name
+                    )
+                    ?.add('unknown');
+        }
+      }
+  }
   let changed = true,
     rounds = 0;
   while (changed && rounds++ < 512) {
+    data.modules.expansionMemo = [new Map(), new Map()];
     changed = false;
     for (const module of data.modules.values())
       for (const node of module.nodes) {
@@ -522,7 +593,10 @@ function analyze(data) {
           changed = assign(module, node.id, values(node.init)) || changed;
         if (node.type === 'AssignmentExpression')
           changed = assign(module, node.left, values(node.right)) || changed;
-        if (node.type === 'CallExpression' || node.type === 'NewExpression') {
+        if (
+          (node.type === 'CallExpression' || node.type === 'NewExpression') &&
+          reached.has(module.path)
+        ) {
           for (const origin of expand(values(node.callee), data.modules))
             if (origin.startsWith('function:')) {
               const key = origin.slice(9),
@@ -536,8 +610,11 @@ function analyze(data) {
                 });
             }
         }
-        if (node.type === 'ReturnStatement') {
-          let parent = module.parents.get(node);
+        if (
+          node.type === 'ReturnStatement' ||
+          (node.type === 'ArrowFunctionExpression' && node.body.type !== 'BlockStatement')
+        ) {
+          let parent = node.type === 'ReturnStatement' ? module.parents.get(node) : node;
           while (
             parent &&
             !['FunctionDeclaration', 'ArrowFunctionExpression', 'FunctionExpression'].includes(
@@ -549,7 +626,10 @@ function analyze(data) {
             if (fn === parent) {
               const key = module.path + ':' + name,
                 old = returns.get(key) ?? new Set(),
-                next = union(old, values(node.argument));
+                next = union(
+                  old,
+                  values(node.type === 'ReturnStatement' ? node.argument : node.body)
+                );
               if (next.size !== old.size) {
                 returns.set(key, next);
                 changed = true;
@@ -559,6 +639,7 @@ function analyze(data) {
       }
   }
   if (changed) data.problems.push({ code: 'origin-analysis-budget' });
+  data.modules.expansionMemo = [new Map(), new Map()];
   for (const module of data.modules.values())
     for (const node of module.nodes) {
       if (node.type === 'VariableDeclarator' || node.type === 'AssignmentExpression') {
@@ -614,7 +695,10 @@ function analyze(data) {
         const receiver = expand(values(node.callee.object), data.modules, true);
         if (receiver.has('native'))
           data.problems.push({ code: 'native-handle-call', ...detail, name });
-        else if (HANDLES.has(name) && (!receiver.has('stock') || receiver.size !== 1))
+        else if (
+          (HANDLES.has(name) || (receiver.has('unknown') && !LEASE.has(name))) &&
+          (!receiver.has('stock') || receiver.size !== 1)
+        )
           data.problems.push({ code: 'unknown-handle-origin', ...detail, name });
       }
       if (LEASE.has(name)) {
@@ -627,7 +711,17 @@ function analyze(data) {
         LAUNCH.has(name) ||
         [...origins].some((o) => o.startsWith('builtin:') && LAUNCH.has(o.slice(8)));
       if (launch) {
-        const targets = expand(union(...node.arguments.map(values)), data.modules, true);
+        const args = node.arguments[1];
+        const script =
+          args?.type === 'ArrayExpression' && args.elements[0]?.type !== 'SpreadElement'
+            ? args.elements[0]
+            : null;
+        const actualTarget = ['fork', 'Worker'].includes(name)
+          ? node.arguments[0]
+          : name === 'buildBrokerSecurity'
+            ? node.arguments[0]
+            : script;
+        const targets = expand(values(actualTarget), data.modules, true);
         const repository = [...targets].filter((value) => value.startsWith('target:'));
         const executable = expand(values(node.arguments[0]), data.modules, true);
         const fixedProbes = new Set([
@@ -643,10 +737,16 @@ function analyze(data) {
           executable.size > 0 &&
           [...executable].every((value) => value.startsWith('target:'));
         const nodeEntry =
-          executable.size === 1 && executable.has('node-executable') && repository.length > 0;
+          executable.size === 1 &&
+          executable.has('node-executable') &&
+          targets.size > 0 &&
+          [...targets].every((value) => value.startsWith('target:'));
         const stockProbe =
           executable.size > 0 && [...executable].every((value) => fixedProbes.has(value));
-        const injectedKnownBuild = name === 'buildBrokerSecurity' && repository.length > 0;
+        const injectedKnownBuild =
+          name === 'buildBrokerSecurity' &&
+          targets.size > 0 &&
+          [...targets].every((value) => value.startsWith('target:'));
         if (!directEntry && !nodeEntry && !stockProbe && !injectedKnownBuild)
           data.problems.push({ code: 'unresolved-process-entry', ...detail, name });
         for (const value of repository) {
@@ -659,8 +759,8 @@ function analyze(data) {
     }
   return data;
 }
-function completeGraph(root, initial) {
-  let data = analyze(graph(root, initial));
+function completeGraph(root, initial, entries) {
+  let data = analyze(graph(root, initial), entries);
   for (let i = 0; i < MAX_FILES; i++) {
     const extra = data.edges
       .filter(
@@ -671,7 +771,7 @@ function completeGraph(root, initial) {
       )
       .map((edge) => edge.target);
     if (!extra.length) return data;
-    data = analyze(graph(root, [...initial, ...data.modules.keys(), ...extra]));
+    data = analyze(graph(root, [...initial, ...data.modules.keys(), ...extra]), entries);
   }
   throw new Error('source-process-entry-budget');
 }
@@ -713,7 +813,7 @@ export function inspectPortableConsumerInventory({ root, inventory } = {}) {
   const physical = realpathSync(root),
     files = sourceFiles(physical);
   const entries = inventory?.entries ?? ['bin/peer-review.mjs', 'src/public-api.mjs'];
-  const data = completeGraph(physical, [...files, ...entries]);
+  const data = completeGraph(physical, [...files, ...entries], entries);
   const reached = reachable(data, entries);
   const owners = new Map((inventory?.modules ?? []).map((row) => [row.path, row]));
   const blockers = inventoryValid(inventory) ? [] : [{ code: 'inventory-invalid' }];
@@ -727,12 +827,23 @@ export function inspectPortableConsumerInventory({ root, inventory } = {}) {
   for (const module of modules)
     if (!owners.has(module.path)) blockers.push({ code: 'unowned-consumer', path: module.path });
   let declared = [];
+  function exportPaths(value) {
+    if (value === null || value === undefined) return [];
+    if (typeof value === 'string') {
+      if (!value.startsWith('./') || value.includes('*'))
+        throw new Error('unsupported-export-target');
+      return [value];
+    }
+    if (Array.isArray(value)) return value.flatMap(exportPaths);
+    if (typeof value === 'object') return Object.values(value).flatMap(exportPaths);
+    throw new Error('unsupported-export-form');
+  }
   try {
     const metadata = JSON.parse(ordinary(physical, 'package.json'));
     declared = Object.values(
       typeof metadata.bin === 'object' ? metadata.bin : metadata.bin ? { bin: metadata.bin } : {}
     )
-      .concat(typeof metadata.exports === 'string' ? [metadata.exports] : [])
+      .concat(exportPaths(metadata.exports))
       .map((file) => String(file).replace(/^\.\//u, ''));
   } catch (error) {
     if (error.code !== 'ENOENT') blockers.push({ code: 'entry-manifest-invalid' });

@@ -390,3 +390,112 @@ test('joining a module-derived repository root with a script preserves the actua
     'reachable-native-build'
   );
 });
+
+test('review: unknown returns cannot be erased from stock handle alternatives', (t) => {
+  blocked(
+    inspect(t, {
+      'bin/peer-review.mjs':
+        "import { initializePortableOperations } from '../src/broker/portable-platform.mjs'; const bogus = () => ({ userId() { return 'fake'; } }); const op = flag ? await initializePortableOperations() : bogus(); op.userId();",
+      'src/broker/portable-platform.mjs':
+        'export function initializePortableOperations() { return {}; }',
+    }),
+    'unknown-handle-origin'
+  );
+});
+test('review: unresolved operational methods refuse regardless of method name', (t) => {
+  blocked(
+    inspect(t, { 'bin/peer-review.mjs': 'export function go(handle) { return handle.read(); }' }),
+    'unknown-handle-origin'
+  );
+});
+test('review: unreachable stock callers cannot establish reachable parameter authority', (t) => {
+  const report = inspect(t, {
+    'bin/peer-review.mjs': "export { use } from '../src/use.mjs';",
+    'src/use.mjs': 'export function use(handle) { return handle.userId(); }',
+    'src/unreachable.mjs':
+      "import { use } from './use.mjs'; import { initializePortableOperations } from './broker/portable-platform.mjs'; use(await initializePortableOperations());",
+    'src/broker/portable-platform.mjs':
+      'export function initializePortableOperations() { return {}; }',
+  });
+  assert.equal(report.modules.find((row) => row.path === 'src/unreachable.mjs').reachable, false);
+  blocked(report, 'unknown-handle-origin');
+});
+test('review: public parameters retain unknown external alternatives beside reachable stock calls', (t) => {
+  blocked(
+    inspect(t, {
+      'bin/peer-review.mjs':
+        "import { initializePortableOperations } from '../src/broker/portable-platform.mjs'; export function use(handle) { return handle.userId(); } use(await initializePortableOperations());",
+      'src/broker/portable-platform.mjs':
+        'export function initializePortableOperations() { return {}; }',
+    }),
+    'unknown-handle-origin'
+  );
+});
+test('review: every alternative in the actual Node script position must be resolved', (t) => {
+  blocked(
+    inspect(t, {
+      'bin/peer-review.mjs':
+        "import { spawn } from 'node:child_process'; const known = new URL('./broker.mjs', import.meta.url); spawn(process.execPath, [flag ? known : target]);",
+      'bin/broker.mjs': 'export const protocol = 1;',
+    }),
+    'unresolved-process-entry'
+  );
+});
+test('review: a repository argument after an unknown script cannot excuse the script', (t) => {
+  blocked(
+    inspect(t, {
+      'bin/peer-review.mjs':
+        "import { spawn } from 'node:child_process'; const known = new URL('./broker.mjs', import.meta.url); spawn(process.execPath, [target, known]);",
+      'bin/broker.mjs': 'export const protocol = 1;',
+    }),
+    'unresolved-process-entry'
+  );
+});
+test('review: a reachable CommonJS dependency cannot disappear from inspection', (t) => {
+  blocked(
+    inspect(t, {
+      'bin/peer-review.mjs': "import '../src/native.cjs';",
+      'src/native.cjs': "require('../native/binding.node');",
+    }),
+    'unsupported-module-dependency'
+  );
+});
+test('review: reachable external implementations require explicit refusal', (t) => {
+  blocked(
+    inspect(t, { 'bin/peer-review.mjs': "import 'unknown-implementation';" }),
+    'external-implementation-dependency'
+  );
+});
+test('review: bare builtin launcher aliases still refuse unknown targets', (t) => {
+  blocked(
+    inspect(t, {
+      'bin/peer-review.mjs':
+        "import { spawn as launch } from 'child_process'; launch(process.execPath, [target]);",
+    }),
+    'unresolved-process-entry'
+  );
+});
+test('review: object and conditional exports remain required public entries', (t) => {
+  blocked(
+    inspect(t, {
+      'package.json':
+        '{"exports":{".":{"import":"./src/public-api.mjs","default":"./src/fallback.mjs"}}}',
+      'bin/peer-review.mjs': 'export const value = 1;',
+      'src/public-api.mjs': 'export function platformSecurity() { return {}; }',
+      'src/fallback.mjs': 'export const value = 2;',
+    }),
+    'portable-entry-omitted'
+  );
+});
+
+test('review: an uncertain factory alias retains its unknown return alternative', (t) => {
+  blocked(
+    inspect(t, {
+      'bin/peer-review.mjs':
+        "import { initializePortableOperations } from '../src/broker/portable-platform.mjs'; const make = flag ? initializePortableOperations : injected; const handle = await make(); handle.userId();",
+      'src/broker/portable-platform.mjs':
+        'export function initializePortableOperations() { return {}; }',
+    }),
+    'unknown-handle-origin'
+  );
+});

@@ -146,6 +146,8 @@ function validManifest(overrides = {}) {
         'scripts/task-tracker/verify-epic-trail.mjs',
         'scripts/update-template-goldens.mjs',
         'scripts/verify-extraction.mjs',
+    'scripts/verify-portable-consumers.mjs',
+    'evidence/portable-runtime/consumer-inventory.json',
         'scripts/verify-manual-xpr-evidence.mjs',
         'scripts/verify-release.mjs',
         'scripts/pack-runtime.mjs',
