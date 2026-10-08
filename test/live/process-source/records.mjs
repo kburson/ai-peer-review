@@ -121,6 +121,7 @@ export function validateProcessSourceRegistration(registration) {
     !exact(r, [
       'schema',
       'captureId',
+      'hostId',
       'publicKey',
       'keyId',
       'package',
@@ -130,6 +131,7 @@ export function validateProcessSourceRegistration(registration) {
     ]) ||
     r.schema !== 'ai-peer-review.process-source-registration/v1' ||
     !ID.test(r.captureId) ||
+    !HASH.test(r.hostId) ||
     !text(r.publicKey, 128) ||
     !HASH.test(r.keyId) ||
     !Array.isArray(r.kinds) ||
@@ -222,6 +224,7 @@ export function verifyProcessSourceReceiptCore({ receipt, registration, packageR
     !exact(receipt, [
       'schema',
       'captureId',
+      'hostId',
       'registrationDigest',
       'package',
       'scope',
@@ -240,6 +243,7 @@ export function verifyProcessSourceReceiptCore({ receipt, registration, packageR
     !registration.kinds.includes(receipt.kind)
   )
     fail('registration-mismatch');
+  if (receipt.hostId !== registration.hostId) fail('host-mismatch');
   if (!same(receipt.package, packageReceipt)) fail('package-mismatch');
   if (!same(receipt.scope, registration.scope)) fail('scope-mismatch');
   const s = receipt.signature;
