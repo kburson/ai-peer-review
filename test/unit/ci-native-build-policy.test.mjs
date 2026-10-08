@@ -107,3 +107,79 @@ for (const [file, name] of [
     );
   });
 }
+
+test('[#187] Windows selection shares serialized portable probes without losing or duplicating active files', async () => {
+  const policy = await import('../helpers/suite-plan.mjs').catch(() => ({}));
+  assert.equal(typeof policy.classifySuiteFiles, 'function');
+  const input = [
+    'test/unit/runtime-selection.test.mjs',
+    'test/unit/portable-authority-fences.test.mjs',
+    'test/unit/storage-protection.test.mjs',
+    'test/unit/regular.test.mjs',
+    'test/unit/broker-ownership.test.mjs',
+  ];
+  const { groups, excluded } = policy.classifySuiteFiles(input);
+  assert.deepEqual(excluded, ['test/unit/broker-ownership.test.mjs']);
+  const all = groups.flatMap((group) => group.files);
+  assert.equal(new Set(all).size, all.length);
+  assert.deepEqual(all.slice().sort(), input.filter((file) => !excluded.includes(file)).sort());
+  const selection = groups.find((group) =>
+    group.files.includes('test/unit/runtime-selection.test.mjs')
+  );
+  assert.equal(selection.filtered, false);
+  const args = policy.suiteCommandArguments(selection, {
+    suite: 'unit',
+    platform: 'win32',
+    hosted: true,
+  });
+  assert.ok(args.includes('--test-concurrency=1'));
+  assert.equal(
+    args.some((arg) => arg.startsWith('--test-skip-pattern')),
+    false
+  );
+  for (const file of selection.files) assert.equal(args.filter((arg) => arg === file).length, 1);
+  const ordinary = groups.find((group) => group.files.includes('test/unit/regular.test.mjs'));
+  assert.equal(ordinary.filtered, true);
+  assert.equal(
+    policy
+      .suiteCommandArguments(selection, { suite: 'unit', platform: 'darwin', hosted: true })
+      .includes('--test-concurrency=1'),
+    false
+  );
+});
+
+test('[#187] actual suite runner executes each active disposable fixture once', async (t) => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const fixture = mkdtempSync(path.join(tmpdir(), 'apr-suite-policy-'));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  mkdirSync(path.join(fixture, 'test/unit'), { recursive: true });
+  const log = path.join(fixture, 'executed.jsonl');
+  for (const name of [
+    'regular',
+    'runtime-selection',
+    'portable-authority-fences',
+    'broker-ownership',
+  ]) {
+    writeFileSync(
+      path.join(fixture, 'test/unit/' + name + '.test.mjs'),
+      `import test from 'node:test'; import {appendFileSync} from 'node:fs'; test('fixture ${name}',()=>appendFileSync(${JSON.stringify(log)},${JSON.stringify(name + '\n')}));\n`
+    );
+  }
+  const env = { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true' };
+  delete env.NODE_TEST_CONTEXT;
+  const result = spawnSync(
+    process.execPath,
+    [fileURLToPath(new URL('test/helpers/run-suite.mjs', root)), 'unit'],
+    { cwd: fixture, env, encoding: 'utf8', timeout: 15000 }
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.deepEqual(readFileSync(log, 'utf8').trim().split('\n').sort(), [
+    'portable-authority-fences',
+    'regular',
+    'runtime-selection',
+  ]);
+});

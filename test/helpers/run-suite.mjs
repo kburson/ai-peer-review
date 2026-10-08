@@ -1,6 +1,7 @@
 // @story #102
 import { globSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
+import { classifySuiteFiles, suiteCommandArguments } from './suite-plan.mjs';
 
 const [suite, ...extra] = process.argv.slice(2);
 const excludeOwners = extra.includes('--exclude-owner-publication');
@@ -31,51 +32,16 @@ const discovered = globSync(`test/${suite}/**/*.test.mjs`)
   .filter(
     (file) => !(excludeComposition && file === 'test/integration/portable-ownership.test.mjs')
   );
-// #107 portable tests do not load/build the retired native broker. Run these
-// without the legacy name filter, which would otherwise hide their broker cases.
-const portable = discovered.filter(
-  (file) =>
-    file === 'test/unit/ci-native-build-policy.test.mjs' ||
-    /[\/]broker-http(?:-concurrency)?\.test\.mjs$/.test(file) ||
-    /[\/](?:portable-[^\/]+|windows-portable-bootstrap|storage-protection|ownership-election|process-source-[^\/]+)\.test\.mjs$/.test(
-      file
-    )
-);
-const excluded = discovered.filter(
-  (file) =>
-    !portable.includes(file) &&
-    (/[\\/]broker-[^\\/]+\.test\.mjs$/.test(file) ||
-      file === 'test/smoke/cli.test.mjs' ||
-      file === 'test/unit/source-test-preparation.test.mjs')
-);
-const files = discovered.filter((file) => !excluded.includes(file) && !portable.includes(file));
+// The same complete file partition feeds execution and its scheduling controls.
+const { groups, excluded } = classifySuiteFiles(discovered);
 console.log('Broker verification paused for #102/#107: ' + excluded.join(', '));
-if (!files.length && !portable.length) throw new Error(`No tests found for ${suite}`);
-
-const groups = [
-  [files, true],
-  [portable, false],
-].filter(([selected]) => selected.length);
-function argumentsFor([selected, filtered]) {
-  return [
-    '--test',
-    ...(filtered
-      ? [
-          '--test-skip-pattern=/broker|native helper|native exclusive|standalone production worker/i',
-        ]
-      : []),
-    ...(suite === 'integration' ? ['--test-concurrency=2'] : []),
-    // Serialize portable unit files on hosted Windows: each may run multiple
-    // stock ACL probes, whose original 15-second bound must remain intact.
-    ...(suite === 'unit' &&
-    !filtered &&
-    process.platform === 'win32' &&
-    process.env.CI === 'true' &&
-    process.env.GITHUB_ACTIONS === 'true'
-      ? ['--test-concurrency=1']
-      : []),
-    ...selected,
-  ];
+if (!groups.length) throw new Error('No tests found for ' + suite);
+function argumentsFor(group) {
+  return suiteCommandArguments(group, {
+    suite,
+    platform: process.platform,
+    hosted: process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true',
+  });
 }
 // Both disjoint groups execute every discovered active test. Hosted integration
 // runs two independent Node processes; each keeps its existing two-file limit.
