@@ -1,0 +1,31 @@
+{
+  "schema": "ai-peer-review.process-source-approved-ref/v1",
+  "revision": "2bf9c3fdcfe2bbfa17e22f09b831329581be8368",
+  "indexDigest": "sha256:bebb98e487cd5b0a0a171ebeedb950fc9b78e0765ecc79e13e8989091cec9b72",
+  "producerVersion": "0.4.1",
+  "review": {
+    "reviewId": "review-188b4c20546038d7fdbece3342582712",
+    "subject": {
+      "revision": "030425d7a82aaff635b9d50dc47665d3dac6df80",
+      "path": "evidence/portable-runtime/process-source/registration-reviews/170-hosted-absence.md",
+      "blob": "d5ec1552807456c191c31bbde426a8d597edcddc",
+      "sha256": "0ebb7443f7a302924a460ee0cc76b2a71b1e1d6e33e686ff1579cd79f6d24132"
+    },
+    "manifest": {
+      "revision": "1985631f79c75bd83ccc4c9ef5eea923635ffdba",
+      "path": "docs/superpowers/peer-reviews/spec/2026-10-08-170-hosted-absence-review-188b4c20546038d7fdbece3342582712/review-188b4c20546038d7fdbece3342582712-review-manifest.md",
+      "blob": "dc7d0851b3cbfc222457b79648b439b780a07acc",
+      "sha256": "78d283052788de00b82ec9220b10a22f32a52158c91dcae4f592bfebfa425af0"
+    },
+    "finalResponse": {
+      "revision": "1985631f79c75bd83ccc4c9ef5eea923635ffdba",
+      "path": "docs/superpowers/peer-reviews/spec/2026-10-08-170-hosted-absence-review-188b4c20546038d7fdbece3342582712/review-188b4c20546038d7fdbece3342582712-reviewer-response-1.md",
+      "blob": "c32cddd4d76216094efb54d0ef5566a8bf1db903",
+      "sha256": "fc69539d953e9bb3aaa8ab42f867c3ae3d3b5501920c9447fc32627ee2022a27"
+    },
+    "finalization": {
+      "revision": "1985631f79c75bd83ccc4c9ef5eea923635ffdba",
+      "sha256": "01c44f858c6126909b769d3224991042c64e5cb1048babe8ccc97f7d9212a7e8"
+    }
+  }
+}
