@@ -1,3 +1,4 @@
+// cspell:words localtime zoneinfo
 // @story #170
 // Read-only actual OS zone and UTC/monotonic observation; no clock mutation.
 import { execFile } from 'node:child_process';
