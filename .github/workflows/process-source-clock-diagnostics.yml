@@ -1,0 +1,21 @@
+# cspell:words timedatectl timesyncd chrony
+name: Process source clock diagnostics
+on:
+  push:
+    branches: [codex/170-source-conformance]
+    paths: [.github/workflows/process-source-clock-diagnostics.yml]
+permissions:
+  contents: read
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read stock time-service state without clock changes
+        run: |
+          /usr/bin/timedatectl --version
+          /usr/bin/timedatectl show
+          /usr/bin/timedatectl show --property=NTP --value
+          /usr/bin/timedatectl show --property=Timezone --value
+          /usr/bin/systemctl is-active systemd-timesyncd.service || true
+          /usr/bin/systemctl is-active chrony.service || true
+          /usr/bin/sudo -n /usr/bin/id -u

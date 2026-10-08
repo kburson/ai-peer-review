@@ -1,0 +1,28 @@
+{
+  "schema": "ai-peer-review.process-source-registration/v1",
+  "captureId": "source-1fa6d0d1b0f56b00a8d803fea9c5cfc3",
+  "hostId": "sha256:a60e474e29f6912e1e41a433e20f14d38f0420ac83096e326a0c174da8cb14f4",
+  "publicKey": "MCowBQYDK2VwAyEA/VTSHp6KywBFqKo5FTCHCJBRcM9u2e3DNBEar+0RUi8=",
+  "keyId": "sha256:41f4a365a07a1549473b416660f4e7a3a3b68d32ad85e9ae74d56b3cf8c5fa07",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "8f74ffb6de432b501d10d059b403c5c960fb6f3c",
+    "tarballDigest": "sha256:d79424e5a8ef6c836e2718048a4067e4edb44a930071e4682aafbc8d340bf556",
+    "inventoryDigest": "sha256:004a197772917fee1bf819ce96a1a20401e69a134844a93d58f435875d328890",
+    "contractDigest": "sha256:9a9c7b78745abd0a108bc72a0850c5d4bf42c01bc3caaa803964712f09238e55"
+  },
+  "scope": {
+    "platform": "win32",
+    "build": "10.0.26100",
+    "architecture": "x64",
+    "nodeMajor": 26,
+    "probe": {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "visibility": "local-cim-query",
+      "errorContract": "completed-cim-query-v1",
+      "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+    }
+  },
+  "kinds": ["absence"],
+  "transitions": []
+}
