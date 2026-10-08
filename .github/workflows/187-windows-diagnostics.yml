@@ -1,5 +1,10 @@
 name: Story 187 Windows diagnostics
 on:
+  push:
+    branches: ['codex/187-selection-fences']
+    paths:
+      - '.github/workflows/187-windows-diagnostics.yml'
+      - 'test/unit/portable-authority-fences.test.mjs'
   workflow_dispatch:
 permissions:
   contents: read
