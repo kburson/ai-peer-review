@@ -411,12 +411,14 @@ test('selection file replacement with identical bytes fences an already observed
 });
 
 test('selection protected reads enforce their narrower byte limit before returning a snapshot', async (t) => {
-  const f = runtimeFixture(t),
-    context = { signal: new AbortController().signal, deadline: performance.now() + 5000 };
+  const { mkdtemp, realpath, rm } = await import('node:fs/promises');
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-bounded-selection-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
   const { provisionProtectedRoot, openProtectedRoot } =
     await import('../../src/broker/storage-protection.mjs');
   const receipt = await provisionProtectedRoot({
-    root: path.join(f.root, 'bounded-private'),
+    root,
     ...context,
   });
   const guard = await openProtectedRoot({ receipt, ...context });
@@ -576,4 +578,89 @@ test('[#187] private nested admission lineage requires the same context and prim
     assert.equal(lineage.same(parent, changed), false);
   }
   assert.equal(lineage.verified, false);
+});
+
+test('[#187] registration retains its genuine protected directory through publication read-back', async (t) => {
+  const { createRequire, syncBuiltinESMExports } = await import('node:module');
+  const fsPromises = createRequire(import.meta.url)('node:fs/promises');
+  const originalOpen = fsPromises.open;
+  const f = runtimeFixture(t);
+  const directory = path.join(
+    f.home,
+    process.platform === 'win32' ? 'AppData/Local/ai-peer-review' : '.config/ai-peer-review'
+  );
+  const locator = path.join(directory, 'runtime-selection.json');
+  const retained = new Set(),
+    observed = [];
+  fsPromises.open = async function (target, ...args) {
+    const caller = new Error().stack.split('\n')[2] ?? '';
+    const handle = await originalOpen(target, ...args);
+    if (target === directory && /at (?:async )?openProtectedRoot\b/.test(caller)) {
+      retained.add(handle);
+      const close = handle.close.bind(handle);
+      handle.close = async () => {
+        await close();
+        retained.delete(handle);
+      };
+    }
+    return handle;
+  };
+  syncBuiltinESMExports();
+  t.after(() => {
+    fsPromises.open = originalOpen;
+    syncBuiltinESMExports();
+  });
+  const store = createSelectionStore({
+    packageRoot: f.packageRoot,
+    account: () => {
+      if (existsSync(locator)) observed.push(retained.size);
+      return f.account();
+    },
+  });
+  await store.register();
+  assert.ok(observed.length >= 1);
+  assert.ok(
+    observed.every((count) => count === 1),
+    JSON.stringify(observed)
+  );
+  assert.equal(retained.size, 0);
+});
+
+test('[#187] registration refuses a locator replacement during final guarded cleanup', async (t) => {
+  const { createRequire, syncBuiltinESMExports } = await import('node:module');
+  const fsPromises = createRequire(import.meta.url)('node:fs/promises');
+  const originalOpen = fsPromises.open;
+  const f = runtimeFixture(t);
+  const directory = path.join(
+    f.home,
+    process.platform === 'win32' ? 'AppData/Local/ai-peer-review' : '.config/ai-peer-review'
+  );
+  const locator = path.join(directory, 'runtime-selection.json');
+  let replaced = false;
+  fsPromises.open = async function (target, ...args) {
+    const caller = new Error().stack.split('\n')[2] ?? '';
+    const handle = await originalOpen(target, ...args);
+    if (target === directory && /at (?:async )?openProtectedRoot\b/.test(caller)) {
+      const close = handle.close.bind(handle);
+      handle.close = async () => {
+        await close();
+        if (existsSync(locator) && !replaced) {
+          const bytes = readFileSync(locator);
+          renameSync(locator, locator + '.original');
+          writeFileSync(locator, bytes, { flag: 'wx', mode: 0o600 });
+          replaced = true;
+        }
+      };
+    }
+    return handle;
+  };
+  syncBuiltinESMExports();
+  t.after(() => {
+    fsPromises.open = originalOpen;
+    syncBuiltinESMExports();
+  });
+  const store = createSelectionStore({ packageRoot: f.packageRoot, account: f.account });
+  await assert.rejects(store.register(), { code: 'APR_RUNTIME_CHANGED' });
+  assert.equal(replaced, true);
+  assert.deepEqual(readFileSync(locator), readFileSync(locator + '.original'));
 });

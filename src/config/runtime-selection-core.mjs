@@ -357,7 +357,7 @@ export function createSelectionStore({
         before: previous,
         after: value,
       });
-    await withStore(ctx, op, true, async (guard) => {
+    const publication = await withStore(ctx, op, true, async (guard) => {
       await installation(op);
       if (!same) {
         const bytes = Buffer.from(JSON.stringify(value) + '\n');
@@ -373,25 +373,38 @@ export function createSelectionStore({
         if (!now.equals(previousBytes))
           refuse('APR_RUNTIME_CHANGED', 'Account selection changed during registration.');
       }
+      const readRetained = async () => {
+        const current = await accountContext(op);
+        if (current.directory !== ctx.directory)
+          refuse('APR_RUNTIME_CHANGED', 'Account selection location changed during registration.');
+        const snapshot = await guard.readSnapshot('runtime-selection.json', 8192);
+        return { value: decode(snapshot.bytes), snapshot };
+      };
+      const observedRead = await readRetained(),
+        observed = observedRead.value;
+      if (
+        observed.selection_id !== value.selection_id ||
+        observed.package_root !== actualRoot ||
+        observed.node_executable !== actualNode
+      )
+        refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime selection read back disagrees.');
+      await installation(op);
+      const finalRead = await readRetained();
+      if (!sameSelectionGeneration(observedRead.snapshot, finalRead.snapshot))
+        refuse(
+          'APR_RUNTIME_CHANGED',
+          'Account selection generation changed during registration read-back.'
+        );
+      return { observed, snapshot: finalRead.snapshot };
     });
-    const observedRead = await readSnapshotWithin(op),
-      observed = observedRead.value;
-    if (
-      observed.selection_id !== value.selection_id ||
-      observed.package_root !== actualRoot ||
-      observed.node_executable !== actualNode
-    )
-      refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime selection read back disagrees.');
-    await installation(op);
-    const finalRead = await readSnapshotWithin(op);
-    if (!sameSelectionGeneration(observedRead.snapshot, finalRead.snapshot))
-      refuse(
-        'APR_RUNTIME_CHANGED',
-        'Account selection generation changed during registration read-back.'
-      );
-    processSelectionId = observed.selection_id;
-    processSelectionGeneration = finalRead.snapshot;
-    return observed;
+    try {
+      assertProtectedSnapshotUnchanged(publication.snapshot);
+    } catch {
+      refuse('APR_RUNTIME_CHANGED', 'Selection changed during final registration protection.');
+    }
+    processSelectionId = publication.observed.selection_id;
+    processSelectionGeneration = publication.snapshot;
+    return publication.observed;
   }
   async function assertSelected(input = {}) {
     const {
