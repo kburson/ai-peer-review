@@ -5,9 +5,11 @@ import {
   assertCurrentOperationAuthority,
 } from '../startup/authority-fence.mjs';
 import { createClaudeLaunchOperations } from './claude-launch-core.mjs';
+import { isAdmissionOwnedClaudeExecutor } from '../providers/claude-stream.mjs';
 const operations = createClaudeLaunchOperations({
   performCurrentOperationEffect,
   assertCurrentOperationAuthority,
+  executionOwnsAdmission: isAdmissionOwnedClaudeExecutor,
 });
 export const {
   buildClaudeLaunchEnvironment,

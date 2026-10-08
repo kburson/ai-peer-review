@@ -7668,6 +7668,15 @@
         "owner": 186
       },
       {
+        "path": "src/provider/claude-launch.mjs",
+        "line": 8,
+        "column": 0,
+        "kind": "import",
+        "target": "src/providers/claude-stream.mjs",
+        "targetKind": "module",
+        "owner": 186
+      },
+      {
         "path": "src/provider/execution-contract.mjs",
         "line": 1,
         "column": 0,
@@ -203613,7 +203622,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 27,
+        "line": 29,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -203623,7 +203632,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 28,
+        "line": 30,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -203633,7 +203642,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 29,
+        "line": 31,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -203643,7 +203652,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 29,
+        "line": 31,
         "column": 46,
         "kind": "call",
         "targetKind": "origin",
@@ -203653,7 +203662,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 30,
+        "line": 32,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -203663,7 +203672,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 31,
+        "line": 33,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -203673,7 +203682,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 32,
+        "line": 34,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -203683,7 +203692,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 32,
+        "line": 34,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -203693,7 +203702,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 32,
+        "line": 34,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -203703,7 +203712,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 33,
+        "line": 35,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -203713,7 +203722,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 33,
+        "line": 35,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -203723,7 +203732,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 34,
+        "line": 36,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -203733,7 +203742,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 34,
+        "line": 36,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -203743,7 +203752,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 38,
+        "line": 40,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -203753,7 +203762,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 39,
+        "line": 41,
         "column": 15,
         "kind": "alias",
         "targetKind": "origin",
@@ -203763,7 +203772,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 51,
+        "line": 53,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -203773,7 +203782,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 51,
+        "line": 53,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -203783,7 +203792,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 52,
+        "line": 54,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -203793,7 +203802,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 54,
+        "line": 56,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -203803,7 +203812,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 55,
+        "line": 57,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -203813,7 +203822,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 58,
+        "line": 60,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -203823,7 +203832,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 60,
+        "line": 62,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -203833,7 +203842,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 68,
+        "line": 70,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -203843,7 +203852,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 78,
+        "line": 80,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -203853,7 +203862,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 83,
+        "line": 85,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -203863,7 +203872,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 84,
+        "line": 86,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -203873,7 +203882,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 84,
+        "line": 86,
         "column": 38,
         "kind": "call",
         "targetKind": "origin",
@@ -203883,7 +203892,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 89,
+        "line": 91,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -203893,7 +203902,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 89,
+        "line": 91,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -203903,7 +203912,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 90,
+        "line": 92,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -203913,7 +203922,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 90,
+        "line": 92,
         "column": 72,
         "kind": "call",
         "targetKind": "origin",
@@ -203923,7 +203932,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 91,
+        "line": 93,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -203933,7 +203942,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 101,
+        "line": 103,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -203943,7 +203952,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 101,
+        "line": 103,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -203953,7 +203962,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 102,
+        "line": 104,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -203963,7 +203972,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 103,
+        "line": 105,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -203973,7 +203982,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 103,
+        "line": 105,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -203983,7 +203992,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 103,
+        "line": 105,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -203993,7 +204002,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 107,
+        "line": 109,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204003,7 +204012,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 107,
+        "line": 109,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -204013,7 +204022,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 108,
+        "line": 110,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -204023,7 +204032,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 108,
+        "line": 110,
         "column": 56,
         "kind": "call",
         "targetKind": "origin",
@@ -204033,7 +204042,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 112,
+        "line": 114,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -204043,7 +204052,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 113,
+        "line": 115,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -204053,7 +204062,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 124,
+        "line": 126,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -204063,7 +204072,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 124,
+        "line": 126,
         "column": 40,
         "kind": "call",
         "targetKind": "origin",
@@ -204073,7 +204082,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 127,
+        "line": 129,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -204083,7 +204092,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 127,
+        "line": 129,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -204093,7 +204102,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 135,
+        "line": 137,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -204103,7 +204112,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 142,
+        "line": 144,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -204113,7 +204122,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 142,
+        "line": 144,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -204123,7 +204132,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 143,
+        "line": 145,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -204133,7 +204142,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 143,
+        "line": 145,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -204143,7 +204152,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 143,
+        "line": 145,
         "column": 65,
         "kind": "call",
         "targetKind": "origin",
@@ -204153,7 +204162,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 145,
+        "line": 147,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -204163,7 +204172,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 145,
+        "line": 147,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -204173,7 +204182,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 151,
+        "line": 153,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -204183,7 +204192,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 157,
+        "line": 159,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204193,7 +204202,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 157,
+        "line": 159,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -204203,7 +204212,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 158,
+        "line": 160,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -204213,7 +204222,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 159,
+        "line": 161,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -204223,7 +204232,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 169,
+        "line": 171,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204233,7 +204242,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 169,
+        "line": 171,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -204243,7 +204252,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 170,
+        "line": 172,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -204253,7 +204262,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 171,
+        "line": 173,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204263,7 +204272,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 173,
+        "line": 175,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -204273,7 +204282,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 173,
+        "line": 175,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -204283,7 +204292,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 174,
+        "line": 176,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204293,7 +204302,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 175,
+        "line": 177,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -204303,7 +204312,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 176,
+        "line": 178,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -204313,7 +204322,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 176,
+        "line": 178,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -204323,7 +204332,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 176,
+        "line": 178,
         "column": 40,
         "kind": "call",
         "targetKind": "origin",
@@ -204333,7 +204342,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 178,
+        "line": 180,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -204343,7 +204352,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 178,
+        "line": 180,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -204353,7 +204362,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 179,
+        "line": 181,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -204363,7 +204372,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 179,
+        "line": 181,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -204373,7 +204382,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 179,
+        "line": 181,
         "column": 57,
         "kind": "call",
         "targetKind": "origin",
@@ -204383,7 +204392,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 188,
+        "line": 190,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204393,7 +204402,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 188,
+        "line": 190,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -204403,7 +204412,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 189,
+        "line": 191,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -204413,7 +204422,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 189,
+        "line": 191,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -204423,7 +204432,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 191,
+        "line": 193,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -204433,7 +204442,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 197,
+        "line": 199,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -204443,7 +204452,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 197,
+        "line": 199,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -204453,7 +204462,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 202,
+        "line": 204,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204463,7 +204472,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 202,
+        "line": 204,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -204473,7 +204482,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 203,
+        "line": 205,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -204483,7 +204492,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 204,
+        "line": 206,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -204493,7 +204502,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 213,
+        "line": 215,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204503,7 +204512,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 213,
+        "line": 215,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -204513,7 +204522,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 214,
+        "line": 216,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204523,7 +204532,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 214,
+        "line": 216,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -204533,7 +204542,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 218,
+        "line": 220,
         "column": 45,
         "kind": "call",
         "targetKind": "origin",
@@ -204543,7 +204552,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 218,
+        "line": 220,
         "column": 67,
         "kind": "call",
         "targetKind": "origin",
@@ -204553,7 +204562,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 221,
+        "line": 223,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204563,7 +204572,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 222,
+        "line": 224,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -204573,7 +204582,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 222,
+        "line": 224,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -204583,7 +204592,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 226,
+        "line": 228,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -204593,7 +204602,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 226,
+        "line": 228,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -204603,7 +204612,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 226,
+        "line": 228,
         "column": 63,
         "kind": "call",
         "targetKind": "origin",
@@ -204613,7 +204622,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 234,
+        "line": 236,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204623,7 +204632,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 235,
+        "line": 237,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -204633,7 +204642,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 235,
+        "line": 237,
         "column": 39,
         "kind": "call",
         "targetKind": "origin",
@@ -204643,7 +204652,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 240,
+        "line": 242,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -204653,7 +204662,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 240,
+        "line": 242,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -204663,7 +204672,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 241,
+        "line": 243,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -204673,7 +204682,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 241,
+        "line": 243,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -204683,7 +204692,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 241,
+        "line": 243,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -204693,7 +204702,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 241,
+        "line": 243,
         "column": 49,
         "kind": "call",
         "targetKind": "origin",
@@ -204703,7 +204712,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 246,
+        "line": 248,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -204713,7 +204722,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 246,
+        "line": 248,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -204723,28 +204732,8 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 246,
+        "line": 248,
         "column": 20,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "join",
-        "origins": ["builtin"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 247,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "localNpxBinMatches",
-        "origins": ["function"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 247,
-        "column": 35,
         "kind": "call",
         "targetKind": "origin",
         "target": "join",
@@ -204757,13 +204746,33 @@
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
+        "target": "localNpxBinMatches",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 249,
+        "column": 35,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "join",
+        "origins": ["builtin"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 251,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
         "target": "push",
         "origins": ["literal", "node-executable", "target"],
         "owner": 186
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 258,
+        "line": 260,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -204773,7 +204782,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 259,
+        "line": 261,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -204783,7 +204792,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 260,
+        "line": 262,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -204793,7 +204802,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 264,
+        "line": 266,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204803,7 +204812,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 265,
+        "line": 267,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204813,7 +204822,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 266,
+        "line": 268,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204823,7 +204832,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 267,
+        "line": 269,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204833,7 +204842,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 268,
+        "line": 270,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204843,7 +204852,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 268,
+        "line": 270,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -204853,7 +204862,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 269,
+        "line": 271,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -204863,7 +204872,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 270,
+        "line": 272,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -204873,7 +204882,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 271,
+        "line": 273,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -204883,7 +204892,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 272,
+        "line": 274,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -204893,7 +204902,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 272,
+        "line": 274,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -204903,7 +204912,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 273,
+        "line": 275,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -204913,7 +204922,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 273,
+        "line": 275,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -204923,7 +204932,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 274,
+        "line": 276,
         "column": 39,
         "kind": "call",
         "targetKind": "origin",
@@ -204933,7 +204942,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 274,
+        "line": 276,
         "column": 53,
         "kind": "call",
         "targetKind": "origin",
@@ -204943,7 +204952,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 277,
+        "line": 279,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -204953,7 +204962,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 280,
+        "line": 282,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -204963,7 +204972,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 283,
+        "line": 285,
         "column": 47,
         "kind": "call",
         "targetKind": "origin",
@@ -204973,7 +204982,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 286,
+        "line": 288,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -204983,7 +204992,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 290,
+        "line": 292,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -204993,7 +205002,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 290,
+        "line": 292,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -205003,7 +205012,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 291,
+        "line": 293,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205013,7 +205022,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 292,
+        "line": 294,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205023,7 +205032,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 292,
+        "line": 294,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -205033,7 +205042,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 294,
+        "line": 296,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -205043,7 +205052,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 295,
+        "line": 297,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -205053,7 +205062,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 296,
+        "line": 298,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -205063,7 +205072,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 296,
+        "line": 298,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -205073,7 +205082,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 299,
+        "line": 301,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -205083,7 +205092,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 308,
+        "line": 310,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -205093,7 +205102,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 308,
+        "line": 310,
         "column": 37,
         "kind": "call",
         "targetKind": "origin",
@@ -205103,7 +205112,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 308,
+        "line": 310,
         "column": 75,
         "kind": "call",
         "targetKind": "origin",
@@ -205113,7 +205122,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 312,
+        "line": 314,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -205123,7 +205132,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 316,
+        "line": 318,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -205133,7 +205142,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 325,
+        "line": 327,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205143,7 +205152,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 327,
+        "line": 329,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205153,7 +205162,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 331,
+        "line": 333,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205163,7 +205172,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 335,
+        "line": 337,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -205173,7 +205182,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 336,
+        "line": 338,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -205183,7 +205192,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 341,
+        "line": 343,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -205193,7 +205202,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 348,
+        "line": 350,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -205203,7 +205212,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 350,
+        "line": 352,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -205213,7 +205222,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 351,
+        "line": 353,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -205223,7 +205232,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 354,
+        "line": 356,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205233,7 +205242,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 355,
+        "line": 357,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -205243,7 +205252,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 357,
+        "line": 359,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205253,7 +205262,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 357,
+        "line": 359,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -205263,7 +205272,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 358,
+        "line": 360,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -205273,7 +205282,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 361,
+        "line": 363,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -205283,7 +205292,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 361,
+        "line": 363,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -205293,7 +205302,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 369,
+        "line": 371,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -205303,7 +205312,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 381,
+        "line": 383,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -205313,27 +205322,27 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 387,
-        "column": 4,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "regularFile",
-        "origins": ["function"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 388,
-        "column": 4,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "regularFile",
-        "origins": ["function"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
         "line": 389,
+        "column": 4,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "regularFile",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 390,
+        "column": 4,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "regularFile",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 391,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205343,7 +205352,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 389,
+        "line": 391,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -205353,7 +205362,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 390,
+        "line": 392,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -205363,7 +205372,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 390,
+        "line": 392,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -205373,7 +205382,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 391,
+        "line": 393,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -205383,7 +205392,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 397,
+        "line": 399,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205393,7 +205402,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 398,
+        "line": 400,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -205403,7 +205412,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 400,
+        "line": 402,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205413,7 +205422,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 400,
+        "line": 402,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -205423,7 +205432,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 404,
+        "line": 406,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205433,7 +205442,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 404,
+        "line": 406,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -205443,7 +205452,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 406,
+        "line": 408,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205453,7 +205462,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 418,
+        "line": 420,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205463,7 +205472,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 430,
+        "line": 432,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -205473,7 +205482,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 431,
+        "line": 433,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -205483,7 +205492,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 432,
+        "line": 434,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -205493,7 +205502,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 435,
+        "line": 437,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -205503,7 +205512,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 435,
+        "line": 437,
         "column": 50,
         "kind": "call",
         "targetKind": "origin",
@@ -205513,7 +205522,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 438,
+        "line": 440,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -205523,7 +205532,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 439,
+        "line": 441,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -205533,7 +205542,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 440,
+        "line": 442,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -205543,7 +205552,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 441,
+        "line": 443,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -205553,7 +205562,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 442,
+        "line": 444,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -205563,7 +205572,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 442,
+        "line": 444,
         "column": 40,
         "kind": "call",
         "targetKind": "origin",
@@ -205573,7 +205582,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 449,
+        "line": 451,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -205583,7 +205592,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 454,
+        "line": 456,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -205593,7 +205602,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 466,
+        "line": 468,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -205603,7 +205612,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 468,
+        "line": 470,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -205613,7 +205622,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 468,
+        "line": 470,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -205623,7 +205632,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 468,
+        "line": 470,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -205633,7 +205642,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 471,
+        "line": 473,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205643,7 +205652,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 481,
+        "line": 483,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -205653,7 +205662,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 486,
+        "line": 488,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205663,48 +205672,8 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 486,
+        "line": 488,
         "column": 31,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "contained",
-        "origins": ["function"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 487,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "artifact",
-        "origins": ["unknown"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 487,
-        "column": 21,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "contained",
-        "origins": ["function"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 488,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "workspace",
-        "origins": ["unknown"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 488,
-        "column": 22,
         "kind": "call",
         "targetKind": "origin",
         "target": "contained",
@@ -205717,7 +205686,7 @@
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "response",
+        "target": "artifact",
         "origins": ["unknown"],
         "owner": 186
       },
@@ -205734,16 +205703,46 @@
       {
         "path": "src/provider/claude-launch-core.mjs",
         "line": 490,
-        "column": 4,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "workspace",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 490,
+        "column": 22,
         "kind": "call",
         "targetKind": "origin",
-        "target": "regularFile",
+        "target": "contained",
         "origins": ["function"],
         "owner": 186
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
         "line": 491,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "response",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 491,
+        "column": 21,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "contained",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 492,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -205753,7 +205752,17 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 492,
+        "line": 493,
+        "column": 4,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "regularFile",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 494,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -205763,7 +205772,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 492,
+        "line": 494,
         "column": 54,
         "kind": "call",
         "targetKind": "origin",
@@ -205773,7 +205782,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 493,
+        "line": 495,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -205783,7 +205792,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 499,
+        "line": 501,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205793,51 +205802,11 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 499,
+        "line": 501,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
         "target": "safeIdentifier",
-        "origins": ["function"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 500,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "selectedEffort",
-        "origins": ["unknown"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 500,
-        "column": 27,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "safeIdentifier",
-        "origins": ["function"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 501,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "rule",
-        "origins": ["unknown"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 501,
-        "column": 17,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "encodeClaudeEditRule",
         "origins": ["function"],
         "owner": 186
       },
@@ -205847,13 +205816,53 @@
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
+        "target": "selectedEffort",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 502,
+        "column": 27,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "safeIdentifier",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 503,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "rule",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 503,
+        "column": 17,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "encodeClaudeEditRule",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 504,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
         "target": "currentPrefix",
         "origins": ["data", "target", "unknown"],
         "owner": 186
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 503,
+        "line": 505,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -205863,7 +205872,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 505,
+        "line": 507,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205873,7 +205882,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 505,
+        "line": 507,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -205883,7 +205892,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 506,
+        "line": 508,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205893,7 +205902,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 506,
+        "line": 508,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -205903,7 +205912,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 507,
+        "line": 509,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205913,7 +205922,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 507,
+        "line": 509,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -205923,7 +205932,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 508,
+        "line": 510,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205933,7 +205942,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 508,
+        "line": 510,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -205943,7 +205952,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 509,
+        "line": 511,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205953,7 +205962,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 509,
+        "line": 511,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -205963,7 +205972,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 510,
+        "line": 512,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205973,7 +205982,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 510,
+        "line": 512,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -205983,7 +205992,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 511,
+        "line": 513,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -205993,7 +206002,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 512,
+        "line": 514,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206003,7 +206012,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 512,
+        "line": 514,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -206013,7 +206022,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 512,
+        "line": 514,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -206023,7 +206032,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 515,
+        "line": 517,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206033,7 +206042,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 515,
+        "line": 517,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -206043,7 +206052,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 516,
+        "line": 518,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -206053,7 +206062,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 517,
+        "line": 519,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -206063,7 +206072,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 519,
+        "line": 521,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206073,7 +206082,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 519,
+        "line": 521,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -206083,7 +206092,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 520,
+        "line": 522,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -206093,7 +206102,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 523,
+        "line": 525,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -206103,7 +206112,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 526,
+        "line": 528,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -206113,7 +206122,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 529,
+        "line": 531,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -206123,7 +206132,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 533,
+        "line": 535,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -206133,7 +206142,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 533,
+        "line": 535,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -206143,7 +206152,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 534,
+        "line": 536,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -206153,7 +206162,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 539,
+        "line": 541,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206163,7 +206172,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 539,
+        "line": 541,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -206173,7 +206182,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 540,
+        "line": 542,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206183,7 +206192,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 540,
+        "line": 542,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -206193,7 +206202,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 542,
+        "line": 544,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -206203,7 +206212,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 554,
+        "line": 556,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206213,7 +206222,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 567,
+        "line": 569,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -206223,7 +206232,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 568,
+        "line": 570,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -206233,7 +206242,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 574,
+        "line": 576,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206243,7 +206252,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 580,
+        "line": 582,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206253,22 +206262,12 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 581,
+        "line": 583,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
         "target": "reviewer",
         "origins": ["data", "literal", "unknown"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 585,
-        "column": 7,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "isSafeInteger",
-        "origins": ["unknown"],
         "owner": 186
       },
       {
@@ -206283,7 +206282,17 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 590,
+        "line": 589,
+        "column": 7,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "isSafeInteger",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 592,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -206293,7 +206302,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 593,
+        "line": 595,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -206303,7 +206312,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 596,
+        "line": 598,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206313,7 +206322,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 599,
+        "line": 601,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206323,7 +206332,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 605,
+        "line": 607,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -206333,7 +206342,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 611,
+        "line": 613,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -206343,7 +206352,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 613,
+        "line": 615,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -206353,7 +206362,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 625,
+        "line": 627,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -206363,7 +206372,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 627,
+        "line": 629,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -206373,7 +206382,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 627,
+        "line": 629,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -206383,7 +206392,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 631,
+        "line": 633,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206393,7 +206402,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 632,
+        "line": 634,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -206403,7 +206412,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 634,
+        "line": 636,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -206413,7 +206422,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 649,
+        "line": 651,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206423,7 +206432,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 649,
+        "line": 651,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -206433,7 +206442,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 650,
+        "line": 652,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206443,7 +206452,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 650,
+        "line": 652,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -206453,7 +206462,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 659,
+        "line": 661,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -206463,7 +206472,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 661,
+        "line": 663,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206473,7 +206482,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 661,
+        "line": 663,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -206483,7 +206492,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 664,
+        "line": 666,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -206493,7 +206502,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 667,
+        "line": 669,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -206503,7 +206512,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 669,
+        "line": 671,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206513,7 +206522,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 671,
+        "line": 673,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -206523,7 +206532,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 677,
+        "line": 679,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -206533,7 +206542,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 685,
+        "line": 687,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -206543,7 +206552,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 688,
+        "line": 690,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -206553,7 +206562,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 696,
+        "line": 698,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206563,7 +206572,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 696,
+        "line": 698,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -206573,7 +206582,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 699,
+        "line": 701,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206583,7 +206592,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 699,
+        "line": 701,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -206593,7 +206602,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 711,
+        "line": 713,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -206603,28 +206612,8 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 726,
-        "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "status",
-        "origins": ["literal"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 727,
-        "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "category",
-        "origins": ["literal"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
         "line": 728,
-        "column": 19,
+        "column": 8,
         "kind": "alias",
         "targetKind": "origin",
         "target": "status",
@@ -206634,6 +206623,26 @@
       {
         "path": "src/provider/claude-launch-core.mjs",
         "line": 729,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "category",
+        "origins": ["literal"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 730,
+        "column": 19,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "status",
+        "origins": ["literal"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 731,
         "column": 23,
         "kind": "alias",
         "targetKind": "origin",
@@ -206643,21 +206652,11 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 731,
+        "line": 733,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
         "target": "status",
-        "origins": ["literal"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 732,
-        "column": 6,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "category",
         "origins": ["literal"],
         "owner": 186
       },
@@ -206667,13 +206666,23 @@
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
+        "target": "category",
+        "origins": ["literal"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 736,
+        "column": 6,
+        "kind": "alias",
+        "targetKind": "origin",
         "target": "status",
         "origins": ["literal"],
         "owner": 186
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 735,
+        "line": 737,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -206683,7 +206692,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 737,
+        "line": 739,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -206693,7 +206702,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 740,
+        "line": 742,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -206703,28 +206712,8 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 741,
-        "column": 6,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "category",
-        "origins": ["literal"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 742,
-        "column": 44,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "category",
-        "origins": ["literal"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
         "line": 743,
-        "column": 44,
+        "column": 6,
         "kind": "alias",
         "targetKind": "origin",
         "target": "category",
@@ -206734,7 +206723,7 @@
       {
         "path": "src/provider/claude-launch-core.mjs",
         "line": 744,
-        "column": 50,
+        "column": 44,
         "kind": "alias",
         "targetKind": "origin",
         "target": "category",
@@ -206744,6 +206733,26 @@
       {
         "path": "src/provider/claude-launch-core.mjs",
         "line": 745,
+        "column": 44,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "category",
+        "origins": ["literal"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 746,
+        "column": 50,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "category",
+        "origins": ["literal"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 747,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206753,7 +206762,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 747,
+        "line": 749,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -206763,7 +206772,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 748,
+        "line": 750,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -206773,7 +206782,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 759,
+        "line": 761,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206783,7 +206792,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 771,
+        "line": 773,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -206793,7 +206802,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 773,
+        "line": 775,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -206803,7 +206812,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 788,
+        "line": 790,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206813,7 +206822,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 790,
+        "line": 792,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -206823,7 +206832,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 796,
+        "line": 798,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206833,7 +206842,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 804,
+        "line": 806,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206843,7 +206852,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 804,
+        "line": 806,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -206853,7 +206862,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 805,
+        "line": 807,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -206863,7 +206872,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 807,
+        "line": 809,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -206873,7 +206882,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 807,
+        "line": 809,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -206883,7 +206892,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 808,
+        "line": 810,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -206893,7 +206902,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 808,
+        "line": 810,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -206903,7 +206912,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 808,
+        "line": 810,
         "column": 65,
         "kind": "call",
         "targetKind": "origin",
@@ -206913,7 +206922,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 809,
+        "line": 811,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -206923,7 +206932,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 809,
+        "line": 811,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -206933,7 +206942,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 809,
+        "line": 811,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -206943,7 +206952,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 811,
+        "line": 813,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -206953,7 +206962,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 811,
+        "line": 813,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -206963,7 +206972,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 815,
+        "line": 817,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -206973,7 +206982,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 818,
+        "line": 820,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -206983,27 +206992,27 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 827,
-        "column": 7,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "test",
-        "origins": ["data"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 828,
-        "column": 7,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "test",
-        "origins": ["data"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
         "line": 829,
+        "column": 7,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "test",
+        "origins": ["data"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 830,
+        "column": 7,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "test",
+        "origins": ["data"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 831,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -207013,7 +207022,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 830,
+        "line": 832,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -207023,7 +207032,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 835,
+        "line": 837,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -207033,7 +207042,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 835,
+        "line": 837,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -207043,7 +207052,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 837,
+        "line": 839,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207053,7 +207062,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 842,
+        "line": 844,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -207063,7 +207072,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 846,
+        "line": 848,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -207073,7 +207082,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 848,
+        "line": 850,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -207083,7 +207092,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 848,
+        "line": 850,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -207093,7 +207102,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 848,
+        "line": 850,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -207103,7 +207112,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 851,
+        "line": 853,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207113,7 +207122,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 856,
+        "line": 858,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207123,27 +207132,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 856,
-        "column": 22,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "contained",
-        "origins": ["function"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 857,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "stateFile",
-        "origins": ["unknown"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 857,
+        "line": 858,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -207154,6 +207143,26 @@
       {
         "path": "src/provider/claude-launch-core.mjs",
         "line": 859,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "stateFile",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 859,
+        "column": 22,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "contained",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 861,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -207163,7 +207172,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 862,
+        "line": 864,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -207173,7 +207182,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 864,
+        "line": 866,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -207183,7 +207192,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 864,
+        "line": 866,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -207193,7 +207202,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 865,
+        "line": 867,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -207203,7 +207212,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 865,
+        "line": 867,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -207213,7 +207222,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 865,
+        "line": 867,
         "column": 65,
         "kind": "call",
         "targetKind": "origin",
@@ -207223,7 +207232,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 866,
+        "line": 868,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -207233,7 +207242,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 866,
+        "line": 868,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -207243,7 +207252,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 866,
+        "line": 868,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -207253,7 +207262,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 868,
+        "line": 870,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -207263,7 +207272,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 868,
+        "line": 870,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -207273,7 +207282,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 872,
+        "line": 874,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -207283,7 +207292,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 875,
+        "line": 877,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207293,7 +207302,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 875,
+        "line": 877,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -207303,7 +207312,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 883,
+        "line": 885,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -207313,7 +207322,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 899,
+        "line": 901,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207323,7 +207332,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 903,
+        "line": 905,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207333,7 +207342,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 903,
+        "line": 905,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -207343,7 +207352,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 904,
+        "line": 906,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207353,7 +207362,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 904,
+        "line": 906,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -207363,7 +207372,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 906,
+        "line": 908,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207373,7 +207382,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 908,
+        "line": 910,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207383,7 +207392,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 909,
+        "line": 911,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -207393,7 +207402,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 911,
+        "line": 913,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -207403,7 +207412,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 912,
+        "line": 914,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -207413,7 +207422,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 913,
+        "line": 915,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -207423,7 +207432,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 913,
+        "line": 915,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -207433,7 +207442,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 913,
+        "line": 915,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -207443,7 +207452,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 914,
+        "line": 916,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -207453,7 +207462,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 914,
+        "line": 916,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -207463,7 +207472,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 914,
+        "line": 916,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -207473,7 +207482,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 917,
+        "line": 919,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -207483,7 +207492,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 918,
+        "line": 920,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -207493,7 +207502,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 918,
+        "line": 920,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -207503,7 +207512,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 922,
+        "line": 924,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -207513,17 +207522,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 928,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "Number",
-        "origins": ["unknown"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 929,
+        "line": 930,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -207534,6 +207533,16 @@
       {
         "path": "src/provider/claude-launch-core.mjs",
         "line": 931,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "Number",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 933,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -207543,7 +207552,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 931,
+        "line": 933,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -207553,7 +207562,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 933,
+        "line": 935,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -207563,7 +207572,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 940,
+        "line": 942,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207573,7 +207582,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 950,
+        "line": 952,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207583,7 +207592,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 954,
+        "line": 956,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207593,7 +207602,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 958,
+        "line": 960,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -207603,7 +207612,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 958,
+        "line": 960,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -207613,7 +207622,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 959,
+        "line": 961,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -207623,7 +207632,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 961,
+        "line": 963,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -207633,7 +207642,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 963,
+        "line": 965,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -207643,7 +207652,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 963,
+        "line": 965,
         "column": 37,
         "kind": "call",
         "targetKind": "origin",
@@ -207653,7 +207662,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 964,
+        "line": 966,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -207663,7 +207672,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 968,
+        "line": 970,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207673,7 +207682,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 968,
+        "line": 970,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -207683,7 +207692,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 974,
+        "line": 976,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207693,7 +207702,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 975,
+        "line": 977,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -207703,7 +207712,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 977,
+        "line": 979,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207713,7 +207722,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 977,
+        "line": 979,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -207723,7 +207732,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 982,
+        "line": 984,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -207733,7 +207742,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 984,
+        "line": 986,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207743,7 +207752,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 988,
+        "line": 990,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207753,7 +207762,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 988,
+        "line": 990,
         "column": 64,
         "kind": "call",
         "targetKind": "origin",
@@ -207763,7 +207772,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 989,
+        "line": 991,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -207773,7 +207782,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 990,
+        "line": 992,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -207783,7 +207792,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 992,
+        "line": 994,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -207793,48 +207802,28 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 999,
+        "line": 1001,
         "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "completion",
-        "origins": ["unknown"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 1000,
-        "column": 12,
         "kind": "call",
         "targetKind": "origin",
-        "target": "performCurrentOperationEffect",
+        "target": "executionOwnsAdmission",
         "origins": ["function"],
         "owner": 186
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1003,
+        "line": 1004,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "completion",
-        "origins": ["unknown-target"],
-        "owner": 186
-      },
-      {
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 1003,
-        "column": 21,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "resolve",
+        "target": "execution",
         "origins": ["unknown"],
         "owner": 186
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1003,
-        "column": 37,
+        "line": 1004,
+        "column": 26,
         "kind": "call",
         "targetKind": "origin",
         "target": "execFile",
@@ -207843,8 +207832,58 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1004,
-        "column": 8,
+        "line": 1006,
+        "column": 12,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "completion",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 1007,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "performCurrentOperationEffect",
+        "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 1010,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "completion",
+        "origins": ["unknown-target"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 1010,
+        "column": 23,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "resolve",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 1010,
+        "column": 39,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "execFile",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 1011,
+        "column": 10,
         "kind": "call",
         "targetKind": "origin",
         "target": "catch",
@@ -207853,8 +207892,8 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1006,
-        "column": 6,
+        "line": 1013,
+        "column": 8,
         "kind": "alias",
         "targetKind": "origin",
         "target": "execution",
@@ -207863,7 +207902,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1008,
+        "line": 1016,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -207873,7 +207912,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1010,
+        "line": 1018,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -207883,7 +207922,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1011,
+        "line": 1019,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207893,7 +207932,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1011,
+        "line": 1019,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -207903,7 +207942,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1012,
+        "line": 1020,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207913,7 +207952,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1012,
+        "line": 1020,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -207923,7 +207962,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1013,
+        "line": 1021,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207933,7 +207972,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1016,
+        "line": 1024,
         "column": 46,
         "kind": "call",
         "targetKind": "origin",
@@ -207943,7 +207982,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1018,
+        "line": 1026,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207953,7 +207992,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1024,
+        "line": 1032,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -207963,7 +208002,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1029,
+        "line": 1037,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207973,7 +208012,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1030,
+        "line": 1038,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -207983,7 +208022,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1031,
+        "line": 1039,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -207993,7 +208032,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1033,
+        "line": 1041,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -208003,7 +208042,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1040,
+        "line": 1048,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -208013,7 +208052,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1040,
+        "line": 1048,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -208023,7 +208062,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1041,
+        "line": 1049,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -208033,7 +208072,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1041,
+        "line": 1049,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -208043,7 +208082,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1043,
+        "line": 1051,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -208053,7 +208092,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1044,
+        "line": 1052,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -208063,7 +208102,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1045,
+        "line": 1053,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -208073,7 +208112,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1061,
+        "line": 1069,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -208083,7 +208122,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1064,
+        "line": 1072,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -208093,7 +208132,7 @@
       },
       {
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1068,
+        "line": 1076,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -208833,7 +208872,7 @@
       },
       {
         "path": "src/provider/claude-launch.mjs",
-        "line": 8,
+        "line": 9,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -208843,7 +208882,7 @@
       },
       {
         "path": "src/provider/claude-launch.mjs",
-        "line": 8,
+        "line": 9,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -208853,7 +208892,7 @@
       },
       {
         "path": "src/provider/claude-launch.mjs",
-        "line": 12,
+        "line": 14,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -208863,7 +208902,7 @@
       },
       {
         "path": "src/provider/claude-launch.mjs",
-        "line": 26,
+        "line": 28,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -208873,7 +208912,7 @@
       },
       {
         "path": "src/provider/claude-launch.mjs",
-        "line": 34,
+        "line": 36,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -215594,21 +215633,91 @@
       {
         "path": "src/providers/claude-stream.mjs",
         "line": 4,
-        "column": 13,
+        "column": 6,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "createClaudeStreamingExec,collectClaudeStream,createClaudeStreamRecorder,createClaudeWakeRecorder,readClaudeStreamObservation,waitForClaudeStreamObservation,readClaudeSessionSnapshot,readClaudeWakeOutcome",
+        "target": "admittedExecutors",
         "origins": ["unknown"],
         "owner": 186
       },
       {
         "path": "src/providers/claude-stream.mjs",
-        "line": 13,
-        "column": 4,
+        "line": 4,
+        "column": 26,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "WeakSet",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/providers/claude-stream.mjs",
+        "line": 5,
+        "column": 6,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "operations",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/providers/claude-stream.mjs",
+        "line": 5,
+        "column": 19,
         "kind": "call",
         "targetKind": "origin",
         "target": "createClaudeStreamOperations",
         "origins": ["function"],
+        "owner": 186
+      },
+      {
+        "path": "src/providers/claude-stream.mjs",
+        "line": 7,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "execution",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/providers/claude-stream.mjs",
+        "line": 7,
+        "column": 20,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "createClaudeStreamingExec",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/providers/claude-stream.mjs",
+        "line": 8,
+        "column": 2,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/providers/claude-stream.mjs",
+        "line": 12,
+        "column": 9,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "has",
+        "origins": ["unknown"],
+        "owner": 186
+      },
+      {
+        "path": "src/providers/claude-stream.mjs",
+        "line": 14,
+        "column": 13,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "collectClaudeStream,createClaudeStreamRecorder,createClaudeWakeRecorder,readClaudeStreamObservation,waitForClaudeStreamObservation,readClaudeSessionSnapshot,readClaudeWakeOutcome",
+        "origins": ["unknown"],
         "owner": 186
       },
       {
@@ -216358,7 +216467,7 @@
         "kind": "call",
         "targetKind": "origin",
         "target": "createClaudeStreamingExec",
-        "origins": ["unknown"],
+        "origins": ["function"],
         "owner": 186
       },
       {
@@ -217178,7 +217287,7 @@
         "kind": "call",
         "targetKind": "origin",
         "target": "createClaudeStreamingExec",
-        "origins": ["unknown"],
+        "origins": ["function"],
         "owner": 186
       },
       {
@@ -274393,7 +274502,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 33,
+        "line": 35,
         "column": 26,
         "name": "parse",
         "owner": 186
@@ -274401,7 +274510,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 90,
+        "line": 92,
         "column": 72,
         "name": "includes",
         "owner": 186
@@ -274409,7 +274518,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 103,
+        "line": 105,
         "column": 15,
         "name": "toLowerCase",
         "owner": 186
@@ -274417,7 +274526,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 103,
+        "line": 105,
         "column": 43,
         "name": "replaceAll",
         "owner": 186
@@ -274425,7 +274534,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 103,
+        "line": 105,
         "column": 43,
         "name": "slice",
         "owner": 186
@@ -274433,7 +274542,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 108,
+        "line": 110,
         "column": 56,
         "name": "replaceAll",
         "owner": 186
@@ -274441,7 +274550,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 143,
+        "line": 145,
         "column": 11,
         "name": "isFile",
         "owner": 186
@@ -274449,7 +274558,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 143,
+        "line": 145,
         "column": 32,
         "name": "isSymbolicLink",
         "owner": 186
@@ -274457,7 +274566,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 169,
+        "line": 171,
         "column": 18,
         "name": "match",
         "owner": 186
@@ -274465,7 +274574,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 175,
+        "line": 177,
         "column": 10,
         "name": "startsWith",
         "owner": 186
@@ -274473,7 +274582,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 176,
+        "line": 178,
         "column": 40,
         "name": "slice",
         "owner": 186
@@ -274481,7 +274590,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 179,
+        "line": 181,
         "column": 57,
         "name": "slice",
         "owner": 186
@@ -274489,7 +274598,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 188,
+        "line": 190,
         "column": 25,
         "name": "map",
         "owner": 186
@@ -274497,7 +274606,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 222,
+        "line": 224,
         "column": 9,
         "name": "matchAll",
         "owner": 186
@@ -274505,7 +274614,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 241,
+        "line": 243,
         "column": 25,
         "name": "parse",
         "owner": 186
@@ -274513,7 +274622,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 246,
+        "line": 248,
         "column": 10,
         "name": "isFile",
         "owner": 186
@@ -274521,7 +274630,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 274,
+        "line": 276,
         "column": 39,
         "name": "push",
         "owner": 186
@@ -274529,7 +274638,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 274,
+        "line": 276,
         "column": 53,
         "name": "freeze",
         "owner": 186
@@ -274537,7 +274646,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 308,
+        "line": 310,
         "column": 11,
         "name": "freeze",
         "owner": 186
@@ -274545,7 +274654,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 308,
+        "line": 310,
         "column": 37,
         "name": "freeze",
         "owner": 186
@@ -274553,7 +274662,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 308,
+        "line": 310,
         "column": 75,
         "name": "freeze",
         "owner": 186
@@ -274561,7 +274670,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 316,
+        "line": 318,
         "column": 11,
         "name": "join",
         "owner": 186
@@ -274569,7 +274678,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 327,
+        "line": 329,
         "column": 6,
         "name": "push",
         "owner": 186
@@ -274577,7 +274686,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 331,
+        "line": 333,
         "column": 6,
         "name": "push",
         "owner": 186
@@ -274585,7 +274694,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 335,
+        "line": 337,
         "column": 4,
         "name": "push",
         "owner": 186
@@ -274593,7 +274702,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 336,
+        "line": 338,
         "column": 11,
         "name": "join",
         "owner": 186
@@ -274601,7 +274710,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 358,
+        "line": 360,
         "column": 13,
         "name": "freeze",
         "owner": 186
@@ -274609,7 +274718,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 390,
+        "line": 392,
         "column": 8,
         "name": "stringify",
         "owner": 186
@@ -274617,7 +274726,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 390,
+        "line": 392,
         "column": 34,
         "name": "stringify",
         "owner": 186
@@ -274625,24 +274734,8 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 404,
+        "line": 406,
         "column": 17,
-        "name": "freeze",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 430,
-        "column": 19,
-        "name": "freeze",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 431,
-        "column": 15,
         "name": "freeze",
         "owner": 186
       },
@@ -274650,110 +274743,6 @@
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
         "line": 432,
-        "column": 17,
-        "name": "freeze",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 435,
-        "column": 50,
-        "name": "at",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 439,
-        "column": 10,
-        "name": "at",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 442,
-        "column": 40,
-        "name": "match",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 449,
-        "column": 4,
-        "name": "defineProperty",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 454,
-        "column": 11,
-        "name": "freeze",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 512,
-        "column": 25,
-        "name": "match",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 519,
-        "column": 22,
-        "name": "freeze",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 533,
-        "column": 8,
-        "name": "some",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 533,
-        "column": 8,
-        "name": "values",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 539,
-        "column": 18,
-        "name": "freeze",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 540,
-        "column": 17,
-        "name": "freeze",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 554,
-        "column": 11,
-        "name": "freeze",
-        "owner": 186
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 567,
         "column": 19,
         "name": "freeze",
         "owner": 186
@@ -274761,7 +274750,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 568,
+        "line": 433,
         "column": 15,
         "name": "freeze",
         "owner": 186
@@ -274769,9 +274758,121 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 585,
-        "column": 7,
-        "name": "isSafeInteger",
+        "line": 434,
+        "column": 17,
+        "name": "freeze",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 437,
+        "column": 50,
+        "name": "at",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 441,
+        "column": 10,
+        "name": "at",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 444,
+        "column": 40,
+        "name": "match",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 451,
+        "column": 4,
+        "name": "defineProperty",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 456,
+        "column": 11,
+        "name": "freeze",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 514,
+        "column": 25,
+        "name": "match",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 521,
+        "column": 22,
+        "name": "freeze",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 535,
+        "column": 8,
+        "name": "some",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 535,
+        "column": 8,
+        "name": "values",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 541,
+        "column": 18,
+        "name": "freeze",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 542,
+        "column": 17,
+        "name": "freeze",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 556,
+        "column": 11,
+        "name": "freeze",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 569,
+        "column": 19,
+        "name": "freeze",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 570,
+        "column": 15,
+        "name": "freeze",
         "owner": 186
       },
       {
@@ -274785,7 +274886,15 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 590,
+        "line": 589,
+        "column": 7,
+        "name": "isSafeInteger",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 592,
         "column": 7,
         "name": "isArray",
         "owner": 186
@@ -274793,7 +274902,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 593,
+        "line": 595,
         "column": 6,
         "name": "some",
         "owner": 186
@@ -274801,7 +274910,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 596,
+        "line": 598,
         "column": 11,
         "name": "isSafeInteger",
         "owner": 186
@@ -274809,7 +274918,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 599,
+        "line": 601,
         "column": 11,
         "name": "isSafeInteger",
         "owner": 186
@@ -274817,7 +274926,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 631,
+        "line": 633,
         "column": 11,
         "name": "some",
         "owner": 186
@@ -274825,7 +274934,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 661,
+        "line": 663,
         "column": 22,
         "name": "filter",
         "owner": 186
@@ -274833,7 +274942,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 737,
+        "line": 739,
         "column": 7,
         "name": "isSafeInteger",
         "owner": 186
@@ -274841,7 +274950,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 747,
+        "line": 749,
         "column": 10,
         "name": "freeze",
         "owner": 186
@@ -274849,7 +274958,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 759,
+        "line": 761,
         "column": 11,
         "name": "freeze",
         "owner": 186
@@ -274857,7 +274966,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 773,
+        "line": 775,
         "column": 25,
         "name": "isSafeInteger",
         "owner": 186
@@ -274865,7 +274974,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 808,
+        "line": 810,
         "column": 11,
         "name": "isFile",
         "owner": 186
@@ -274873,7 +274982,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 808,
+        "line": 810,
         "column": 32,
         "name": "isSymbolicLink",
         "owner": 186
@@ -274881,7 +274990,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 809,
+        "line": 811,
         "column": 14,
         "name": "parse",
         "owner": 186
@@ -274889,7 +274998,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 830,
+        "line": 832,
         "column": 7,
         "name": "isSafeInteger",
         "owner": 186
@@ -274897,7 +275006,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 835,
+        "line": 837,
         "column": 6,
         "name": "some",
         "owner": 186
@@ -274905,7 +275014,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 835,
+        "line": 837,
         "column": 6,
         "name": "entries",
         "owner": 186
@@ -274913,7 +275022,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 842,
+        "line": 844,
         "column": 11,
         "name": "freeze",
         "owner": 186
@@ -274921,7 +275030,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 865,
+        "line": 867,
         "column": 11,
         "name": "isFile",
         "owner": 186
@@ -274929,7 +275038,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 865,
+        "line": 867,
         "column": 32,
         "name": "isSymbolicLink",
         "owner": 186
@@ -274937,7 +275046,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 866,
+        "line": 868,
         "column": 14,
         "name": "parse",
         "owner": 186
@@ -274945,7 +275054,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 911,
+        "line": 913,
         "column": 22,
         "name": "isSafeInteger",
         "owner": 186
@@ -274953,7 +275062,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 913,
+        "line": 915,
         "column": 22,
         "name": "match",
         "owner": 186
@@ -274961,7 +275070,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 914,
+        "line": 916,
         "column": 23,
         "name": "match",
         "owner": 186
@@ -274969,7 +275078,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 922,
+        "line": 924,
         "column": 9,
         "name": "isSafeInteger",
         "owner": 186
@@ -274977,7 +275086,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 958,
+        "line": 960,
         "column": 26,
         "name": "indexOf",
         "owner": 186
@@ -274985,7 +275094,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 963,
+        "line": 965,
         "column": 37,
         "name": "join",
         "owner": 186
@@ -274993,7 +275102,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 975,
+        "line": 977,
         "column": 8,
         "name": "freeze",
         "owner": 186
@@ -275001,7 +275110,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 977,
+        "line": 979,
         "column": 27,
         "name": "hasOwn",
         "owner": 186
@@ -275009,39 +275118,47 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 982,
+        "line": 984,
         "column": 8,
         "name": "isArray",
         "owner": 186
       },
       {
-        "code": "unknown-handle-origin",
-        "path": "src/provider/claude-launch-core.mjs",
-        "line": 1003,
-        "column": 21,
-        "name": "resolve",
-        "owner": 186
-      },
-      {
         "code": "unresolved-process-entry",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1003,
-        "column": 37,
+        "line": 1004,
+        "column": 26,
         "name": "execFile",
         "owner": 186
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1004,
-        "column": 8,
+        "line": 1010,
+        "column": 23,
+        "name": "resolve",
+        "owner": 186
+      },
+      {
+        "code": "unresolved-process-entry",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 1010,
+        "column": 39,
+        "name": "execFile",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/provider/claude-launch-core.mjs",
+        "line": 1011,
+        "column": 10,
         "name": "catch",
         "owner": 186
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1045,
+        "line": 1053,
         "column": 11,
         "name": "stringify",
         "owner": 186
@@ -275049,7 +275166,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch-core.mjs",
-        "line": 1068,
+        "line": 1076,
         "column": 9,
         "name": "freeze",
         "owner": 186
@@ -275289,7 +275406,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/provider/claude-launch.mjs",
-        "line": 34,
+        "line": 36,
         "column": 10,
         "name": "runClaudeReviewerLaunch",
         "owner": 186
@@ -276908,6 +277025,30 @@
         "line": 493,
         "column": 9,
         "name": "freeze",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/providers/claude-stream.mjs",
+        "line": 7,
+        "column": 20,
+        "name": "createClaudeStreamingExec",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/providers/claude-stream.mjs",
+        "line": 8,
+        "column": 2,
+        "name": "add",
+        "owner": 186
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/providers/claude-stream.mjs",
+        "line": 12,
+        "column": 9,
+        "name": "has",
         "owner": 186
       },
       {

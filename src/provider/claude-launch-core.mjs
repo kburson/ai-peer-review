@@ -19,10 +19,12 @@ import {
 export function createClaudeLaunchOperations({
   performCurrentOperationEffect,
   assertCurrentOperationAuthority,
+  executionOwnsAdmission = () => false,
 }) {
   if (
     typeof performCurrentOperationEffect !== 'function' ||
-    typeof assertCurrentOperationAuthority !== 'function'
+    typeof assertCurrentOperationAuthority !== 'function' ||
+    typeof executionOwnsAdmission !== 'function'
   )
     throw new TypeError('Explicit provider effect authority required');
   const atomicWrite = async (...args) =>
@@ -996,14 +998,20 @@ export function createClaudeLaunchOperations({
         env: environment,
         maxBuffer: 1024 * 1024,
       };
-      let completion;
-      await performCurrentOperationEffect(() => {
-        // Admission covers initiating the process. The reviewer needs its own
-        // primary admission while it joins and submits; waiting is not an effect.
-        completion = Promise.resolve(execFile(contract.command.file, args, executionOptions));
-        completion.catch(() => {}); // Retain rejection until completion is consumed below.
-      });
-      execution = await completion;
+      if (executionOwnsAdmission(execFile)) {
+        // This genuine factory admits its actual spawn itself. Completion is
+        // supervised outside the primary lease, without nested held admission.
+        execution = await execFile(contract.command.file, args, executionOptions);
+      } else {
+        let completion;
+        await performCurrentOperationEffect(() => {
+          // Admission covers initiating the process. The reviewer needs its own
+          // primary admission while it joins and submits; waiting is not an effect.
+          completion = Promise.resolve(execFile(contract.command.file, args, executionOptions));
+          completion.catch(() => {}); // Retain rejection until completion is consumed below.
+        });
+        execution = await completion;
+      }
     } catch (cause) {
       executionError = cause;
     }
