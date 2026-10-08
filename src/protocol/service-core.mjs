@@ -67,7 +67,7 @@ export function createProtocolService(authority) {
     return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
   }
 
-  function sealNoCommitHandoff({ review, artifactBytes, responses, store }) {
+  async function sealNoCommitHandoff({ review, artifactBytes, responses, store }) {
     const protocol = review?.protocol ?? review;
     if (protocol?.commit_mode !== 'no-commit' || !protocol.startup?.no_commit_baseline) {
       throw authorityError(
@@ -101,9 +101,9 @@ export function createProtocolService(authority) {
         'Provide baseline validation and exclusive snapshot storage.'
       );
     }
-    store.assertBaseline(review);
+    await store.assertBaseline(review);
     const artifactDigest = sha256(artifactBytes);
-    const snapshot = store.writeExclusiveSnapshot(
+    const snapshot = await store.writeExclusiveSnapshot(
       protocol.review_id,
       protocol.sequence + 1,
       artifactBytes
@@ -385,15 +385,15 @@ export function createProtocolService(authority) {
       workspace,
       async () => {
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
+        await assertOperationAuthorityNow(fence);
         const { state } = readAuthority(workspace);
-        performOperationEffect(fence, () => {
+        await performOperationEffect(fence, () => {
           ensureDeliveryReceipts(workspace, state);
           writeProjections(workspace, state);
         });
         return state;
       },
-      { effect: (operation) => performOperationEffect(fence, operation) }
+      { effect: async (operation) => await performOperationEffect(fence, operation) }
     );
   }
 
@@ -418,23 +418,23 @@ export function createProtocolService(authority) {
       workspace,
       async () => {
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
+        await assertOperationAuthorityNow(fence);
         const { state } = readAuthority(workspace);
         assertExpected(state, expected);
         ensureDeliveryReceipts(workspace, state, { write: false });
         await validate(state);
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
-        performOperationEffect(fence, () => {
+        await assertOperationAuthorityNow(fence);
+        await performOperationEffect(fence, () => {
           writeProjections(workspace, state);
           ensureDeliveryReceipts(workspace, state);
         });
         await repair(state);
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
+        await assertOperationAuthorityNow(fence);
         return state;
       },
-      { effect: (operation) => performOperationEffect(fence, operation) }
+      { effect: async (operation) => await performOperationEffect(fence, operation) }
     );
   }
 
@@ -476,7 +476,7 @@ export function createProtocolService(authority) {
     });
     const receipt = await retainReviewLock({
       ...input,
-      effect: (operation) => performOperationEffect(fence, operation),
+      effect: async (operation) => await performOperationEffect(fence, operation),
     });
     await revalidateOperationAuthority(fence);
     const workspace = input.workspace;
@@ -510,13 +510,13 @@ export function createProtocolService(authority) {
         };
         validateVersionedEvent(reclaimed);
         const next = reduceEvents([...events, reclaimed]);
-        performOperationEffect(fence, () => {
+        await performOperationEffect(fence, () => {
           appendLockedEvents(file, bytes, [reclaimed]);
           writeProjections(workspace, next);
         });
         return Object.freeze({ ...receipt, event_appended: true, event: Object.freeze(reclaimed) });
       },
-      { effect: (operation) => performOperationEffect(fence, operation) }
+      { effect: async (operation) => await performOperationEffect(fence, operation) }
     );
   }
 
@@ -711,7 +711,7 @@ export function createProtocolService(authority) {
       workspace,
       async () => {
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
+        await assertOperationAuthorityNow(fence);
         const file = path.join(workspace, 'events.jsonl');
         if (existsSync(file)) {
           throw authorityError(
@@ -722,13 +722,13 @@ export function createProtocolService(authority) {
           );
         }
         const state = reduceEvents([event]);
-        performOperationEffect(fence, () => {
+        await performOperationEffect(fence, () => {
           atomicCreate(file, Buffer.from(`${JSON.stringify(ordered(event))}\n`, 'utf8'));
           writeProjections(workspace, state);
         });
         return state;
       },
-      { effect: (operation) => performOperationEffect(fence, operation) }
+      { effect: async (operation) => await performOperationEffect(fence, operation) }
     );
   }
 
@@ -758,13 +758,13 @@ export function createProtocolService(authority) {
       workspace,
       async () => {
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
+        await assertOperationAuthorityNow(fence);
         const { events, state: current, file, bytes } = readAuthority(workspace);
         assertExpected(current, expected);
         assertExistingWriterCompatibility(events);
         let nextEvent = await createEvent(current);
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
+        await assertOperationAuthorityNow(fence);
         validateVersionedEvent(nextEvent);
         let batch = [nextEvent];
         const hasV2 = events.some((event) => event.schema === EVENT_V2_SCHEMA);
@@ -778,14 +778,14 @@ export function createProtocolService(authority) {
         }
         const next = reduceEvents([...events, ...batch]);
         ensureDeliveryReceipts(workspace, next, { write: false });
-        performOperationEffect(fence, () => {
+        await performOperationEffect(fence, () => {
           appendLockedEvents(file, bytes, batch);
           writeProjections(workspace, next);
           ensureDeliveryReceipts(workspace, next);
         });
         return next;
       },
-      { effect: (operation) => performOperationEffect(fence, operation) }
+      { effect: async (operation) => await performOperationEffect(fence, operation) }
     );
   }
 
@@ -809,13 +809,13 @@ export function createProtocolService(authority) {
       workspace,
       async () => {
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
+        await assertOperationAuthorityNow(fence);
         const { events, state: current, file, bytes } = readAuthority(workspace);
         assertExpected(current, expected);
         assertExistingWriterCompatibility(events);
         const batch = await createEvents(current.protocol);
         await revalidateOperationAuthority(fence);
-        assertOperationAuthorityNow(fence);
+        await assertOperationAuthorityNow(fence);
         if (!Array.isArray(batch) || batch.length === 0) {
           throw authorityError(
             'APR_EVENT_INVALID',
@@ -849,14 +849,14 @@ export function createProtocolService(authority) {
         }
         const next = reduceEvents([...events, ...batch]);
         ensureDeliveryReceipts(workspace, next, { write: false });
-        performOperationEffect(fence, () => {
+        await performOperationEffect(fence, () => {
           appendLockedEvents(file, bytes, batch);
           writeProjections(workspace, next);
           ensureDeliveryReceipts(workspace, next);
         });
         return next;
       },
-      { effect: (operation) => performOperationEffect(fence, operation) }
+      { effect: async (operation) => await performOperationEffect(fence, operation) }
     );
   }
 

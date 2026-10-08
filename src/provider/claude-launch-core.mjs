@@ -25,7 +25,8 @@ export function createClaudeLaunchOperations({
     typeof assertCurrentOperationAuthority !== 'function'
   )
     throw new TypeError('Explicit provider effect authority required');
-  const atomicWrite = (...args) => performCurrentOperationEffect(() => rawAtomicWrite(...args));
+  const atomicWrite = async (...args) =>
+    await performCurrentOperationEffect(() => rawAtomicWrite(...args));
   const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
   const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
   const PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
@@ -995,13 +996,13 @@ export function createClaudeLaunchOperations({
         env: environment,
         maxBuffer: 1024 * 1024,
       };
-      execution = await performCurrentOperationEffect(() => ({
-        pending: execFile(contract.command.file, args, executionOptions),
-      })).pending;
+      execution = await performCurrentOperationEffect(() =>
+        execFile(contract.command.file, args, executionOptions)
+      );
     } catch (cause) {
       executionError = cause;
     }
-    assertCurrentOperationAuthority();
+    await assertCurrentOperationAuthority();
     const after = inspectAuthority(contract.workspace);
     const providerResult = normalizeClaudeExecution({ execution, error: executionError });
     const returnedHandle = providerResult.session_id_present ? providerResult.session_id : null;
@@ -1034,7 +1035,7 @@ export function createClaudeLaunchOperations({
     const first = classifyClaudeReviewerOutcome(outcomeInput);
     let resumeAvailable = Boolean(priorState);
     if (providerResult.output_valid && sessionHandle) {
-      atomicWrite(
+      await atomicWrite(
         launchStatePath(contract),
         `${JSON.stringify(
           {

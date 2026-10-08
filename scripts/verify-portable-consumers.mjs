@@ -895,8 +895,11 @@ export function deriveProcessSourceContract({ root } = {}) {
     'schemas/process-source-class-v1.json',
     'src/protocol/process-source-contract-files.json',
   ]);
-  if (data.problems.length)
-    throw new Error('source-contract-unresolved: ' + JSON.stringify(data.problems));
+  const unresolved = data.problems.filter(
+    (problem) => !(problem.code === 'unsupported-module-dependency' && allowed.has(problem.target))
+  );
+  if (unresolved.length)
+    throw new Error('source-contract-unresolved: ' + JSON.stringify(unresolved));
   for (const edge of data.edges)
     if (edge.targetKind === 'external' && reached.has(edge.path))
       throw new Error('source-contract-external-dependency: ' + edge.target);
@@ -908,7 +911,14 @@ export function deriveProcessSourceContract({ root } = {}) {
       !allowed.has(edge.target)
     )
       throw new Error('source-contract-non-js-data-import: ' + edge.target);
-  for (const file of allowed) ordinary(physical, file);
+  for (const file of allowed) {
+    try {
+      ordinary(physical, file);
+    } catch (error) {
+      if (file !== 'src/protocol/process-source-contract-files.json' || error.code !== 'ENOENT')
+        throw error;
+    }
+  }
   return Object.freeze({ files: Object.freeze([...new Set([...reached, ...allowed])].sort()) });
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

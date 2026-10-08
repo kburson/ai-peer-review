@@ -83,11 +83,11 @@ test('Claude dormant-session snapshot reads current provider-owned terminal stat
   );
 });
 
-test('Codex start hook binds the exact pending tool use to provider model and session', (t) => {
+test('Codex start hook binds the exact pending tool use to provider model and session', async (t) => {
   const fixture = repositoryFixture('apr-codex-hook-');
   t.after(fixture.cleanup);
   const command = 'peer-review start docs/example.md --artifact-kind spec';
-  const captured = captureCodexStartHook({
+  const captured = await captureCodexStartHook({
     event: {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
@@ -119,7 +119,7 @@ test('Codex start hook binds the exact pending tool use to provider model and se
   assert.equal(JSON.stringify(captured).includes('session-private'), false);
 });
 
-test('Codex hook keeps changing models in one session in separate start records', (t) => {
+test('Codex hook keeps changing models in one session in separate start records', async (t) => {
   const fixture = repositoryFixture('apr-codex-model-switch-');
   t.after(fixture.cleanup);
   const sessionId = 'same-provider-session';
@@ -128,7 +128,7 @@ test('Codex hook keeps changing models in one session in separate start records'
     ['c'.repeat(32), 'turn-one', 'gpt-6-astra'],
     ['d'.repeat(32), 'turn-two', 'gpt-6-sol'],
   ]) {
-    captureCodexStartHook({
+    await captureCodexStartHook({
       event: {
         hook_event_name: 'PreToolUse',
         tool_name: 'Bash',
@@ -160,10 +160,10 @@ test('Codex hook keeps changing models in one session in separate start records'
   );
 });
 
-test('Codex hook observes the installed ai-peer-review CLI spelling', (t) => {
+test('Codex hook observes the installed ai-peer-review CLI spelling', async (t) => {
   const fixture = repositoryFixture('apr-codex-installed-hook-');
   t.after(fixture.cleanup);
-  const result = captureCodexStartHook({
+  const result = await captureCodexStartHook({
     event: {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
@@ -181,10 +181,10 @@ test('Codex hook observes the installed ai-peer-review CLI spelling', (t) => {
   assert.ok(result);
 });
 
-test('Codex hook supplies the current model to a later command in the same session', (t) => {
+test('Codex hook supplies the current model to a later command in the same session', async (t) => {
   const fixture = repositoryFixture('apr-codex-current-command-');
   t.after(fixture.cleanup);
-  const result = captureCodexStartHook({
+  const result = await captureCodexStartHook({
     event: {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
@@ -204,10 +204,10 @@ test('Codex hook supplies the current model to a later command in the same sessi
   );
 });
 
-test('Codex join reads the exact current model from its private hook token', (t) => {
+test('Codex join reads the exact current model from its private hook token', async (t) => {
   const fixture = repositoryFixture('apr-codex-join-hook-');
   t.after(fixture.cleanup);
-  captureCodexStartHook({
+  await captureCodexStartHook({
     event: {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
@@ -257,7 +257,7 @@ test('Codex surface refuses an absent exact start hook and reads a matching one'
       }),
     { code: 'APR_CODEX_HOOK_INVALID' }
   );
-  captureCodexStartHook({
+  await captureCodexStartHook({
     event: {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
@@ -609,7 +609,7 @@ test('active reviewer join may re-observe its fresh provider tool use before the
   );
 });
 
-test('Claude live stream binds a join tool use to its exact active model and session', (t) => {
+test('Claude live stream binds a join tool use to its exact active model and session', async (t) => {
   mkdirSync(path.join(process.cwd(), '.scratch/test'), { recursive: true });
   const workspace = mkdtempSync(path.join(process.cwd(), '.scratch/test/88-claude-stream-'));
   t.after(() => rmSync(workspace, { recursive: true, force: true }));
@@ -618,14 +618,14 @@ test('Claude live stream binds a join tool use to its exact active model and ses
     operationId: 'join:review-1',
     expectedCommand: 'peer-review join /repo/reviewer-invitation.md',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'system',
     subtype: 'init',
     model: 'claude-opus-5',
     session_id: 'private-claude-session',
     claude_code_version: '2.1.278',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'assistant',
     session_id: 'private-claude-session',
     timestamp: '2026-09-21T14:35:00.000Z',
@@ -731,14 +731,14 @@ test('Claude adapter reads exact stream evidence and attests its executing versi
     operationId: 'join:review-2',
     expectedCommand: 'peer-review join /repo/invitation.md',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'system',
     subtype: 'init',
     model: 'claude-opus-5',
     session_id: 'private-claude-reviewer',
     claude_code_version: '2.1.278',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'assistant',
     session_id: 'private-claude-reviewer',
     timestamp: '2026-09-21T14:35:00.000Z',
@@ -1237,14 +1237,14 @@ test('CLI join binds provider stream observation with the executing Claude adapt
     operationId: `join:${reviewId}`,
     expectedCommand: `peer-review join ${started.paths.reviewer_invitation}`,
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'system',
     subtype: 'init',
     model: 'claude-opus-5',
     session_id: 'verified-reviewer',
     claude_code_version: '2.1.278',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'assistant',
     session_id: 'verified-reviewer',
     timestamp: NOW,

@@ -15,7 +15,6 @@ import {
 import { observePortableReconciliation } from './portable-reconciliation.mjs';
 import { verifyRuntimeInventorySync } from '../startup/runtime-inventory.mjs';
 import path from 'node:path';
-import packageJson from '../../package.json' with { type: 'json' };
 import { portableBrokerPaths } from './portable-paths.mjs';
 import {
   acquireOwnerElection,
@@ -190,6 +189,12 @@ export async function observeAuthenticatedOwner(input = {}) {
   try {
     result = await (async () => {
       const context = ownerBudget(input);
+      const runtime = verifyRuntimeInventorySync({ packageRoot: loadedInstallation });
+      const currentRuntime = () =>
+        verifyRuntimeInventorySync({
+          packageRoot: loadedInstallation,
+          previousObservation: runtime,
+        });
       const view = await inspectOwnerElectionPaths({ paths: input.paths, ...context });
       const state = await readOwnerState(view);
       if (!state.owner || !state.credential || !state.endpoint)
@@ -204,7 +209,7 @@ export async function observeAuthenticatedOwner(input = {}) {
         state,
         worktree,
         versions: {
-          package_version: packageJson.version,
+          package_version: currentRuntime().packageVersion,
           broker_protocol_version: 1,
           node_major: Number(process.versions.node.split('.')[0]),
         },
@@ -233,6 +238,7 @@ export async function observeAuthenticatedOwner(input = {}) {
       });
       connection = proof.connection; // Capture before any conflicting-evidence branch.
       const decision = assessOwnerEvidenceCore({ process: originalProcess, endpoint: proof });
+      currentRuntime();
       if (decision.status === 'dead') {
         if (!sameOwnerState(state, await readOwnerState(view)))
           throw boundedOwnershipError('owner-generation-changed');
@@ -248,6 +254,7 @@ export async function observeAuthenticatedOwner(input = {}) {
           process: originalProcess,
           context,
         });
+        currentRuntime();
         return observed;
       }
       if (decision.status !== 'authenticated-live') return unknownOwner(decision.reason);
@@ -272,6 +279,7 @@ export async function observeAuthenticatedOwner(input = {}) {
           return client.close(context);
         },
         async reread(next) {
+          currentRuntime();
           await inspectOwnerElectionPaths({ paths: input.paths, ...next });
           if (!sameOwnerState(state, await readOwnerState(view)))
             throw boundedOwnershipError('owner-generation-changed');
@@ -281,6 +289,7 @@ export async function observeAuthenticatedOwner(input = {}) {
               .status !== 'live'
           )
             throw boundedOwnershipError('original-process-unproved');
+          currentRuntime();
         },
         async connect(next) {
           if (
@@ -289,6 +298,7 @@ export async function observeAuthenticatedOwner(input = {}) {
             !isVerifiedOwnerConnection(heldConnection)
           )
             throw boundedOwnershipError('proved-socket-lost');
+          currentRuntime();
           observations.delete(observed);
           return Object.freeze({
             ...client,
@@ -301,6 +311,7 @@ export async function observeAuthenticatedOwner(input = {}) {
           });
         },
       };
+      currentRuntime();
       bindings.set(binding, record);
       const observed = Object.freeze({
         status: 'authenticated-live',
@@ -348,6 +359,9 @@ export async function acquirePortableOwner(input = {}) {
       Object.keys(input).sort().join(',') !== 'deadline,paths,protection,reconcile,signal,worktree'
     )
       throw boundedOwnershipError('owner-options-invalid');
+    const runtime = verifyRuntimeInventorySync({ packageRoot: loadedInstallation });
+    const currentRuntime = () =>
+      verifyRuntimeInventorySync({ packageRoot: loadedInstallation, previousObservation: runtime });
     const canonical = await portableBrokerPaths({ worktree: input.worktree });
     if (
       !input.paths ||
@@ -466,7 +480,7 @@ export async function acquirePortableOwner(input = {}) {
         },
         async create(current) {
           effectStarted = true;
-          const runtime = verifyRuntimeInventorySync({ packageRoot: loadedInstallation });
+          currentRuntime();
           const versions = Object.freeze({
             package_version: runtime.packageVersion,
             broker_protocol_version: 1,
@@ -490,6 +504,7 @@ export async function acquirePortableOwner(input = {}) {
             ownerVersion: createHash('sha256').update(bytes).digest('hex'),
           };
           record.candidate = candidate;
+          currentRuntime();
           candidate.publication = await createHeldPrivatePublication({
             guard: view.privateGuard,
             name: 'owner.json',
@@ -499,6 +514,7 @@ export async function acquirePortableOwner(input = {}) {
           });
           const secret = randomBytes(32);
           try {
+            currentRuntime();
             candidate.credential = await createHeldPrivatePublication({
               guard: view.privateGuard,
               name: 'credential',
@@ -512,6 +528,7 @@ export async function acquirePortableOwner(input = {}) {
           return candidate;
         },
         async ready(value, current) {
+          currentRuntime();
           const expected = {
             instanceId: value.facts.instanceId,
             worktree: value.facts.worktree,
@@ -534,6 +551,7 @@ export async function acquirePortableOwner(input = {}) {
           return value.readinessServer;
         },
         async publishEndpoint(value, ready, current) {
+          currentRuntime();
           const subject = {
             instanceId: value.facts.instanceId,
             worktree: value.facts.worktree,
@@ -557,6 +575,7 @@ export async function acquirePortableOwner(input = {}) {
           });
         },
         async lifecycle(value, current) {
+          currentRuntime();
           genuineOwner = await createPortableOwnerLifecycle({
             publication: value.publication,
             credential: value.credential,

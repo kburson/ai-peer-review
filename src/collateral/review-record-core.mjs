@@ -31,13 +31,20 @@ import { resolveContainedPath, resolveReviewPaths } from './paths.mjs';
 export function createReviewRecordOperations({ performCurrentOperationEffect }) {
   if (typeof performCurrentOperationEffect !== 'function')
     throw new TypeError('Explicit record effect authority required');
-  const effectMkdir = (...args) => performCurrentOperationEffect(() => mkdirSync(...args));
-  const effectUnlink = (...args) => performCurrentOperationEffect(() => unlinkSync(...args));
-  const effectWrite = (...args) => performCurrentOperationEffect(() => writeFileSync(...args));
-  const openSync = (...args) => performCurrentOperationEffect(() => rawOpenSync(...args));
-  const fsyncSync = (...args) => performCurrentOperationEffect(() => rawFsyncSync(...args));
-  const linkSync = (...args) => performCurrentOperationEffect(() => rawLinkSync(...args));
-  const rmdirSync = (...args) => performCurrentOperationEffect(() => rawRmdirSync(...args));
+  const effectMkdir = async (...args) =>
+    await performCurrentOperationEffect(() => mkdirSync(...args));
+  const effectUnlink = async (...args) =>
+    await performCurrentOperationEffect(() => unlinkSync(...args));
+  const effectWrite = async (...args) =>
+    await performCurrentOperationEffect(() => writeFileSync(...args));
+  const openSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawOpenSync(...args));
+  const fsyncSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawFsyncSync(...args));
+  const linkSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawLinkSync(...args));
+  const rmdirSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawRmdirSync(...args));
   const createGitTransactionRepository = (...args) => {
     const target = rawCreateGitTransactionRepository(...args);
     return Object.freeze(
@@ -45,8 +52,8 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
         Object.entries(target).map(([name, value]) => [
           name,
           typeof value === 'function'
-            ? (...methodArgs) =>
-                performCurrentOperationEffect(() => value.apply(target, methodArgs))
+            ? async (...methodArgs) =>
+                await performCurrentOperationEffect(() => value.apply(target, methodArgs))
             : value,
         ])
       )
@@ -514,27 +521,27 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
     };
   }
 
-  function removeIfPresent(file) {
+  async function removeIfPresent(file) {
     try {
-      effectUnlink(file);
+      await effectUnlink(file);
     } catch (cause) {
       if (cause?.code !== 'ENOENT') throw cause;
     }
   }
 
-  function publishExclusive(file, bytes) {
+  async function publishExclusive(file, bytes) {
     const directory = path.dirname(file);
     const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
     let descriptor = null;
     try {
-      effectMkdir(directory, { recursive: true });
-      descriptor = openSync(temporary, 'wx', 0o600);
-      effectWrite(descriptor, bytes);
-      fsyncSync(descriptor);
+      await effectMkdir(directory, { recursive: true });
+      descriptor = await openSync(temporary, 'wx', 0o600);
+      await effectWrite(descriptor, bytes);
+      await fsyncSync(descriptor);
       closeSync(descriptor);
       descriptor = null;
       try {
-        linkSync(temporary, file);
+        await linkSync(temporary, file);
       } catch (cause) {
         if (cause?.code !== 'EEXIST') throw cause;
         const status = lstatSync(file);
@@ -555,7 +562,7 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
       return true;
     } finally {
       if (descriptor !== null) closeSync(descriptor);
-      removeIfPresent(temporary);
+      await removeIfPresent(temporary);
     }
   }
 
@@ -586,11 +593,11 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
     return bytes;
   }
 
-  function pruneEmpty(directory, stop) {
+  async function pruneEmpty(directory, stop) {
     let current = directory;
     while (current !== stop && current.startsWith(`${stop}${path.sep}`)) {
       try {
-        rmdirSync(current);
+        await rmdirSync(current);
       } catch (cause) {
         if (cause?.code === 'ENOTEMPTY' || cause?.code === 'EEXIST' || cause?.code === 'ENOENT') {
           return;
@@ -601,7 +608,7 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
     }
   }
 
-  function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () => {} } = {}) {
+  async function applyReviewRecord(plan, { mode = 'no-commit', checkpoint = () => {} } = {}) {
     if (typeof plan?.schema === 'string')
       assertCollateralCompatible({
         manifest: readRuntimeCompatibility(),
@@ -647,13 +654,13 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
     const uniqueOwnedPaths = [...new Set(ownedPaths)];
     const transaction =
       mode === 'normal' ? createGitTransactionRepository(plan.repository_root) : null;
-    const outsideIndex = transaction?.snapshotIndexOutside(uniqueOwnedPaths) ?? null;
-    transaction?.assertNoOwnedOverlap(uniqueOwnedPaths);
-    const trackedOwnedPaths = transaction?.trackedPaths(uniqueOwnedPaths) ?? [];
-    const expectedHead = transaction?.head() ?? null;
-    function commitVerifiedRelocation({ allowNoDelta = false } = {}) {
+    const outsideIndex = (await transaction?.snapshotIndexOutside(uniqueOwnedPaths)) ?? null;
+    await transaction?.assertNoOwnedOverlap(uniqueOwnedPaths);
+    const trackedOwnedPaths = (await transaction?.trackedPaths(uniqueOwnedPaths)) ?? [];
+    const expectedHead = (await transaction?.head()) ?? null;
+    async function commitVerifiedRelocation({ allowNoDelta = false } = {}) {
       if (!transaction) return null;
-      if (transaction.head() !== expectedHead) {
+      if ((await transaction.head()) !== expectedHead) {
         fail(
           'APR_GIT_HEAD_CHANGED',
           'Repository HEAD changed during review-record consolidation.',
@@ -668,15 +675,18 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
           plan.receipt.relative,
         ]),
       ];
-      transaction.addPaths(addablePaths);
-      transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
+      await transaction.addPaths(addablePaths);
+      await transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
       const trackedSourcePaths = new Set(
         trackedOwnedPaths.filter((relative) =>
           plan.mappings.some(({ source }) => source.relative === relative)
         )
       );
       const commitPaths = [
-        ...new Set([...transaction.changedOwnedPaths(uniqueOwnedPaths), ...trackedSourcePaths]),
+        ...new Set([
+          ...(await transaction.changedOwnedPaths(uniqueOwnedPaths)),
+          ...trackedSourcePaths,
+        ]),
       ].sort();
       if (commitPaths.length === 0) {
         if (allowNoDelta) return null;
@@ -686,13 +696,13 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
           'Inspect the receipt and repository before retrying the relocation.'
         );
       }
-      const commit = transaction.commitOnly(
+      const commit = await transaction.commitOnly(
         commitPaths,
         `Consolidate review record ${plan.record_id}`,
         { 'Peer-Review-Record-ID': plan.record_id }
       );
-      transaction.assertCommitPaths(commit, commitPaths);
-      transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
+      await transaction.assertCommitPaths(commit, commitPaths);
+      await transaction.assertOutsideIndex(outsideIndex, uniqueOwnedPaths);
       return commit;
     }
     const allSourcesMissing = plan.mappings.every(({ source }) => !existsSync(source.absolute));
@@ -702,7 +712,7 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
       for (const mapping of plan.mappings) {
         assertRegularDigest(mapping.destination.absolute, mapping.source.digest);
       }
-      const commit = commitVerifiedRelocation({ allowNoDelta: true });
+      const commit = await commitVerifiedRelocation({ allowNoDelta: true });
       return deepFreeze({
         schema: 'ai-peer-review.relocation-result/v1',
         record_id: plan.record_id,
@@ -728,21 +738,22 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
     const created = [];
     try {
       for (const publication of publications) {
-        if (publishExclusive(publication.file, publication.bytes)) created.push(publication.file);
+        if (await publishExclusive(publication.file, publication.bytes))
+          created.push(publication.file);
         checkpoint('destination-published', publication.mapping);
       }
       checkpoint('all-destinations-published', { mappings: plan.mappings });
       for (const publication of publications) {
         assertRegularDigest(publication.file, publication.digest);
       }
-      if (publishExclusive(plan.history.absolute, historyBytes))
+      if (await publishExclusive(plan.history.absolute, historyBytes))
         created.push(plan.history.absolute);
-      if (publishExclusive(plan.receipt.absolute, receiptBytes))
+      if (await publishExclusive(plan.receipt.absolute, receiptBytes))
         created.push(plan.receipt.absolute);
       assertRegularDigest(plan.history.absolute, receipt.history_digest);
       assertRegularDigest(plan.receipt.absolute, receiptDigest);
     } catch (cause) {
-      for (const file of created.reverse()) removeIfPresent(file);
+      for (const file of created.reverse()) await removeIfPresent(file);
       if (cause instanceof AprError) throw cause;
       fail(
         'APR_REVIEW_RECORD_APPLY',
@@ -754,11 +765,11 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
     }
 
     try {
-      for (const mapping of plan.mappings) removeIfPresent(mapping.source.absolute);
+      for (const mapping of plan.mappings) await removeIfPresent(mapping.source.absolute);
       const sourceDirectories = [
         ...new Set(plan.mappings.map(({ source }) => path.dirname(source.absolute))),
       ].sort((left, right) => right.length - left.length);
-      for (const directory of sourceDirectories) pruneEmpty(directory, plan.repository_root);
+      for (const directory of sourceDirectories) await pruneEmpty(directory, plan.repository_root);
       checkpoint('sources-removed', { mappings: plan.mappings });
     } catch (cause) {
       fail(
@@ -772,7 +783,7 @@ export function createReviewRecordOperations({ performCurrentOperationEffect }) 
 
     let commit = null;
     if (transaction) {
-      commit = commitVerifiedRelocation();
+      commit = await commitVerifiedRelocation();
     }
 
     return deepFreeze({

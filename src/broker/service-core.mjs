@@ -214,9 +214,9 @@ export function createBrokerService({
             });
             workerSubscriptions.set(valid.workspace, unsubscribe);
           }
-          assertCurrentOperationAuthority();
+          await assertCurrentOperationAuthority();
           await worker.start();
-          assertCurrentOperationAuthority();
+          await assertCurrentOperationAuthority();
           return worker;
         };
         const settleWorkers = async ({ resetIdle = false } = {}) => {
@@ -224,21 +224,21 @@ export function createBrokerService({
             const state = worker.workState();
             if (state === 'recovery-only') {
               await input.cleanupGuard?.();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               await worker.suspend();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               await input.cleanupGuard?.();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               await worker.close();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               workerSubscriptions.get(workspace)?.();
               workerSubscriptions.delete(workspace);
               workers.delete(workspace);
             } else if (state === 'terminal') {
               await input.cleanupGuard?.();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               await worker.close();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               workerSubscriptions.get(workspace)?.();
               workerSubscriptions.delete(workspace);
               workers.delete(workspace);
@@ -308,23 +308,23 @@ export function createBrokerService({
           const worker = await addWorker(registration);
           clearIdle();
           if (message.command === 'reconcile' || message.command === 'register') {
-            assertCurrentOperationAuthority();
+            await assertCurrentOperationAuthority();
             await worker.reconcile();
-            assertCurrentOperationAuthority();
+            await assertCurrentOperationAuthority();
           } else if (message.command === 'launch') {
             let operation;
             try {
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               operation = await reserveReviewerLaunch({ registration, worker });
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
             } catch (cause) {
               await settleWorkers({ resetIdle: true });
               throw cause;
             }
             if (operation === null) {
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               await worker.reconcile();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
             } else {
               const running = settleReservedReviewerLaunch({ registration, worker, operation })
                 .catch(() => {})
@@ -348,9 +348,9 @@ export function createBrokerService({
               );
             }
             await input.cleanupGuard?.();
-            assertCurrentOperationAuthority();
+            await assertCurrentOperationAuthority();
             await worker.suspend();
-            assertCurrentOperationAuthority();
+            await assertCurrentOperationAuthority();
           } else {
             fail(
               'APR_BROKER_PROTOCOL',
@@ -389,14 +389,14 @@ export function createBrokerService({
             try {
               if (worker.workState() !== 'terminal') {
                 await input.cleanupGuard?.();
-                assertCurrentOperationAuthority();
+                await assertCurrentOperationAuthority();
                 await worker.suspend();
-                assertCurrentOperationAuthority();
+                await assertCurrentOperationAuthority();
               }
               await input.cleanupGuard?.();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
               await worker.close();
-              assertCurrentOperationAuthority();
+              await assertCurrentOperationAuthority();
             } catch (error) {
               cleanupError ??= error;
             }

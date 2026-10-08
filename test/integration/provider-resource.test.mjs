@@ -112,15 +112,15 @@ function acquire(f, owner, instanceId, nonce) {
   return acquireProviderResource({ identity: owner, descriptor, instanceId, nonce }, f.platform);
 }
 
-function complete(lease) {
-  return lease.release({
+async function complete(lease) {
+  return await lease.release({
     status: 'complete',
     resource_id: descriptor.resource_id,
     observed_at: NOW,
   });
 }
 
-test('different projects and versions contend on one user/provider/resource digest', () => {
+test('different projects and versions contend on one user/provider/resource digest', async () => {
   const f = sharedPlatform();
   const projectA = identity('1'.repeat(64), '0.2.2', 1);
   const projectB = identity('2'.repeat(64), '9.0.0', 17);
@@ -136,12 +136,12 @@ test('different projects and versions contend on one user/provider/resource dige
   assert.throws(() => acquire(f, projectB, instanceB, nonceB), {
     code: 'APR_PROVIDER_RESOURCE_BUSY',
   });
-  assert.equal(complete(first), true);
+  assert.equal(await complete(first), true);
   const second = acquire(f, projectB, instanceB, nonceB);
-  assert.equal(complete(second), true);
+  assert.equal(await complete(second), true);
 });
 
-test('unused exclusive lease releases only after a fresh available provider observation', () => {
+test('unused exclusive lease releases only after a fresh available provider observation', async () => {
   const f = sharedPlatform();
   const first = acquire(f, identity('1'.repeat(64), '0.2.2', 1), instanceA, nonceA);
   f.setProviderStatus('busy');
@@ -151,7 +151,7 @@ test('unused exclusive lease releases only after a fresh available provider obse
   assert.equal(first.releaseUnused(), true);
   assert.equal(f.lockCount(), 0);
   const second = acquire(f, identity('2'.repeat(64), '9.0.0', 17), instanceB, nonceB);
-  assert.equal(complete(second), true);
+  assert.equal(await complete(second), true);
 });
 
 test('cache deletion cannot authorize a second project while provider state is live', () => {
@@ -216,7 +216,7 @@ test('unknown and malformed records fail closed across versions', () => {
   }
 });
 
-test('unresolved outcome keeps ownership durable until recovery is reconciled', () => {
+test('unresolved outcome keeps ownership durable until recovery is reconciled', async () => {
   const f = sharedPlatform();
   const first = acquire(f, identity('1'.repeat(64), '0.2.2', 1), instanceA, nonceA);
   assert.throws(
@@ -240,10 +240,10 @@ test('unresolved outcome keeps ownership durable until recovery is reconciled', 
     true
   );
   const second = acquire(f, identity('2'.repeat(64), '9.0.0', 17), instanceB, nonceB);
-  assert.equal(complete(second), true);
+  assert.equal(await complete(second), true);
 });
 
-test('busy provider observation immediately before delivery refuses use', () => {
+test('busy provider observation immediately before delivery refuses use', async () => {
   const f = sharedPlatform();
   const lease = acquire(f, identity('1'.repeat(64), '0.2.2', 1), instanceA, nonceA);
   assert.throws(
@@ -255,5 +255,5 @@ test('busy provider observation immediately before delivery refuses use', () => 
       }),
     { code: 'APR_PROVIDER_RESOURCE_BUSY' }
   );
-  assert.equal(complete(lease), true);
+  assert.equal(await complete(lease), true);
 });

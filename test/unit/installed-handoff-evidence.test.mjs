@@ -93,8 +93,13 @@ function handoffFixture(t, { authorSubmitted = false, reviewerSubmitted = false 
     );
   return {
     input: { installed: root, workspace, head: 'a'.repeat(40) },
-    wake(role, status, fingerprint = FINGERPRINTS[role], revision = role === 'author' ? 3 : 4) {
-      const operation = reserveWakeOperation(
+    async wake(
+      role,
+      status,
+      fingerprint = FINGERPRINTS[role],
+      revision = role === 'author' ? 3 : 4
+    ) {
+      const operation = await reserveWakeOperation(
         workspace,
         {
           kind: 'wake',
@@ -112,7 +117,7 @@ function handoffFixture(t, { authorSubmitted = false, reviewerSubmitted = false 
         new Date(NOW)
       );
       if (status)
-        appendWakeOutcome(
+        await appendWakeOutcome(
           workspace,
           operation.operation_id,
           { status, reason: 'private provider response must not escape' },

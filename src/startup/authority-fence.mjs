@@ -1,8 +1,12 @@
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
-import { platformSecurity } from '../broker/platform.mjs';
+import { initializePortableSystem } from '../broker/portable-system.mjs';
+import { performance } from 'node:perf_hooks';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { withPrimaryAdmissionFenceSync } from '../config/primary-admission.mjs';
+import {
+  withPrimaryAdmissionFence,
+  assertPrimaryAdmissionFence,
+} from '../config/primary-admission.mjs';
 // @story #136
 import { createHash } from 'node:crypto';
 import { userInfo } from 'node:os';
@@ -17,18 +21,21 @@ import {
   assertSelectedRuntime,
   verifiedAccountSelectionPath,
 } from '../config/runtime-selection.mjs';
-import { resolvePrimaryAuthoritySync } from '../config/primary-authority.mjs';
+import {
+  resolvePrimaryAuthoritySync,
+  assertPrimaryAuthorityGeneration,
+} from '../config/primary-authority.mjs';
 import { createIntegrationChecker } from '../config/integration-contract-core.mjs';
-import { readBoundedOrdinaryFile, verifyRuntimeInventorySync } from './runtime-inventory.mjs';
+import { verifyRuntimeInventorySync } from './runtime-inventory.mjs';
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
 const digest = (bytes) => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
 const nodeIdentity = (stat) =>
   [stat.dev, stat.ino, stat.size, stat.mode, stat.mtimeNs, stat.ctimeNs].join(':');
-const nodeAtStart = nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true }));
+let nodeAtStart;
 const fences = new WeakMap();
 const operationContext = new AsyncLocalStorage();
-const effectsInProgress = new WeakSet();
+const effectContext = new AsyncLocalStorage();
 export const OPERATION_CLASSIFICATION = Object.freeze({
   help: 'read',
   explain: 'read',
@@ -84,39 +91,23 @@ export function classifyOperation(operation) {
   if (!Object.hasOwn(OPERATION_CLASSIFICATION, operation)) refuse('Operation is unclassified.');
   return OPERATION_CLASSIFICATION[operation];
 }
-function selectionBytes(file) {
-  const parent = path.dirname(file),
-    stat = lstatSync(file),
-    directory = lstatSync(parent);
-  if (
-    !stat.isFile() ||
-    stat.isSymbolicLink() ||
-    !directory.isDirectory() ||
-    directory.isSymbolicLink() ||
-    stat.size > 1048576
-  )
-    refuse('Selection paths are not bounded ordinary private files.');
-  if (process.platform !== 'win32') {
-    if (
-      stat.uid !== process.getuid() ||
-      directory.uid !== process.getuid() ||
-      stat.mode & 0o077 ||
-      directory.mode & 0o077
-    )
-      refuse('Selection ownership or privacy changed.');
-    return readBoundedOrdinaryFile(file, 1048576);
-  }
-  const handle = platformSecurity().openPrivateDirectory(parent);
+async function selectionSnapshot(file, context) {
+  const system = await initializePortableSystem(context);
+  const receipt = await system.observeProtection({ root: path.dirname(file) });
+  if (!receipt.verified) refuse('Selection protection is unavailable.');
+  const handle = await system.openProtectedRoot({ receipt });
   try {
-    const bytes = handle.read(path.basename(file));
-    if (bytes === null || !handle.verify()) refuse('Windows selection ownership cannot be proven.');
-    return bytes;
+    const snapshot = await handle.readSnapshot(path.basename(file), 8192);
+    const bytes = snapshot.bytes;
+    if (bytes.length > 8192) refuse('Selection exceeds its read bound.');
+    await handle.verify();
+    return snapshot;
   } finally {
-    handle.close();
+    await handle.close();
   }
 }
-function observePrimary(cwd) {
-  const primary = resolvePrimaryAuthoritySync({ cwd });
+async function observePrimary(cwd, context) {
+  const primary = await resolvePrimaryAuthoritySync({ cwd, ...context });
   const integration = createIntegrationChecker({ packageRoot, home: userInfo().homedir }).check(
     primary
   );
@@ -159,23 +150,32 @@ function assertReviewAuthority(seal) {
     ],
   });
 }
-// The final synchronous check leaves no promise boundary between admission and
-// an immediate effect. Only tokens minted here carry production authority.
-export function assertOperationAuthorityNow(fence) {
+// Every effect awaits fresh protected authority under the original context.
+// Only tokens minted here carry production authority.
+export async function assertOperationAuthorityNow(fence) {
   const seal = fences.get(fence);
   if (!seal) refuse('Authority fence is not an authenticated observation.');
   if (seal.kind === 'read') return fence;
-  if (nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true })) !== nodeAtStart)
+  if (
+    nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true })) !== seal.nodeIdentity
+  )
     refuse('Node identity changed after process startup.');
-  if (digest(selectionBytes(seal.selectionPath)) !== seal.selectionDigest)
-    refuse('Selected runtime generation changed during the operation.');
+  const selection = await selectionSnapshot(seal.selectionPath, seal.context);
+  if (
+    digest(selection.bytes) !== seal.selectionDigest ||
+    ['identity', 'fileVersion', 'rootIdentity', 'parentIdentity', 'location'].some(
+      (key) => selection[key] !== seal.selectionSnapshot[key]
+    )
+  )
+    refuse('Selected runtime physical generation changed during the operation.');
   const inventory = verifyRuntimeInventorySync({
     packageRoot,
     previousObservation: seal.runtime.inventory,
   });
   if (inventory.inventoryDigest !== seal.runtime.inventoryDigest)
     refuse('Runtime changed during the operation.');
-  const observed = observePrimary(seal.cwd);
+  const observed = await observePrimary(seal.cwd, seal.context);
+  await assertPrimaryAuthorityGeneration(seal.primary, observed.primary);
   if (
     observed.primary.activationDigest !== seal.primary.activationDigest ||
     observed.primary.activeWorktreeRoot !== seal.primary.activeWorktreeRoot ||
@@ -183,6 +183,13 @@ export function assertOperationAuthorityNow(fence) {
   )
     refuse('Primary activation or integration changed during the operation.');
   assertReviewAuthority(seal);
+  if (seal.context.signal.aborted || performance.now() >= seal.context.deadline)
+    refuse('Original operation context was aborted or expired.');
+  if (
+    nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true })) !== seal.nodeIdentity
+  )
+    refuse('Node identity changed during protected authority observation.');
+  verifyRuntimeInventorySync({ packageRoot, previousObservation: seal.runtime.inventory });
   return fence;
 }
 export async function assertOperationAuthority({
@@ -190,6 +197,8 @@ export async function assertOperationAuthority({
   cwd = process.cwd(),
   reviewWorkspace,
   reviewContext,
+  signal,
+  deadline,
 } = {}) {
   const kind = classifyOperation(operation);
   const parent = operationContext.getStore();
@@ -217,9 +226,18 @@ export async function assertOperationAuthority({
     fences.set(fence, seal);
     return fence;
   }
-  const runtime = await assertSelectedRuntime();
-  const selectionPath = await verifiedAccountSelectionPath();
-  const selection = selectionBytes(selectionPath);
+  const context = Object.freeze({
+    signal: signal ?? new AbortController().signal,
+    deadline: deadline ?? performance.now() + 30000,
+  });
+  const runtime = await assertSelectedRuntime(context);
+  const currentNode = nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true }));
+  if (nodeAtStart === undefined) nodeAtStart = currentNode;
+  else if (nodeAtStart !== currentNode)
+    refuse('Node identity changed after its first admitted observation.');
+  const selectionPath = await verifiedAccountSelectionPath(context);
+  const selectedSnapshot = await selectionSnapshot(selectionPath, context);
+  const selection = selectedSnapshot.bytes;
   const record = JSON.parse(selection);
   if (
     record.selection_id !== runtime.selection_id ||
@@ -227,9 +245,9 @@ export async function assertOperationAuthority({
     record.node_executable !== runtime.nodeExecutable
   )
     refuse('Selection changed between runtime admission and fence sealing.');
-  const observation = observePrimary(cwd);
+  const observation = await observePrimary(cwd, context);
   if (parent) {
-    assertOperationAuthorityNow(parent);
+    await assertOperationAuthorityNow(parent);
     const parentSeal = fences.get(parent);
     if (
       parentSeal.kind === 'read' ||
@@ -257,17 +275,21 @@ export async function assertOperationAuthority({
     reviewContext,
     runtime,
     selectionPath,
+    context,
+    nodeIdentity: currentNode,
     selectionDigest: digest(selection),
+    selectionSnapshot: selectedSnapshot,
     ...observation,
   });
-  assertOperationAuthorityNow(fence);
+  await assertOperationAuthorityNow(fence);
   return fence;
 }
 export async function revalidateOperationAuthority(fence) {
   const seal = fences.get(fence);
   if (!seal) refuse('Authority fence is not an authenticated observation.');
-  if (seal.kind !== 'read') await assertSelectedRuntime({ previousObservation: seal.runtime });
-  return assertOperationAuthorityNow(fence);
+  if (seal.kind !== 'read')
+    await assertSelectedRuntime({ previousObservation: seal.runtime, ...seal.context });
+  return await assertOperationAuthorityNow(fence);
 }
 
 export async function withOperationAuthority(input, operation) {
@@ -278,29 +300,44 @@ export async function withOperationAuthority(input, operation) {
     return result;
   });
 }
-export function performOperationEffect(fence, operation) {
-  assertOperationAuthorityNow(fence);
+export async function performOperationEffect(fence, operation) {
+  await assertOperationAuthorityNow(fence);
   const seal = fences.get(fence);
   if (seal.kind === 'read') refuse('Read authority cannot perform effects.');
-  if (effectsInProgress.has(fence)) return operation();
-  return withPrimaryAdmissionFenceSync({ commonDir: seal.primary.commonDir }, () => {
-    assertOperationAuthorityNow(fence);
-    effectsInProgress.add(fence);
-    try {
-      return operation();
-    } finally {
-      effectsInProgress.delete(fence);
+  const inherited = effectContext.getStore();
+  if (inherited?.fence === fence) {
+    if (!inherited.active) refuse('An inherited effect outlived its held primary generation.');
+    await assertPrimaryAdmissionFence(inherited.admission, seal.context);
+    return operation();
+  }
+  return withPrimaryAdmissionFence(
+    { commonDir: seal.primary.commonDir, ...seal.context },
+    async (admission) => {
+      await assertOperationAuthorityNow(fence);
+      const held = { fence, admission, active: true };
+      try {
+        return await effectContext.run(held, async () => {
+          await assertPrimaryAdmissionFence(admission, seal.context);
+          await assertOperationAuthorityNow(fence);
+          const result = await operation();
+          await assertOperationAuthorityNow(fence);
+          await assertPrimaryAdmissionFence(admission, seal.context);
+          return result;
+        });
+      } finally {
+        held.active = false;
+      }
     }
-  });
+  );
 }
-export function performCurrentOperationEffect(operation) {
+export async function performCurrentOperationEffect(operation) {
   const fence = operationContext.getStore();
   if (!fence) refuse('Production effect requires an admitted operation context.');
-  return performOperationEffect(fence, operation);
+  return await performOperationEffect(fence, operation);
 }
 
-export function assertCurrentOperationAuthority() {
+export async function assertCurrentOperationAuthority() {
   const fence = operationContext.getStore();
   if (!fence) refuse('Production operation has no admitted context.');
-  return assertOperationAuthorityNow(fence);
+  return await assertOperationAuthorityNow(fence);
 }

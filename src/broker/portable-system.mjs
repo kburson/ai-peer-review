@@ -1,3 +1,4 @@
+// cspell:words fsmonitor
 // cspell:words NOSYSTEM
 // @story #186
 // cspell:words SID SIDs Win32PowerShell reparse
@@ -58,19 +59,30 @@ async function executable(file, context) {
   validateContext(context);
   return fileIdentity(after) + ':' + createHash('sha256').update(bytes).digest('hex');
 }
-async function run(file, args, context, options = {}) {
+async function run(file, args, context, options = {}, maxOutput = MAX_OUTPUT) {
   const identity = await executable(file, context);
-  const result = await execute(file, args, {
-    ...options,
+  const { input, preserveOutput, ...executeOptions } = options;
+  const pending = execute(file, args, {
+    ...executeOptions,
     encoding: 'utf8',
     shell: false,
     windowsHide: true,
-    maxBuffer: MAX_OUTPUT,
+    maxBuffer: maxOutput,
     signal: context.signal,
     timeout: Math.max(1, Math.min(5000, Math.floor(context.deadline - performance.now()))),
   });
+  let inputError;
+  if (input !== undefined) {
+    pending.child.stdin.once('error', (error) => {
+      inputError = error;
+      pending.child.kill();
+    });
+    pending.child.stdin.end(input);
+  }
+  const result = await pending;
+  if (inputError) throw inputError;
   if ((await executable(file, context)) !== identity) refuse('stock-executable-replaced');
-  return result.stdout.trim();
+  return preserveOutput === true ? result.stdout : result.stdout.trim();
 }
 async function principal(context) {
   validateContext(context);
@@ -175,10 +187,139 @@ export async function initializePortableSystem(input = {}) {
     await check();
     return Object.freeze({ physicalRoot, commonDirectory });
   }
+  const authorityEnvironment = () => {
+    const env = { ...process.env };
+    for (const key of Object.keys(env)) if (/^GIT_/iu.test(key)) delete env[key];
+    env.GIT_CONFIG_NOSYSTEM = '1';
+    env.GIT_CONFIG_GLOBAL = process.platform === 'win32' ? 'NUL' : '/dev/null';
+    return env;
+  };
+  const gitArguments = (root, args) => [
+    '--no-optional-locks',
+    '-c',
+    'core.fsmonitor=false',
+    '-C',
+    root,
+    ...args,
+  ];
+  async function reviewWorktrees(input = {}) {
+    if (!input || Object.keys(input).join(',') !== 'root') refuse('primary-worktrees-input');
+    const root = await canonicalPath(input.root),
+      env = authorityEnvironment();
+    const records = await run(
+      GIT,
+      gitArguments(root, ['worktree', 'list', '--porcelain', '-z']),
+      context,
+      { env, preserveOutput: true }
+    );
+    await canonicalPath(root);
+    await check();
+    return records;
+  }
+  async function authorityRepository(input = {}) {
+    if (!input || Object.keys(input).join(',') !== 'cwd') refuse('primary-topology-input');
+    const cwd = await canonicalPath(input.cwd),
+      env = authorityEnvironment();
+    const discovery = await run(
+      GIT,
+      gitArguments(cwd, [
+        'rev-parse',
+        '--path-format=absolute',
+        '--show-toplevel',
+        '--absolute-git-dir',
+        '--git-common-dir',
+      ]),
+      context,
+      { env }
+    );
+    const root = discovery.split(/\r?\n/)[0];
+    const worktrees = await run(
+      GIT,
+      gitArguments(root, ['worktree', 'list', '--porcelain', '-z']),
+      context,
+      { env, preserveOutput: true }
+    );
+    const { validateAuthorityMembership } = await import('../git/authority-membership.mjs');
+    const result = validateAuthorityMembership({ cwd, discovery, worktrees });
+    await canonicalPath(result.root);
+    await canonicalPath(result.gitDir);
+    await canonicalPath(result.commonDir);
+    if (
+      (await run(
+        GIT,
+        gitArguments(cwd, [
+          'rev-parse',
+          '--path-format=absolute',
+          '--show-toplevel',
+          '--absolute-git-dir',
+          '--git-common-dir',
+        ]),
+        context,
+        { env }
+      )) !== discovery
+    )
+      refuse('primary-topology-replaced');
+    await check();
+    return result;
+  }
+  async function primaryPolicy(input = {}) {
+    if (
+      !input ||
+      Object.keys(input).sort().join(',') !== 'blobs,root' ||
+      (input.blobs !== null &&
+        (!Array.isArray(input.blobs) ||
+          input.blobs.length !== 2 ||
+          input.blobs.some(
+            (value) => typeof value !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value)
+          )))
+    )
+      refuse('primary-policy-input');
+    const suppliedBlobs = input.blobs === null ? null : Object.freeze([...input.blobs]);
+    const root = await canonicalPath(input.root),
+      env = authorityEnvironment();
+    const paths = ['.ai-peer-review/config.json', '.ai-peer-review/skills/peer-review/SKILL.md'];
+    const tree = await run(
+      GIT,
+      gitArguments(root, ['ls-tree', '-z', 'HEAD', '--', ...paths]),
+      context,
+      { env, preserveOutput: true }
+    );
+    const index = await run(
+      GIT,
+      gitArguments(root, ['ls-files', '--stage', '-z', '--', ...paths]),
+      context,
+      { env, preserveOutput: true }
+    );
+    const entries = new Map(
+      tree
+        .split('\0')
+        .filter(Boolean)
+        .map((line) => {
+          const match = /^(100644|100755) blob ([a-f0-9]{40}|[a-f0-9]{64})\t(.+)$/u.exec(line);
+          if (!match) refuse('primary-tree-unproved');
+          return [match[3], match[2]];
+        })
+    );
+    const blobs = suppliedBlobs ?? paths.map((relative) => entries.get(relative));
+    if (blobs.some((value) => typeof value !== 'string')) refuse('primary-tree-unproved');
+    const batch = await run(
+      GIT,
+      gitArguments(root, ['cat-file', '--batch']),
+      context,
+      { env, preserveOutput: true, input: blobs.join('\n') + '\n' },
+      2098176
+    );
+    await canonicalPath(root);
+    await check();
+    return Object.freeze({ tree, index, batch: Buffer.from(batch, 'utf8') });
+  }
   const system = Object.freeze({
     kind: process.platform,
     canonicalPath,
     physicalLocation,
+    authorityRepository,
+    primaryPolicy,
+    reviewWorktrees,
     retryCleanup,
     async userId() {
       await check();

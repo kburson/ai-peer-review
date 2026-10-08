@@ -95,22 +95,21 @@ export function createProviderAdapter({
     throw new TypeError('provider-adapter: invalid closed identity');
   }
   let performCurrentOperationEffect;
-  const effect = (operation) => {
+  const effect = async (operation) => {
     if (registeredProductionAdapters.get(selector) !== adapter) return operation();
     if (!performCurrentOperationEffect)
       throw new AprError(
         'APR_OPERATION_AUTHORITY_UNAVAILABLE',
         'Production provider effect has no admitted context.'
       );
-    return performCurrentOperationEffect(operation);
+    return await performCurrentOperationEffect(operation);
   };
   const dispatch = async (operation) => {
     if (registeredProductionAdapters.get(selector) === adapter) {
       ({ performCurrentOperationEffect } = await import('../startup/authority-fence.mjs'));
     }
-    const { pending } = effect(() => ({ pending: operation() }));
-    const result = await pending;
-    effect(() => {});
+    const result = await effect(operation);
+    await effect(() => {});
     return result;
   };
   const operations = new Map();
@@ -187,9 +186,9 @@ export function createProviderAdapter({
       : file;
   };
 
-  const persistOperation = (scratchRoot, operationId, operation) => {
+  const persistOperation = async (scratchRoot, operationId, operation) => {
     if (scratchRoot === undefined) return;
-    effect(() =>
+    await effect(() =>
       atomicWrite(
         operationFile(scratchRoot, operationId),
         `${JSON.stringify({
@@ -386,7 +385,7 @@ export function createProviderAdapter({
         fingerprint: observed.session_fingerprint,
       });
       operations.set(operationId, operation);
-      persistOperation(scratchRoot, operationId, operation);
+      await persistOperation(scratchRoot, operationId, operation);
       return Object.freeze({ status: 'launched', observation: observed });
     },
     async reconcileReviewerLaunch({
@@ -448,11 +447,11 @@ export function createProviderAdapter({
         typeof surface?.close === 'function'
           ? await dispatch(() => surface.close({ ...input, handle: operation?.handle }))
           : undefined;
-      effect(() => {});
+      await effect(() => {});
       operations.delete(input?.operationId);
       if (input?.scratchRoot !== undefined) {
         const file = existingOperationFile(input.scratchRoot, input.operationId);
-        if (existsSync(file)) effect(() => unlinkSync(file));
+        if (existsSync(file)) await effect(() => unlinkSync(file));
       }
       return result;
     },

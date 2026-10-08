@@ -45,14 +45,14 @@ function decision(overrides = {}) {
   };
 }
 
-test('exact retry returns one immutable operation and additive outcomes', (t) => {
+test('exact retry returns one immutable operation and additive outcomes', async (t) => {
   const root = workspace(t);
-  const first = reserveWakeOperation(root, decision(), NOW);
-  const retry = reserveWakeOperation(root, decision(), new Date(NOW.valueOf() + 1000));
+  const first = await reserveWakeOperation(root, decision(), NOW);
+  const retry = await reserveWakeOperation(root, decision(), new Date(NOW.valueOf() + 1000));
   assert.deepEqual(retry, first);
   assert.equal(first.status, 'reserved');
 
-  const acknowledged = appendWakeOutcome(
+  const acknowledged = await appendWakeOutcome(
     root,
     first.operation_id,
     { status: 'acknowledged', reason: 'adapter-acknowledged' },
@@ -63,14 +63,14 @@ test('exact retry returns one immutable operation and additive outcomes', (t) =>
   assert.deepEqual(readWakeOperation(root, first.operation_id), acknowledged);
 });
 
-test('same key with different immutable bytes refuses without replacement', (t) => {
+test('same key with different immutable bytes refuses without replacement', async (t) => {
   const root = workspace(t);
-  const first = reserveWakeOperation(root, decision(), NOW);
+  const first = await reserveWakeOperation(root, decision(), NOW);
   const operationFile = first.paths.operation;
   const before = readFileSync(operationFile);
-  assert.throws(
-    () =>
-      reserveWakeOperation(
+  await assert.rejects(
+    async () =>
+      await reserveWakeOperation(
         root,
         decision({ capsule: { ...decision().capsule, next_command: 'peer-review status other' } }),
         NOW
@@ -80,32 +80,43 @@ test('same key with different immutable bytes refuses without replacement', (t) 
   assert.deepEqual(readFileSync(operationFile), before);
 });
 
-test('rejects unknown outcomes and terminal outcome extension', (t) => {
+test('rejects unknown outcomes and terminal outcome extension', async (t) => {
   const root = workspace(t);
-  const operation = reserveWakeOperation(root, decision(), NOW);
-  assert.throws(
-    () => appendWakeOutcome(root, operation.operation_id, { status: 'wat', reason: 'x' }, NOW),
+  const operation = await reserveWakeOperation(root, decision(), NOW);
+  await assert.rejects(
+    async () =>
+      await appendWakeOutcome(root, operation.operation_id, { status: 'wat', reason: 'x' }, NOW),
     (error) => error.code === 'APR_WAKE_LEDGER_INVALID'
   );
-  appendWakeOutcome(root, operation.operation_id, { status: 'acknowledged', reason: 'ok' }, NOW);
-  assert.throws(
-    () =>
-      appendWakeOutcome(root, operation.operation_id, { status: 'refused', reason: 'late' }, NOW),
+  await appendWakeOutcome(
+    root,
+    operation.operation_id,
+    { status: 'acknowledged', reason: 'ok' },
+    NOW
+  );
+  await assert.rejects(
+    async () =>
+      await appendWakeOutcome(
+        root,
+        operation.operation_id,
+        { status: 'refused', reason: 'late' },
+        NOW
+      ),
     (error) => error.code === 'APR_WAKE_CONFLICT'
   );
 });
 
-test('rejects symlinked wake storage and malformed immutable bytes', (t) => {
+test('rejects symlinked wake storage and malformed immutable bytes', async (t) => {
   const root = workspace(t);
   const outside = workspace(t);
   symlinkSync(outside, path.join(root, 'wake'));
-  assert.throws(
-    () => reserveWakeOperation(root, decision(), NOW),
+  await assert.rejects(
+    async () => await reserveWakeOperation(root, decision(), NOW),
     (error) => error.code === 'APR_WAKE_LEDGER_INVALID'
   );
 
   rmSync(path.join(root, 'wake'));
-  const operation = reserveWakeOperation(root, decision(), NOW);
+  const operation = await reserveWakeOperation(root, decision(), NOW);
   writeFileSync(operation.paths.operation, '{"torn":true}');
   assert.throws(
     () => readWakeOperation(root, operation.operation_id),
@@ -113,15 +124,15 @@ test('rejects symlinked wake storage and malformed immutable bytes', (t) => {
   );
 });
 
-test('readers ignore an unfinished atomic outcome write but still reject malformed committed names', (t) => {
+test('readers ignore an unfinished atomic outcome write but still reject malformed committed names', async (t) => {
   const root = workspace(t);
-  const operation = reserveWakeOperation(root, decision(), NOW);
+  const operation = await reserveWakeOperation(root, decision(), NOW);
   const directory = path.join(root, 'wake/outcomes', operation.operation_id.slice(7));
   mkdirSync(directory, { recursive: true });
   const temporary = path.join(directory, '.000001.json.11111111-1111-4111-8111-111111111111.tmp');
   writeFileSync(temporary, 'unfinished');
   assert.equal(readWakeOperation(root, operation.operation_id).status, 'reserved');
-  const acknowledged = appendWakeOutcome(
+  const acknowledged = await appendWakeOutcome(
     root,
     operation.operation_id,
     { status: 'acknowledged', reason: 'completed' },

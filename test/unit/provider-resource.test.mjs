@@ -177,7 +177,7 @@ test('exclusive lease persists only digests and verifies provider state before d
   );
 });
 
-test('exclusive lease refuses missing resource identity, stale observation and unresolved release', () => {
+test('exclusive lease refuses missing resource identity, stale observation and unresolved release', async () => {
   const f = fixture();
   assert.throws(
     () =>
@@ -197,9 +197,9 @@ test('exclusive lease refuses missing resource identity, stale observation and u
       }),
     { code: 'APR_PROVIDER_RESOURCE_STALE' }
   );
-  assert.throws(
-    () =>
-      lease.release({
+  await assert.rejects(
+    async () =>
+      await lease.release({
         status: 'unresolved',
         resource_id: descriptor.resource_id,
         observed_at: NOW,
@@ -207,18 +207,18 @@ test('exclusive lease refuses missing resource identity, stale observation and u
     { code: 'APR_PROVIDER_RESOURCE_STALE' }
   );
   assert.equal(f.locks.size, 1);
-  assert.throws(
-    () =>
-      lease.release({
+  await assert.rejects(
+    async () =>
+      await lease.release({
         status: 'reconciled-recovery',
         resource_id: descriptor.resource_id,
         observed_at: '2000-01-01T00:00:00.000Z',
       }),
     { code: 'APR_PROVIDER_RESOURCE_STALE' }
   );
-  assert.throws(
-    () =>
-      lease.release({
+  await assert.rejects(
+    async () =>
+      await lease.release({
         status: 'reconciled-recovery',
         resource_id: descriptor.resource_id,
         observed_at: '2026-09-20T12:00:00.001Z',
@@ -227,7 +227,7 @@ test('exclusive lease refuses missing resource identity, stale observation and u
   );
   assert.equal(f.locks.size, 1);
   assert.equal(
-    lease.release({
+    await lease.release({
       status: 'reconciled-recovery',
       resource_id: descriptor.resource_id,
       observed_at: '2026-09-20T11:59:55.000Z',
@@ -255,7 +255,7 @@ test('acquisition binds caller identity to the actual operating-system user', ()
   assert.equal(unavailable.opened.length, 0);
 });
 
-test('concurrent adapter retains an exact session handle without claiming a shared lock', () => {
+test('concurrent adapter retains an exact session handle without claiming a shared lock', async () => {
   const f = fixture();
   const lease = acquireProviderResource(
     {
@@ -277,9 +277,9 @@ test('concurrent adapter retains an exact session handle without claiming a shar
     }),
     true
   );
-  assert.throws(
-    () =>
-      lease.release({
+  await assert.rejects(
+    async () =>
+      await lease.release({
         status: 'complete',
         session_handle: 'other-session',
         observed_at: NOW,
@@ -287,7 +287,7 @@ test('concurrent adapter retains an exact session handle without claiming a shar
     { code: 'APR_PROVIDER_RESOURCE_STALE' }
   );
   assert.equal(
-    lease.release({
+    await lease.release({
       status: 'complete',
       session_handle: 'claude-session-123',
       observed_at: NOW,

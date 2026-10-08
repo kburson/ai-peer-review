@@ -7,10 +7,10 @@ const store = createSelectionStore({
   account: userInfo,
   packageRoot: fileURLToPath(new URL('../..', import.meta.url)),
 });
-export const readRuntimeSelection = () => store.read();
+export const readRuntimeSelection = (input) => store.read(input);
 export const registerRuntimeSelection = (options) => store.register(options);
 export const assertSelectedRuntime = (input) => store.assertSelected(input);
-export const verifiedAccountSelectionPath = () => store.location();
+export const verifiedAccountSelectionPath = (input) => store.location(input);
 
 export async function inspectRuntimeSelection() {
   try {

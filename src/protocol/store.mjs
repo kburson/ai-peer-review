@@ -258,7 +258,7 @@ export async function reclaimReviewLock({
       { expected: lockDigest, actual: inspection.digest }
     );
   }
-  return effect(() =>
+  return await effect(() =>
     retainLock(inspection, { reason: normalizedReason, now: new Date(now).toISOString() })
   );
 }
@@ -359,7 +359,7 @@ export async function withReviewLock(workspace, operation, options = {}) {
   for (let attempt = 0; attempt < 3 && !created; attempt += 1) {
     let attemptedOpen = false;
     try {
-      effect(() => {
+      await effect(() => {
         mkdirSync(lockDirectory, { recursive: true });
         attemptedOpen = true;
         descriptor = openSync(lockFile, 'wx', 0o600);
@@ -417,7 +417,7 @@ export async function withReviewLock(workspace, operation, options = {}) {
         observeProcessIdentity,
       });
       if (inspection.status === 'stale') {
-        effect(() =>
+        await effect(() =>
           retainLock(inspection, {
             reason: `automatic-${inspection.reason}`,
             now: new Date().toISOString(),
@@ -456,7 +456,7 @@ export async function withReviewLock(workspace, operation, options = {}) {
     ACTIVE_LOCK_TOKENS.delete(token);
     try {
       const owner = JSON.parse(readFileSync(lockFile, 'utf8'));
-      if (owner?.token === token) effect(() => unlinkSync(lockFile));
+      if (owner?.token === token) await effect(() => unlinkSync(lockFile));
     } catch (cause) {
       if (cause?.code !== 'ENOENT') {
         // A missing, malformed, or foreign lock is preserved for explicit recovery.

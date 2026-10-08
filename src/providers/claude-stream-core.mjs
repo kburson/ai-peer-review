@@ -20,7 +20,8 @@ import { atomicWrite as rawAtomicWrite } from '../protocol/store.mjs';
 
 // @story #136
 export function createClaudeStreamOperations({ performCurrentOperationEffect }) {
-  const atomicWrite = (...args) => performCurrentOperationEffect(() => rawAtomicWrite(...args));
+  const atomicWrite = async (...args) =>
+    await performCurrentOperationEffect(() => rawAtomicWrite(...args));
 
   function createClaudeStreamingExec({ recorder, spawnProcess = spawn } = {}) {
     return async (file, args, options = {}) => {
@@ -30,7 +31,7 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
       const streamArgs = [...args];
       streamArgs[index + 1] = 'stream-json';
       if (!streamArgs.includes('--verbose')) streamArgs.push('--verbose');
-      const lifetime = performCurrentOperationEffect(() =>
+      const lifetime = await performCurrentOperationEffect(() =>
         spawnProviderProcess(
           file,
           streamArgs,
@@ -68,7 +69,7 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
         } catch {
           invalid('Claude stream contains invalid structured JSON.');
         }
-        recorder.accept(event);
+        await recorder.accept(event);
         if (event?.type === 'result') result = event;
       }
       const exitCode = lifetime
@@ -121,7 +122,7 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
       invalid('Claude join command is missing.');
     let initialized = null;
     return Object.freeze({
-      accept(event) {
+      async accept(event) {
         if (event?.type === 'system' && event.subtype === 'init') {
           if (
             initialized ||
@@ -169,7 +170,7 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
           phase: 'tool-use',
           tool_use_id: calls[0].id,
         };
-        atomicWrite(file, `${JSON.stringify(observed)}\n`);
+        await atomicWrite(file, `${JSON.stringify(observed)}\n`);
       },
     });
   }

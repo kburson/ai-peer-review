@@ -165,17 +165,17 @@ export function createReviewOperations({
     rawWithReviewLock(
       workspace,
       async (...args) => {
-        performCurrentOperationEffect(() => {});
+        await performCurrentOperationEffect(() => {});
         const result = await callback(...args);
-        performCurrentOperationEffect(() => {});
+        await performCurrentOperationEffect(() => {});
         return result;
       },
-      { ...options, effect: (operation) => performCurrentOperationEffect(operation) }
+      { ...options, effect: async (operation) => await performCurrentOperationEffect(operation) }
     );
   const guarded =
     (effect) =>
-    (...args) =>
-      performCurrentOperationEffect(() => effect(...args));
+    async (...args) =>
+      await performCurrentOperationEffect(() => effect(...args));
   const effectAtomicWrite = guarded(atomicWrite),
     effectAtomicCreate = guarded(atomicCreate),
     effectCommitExactPaths = guarded(commitExactPaths),
@@ -402,7 +402,7 @@ export function createReviewOperations({
     );
   }
 
-  function terminalLineageReceipt(state, events, workspace) {
+  async function terminalLineageReceipt(state, events, workspace) {
     const receiptPath = path.join(workspace, 'lineage-receipt.json');
     const existingReceipt = existsSync(receiptPath);
     let receipt;
@@ -503,9 +503,9 @@ export function createReviewOperations({
           );
         }
       }
-      for (const target of receiptPaths) effectAtomicWrite(target, bytes);
+      for (const target of receiptPaths) await effectAtomicWrite(target, bytes);
     } else {
-      ensureExactFile(receiptPath, bytes);
+      await ensureExactFile(receiptPath, bytes);
     }
     const verified = inspectRecordLineage(attemptWorkspaces);
     if (verified.status !== 'complete') {
@@ -519,12 +519,12 @@ export function createReviewOperations({
     return receipt;
   }
 
-  function ensureExactFile(file, bytes) {
+  async function ensureExactFile(file, bytes) {
     if (entryExists(file)) {
       if (!exactFile(file, bytes)) collision(file);
       return;
     }
-    effectAtomicCreate(file, bytes);
+    await effectAtomicCreate(file, bytes);
   }
 
   function validateExactFile(file, bytes) {
@@ -540,9 +540,9 @@ export function createReviewOperations({
     }
   }
 
-  function ensureSealedStartupFile(file, digest, currentTemplateBytes) {
+  async function ensureSealedStartupFile(file, digest, currentTemplateBytes) {
     validateSealedStartupFile(file, digest, currentTemplateBytes);
-    if (!entryExists(file)) effectAtomicCreate(file, currentTemplateBytes);
+    if (!entryExists(file)) await effectAtomicCreate(file, currentTemplateBytes);
   }
 
   function participantTransportObservation(observed, identity, role) {
@@ -602,10 +602,10 @@ export function createReviewOperations({
     return Object.freeze({ mode, capability });
   }
 
-  function configuredAuthority(root, explicit, loaded = null) {
+  async function configuredAuthority(root, explicit, loaded = null) {
     if (explicit !== undefined) return explicit;
     try {
-      return (loaded ?? loadConfig({ cwd: root })).config.authority ?? DEFAULT_AUTHORITY;
+      return (loaded ?? (await loadConfig({ cwd: root }))).config.authority ?? DEFAULT_AUTHORITY;
     } catch (cause) {
       if (cause instanceof AprError) throw cause;
       fail(
@@ -939,7 +939,7 @@ export function createReviewOperations({
     }
     const repository = deps.repository ?? createGitRepository();
     const root = repository.root(input.cwd);
-    const loaded = deps.config ?? loadConfig({ cwd: root });
+    const loaded = deps.config ?? (await loadConfig({ cwd: root }));
     const configuredReview = loaded.config.review ?? {};
     const reviewsRoot = input.reviewsRoot ?? configuredReview.reviews_root;
     const reviewPathTemplate = input.reviewPathTemplate ?? configuredReview.review_path_template;
@@ -1039,7 +1039,7 @@ export function createReviewOperations({
         );
       }
     }
-    const requestedAuthority = configuredAuthority(root, input.authority, loaded);
+    const requestedAuthority = await configuredAuthority(root, input.authority, loaded);
     const startupAssurance = input.testHumanAuthority
       ? 'unverified-test'
       : (requestedAuthority.verifier?.signer_strength ?? 'unavailable');
@@ -1200,7 +1200,7 @@ export function createReviewOperations({
         // Terminal event authority owns the retained output. A legitimately
         // released reservation must not be recreated over those retained files.
         if (entryExists(path.join(paths.scratch.absolute, 'collateral-reservation.json')))
-          effectReserveCollateral({ ...state, paths }, { write: false });
+          await effectReserveCollateral({ ...state, paths }, { write: false });
         validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
         validateSealedStartupFile(
           startup.author_startup,
@@ -1217,7 +1217,7 @@ export function createReviewOperations({
           : startResult(state, paths, startup);
       }
       if (deps.preflightOnly) {
-        effectReserveCollateral({ ...state, paths }, { write: false });
+        await effectReserveCollateral({ ...state, paths }, { write: false });
         validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
         validateSealedStartupFile(
           startup.author_startup,
@@ -1232,8 +1232,8 @@ export function createReviewOperations({
         return { artifact, paths, reviewId, context, existing: state };
       }
       let repaired = await repairReview(paths.scratch.absolute, expected(state), {
-        preflight: (current) => {
-          effectReserveCollateral({ ...current, paths }, { write: false });
+        preflight: async (current) => {
+          await effectReserveCollateral({ ...current, paths }, { write: false });
           validateExactFile(contextFile(paths.scratch.absolute), contextBytes);
           validateSealedStartupFile(
             startup.author_startup,
@@ -1246,15 +1246,15 @@ export function createReviewOperations({
             reviewerInvitationBytes
           );
         },
-        repair: (current) => {
-          effectReserveCollateral({ ...current, paths });
-          ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
-          ensureSealedStartupFile(
+        repair: async (current) => {
+          await effectReserveCollateral({ ...current, paths });
+          await ensureExactFile(contextFile(paths.scratch.absolute), contextBytes);
+          await ensureSealedStartupFile(
             startup.author_startup,
             sealed.author_startup_digest,
             authorStartupBytes
           );
-          ensureSealedStartupFile(
+          await ensureSealedStartupFile(
             startup.reviewer_invitation,
             sealed.reviewer_invitation_digest,
             reviewerInvitationBytes
@@ -1391,10 +1391,10 @@ export function createReviewOperations({
         EVENT_V2_SCHEMA
       )
     );
-    effectReserveCollateral({ ...state, paths });
-    effectAtomicCreate(contextFile(paths.scratch.absolute), contextBytes);
-    effectAtomicCreate(startup.author_startup, authorStartupBytes);
-    effectAtomicCreate(startup.reviewer_invitation, reviewerInvitationBytes);
+    await effectReserveCollateral({ ...state, paths });
+    await effectAtomicCreate(contextFile(paths.scratch.absolute), contextBytes);
+    await effectAtomicCreate(startup.author_startup, authorStartupBytes);
+    await effectAtomicCreate(startup.reviewer_invitation, reviewerInvitationBytes);
     return startResult(state, paths, startup);
   }
 
@@ -1744,7 +1744,7 @@ export function createReviewOperations({
         const claimed = await mutateReview(values.workspace, expected(state), (current) =>
           claimRole(current, registered, input.now ?? new Date())
         );
-        const draft = effectCreateResponseDraft({ ...claimed, paths }, 'reviewer', 1);
+        const draft = await effectCreateResponseDraft({ ...claimed, paths }, 'reviewer', 1);
         return joinedResult(
           'join',
           claimed,
@@ -1764,7 +1764,7 @@ export function createReviewOperations({
         claim?.session_fingerprint === input.identity.session_fingerprint
       ) {
         ensureReviewerBinding();
-        const draft = effectCreateResponseDraft({ ...state, paths }, 'reviewer', 1);
+        const draft = await effectCreateResponseDraft({ ...state, paths }, 'reviewer', 1);
         return joinedResult(
           'join',
           state,
@@ -1814,7 +1814,7 @@ export function createReviewOperations({
     const claimed = await mutateReview(values.workspace, expected(joined), (current) =>
       claimRole(current, input.identity, input.now ?? new Date())
     );
-    const draft = effectCreateResponseDraft({ ...claimed, paths }, 'reviewer', 1);
+    const draft = await effectCreateResponseDraft({ ...claimed, paths }, 'reviewer', 1);
     return joinedResult(
       'join',
       claimed,
@@ -1939,7 +1939,7 @@ export function createReviewOperations({
       const turn =
         role === 'reviewer' ? resumed.protocol.turns_used + 1 : resumed.protocol.turns_used;
       if (focus) {
-        ensureExactFile(
+        await ensureExactFile(
           path.join(absolute, 'focus', `${focus.digest.slice('sha256:'.length)}.md`),
           focus.bytes
         );
@@ -1948,7 +1948,7 @@ export function createReviewOperations({
         (role === 'reviewer' && resumed.protocol.state === 'reviewer-turn') ||
         (role === 'author' && resumed.protocol.state === 'author-revision');
       if (currentTurn) {
-        response = effectCreateResponseDraft({ ...resumed, paths }, role, turn).path;
+        response = (await effectCreateResponseDraft({ ...resumed, paths }, role, turn)).path;
       }
       return continuedResult(resumed, absolute, response, prior);
     }
@@ -2017,7 +2017,7 @@ export function createReviewOperations({
       },
     });
     if (focus) {
-      ensureExactFile(
+      await ensureExactFile(
         path.join(absolute, 'focus', `${focus.digest.slice('sha256:'.length)}.md`),
         focus.bytes
       );
@@ -2032,7 +2032,8 @@ export function createReviewOperations({
     const { paths } = sealedPaths(resumed);
     const turn =
       resumeRole === 'reviewer' ? resumed.protocol.turns_used + 1 : resumed.protocol.turns_used;
-    const response = effectCreateResponseDraft({ ...resumed, paths }, resumeRole, turn).path;
+    const response = (await effectCreateResponseDraft({ ...resumed, paths }, resumeRole, turn))
+      .path;
     const event = actionRetry(inspectReviewAuthority(absolute).events, grant, [
       'continued-to-reviewer',
       'continued-to-author',
@@ -2071,7 +2072,7 @@ export function createReviewOperations({
       ) {
         stableConflict('Supplement retry differs from the already authorized result.');
       }
-      ensureExactFile(supplementPath(absolute, supplement.supplement_id), bytes);
+      await ensureExactFile(supplementPath(absolute, supplement.supplement_id), bytes);
       return supplementResult(authority.state, absolute, prior);
     }
     const state = authority.state;
@@ -2133,7 +2134,7 @@ export function createReviewOperations({
         );
       },
     });
-    ensureExactFile(supplementPath(absolute, supplementId), bytes);
+    await ensureExactFile(supplementPath(absolute, supplementId), bytes);
     return supplementResult(registered, absolute, inspectReviewAuthority(absolute).events.at(-1));
   }
 
@@ -2152,7 +2153,7 @@ export function createReviewOperations({
     return visit(workspace).sort();
   }
 
-  function releaseReservation(workspace, reviewId) {
+  async function releaseReservation(workspace, reviewId) {
     const file = path.join(workspace, 'collateral-reservation.json');
     if (!entryExists(file)) return;
     if (!lstatSync(file).isFile()) collision(file);
@@ -2168,7 +2169,7 @@ export function createReviewOperations({
     ) {
       collision(file);
     }
-    performCurrentOperationEffect(() => unlinkSync(file));
+    await performCurrentOperationEffect(() => unlinkSync(file));
   }
 
   async function abandonLocked(input, absolute) {
@@ -2180,7 +2181,7 @@ export function createReviewOperations({
       if (prior.actor !== input.identity?.session_fingerprint || prior.payload.reason !== reason) {
         stableConflict('Abandonment retry differs from the terminal event.');
       }
-      releaseReservation(absolute, state.protocol.review_id);
+      await releaseReservation(absolute, state.protocol.review_id);
       return result(
         'abandon',
         state,
@@ -2227,7 +2228,7 @@ export function createReviewOperations({
     if (entryExists(reservation)) {
       const paths = pathsForContext(state.protocol.startup.context);
       if (paths.scratch.absolute !== absolute) collision(reservation);
-      effectReserveCollateral({ ...state, paths }, { write: false });
+      await effectReserveCollateral({ ...state, paths }, { write: false });
     }
     const retainedPaths = retainedWorkspacePaths(absolute);
     const abandoned = await mutateReview(absolute, expected(state), (current) => {
@@ -2269,7 +2270,7 @@ export function createReviewOperations({
         input.now ?? new Date()
       );
     });
-    releaseReservation(absolute, abandoned.protocol.review_id);
+    await releaseReservation(absolute, abandoned.protocol.review_id);
     return result(
       'abandon',
       abandoned,
@@ -2365,7 +2366,7 @@ export function createReviewOperations({
         stableConflict('Supersession retry differs from the terminal event.');
       }
       requireSuccessorAuthority(absolute, state, successorReviewId, { allowLegacy: true });
-      releaseReservation(absolute, state.protocol.review_id);
+      await releaseReservation(absolute, state.protocol.review_id);
       return result(
         'supersede',
         state,
@@ -2408,7 +2409,7 @@ export function createReviewOperations({
         input.now ?? new Date()
       )
     );
-    releaseReservation(absolute, superseded.protocol.review_id);
+    await releaseReservation(absolute, superseded.protocol.review_id);
     return result(
       'supersede',
       superseded,
@@ -2697,7 +2698,7 @@ export function createReviewOperations({
           'Retry with the exact registered author and artifact bytes.'
         );
       }
-      const draft = effectCreateResponseDraft(
+      const draft = await effectCreateResponseDraft(
         { ...state, paths, artifact_commit: prior.payload.commit ?? observed.head },
         'reviewer',
         state.protocol.turns_used + 1
@@ -2757,7 +2758,7 @@ export function createReviewOperations({
         path: `artifacts/phase-${String(nextCursor + 1).padStart(2, '0')}-${nextKind}.md`,
         digest: observedArtifact.digest,
       };
-      ensureExactFile(path.join(absolute, snapshot.path), bytes);
+      await ensureExactFile(path.join(absolute, snapshot.path), bytes);
     }
     const current = await mutateReview(absolute, expected(state), (locked) => {
       assertCurrentParticipant(locked, 'author', input.identity, input.now);
@@ -2778,7 +2779,7 @@ export function createReviewOperations({
       );
     });
     checkpoint(deps, 'phase-artifact-appended');
-    const draft = effectCreateResponseDraft(
+    const draft = await effectCreateResponseDraft(
       { ...current, paths, artifact_commit: observed.head },
       'reviewer',
       current.protocol.turns_used + 1
@@ -3001,15 +3002,17 @@ export function createReviewOperations({
         );
       }
       checkpoint(deps, 'author-claimed');
-      nextResponse = effectCreateResponseDraft(
-        {
-          ...current,
-          paths,
-          pending_finding_ids: sealed.finding_ids,
-          artifact_commit: latestHead(current, inspectReviewAuthority(absolute).events),
-        },
-        'author',
-        sealed.turn
+      nextResponse = (
+        await effectCreateResponseDraft(
+          {
+            ...current,
+            paths,
+            pending_finding_ids: sealed.finding_ids,
+            artifact_commit: latestHead(current, inspectReviewAuthority(absolute).events),
+          },
+          'author',
+          sealed.turn
+        )
       ).path;
       checkpoint(deps, 'author-draft-created');
     }
@@ -3130,7 +3133,7 @@ export function createReviewOperations({
         ? event.payload.finding_ids
         : []
     );
-    const sealed = effectSealResponse(
+    const sealed = await effectSealResponse(
       { ...state, paths, now: input.now, prior_finding_ids: priorFindingIds },
       responseFile,
       input.identity
@@ -3265,14 +3268,16 @@ export function createReviewOperations({
     ).state;
     let nextResponse = null;
     if (current.protocol.state === 'reviewer-turn') {
-      nextResponse = effectCreateResponseDraft(
-        {
-          ...current,
-          paths,
-          artifact_commit: event.payload.commit ?? latestHead(current, events),
-        },
-        'reviewer',
-        event.payload.turn + 1
+      nextResponse = (
+        await effectCreateResponseDraft(
+          {
+            ...current,
+            paths,
+            artifact_commit: event.payload.commit ?? latestHead(current, events),
+          },
+          'reviewer',
+          event.payload.turn + 1
+        )
       ).path;
     }
     checkpoint(deps, 'reviewer-draft-created');
@@ -3418,7 +3423,7 @@ export function createReviewOperations({
           'Preserve the repository and restore the transaction journal before retrying.'
         );
       }
-      commit = effectCommitExactPaths(
+      commit = await effectCommitExactPaths(
         transactionRepository,
         {
           expected_head: journal.record.expected_head,
@@ -3581,7 +3586,7 @@ export function createReviewOperations({
         'Restore the exact event-authorized reviewer response bytes.'
       );
     }
-    const sealedResponse = effectSealResponse(
+    const sealedResponse = await effectSealResponse(
       {
         ...state,
         paths,
@@ -3621,7 +3626,7 @@ export function createReviewOperations({
             );
           }
         },
-        writeExclusiveSnapshot(reviewId, sequence, bytes) {
+        async writeExclusiveSnapshot(reviewId, sequence, bytes) {
           if (reviewId !== state.protocol.review_id || sequence !== state.protocol.sequence + 1) {
             fail(
               'APR_STALE_REVIEW',
@@ -3629,7 +3634,7 @@ export function createReviewOperations({
               'Read current status and retry the exact author handoff.'
             );
           }
-          ensureExactFile(snapshotFile, bytes);
+          await ensureExactFile(snapshotFile, bytes);
           return { relative: snapshotRelative, digest: sha256(bytes) };
         },
       };
@@ -3749,16 +3754,26 @@ export function createReviewOperations({
       transactionRepository
     );
     const message = reviewCommitMessage(state.protocol, `Peer review revision ${turn}`);
-    const commit = effectCommitExactPaths(transactionRepository, transaction, message, trailers);
+    const commit = await effectCommitExactPaths(
+      transactionRepository,
+      transaction,
+      message,
+      trailers
+    );
     checkpoint(deps, 'transaction-completed');
     const nextReviewerPath = paths.reviewerResponse(turn + 1);
     const repositoryBoundary = git.reviewerBoundary(root, nextReviewerPath.relative);
     const eventType = turnBudgetExhausted(state.protocol)
       ? 'author-closing-round-committed'
       : 'author-revision-committed';
-    const committed = await mutateReview(absolute, expected(state), (current) => {
+    const committed = await mutateReview(absolute, expected(state), async (current) => {
       assertCurrentParticipant(current, 'author', input.identity, input.now);
-      const retry = effectCommitExactPaths(transactionRepository, transaction, message, trailers);
+      const retry = await effectCommitExactPaths(
+        transactionRepository,
+        transaction,
+        message,
+        trailers
+      );
       const payload = {
         turn,
         response: {
@@ -3958,7 +3973,7 @@ export function createReviewOperations({
     );
   }
 
-  function validateTerminalFinalization({
+  async function validateTerminalFinalization({
     input,
     state,
     events,
@@ -4026,7 +4041,7 @@ export function createReviewOperations({
         transactionRepository
       );
     }
-    const lineageReceipt = terminalLineageReceipt(state, events, absolute);
+    const lineageReceipt = await terminalLineageReceipt(state, events, absolute);
     const model = buildManifest({
       state,
       events,
@@ -4057,7 +4072,7 @@ export function createReviewOperations({
       const transaction = pathsToSeals(decision ? [decision, manifest] : [acceptance, manifest], {
         expected_head: expectedHead,
       });
-      const recovered = effectCommitExactPaths(
+      const recovered = await effectCommitExactPaths(
         transactionRepository,
         transaction,
         finalMessage(state),
@@ -4153,7 +4168,7 @@ export function createReviewOperations({
         ].includes(event.type)
       );
     if (existingTerminal) {
-      return validateTerminalFinalization({
+      return await validateTerminalFinalization({
         input,
         state,
         events,
@@ -4251,7 +4266,7 @@ export function createReviewOperations({
           final_commit: state.protocol.commit_mode === 'normal' ? expectedHead : null,
         });
         const manifest = sealPhaseManifest(model, { path: phasePath.relative });
-        ensureExactFile(phasePath.absolute, manifest.bytes);
+        await ensureExactFile(phasePath.absolute, manifest.bytes);
         let committed = null;
         let transaction = null;
         let trailers = null;
@@ -4262,7 +4277,7 @@ export function createReviewOperations({
             transactionRepository
           );
           transaction = pathsToSeals([acceptance, manifest], { expected_head: expectedHead });
-          committed = effectCommitExactPaths(
+          committed = await effectCommitExactPaths(
             transactionRepository,
             transaction,
             finalMessage(state),
@@ -4270,12 +4285,12 @@ export function createReviewOperations({
           );
           checkpoint(deps, 'finalization-commit-created');
         }
-        const phaseState = await mutateReview(absolute, expected(state), (current) => {
+        const phaseState = await mutateReview(absolute, expected(state), async (current) => {
           assertCurrentParticipant(current, 'author', input.identity, input.now);
           const locked =
             transaction === null
               ? null
-              : effectCommitExactPaths(
+              : await effectCommitExactPaths(
                   transactionRepository,
                   transaction,
                   finalMessage(current),
@@ -4340,7 +4355,7 @@ export function createReviewOperations({
       }
       const targetStatus =
         state.protocol.commit_mode === 'normal' ? 'accepted' : 'accepted-uncommitted';
-      const lineageReceipt = terminalLineageReceipt(state, events, absolute);
+      const lineageReceipt = await terminalLineageReceipt(state, events, absolute);
       const model = buildManifest({
         state,
         events,
@@ -4350,7 +4365,7 @@ export function createReviewOperations({
         lineage_receipt: lineageReceipt,
       });
       const manifest = sealManifest(model, { path: paths.manifest.relative });
-      ensureExactFile(paths.manifest.absolute, manifest.bytes);
+      await ensureExactFile(paths.manifest.absolute, manifest.bytes);
       const terminalType =
         state.protocol.commit_mode === 'normal'
           ? 'acceptance-committed'
@@ -4365,7 +4380,7 @@ export function createReviewOperations({
           transactionRepository
         );
         transaction = pathsToSeals([acceptance, manifest], { expected_head: expectedHead });
-        commit = effectCommitExactPaths(
+        commit = await effectCommitExactPaths(
           transactionRepository,
           transaction,
           finalMessage(state),
@@ -4373,7 +4388,7 @@ export function createReviewOperations({
         );
         checkpoint(deps, 'finalization-commit-created');
       }
-      const terminal = await mutateReview(absolute, expected(state), (current) => {
+      const terminal = await mutateReview(absolute, expected(state), async (current) => {
         assertCurrentParticipant(current, 'author', input.identity, input.now);
         assertFinalizationArtifact({
           state: current,
@@ -4393,7 +4408,7 @@ export function createReviewOperations({
         const lockedCommit =
           transaction === null
             ? null
-            : effectCommitExactPaths(
+            : await effectCommitExactPaths(
                 transactionRepository,
                 transaction,
                 finalMessage(current),
@@ -4486,7 +4501,7 @@ export function createReviewOperations({
       state.protocol.commit_mode === 'normal'
         ? 'accepted-over-objections'
         : 'accepted-over-objections-uncommitted';
-    const lineageReceipt = terminalLineageReceipt(state, events, absolute);
+    const lineageReceipt = await terminalLineageReceipt(state, events, absolute);
     const model = buildManifest({
       state,
       events,
@@ -4497,8 +4512,8 @@ export function createReviewOperations({
       lineage_receipt: lineageReceipt,
     });
     const manifest = sealManifest(model, { path: paths.manifest.relative });
-    ensureExactFile(paths.humanDecision.absolute, decision.bytes);
-    ensureExactFile(paths.manifest.absolute, manifest.bytes);
+    await ensureExactFile(paths.humanDecision.absolute, decision.bytes);
+    await ensureExactFile(paths.manifest.absolute, manifest.bytes);
     let commit = null;
     let trailers = null;
     let transaction = null;
@@ -4509,7 +4524,7 @@ export function createReviewOperations({
         transactionRepository
       );
       transaction = pathsToSeals([decision, manifest], { expected_head: expectedHead });
-      commit = effectCommitExactPaths(
+      commit = await effectCommitExactPaths(
         transactionRepository,
         transaction,
         finalMessage(state),
@@ -4525,7 +4540,7 @@ export function createReviewOperations({
       grant,
       now: input.now ?? new Date(),
       hostVerifier: deps.hostVerifier,
-      preflight: (current) => {
+      preflight: async (current) => {
         assertFinalizationArtifact({
           state: current,
           events,
@@ -4545,7 +4560,7 @@ export function createReviewOperations({
           );
         }
         if (transaction !== null) {
-          const locked = effectCommitExactPaths(
+          const locked = await effectCommitExactPaths(
             transactionRepository,
             transaction,
             finalMessage(current),
@@ -5115,7 +5130,7 @@ export function createReviewOperations({
     return path.join(workspace, 'handoffs', `${role}-resume.json`);
   }
 
-  function storeResumeHandle(workspace, role, resume) {
+  async function storeResumeHandle(workspace, role, resume) {
     if (!resume) return null;
     const file = resumeHandleFile(workspace, role);
     const bytes = Buffer.from(
@@ -5125,7 +5140,7 @@ export function createReviewOperations({
         handle: resume.handle,
       })}\n`
     );
-    ensureExactFile(file, bytes);
+    await ensureExactFile(file, bytes);
     return file;
   }
 
@@ -5249,8 +5264,8 @@ export function createReviewOperations({
       if (parsed.command === 'doctor') {
         let loaded;
         try {
-          assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
-          loaded = loadConfig({ cwd: io.cwd, env: io.env });
+          await assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
+          loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         } catch (error) {
           if (!(error instanceof AprError)) throw error;
           loaded = { config: { hosts: {}, review: {}, authority: {} }, diagnostic: error.toJSON() };
@@ -5261,7 +5276,7 @@ export function createReviewOperations({
         const response = doctor({
           ...detected,
           runtimeSelection: await inspectRuntimeSelection(),
-          authorityRows: authorityDiagnosticRows({ cwd: io.cwd }),
+          authorityRows: await authorityDiagnosticRows({ cwd: io.cwd }),
           ...context,
         });
         if (parsed.options.json) writeJson(io.stdout, response);
@@ -5286,7 +5301,7 @@ export function createReviewOperations({
         return response.healthy ? 0 : 1;
       }
       try {
-        assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
+        await assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
       } catch (error) {
         if (parsed.command !== 'status' || !(error instanceof AprError)) throw error;
         writeJson(io.stderr, error.toJSON());
@@ -5295,7 +5310,7 @@ export function createReviewOperations({
         const workspace = path.isAbsolute(parsed.args[0])
           ? parsed.args[0]
           : path.resolve(io.cwd, parsed.args[0]);
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         const requesterFingerprint =
           io.requesterFingerprint ??
           resolveIdentity({
@@ -5375,7 +5390,8 @@ export function createReviewOperations({
               runtimeImage: evidence?.journal.runtime,
             });
         const registered = inspectReview(values.workspace).participants.reviewer;
-        const configured = loadConfig({ cwd: io.cwd, env: io.env }).config.hosts?.claude?.identity;
+        const configured = (await loadConfig({ cwd: io.cwd, env: io.env })).config.hosts?.claude
+          ?.identity;
         const declared = registered
           ? registered.identity_source === 'declared'
           : Boolean(configured);
@@ -5480,7 +5496,7 @@ export function createReviewOperations({
       }
       let response;
       if (parsed.command === 'start') {
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         const effectiveTransportMode =
           parsed.options.transportMode ?? loaded.config.review?.transport_mode ?? 'manual';
         const author = await authorIdentityForStart(io, loaded);
@@ -5533,9 +5549,9 @@ export function createReviewOperations({
           startupDeps
         );
         if (transportCapability === 'resume-only')
-          storeResumeHandle(response.paths.workspace, 'author', resumable);
+          await storeResumeHandle(response.paths.workspace, 'author', resumable);
       } else if (parsed.command === 'join') {
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         const invitation = path.resolve(io.cwd, parsed.args[0]);
         const identity = resolveIdentity({
           role: 'reviewer',
@@ -5624,7 +5640,7 @@ export function createReviewOperations({
           }
         );
         if (transportCapability === 'resume-only')
-          storeResumeHandle(response.paths.workspace, 'reviewer', resumable);
+          await storeResumeHandle(response.paths.workspace, 'reviewer', resumable);
       } else if (parsed.command === 'status') {
         response = statusReview(path.resolve(io.cwd, parsed.args[0]), {
           now: io.now ?? new Date(),
@@ -5637,7 +5653,7 @@ export function createReviewOperations({
         const workspace = path.resolve(io.cwd, parsed.args[0]);
         const submitState = inspectReview(workspace);
         const active = submitState.protocol.current_actor;
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         const recipient = active === 'reviewer' ? 'author' : 'reviewer';
         const participant = submitState.participants[recipient];
         const transport =
@@ -5705,7 +5721,7 @@ export function createReviewOperations({
       } else if (parsed.command === 'advance') {
         const workspace = path.resolve(io.cwd, parsed.args[0]);
         const state = inspectReview(workspace);
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         const reviewer = state.participants.reviewer;
         const transport =
           state.protocol.startup.transport_mode === 'resume-only'
@@ -5724,7 +5740,7 @@ export function createReviewOperations({
       } else if (parsed.command === 'finalize') {
         const workspace = path.resolve(io.cwd, parsed.args[0]);
         const state = inspectReview(workspace);
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         response = await finalizeReview(
           {
             cwd: io.cwd,
@@ -5764,7 +5780,7 @@ export function createReviewOperations({
       } else if (parsed.command === 'recover') {
         const workspace = path.resolve(io.cwd, parsed.args[0]);
         const state = inspectReview(workspace);
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         const role =
           parsed.options.replaceParticipant ??
           (state.protocol.intervention?.interrupted_state?.startsWith('author')
@@ -5793,7 +5809,7 @@ export function createReviewOperations({
       } else if (parsed.command === 'abandon') {
         const workspace = path.resolve(io.cwd, parsed.args[0]);
         const state = inspectReview(workspace);
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         response = await abandonReview({
           workspace,
           identity: commandIdentity(io, state, null, { config: loaded.config }),
@@ -5803,7 +5819,7 @@ export function createReviewOperations({
       } else if (parsed.command === 'supersede') {
         const workspace = path.resolve(io.cwd, parsed.args[0]);
         const state = inspectReview(workspace);
-        const loaded = loadConfig({ cwd: io.cwd, env: io.env });
+        const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         response = await supersedeReview({
           workspace,
           identity: commandIdentity(io, state, null, { config: loaded.config }),
@@ -5859,7 +5875,7 @@ export function createReviewOperations({
   }
 
   async function runHandoffMcpStdio(options) {
-    assertProjectSetupCompatible({ cwd: options.repositoryRoot });
+    await assertProjectSetupCompatible({ cwd: options.repositoryRoot });
     const { serveHandoffMcpStdio } = await import('../mcp/server.mjs');
     return serveHandoffMcpStdio(options);
   }

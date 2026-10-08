@@ -23,7 +23,7 @@ export async function activatePrimaryPolicy(options = {}) {
 }
 export async function inspectPrimary({ cwd = process.cwd() } = {}) {
   const runtime = await assertSelectedRuntime();
-  const primary = resolvePrimaryAuthoritySync({ cwd });
+  const primary = await resolvePrimaryAuthoritySync({ cwd });
   const integration = await assertIntegrationCurrent({ primary, runtime });
   return Object.freeze({
     schema: 'ai-peer-review.primary-inspection/v1',

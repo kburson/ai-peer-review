@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
-import { platformSecurity } from '../broker/platform.mjs';
+import { initializePortableSystem } from '../broker/portable-system.mjs';
+import { performance } from 'node:perf_hooks';
 import { AprError } from '../errors.mjs';
-import { authorityGit, discoverAuthorityRepository } from '../git/repository.mjs';
+
 import { validatePrimaryStore } from './load.mjs';
 
 // cspell:ignore filemode
@@ -104,71 +105,144 @@ function ordinaryFile(root, relative) {
   return file;
 }
 
-export function readPrimaryRegistration(location) {
+function primaryContext(options = {}) {
+  const context = Object.freeze({
+    signal: options.signal ?? new AbortController().signal,
+    deadline: options.deadline ?? performance.now() + 30000,
+  });
+  if (!(context.signal instanceof AbortSignal) || !Number.isFinite(context.deadline))
+    unavailable('Invalid primary operation context.');
+  if (context.signal.aborted || performance.now() >= context.deadline)
+    unavailable('Primary operation aborted or deadline expired.');
+  return context;
+}
+const registrationGenerations = new WeakMap();
+const authorityGenerations = new WeakMap();
+const sameRegistrationGeneration = (a, b) =>
+  a &&
+  b &&
+  ['location', 'identity', 'fileVersion', 'rootIdentity', 'parentIdentity'].every(
+    (key) => a[key] === b[key]
+  );
+export async function assertPrimaryRegistrationGeneration(previous, current) {
+  if (
+    !sameRegistrationGeneration(
+      registrationGenerations.get(previous),
+      registrationGenerations.get(current)
+    )
+  )
+    unavailable('Primary registration physical generation changed or is not authenticated.');
+  return current;
+}
+export async function assertPrimaryAuthorityGeneration(previous, current) {
+  if (
+    !sameRegistrationGeneration(
+      authorityGenerations.get(previous),
+      authorityGenerations.get(current)
+    )
+  )
+    unavailable('Primary authority physical generation changed or is not authenticated.');
+  return current;
+}
+const retainedReadGuards = new Set();
+export async function retryPrimaryReadCleanup() {
+  for (const guard of retainedReadGuards) {
+    await guard.close();
+    retainedReadGuards.delete(guard);
+  }
+}
+export async function discoverPrimaryAuthorityRepository(cwd = process.cwd(), options = {}) {
+  const context = primaryContext(options);
   try {
-    const relative = 'ai-peer-review/primary-activation.json';
-    const file = ordinaryFile(location.commonDir, relative);
-    const stat = lstatSync(file);
-    if (stat.size > 1024 * 1024) unavailable('Primary registration exceeds its byte bound.');
-    if (
-      process.platform !== 'win32' &&
-      ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid())
-    )
-      unavailable('Primary registration must be account-owned and owner-only.');
-    const directoryStat = lstatSync(path.dirname(file));
-    if (
-      process.platform !== 'win32' &&
-      ((directoryStat.mode & 0o077) !== 0 || directoryStat.uid !== process.getuid())
-    )
-      unavailable('Primary registration directory must be account-owned and owner-only.');
-    let bytes;
-    if (process.platform === 'win32') {
-      // The existing native handle contract verifies the invoking account SID,
-      // owner-only DACL, ordinary file and held directory identity on read.
-      const directory = platformSecurity().openPrivateDirectory(path.dirname(file));
-      try {
-        bytes = directory.read(path.basename(file));
-        if (bytes === null || !directory.verify())
-          unavailable('Primary registration Windows ownership cannot be proven.');
-      } finally {
-        directory.close();
+    const system = await initializePortableSystem(context);
+    return await system.authorityRepository({ cwd });
+  } catch (cause) {
+    const error = new AprError(
+      'APR_REPOSITORY_NOT_FOUND',
+      'Stock physical Git authority is unavailable.',
+      {
+        recovery:
+          'Restore the actual stock Git executable and physical worktree before retrying primary authority.',
       }
-    } else bytes = readFileSync(file);
+    );
+    error.cause = cause;
+    throw error;
+  }
+}
+export async function readPrimaryRegistration(location, options = {}) {
+  const context = primaryContext(options);
+  let guard;
+  try {
+    const system = await initializePortableSystem(context);
+    if ((await system.canonicalPath(location.commonDir)) !== location.commonDir)
+      unavailable('Clone admission directory is not canonical.');
+    const file = primaryRegistrationPath(location.commonDir);
+    const receipt = await system.observeProtection({ root: path.dirname(file) });
+    if (!receipt.verified) unavailable('Primary registration protection cannot be proven.');
+    guard = await system.openProtectedRoot({ receipt });
+    const snapshot = await guard.readSnapshot(path.basename(file));
+    const bytes = snapshot.bytes;
+    if (bytes.length > 1024 * 1024) unavailable('Primary registration exceeds its byte bound.');
     const record = validatePrimaryActivation(JSON.parse(bytes));
     if (
       record.common_dir !== location.commonDir ||
       (location.mainRoot !== null && record.primary_root !== location.mainRoot) ||
-      realpathSync(record.primary_root) !== record.primary_root
+      (await system.canonicalPath(record.primary_root)) !== record.primary_root
     )
       unavailable('Primary registration does not identify this clone’s main worktree.');
     const primary =
       location.root === record.primary_root
         ? location
-        : discoverAuthorityRepository(record.primary_root);
+        : await discoverPrimaryAuthorityRepository(record.primary_root, context);
     if (
       primary.root !== record.primary_root ||
       primary.gitDir !== primary.commonDir ||
       primary.commonDir !== location.commonDir
     )
       unavailable('Registered primary Git membership is unavailable.');
-    return { record, bytes };
+    const fresh = await guard.readSnapshot(path.basename(file));
+    if (
+      fresh.identity !== snapshot.identity ||
+      fresh.fileVersion !== snapshot.fileVersion ||
+      !fresh.bytes.equals(bytes)
+    )
+      unavailable('Primary registration changed during its protected observation.');
+    await guard.verify();
+    primaryContext(context);
+    await guard.close();
+    guard = null;
+    const result = Object.freeze({ record, bytes });
+    registrationGenerations.set(result, snapshot);
+    return result;
   } catch (cause) {
+    if (guard)
+      try {
+        await guard.close();
+      } catch (cleanup) {
+        retainedReadGuards.add(guard);
+        cause.cause = cleanup;
+      }
     if (cause instanceof AprError && cause.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE')
       throw cause;
     unavailable('Primary registration is absent, unreadable or physically invalid.', {}, cause);
   }
 }
 
-export function resolvePrimaryAuthoritySync({ cwd = process.cwd() } = {}) {
+export async function resolvePrimaryAuthoritySync({ cwd = process.cwd(), ...options } = {}) {
+  const context = primaryContext(options);
   try {
-    const location = discoverAuthorityRepository(cwd);
-    const { record, bytes } = readPrimaryRegistration(location);
+    const location = await discoverPrimaryAuthorityRepository(cwd, context);
+    const registration = await readPrimaryRegistration(location, context);
+    const { record, bytes } = registration;
     if (!record.primary_initialized)
       unavailable('Primary registration is explicitly uninitialized.');
     const owned = Object.entries(record.owned_blobs);
-    const paths = owned.map(([, entry]) => entry.path);
-    const tree = authorityGit(record.primary_root, ['ls-tree', '-z', 'HEAD', '--', ...paths]);
-    const index = authorityGit(record.primary_root, ['ls-files', '--stage', '-z', '--', ...paths]);
+    const system = await initializePortableSystem(context);
+    const policy = await system.primaryPolicy({
+      root: record.primary_root,
+      blobs: owned.map(([, entry]) => entry.blob),
+    });
+    const { tree, index, batch } = policy;
     const trees = new Map(
       tree
         .split(String.fromCharCode(0))
@@ -181,10 +255,6 @@ export function resolvePrimaryAuthoritySync({ cwd = process.cwd() } = {}) {
       if (indexes.has(name)) unavailable('Primary owned index contains conflicting stages.');
       indexes.set(name, line);
     }
-    const batch = authorityGit(record.primary_root, ['cat-file', '--batch'], {
-      buffer: true,
-      input: owned.map(([, entry]) => entry.blob).join('\n') + '\n',
-    });
     let offset = 0;
     const committedBlobs = new Map();
     for (const [, entry] of owned) {
@@ -240,7 +310,49 @@ export function resolvePrimaryAuthoritySync({ cwd = process.cwd() } = {}) {
       if (name === 'config') config = validatePrimaryStore(JSON.parse(working.toString('utf8')));
       observed[name] = Object.freeze({ ...entry });
     }
-    return Object.freeze({
+    const final = await readPrimaryRegistration(location, context);
+    if (
+      !final.bytes.equals(bytes) ||
+      !sameRegistrationGeneration(
+        registrationGenerations.get(registration),
+        registrationGenerations.get(final)
+      )
+    )
+      unavailable('Primary registration physical generation changed during policy observation.');
+    primaryContext(context);
+    for (const [, entry] of owned) {
+      if (
+        !committedBlobs
+          .get(entry.blob)
+          .equals(readFileSync(ordinaryFile(record.primary_root, entry.path)))
+      )
+        unavailable('Primary owned file changed during protected observation.', {
+          path: entry.path,
+        });
+    }
+    const finalPolicy = await system.primaryPolicy({
+      root: record.primary_root,
+      blobs: owned.map(([, entry]) => entry.blob),
+    });
+    if (
+      finalPolicy.tree !== tree ||
+      finalPolicy.index !== index ||
+      !finalPolicy.batch.equals(batch)
+    )
+      unavailable('Primary Git authority changed during protected observation.');
+    primaryContext(context);
+    for (const [, entry] of owned) {
+      if (
+        !committedBlobs
+          .get(entry.blob)
+          .equals(readFileSync(ordinaryFile(record.primary_root, entry.path)))
+      )
+        unavailable('Primary working policy changed during final stock observation.', {
+          path: entry.path,
+        });
+    }
+    primaryContext(context);
+    const result = Object.freeze({
       root: record.primary_root,
       commonDir: location.commonDir,
       configPath: path.join(record.primary_root, PRIMARY_CONFIG_PATH),
@@ -251,6 +363,8 @@ export function resolvePrimaryAuthoritySync({ cwd = process.cwd() } = {}) {
       activeWorktreeRoot: location.root,
       config,
     });
+    authorityGenerations.set(result, registrationGenerations.get(final));
+    return result;
   } catch (cause) {
     if (cause instanceof AprError && cause.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE')
       throw cause;
@@ -259,5 +373,5 @@ export function resolvePrimaryAuthoritySync({ cwd = process.cwd() } = {}) {
 }
 
 export async function resolvePrimaryAuthority(options) {
-  return resolvePrimaryAuthoritySync(options);
+  return await resolvePrimaryAuthoritySync(options);
 }

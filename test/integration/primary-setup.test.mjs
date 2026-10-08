@@ -439,8 +439,8 @@ test(
     // This fixture tests the legacy guard; no registration is present yet.
     const { rmSync } = await import('node:fs');
     rmSync(f.registrationPath);
-    assert.throws(
-      () => assertProjectSetupCompatible({ cwd: f.root, env: {} }),
+    await assert.rejects(
+      async () => await assertProjectSetupCompatible({ cwd: f.root, env: {} }),
       (error) =>
         error.code === 'APR_SETUP_VERSION_MISMATCH' && error.details.migration_required === true
     );
@@ -583,8 +583,8 @@ test(
     const { discoverAuthorityRepository } = await import('../../src/git/repository.mjs');
     const bytes = readFileSync(f.registrationPath, 'utf8');
     writeFileSync(f.registrationPath, ' '.repeat(1024 * 1024) + bytes);
-    assert.throws(
-      () => readPrimaryRegistration(discoverAuthorityRepository(f.root)),
+    await assert.rejects(
+      async () => await readPrimaryRegistration(discoverAuthorityRepository(f.root)),
       (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE'
     );
   }
@@ -600,7 +600,7 @@ test(
   },
   async (t) => {
     const f = await setupHostFixture(t);
-    f.write('.git/ai-peer-review/admission.lock/owner.json', '{"operation":"other-maintenance"}\n');
+    f.admission.block();
     await assert.rejects(
       f.setupApply(),
       (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE'
@@ -844,14 +844,14 @@ test(
   },
   async (t) => {
     const f = await setupHostFixture(t);
-    const { withPrimaryAdmissionFence } = await import('../../src/config/primary-admission.mjs');
     await assert.rejects(
-      withPrimaryAdmissionFence({ commonDir: f.commonDir }, async () => {
-        f.write('.git/ai-peer-review/admission.lock/owner.json', '{"owner":"changed"}\n');
+      f.admission.run({ commonDir: f.commonDir }, async () => {
+        f.admission.corruptHeld();
       }),
       (error) => error.code === 'APR_PRIMARY_AUTHORITY_UNAVAILABLE'
     );
-    assert.equal(f.read('.git/ai-peer-review/admission.lock/owner.json'), '{"owner":"changed"}\n');
+    assert.equal(f.admission.slots.size, 1);
+    assert.equal(f.admission.retained.size, 1);
   }
 );
 
@@ -958,11 +958,13 @@ test(
     const preferences = path.join(f.parent, 'user preferences');
     mkdirSync(preferences);
     const { configPaths } = await import('../../src/config/load.mjs');
-    const userFile = configPaths({
-      cwd: f.home,
-      home: f.home,
-      env: { XDG_CONFIG_HOME: preferences },
-    }).user;
+    const userFile = (
+      await configPaths({
+        cwd: f.home,
+        home: f.home,
+        env: { XDG_CONFIG_HOME: preferences },
+      })
+    ).user;
     const { createSetupMaintenanceCore } = await import('../../src/config/setup-core.mjs');
     const { fileURLToPath } = await import('node:url');
     const core = createSetupMaintenanceCore({
@@ -1024,13 +1026,16 @@ test(
       })
     );
     const { loadConfig } = await import('../../src/config/load.mjs');
-    const loaded = loadConfig({ cwd: f.root, home: f.home, env: user.env });
+    const loaded = await loadConfig({ cwd: f.root, home: f.home, env: user.env });
     assert.equal(loaded.config.review.max_turns, 7);
     assert.deepEqual(loaded.config.hosts.codex.resume.command, ['codex', 'resume']);
     assert.equal(loaded.paths.primaryRoot, null);
-    assert.throws(() => assertProjectSetupCompatible({ cwd: f.root, env: user.env }), {
-      code: 'APR_SETUP_VERSION_MISMATCH',
-    });
+    await assert.rejects(
+      async () => await assertProjectSetupCompatible({ cwd: f.root, env: user.env }),
+      {
+        code: 'APR_SETUP_VERSION_MISMATCH',
+      }
+    );
   }
 );
 

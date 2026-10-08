@@ -418,7 +418,7 @@ test('restart reconciles a crash after reservation before provider delivery', as
     workspace: root,
     now: NOW,
   });
-  reserveWakeOperation(root, decision, new Date(NOW));
+  await reserveWakeOperation(root, decision, new Date(NOW));
 
   const recovered = await reconcileWake(input(root, wakeAdapter, NOW + 1000));
   assert.equal(wakeAdapter.reconciliations.length, 1);
@@ -492,8 +492,8 @@ test('foreground coordinator honors only its exact durable stop request', async 
     ...input(root, wakeAdapter),
     owner: { kind: 'cli', pid: 42 },
     leaseOptions: { instanceId: 'coordinator-stop-01', nonce: 'nonce-stop-01' },
-    subscribe(_workspace, handlers) {
-      requestCoordinatorStop(root, new Date(NOW + 1000));
+    async subscribe(_workspace, handlers) {
+      await requestCoordinatorStop(root, new Date(NOW + 1000));
       handlers.onChange();
       return { close() {} };
     },
@@ -576,7 +576,7 @@ test('default observation ignores its own heartbeat and reacts to only an exact 
       await new Promise((resolve) => setImmediate(resolve));
       assert.equal(inspections, 2);
 
-      requestCoordinatorStop(root, new Date(NOW + 1000));
+      await requestCoordinatorStop(root, new Date(NOW + 1000));
       coordinatorWatcher.callback('rename', 'stop-request.json');
       await new Promise((resolve) => setImmediate(resolve));
     },

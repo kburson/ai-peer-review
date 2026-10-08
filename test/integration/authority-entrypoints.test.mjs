@@ -132,21 +132,22 @@ test('direct provider hook refuses source execution before writing exact-session
   const root = workspace(t),
     token = 'a'.repeat(32);
   await assert.rejects(
-    Promise.resolve().then(() =>
-      captureCodexStartHook({
-        event: {
-          cwd: root,
-          hook_event_name: 'PreToolUse',
-          tool_name: 'Bash',
-          model: 'gpt-fixture',
-          session_id: 'fixture-session',
-          turn_id: 'fixture-turn',
-          tool_use_id: 'fixture-tool',
-          tool_input: { command: 'peer-review start docs/spec.md' },
-        },
-        sourceVersion: 'fixture',
-        token,
-      })
+    Promise.resolve().then(
+      async () =>
+        await captureCodexStartHook({
+          event: {
+            cwd: root,
+            hook_event_name: 'PreToolUse',
+            tool_name: 'Bash',
+            model: 'gpt-fixture',
+            session_id: 'fixture-session',
+            turn_id: 'fixture-turn',
+            tool_use_id: 'fixture-tool',
+            tool_input: { command: 'peer-review start docs/spec.md' },
+          },
+          sourceVersion: 'fixture',
+          token,
+        })
     ),
     runtimeRefusal
   );
@@ -332,10 +333,11 @@ import { applyReviewRecord, runClaudeReviewerLaunch } from '../../src/public-api
 test('public record application refuses source execution before accepting a relocation plan', async (t) => {
   const root = workspace(t);
   await assert.rejects(
-    Promise.resolve().then(() =>
-      applyReviewRecord(
-        Object.freeze({ schema: 'ai-peer-review.relocation-plan/v1', repository_root: root })
-      )
+    Promise.resolve().then(
+      async () =>
+        await applyReviewRecord(
+          Object.freeze({ schema: 'ai-peer-review.relocation-plan/v1', repository_root: root })
+        )
     ),
     runtimeRefusal
   );
@@ -499,9 +501,12 @@ test(
 test('direct coordinator lease refuses before directory or lease creation', async (t) => {
   const root = workspace(t);
   const { acquireCoordinatorLease } = await import('../../src/coordinator/lease.mjs');
-  assert.throws(() => acquireCoordinatorLease(root, { kind: 'app-host', pid: process.pid }), {
-    code: 'APR_OPERATION_AUTHORITY_UNAVAILABLE',
-  });
+  await assert.rejects(
+    async () => await acquireCoordinatorLease(root, { kind: 'app-host', pid: process.pid }),
+    {
+      code: 'APR_OPERATION_AUTHORITY_UNAVAILABLE',
+    }
+  );
   assert.equal(existsSync(path.join(root, 'coordinator')), false);
 });
 
@@ -513,16 +518,16 @@ test('provider stream refuses to persist join evidence without current operation
     operationId: 'join:review-1',
     expectedCommand: 'peer-review join /repo/invitation.md',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'system',
     subtype: 'init',
     model: 'claude-opus-5',
     session_id: 'private-session',
     claude_code_version: '2.1.278',
   });
-  assert.throws(
-    () =>
-      recorder.accept({
+  await assert.rejects(
+    async () =>
+      await recorder.accept({
         type: 'assistant',
         session_id: 'private-session',
         timestamp: '2026-10-02T12:00:00.000Z',

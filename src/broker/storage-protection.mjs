@@ -841,7 +841,9 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     )
       throw failure('APR_BROKER_STALE', 'private-file-changed');
   }
-  async function readObserved(name, writable = false) {
+  async function readObserved(name, writable = false, maxBytes = MAX_BYTES) {
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_BYTES)
+      throw failure('APR_BROKER_PATH_INVALID', 'private-read-bound-invalid');
     const target = path.join(r.root, resourceName(name));
     await verify();
     let file;
@@ -862,10 +864,20 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       if (
         identity(stat) !== entry.identity ||
         version(stat) !== entry.fileVersion ||
-        stat.size > BigInt(MAX_BYTES)
+        stat.size > BigInt(maxBytes)
       )
         throw failure('APR_BROKER_STALE', 'private-file-changed');
-      const bytes = await file.readFile();
+      const buffer = Buffer.alloc(Number(stat.size) + 1);
+      let offset = 0;
+      while (offset < buffer.length) {
+        budget.check();
+        const { bytesRead } = await file.read(buffer, offset, buffer.length - offset, offset);
+        if (bytesRead === 0) break;
+        offset += bytesRead;
+      }
+      if (offset !== Number(stat.size) || offset > maxBytes)
+        throw failure('APR_BROKER_STALE', 'private-read-bound-changed');
+      const bytes = buffer.subarray(0, offset);
       await verify();
       await matchFile(entry, file);
       return { ...entry, bytes };
@@ -1119,8 +1131,8 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     }, resourceLease);
   }
 
-  async function readSnapshot(name) {
-    const observed = await readObserved(name);
+  async function readSnapshot(name, maxBytes = MAX_BYTES) {
+    const observed = await readObserved(name, false, maxBytes);
     try {
       return Object.freeze({
         name,

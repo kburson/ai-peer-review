@@ -35,8 +35,12 @@ for (const { separateGitDir, pathsWithSpaces } of [
           : false,
     },
     async (t) => {
-      const f = createPrimaryAuthorityFixture(t, { separateGitDir, pathsWithSpaces });
-      const loaded = loadConfig({ cwd: path.join(f.linked, 'docs'), env: {}, home: f.outside });
+      const f = await createPrimaryAuthorityFixture(t, { separateGitDir, pathsWithSpaces });
+      const loaded = await loadConfig({
+        cwd: path.join(f.linked, 'docs'),
+        env: {},
+        home: f.outside,
+      });
       assert.equal(loaded.config.review?.max_turns, 4);
       assert.equal(loaded.paths.project, f.configPath);
       assert.equal(loaded.paths.primaryRoot, f.root);
@@ -59,7 +63,7 @@ test(
         : false,
   },
   async (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+    const f = await createPrimaryAuthorityFixture(t);
     writeFileSync(
       path.join(f.linked, '.ai-peer-review.json'),
       JSON.stringify({
@@ -67,7 +71,7 @@ test(
         review: { max_turns: 99, claim_ttl_ms: 99 },
       })
     );
-    const loaded = loadConfig({ cwd: f.linked, env: {}, home: f.outside });
+    const loaded = await loadConfig({ cwd: f.linked, env: {}, home: f.outside });
     assert.equal(loaded.config.review.max_turns, 4);
     assert.equal(loaded.config.review.claim_ttl_ms, undefined);
     assert.equal(loaded.diagnostics[0].code, 'linked-config-ignored');
@@ -84,7 +88,7 @@ for (const mutation of ['working', 'staged', 'deleted', 'symlink', 'committed', 
           : false,
     },
     async (t) => {
-      const f = createPrimaryAuthorityFixture(t);
+      const f = await createPrimaryAuthorityFixture(t);
       if (mutation === 'deleted') rmSync(f.configPath);
       else if (mutation === 'symlink') {
         rmSync(f.configPath);
@@ -109,9 +113,12 @@ for (const mutation of ['working', 'staged', 'deleted', 'symlink', 'committed', 
         }
       }
       await assert.rejects(resolve(f.linked), { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' });
-      assert.throws(() => loadConfig({ cwd: f.linked, env: {}, home: f.outside }), {
-        code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
-      });
+      await assert.rejects(
+        async () => await loadConfig({ cwd: f.linked, env: {}, home: f.outside }),
+        {
+          code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+        }
+      );
     }
   );
 }
@@ -125,7 +132,7 @@ test(
         : false,
   },
   async (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+    const f = await createPrimaryAuthorityFixture(t);
     f.git('switch', '-c', 'same-policy');
     mkdirSync(path.join(f.commonDir, 'rebase-merge'));
     await resolve(f.linked);
@@ -143,7 +150,7 @@ test(
         : false,
   },
   async (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+    const f = await createPrimaryAuthorityFixture(t);
     f.git('switch', '--detach', f.head);
     await assert.rejects(resolve(f.linked), { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' });
   }
@@ -167,7 +174,7 @@ for (const corruption of [
           : false,
     },
     async (t) => {
-      const f = createPrimaryAuthorityFixture(t);
+      const f = await createPrimaryAuthorityFixture(t);
       const record = structuredClone(f.record);
       if (corruption === 'missing') rmSync(f.registrationPath);
       if (corruption === 'foreign-root') record.primary_root = f.linked;
@@ -195,8 +202,8 @@ test(
         : false,
   },
   async (t) => {
-    const f = createPrimaryAuthorityFixture(t);
-    const foreign = createPrimaryAuthorityFixture(t);
+    const f = await createPrimaryAuthorityFixture(t);
+    const foreign = await createPrimaryAuthorityFixture(t);
     const changes = {
       GIT_DIR: foreign.commonDir,
       GIT_COMMON_DIR: foreign.commonDir,
@@ -210,7 +217,7 @@ test(
     try {
       Object.assign(process.env, changes);
       assert.equal((await resolve(f.linked)).root, f.root);
-      assert.equal(configPaths({ cwd: f.linked }).primaryRoot, f.root);
+      assert.equal((await configPaths({ cwd: f.linked })).primaryRoot, f.root);
     } finally {
       for (const key of Object.keys(changes)) {
         if (prior[key] === undefined) delete process.env[key];
@@ -229,7 +236,7 @@ test(
         : false,
   },
   async (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+    const f = await createPrimaryAuthorityFixture(t);
     if (process.platform !== 'win32') {
       chmodSync(f.registrationPath, 0o644);
       await assert.rejects(resolve(f.root), { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' });
@@ -243,7 +250,7 @@ test(
   }
 );
 
-test('outside Git resolves user preferences only and no project paths', (t) => {
+test('outside Git resolves user preferences only and no project paths', async (t) => {
   const f = createRepositoryFixture(t);
   const dir = path.join(f.outside, '.config', 'ai-peer-review');
   mkdirSync(dir, { recursive: true });
@@ -254,7 +261,7 @@ test('outside Git resolves user preferences only and no project paths', (t) => {
       hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
     })
   );
-  const loaded = loadConfig({ cwd: f.outside, env: {}, home: f.outside });
+  const loaded = await loadConfig({ cwd: f.outside, env: {}, home: f.outside });
   assert.deepEqual(loaded.config.hosts.codex.resume.command, ['codex', 'resume']);
   assert.equal(loaded.paths.project, null);
   assert.equal(loaded.paths.primaryRoot, null);
@@ -269,12 +276,15 @@ test(
         ? 'Native broker security required on Windows; paused for #102/#107'
         : false,
   },
-  (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+  async (t) => {
+    const f = await createPrimaryAuthorityFixture(t);
     rmSync(f.registrationPath);
-    assert.throws(() => loadConfig({ cwd: f.linked, env: {}, home: f.outside }), {
-      code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
-    });
+    await assert.rejects(
+      async () => await loadConfig({ cwd: f.linked, env: {}, home: f.outside }),
+      {
+        code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+      }
+    );
   }
 );
 
@@ -287,7 +297,7 @@ test(
         : false,
   },
   async (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+    const f = await createPrimaryAuthorityFixture(t);
     writeFileSync(f.skillPath, '# Modified shared procedure\n');
     await assert.rejects(resolve(f.linked), { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' });
     rmSync(f.skillPath);
@@ -304,7 +314,7 @@ test(
         : false,
   },
   async (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+    const f = await createPrimaryAuthorityFixture(t);
     writeFileSync(f.configPath, JSON.stringify({ ...f.policy, review: { max_turns: 7 } }) + '\n');
     f.git('commit', '--only', '-m', 'new committed policy', '--', '.ai-peer-review/config.json');
     const before = readFileSync(f.registrationPath);
@@ -329,11 +339,11 @@ test(
         ? 'Native broker security required on Windows; paused for #102/#107'
         : false,
   },
-  (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+  async (t) => {
+    const f = await createPrimaryAuthorityFixture(t);
     renameSync(f.root, path.join(f.parent, 'moved-primary'));
-    assert.throws(
-      () => loadConfig({ cwd: path.join(f.linked, 'docs'), env: {}, home: f.outside }),
+    await assert.rejects(
+      async () => await loadConfig({ cwd: path.join(f.linked, 'docs'), env: {}, home: f.outside }),
       {
         code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
       }
@@ -350,7 +360,7 @@ test(
         : false,
   },
   async (t) => {
-    const f = createPrimaryAuthorityFixture(t);
+    const f = await createPrimaryAuthorityFixture(t);
     const abandoned = path.join(f.parent, 'abandoned');
     f.git('worktree', 'add', '--detach', abandoned, 'HEAD');
     rmSync(abandoned, { recursive: true, force: true });

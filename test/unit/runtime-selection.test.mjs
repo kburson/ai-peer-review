@@ -20,7 +20,6 @@ test('runtime registration refuses caller-selected account and package roots', (
 
 import {
   chmodSync,
-  lstatSync,
   readFileSync,
   writeFileSync,
   symlinkSync,
@@ -40,133 +39,92 @@ async function core() {
   return loaded;
 }
 
-test(
-  'one account selection is shared by clones and ignores caller environment',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
-    const registered = await store.register({ dryRun: false });
-    for (const env of [
-      { HOME: '/forged' },
-      { USERPROFILE: '/forged' },
-      { XDG_CONFIG_HOME: '/forged' },
-      { APPDATA: '/forged' },
-    ]) {
-      assert.equal(
-        (await store.read({ env, cwd: '/other-clone' })).selection_id,
-        registered.selection_id
-      );
-    }
+test('one account selection is shared by clones and ignores caller environment', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
+  const registered = await store.register({ dryRun: false });
+  for (const env of [
+    { HOME: '/forged' },
+    { USERPROFILE: '/forged' },
+    { XDG_CONFIG_HOME: '/forged' },
+    { APPDATA: '/forged' },
+  ]) {
     assert.equal(
-      await store.location(),
-      path.join(
-        f.home,
-        process.platform === 'win32'
-          ? 'AppData/Local/ai-peer-review/runtime-selection.json'
-          : '.config/ai-peer-review/runtime-selection.json'
-      )
+      (await store.read({ env, cwd: '/other-clone' })).selection_id,
+      registered.selection_id
     );
   }
-);
-
-test(
-  'unavailable account and unsafe selection bytes refuse',
-  {
-    skip:
+  assert.equal(
+    await store.location(),
+    path.join(
+      f.home,
       process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    await assert.rejects(
-      createSelectionStore({
-        account: () => {
-          throw new Error('unavailable');
-        },
-        packageRoot: f.packageRoot,
-      }).read(),
-      { code: 'APR_RUNTIME_ACCOUNT_UNAVAILABLE' }
-    );
-    const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
-    await store.register({ dryRun: false });
-    if (process.platform === 'win32') writeFileSync(await store.location(), 'x'.repeat(8193));
-    else chmodSync(await store.location(), 0o644);
-    await assert.rejects(store.read(), { code: 'APR_RUNTIME_SELECTION_INVALID' });
-  }
-);
+        ? 'AppData/Local/ai-peer-review/runtime-selection.json'
+        : '.config/ai-peer-review/runtime-selection.json'
+    )
+  );
+});
 
-test(
-  'in-place upgrade keeps locator generation but fences old observations',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
-    const first = await store.register({ dryRun: false });
-    const observed = await store.assertSelected();
-    writeFileSync(path.join(f.packageRoot, 'runner.mjs'), 'export const version = 2;\n');
-    f.seal();
-    assert.equal((await store.read()).selection_id, first.selection_id);
-    await assert.rejects(store.assertSelected({ previousObservation: observed }), {
-      code: 'APR_RUNTIME_CHANGED',
-    });
-    const fresh = await createSelectionStore({
-      account: f.account,
+test('unavailable account and unsafe selection bytes refuse', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  await assert.rejects(
+    createSelectionStore({
+      account: () => {
+        throw new Error('unavailable');
+      },
       packageRoot: f.packageRoot,
-    }).assertSelected();
-    assert.notEqual(fresh.inventoryDigest, observed.inventoryDigest);
-  }
-);
+    }).read(),
+    { code: 'APR_RUNTIME_ACCOUNT_UNAVAILABLE' }
+  );
+  const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
+  await store.register({ dryRun: false });
+  if (process.platform === 'win32') writeFileSync(await store.location(), 'x'.repeat(8193));
+  else chmodSync(await store.location(), 0o644);
+  await assert.rejects(store.read(), { code: 'APR_RUNTIME_SELECTION_INVALID' });
+});
 
-test(
-  'mixed replacement and unsafe declared paths refuse inventory admission',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
-    await store.register({ dryRun: false });
-    writeFileSync(path.join(f.packageRoot, 'runner.mjs'), 'mixed bytes');
-    await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_INVENTORY_INVALID' });
-    f.seal();
-    writeFileSync(
-      path.join(f.packageRoot, 'runtime-inventory.json'),
-      JSON.stringify({
-        schema: 'ai-peer-review.runtime-inventory/v1',
-        files: [{ path: '../escape', sha256: '0'.repeat(64) }],
-      })
-    );
-    await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_INVENTORY_INVALID' });
-  }
-);
+test('in-place upgrade keeps locator generation but fences old observations', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
+  const first = await store.register({ dryRun: false });
+  const observed = await store.assertSelected();
+  writeFileSync(path.join(f.packageRoot, 'runner.mjs'), 'export const version = 2;\n');
+  f.seal();
+  assert.equal((await store.read()).selection_id, first.selection_id);
+  await assert.rejects(store.assertSelected({ previousObservation: observed }), {
+    code: 'APR_RUNTIME_CHANGED',
+  });
+  const fresh = await createSelectionStore({
+    account: f.account,
+    packageRoot: f.packageRoot,
+  }).assertSelected();
+  assert.notEqual(fresh.inventoryDigest, observed.inventoryDigest);
+});
+
+test('mixed replacement and unsafe declared paths refuse inventory admission', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
+  await store.register({ dryRun: false });
+  writeFileSync(path.join(f.packageRoot, 'runner.mjs'), 'mixed bytes');
+  await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_INVENTORY_INVALID' });
+  f.seal();
+  writeFileSync(
+    path.join(f.packageRoot, 'runtime-inventory.json'),
+    JSON.stringify({
+      schema: 'ai-peer-review.runtime-inventory/v1',
+      files: [{ path: '../escape', sha256: '0'.repeat(64) }],
+    })
+  );
+  await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_INVENTORY_INVALID' });
+});
 
 test(
   'stable observation is reusable after revalidation and symlink modules refuse',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
+  {},
   async (t) => {
     const { createSelectionStore } = await core();
     const f = runtimeFixture(t);
@@ -196,12 +154,7 @@ test('runtime registration has a complete offline help contract', () => {
 
 test(
   'relocation requires explicit update and rejects stale generation or forged caller paths',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
+  {},
   async (t) => {
     const { createSelectionStore } = await core();
     const a = runtimeFixture(t),
@@ -227,133 +180,76 @@ test(
   }
 );
 
-test(
-  'Node below 24 and unknown selection schema refuse without registration',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    const old = createSelectionStore({
-      account: f.account,
-      packageRoot: f.packageRoot,
-      nodeVersion: '23.0.0',
-    });
-    await assert.rejects(old.register(), { code: 'APR_RUNTIME_INSTALLATION_INVALID' });
-    const current = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
-    await current.register();
-    const file = await current.location();
-    const value = JSON.parse(readFileSync(file));
-    value.extra = 'foreign';
-    writeFileSync(file, JSON.stringify(value));
-    await assert.rejects(current.read(), { code: 'APR_RUNTIME_SELECTION_INVALID' });
-  }
-);
+test('Node below 24 and unknown selection schema refuse without registration', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  const old = createSelectionStore({
+    account: f.account,
+    packageRoot: f.packageRoot,
+    nodeVersion: '23.0.0',
+  });
+  await assert.rejects(old.register(), { code: 'APR_RUNTIME_INSTALLATION_INVALID' });
+  const current = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
+  await current.register();
+  const file = await current.location();
+  const value = JSON.parse(readFileSync(file));
+  value.extra = 'foreign';
+  writeFileSync(file, JSON.stringify(value));
+  await assert.rejects(current.read(), { code: 'APR_RUNTIME_SELECTION_INVALID' });
+});
 
-test(
-  'extra executable files cannot hide outside the declared module inventory',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
-    await store.register();
-    writeFileSync(path.join(f.packageRoot, 'foreign.mjs'), 'export const extra = true;');
-    await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_INVENTORY_INVALID' });
-  }
-);
+test('extra executable files cannot hide outside the declared module inventory', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  const store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
+  await store.register();
+  writeFileSync(path.join(f.packageRoot, 'foreign.mjs'), 'export const extra = true;');
+  await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_INVENTORY_INVALID' });
+});
 
-test(
-  'Windows account authority refuses when its native ownership verifier is unavailable',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    const store = createSelectionStore({
-      account: f.account,
-      packageRoot: f.packageRoot,
-      kind: 'win32',
-      security: () => {
-        throw new Error('helper unavailable');
-      },
-    });
-    await assert.rejects(store.register(), { code: 'APR_RUNTIME_ACCOUNT_UNAVAILABLE' });
-  }
-);
+test('caller-selected foreign OS account authority refuses', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  const store = createSelectionStore({
+    account: f.account,
+    packageRoot: f.packageRoot,
+    kind: process.platform === 'win32' ? 'linux' : 'win32',
+    security: () => {
+      throw new Error('helper unavailable');
+    },
+  });
+  await assert.rejects(store.register(), { code: 'APR_RUNTIME_ACCOUNT_UNAVAILABLE' });
+});
 
-test(
-  'verified Windows account uses fixed LocalAppData and private native reads',
-  {
-    skip:
+test('selection uses actual host protection and never invokes a caller native adapter', async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  let calls = 0;
+  const store = createSelectionStore({
+    account: f.account,
+    packageRoot: f.packageRoot,
+    security: () => {
+      calls++;
+      throw new Error('caller native adapter invoked');
+    },
+  });
+  await store.register();
+  assert.equal((await store.assertSelected()).packageRoot, f.packageRoot);
+  assert.equal(
+    await store.location(),
+    path.join(
+      f.home,
       process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    let reads = 0;
-    const protectedFiles = new Set();
-    const security = () => ({
-      userId: () => 'fixture-sid',
-      openPrivateDirectory(directory) {
-        mkdirSync(directory, { recursive: true, mode: 0o700 });
-        return {
-          verify: () => true,
-          create: (name, bytes) => {
-            const file = path.join(directory, name);
-            writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
-            protectedFiles.add(lstatSync(file).ino);
-          },
-          read: (name) => {
-            reads++;
-            const file = path.join(directory, name);
-            if (!protectedFiles.has(lstatSync(file).ino))
-              throw new Error('Windows selection file lacks a protected owner-only ACL');
-            return readFileSync(file);
-          },
-          close() {},
-        };
-      },
-    });
-    const store = createSelectionStore({
-      account: f.account,
-      packageRoot: f.packageRoot,
-      kind: 'win32',
-      security,
-    });
-    await store.register();
-    assert.equal(
-      await store.location(),
-      path.join(f.home, 'AppData/Local/ai-peer-review/runtime-selection.json')
-    );
-    assert.equal((await store.assertSelected()).packageRoot, f.packageRoot);
-    assert.ok(reads >= 2);
-  }
-);
+        ? 'AppData/Local/ai-peer-review/runtime-selection.json'
+        : '.config/ai-peer-review/runtime-selection.json'
+    )
+  );
+  assert.equal(calls, 0);
+});
 
 test(
   'an old process fences changed runtime bytes even without a caller observation',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
+  {},
   async (t) => {
     const { createSelectionStore } = await core();
     const f = runtimeFixture(t);
@@ -371,39 +267,25 @@ test(
   }
 );
 
-test(
-  'in-place Node replacement fences the old process',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    const nodeExecutable = path.join(f.root, 'fixture-node');
-    writeFileSync(nodeExecutable, 'fixture node one');
-    const store = createSelectionStore({
-      account: f.account,
-      packageRoot: f.packageRoot,
-      nodeExecutable,
-    });
-    await store.register();
-    writeFileSync(nodeExecutable, 'fixture node two');
-    await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_CHANGED' });
-  }
-);
+test('in-place Node replacement fences the old process', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  const nodeExecutable = path.join(f.root, 'fixture-node');
+  writeFileSync(nodeExecutable, 'fixture node one');
+  const store = createSelectionStore({
+    account: f.account,
+    packageRoot: f.packageRoot,
+    nodeExecutable,
+  });
+  await store.register();
+  writeFileSync(nodeExecutable, 'fixture node two');
+  await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_CHANGED' });
+});
 
 import { randomUUID } from 'node:crypto';
 test(
   'selection generation changes fence the process without caller observations',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
+  {},
   async (t) => {
     const { createSelectionStore } = await core();
     const f = runtimeFixture(t);
@@ -421,12 +303,7 @@ test(
 import { performance } from 'node:perf_hooks';
 test(
   'revalidated admission preserves unrelated clone dependencies and records timing',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
+  {},
   async (t) => {
     const { createSelectionStore } = await core();
     const f = runtimeFixture(t);
@@ -459,12 +336,7 @@ test(
 
 test(
   'bounded ordinary reads reject oversized and linked files before consuming bytes',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
+  {},
   async (t) => {
     const inventory = await import('../../src/startup/runtime-inventory.mjs');
     assert.equal(
@@ -489,12 +361,7 @@ test(
 
 test(
   'one Node-manager relocation updates both clones through the account generation',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
+  {},
   async (t) => {
     const { createSelectionStore } = await core();
     const f = runtimeFixture(t);
@@ -530,35 +397,26 @@ test(
   }
 );
 
-test(
-  'replacement during final async account lookup fences admission',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
-  async (t) => {
-    const { createSelectionStore } = await core();
-    const f = runtimeFixture(t);
-    let armed = false,
-      lookups = 0;
-    const account = () => {
-      if (armed && ++lookups === 2) {
-        writeFileSync(
-          path.join(f.packageRoot, 'runner.mjs'),
-          'export const changedDuringAdmission = true;'
-        );
-        f.seal();
-      }
-      return f.account();
-    };
-    const store = createSelectionStore({ account, packageRoot: f.packageRoot });
-    await store.register();
-    armed = true;
-    await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_CHANGED' });
-  }
-);
+test('replacement during final async account lookup fences admission', {}, async (t) => {
+  const { createSelectionStore } = await core();
+  const f = runtimeFixture(t);
+  let armed = false,
+    lookups = 0;
+  const account = () => {
+    if (armed && ++lookups === 2) {
+      writeFileSync(
+        path.join(f.packageRoot, 'runner.mjs'),
+        'export const changedDuringAdmission = true;'
+      );
+      f.seal();
+    }
+    return f.account();
+  };
+  const store = createSelectionStore({ account, packageRoot: f.packageRoot });
+  await store.register();
+  armed = true;
+  await assert.rejects(store.assertSelected(), { code: 'APR_RUNTIME_CHANGED' });
+});
 
 for (const [name, lookup, dryRun] of [
   ['dry-run planning', 1, true],
@@ -592,12 +450,7 @@ for (const [name, lookup, dryRun] of [
 // @story #136
 test(
   'removing the loaded selected installation refuses with a runtime diagnostic',
-  {
-    skip:
-      process.platform === 'win32'
-        ? 'Native broker security required on Windows; paused for #102/#107'
-        : false,
-  },
+  {},
   async (t) => {
     const { createSelectionStore } = await core();
     const f = runtimeFixture(t);

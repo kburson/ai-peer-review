@@ -9,24 +9,9 @@ export async function initializePortableOperations(input = {}) {
     ...system,
     async observeSource() {
       await assertPortableSystemContext(system, context);
-      // #187 removes the native Windows selection crossing before source admission.
-      // Never call the old Windows selection adapter, even to obtain a refusal.
-      const assurance =
-        process.platform === 'win32'
-          ? Object.freeze({
-              verified: false,
-              absence: Object.freeze({
-                status: 'unavailable',
-                reason: 'source-class-unavailable',
-                detail: 'portable-selection-migration-required',
-              }),
-              creation: Object.freeze({
-                status: 'unavailable',
-                reason: 'creation-stamp-unavailable',
-                detail: 'portable-selection-migration-required',
-              }),
-            })
-          : await loadProcessSourceAssurance(context);
+      // Selection now crosses the genuine awaited portable store on every OS.
+      // Changed source contracts still require normal installed recapture/adoption.
+      const assurance = await loadProcessSourceAssurance(context);
       await assertPortableSystemContext(system, context);
       return assurance;
     },

@@ -23,10 +23,13 @@ export function installedPackageIdentity() {
   });
 }
 
-export function assertProjectSetupCompatible({ cwd = process.cwd(), env = process.env } = {}) {
-  const paths = configPaths({ cwd, env });
+export async function assertProjectSetupCompatible({
+  cwd = process.cwd(),
+  env = process.env,
+} = {}) {
+  const paths = await configPaths({ cwd, env });
   if (paths.primaryRoot) {
-    const primary = resolvePrimaryAuthoritySync({ cwd });
+    const primary = await resolvePrimaryAuthoritySync({ cwd });
     return createIntegrationChecker({
       packageRoot: fileURLToPath(new URL('../..', import.meta.url)),
       home: userInfo().homedir,
@@ -34,7 +37,7 @@ export function assertProjectSetupCompatible({ cwd = process.cwd(), env = proces
   }
   const file = paths.project;
   if (!file || !existsSync(file)) return;
-  loadConfig({ cwd, env });
+  await loadConfig({ cwd, env });
   const config = JSON.parse(readFileSync(file, 'utf8'));
   if (!config.setup) return;
   throw new AprError(

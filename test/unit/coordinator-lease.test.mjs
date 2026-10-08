@@ -19,46 +19,46 @@ function workspace(t) {
   return value;
 }
 
-test('acquires, heartbeats, inspects, and releases only its exact instance', (t) => {
+test('acquires, heartbeats, inspects, and releases only its exact instance', async (t) => {
   const root = workspace(t);
-  const controller = acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
+  const controller = await acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
     instanceId: 'instance-01',
     nonce: 'nonce-01',
   });
   assert.equal(inspectCoordinatorLease(root).lease.instance_id, 'instance-01');
   assert.doesNotMatch(readFileSync(controller.paths.lease, 'utf8'), /nonce-01/);
-  const refreshed = controller.heartbeat(new Date(NOW.valueOf() + 1000));
+  const refreshed = await controller.heartbeat(new Date(NOW.valueOf() + 1000));
   assert.equal(refreshed.heartbeat_sequence, 2);
-  controller.release();
+  await controller.release();
   assert.equal(existsSync(controller.paths.lock), false);
   assert.equal(existsSync(controller.paths.lease), false);
 });
 
-test('requests stop for only the exact owned instance and makes retry idempotent', (t) => {
+test('requests stop for only the exact owned instance and makes retry idempotent', async (t) => {
   const root = workspace(t);
-  const controller = acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
+  const controller = await acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
     instanceId: 'instance-01',
     nonce: 'nonce-01',
   });
 
-  const requested = requestCoordinatorStop(root, NOW);
+  const requested = await requestCoordinatorStop(root, NOW);
   assert.equal(requested.instance_id, 'instance-01');
   assert.equal(controller.stopRequested(), true);
-  assert.deepEqual(requestCoordinatorStop(root, new Date(NOW.valueOf() + 1000)), requested);
+  assert.deepEqual(await requestCoordinatorStop(root, new Date(NOW.valueOf() + 1000)), requested);
 
-  controller.release();
+  await controller.release();
   assert.equal(existsSync(controller.paths.stop), false);
 });
 
-test('refuses contention and never deletes a foreign replacement', (t) => {
+test('refuses contention and never deletes a foreign replacement', async (t) => {
   const root = workspace(t);
-  const first = acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
+  const first = await acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
     instanceId: 'instance-01',
     nonce: 'nonce-01',
   });
-  assert.throws(
-    () =>
-      acquireCoordinatorLease(root, { kind: 'app-host', pid: null }, NOW, {
+  await assert.rejects(
+    async () =>
+      await acquireCoordinatorLease(root, { kind: 'app-host', pid: null }, NOW, {
         instanceId: 'instance-02',
         nonce: 'nonce-02',
       }),
@@ -71,9 +71,9 @@ test('refuses contention and never deletes a foreign replacement', (t) => {
   assert.equal(existsSync(first.paths.lock), true);
 });
 
-test('lease contents alone never override missing or mismatched lock evidence', (t) => {
+test('lease contents alone never override missing or mismatched lock evidence', async (t) => {
   const root = workspace(t);
-  const controller = acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
+  const controller = await acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
     instanceId: 'instance-01',
     nonce: 'nonce-01',
   });

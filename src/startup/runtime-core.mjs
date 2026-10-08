@@ -41,17 +41,17 @@ export function createStartupRuntime({
     rawWithReviewLock(
       workspace,
       async (...args) => {
-        performCurrentOperationEffect(() => {});
+        await performCurrentOperationEffect(() => {});
         const result = await callback(...args);
-        performCurrentOperationEffect(() => {});
+        await performCurrentOperationEffect(() => {});
         return result;
       },
-      { ...options, effect: (operation) => performCurrentOperationEffect(operation) }
+      { ...options, effect: async (operation) => await performCurrentOperationEffect(operation) }
     );
   const guarded =
     (effect) =>
-    (...args) =>
-      performCurrentOperationEffect(() => effect(...args));
+    async (...args) =>
+      await performCurrentOperationEffect(() => effect(...args));
   const effectAtomicWrite = guarded(atomicWrite),
     effectAtomicCreate = guarded(atomicCreate),
     effectRegisterReview = guarded(registerReview),
@@ -73,7 +73,7 @@ export function createStartupRuntime({
     }
     const repository = deps.repository ?? createGitRepository();
     const root = repository.root(input.cwd);
-    const loaded = structuredClone(deps.config ?? loadConfig({ cwd: root }));
+    const loaded = structuredClone(deps.config ?? (await loadConfig({ cwd: root })));
     const selection = await resolveSelection(
       {
         author: input.identity,

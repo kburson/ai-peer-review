@@ -420,7 +420,8 @@ function verifyDestinations(checked) {
       });
   }
 }
-export async function applyAtomicValidatedWrites(checked) {
+export async function applyAtomicValidatedWrites(checked, { beforeEffect = async () => {} } = {}) {
+  if (typeof beforeEffect !== 'function') invalid('Setup requires an awaited authority check.');
   const sets = Array.isArray(checked) ? checked : [checked];
   if (!sets.length || sets.some((set) => !validated.has(set)))
     invalid('Setup requires the original validated write sets.');
@@ -431,6 +432,8 @@ export async function applyAtomicValidatedWrites(checked) {
   const staged = [],
     applied = [];
   try {
+    await beforeEffect();
+    for (const set of sets) verifyDestinations(set);
     for (const entry of writes) {
       if (entry.after === entry.before) continue;
       const mode = entry.before === null ? 0o600 : lstatSync(entry.file).mode & 0o777;
@@ -441,6 +444,7 @@ export async function applyAtomicValidatedWrites(checked) {
         staged.push({ entry, temporary, mode });
       } else staged.push({ entry, temporary: null, mode });
     }
+    await beforeEffect();
     for (const set of sets) verifyDestinations(set);
     for (const item of staged) {
       if (item.temporary) renameSync(item.temporary, item.entry.file);

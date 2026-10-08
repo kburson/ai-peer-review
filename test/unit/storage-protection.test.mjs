@@ -308,9 +308,9 @@ test('[#168] snapshot descriptor close failure retains a cleanup obligation', as
     const file = await original(value, ...args);
     if (value === path.join(root, name) && (Number(args[0]) & constants.O_CREAT) === 0 && !failed) {
       const close = file.close.bind(file),
-        read = file.readFile.bind(file);
+        read = file.read.bind(file);
       let readCalled = false;
-      file.readFile = async (...args) => {
+      file.read = async (...args) => {
         readCalled = true;
         retained = file;
         return read(...args);

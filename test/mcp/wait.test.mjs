@@ -417,16 +417,16 @@ test(
         digest,
       })
     );
-    const source = createLiveDeliverySource({
+    const source = await createLiveDeliverySource({
       repositoryRoot: inside.root,
       reviewId: 'review-01',
     });
     renameSync(inside.workspace, `${inside.workspace}.original`);
     symlinkSync(outside.workspace, inside.workspace, 'dir');
 
-    assert.throws(
-      () =>
-        source.readAfter({
+    await assert.rejects(
+      async () =>
+        await source.readAfter({
           reviewId: 'review-01',
           participant: 'author',
           afterSequence: 2,
@@ -454,21 +454,21 @@ test('live source reads the first event-authorized matching receipt after the cu
     receipt,
     canonicalProjection({ delivery_id: 'turn-to-author', recipient: 'author', digest })
   );
-  const source = createLiveDeliverySource({
+  const source = await createLiveDeliverySource({
     repositoryRoot: fixture.root,
     reviewId: 'review-01',
   });
 
   assert.deepEqual(
-    source.readAfter({ reviewId: 'review-01', participant: 'author', afterSequence: 2 }),
+    await source.readAfter({ reviewId: 'review-01', participant: 'author', afterSequence: 2 }),
     delivered('author', 3, 'turn-to-author')
   );
   assert.equal(
-    source.readAfter({ reviewId: 'review-01', participant: 'reviewer', afterSequence: 2 }),
+    await source.readAfter({ reviewId: 'review-01', participant: 'reviewer', afterSequence: 2 }),
     null
   );
   assert.equal(
-    source.readAfter({ reviewId: 'review-01', participant: 'author', afterSequence: 3 }),
+    await source.readAfter({ reviewId: 'review-01', participant: 'author', afterSequence: 3 }),
     null
   );
 });
@@ -485,16 +485,18 @@ test('live source treats a missing receipt as pending and conflicts as authority
     },
   });
   await appendEvent(fixture.events, deliveryEvent);
-  const source = createLiveDeliverySource({
+  const source = await createLiveDeliverySource({
     repositoryRoot: fixture.root,
     reviewId: 'review-01',
   });
   const input = { reviewId: 'review-01', participant: 'author', afterSequence: 2 };
 
-  assert.equal(source.readAfter(input), null);
+  assert.equal(await source.readAfter(input), null);
   const receipt = path.join(fixture.workspace, 'deliveries', 'turn-to-author.json');
   writeFileSync(receipt, '{"conflict":true}\n');
-  assert.throws(() => source.readAfter(input), { code: 'APR_DELIVERY_CONFLICT' });
+  await assert.rejects(async () => await source.readAfter(input), {
+    code: 'APR_DELIVERY_CONFLICT',
+  });
 });
 
 test(
@@ -520,14 +522,14 @@ test(
       canonicalProjection({ delivery_id: 'turn-to-author', recipient: 'author', digest })
     );
     symlinkSync(outside, receipt);
-    const source = createLiveDeliverySource({
+    const source = await createLiveDeliverySource({
       repositoryRoot: fixture.root,
       reviewId: 'review-01',
     });
 
-    assert.throws(
-      () =>
-        source.readAfter({
+    await assert.rejects(
+      async () =>
+        await source.readAfter({
           reviewId: 'review-01',
           participant: 'author',
           afterSequence: 2,
@@ -541,7 +543,7 @@ test('live source derives a contained workspace and emits exact manual recovery'
   const fixture = await createReviewWorkspace({ events: reviewerTurnEvents() });
   t.after(fixture.cleanup);
   let watched;
-  const source = createLiveDeliverySource({
+  const source = await createLiveDeliverySource({
     repositoryRoot: fixture.root,
     reviewId: 'review-01',
     watch(directory, _listener) {
@@ -549,7 +551,7 @@ test('live source derives a contained workspace and emits exact manual recovery'
       return { close() {}, on() {} };
     },
   });
-  const subscription = source.subscribe({
+  const subscription = await source.subscribe({
     reviewId: 'review-01',
     participant: 'author',
     onChange() {},
@@ -558,9 +560,10 @@ test('live source derives a contained workspace and emits exact manual recovery'
   subscription.close();
 
   assert.equal(watched, path.join(realpathSync(fixture.workspace), 'deliveries'));
-  assert.match(source.manualRecovery().command, /peer-review resume/);
-  assert.throws(
-    () => createLiveDeliverySource({ repositoryRoot: fixture.root, reviewId: '../escape' }),
+  assert.match((await source.manualRecovery()).command, /peer-review resume/);
+  await assert.rejects(
+    async () =>
+      await createLiveDeliverySource({ repositoryRoot: fixture.root, reviewId: '../escape' }),
     { code: 'APR_WAIT_INVALID' }
   );
 });
@@ -579,8 +582,9 @@ test('live source refuses an unknown review without creating scratch authority',
   t.after(fixture.cleanup);
   const unknown = path.join(fixture.root, '.scratch', 'peer-review', 'unknown-review');
 
-  assert.throws(
-    () => createLiveDeliverySource({ repositoryRoot: fixture.root, reviewId: 'unknown-review' }),
+  await assert.rejects(
+    async () =>
+      await createLiveDeliverySource({ repositoryRoot: fixture.root, reviewId: 'unknown-review' }),
     { code: 'APR_EVENT_LOG_MISSING' }
   );
   assert.equal(existsSync(unknown), false);
@@ -596,9 +600,40 @@ test(
     mkdirSync(outside);
     symlinkSync(outside, path.join(fixture.workspace, 'deliveries'));
 
-    assert.throws(
-      () => createLiveDeliverySource({ repositoryRoot: fixture.root, reviewId: 'review-01' }),
+    await assert.rejects(
+      async () =>
+        await createLiveDeliverySource({ repositoryRoot: fixture.root, reviewId: 'review-01' }),
       { code: 'APR_PATH_OUTSIDE_REPOSITORY' }
     );
   }
 );
+
+test('wait consumes an awaited protected subscription and asynchronous manual recovery', async () => {
+  let current = null,
+    closes = 0;
+  const deliveries = {
+    async readAfter() {
+      return current;
+    },
+    async subscribe() {
+      await Promise.resolve();
+      current = delivered();
+      return {
+        close() {
+          closes++;
+        },
+      };
+    },
+    async manualRecovery() {
+      return { available: true, command: 'peer-review resume' };
+    },
+  };
+  const value = await waitForHandoff({
+    reviewId: 'review-01',
+    participant: 'author',
+    deliveries,
+    timeoutMs: 1000,
+  });
+  assert.equal(value.status, 'delivered');
+  assert.equal(closes, 1);
+});

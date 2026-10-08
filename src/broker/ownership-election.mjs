@@ -602,6 +602,31 @@ export async function assertOwnerElectionLease(lease, { root, name, quarantineOf
   }
   return true;
 }
+// Explicit withdrawal protocol core; caller ports never mint operational membership.
+export async function completeElectionWithdrawalCore({ withdraw, retire, close } = {}) {
+  if (typeof withdraw !== 'function' || typeof retire !== 'function' || typeof close !== 'function')
+    throw new TypeError('Explicit election withdrawal ports required.');
+  const withdrawal = await withdraw();
+  if (!withdrawal || !Array.isArray(withdrawal.obligations)) throw stale('withdrawal-unproved');
+  if (withdrawal.status !== 'withdrawn' || withdrawal.obligations.length)
+    return Object.freeze({ ...withdrawal, verified: false, status: 'unresolved' });
+  retire();
+  const obligations = await close();
+  return Object.freeze({
+    ...withdrawal,
+    verified: false,
+    obligations,
+    status: obligations.length ? 'unresolved' : 'withdrawn',
+  });
+}
+const retainedElectionWithdrawals = new Set();
+export async function retryOwnerElectionWithdrawalCleanup() {
+  for (const lease of retainedElectionWithdrawals) {
+    const result = await lease.release();
+    if (result.status === 'withdrawn' && !result.obligations.length)
+      retainedElectionWithdrawals.delete(lease);
+  }
+}
 export async function acquireOwnerElection(options = {}) {
   const binding = pathBindings.get(options.paths);
   if (!binding || binding.isClosed()) return unavailable('unverified-paths');
@@ -666,14 +691,20 @@ export async function acquireOwnerElection(options = {}) {
         },
         async release() {
           portableOwnerOperation(lease);
-          const withdrawal = await core.release();
-          productionLeases.delete(lease);
-          const obligations = [...withdrawal.obligations, ...(await close())];
-          return Object.freeze({
-            ...withdrawal,
-            obligations,
-            status: obligations.length ? 'unresolved' : withdrawal.status,
-          });
+          try {
+            const result = await completeElectionWithdrawalCore({
+              withdraw: () => core.release(),
+              retire: () => productionLeases.delete(lease),
+              close,
+            });
+            if (result.status === 'withdrawn' && !result.obligations.length)
+              retainedElectionWithdrawals.delete(lease);
+            else retainedElectionWithdrawals.add(lease);
+            return result;
+          } catch (error) {
+            retainedElectionWithdrawals.add(lease);
+            throw error;
+          }
         },
       });
       productionLeases.set(lease, {
@@ -713,20 +744,36 @@ export async function acquireOwnerElection(options = {}) {
       await assertOwnerElectionLease(operationalLease);
       return Object.freeze({ ...outcome, verified: true, lease: operationalLease });
     }
-    if (operationalLease) productionLeases.delete(operationalLease);
+    if (operationalLease) {
+      const withdrawal = await operationalLease.release();
+      return Object.freeze({
+        ...outcome,
+        withdrawal,
+        obligations: [...outcome.obligations, ...withdrawal.obligations],
+      });
+    }
     return Object.freeze({ ...outcome, obligations: [...outcome.obligations, ...(await close())] });
   } catch (error) {
     let withdrawal;
     if (operationalLease) {
-      withdrawal = await operationalLease.release();
-      productionLeases.delete(operationalLease);
+      try {
+        withdrawal = await operationalLease.release();
+      } catch (cleanup) {
+        retainedElectionWithdrawals.add(operationalLease);
+        withdrawal = {
+          status: 'unresolved',
+          obligations: cleanup.details?.obligations ?? [
+            { ...operationalLease.retainedGeneration(), outcome: 'withdrawal-unproved' },
+          ],
+        };
+      }
     }
     return unavailable(error.details?.reason || 'election-unproved', {
       withdrawal,
       obligations: [
         ...(error.details?.obligations || []),
         ...(withdrawal?.obligations || []),
-        ...(await close()),
+        ...(operationalLease ? [] : await close()),
       ],
     });
   }

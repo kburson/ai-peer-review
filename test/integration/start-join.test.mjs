@@ -132,7 +132,7 @@ test('CLI start resolves explicit reviewer intent through the sealed startup run
 test('CLI start derives its author model from the active Codex hook record', async (t) => {
   const fx = repositoryFixture('apr-codex-author-start-');
   t.after(fx.cleanup);
-  captureCodexStartHook({
+  await captureCodexStartHook({
     event: {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
@@ -271,7 +271,7 @@ test('CLI start binds a Claude author from exact PreToolUse transcript evidence'
     })}\n`,
     { mode: 0o600 }
   );
-  captureClaudeStartHook({
+  await captureClaudeStartHook({
     event: {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',

@@ -51,22 +51,22 @@ export function createBrokerClientOperations({
   assertCurrentOperationAuthority,
 }) {
   const startupInputs = new WeakMap();
-  const atomicCreate = (...args) => performCurrentOperationEffect(() => rawAtomicCreate(...args));
+  const atomicCreate = async (...args) =>
+    await performCurrentOperationEffect(() => rawAtomicCreate(...args));
   const withReviewLock = (workspace, callback, options = {}) =>
     rawWithReviewLock(
       workspace,
       async (...args) => {
-        performCurrentOperationEffect(() => {});
+        await performCurrentOperationEffect(() => {});
         const result = await callback(...args);
-        performCurrentOperationEffect(() => {});
+        await performCurrentOperationEffect(() => {});
         return result;
       },
-      { ...options, effect: (operation) => performCurrentOperationEffect(operation) }
+      { ...options, effect: async (operation) => await performCurrentOperationEffect(operation) }
     );
   const dispatch = async (operation) => {
-    const { pending } = performCurrentOperationEffect(() => ({ pending: operation() }));
-    const result = await pending;
-    performCurrentOperationEffect(() => {});
+    const result = await performCurrentOperationEffect(operation);
+    await performCurrentOperationEffect(() => {});
     return result;
   };
 
@@ -283,15 +283,15 @@ export function createBrokerClientOperations({
     const record = bootstrapRecord({ project, versions, runtimeImage });
     const bootstrap =
       typeof platform?.createBootstrap === 'function'
-        ? performCurrentOperationEffect(() =>
+        ? await performCurrentOperationEffect(() =>
             platform.createBootstrap({ project, versions, runtimeImage, record })
           )
-        : performCurrentOperationEffect(() => rawCreateBootstrap(record, platform));
+        : await performCurrentOperationEffect(() => rawCreateBootstrap(record, platform));
     const entrypoint = fileURLToPath(new URL('../../bin/peer-review-broker.mjs', import.meta.url));
     const launch = platform?.spawn ?? spawn;
     let child;
     try {
-      child = performCurrentOperationEffect(() =>
+      child = await performCurrentOperationEffect(() =>
         launch(realpathSync(process.execPath), [entrypoint, bootstrap], {
           shell: false,
           detached: true,
@@ -346,7 +346,7 @@ export function createBrokerClientOperations({
             discoveryChangedDuringHandshake(error)) &&
           performance.now() < deadline
         ) {
-          assertCurrentOperationAuthority();
+          await assertCurrentOperationAuthority();
           if (!missingDiscovery(startup.project, startup.platform)) throw error;
           client = await ensureBroker(startup, deadline);
           continue;
@@ -369,7 +369,7 @@ export function createBrokerClientOperations({
     try {
       // IPC delegates effects to the broker. Revalidate without taking the
       // clone writer lock: broker workers must fence their own disk effects.
-      if (command !== 'status') assertCurrentOperationAuthority();
+      if (command !== 'status') await assertCurrentOperationAuthority();
       bytes = await connection.exchange(encodeFrame(message));
     } finally {
       connection.close?.();
@@ -442,11 +442,11 @@ export function createBrokerClientOperations({
       // Persist exclusion before asking the broker to remove its current worker.
       // Replacements must see it even if suspension/publication is interrupted.
       await withReviewLock(path.join(workspace, 'dispatch'), () =>
-        withReviewLock(workspace, () => {
+        withReviewLock(workspace, async () => {
           const fresh = inspectReviewAuthority(workspace);
           const current = startupEvidence(workspace, fresh.state);
           if (current.recovery.fenced || current.recovery.suspending) return;
-          atomicCreate(
+          await atomicCreate(
             path.join(workspace, 'manual-suspension.json'),
             `${JSON.stringify({
               schema: 'ai-peer-review.manual-suspension/v1',
@@ -494,7 +494,7 @@ export function createBrokerClientOperations({
           ['reserved', 'outcome-unknown'].includes(operation?.status)
         )
           throw unknown();
-        return await withReviewLock(workspace, () => {
+        return await withReviewLock(workspace, async () => {
           const fresh = inspectReviewAuthority(workspace);
           const current = startupEvidence(workspace, fresh.state);
           if (current.recovery.fenced) return current.recovery;
@@ -512,7 +512,7 @@ export function createBrokerClientOperations({
               'Review changed while suspending automatic delivery.',
               { recovery: evidence.recovery.reconciliation_command }
             );
-          atomicCreate(
+          await atomicCreate(
             path.join(workspace, 'manual-fence.json'),
             `${JSON.stringify({ schema: 'ai-peer-review.manual-fence/v1', review_id: fresh.state.protocol.review_id, request_digest: current.recovery.request_digest, event_revision: fresh.state.protocol.revision })}\n`
           );

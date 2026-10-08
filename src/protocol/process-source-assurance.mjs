@@ -8,18 +8,38 @@ import { assertSelectedRuntime } from '../config/runtime-selection.mjs';
 import { observeProcessSourceContext } from './process-identity.mjs';
 
 const INSTALLATION = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
-const CONTRACT_FILES = Object.freeze([
-  'src/broker/platform.mjs',
-  'src/config/runtime-selection.mjs',
-  'src/config/runtime-selection-core.mjs',
-  'src/errors.mjs',
-  'src/installed/dependency-closure.mjs',
-  'src/startup/runtime-inventory.mjs',
-  'schemas/process-source-class-v1.json',
-  'src/api/canonical-json.mjs',
-  'src/protocol/process-identity.mjs',
-  'src/protocol/process-source-assurance.mjs',
-]);
+const CONTRACT_MANIFEST = 'src/protocol/process-source-contract-files.json';
+const CLASS_SCHEMA = 'schemas/process-source-class-v1.json';
+const SOURCE_ENTRY = 'src/protocol/process-source-assurance.mjs';
+function contractFiles(installation) {
+  const file = path.join(installation, CONTRACT_MANIFEST);
+  const stat = lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 65536 || realpathSync(file) !== file)
+    throw new TypeError('source-contract-manifest-invalid');
+  const manifest = JSON.parse(readFileSync(file, 'utf8'));
+  if (
+    !exactKeys(manifest, ['schema', 'entry', 'files']) ||
+    manifest.schema !== 'ai-peer-review.process-source-contract-files/v1' ||
+    manifest.entry !== SOURCE_ENTRY ||
+    !Array.isArray(manifest.files) ||
+    manifest.files.length < 3 ||
+    manifest.files.length > 512 ||
+    ![SOURCE_ENTRY, CLASS_SCHEMA, CONTRACT_MANIFEST].every((value) =>
+      manifest.files.includes(value)
+    ) ||
+    manifest.files.some(
+      (value, index) =>
+        typeof value !== 'string' ||
+        value.includes('\\') ||
+        value.split('/').some((part) => !part || part === '.' || part === '..') ||
+        (!value.startsWith('src/') && value !== CLASS_SCHEMA) ||
+        (!/\.(?:mjs|js)$/u.test(value) && ![CLASS_SCHEMA, CONTRACT_MANIFEST].includes(value)) ||
+        (index > 0 && manifest.files[index - 1] >= value)
+    )
+  )
+    throw new TypeError('source-contract-manifest-invalid');
+  return manifest.files;
+}
 const HASH = /^sha256:[a-f0-9]{64}$/u;
 const BOOT = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const installedAssurances = new WeakSet();
@@ -77,10 +97,12 @@ function hash(bytes) {
 // This is a data digest, including when called on a fixture installation.
 // Operational loading below always pins its own installation.
 export async function processSourceContractDigest({ installation = INSTALLATION } = {}) {
-  const records = CONTRACT_FILES.map((relative) => {
+  installation = realpathSync(installation);
+  const records = contractFiles(installation).map((relative) => {
     const file = path.join(installation, relative);
     const st = lstatSync(file);
-    if (!st.isFile() || st.isSymbolicLink()) throw new TypeError('source-file-invalid');
+    if (!st.isFile() || st.isSymbolicLink() || st.size > 2097152 || realpathSync(file) !== file)
+      throw new TypeError('source-file-invalid');
     return { path: relative, digest: hash(readFileSync(file)) };
   });
   return hash(
@@ -255,7 +277,7 @@ export async function loadProcessSourceAssurance(options = {}) {
       return unavailable('class-missing');
     let runtime;
     try {
-      runtime = await assertSelectedRuntime();
+      runtime = await assertSelectedRuntime({ signal: options.signal, deadline: options.deadline });
     } catch {
       return unavailable('installed-authority-unavailable');
     }
@@ -285,7 +307,11 @@ export async function loadProcessSourceAssurance(options = {}) {
       adapterHashes: { contractDigest },
       probeObservation: context,
     });
-    const fresh = await assertSelectedRuntime({ previousObservation: runtime });
+    const fresh = await assertSelectedRuntime({
+      previousObservation: runtime,
+      signal: options.signal,
+      deadline: options.deadline,
+    });
     if (
       fresh.inventoryDigest !== runtime.inventoryDigest ||
       (await processSourceContractDigest()) !== contractDigest ||
@@ -476,7 +502,11 @@ export async function revalidateInstalledProcessSourceAssurance(assurance, optio
   const prior = installedAssuranceRecords.get(assurance);
   if (!prior) return false;
   try {
-    const current = await assertSelectedRuntime({ previousObservation: prior.runtime });
+    const current = await assertSelectedRuntime({
+      previousObservation: prior.runtime,
+      signal: options.signal,
+      deadline: options.deadline,
+    });
     if (
       current.packageRoot !== INSTALLATION ||
       current.inventoryDigest !== prior.runtime.inventoryDigest ||

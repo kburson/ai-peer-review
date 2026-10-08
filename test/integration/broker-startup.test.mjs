@@ -549,9 +549,9 @@ test('replacement worker cannot reserve or deliver between suspension and fence 
       },
       reconcile: async ({ workspace, adapter }) => {
         const state = inspectReviewAuthority(workspace).state;
-        const operation = reserveWakeOperation(workspace, wakeDecision(state), new Date(NOW));
+        const operation = await reserveWakeOperation(workspace, wakeDecision(state), new Date(NOW));
         const result = await adapter.deliver({ expected_revision: state.protocol.revision });
-        appendWakeOutcome(
+        await appendWakeOutcome(
           workspace,
           operation.operation_id,
           { ...result, reason: 'test-delivery' },
@@ -686,7 +686,7 @@ test('suspended worker cannot reserve a wake after its awaited observation resum
       },
     },
     reconcile: async ({ workspace }) =>
-      reserveWakeOperation(
+      await reserveWakeOperation(
         workspace,
         wakeDecision(inspectReviewAuthority(workspace).state),
         new Date(NOW)
@@ -1443,8 +1443,12 @@ test('an earlier unknown wake blocks retirement after a later not-submitted wake
   t.after(fx.cleanup);
   const started = await startReview(request(fx.root), fixtureStartupDeps);
   const state = inspectReviewAuthority(started.paths.workspace).state;
-  const first = reserveWakeOperation(started.paths.workspace, wakeDecision(state), new Date(NOW));
-  appendWakeOutcome(
+  const first = await reserveWakeOperation(
+    started.paths.workspace,
+    wakeDecision(state),
+    new Date(NOW)
+  );
+  await appendWakeOutcome(
     started.paths.workspace,
     first.operation_id,
     {
@@ -1458,12 +1462,12 @@ test('an earlier unknown wake blocks retirement after a later not-submitted wake
   laterDecision.capsule.expected_revision += 1;
   laterDecision.delivery.revision += 1;
   laterDecision.capsule.next_command = 'peer-review resume /fixture/second';
-  const later = reserveWakeOperation(
+  const later = await reserveWakeOperation(
     started.paths.workspace,
     laterDecision,
     new Date('2026-09-29T05:00:00.000Z')
   );
-  appendWakeOutcome(
+  await appendWakeOutcome(
     started.paths.workspace,
     later.operation_id,
     {

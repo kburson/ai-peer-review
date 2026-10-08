@@ -23,10 +23,14 @@ import {
 
 // @story #136
 export function createCoordinatorLeaseOperations({ performCurrentOperationEffect }) {
-  const mkdirSync = (...args) => performCurrentOperationEffect(() => rawMkdirSync(...args));
-  const unlinkSync = (...args) => performCurrentOperationEffect(() => rawUnlinkSync(...args));
-  const atomicCreate = (...args) => performCurrentOperationEffect(() => rawAtomicCreate(...args));
-  const atomicWrite = (...args) => performCurrentOperationEffect(() => rawAtomicWrite(...args));
+  const mkdirSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawMkdirSync(...args));
+  const unlinkSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawUnlinkSync(...args));
+  const atomicCreate = async (...args) =>
+    await performCurrentOperationEffect(() => rawAtomicCreate(...args));
+  const atomicWrite = async (...args) =>
+    await performCurrentOperationEffect(() => rawAtomicWrite(...args));
 
   const LEASE_SCHEMA = 'ai-peer-review.coordinator-lease/v1';
   const LOCK_SCHEMA = 'ai-peer-review.coordinator-lock/v1';
@@ -145,7 +149,7 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
     return Object.freeze(value);
   }
 
-  function requestCoordinatorStop(workspace, now = new Date()) {
+  async function requestCoordinatorStop(workspace, now = new Date()) {
     const inspected = inspectCoordinatorLease(workspace);
     const request = {
       schema: STOP_SCHEMA,
@@ -154,7 +158,7 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
       requested_at: instant(now),
     };
     try {
-      atomicCreate(inspected.paths.stop, bytes(request));
+      await atomicCreate(inspected.paths.stop, bytes(request));
       return Object.freeze(request);
     } catch (cause) {
       if (cause?.code !== 'APR_OUTPUT_COLLISION') throw cause;
@@ -172,7 +176,7 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
     }
   }
 
-  function acquireCoordinatorLease(
+  async function acquireCoordinatorLease(
     workspace,
     owner = { kind: 'cli', pid: process.pid },
     now = new Date(),
@@ -189,7 +193,7 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
       );
     }
     const paths = pathsFor(workspace);
-    mkdirSync(paths.directory, { recursive: true });
+    await mkdirSync(paths.directory, { recursive: true });
     const token = `sha256:${createHash('sha256').update(`${instanceId}:${nonce}`).digest('hex')}`;
     const lock = { schema: LOCK_SCHEMA, instance_id: instanceId, token };
     const observedAt = instant(now);
@@ -204,7 +208,7 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
       state: 'active',
     };
     try {
-      atomicCreate(paths.lock, bytes(lock));
+      await atomicCreate(paths.lock, bytes(lock));
     } catch (cause) {
       if (cause?.code === 'APR_OUTPUT_COLLISION') {
         fail(
@@ -217,10 +221,10 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
       throw cause;
     }
     try {
-      atomicCreate(paths.lease, bytes(lease));
+      await atomicCreate(paths.lease, bytes(lease));
     } catch (cause) {
       const current = readRegular(paths.lock, 'Coordinator lock');
-      if (current.token === token) unlinkSync(paths.lock);
+      if (current.token === token) await unlinkSync(paths.lock);
       throw cause;
     }
 
@@ -231,7 +235,7 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
         return Object.freeze(current);
       },
       paths,
-      heartbeat(at = new Date()) {
+      async heartbeat(at = new Date()) {
         if (released) {
           fail(
             'APR_COORDINATOR_STALE',
@@ -252,7 +256,7 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
           heartbeat_sequence: current.heartbeat_sequence + 1,
           observed_at: instant(at),
         };
-        atomicWrite(paths.lease, bytes(current));
+        await atomicWrite(paths.lease, bytes(current));
         return Object.freeze(current);
       },
       stopRequested() {
@@ -267,7 +271,7 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
         }
         return true;
       },
-      release() {
+      async release() {
         if (released) return false;
         released = true;
         let lock;
@@ -288,13 +292,14 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
           storedLease.instance_id === instanceId &&
           existsSync(paths.lease)
         ) {
-          unlinkSync(paths.lease);
+          await unlinkSync(paths.lease);
         }
         if (existsSync(paths.stop)) {
           const request = validateStopRequest(readRegular(paths.stop, 'Coordinator stop request'));
-          if (request.instance_id === instanceId && request.token === token) unlinkSync(paths.stop);
+          if (request.instance_id === instanceId && request.token === token)
+            await unlinkSync(paths.stop);
         }
-        if (existsSync(paths.lock)) unlinkSync(paths.lock);
+        if (existsSync(paths.lock)) await unlinkSync(paths.lock);
         return true;
       },
     });

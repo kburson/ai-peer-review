@@ -1,5 +1,5 @@
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
-import { discoverAuthorityRepository } from '../git/repository.mjs';
+import { discoverPrimaryAuthorityRepository as discoverAuthorityRepository } from './primary-authority.mjs';
 import { primaryRegistrationPath, resolvePrimaryAuthoritySync } from './primary-authority.mjs';
 import os from 'node:os';
 import path from 'node:path';
@@ -467,16 +467,18 @@ export function userConfigPath({
   return path.join(userRoot, 'ai-peer-review', 'config.json');
 }
 
-export function configPaths({
+export async function configPaths({
   cwd = process.cwd(),
   env = process.env,
   platform = process.platform,
   home = os.homedir(),
+  signal,
+  deadline,
 } = {}) {
   const user = userConfigPath({ env, platform, home });
   let location;
   try {
-    location = discoverAuthorityRepository(cwd);
+    location = await discoverAuthorityRepository(cwd, { signal, deadline });
   } catch (cause) {
     if (cause.code !== 'APR_REPOSITORY_NOT_FOUND' && cause.code !== 'ENOENT') throw cause;
     // Legacy uninitialized setup directories remain readable until setup migration.
@@ -523,7 +525,7 @@ export function configPaths({
     existsSync(primaryRegistrationPath(location.commonDir)) ||
     existsSync(path.join(location.mainRoot ?? location.commonDir, '.ai-peer-review/config.json'))
   ) {
-    const primary = resolvePrimaryAuthoritySync({ cwd });
+    const primary = await resolvePrimaryAuthoritySync({ cwd, signal, deadline });
     return Object.freeze({
       user,
       project: primary.configPath,
@@ -539,12 +541,18 @@ export function configPaths({
   });
 }
 
-export function loadConfig(options = {}) {
-  const paths = configPaths(options);
+export async function loadConfig(options = {}) {
+  const paths = await configPaths(options);
   const user = readConfig(paths.user);
   const project =
     paths.primaryRoot !== null
-      ? resolvePrimaryAuthoritySync({ cwd: options.cwd }).config
+      ? (
+          await resolvePrimaryAuthoritySync({
+            cwd: options.cwd,
+            signal: options.signal,
+            deadline: options.deadline,
+          })
+        ).config
       : paths.project === null
         ? null
         : readConfig(paths.project);

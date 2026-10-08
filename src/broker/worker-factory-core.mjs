@@ -36,20 +36,23 @@ import { reconcileReviewerLaunch } from './launch.mjs';
 
 // @story #136
 export function createProductionWorkerOperations({ performCurrentOperationEffect }) {
-  const mkdirSync = (...args) => performCurrentOperationEffect(() => rawMkdirSync(...args));
-  const writeFileSync = (...args) => performCurrentOperationEffect(() => rawWriteFileSync(...args));
-  const acquireProviderResource = (...args) => {
+  const mkdirSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawMkdirSync(...args));
+  const writeFileSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawWriteFileSync(...args));
+  const acquireProviderResource = async (...args) => {
     // Concurrent leases only validate identity and update in-memory session state.
     // Repository write admission here would age fresh provider observations before
     // validation; provider actions retain their independent effect fences.
     if (args[0]?.descriptor?.concurrent === true) return rawAcquireProviderResource(...args);
-    const lease = performCurrentOperationEffect(() => rawAcquireProviderResource(...args));
+    const lease = await performCurrentOperationEffect(() => rawAcquireProviderResource(...args));
     return Object.freeze(
       Object.fromEntries(
         Object.entries(lease).map(([name, value]) => [
           name,
           typeof value === 'function'
-            ? (...methodArgs) => performCurrentOperationEffect(() => value.apply(lease, methodArgs))
+            ? async (...methodArgs) =>
+                await performCurrentOperationEffect(() => value.apply(lease, methodArgs))
             : value,
         ])
       )
@@ -88,7 +91,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
           'broker',
           'recovery'
         );
-        mkdirSync(root, { recursive: true, mode: 0o700 });
+        await mkdirSync(root, { recursive: true, mode: 0o700 });
         const file = path.join(root, `${registration.review_id}.json`);
         const observation = {
           schema: 'ai-peer-review.broker-recovery/v1',
@@ -125,7 +128,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
           // while recovery identity and these original bytes stay fixed.
           return;
         }
-        writeFileSync(file, `${JSON.stringify(observation)}\n`, { flag: 'wx', mode: 0o600 });
+        await writeFileSync(file, `${JSON.stringify(observation)}\n`, { flag: 'wx', mode: 0o600 });
       },
       async close() {},
     });

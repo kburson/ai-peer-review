@@ -276,7 +276,7 @@ test('preserves one validated lineage receipt through plan, history, and relocat
 
   assert.deepEqual(plan.lineage_receipt, lineage);
   assert.match(renderReviewHistory(plan), /## Validated lineage[\s\S]*review-01[\s\S]*review-02/);
-  applyReviewRecord(plan, { mode: 'no-commit' });
+  await applyReviewRecord(plan, { mode: 'no-commit' });
   const relocation = JSON.parse(readFileSync(plan.receipt.absolute, 'utf8'));
   assert.deepEqual(relocation.lineage_receipt, lineage);
 });
@@ -385,7 +385,7 @@ test('applies a byte-identical relocation only after every destination verifies'
     plan.mappings.map(({ source }) => [source.relative, readFileSync(source.absolute)])
   );
 
-  const result = applyReviewRecord(plan, { mode: 'no-commit' });
+  const result = await applyReviewRecord(plan, { mode: 'no-commit' });
 
   assert.equal(result.schema, 'ai-peer-review.relocation-result/v1');
   assert.equal(result.recovered, false);
@@ -406,7 +406,7 @@ test('applies a byte-identical relocation only after every destination verifies'
   assert.equal(receipt.mappings.length, plan.mappings.length);
   assert.match(readFileSync(plan.history.absolute, 'utf8'), /not-submitted[\s\S]*accepted/);
 
-  const retry = applyReviewRecord(plan, { mode: 'no-commit' });
+  const retry = await applyReviewRecord(plan, { mode: 'no-commit' });
   assert.equal(retry.recovered, true);
   assert.equal(retry.receipt_digest, result.receipt_digest);
 });
@@ -428,8 +428,8 @@ test('refuses a nonidentical occupied destination without changing any source', 
   });
   assert.equal(refreshed.mappings[0].collision, 'conflict');
 
-  assert.throws(
-    () => applyReviewRecord(refreshed, { mode: 'no-commit' }),
+  await assert.rejects(
+    async () => await applyReviewRecord(refreshed, { mode: 'no-commit' }),
     (error) => error.code === 'APR_REVIEW_RECORD_COLLISION'
   );
   assert.equal(existsSync(refreshed.mappings[0].source.absolute), true);
@@ -446,9 +446,9 @@ test('rolls back created destinations and retains every source after a copy fail
     destination: 'docs/peer-reviews/spec/record-01',
   });
   let published = 0;
-  assert.throws(
-    () =>
-      applyReviewRecord(plan, {
+  await assert.rejects(
+    async () =>
+      await applyReviewRecord(plan, {
         mode: 'no-commit',
         checkpoint(phase) {
           if (phase === 'destination-published' && ++published === 2) {
@@ -477,9 +477,9 @@ test('detects a destination digest mismatch before deleting any source', async (
     destination: 'docs/peer-reviews/spec/record-01',
   });
   let corrupted = false;
-  assert.throws(
-    () =>
-      applyReviewRecord(plan, {
+  await assert.rejects(
+    async () =>
+      await applyReviewRecord(plan, {
         mode: 'no-commit',
         checkpoint(phase, details) {
           if (phase === 'all-destinations-published' && !corrupted) {
@@ -523,7 +523,7 @@ test('normal mode commits only relocation paths and preserves unrelated staged b
     now: new Date('2026-09-08T13:00:00.000Z'),
   });
 
-  const result = applyReviewRecord(plan, { mode: 'normal' });
+  const result = await applyReviewRecord(plan, { mode: 'normal' });
 
   const committed = execFileSync(
     'git',
@@ -572,9 +572,9 @@ test('normal mode exact retry commits a verified relocation interrupted after so
     now: new Date('2026-09-08T13:00:00.000Z'),
   });
 
-  assert.throws(
-    () =>
-      applyReviewRecord(plan, {
+  await assert.rejects(
+    async () =>
+      await applyReviewRecord(plan, {
         mode: 'normal',
         checkpoint(phase) {
           if (phase === 'sources-removed') throw new Error('injected interruption');
@@ -583,7 +583,7 @@ test('normal mode exact retry commits a verified relocation interrupted after so
     (error) => error.code === 'APR_REVIEW_RECORD_APPLY'
   );
 
-  const result = applyReviewRecord(plan, { mode: 'normal' });
+  const result = await applyReviewRecord(plan, { mode: 'normal' });
 
   assert.equal(result.recovered, true);
   assert.match(result.commit, /^[0-9a-f]{40}$/);

@@ -9,7 +9,7 @@ export async function assertIntegrationCurrent({ primary, runtime } = {}) {
   const selected = await assertSelectedRuntime();
   if (runtime && runtime.selection_id !== selected.selection_id)
     await assertSelectedRuntime({ previousObservation: runtime });
-  const observed = resolvePrimaryAuthoritySync({
+  const observed = await resolvePrimaryAuthoritySync({
     cwd: primary?.activeWorktreeRoot ?? process.cwd(),
   });
   return createIntegrationChecker({ packageRoot, home: userInfo().homedir }).check(observed);

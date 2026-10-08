@@ -126,18 +126,10 @@ test('source contract includes all production parser validators but excludes led
   assert.equal(typeof api.processSourceContractDigest, 'function');
   const root = mkdtempSync(path.join(tmpdir(), 'apr-source-contract-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  for (const file of [
-    'src/broker/platform.mjs',
-    'src/config/runtime-selection.mjs',
-    'src/config/runtime-selection-core.mjs',
-    'src/errors.mjs',
-    'src/installed/dependency-closure.mjs',
-    'src/startup/runtime-inventory.mjs',
-    'src/protocol/process-identity.mjs',
-    'src/protocol/process-source-assurance.mjs',
-    'src/api/canonical-json.mjs',
-    'schemas/process-source-class-v1.json',
-  ]) {
+  const manifest = JSON.parse(
+    readFileSync(path.join(ROOT, 'src/protocol/process-source-contract-files.json'), 'utf8')
+  );
+  for (const file of manifest.files) {
     mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     cpSync(path.join(ROOT, file), path.join(root, file));
   }
@@ -632,4 +624,56 @@ test('Darwin execution-host binding distinguishes cloned hardware identities by 
       identity.darwinExecutionHostBinding({ platformUuid: hardware, bootSessionUuid: value }),
       null
     );
+});
+
+test('source digest refuses a fixture installation without its derived contract manifest', async (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'apr-missing-derived-manifest-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  for (const file of [
+    'src/broker/platform.mjs',
+    'src/config/runtime-selection.mjs',
+    'src/config/runtime-selection-core.mjs',
+    'src/errors.mjs',
+    'src/installed/dependency-closure.mjs',
+    'src/startup/runtime-inventory.mjs',
+    'src/protocol/process-identity.mjs',
+    'src/protocol/process-source-assurance.mjs',
+    'src/api/canonical-json.mjs',
+    'schemas/process-source-class-v1.json',
+  ]) {
+    mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    cpSync(path.join(ROOT, file), path.join(root, file));
+  }
+  await assert.rejects(
+    api.processSourceContractDigest({ installation: root }),
+    /manifest|contract.*file|ENOENT/i
+  );
+});
+
+test('generated source digest binds actual owner and HTTP bytes while excluding unrelated package metadata', async (t) => {
+  const root = mkdtempSync(path.join(tmpdir(), 'apr-owner-source-contract-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const manifest = JSON.parse(
+    readFileSync(path.join(ROOT, 'src/protocol/process-source-contract-files.json'), 'utf8')
+  );
+  for (const file of manifest.files) {
+    mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    cpSync(path.join(ROOT, file), path.join(root, file));
+  }
+  const before = await api.processSourceContractDigest({ installation: root });
+  for (const file of [
+    'src/broker/portable-ownership.mjs',
+    'src/broker/http-server.mjs',
+    'src/broker/ownership-election.mjs',
+    'src/broker/storage-protection.mjs',
+  ]) {
+    assert.ok(manifest.files.includes(file), file);
+    const target = path.join(root, file),
+      bytes = readFileSync(target);
+    writeFileSync(target, Buffer.concat([bytes, Buffer.from('\n// changed covered contract\n')]));
+    assert.notEqual(await api.processSourceContractDigest({ installation: root }), before, file);
+    writeFileSync(target, bytes);
+  }
+  writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: 'unrelated metadata' }));
+  assert.equal(await api.processSourceContractDigest({ installation: root }), before);
 });

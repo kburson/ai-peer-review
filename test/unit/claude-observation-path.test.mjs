@@ -16,7 +16,7 @@ import {
   readClaudeStreamObservation,
 } from '../helpers/claude-stream-api.mjs';
 
-function fixture(t) {
+async function fixture(t) {
   mkdirSync('.scratch/test', { recursive: true });
   const workspace = mkdtempSync(path.join(process.cwd(), '.scratch/test/observation-'));
   t.after(() => rmSync(workspace, { recursive: true, force: true }));
@@ -27,14 +27,14 @@ function fixture(t) {
     operationId,
     expectedCommand: 'peer-review join fixture',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'system',
     subtype: 'init',
     session_id: handleLocator,
     model: 'claude-opus-5',
     claude_code_version: '2.1.278',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'assistant',
     session_id: handleLocator,
     timestamp: new Date().toISOString(),
@@ -60,8 +60,8 @@ function fixture(t) {
   };
 }
 
-test('Claude operation observations use portable filenames and retain exact operation identity', (t) => {
-  const f = fixture(t);
+test('Claude operation observations use portable filenames and retain exact operation identity', async (t) => {
+  const f = await fixture(t);
   assert.deepEqual(readdirSync(f.directory), [f.filename]);
   assert.equal(readClaudeStreamObservation(f.input).operation_id, 'join:fixture');
   assert.throws(() => readClaudeStreamObservation({ ...f.input, handleLocator: 'other' }), {
@@ -72,8 +72,8 @@ test('Claude operation observations use portable filenames and retain exact oper
 test(
   'existing Unix observation files remain readable without migrating their bytes',
   { skip: process.platform === 'win32' },
-  (t) => {
-    const f = fixture(t);
+  async (t) => {
+    const f = await fixture(t);
     const bytes = readFileSync(f.file);
     const legacy = path.join(f.directory, `${f.input.operationId}.json`);
     renameSync(f.file, legacy);

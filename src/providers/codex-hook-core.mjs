@@ -26,7 +26,12 @@ export function createCodexHook({ performCurrentOperationEffect }) {
     return path.join(root, '.scratch', 'peer-review', 'codex-hooks', `${token}.json`);
   }
 
-  function captureCodexStartHook({ event, sourceVersion, token, observedAt = new Date() } = {}) {
+  async function captureCodexStartHook({
+    event,
+    sourceVersion,
+    token,
+    observedAt = new Date(),
+  } = {}) {
     const command = event?.tool_input?.command;
     if (!COMMAND.test(command ?? '')) return null;
     if (
@@ -60,7 +65,7 @@ export function createCodexHook({ performCurrentOperationEffect }) {
       command,
     };
     if (START.test(command) || JOIN.test(command))
-      performCurrentOperationEffect(() =>
+      await performCurrentOperationEffect(() =>
         atomicWrite(recordFile(event.cwd, token), `${JSON.stringify(record)}\n`)
       );
     return Object.freeze({
