@@ -375,7 +375,16 @@ export async function bindProcessSourceCandidate({ packagePath, binding } = {}) 
   const hostId = await identity.observeExecutionHostIdentity(context);
   if (!/^sha256:[a-f0-9]{64}$/u.test(hostId ?? '')) fail('package-host-unclassified');
   const protection = await load('src/broker/storage-protection.mjs');
-  const privateRoot = path.join(path.dirname(bindingFile), captureId + '-private');
+  // CI checkout volumes can have untrusted service owners. Private signing material
+  // uses per-user Windows storage; C1 still validates every actual ancestor and ACL.
+  const privateRoot =
+    process.platform === 'win32'
+      ? path.join(
+          realpathSync(process.env.LOCALAPPDATA),
+          'ai-peer-review-source-captures',
+          captureId
+        )
+      : path.join(path.dirname(bindingFile), captureId + '-private');
   const protectedReceipt = await protection.provisionProtectedRoot({
     root: privateRoot,
     ...context,

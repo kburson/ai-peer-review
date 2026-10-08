@@ -239,6 +239,15 @@ test('pack and bind preserve exact actual runtime bytes and emit only a public k
     'actual candidate binding must execute successfully: ' + bound.stderr
   );
   const binding = JSON.parse(fs.readFileSync(bindingPath, 'utf8'));
+  if (process.platform === 'win32') {
+    assert.equal(
+      binding.privateRoot.startsWith(root),
+      false,
+      'private signing keys must not use the CI checkout volume'
+    );
+    assert.ok(binding.privateRoot.startsWith(fs.realpathSync(process.env.LOCALAPPDATA) + path.sep));
+    t.after(() => fs.rmSync(binding.privateRoot, { recursive: true, force: true }));
+  }
   const candidateBytes = fs.readFileSync(bindingPath + '.registration.json', 'utf8');
   const candidate = JSON.parse(candidateBytes);
   assert.deepEqual(candidate.package, packageReceipt);
@@ -638,4 +647,27 @@ test('creation conformance needs sustained real-transition-shaped windows and ex
       () => verify({ ...f, registration, receipt: f.seal({ ...unsigned, transitions: changed }) }),
       /creation|restoration/
     );
+});
+
+test('clock observation uses actual system zone and monotonic time without caller substitutes', async () => {
+  let clock;
+  try {
+    clock = await import('../live/process-source/clock.mjs');
+  } catch (error) {
+    if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+  }
+  assert.equal(typeof clock?.observeSystemClockCore, 'function');
+  const before = process.hrtime.bigint();
+  const value = await clock.observeSystemClockCore();
+  const after = process.hrtime.bigint();
+  assert.equal(value.verified, false);
+  assert.ok(BigInt(value.monotonicNs) >= before && BigInt(value.monotonicNs) <= after);
+  assert.ok(BigInt(value.utcNs) > 0n);
+  assert.equal(typeof value.dst, 'boolean');
+  assert.equal(typeof value.zone, 'string');
+  assert.ok(value.zone.length > 0);
+  await assert.rejects(
+    () => clock.observeSystemClockCore({ clock: () => 0, zone: 'UTC' }),
+    /clock-observation-options/
+  );
 });
