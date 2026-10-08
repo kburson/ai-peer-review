@@ -12,6 +12,7 @@ import {
 import {
   verifyProcessSourceIndexCore,
   verifyProcessSourceReceiptCore,
+  verifyCiCaptureControlsCore,
   processSourceRecordDigest,
 } from './records.mjs';
 import { proposeProcessSourceClassCore } from './classes.mjs';
@@ -210,8 +211,22 @@ export async function readReviewedProcessSourceClasses({ approvedClassRef } = {}
     const blocks = [...text.matchAll(/^\x60{3}json\r?\n([\s\S]*?)^\x60{3}\s*$/gm)];
     if (blocks.length !== 1) fail('class-review-subject-invalid');
     const declared = parseRawJson(blocks[0][1]);
+    const hasCi =
+      Object.hasOwn(declared, 'hostControls') || Object.hasOwn(declared, 'ciProvenance');
     if (
-      !exact(declared, ['schema', 'proposals', 'registrationApproval', 'receipts']) ||
+      !exact(
+        declared,
+        hasCi
+          ? [
+              'schema',
+              'proposals',
+              'registrationApproval',
+              'receipts',
+              'hostControls',
+              'ciProvenance',
+            ]
+          : ['schema', 'proposals', 'registrationApproval', 'receipts']
+      ) ||
       declared.schema !== 'ai-peer-review.process-source-class-review/v1' ||
       !Array.isArray(declared.receipts) ||
       !declared.receipts.length ||
@@ -262,6 +277,50 @@ export async function readReviewedProcessSourceClasses({ approvedClassRef } = {}
         registrationIndexDigest: registration.indexDigest,
       });
       captures.set(receipt.captureId, { receipt, registration: record });
+    }
+    if (hasCi) {
+      if (
+        !Array.isArray(declared.hostControls) ||
+        declared.hostControls.length !== captures.size ||
+        !/^evidence\/portable-runtime\/process-source\/classes\/[a-z0-9][a-z0-9-]{0,95}\.json$/u.test(
+          declared.ciProvenance?.path ?? ''
+        )
+      )
+        fail('class-review-ci-controls-invalid');
+      ancestor(declared.ciProvenance.revision, p.subject.revision);
+      const provenance = parseRawJson(reference(declared.ciProvenance).toString('utf8'));
+      const checked = new Set();
+      for (const ref of declared.hostControls) {
+        ancestor(ref.revision, p.subject.revision);
+        const control = parseRawJson(reference(ref).toString('utf8'));
+        const capture = captures.get(control.captureId);
+        if (
+          !capture ||
+          checked.has(control.captureId) ||
+          ref.path !==
+            'evidence/portable-runtime/process-source/' + control.captureId + '/host-control.json'
+        )
+          fail('class-review-ci-controls-invalid');
+        verifyCiCaptureControlsCore({ receipt: capture.receipt, hostControl: control, provenance });
+        ancestor(control.codeCommit, control.captureProducerCommit);
+        ancestor(control.captureProducerCommit, p.subject.revision);
+        try {
+          git([
+            'diff',
+            '--exit-code',
+            control.codeCommit,
+            control.captureProducerCommit,
+            '--',
+            '.',
+            ':!evidence/portable-runtime/process-source',
+            ':!docs/superpowers/peer-reviews',
+          ]);
+        } catch {
+          fail('class-review-transitive-producer-changed');
+        }
+        checked.add(control.captureId);
+      }
+      if (checked.size !== captures.size) fail('class-review-ci-controls-invalid');
     }
     const used = new Set();
     const classes = bundle.proposals.map((proposal) => {

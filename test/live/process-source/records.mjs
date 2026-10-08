@@ -408,3 +408,108 @@ export function verifyProcessSourceIndexCore({ index, registrations } = {}) {
     captureIds: Object.freeze([...ids]),
   });
 }
+
+export function verifyCiCaptureControlsCore({ receipt, hostControl, provenance } = {}) {
+  const p = provenance,
+    c = hostControl;
+  if (
+    !exact(p, [
+      'schema',
+      'verified',
+      'repository',
+      'runId',
+      'runAttempt',
+      'sourceCommit',
+      'workflowPath',
+      'event',
+      'status',
+      'conclusion',
+      'jobs',
+    ]) ||
+    p.schema !== 'ai-peer-review.process-source-ci-provenance/v1' ||
+    p.verified !== false ||
+    p.repository !== 'kburson/ai-peer-review' ||
+    !/^[0-9]+$/u.test(p.runId) ||
+    !/^[0-9]+$/u.test(p.runAttempt) ||
+    !/^[a-f0-9]{40}$/u.test(p.sourceCommit) ||
+    p.sourceCommit !== receipt?.package?.sourceCommit ||
+    p.workflowPath !== '.github/workflows/process-source-capture.yml' ||
+    p.event !== 'push' ||
+    p.status !== 'completed' ||
+    p.conclusion !== 'success' ||
+    !Array.isArray(p.jobs) ||
+    !p.jobs.length ||
+    p.jobs.length > 16 ||
+    new Set(p.jobs.map((j) => j.id)).size !== p.jobs.length
+  )
+    fail('ci-control-provenance-invalid');
+  for (const job of p.jobs)
+    if (
+      !exact(job, ['id', 'runnerOS', 'nodeMajor', 'status', 'conclusion']) ||
+      !/^[0-9]+$/u.test(job.id) ||
+      !['Linux', 'Windows', 'macOS'].includes(job.runnerOS) ||
+      !Number.isSafeInteger(job.nodeMajor) ||
+      job.nodeMajor < 24 ||
+      job.nodeMajor > 128 ||
+      job.status !== 'completed' ||
+      job.conclusion !== 'success'
+    )
+      fail('ci-control-provenance-invalid');
+  const os = { linux: 'Linux', win32: 'Windows', darwin: 'macOS' }[receipt?.scope?.platform];
+  if (
+    p.jobs.filter((j) => j.runnerOS === os && j.nodeMajor === receipt?.scope?.nodeMajor).length !==
+    1
+  )
+    fail('ci-control-worker-mismatch');
+  if (
+    !exact(c, [
+      'schema',
+      'verified',
+      'runId',
+      'runAttempt',
+      'codeCommit',
+      'captureProducerCommit',
+      'captureId',
+      'kind',
+      'control',
+    ]) ||
+    c.schema !== 'ai-peer-review.process-source-ci-control/v1' ||
+    c.verified !== false ||
+    c.runId !== p.runId ||
+    c.runAttempt !== p.runAttempt ||
+    c.codeCommit !== p.sourceCommit ||
+    !/^[a-f0-9]{40}$/u.test(c.captureProducerCommit) ||
+    c.captureId !== receipt.captureId ||
+    c.kind !== receipt.kind
+  )
+    fail('ci-control-mismatch');
+  if (receipt.kind === 'absence') {
+    if (
+      !exact(c.control, ['verified', 'clockChanges', 'restoration']) ||
+      c.control.verified !== false ||
+      c.control.clockChanges !== 'none' ||
+      c.control.restoration !== 'not-required'
+    )
+      fail('ci-control-restoration-unproved');
+  } else {
+    if (
+      !exact(c.control, ['verified', 'prerequisites', 'restoration']) ||
+      c.control.verified !== false ||
+      c.control.prerequisites !== 'privilege-and-restoration-observed' ||
+      !exact(c.control.restoration, [
+        'verified',
+        'restoration',
+        'zone',
+        'networkTime',
+        'systemZone',
+      ]) ||
+      c.control.restoration.verified !== false ||
+      c.control.restoration.restoration !== 'verified' ||
+      !['yes', 'no'].includes(c.control.restoration.networkTime) ||
+      !text(c.control.restoration.zone, 128) ||
+      !text(c.control.restoration.systemZone, 128)
+    )
+      fail('ci-control-restoration-unproved');
+  }
+  return Object.freeze({ verified: false, controlsValid: true });
+}

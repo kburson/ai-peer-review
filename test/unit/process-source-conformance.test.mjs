@@ -1085,3 +1085,85 @@ test('owned capture child exits with failure when its exact parent IPC disconnec
     clearTimeout(timer);
   }
 });
+
+test('CI class controls require successful exact job scope and final original-state restoration without granting authority', async () => {
+  const records = await import('../live/process-source/records.mjs');
+  assert.equal(typeof records.verifyCiCaptureControlsCore, 'function');
+  const receipt = fixture().receipt;
+  const hostControl = {
+    schema: 'ai-peer-review.process-source-ci-control/v1',
+    verified: false,
+    runId: '123',
+    runAttempt: '1',
+    codeCommit: 'b'.repeat(40),
+    captureProducerCommit: 'c'.repeat(40),
+    captureId: receipt.captureId,
+    kind: 'absence',
+    control: { verified: false, clockChanges: 'none', restoration: 'not-required' },
+  };
+  const provenance = {
+    schema: 'ai-peer-review.process-source-ci-provenance/v1',
+    verified: false,
+    repository: 'kburson/ai-peer-review',
+    runId: '123',
+    runAttempt: '1',
+    sourceCommit: 'b'.repeat(40),
+    workflowPath: '.github/workflows/process-source-capture.yml',
+    event: 'push',
+    status: 'completed',
+    conclusion: 'success',
+    jobs: [
+      { id: '111', runnerOS: 'Linux', nodeMajor: 24, status: 'completed', conclusion: 'success' },
+    ],
+  };
+  assert.deepEqual(records.verifyCiCaptureControlsCore({ receipt, hostControl, provenance }), {
+    verified: false,
+    controlsValid: true,
+  });
+  for (const changed of [
+    { ...provenance, conclusion: 'failure' },
+    { ...provenance, sourceCommit: 'f'.repeat(40) },
+    { ...provenance, jobs: [{ ...provenance.jobs[0], nodeMajor: 26 }] },
+    { ...provenance, jobs: [provenance.jobs[0], provenance.jobs[0]] },
+  ])
+    assert.throws(
+      () => records.verifyCiCaptureControlsCore({ receipt, hostControl, provenance: changed }),
+      /ci-control/
+    );
+  const creation = { ...receipt, kind: 'creation' };
+  const control = {
+    ...hostControl,
+    kind: 'creation',
+    control: {
+      verified: false,
+      prerequisites: 'privilege-and-restoration-observed',
+      restoration: {
+        verified: false,
+        restoration: 'verified',
+        zone: 'UTC',
+        networkTime: 'yes',
+        systemZone: 'Etc/UTC',
+      },
+    },
+  };
+  assert.equal(
+    records.verifyCiCaptureControlsCore({ receipt: creation, hostControl: control, provenance })
+      .controlsValid,
+    true
+  );
+  assert.throws(
+    () =>
+      records.verifyCiCaptureControlsCore({
+        receipt: creation,
+        hostControl: {
+          ...control,
+          control: {
+            ...control.control,
+            restoration: { ...control.control.restoration, restoration: 'unknown' },
+          },
+        },
+        provenance,
+      }),
+    /ci-control/
+  );
+});
