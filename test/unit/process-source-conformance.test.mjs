@@ -889,3 +889,37 @@ test('class review and verification modes require ordinary registration authorit
     );
   assert.equal(fs.existsSync(path.join(scratch, 'proposal.json')), false);
 });
+
+test('class admission requires its own normal reviewed subject and cannot reuse registration approval', async () => {
+  const authority = await import('../live/process-source/authority.mjs');
+  assert.equal(typeof authority.readReviewedProcessSourceClasses, 'function');
+  await assert.rejects(
+    () =>
+      authority.readReviewedProcessSourceClasses({
+        approvedClassRef: { accepted: true },
+      }),
+    /class-approved-ref-invalid/
+  );
+  await assert.rejects(
+    () =>
+      authority.readReviewedProcessSourceClasses({
+        approvedClassRef: {
+          schema: 'ai-peer-review.process-source-class-approved-ref/v1',
+          producerVersion: '0.4.1',
+          review: {
+            reviewId: 'registration-review',
+            subject: {
+              revision: 'b'.repeat(40),
+              path: 'evidence/portable-runtime/process-source/registration-reviews/local.md',
+              blob: 'b'.repeat(40),
+              sha256: 'c'.repeat(64),
+            },
+            manifest: {},
+            finalResponse: {},
+            finalization: {},
+          },
+        },
+      }),
+    /class-review-subject-invalid/
+  );
+});

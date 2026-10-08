@@ -9,7 +9,13 @@ import {
   checkNormalRuntimeReview,
   readRuntimeContractGitBlob,
 } from '../../../scripts/check-runtime-contract-adoption.mjs';
-import { verifyProcessSourceIndexCore } from './records.mjs';
+import {
+  verifyProcessSourceIndexCore,
+  verifyProcessSourceReceiptCore,
+  processSourceRecordDigest,
+} from './records.mjs';
+import { proposeProcessSourceClassCore } from './classes.mjs';
+import { verifyProcessSourceClass } from '../../../src/protocol/process-source-assurance.mjs';
 
 const ROOT = realpathSync(fileURLToPath(new URL('../../../', import.meta.url)));
 const INDEX = 'evidence/portable-runtime/process-source/registration-index.json';
@@ -155,5 +161,174 @@ export async function readApprovedProcessSourceIndex(options = {}) {
   } catch (error) {
     if (/^registration-(approved|review|index)/u.test(error.message)) throw error;
     fail('registration-review-unavailable');
+  }
+}
+
+export async function readReviewedProcessSourceClasses({ approvedClassRef } = {}) {
+  const a = approvedClassRef;
+  if (
+    !exact(a, ['schema', 'producerVersion', 'review']) ||
+    a.schema !== 'ai-peer-review.process-source-class-approved-ref/v1' ||
+    !['0.4.0', '0.4.1'].includes(a.producerVersion) ||
+    !exact(a.review, ['reviewId', 'subject', 'manifest', 'finalResponse', 'finalization'])
+  )
+    fail('class-approved-ref-invalid');
+  const p = a.review;
+  if (
+    !/^evidence\/portable-runtime\/process-source\/class-reviews\/[a-z0-9][a-z0-9-]{0,95}\.md$/u.test(
+      p.subject?.path ?? ''
+    )
+  )
+    fail('class-review-subject-invalid');
+  try {
+    if (
+      !exact(p.finalization, ['revision', 'sha256']) ||
+      !OBJECT.test(p.finalization.revision) ||
+      !SHA.test(p.finalization.sha256)
+    )
+      fail('class-review-invalid');
+    const artifacts = new Map();
+    for (const ref of [p.subject, p.manifest, p.finalResponse])
+      artifacts.set(ref.revision + ':' + ref.path, reference(ref));
+    const final = p.finalization.revision;
+    for (const ref of [p.manifest, p.finalResponse])
+      artifacts.set(
+        'tree:' + final + ':' + ref.path,
+        readRuntimeContractGitBlob(git, final, ref.path)
+      );
+    artifacts.set('commit:' + final, git(['show', '-s', '--format=%B', final]));
+    artifacts.set('parent:' + final, git(['show', '-s', '--format=%P', final], 'utf8').trim());
+    const review = checkNormalRuntimeReview({
+      proof: p,
+      artifacts,
+      producerVersion: a.producerVersion,
+    });
+    if (!review.collateralComplete) fail('class-review-incomplete:' + review.blockers.join(','));
+    ancestor(p.subject.revision, final);
+    ancestor(final, git(['rev-parse', 'HEAD'], 'utf8').trim());
+    const text = artifacts.get(p.subject.revision + ':' + p.subject.path).toString('utf8');
+    const blocks = [...text.matchAll(/^\x60{3}json\r?\n([\s\S]*?)^\x60{3}\s*$/gm)];
+    if (blocks.length !== 1) fail('class-review-subject-invalid');
+    const declared = parseRawJson(blocks[0][1]);
+    if (
+      !exact(declared, ['schema', 'proposals', 'registrationApproval', 'receipts']) ||
+      declared.schema !== 'ai-peer-review.process-source-class-review/v1' ||
+      !Array.isArray(declared.receipts) ||
+      !declared.receipts.length ||
+      declared.receipts.length > 512 ||
+      !/^evidence\/portable-runtime\/process-source\/classes\/[a-z0-9][a-z0-9-]{0,95}\.json$/u.test(
+        declared.proposals?.path ?? ''
+      )
+    )
+      fail('class-review-evidence-invalid');
+    const registration = await readApprovedProcessSourceIndex({
+      approvedRef: declared.registrationApproval,
+    });
+    const bundle = parseRawJson(reference(declared.proposals).toString('utf8'));
+    if (
+      !exact(bundle, ['schema', 'proposals']) ||
+      bundle.schema !== 'ai-peer-review.process-source-class-proposals/v1' ||
+      !Array.isArray(bundle.proposals) ||
+      !bundle.proposals.length ||
+      bundle.proposals.length > 128 ||
+      new Set(bundle.proposals.map((v) => v.classId)).size !== bundle.proposals.length
+    )
+      fail('class-review-proposal-invalid');
+    ancestor(declared.proposals.revision, p.subject.revision);
+    const captures = new Map();
+    for (const ref of declared.receipts) {
+      if (
+        !/^evidence\/portable-runtime\/process-source\/[a-z0-9][a-z0-9-]{0,95}\/receipt\.json$/u.test(
+          ref.path ?? ''
+        )
+      )
+        fail('class-review-receipt-invalid');
+      ancestor(ref.revision, p.subject.revision);
+      const receipt = parseRawJson(reference(ref).toString('utf8'));
+      if (
+        ref.path !==
+          'evidence/portable-runtime/process-source/' + receipt.captureId + '/receipt.json' ||
+        captures.has(receipt.captureId)
+      )
+        fail('class-review-duplicate-capture');
+      const record = registration.registrations.get(
+        'evidence/portable-runtime/process-source/registrations/' + receipt.captureId + '.json'
+      );
+      verifyProcessSourceReceiptCore({
+        receipt,
+        registration: record,
+        packageReceipt: record?.package,
+        registrationRevision: registration.revision,
+        registrationIndexDigest: registration.indexDigest,
+      });
+      captures.set(receipt.captureId, { receipt, registration: record });
+    }
+    const used = new Set();
+    const classes = bundle.proposals.map((proposal) => {
+      if (!Array.isArray(proposal.evidenceDigests)) fail('class-review-proposal-invalid');
+      const selected = [...captures.values()].filter((v) =>
+        proposal.evidenceDigests.includes(processSourceRecordDigest(v.receipt))
+      );
+      for (const v of selected) {
+        if (used.has(v.receipt.captureId)) fail('class-review-duplicate-capture');
+        used.add(v.receipt.captureId);
+      }
+      const recomputed = proposeProcessSourceClassCore({
+        receipts: selected.map((v) => v.receipt),
+        registrations: selected.map((v) => v.registration),
+        registrationRevision: registration.revision,
+        registrationIndexDigest: registration.indexDigest,
+      }).proposal;
+      if (processSourceRecordDigest(recomputed) !== processSourceRecordDigest(proposal))
+        fail('class-review-proposal-mismatch');
+      const unsigned = {
+        schema: 'ai-peer-review.process-source-class/v1',
+        classId: proposal.classId,
+        capability: proposal.capability,
+        scope: proposal.scope,
+        contractDigest: proposal.contractDigest,
+        semantics: proposal.semantics,
+        precision: proposal.precision,
+        acceptance: {
+          status: 'accepted',
+          evidenceDigest: processSourceRecordDigest({
+            receipts: proposal.evidenceDigests,
+            registrationRevision: proposal.registrationRevision,
+            registrationIndexDigest: proposal.registrationIndexDigest,
+          }),
+          reviewDigest: processSourceRecordDigest(p),
+        },
+      };
+      const accepted = { ...unsigned, approvalDigest: processSourceRecordDigest(unsigned) };
+      const scope = selected[0].receipt.scope;
+      const structural = verifyProcessSourceClass({
+        ledger: { schema: 'ai-peer-review.process-source-ledger/v1', classes: [accepted] },
+        host: {
+          platform: scope.platform,
+          build: scope.build,
+          architecture: scope.architecture,
+          nodeMajor: scope.nodeMajor,
+        },
+        adapterHashes: { contractDigest: accepted.contractDigest },
+        probeObservation: scope.probe,
+      });
+      if (structural[accepted.capability]?.status !== 'matched')
+        fail('class-review-finite-scope-invalid');
+      return accepted;
+    });
+    if (used.size !== captures.size || captures.size !== registration.index.captures.length)
+      fail('class-review-evidence-coverage-invalid');
+    return Object.freeze({
+      verified: false,
+      classAuthority: 'reviewed',
+      classes,
+      proposals: bundle,
+      registrationApproval: declared.registrationApproval,
+      assurance: review.assurance,
+      privateEventReplay: review.privateEventReplay,
+    });
+  } catch (error) {
+    if (/^class-(approved|review)/u.test(error.message)) throw error;
+    fail('class-review-unavailable');
   }
 }

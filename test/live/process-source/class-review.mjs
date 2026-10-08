@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { realpathSync, lstatSync, readdirSync, writeFileSync } from 'node:fs';
 import { parseRawJson } from '../../../src/api/canonical-json.mjs';
 import { readBoundedOrdinaryFile } from '../../../src/startup/runtime-inventory.mjs';
-import { readApprovedProcessSourceIndex } from './authority.mjs';
+import { readApprovedProcessSourceIndex, readReviewedProcessSourceClasses } from './authority.mjs';
 import { inspectInstalledCandidateSource } from './package.mjs';
 import { proposeProcessSourceClassCore, verifyProcessSourceProposalCore } from './classes.mjs';
 import { processSourceRecordDigest } from './records.mjs';
@@ -86,6 +86,15 @@ export async function reviewProcessSourceClasses(options) {
 }
 export async function verifyProposedSourceClass(options) {
   const groups = await evidence(options);
+  const accepted = options.approvedClassRef
+    ? await readReviewedProcessSourceClasses({ approvedClassRef: json(options.approvedClassRef) })
+    : null;
+  if (
+    accepted &&
+    processSourceRecordDigest(accepted.registrationApproval) !==
+      processSourceRecordDigest(json(options.approvedRef))
+  )
+    fail('class-review-registration-mismatch');
   const proposed = json(options.classFile);
   if (
     proposed.schema !== 'ai-peer-review.process-source-class-proposals/v1' ||
@@ -123,5 +132,32 @@ export async function verifyProposedSourceClass(options) {
     installation: options.installation,
     packagePath: options.packagePath,
   });
-  return { verified: false, classAdmitted: false, ordinaryClassReview: 'required', results };
+  if (!accepted)
+    return { verified: false, classAdmitted: false, ordinaryClassReview: 'required', results };
+  if (processSourceRecordDigest(accepted.proposals) !== processSourceRecordDigest(proposed))
+    fail('class-review-proposal-mismatch');
+  const ledger = json(
+    path.join(options.installation, 'src/protocol/process-source-contracts.json')
+  );
+  if (
+    ledger.schema !== 'ai-peer-review.process-source-ledger/v1' ||
+    Object.keys(ledger).sort().join(',') !== 'classes,schema' ||
+    !Array.isArray(ledger.classes)
+  )
+    fail('class-review-installed-ledger-invalid');
+  const shipped = accepted.classes.every(
+    (c) =>
+      ledger.classes.filter(
+        (v) =>
+          v.classId === c.classId && processSourceRecordDigest(v) === processSourceRecordDigest(c)
+      ).length === 1
+  );
+  return {
+    verified: false,
+    classAdmitted: shipped,
+    ordinaryClassReview: 'accepted',
+    installedClass: shipped ? 'present' : 'missing',
+    operationalAuthority: 'unavailable',
+    results,
+  };
 }

@@ -65,6 +65,7 @@ export async function runProcessSourceConformance(options = {}) {
         'classFile',
         'packagePath',
         'installation',
+        'approvedClassRef',
       ].includes(k)
     )
   )
@@ -109,6 +110,7 @@ function args(values) {
                     '--class': 'classFile',
                     '--package': 'packagePath',
                     '--installation': 'installation',
+                    '--class-review': 'approvedClassRef',
                   }
                 : {};
   for (let i = 0; i < rest.length; i += 2) {

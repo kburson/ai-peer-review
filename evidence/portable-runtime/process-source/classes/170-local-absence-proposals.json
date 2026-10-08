@@ -1,0 +1,39 @@
+{
+  "schema": "ai-peer-review.process-source-class-proposals/v1",
+  "proposals": [
+    {
+      "schema": "ai-peer-review.process-source-class-proposal/v1",
+      "capability": "absence",
+      "scope": {
+        "platform": "darwin",
+        "builds": ["25.6.0"],
+        "architectures": ["arm64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "/bin/ps",
+          "visibility": "same-user-full-selection",
+          "errorContract": "exact-ps-selection-v1",
+          "version": "sha256:3489ed38c81ce0eccfc9bb63ac3d8111231e5f8567fbb664b211929aea582e50"
+        }
+      },
+      "contractDigest": "sha256:9a9c7b78745abd0a108bc72a0850c5d4bf42c01bc3caaa803964712f09238e55",
+      "semantics": "darwin-ps-selection-v1",
+      "precision": "not-applicable",
+      "evidenceDigests": [
+        "sha256:fb44e06a623ab8647541208a799bc0603f0f8f2ed8d0ae4b77121c9f9279e1a1"
+      ],
+      "registrationRevision": "6eaa572e87ef6c73a21c414337f4855640323625",
+      "registrationIndexDigest": "sha256:a0b2d4978985067664f14ee07192e4369d39849ed3591b74e9cedd2b8f2acb36",
+      "packageProvenance": [
+        {
+          "schema": "ai-peer-review.process-source-package/v1",
+          "sourceCommit": "992bf7f74778605e1901147f9df22ce0c8e10fbb",
+          "tarballDigest": "sha256:0babd2ecc27c5667a68f1563326d51c97d79ac6f9c61f2dc85ea5f1b21831794",
+          "inventoryDigest": "sha256:5dcaa02917de7db58028c0feda0fb65179bed2beb1865633d18795ad443bef93",
+          "contractDigest": "sha256:9a9c7b78745abd0a108bc72a0850c5d4bf42c01bc3caaa803964712f09238e55"
+        }
+      ],
+      "classId": "source-4e5bd382670e95bb0a76ba960b953740"
+    }
+  ]
+}
