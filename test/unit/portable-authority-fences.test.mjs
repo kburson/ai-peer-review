@@ -394,6 +394,7 @@ test('copied and unawaited fences and authenticated read roles cannot authorize 
 });
 
 import { renameSync } from 'node:fs';
+import { replaceProtectedFixtureFile } from '../helpers/protected-generation-fixture.mjs';
 test('selection file replacement with identical bytes fences an already observed generation', async (t) => {
   const f = runtimeFixture(t),
     store = createSelectionStore({ packageRoot: f.packageRoot, account: f.account });
@@ -401,8 +402,7 @@ test('selection file replacement with identical bytes fences an already observed
   const observation = await store.assertSelected();
   const file = await store.location(),
     bytes = readFileSync(file);
-  renameSync(file, file + '.original');
-  writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
+  await replaceProtectedFixtureFile(file, bytes);
   await assert.rejects(store.assertSelected({ previousObservation: observation }), {
     code: 'APR_RUNTIME_CHANGED',
   });
@@ -436,8 +436,7 @@ test('primary registration replacement with identical bytes revokes its previous
     api = await import('../../src/config/primary-authority.mjs');
   const previous = await api.resolvePrimaryAuthority({ cwd: f.root });
   const bytes = readFileSync(f.registrationPath);
-  renameSync(f.registrationPath, f.registrationPath + '.original');
-  writeFileSync(f.registrationPath, bytes, { flag: 'wx', mode: 0o600 });
+  await replaceProtectedFixtureFile(f.registrationPath, bytes);
   const current = await api.resolvePrimaryAuthority({ cwd: f.root });
   assert.equal(previous.activationDigest, current.activationDigest);
   assert.throws(
