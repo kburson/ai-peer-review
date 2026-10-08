@@ -1,0 +1,17 @@
+name: Story 187 Windows diagnostics
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  generation-controls:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      # Diagnostic output only; this workflow produces no acceptance receipt.
+      - run: node --test --test-name-pattern="selection file replacement with identical bytes|primary registration replacement with identical bytes" test/unit/portable-authority-fences.test.mjs
