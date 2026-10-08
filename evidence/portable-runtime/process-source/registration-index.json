@@ -1,0 +1,10 @@
+{
+  "schema": "ai-peer-review.process-source-registration-index/v1",
+  "captures": [
+    {
+      "captureId": "source-f7b53374f29bb03521914c74a2afdfe4",
+      "path": "evidence/portable-runtime/process-source/registrations/source-f7b53374f29bb03521914c74a2afdfe4.json",
+      "digest": "sha256:b42fa6942b8665ef19ba2b68b23308029564334b9dee8322598167c0c1cb65ff"
+    }
+  ]
+}
