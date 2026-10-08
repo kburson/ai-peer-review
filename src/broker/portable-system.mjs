@@ -127,36 +127,59 @@ export async function initializePortableSystem(input = {}) {
     if ((await principal(context)) !== originalPrincipal) refuse('effective-principal-replaced');
     validateContext(context);
   }
-  async function canonicalPath(value) {
-    await check();
+  async function canonicalPaths(values) {
     if (
-      typeof value !== 'string' ||
-      !path.isAbsolute(value) ||
-      /[\u0000-\u001f\u007f]/u.test(value)
+      !Array.isArray(values) ||
+      values.length < 1 ||
+      values.length > 16 ||
+      Object.keys(values).length !== values.length
     )
       refuse('canonical-path-input');
-    const resolved = await realpath(value);
-    const before = await lstat(resolved, { bigint: true });
-    if (before.isSymbolicLink()) refuse('canonical-path-alias');
-    const after = await lstat(resolved, { bigint: true });
-    if ((await realpath(value)) !== resolved || fileIdentity(before) !== fileIdentity(after))
-      refuse('canonical-path-replaced');
-    await check();
-    // The final awaited principal probe cannot leave the path generation stale.
-    // This integrity check supplies no principal or permission observation.
+    const inputs = [...values];
     if (
-      realpathSync.native(value) !== resolved ||
-      fileIdentity(lstatSync(resolved, { bigint: true })) !== fileIdentity(after)
+      inputs.some(
+        (value) =>
+          typeof value !== 'string' ||
+          !path.isAbsolute(value) ||
+          /[\u0000-\u001f\u007f]/u.test(value)
+      )
     )
-      refuse('canonical-path-replaced');
+      refuse('canonical-path-input');
+    await check();
+    const observed = [];
+    for (const value of inputs) {
+      validateContext(context);
+      const resolved = await realpath(value);
+      const before = await lstat(resolved, { bigint: true });
+      if (before.isSymbolicLink()) refuse('canonical-path-alias');
+      const after = await lstat(resolved, { bigint: true });
+      if ((await realpath(value)) !== resolved || fileIdentity(before) !== fileIdentity(after))
+        refuse('canonical-path-replaced');
+      observed.push({ value, resolved, after });
+    }
+    await check();
+    // The last awaited principal probe cannot leave any member generation stale.
+    // These integrity checks supply no principal or permission observation.
+    for (const { value, resolved, after } of observed) {
+      if (
+        realpathSync.native(value) !== resolved ||
+        fileIdentity(lstatSync(resolved, { bigint: true })) !== fileIdentity(after)
+      )
+        refuse('canonical-path-replaced');
+      const seen = paths.get(path.resolve(value));
+      const physical = [resolved, after.dev, after.ino, after.mode].map(String).join(':');
+      if (seen !== undefined && seen !== physical) refuse('canonical-path-identity-replaced');
+    }
     validateContext(context);
-    const key = path.resolve(value);
-    const seen = paths.get(key);
-    // Contents/mtime of a directory can change; its physical object identity cannot.
-    const physical = [resolved, after.dev, after.ino, after.mode].map(String).join(':');
-    if (seen !== undefined && seen !== physical) refuse('canonical-path-identity-replaced');
-    paths.set(key, physical);
-    return resolved;
+    for (const { value, resolved, after } of observed)
+      paths.set(
+        path.resolve(value),
+        [resolved, after.dev, after.ino, after.mode].map(String).join(':')
+      );
+    return Object.freeze(observed.map((item) => item.resolved));
+  }
+  async function canonicalPath(value) {
+    return (await canonicalPaths([value]))[0];
   }
   async function physicalLocation(cwd) {
     const canonical = await canonicalPath(cwd);
@@ -324,6 +347,7 @@ export async function initializePortableSystem(input = {}) {
   const system = Object.freeze({
     kind: process.platform,
     canonicalPath,
+    canonicalPaths,
     physicalLocation,
     authorityRepository,
     primaryPolicy,

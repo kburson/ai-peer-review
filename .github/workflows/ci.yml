@@ -292,3 +292,38 @@ jobs:
           name: claude-live-conformance-sanitized
           path: ${{ runner.temp }}/claude-conformance/sanitized-result.json
           if-no-files-found: error
+
+  portable-units:
+    name: Portable units / ${{ matrix.group }} / Node ${{ matrix.node }} / windows-latest
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        node: ['24', '26', 'current']
+        group: [selection, authority, storage, identity]
+    env:
+      APR_CI_JOB_KEY: portable-unit-${{ matrix.group }}-${{ matrix.node }}-windows-latest
+      APR_CI_MATRIX_NODE: ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
+      - name: 'Verify tests: portable-unit-${{ matrix.group }}'
+        run: node scripts/ci/record-tests.mjs portable-unit-${{ matrix.group }}
+      - name: Upload portable unit receipt and raw output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14

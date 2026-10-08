@@ -86,8 +86,7 @@ export function createSelectionStore({
   }
   async function initialize(system, context) {
     check(context);
-    const root = await system.canonicalPath(packageRoot);
-    const node = await system.canonicalPath(nodeExecutable);
+    const [root, node] = await system.canonicalPaths([packageRoot, nodeExecutable]);
     const observedNode = identity(await lstat(node, { bigint: true }));
     const file = path.join(root, 'runtime-inventory.json');
     let digest = null;
@@ -437,8 +436,10 @@ export function createSelectionStore({
         'APR_RUNTIME_CHANGED',
         'Account selection changed after this invocation sealed its generation.'
       );
-    const currentRoot = await op.system.canonicalPath(executingPackageRoot);
-    const currentNode = await op.system.canonicalPath(executingNode);
+    const [currentRoot, currentNode] = await op.system.canonicalPaths([
+      executingPackageRoot,
+      executingNode,
+    ]);
     if (
       currentRoot !== actualRoot ||
       currentNode !== actualNode ||

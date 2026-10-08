@@ -1,11 +1,26 @@
 // @story #102
 import { globSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
-import { classifySuiteFiles, suiteCommandArguments } from './suite-plan.mjs';
+import {
+  classifySuiteFiles,
+  suiteCommandArguments,
+  WINDOWS_PORTABLE_UNIT_GROUPS,
+} from './suite-plan.mjs';
 
 const [suite, ...extra] = process.argv.slice(2);
 const excludeOwners = extra.includes('--exclude-owner-publication');
 const excludeComposition = extra.includes('--exclude-portable-ownership');
+const hosted = process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true';
+const excludePortableUnit =
+  suite === 'unit' && extra.length === 1 && extra[0] === '--exclude-portable-unit';
+const portableUnitShard =
+  suite === 'unit' &&
+  extra.length === 2 &&
+  extra[0] === '--portable-unit-shard' &&
+  WINDOWS_PORTABLE_UNIT_GROUPS.includes(extra[1])
+    ? extra[1]
+    : null;
+const unitSelector = hosted && (excludePortableUnit || portableUnitShard !== null);
 const knownSelectors =
   extra.length === new Set(extra).size &&
   extra.every((value) =>
@@ -14,11 +29,12 @@ const knownSelectors =
 if (
   extra.length &&
   !(
-    knownSelectors &&
-    excludeOwners &&
-    suite === 'integration' &&
-    process.env.CI === 'true' &&
-    process.env.GITHUB_ACTIONS === 'true'
+    unitSelector ||
+    (knownSelectors &&
+      excludeOwners &&
+      suite === 'integration' &&
+      process.env.CI === 'true' &&
+      process.env.GITHUB_ACTIONS === 'true')
   )
 )
   throw new Error('Unexpected test selector');
@@ -33,7 +49,13 @@ const discovered = globSync(`test/${suite}/**/*.test.mjs`)
     (file) => !(excludeComposition && file === 'test/integration/portable-ownership.test.mjs')
   );
 // The same complete file partition feeds execution and its scheduling controls.
-const { groups, excluded } = classifySuiteFiles(discovered);
+const plan = classifySuiteFiles(discovered);
+const { excluded } = plan;
+const groups = excludePortableUnit
+  ? plan.groups.filter((group) => group.filtered)
+  : portableUnitShard
+    ? plan.windowsPortableShards.filter((group) => group.name === portableUnitShard)
+    : plan.groups;
 console.log('Broker verification paused for #102/#107: ' + excluded.join(', '));
 if (!groups.length) throw new Error('No tests found for ' + suite);
 function argumentsFor(group) {

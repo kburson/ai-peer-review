@@ -298,3 +298,33 @@ test('[#187] final path integrity uses the same native canonical rendering as aw
   );
   assert.equal(JSON.parse(result).actualStock, true);
 });
+
+test('[#187] compound installation paths share two fresh stock principals without caching observations', () => {
+  const result = execFileSync(
+    process.execPath,
+    ['test/helpers/canonical-principal-observation.mjs', 'batch'],
+    { encoding: 'utf8', timeout: 35000 }
+  );
+  assert.equal(JSON.parse(result).observations, 2);
+});
+
+test('[#187] compound path generations remain current after the last stock principal await', () => {
+  const result = execFileSync(
+    process.execPath,
+    ['test/helpers/canonical-principal-observation.mjs', 'batch-replacement'],
+    { encoding: 'utf8', timeout: 35000 }
+  );
+  assert.equal(JSON.parse(result).replaced, true);
+});
+test('[#187] compound path observation refuses unbounded, sparse and malformed path inputs', async () => {
+  const { initializePortableSystem } = await import('../../src/broker/portable-system.mjs');
+  const system = await initializePortableSystem(context());
+  for (const values of [
+    [],
+    Array(17).fill(process.execPath),
+    Array(2),
+    [null],
+    [process.execPath, 'relative'],
+  ])
+    await assert.rejects(system.canonicalPaths(values), /identity|context|path/i);
+});

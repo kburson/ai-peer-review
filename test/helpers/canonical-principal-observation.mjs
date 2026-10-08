@@ -17,7 +17,7 @@ let observations = 0,
   replaced = false;
 function observe() {
   observations++;
-  if (mode === 'replacement' && paths === 2 && !replaced) {
+  if (['replacement', 'batch-replacement'].includes(mode) && paths === 2 && !replaced) {
     fs.renameSync(cwd, displaced);
     fs.mkdirSync(cwd);
     replaced = true;
@@ -77,6 +77,20 @@ try {
     paths = 0;
     await system.canonicalPath(cwd);
     assert.equal(observations, 2);
+  } else if (mode === 'batch' || mode === 'batch-replacement') {
+    const second = path.join(cwd, 'second installation path');
+    await fsp.mkdir(second);
+    observations = 0;
+    if (mode === 'batch-replacement') {
+      await assert.rejects(system.canonicalPaths([cwd, second]), /path|replaced|identity/i);
+      assert.equal(replaced, true);
+    } else {
+      const observed = system.canonicalPaths
+        ? await system.canonicalPaths([cwd, second])
+        : [await system.canonicalPath(cwd), await system.canonicalPath(second)];
+      assert.deepEqual(observed, [await rawRealpath(cwd), await rawRealpath(second)]);
+      assert.equal(observations, 2);
+    }
   } else if (mode === 'rendering') {
     const packageRoot = path.join(cwd, 'Mixed Case Package');
     await fsp.mkdir(packageRoot);
