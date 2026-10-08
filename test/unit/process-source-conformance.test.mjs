@@ -260,6 +260,34 @@ test('pack and bind preserve exact actual runtime bytes and emit only a public k
   } finally {
     await guard.close();
   }
+  const absenceApi = await import('../live/process-source/absence.mjs').catch((error) => {
+    if (error.code === 'ERR_MODULE_NOT_FOUND') return null;
+    throw error;
+  });
+  assert.equal(typeof absenceApi?.captureAbsenceControlsCore, 'function');
+  const controls = await absenceApi.captureAbsenceControlsCore({
+    installation: binding.installation,
+    packagePath,
+    signal: new AbortController().signal,
+    deadline: performance.now() + 30000,
+  });
+  assert.equal(controls.verified, false);
+  assert.equal(controls.hostId, candidate.hostId);
+  assert.deepEqual(controls.scope, candidate.scope);
+  assert.ok(controls.controls.live.pid > 0);
+  assert.match(controls.controls.live.nonce, /^[a-f0-9]{64}$/);
+  assert.deepEqual(controls.controls.exit, {
+    pid: controls.controls.live.pid,
+    exitCode: 0,
+    signal: null,
+  });
+  assert.deepEqual(controls.controls.absence, {
+    pid: controls.controls.live.pid,
+    status: 'absent',
+  });
+  assert.equal(controls.controls.error.status, 'unknown');
+  assert.equal(controls.controls.cleanup.childExited, true);
+
   const packageApi = await import('../live/process-source/package.mjs');
   assert.equal(typeof packageApi.inspectInstalledCandidateSource, 'function');
   assert.equal(
@@ -397,4 +425,108 @@ test('a scratch alias refuses before creating directories in its foreign target'
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /capture-scratch-alias/);
   assert.equal(fs.existsSync(path.join(foreign, 'new-directory')), false);
+});
+
+test('registration index binds exactly one closed public record per capture without granting capture authority', () => {
+  const f = fixture();
+  const name = 'evidence/portable-runtime/process-source/registrations/control-linux-24.json';
+  const index = {
+    schema: 'ai-peer-review.process-source-registration-index/v1',
+    captures: [{ captureId: 'control-linux-24', path: name, digest: digest(f.registration) }],
+  };
+  assert.equal(typeof records?.verifyProcessSourceIndexCore, 'function');
+  const result = records.verifyProcessSourceIndexCore({
+    index,
+    registrations: new Map([[name, f.registration]]),
+  });
+  assert.equal(result.verified, false);
+  assert.equal(result.indexValid, true);
+  assert.deepEqual(result.captureIds, ['control-linux-24']);
+  for (const bad of [
+    { ...index, accepted: true },
+    { ...index, captures: [index.captures[0], index.captures[0]] },
+    { ...index, captures: [{ ...index.captures[0], digest: 'sha256:' + 'f'.repeat(64) }] },
+    { ...index, captures: [{ ...index.captures[0], path: '../outside.json' }] },
+    { ...index, captures: [{ ...index.captures[0], captureId: 'foreign-capture' }] },
+  ])
+    assert.throws(
+      () =>
+        records.verifyProcessSourceIndexCore({
+          index: bad,
+          registrations: new Map([[name, f.registration]]),
+        }),
+      /registration-index/
+    );
+  assert.throws(
+    () =>
+      records.verifyProcessSourceIndexCore({
+        index,
+        registrations: new Map(),
+      }),
+    /registration-index/
+  );
+});
+
+test('capture registration refuses caller approval flags and incomplete immutable review selectors', async () => {
+  let authority;
+  try {
+    authority = await import('../live/process-source/authority.mjs');
+  } catch (error) {
+    if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+  }
+  assert.equal(typeof authority?.readApprovedProcessSourceIndex, 'function');
+  const { spawnSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const root = fileURLToPath(new URL('../..', import.meta.url));
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+  }).stdout.trim();
+  const missing = {
+    revision: head,
+    path: 'evidence/portable-runtime/process-source/registration-reviews/missing.md',
+    blob: 'b'.repeat(40),
+    sha256: 'c'.repeat(64),
+  };
+  const fullMissing = {
+    schema: 'ai-peer-review.process-source-approved-ref/v1',
+    revision: head,
+    indexDigest: H,
+    producerVersion: '0.4.0',
+    review: {
+      reviewId: 'review-missing',
+      subject: missing,
+      manifest: { ...missing, path: 'docs/superpowers/peer-reviews/missing-manifest.md' },
+      finalResponse: { ...missing, path: 'docs/superpowers/peer-reviews/missing-response.md' },
+      finalization: { revision: head, sha256: 'd'.repeat(64) },
+    },
+  };
+  for (const approvedRef of [
+    fullMissing,
+    { accepted: true },
+    {
+      schema: 'ai-peer-review.process-source-approved-ref/v1',
+      revision: head,
+      indexDigest: H,
+      review: null,
+    },
+    {
+      schema: 'ai-peer-review.process-source-approved-ref/v1',
+      revision: head,
+      indexDigest: H,
+      producerVersion: '0.4.0',
+      review: { accepted: true },
+    },
+    {
+      schema: 'ai-peer-review.process-source-approved-ref/v1',
+      revision: '--exec=anything',
+      indexDigest: H,
+      producerVersion: '0.4.0',
+      review: {},
+    },
+  ])
+    await assert.rejects(
+      () => authority.readApprovedProcessSourceIndex({ approvedRef }),
+      (error) => /^registration-(approved|review)/.test(error.message)
+    );
 });

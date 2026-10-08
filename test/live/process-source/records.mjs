@@ -278,3 +278,48 @@ export function verifyProcessSourceReceiptCore({ receipt, registration, packageR
     receiptDigest: processSourceRecordDigest(receipt),
   });
 }
+
+export function verifyProcessSourceIndexCore({ index, registrations } = {}) {
+  if (
+    !exact(index, ['schema', 'captures']) ||
+    index.schema !== 'ai-peer-review.process-source-registration-index/v1' ||
+    !Array.isArray(index.captures) ||
+    index.captures.length > 512 ||
+    !(registrations instanceof Map) ||
+    registrations.size !== index.captures.length
+  )
+    fail('registration-index-invalid');
+  const ids = new Set();
+  let prior = '';
+  for (const entry of index.captures) {
+    if (
+      !exact(entry, ['captureId', 'path', 'digest']) ||
+      !ID.test(entry.captureId) ||
+      entry.captureId <= prior ||
+      ids.has(entry.captureId) ||
+      !HASH.test(entry.digest) ||
+      entry.path !==
+        'evidence/portable-runtime/process-source/registrations/' + entry.captureId + '.json'
+    )
+      fail('registration-index-entry-invalid');
+    prior = entry.captureId;
+    ids.add(entry.captureId);
+    const registration = registrations.get(entry.path);
+    try {
+      validateProcessSourceRegistration(registration);
+    } catch {
+      fail('registration-index-record-invalid');
+    }
+    if (
+      registration.captureId !== entry.captureId ||
+      processSourceRecordDigest(registration) !== entry.digest
+    )
+      fail('registration-index-record-mismatch');
+  }
+  return Object.freeze({
+    verified: false,
+    indexValid: true,
+    contentDigest: processSourceRecordDigest(index),
+    captureIds: Object.freeze([...ids]),
+  });
+}
