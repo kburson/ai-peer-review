@@ -1,4 +1,4 @@
-// cspell:ignore statfs mountinfo hidepid ioreg IOREG
+// cspell:ignore statfs mountinfo hidepid ioreg IOREG bootsessionuuid
 import { execFile as nodeExecFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, readlinkSync, realpathSync, statfsSync } from 'node:fs';
@@ -15,6 +15,7 @@ import { parseRawJson } from '../api/canonical-json.mjs';
 
 const execFileAsync = promisify(nodeExecFile);
 const MAC_PS = '/bin/ps';
+const MAC_SYSCTL = '/usr/sbin/sysctl';
 const WINDOWS_POWERSHELL = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const BOOT = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u;
 const observations = new WeakMap();
@@ -162,9 +163,18 @@ export async function observeProcessSourceContext({ signal, deadline } = {}) {
       return null;
     if (platform === 'win32' && String(process.env.SystemRoot).toLowerCase() !== 'c:\\windows')
       return null;
+    if (
+      platform === 'darwin' &&
+      (!canonicalExecutable(MAC_SYSCTL) || realpathSync(MAC_SYSCTL) !== MAC_SYSCTL)
+    )
+      return null;
     const bytes =
       process.platform === 'darwin'
-        ? Buffer.concat([readFileSync(probePath), readFileSync('/usr/sbin/ioreg')])
+        ? Buffer.concat([
+            readFileSync(probePath),
+            readFileSync('/usr/sbin/ioreg'),
+            readFileSync(MAC_SYSCTL),
+          ])
         : readFileSync(probePath);
     return Object.freeze({
       ...expected,
@@ -208,6 +218,22 @@ const HOST_SCRIPT = [
 
 // Opaque binding only, not host-restart/boot-epoch or descendant conformance.
 // Cloned/unsupported identities remain a C5 finite-scope acceptance concern.
+// Pure opaque data binding; neither this helper nor its strings grant a capability.
+export function darwinExecutionHostBinding({ platformUuid, bootSessionUuid } = {}) {
+  if (
+    ![platformUuid, bootSessionUuid].every(
+      (v) => typeof v === 'string' && BOOT.test(v) && v !== '00000000-0000-0000-0000-000000000000'
+    )
+  )
+    return null;
+  return (
+    'sha256:' +
+    createHash('sha256')
+      .update('darwin:' + platformUuid + ':' + bootSessionUuid)
+      .digest('hex')
+  );
+}
+
 export async function observeExecutionHostIdentity(options = {}) {
   if (
     Object.keys(options).some((key) => !['signal', 'deadline'].includes(key)) ||
@@ -242,6 +268,16 @@ export async function observeExecutionHostIdentity(options = {}) {
       identifier = matches[0][1].toLowerCase();
       if (!BOOT.test(identifier) || identifier === '00000000-0000-0000-0000-000000000000')
         return null;
+      if (!canonicalExecutable(MAC_SYSCTL) || realpathSync(MAC_SYSCTL) !== MAC_SYSCTL) return null;
+      const boot = await execFileAsync(
+        MAC_SYSCTL,
+        ['-n', 'kern.bootsessionuuid'],
+        execOptions(options)
+      );
+      if (boot.stderr !== '') return null;
+      const bootSessionUuid = boot.stdout.trim().toLowerCase();
+      const binding = darwinExecutionHostBinding({ platformUuid: identifier, bootSessionUuid });
+      return inBudget(options.signal, options.deadline) ? binding : null;
     } else if (process.platform === 'win32') {
       if (
         !canonicalExecutable(WINDOWS_POWERSHELL) ||

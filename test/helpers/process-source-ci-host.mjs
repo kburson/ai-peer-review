@@ -1,7 +1,8 @@
-// cspell:words timedatectl
+// cspell:words timedatectl timedated timesync Chrony
 // @story #170
 // Linux clock controls belong exclusively to the disposable hosted capture workflow.
 import { execFileSync } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { observeSystemClockCore } from '../live/process-source/clock.mjs';
 const fail = (code, obligations = []) => Object.assign(Error(code), { obligations });
 const offset = (v) => BigInt(v.utcNs) - BigInt(v.monotonicNs);
@@ -28,8 +29,15 @@ const ntp = (context) => {
   if (!['yes', 'no'].includes(value)) throw fail('ci-clock-service-unproved');
   return value;
 };
-const setNtp = (context, value) =>
+async function setNtp(context, value) {
   sudo(context, '/usr/bin/timedatectl', ['set-ntp', value === 'yes' ? 'true' : 'false']);
+  // timedated queues service jobs; verify the actual Chrony/timesync state
+  // under this same original deadline before changing or accepting the clock.
+  while (ntp(context) !== value) {
+    budget(context);
+    await delay(100, undefined, { signal: context.signal });
+  }
+}
 const setZone = (context, zone) => sudo(context, '/usr/bin/timedatectl', ['set-timezone', zone]);
 function setTime(context, original, shift = 0n) {
   const now =
@@ -58,7 +66,7 @@ async function restore(context, original, originalNtp, originalZone) {
     obligations.push('system-zone-restoration-unproved');
   }
   try {
-    setNtp(context, originalNtp);
+    await setNtp(context, originalNtp);
   } catch {
     obligations.push('system-service-restoration-unproved');
   }
@@ -112,7 +120,7 @@ export async function initializeCiClockHost(options = {}) {
     originalZone = systemZone(prerequisiteContext);
   let proven = false;
   try {
-    setNtp(prerequisiteContext, 'no');
+    await setNtp(prerequisiteContext, 'no');
     if (ntp(prerequisiteContext) !== 'no') throw fail('ci-clock-service-unproved');
     setTime(prerequisiteContext, original, 2000000000n);
     const changed = await observeSystemClockCore(prerequisiteContext);
@@ -149,7 +157,7 @@ export async function initializeCiClockHost(options = {}) {
       capturedOriginal = await observeSystemClockCore(context);
       capturedNtp = ntp(context);
       capturedZone = systemZone(context);
-      setNtp(context, 'no');
+      await setNtp(context, 'no');
       setZone(context, 'America/New_York');
       baseline = await observeSystemClockCore(context);
       if (ntp(context) !== 'no' || baseline.zone !== 'America/New_York')

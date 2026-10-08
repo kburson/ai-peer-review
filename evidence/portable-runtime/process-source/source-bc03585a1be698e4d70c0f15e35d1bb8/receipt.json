@@ -1,0 +1,71 @@
+{
+  "schema": "ai-peer-review.process-source-conformance/v1",
+  "captureId": "source-bc03585a1be698e4d70c0f15e35d1bb8",
+  "hostId": "sha256:30f01e559a22dae36c3aa24c1e84ce5f780cbc4699571d0789038e32a9b728b4",
+  "registrationDigest": "sha256:6ae8f8c7fc68541b08580652dfc5ee072efc5f4cf5109e50f35efe28bc48a734",
+  "registrationRevision": "2bf9c3fdcfe2bbfa17e22f09b831329581be8368",
+  "registrationIndexDigest": "sha256:bebb98e487cd5b0a0a171ebeedb950fc9b78e0765ecc79e13e8989091cec9b72",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "8f74ffb6de432b501d10d059b403c5c960fb6f3c",
+    "tarballDigest": "sha256:d79424e5a8ef6c836e2718048a4067e4edb44a930071e4682aafbc8d340bf556",
+    "inventoryDigest": "sha256:004a197772917fee1bf819ce96a1a20401e69a134844a93d58f435875d328890",
+    "contractDigest": "sha256:9a9c7b78745abd0a108bc72a0850c5d4bf42c01bc3caaa803964712f09238e55"
+  },
+  "scope": {
+    "platform": "win32",
+    "build": "10.0.26100",
+    "architecture": "x64",
+    "nodeMajor": 24,
+    "probe": {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "visibility": "local-cim-query",
+      "errorContract": "completed-cim-query-v1",
+      "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+    }
+  },
+  "kind": "absence",
+  "controls": {
+    "producer": {
+      "kind": "installed-source",
+      "contractDigest": "sha256:9a9c7b78745abd0a108bc72a0850c5d4bf42c01bc3caaa803964712f09238e55",
+      "inventoryDigest": "sha256:004a197772917fee1bf819ce96a1a20401e69a134844a93d58f435875d328890"
+    },
+    "live": {
+      "pid": 7140,
+      "nonce": "8927210d34e59542dcecd76c05e4e929952989f963d99af805100c3185010c8c",
+      "creation": {
+        "unit": "utc-nanoseconds",
+        "lower": "1791441334230440000",
+        "upper": "1791441334230440100"
+      }
+    },
+    "exit": {
+      "pid": 7140,
+      "exitCode": 0,
+      "signal": null
+    },
+    "absence": {
+      "pid": 7140,
+      "status": "absent"
+    },
+    "error": {
+      "status": "unknown",
+      "reason": "probe-query-error"
+    },
+    "cleanup": {
+      "childExited": true,
+      "restoration": "not-required"
+    }
+  },
+  "transitions": [],
+  "boot": {
+    "before": null,
+    "after": null
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "keyId": "sha256:834402b25a179d342c38de87f36cd66d86ff5598a9a8c7cae46390ceb8465ef0",
+    "value": "e8dc4060f76984926d7b60dd19e37b78560eb30d0446ae42bf3e04a9614261945fba73b29d74887a0a7d716eae1e582f7c49082d72960a3fdfc34e952cd61306"
+  }
+}

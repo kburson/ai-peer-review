@@ -600,3 +600,36 @@ test('Linux procfs visibility requires one matching namespace PID and refuses hi
   ])
     assert.equal(identity.assessLinuxProcfsVisibility(changed).visibility, 'unknown');
 });
+
+test('Darwin execution-host binding distinguishes cloned hardware identities by direct boot session', async () => {
+  const identity = await import('../../src/protocol/process-identity.mjs');
+  assert.equal(typeof identity.darwinExecutionHostBinding, 'function');
+  const hardware = '01234567-89ab-cdef-0123-456789abcdef';
+  const first = identity.darwinExecutionHostBinding({
+    platformUuid: hardware,
+    bootSessionUuid: '11111111-1111-1111-1111-111111111111',
+  });
+  const second = identity.darwinExecutionHostBinding({
+    platformUuid: hardware,
+    bootSessionUuid: '22222222-2222-2222-2222-222222222222',
+  });
+  assert.match(first, /^sha256:[a-f0-9]{64}$/);
+  assert.notEqual(first, second);
+  assert.equal(
+    first,
+    identity.darwinExecutionHostBinding({
+      platformUuid: hardware,
+      bootSessionUuid: '11111111-1111-1111-1111-111111111111',
+    })
+  );
+  for (const value of [
+    undefined,
+    '',
+    '00000000-0000-0000-0000-000000000000',
+    'not-a-direct-boot-id',
+  ])
+    assert.equal(
+      identity.darwinExecutionHostBinding({ platformUuid: hardware, bootSessionUuid: value }),
+      null
+    );
+});
