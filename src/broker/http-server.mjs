@@ -151,7 +151,7 @@ export async function createLoopbackServer({
     });
     if (
       req.method !== 'POST' ||
-      !['/rpc', '/wait', '/owner-proof'].includes(req.url) ||
+      !['/rpc', '/wait', '/owner-proof', '/owner-bind'].includes(req.url) ||
       req.httpVersion !== '1.1'
     )
       return reject(res, 400);
@@ -169,6 +169,30 @@ export async function createLoopbackServer({
       });
       // Possession proof does not authenticate the client or clear pending/receipt/idle protection.
       await finish(res, body);
+      return;
+    }
+    if (req.url === '/owner-bind') {
+      const count = (name) =>
+        req.rawHeaders.filter((value, index) => index % 2 === 0 && value.toLowerCase() === name)
+          .length;
+      if (
+        !state.proofed ||
+        state.authenticated ||
+        expectation ||
+        count('content-length') !== 1 ||
+        req.headers['content-length'] !== '0' ||
+        req.headers['transfer-encoding'] !== undefined
+      )
+        return reject(res, 400);
+      const auth = authenticate(req.rawHeaders, expected);
+      if (!auth?.ok) return reject(res, auth?.status ?? 401);
+      state.authenticated = true;
+      pending -= 1;
+      clear(state, 'idle');
+      clear(state, 'receipt');
+      req.resume();
+      res.writeHead(204, { 'Cache-Control': 'no-store' });
+      await finish(res);
       return;
     }
     const auth = authenticate(req.rawHeaders, expected);

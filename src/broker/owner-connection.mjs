@@ -130,6 +130,46 @@ async function exchange(endpoint, expected, credential, agent, signal) {
     req.end();
   });
 }
+async function bindProvedSocket(endpoint, expected, credential, agent, signal, provedSocket) {
+  await new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        ...endpoint,
+        method: 'POST',
+        path: '/owner-bind',
+        agent,
+        signal,
+        maxHeaderSize: 4096,
+        headers: {
+          Host: '127.0.0.1:' + endpoint.port,
+          Authorization: 'Bearer ' + credential,
+          'X-Apr-Instance': expected.instanceId,
+          'X-Apr-Worktree': expected.worktree,
+          'Content-Length': '0',
+        },
+      },
+      async (res) => {
+        try {
+          if (
+            res.statusCode !== 204 ||
+            res.socket !== provedSocket ||
+            res.headers.connection?.toLowerCase() === 'close'
+          )
+            throw refusal('owner-binding-refused');
+          for await (const chunk of res) if (chunk.length) throw refusal('owner-binding-refused');
+          if (provedSocket.destroyed || !provedSocket.writable) throw refusal('proved-socket-lost');
+          resolve();
+        } catch (error) {
+          res.destroy();
+          req.destroy();
+          reject(error);
+        }
+      }
+    );
+    req.once('error', reject);
+    req.end();
+  });
+}
 function lost(actionId) {
   return {
     schema: 'ai-peer-review.response/v1',
@@ -264,6 +304,17 @@ async function observe(input, genuine) {
       privateBinding.credential,
       agent,
       controller.signal
+    );
+    // Server possession and the exact channel are proved before any bearer.
+    // Authenticate this same socket before slow protected rechecks; this
+    // internal empty control performs no operational dispatch.
+    await bindProvedSocket(
+      endpoint,
+      expected,
+      privateBinding.credential,
+      agent,
+      controller.signal,
+      socket
     );
     await recheck();
     if (controller.signal.aborted || socket.destroyed) throw refusal('proved-socket-lost');

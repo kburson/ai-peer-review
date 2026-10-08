@@ -332,7 +332,7 @@ export async function deadOriginal(t) {
   return { host: 'test-owned-host', pid, creation: 'test-owned-child-instance' };
 }
 
-export async function protectedCredential(t) {
+export async function protectedCredential(t, { runtime = false, seeds = [] } = {}) {
   const storage = await import('../../src/broker/storage-protection.mjs');
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-private-read-178-')));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -344,9 +344,18 @@ export async function protectedCredential(t) {
   await seedGuard.writeExclusive('fixture-secret', Buffer.alloc(32, 7));
   const { rename } = await import('node:fs/promises');
   await rename(path.join(privateRoot, 'fixture-secret'), path.join(privateRoot, 'credential'));
+  for (const [name, bytes] of seeds) {
+    const temporaryName = 'fixture-' + name;
+    await seedGuard.writeExclusive(temporaryName, bytes);
+    await rename(path.join(privateRoot, temporaryName), path.join(privateRoot, name));
+  }
+  const runtimeRoot = path.join(root, 'runtime');
+  const runtimeReceipt = runtime
+    ? await storage.provisionProtectedRoot({ root: runtimeRoot, ...setup })
+    : undefined;
   await seedGuard.close();
   const context = budget();
   const guard = await storage.openProtectedRoot({ receipt, ...context });
   t.after(() => guard.close());
-  return { storage, guard, context, receipt, root: privateRoot };
+  return { storage, guard, context, receipt, root: privateRoot, runtimeRoot, runtimeReceipt };
 }

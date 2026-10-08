@@ -408,10 +408,9 @@ test('genuine read-only credential proves the real nonce-bound socket without co
 });
 
 test('genuine bound-path inspection refuses copies and a renewed startup budget', async (t) => {
-  const f = await protectedCredential(t),
+  const f = await protectedCredential(t, { runtime: true }),
     election = await import('../../src/broker/ownership-election.mjs');
-  const runtimeRoot = path.join(path.dirname(f.root), 'runtime');
-  const runtime = await f.storage.provisionProtectedRoot({ root: runtimeRoot, ...f.context });
+  const { runtimeRoot, runtimeReceipt: runtime } = f;
   const paths = await election.bindOwnerElectionPaths({
     receipt: f.receipt,
     effectReceipts: [runtime],
@@ -1026,10 +1025,9 @@ test('closed owner records bind the selected worktree, versions and nonsecret en
 });
 
 test('genuine path cleanup preserves both actual protected root descriptors when closure fails', async (t) => {
-  const f = await protectedCredential(t),
+  const f = await protectedCredential(t, { runtime: true }),
     election = await import('../../src/broker/ownership-election.mjs');
-  const runtimeRoot = path.join(path.dirname(f.root), 'runtime'),
-    runtime = await f.storage.provisionProtectedRoot({ root: runtimeRoot, ...f.context });
+  const { runtimeRoot, runtimeReceipt: runtime } = f;
   const fsApi = (await import('node:fs/promises')).default,
     { syncBuiltinESMExports } = await import('node:module'),
     originalOpen = fsApi.open;
@@ -1152,13 +1150,12 @@ test('actual guarded reconciliation remains unknown while portable wake and prov
     'function',
     'guarded reconciliation observer is missing'
   );
-  const f = await protectedCredential(t),
+  const f = await protectedCredential(t, {
+      runtime: true,
+      seeds: [['registry.json', Buffer.from('uncertain private registry')]],
+    }),
     election = await import('../../src/broker/ownership-election.mjs');
-  const runtimeRoot = path.join(path.dirname(f.root), 'runtime'),
-    receipt = await f.storage.provisionProtectedRoot({ root: runtimeRoot, ...f.context });
-  await f.guard.writeExclusive('fixture-registry', Buffer.from('uncertain private registry'));
-  const { rename } = await import('node:fs/promises');
-  await rename(path.join(f.root, 'fixture-registry'), path.join(f.root, 'registry.json'));
+  const { runtimeReceipt: receipt } = f;
   const paths = await election.bindOwnerElectionPaths({
     receipt: f.receipt,
     effectReceipts: [receipt],
@@ -1774,4 +1771,61 @@ test('genuine connection rejects a changed credential generation before any bear
   );
   assert.equal(dispatches, 0);
   assert.ok((await readFile(path.join(f.root, 'credential'))).equals(Buffer.alloc(32, 8)));
+});
+
+test('verified owner proof authenticates its same socket before slow protected rechecks', async (t) => {
+  const timers = new Map();
+  let id = 0,
+    dispatches = 0;
+  const clock = {
+    now: () => 0,
+    setTimeout(fn, delay) {
+      const key = ++id;
+      timers.set(key, { fn, delay });
+      return key;
+    },
+    clearTimeout(key) {
+      timers.delete(key);
+    },
+  };
+  const context = budget(),
+    binding = {
+      credential: 'a'.repeat(64),
+      instanceId: 'b'.repeat(64),
+      worktree: 'c'.repeat(64),
+      ownerVersion: 'd'.repeat(64),
+    };
+  const server = await createLoopbackServer({
+    binding,
+    clock,
+    dispatch: async () => {
+      dispatches++;
+      return { schema: 'ai-peer-review.response/v1', ok: true };
+    },
+  });
+  t.after(() => server.close());
+  const proof = await observeLoopbackOwnerCore({
+    endpoint: { host: '127.0.0.1', port: server.port },
+    privateBinding: binding,
+    expected: {
+      instanceId: binding.instanceId,
+      worktree: binding.worktree,
+      ownerVersion: binding.ownerVersion,
+    },
+    ...context,
+  });
+  t.after(() => proof.connection?.close(context));
+  assert.equal(proof.kind, 'core-live');
+  assert.equal(proof.verified, false);
+  assert.equal(dispatches, 0);
+  // Actual sockets; only the server-side clock is test-owned and unverified.
+  for (const [key, timer] of [...timers])
+    if (timer.delay <= 5000) {
+      timers.delete(key);
+      timer.fn();
+    }
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const result = await proof.connection.request({ operation: 'status', body: {}, ...context });
+  assert.equal(result.ok, true);
+  assert.equal(dispatches, 1);
 });

@@ -87,6 +87,7 @@ export async function portableBrokerFixture(t, options = {}) {
     credential: 'a'.repeat(64),
     instanceId: 'b'.repeat(64),
     worktree: 'c'.repeat(64),
+    ownerVersion: 'd'.repeat(64),
   };
   const dispatchCalls = [];
   const server = await module.createLoopbackServer({

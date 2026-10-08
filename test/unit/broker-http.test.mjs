@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import http from 'node:http';
 import { readFileSync, readdirSync } from 'node:fs';
 import { Linter } from 'eslint';
 import { portableBrokerFixture } from '../helpers/portable-broker-fixture.mjs';
@@ -973,3 +974,76 @@ test('successful RPC does not explicitly destroy the completed client request', 
   assert.equal((await f.request({ agent })).ok, true);
   assert.equal(destroyedAfterSuccess, 0);
 });
+
+async function ownerControlRequest(f, target, overrides = {}, body = '') {
+  const headers =
+    target === '/owner-proof'
+      ? {
+          Host: '127.0.0.1:' + f.server.port,
+          'X-Apr-Challenge': 'e'.repeat(64),
+          'Content-Length': '0',
+        }
+      : {
+          Host: '127.0.0.1:' + f.server.port,
+          Authorization: 'Bearer ' + f.privateBinding.credential,
+          'X-Apr-Instance': f.privateBinding.instanceId,
+          'X-Apr-Worktree': f.privateBinding.worktree,
+          'Content-Length': '0',
+        };
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        ...f.endpoint,
+        path: target,
+        method: 'POST',
+        agent: f.agent,
+        headers: { ...headers, ...overrides },
+      },
+      (res) => {
+        const socket = res.socket,
+          chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.once('error', reject);
+        res.once('end', () =>
+          resolve({ status: res.statusCode, socket, body: Buffer.concat(chunks) })
+        );
+      }
+    );
+    req.once('error', reject);
+    req.end(body);
+  });
+}
+
+test('owner possession proof alone retains unauthenticated idle and receipt limits', async (t) => {
+  const f = await portableBrokerFixture(t);
+  const proof = await ownerControlRequest(f, '/owner-proof');
+  assert.equal(proof.status, 200);
+  assert.equal(f.dispatchCalls.length, 0);
+  await f.waitForPending(1);
+  f.clock.advance(5000);
+  await f.waitForClosed(proof.socket);
+  assert.equal(proof.socket.destroyed, true);
+});
+
+for (const [name, proofFirst, headers, body, status] of [
+  ['without prior proof', false, {}, '', 400],
+  ['wrong bearer', true, { Authorization: 'Bearer ' + 'f'.repeat(64) }, '', 401],
+  ['wrong instance', true, { 'X-Apr-Instance': 'f'.repeat(64) }, '', 401],
+  ['wrong root', true, { 'X-Apr-Worktree': 'f'.repeat(64) }, '', 401],
+  ['Origin', true, { Origin: 'https://example.com' }, '', 403],
+  ['Sec-Fetch', true, { 'Sec-Fetch-Mode': 'cors' }, '', 403],
+  ['nonempty body', true, { 'Content-Length': '1' }, 'x', 400],
+  ['duplicate length', true, { 'Content-Length': ['0', '0'] }, '', 400],
+  ['transfer encoding', true, { 'Transfer-Encoding': 'chunked' }, '', 400],
+  ['Expect', true, { Expect: '100-continue' }, '', 400],
+]) {
+  test('owner binding refuses ' + name + ' without operational dispatch', async (t) => {
+    const f = await portableBrokerFixture(t);
+    if (proofFirst) assert.equal((await ownerControlRequest(f, '/owner-proof')).status, 200);
+    const result = await ownerControlRequest(f, '/owner-bind', headers, body);
+    assert.equal(result.status, status);
+    assert.equal(f.dispatchCalls.length, 0);
+    assert.equal(result.body.includes(f.privateBinding.credential), false);
+    await f.waitForClosed(result.socket);
+  });
+}

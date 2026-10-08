@@ -284,8 +284,10 @@ test(
       timeout: 15000,
     });
     let result;
-    const stop = Date.now() + 30000;
-    while (Date.now() < stop) {
+    // Stock runas launches asynchronously; await its actual signed-by-nonce receipt.
+    // This fixture-only 60s wait does not change a portable owner operation budget.
+    const stop = performance.now() + 60000;
+    while (performance.now() < stop) {
       try {
         result = JSON.parse(await readFile(output, 'utf8'));
         break;

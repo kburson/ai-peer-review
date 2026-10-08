@@ -295,12 +295,24 @@ test('lost proved socket fails before a replacement connection or further dispat
   assert.equal(f.dispatches.length, 1);
 });
 
+const proofPeers = new WeakSet();
 async function listenPeer(t, respond, port = 0) {
   const sockets = new Set(),
     requests = [],
     connections = [];
   const peer = http.createServer({ keepAliveTimeout: 0 }, async (req, res) => {
     requests.push({ path: req.url, headers: { ...req.headers }, socket: req.socket });
+    if (req.url === '/owner-bind') {
+      const { authenticateLoopback } = await import('../../src/broker/http-auth.mjs');
+      const auth = authenticateLoopback(req.rawHeaders, { ...binding, port: req.socket.localPort });
+      if (!proofPeers.has(req.socket) || !auth.ok || req.headers['content-length'] !== '0') {
+        res.writeHead(400, { Connection: 'close' });
+        return res.end();
+      }
+      req.resume();
+      res.writeHead(204);
+      return res.end();
+    }
     await respond(req, res);
   });
   peer.on('connection', (socket) => {
@@ -356,6 +368,7 @@ function signedProof(req, changes = {}) {
   };
 }
 function sendProof(req, res, changes) {
+  proofPeers.add(req.socket);
   const body = JSON.stringify(signedProof(req, changes));
   res.writeHead(200, { 'Content-Length': Buffer.byteLength(body) });
   res.end(body);
@@ -497,7 +510,10 @@ test('lost response after mutation keeps action identity and reconciliation obli
   assert.equal(response.mutation_occurred, null);
   assert.equal(response.retry_safe, false);
   assert.equal(response.next_action, 'reconcile');
-  assert.equal(peer.requests.length, 2);
+  assert.deepEqual(
+    peer.requests.map((request) => request.path),
+    ['/owner-proof', '/owner-bind', '/rpc']
+  );
   assert.equal(peer.connections.length, 1);
 });
 test('wait preserves cursor and bound context on the proved socket, then closes explicitly', async (t) => {
@@ -772,7 +788,10 @@ test('serialization crossing the original deadline cannot submit an operational 
   assert.equal(response.mutation_occurred, false);
   assert.equal(response.retry_safe, true);
   assert.equal(response.next_action, null);
-  assert.equal(peer.requests.length, 1);
+  assert.deepEqual(
+    peer.requests.map((request) => request.path),
+    ['/owner-proof', '/owner-bind']
+  );
 });
 test('early channel loss preserves one default UUID action identity on a known-unsent response', async (t) => {
   const peer = await listenPeer(t, sendProof);
@@ -786,7 +805,10 @@ test('early channel loss preserves one default UUID action identity on a known-u
   assert.equal(JSON.parse(JSON.stringify(response)).action_id, response.action_id);
   assert.equal(response.mutation_occurred, false);
   assert.equal(response.retry_safe, true);
-  assert.equal(peer.requests.length, 1);
+  assert.deepEqual(
+    peer.requests.map((request) => request.path),
+    ['/owner-proof', '/owner-bind']
+  );
 });
 
 test('fractional original deadlines end hung proofs at the captured bound with a truthful reason', async (t) => {
