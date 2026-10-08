@@ -7,6 +7,8 @@ import {
   bindProcessSourceCandidate,
 } from './process-source/package.mjs';
 
+import { captureRegisteredAbsence } from './process-source/capture.mjs';
+
 export async function runProcessSourceConformance(options = {}) {
   if (!options || Object.getPrototypeOf(options) !== Object.prototype)
     throw Error('driver-options');
@@ -17,6 +19,13 @@ export async function runProcessSourceConformance(options = {}) {
     Object.keys(options).every((k) => ['mode', 'packagePath', 'binding'].includes(k))
   )
     return bindProcessSourceCandidate(options);
+  if (
+    options.mode === 'capture-absence' &&
+    Object.keys(options).every((key) =>
+      ['mode', 'binding', 'registrationIndex', 'approvedRef', 'output'].includes(key)
+    )
+  )
+    return captureRegisteredAbsence(options);
   throw Error('driver-mode-unavailable');
 }
 function args(values) {
@@ -27,7 +36,14 @@ function args(values) {
       ? { '--output': 'output' }
       : mode === 'bind'
         ? { '--package': 'packagePath', '--binding': 'binding' }
-        : {};
+        : mode === 'capture-absence'
+          ? {
+              '--binding': 'binding',
+              '--registration-index': 'registrationIndex',
+              '--approved-ref': 'approvedRef',
+              '--output': 'output',
+            }
+          : {};
   for (let i = 0; i < rest.length; i += 2) {
     const name = names[rest[i]],
       value = rest[i + 1];
@@ -41,7 +57,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     console.log(JSON.stringify(await runProcessSourceConformance(args(process.argv.slice(2)))));
   } catch (error) {
-    console.error(error.code ?? error.message);
+    const reason = error.details?.reason;
+    const suffix =
+      typeof reason === 'string' && /^[a-z0-9-]{1,128}$/u.test(reason) ? ': ' + reason : '';
+    console.error((error.code ?? error.message) + suffix);
     process.exitCode = 1;
   }
 }

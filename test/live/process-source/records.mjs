@@ -216,7 +216,13 @@ function validateAbsenceControls(c, receipt) {
   )
     fail('controls-creation-invalid');
 }
-export function verifyProcessSourceReceiptCore({ receipt, registration, packageReceipt } = {}) {
+export function verifyProcessSourceReceiptCore({
+  receipt,
+  registration,
+  packageReceipt,
+  registrationRevision,
+  registrationIndexDigest,
+} = {}) {
   validateProcessSourceRegistration(registration);
   validateProcessSourcePackage(packageReceipt);
   if (!same(registration.package, packageReceipt)) fail('package-mismatch');
@@ -226,6 +232,8 @@ export function verifyProcessSourceReceiptCore({ receipt, registration, packageR
       'captureId',
       'hostId',
       'registrationDigest',
+      'registrationRevision',
+      'registrationIndexDigest',
       'package',
       'scope',
       'kind',
@@ -243,6 +251,13 @@ export function verifyProcessSourceReceiptCore({ receipt, registration, packageR
     !registration.kinds.includes(receipt.kind)
   )
     fail('registration-mismatch');
+  if (
+    !/^[a-f0-9]{40}$/u.test(registrationRevision ?? '') ||
+    !HASH.test(registrationIndexDigest ?? '') ||
+    receipt.registrationRevision !== registrationRevision ||
+    receipt.registrationIndexDigest !== registrationIndexDigest
+  )
+    fail('registration-context-mismatch');
   if (receipt.hostId !== registration.hostId) fail('host-mismatch');
   if (!same(receipt.package, packageReceipt)) fail('package-mismatch');
   if (!same(receipt.scope, registration.scope)) fail('scope-mismatch');

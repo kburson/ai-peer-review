@@ -65,6 +65,8 @@ function fixture() {
     captureId: registration.captureId,
     hostId: H,
     registrationDigest: digest(registration),
+    registrationRevision: 'b'.repeat(40),
+    registrationIndexDigest: H,
     package: packageReceipt,
     scope,
     kind: 'absence',
@@ -91,7 +93,15 @@ function fixture() {
       value: sign(null, Buffer.from(canonical(payload)), keys.privateKey).toString('hex'),
     },
   });
-  return { registration, packageReceipt, unsigned, receipt: seal(unsigned), seal };
+  return {
+    registration,
+    packageReceipt,
+    unsigned,
+    receipt: seal(unsigned),
+    seal,
+    registrationRevision: unsigned.registrationRevision,
+    registrationIndexDigest: unsigned.registrationIndexDigest,
+  };
 }
 function verify(input) {
   assert.equal(
@@ -260,6 +270,24 @@ test('pack and bind preserve exact actual runtime bytes and emit only a public k
   } finally {
     await guard.close();
   }
+  const refusedReceipt = path.join(scratch, 'unreviewed-capture.json');
+  const callerApproval = path.join(scratch, 'caller-approval.json');
+  fs.writeFileSync(callerApproval, '{"accepted":true}\n');
+  const unreviewed = call(
+    'capture-absence',
+    '--binding',
+    bindingPath,
+    '--registration-index',
+    'evidence/portable-runtime/process-source/registration-index.json',
+    '--approved-ref',
+    callerApproval,
+    '--output',
+    refusedReceipt
+  );
+  assert.notEqual(unreviewed.status, 0);
+  assert.match(unreviewed.stderr, /registration-approved-ref/);
+  assert.equal(fs.existsSync(refusedReceipt), false);
+
   const absenceApi = await import('../live/process-source/absence.mjs').catch((error) => {
     if (error.code === 'ERR_MODULE_NOT_FOUND') return null;
     throw error;

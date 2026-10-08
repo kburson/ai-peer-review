@@ -436,6 +436,7 @@ export async function bindProcessSourceCandidate({ packagePath, binding } = {}) 
     captureId,
     hostId,
     package: receipt,
+    packagePath: archive,
     installation,
     privateRoot,
     privateKeyName,
