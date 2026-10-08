@@ -143,7 +143,7 @@ export async function captureAbsenceControlsCore(options = {}) {
   const { installation, packagePath, signal, deadline } = options;
   const context = { signal, deadline };
   budget(context);
-  const inspected = inspectInstalledCandidateSource({ installation, packagePath });
+  const inspected = await inspectInstalledCandidateSource({ installation, packagePath });
   const identity = await import(
     pathToFileURL(path.join(installation, 'src/protocol/process-identity.mjs')).href
   );
@@ -264,7 +264,7 @@ export async function captureAbsenceControlsCore(options = {}) {
     (await source.processSourceContractDigest()) !== inspected.package.contractDigest
   )
     throw fail('source-capture-context-changed');
-  inspectInstalledCandidateSource({ installation, packagePath });
+  await inspectInstalledCandidateSource({ installation, packagePath });
   budget(context);
   return Object.freeze({ verified: false, controls, boot: { before, after }, scope, hostId });
 }

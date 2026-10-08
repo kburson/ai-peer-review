@@ -160,7 +160,7 @@ export async function captureCreationControlsCore(options = {}) {
       processSourceRecordDigest(base.scope.probe)
   )
     throw fail('source-capture-context-changed');
-  inspectInstalledCandidateSource({
+  await inspectInstalledCandidateSource({
     installation: options.installation,
     packagePath: options.packagePath,
   });

@@ -191,6 +191,7 @@ function validateArchiveSource(archive, receipt) {
     if (!source || !['100644', '100755'].includes(source.mode)) fail('package-source-mismatch');
     wanted.set(entry.path, source.oid);
   }
+  if (!wanted.has('package.json')) fail('package-source-mismatch');
   const ids = [...new Set(wanted.values())];
   const batch = execFileSync('git', ['-C', ROOT, 'cat-file', '--batch'], {
     input: ids.join('\n') + '\n',
@@ -225,6 +226,18 @@ function validateArchiveSource(archive, receipt) {
     'docs/claude-launch-api-migration.md',
     'docs/spdx-policy.md'
   );
+  // Inventory membership comes from immutable source/packaging authority, not
+  // the archive's own declaration. Omitted imported modules must refuse first.
+  const expectedPaths = [...tree.keys()]
+    .filter(
+      (relative) =>
+        relative === 'package.json' ||
+        files.some((selector) =>
+          selector.endsWith('/') ? relative.startsWith(selector) : relative === selector
+        )
+    )
+    .sort();
+  if (expectedPaths.join('\0') !== [...wanted.keys()].join('\0')) fail('package-source-mismatch');
   const expected = { ...original };
   delete expected.devDependencies;
   delete expected.scripts;
@@ -268,7 +281,7 @@ function inspectInstalledMembers(installation, members) {
     fail('package-installed-source-mismatch');
   }
 }
-export function inspectInstalledCandidateSource({ packagePath, installation } = {}) {
+export async function inspectInstalledCandidateSource({ packagePath, installation } = {}) {
   const archive = scratchPath(packagePath);
   const receipt = parseRawJson(
     readBoundedOrdinaryFile(archive + '.receipt.json', 1048576).toString('utf8')
@@ -277,7 +290,9 @@ export function inspectInstalledCandidateSource({ packagePath, installation } = 
   const bytes = readBoundedOrdinaryFile(archive, 16777216);
   if (hash(bytes) !== receipt.tarballDigest) fail('package-digest-mismatch');
   inspectInstalledMembers(installation, validateArchiveSource(bytes, receipt));
-  return Object.freeze({ verified: false, sourceMatched: true, package: receipt });
+  const contractDigest = await processSourceContractDigest({ installation });
+  if (contractDigest !== receipt.contractDigest) fail('package-source-contract-mismatch');
+  return Object.freeze({ verified: false, sourceMatched: true, package: receipt, contractDigest });
 }
 
 export async function packProcessSourceCandidate({ output } = {}) {

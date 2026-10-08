@@ -111,7 +111,7 @@ export async function verifyProposedSourceClass(options) {
     proposed.proposals.length !== groups.length
   )
     fail('proposal-mismatch');
-  const inspected = inspectInstalledCandidateSource({
+  const inspected = await inspectInstalledCandidateSource({
     installation: options.installation,
     packagePath: options.packagePath,
   });
@@ -122,7 +122,7 @@ export async function verifyProposedSourceClass(options) {
   const probe = await identity.observeProcessSourceContext(context);
   if (!probe) fail('source-class-current-probe-unavailable');
   const current = {
-    contractDigest: inspected.package.contractDigest,
+    contractDigest: inspected.contractDigest,
     scope: {
       platform: process.platform,
       build: os.release(),
@@ -136,7 +136,7 @@ export async function verifyProposedSourceClass(options) {
     if (selected.length !== 1) fail('proposal-mismatch');
     return verifyProcessSourceProposalCore({ ...group.input, proposal: selected[0], current });
   });
-  inspectInstalledCandidateSource({
+  await inspectInstalledCandidateSource({
     installation: options.installation,
     packagePath: options.packagePath,
   });

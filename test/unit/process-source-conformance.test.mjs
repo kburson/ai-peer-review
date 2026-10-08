@@ -339,15 +339,169 @@ test('pack and bind preserve exact actual runtime bytes and emit only a public k
   const packageApi = await import('../live/process-source/package.mjs');
   assert.equal(typeof packageApi.inspectInstalledCandidateSource, 'function');
   assert.equal(
-    packageApi.inspectInstalledCandidateSource({ packagePath, installation: binding.installation })
-      .verified,
+    (
+      await packageApi.inspectInstalledCandidateSource({
+        packagePath,
+        installation: binding.installation,
+      })
+    ).verified,
     false
   );
+
+  // Regression: independent verification must observe contract bytes, not trust
+  // the caller-editable sidecar's otherwise well-formed digest.
+  const classSubject = fs.readFileSync(
+    path.join(root, 'evidence/portable-runtime/process-source/class-reviews/170-current-wave2.md'),
+    'utf8'
+  );
+  const classInputs = JSON.parse(classSubject.match(/\x60{3}json\n([\s\S]*?)\n\x60{3}/)[1]);
+  const reviewedRoot = path.join(scratch, 'reviewed-receipts');
+  fs.mkdirSync(reviewedRoot);
+  for (const ref of classInputs.receipts) {
+    const id = ref.path.split('/').at(-2);
+    fs.mkdirSync(path.join(reviewedRoot, id));
+    fs.copyFileSync(path.join(root, ref.path), path.join(reviewedRoot, id, 'receipt.json'));
+  }
+  const independent = {
+    mode: 'verify-class',
+    receiptRoot: reviewedRoot,
+    registrationIndex: path.join(
+      root,
+      'evidence/portable-runtime/process-source/registration-index.json'
+    ),
+    approvedRef: path.join(
+      root,
+      'evidence/portable-runtime/process-source/registrations/approved-refs/source-bbefe02f02b90507dfc8ecfbe839df53.json'
+    ),
+    classFile: path.join(
+      root,
+      'evidence/portable-runtime/process-source/classes/170-current-wave2-proposals.json'
+    ),
+    packagePath,
+    installation: binding.installation,
+    approvedClassRef: path.join(
+      root,
+      'evidence/portable-runtime/process-source/classes/170-current-wave2-review-ref.json'
+    ),
+    classReviewIndex: path.join(
+      root,
+      'evidence/portable-runtime/process-source/classes/review-index.json'
+    ),
+  };
+  const driver = await import('../live/process-source-conformance.mjs');
+  await t.test(
+    'independent class verification refuses a sidecar digest differing from installed contract bytes',
+    async () => {
+      const sidecar = packagePath + '.receipt.json';
+      const retained = fs.readFileSync(sidecar);
+      try {
+        fs.writeFileSync(
+          sidecar,
+          JSON.stringify({ ...packageReceipt, contractDigest: 'sha256:' + 'f'.repeat(64) })
+        );
+        await assert.rejects(
+          () => driver.runProcessSourceConformance(independent),
+          /package-source-contract-mismatch/
+        );
+      } finally {
+        fs.writeFileSync(sidecar, retained);
+      }
+    }
+  );
+  await t.test(
+    'incomplete candidate inventory refuses before importing an unchecked installed module',
+    async () => {
+      const { gunzipSync, gzipSync } = await import('node:zlib');
+      const omitted = 'src/protocol/process-identity.mjs';
+      const unpacked = gunzipSync(fs.readFileSync(packagePath));
+      const chunks = [];
+      let offset = 0,
+        changedInventory;
+      while (offset + 512 <= unpacked.length) {
+        const originalHeader = unpacked.subarray(offset, offset + 512);
+        if (originalHeader.every((byte) => byte === 0)) break;
+        const header = Buffer.from(originalHeader);
+        const name = header.subarray(0, 100).toString('utf8').split('\0')[0].slice(8);
+        const size = Number.parseInt(
+          header.subarray(124, 136).toString('ascii').replaceAll('\0', '').trim(),
+          8
+        );
+        const start = offset + 512;
+        let payload = unpacked.subarray(start, start + size);
+        offset = start + Math.ceil(size / 512) * 512;
+        if (name === omitted) continue;
+        if (name === 'runtime-inventory.json') {
+          changedInventory = JSON.parse(payload.toString('utf8'));
+          changedInventory.files = changedInventory.files.filter((entry) => entry.path !== omitted);
+          payload = Buffer.from(JSON.stringify(changedInventory) + '\n');
+        }
+        header.fill(0, 124, 136);
+        header.write(payload.length.toString(8).padStart(11, '0'), 124, 'ascii');
+        header.fill(32, 148, 156);
+        const sum = header.reduce((total, byte) => total + byte, 0);
+        header.write(sum.toString(8).padStart(6, '0') + '\0 ', 148, 'ascii');
+        chunks.push(header, payload, Buffer.alloc((512 - (payload.length % 512)) % 512));
+      }
+      assert.ok(changedInventory);
+      const bytes = gzipSync(Buffer.concat([...chunks, Buffer.alloc(1024)]));
+      const incomplete = path.join(scratch, 'incomplete-candidate.tgz');
+      fs.writeFileSync(incomplete, bytes);
+      fs.writeFileSync(
+        incomplete + '.receipt.json',
+        JSON.stringify({
+          ...packageReceipt,
+          tarballDigest: 'sha256:' + createHash('sha256').update(bytes).digest('hex'),
+          inventoryDigest:
+            'sha256:' + createHash('sha256').update(JSON.stringify(changedInventory)).digest('hex'),
+        })
+      );
+      const installedModule = path.join(binding.installation, omitted);
+      const retained = fs.readFileSync(installedModule);
+      const installedInventory = path.join(binding.installation, 'runtime-inventory.json');
+      const retainedInventory = fs.readFileSync(installedInventory);
+      const marker = path.join(scratch, 'unchecked-module-executed');
+      try {
+        fs.writeFileSync(installedInventory, JSON.stringify(changedInventory) + '\n');
+        fs.writeFileSync(
+          installedModule,
+          'import {writeFileSync} from "node:fs"; writeFileSync(' +
+            JSON.stringify(marker) +
+            ',"executed"); throw Error("UNCHECKED_CANDIDATE_IMPORT");\n'
+        );
+        const result = call(
+          'verify-class',
+          '--receipt-root',
+          independent.receiptRoot,
+          '--registration-index',
+          independent.registrationIndex,
+          '--approved-ref',
+          independent.approvedRef,
+          '--class',
+          independent.classFile,
+          '--package',
+          incomplete,
+          '--installation',
+          independent.installation,
+          '--class-review',
+          independent.approvedClassRef,
+          '--class-review-index',
+          independent.classReviewIndex
+        );
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /package-source-mismatch/);
+        assert.equal(fs.existsSync(marker), false, 'unchecked installed code must never execute');
+      } finally {
+        fs.writeFileSync(installedModule, retained);
+        fs.writeFileSync(installedInventory, retainedInventory);
+      }
+    }
+  );
+
   const installedSource = path.join(binding.installation, 'src/startup/runtime-inventory.mjs');
   const retainedSource = fs.readFileSync(installedSource);
   try {
     fs.writeFileSync(installedSource, 'throw new Error("INSTALLED_CANDIDATE_EXECUTED");\n');
-    assert.throws(
+    await assert.rejects(
       () =>
         packageApi.inspectInstalledCandidateSource({
           packagePath,

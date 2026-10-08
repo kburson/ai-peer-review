@@ -86,7 +86,10 @@ async function captureRegistered(kind, { binding, registrationIndex, approvedRef
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  inspectInstalledCandidateSource({ installation: b.installation, packagePath: b.packagePath });
+  await inspectInstalledCandidateSource({
+    installation: b.installation,
+    packagePath: b.packagePath,
+  });
   const protection = await import(
     pathToFileURL(path.join(b.installation, 'src/broker/storage-protection.mjs')).href
   );
