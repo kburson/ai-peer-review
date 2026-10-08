@@ -227,8 +227,9 @@ export async function run(argv, io) {
       (parsed.command === 'consolidate' && parsed.options.dryRun)
     )
       return current().run(argv, io);
-    return await withOperationAuthority({ operation, cwd: io?.cwd ?? process.cwd() }, () =>
-      current().run(argv, io)
+    return await withOperationAuthority(
+      { operation, cwd: io?.cwd ?? process.cwd(), signal: io?.signal, deadline: io?.deadline },
+      () => current().run(argv, io)
     );
   } catch (error) {
     if (!(error instanceof AprError)) throw error;

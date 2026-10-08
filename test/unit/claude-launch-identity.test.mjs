@@ -165,3 +165,38 @@ test('a present invalid child environment fails before provider execution', asyn
   );
   assert.equal(executed, false);
 });
+
+test('[#187] reviewer execution waits after the launch admission has released', async (t) => {
+  const fixture = launchFixture(t);
+  const { createClaudeLaunchOperations } =
+    await import('../../src/provider/claude-launch-core.mjs');
+  let admissionHeld = false,
+    blockedChild = false;
+  const api = createClaudeLaunchOperations({
+    async performCurrentOperationEffect(effect) {
+      admissionHeld = true;
+      try {
+        return await effect();
+      } finally {
+        admissionHeld = false;
+      }
+    },
+    assertCurrentOperationAuthority() {},
+  });
+  const authorities = [
+    launchAuthority({ joined: false, sequence: 1, revision: 0 }),
+    launchAuthority(),
+  ];
+  await api.runClaudeReviewerLaunch({
+    contract: fixture.contract,
+    inspectAuthority: () => authorities.shift(),
+    execFile: () =>
+      new Promise((resolve) =>
+        setImmediate(() => {
+          blockedChild = admissionHeld;
+          resolve({ stdout: JSON.stringify({ session_id: 'fixture-claude-session' }), stderr: '' });
+        })
+      ),
+  });
+  assert.equal(blockedChild, false, 'Reviewer join/submit must acquire its own primary generation');
+});

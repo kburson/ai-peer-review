@@ -2,7 +2,15 @@
 // @story #168
 // @story #175
 // cspell:words notin DACL SID SIDFullControl Win32PowerShell fsync nlink ino lstat reparse ldne rwxst readattr writeattr readextattr writeextattr readsecurity writesecurity statfs hardlink readback
-import { constants } from 'node:fs';
+import {
+  constants,
+  lstatSync,
+  realpathSync,
+  openSync,
+  fstatSync,
+  readSync,
+  closeSync,
+} from 'node:fs';
 import {
   access,
   chmod,
@@ -26,6 +34,59 @@ import { AprError } from '../errors.mjs';
 
 const execute = promisify(execFile);
 const receipts = new WeakMap();
+const protectedSnapshots = new WeakMap();
+const snapshotStamp = (stat) =>
+  [stat.dev, stat.ino, stat.uid, stat.mode, stat.size, stat.mtimeNs, stat.ctimeNs]
+    .map(String)
+    .join(':');
+// Integrity adjunct for an already awaited genuine C1 observation. This cannot
+// mint a snapshot, protection receipt, lease, or operational permission.
+export function assertProtectedSnapshotUnchanged(snapshot) {
+  const original = protectedSnapshots.get(snapshot);
+  if (!original) throw failure('APR_BROKER_STALE', 'genuine-protected-snapshot-required');
+  original.budget.check();
+  for (const entry of original.ancestry) {
+    const stat = lstatSync(entry.path, { bigint: true });
+    if (
+      stat.isSymbolicLink() ||
+      !stat.isDirectory() ||
+      identity(stat) !== entry.identity ||
+      mode(stat) !== entry.mode ||
+      String(stat.uid) !== entry.uid ||
+      realpathSync(entry.path) !== entry.path
+    )
+      throw failure('APR_BROKER_STALE', 'snapshot-ancestor-changed');
+  }
+  if (
+    snapshotStamp(lstatSync(original.root, { bigint: true })) !== original.rootStamp ||
+    realpathSync(original.root) !== original.root ||
+    snapshotStamp(lstatSync(original.location, { bigint: true })) !== original.fileStamp
+  )
+    throw failure('APR_BROKER_STALE', 'protected-snapshot-changed');
+  const descriptor = openSync(original.location, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+  try {
+    if (snapshotStamp(fstatSync(descriptor, { bigint: true })) !== original.fileStamp)
+      throw failure('APR_BROKER_STALE', 'protected-snapshot-changed');
+    const bytes = Buffer.alloc(original.bytes.length + 1);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (!count) break;
+      offset += count;
+    }
+    if (
+      offset !== original.bytes.length ||
+      !bytes.subarray(0, offset).equals(original.bytes) ||
+      snapshotStamp(fstatSync(descriptor, { bigint: true })) !== original.fileStamp ||
+      snapshotStamp(lstatSync(original.location, { bigint: true })) !== original.fileStamp
+    )
+      throw failure('APR_BROKER_STALE', 'protected-snapshot-changed');
+  } finally {
+    closeSync(descriptor);
+  }
+  original.budget.check();
+  return snapshot;
+}
 const guards = new WeakMap();
 const heldPublications = new WeakMap();
 const credentialObservations = new WeakMap();
@@ -1134,7 +1195,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
   async function readSnapshot(name, maxBytes = MAX_BYTES) {
     const observed = await readObserved(name, false, maxBytes);
     try {
-      return Object.freeze({
+      const snapshot = Object.freeze({
         name,
         root: r.root,
         location: path.join(r.root, name),
@@ -1144,6 +1205,24 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
         rootIdentity: r.identity,
         bytes: Buffer.from(observed.bytes),
       });
+      const finalFile = lstatSync(snapshot.location, { bigint: true });
+      if (
+        identity(finalFile) !== observed.identity ||
+        version(finalFile) !== observed.fileVersion ||
+        identity(lstatSync(r.root, { bigint: true })) !== r.identity
+      )
+        throw failure('APR_BROKER_STALE', 'protected-snapshot-changed');
+      protectedSnapshots.set(snapshot, {
+        budget,
+        root: r.root,
+        location: snapshot.location,
+        ancestry: r.ancestry,
+        rootStamp: snapshotStamp(lstatSync(r.root, { bigint: true })),
+        fileStamp: snapshotStamp(finalFile),
+        bytes: Buffer.from(observed.bytes),
+      });
+      assertProtectedSnapshotUnchanged(snapshot);
+      return snapshot;
     } finally {
       await closeOwnedFile(observed);
     }

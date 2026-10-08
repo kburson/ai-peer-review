@@ -996,9 +996,14 @@ export function createClaudeLaunchOperations({
         env: environment,
         maxBuffer: 1024 * 1024,
       };
-      execution = await performCurrentOperationEffect(() =>
-        execFile(contract.command.file, args, executionOptions)
-      );
+      let completion;
+      await performCurrentOperationEffect(() => {
+        // Admission covers initiating the process. The reviewer needs its own
+        // primary admission while it joins and submits; waiting is not an effect.
+        completion = Promise.resolve(execFile(contract.command.file, args, executionOptions));
+        completion.catch(() => {}); // Retain rejection until completion is consumed below.
+      });
+      execution = await completion;
     } catch (cause) {
       executionError = cause;
     }

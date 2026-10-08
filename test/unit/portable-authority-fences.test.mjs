@@ -438,6 +438,14 @@ test('primary registration replacement with identical bytes revokes its previous
   writeFileSync(f.registrationPath, bytes, { flag: 'wx', mode: 0o600 });
   const current = await api.resolvePrimaryAuthority({ cwd: f.root });
   assert.equal(previous.activationDigest, current.activationDigest);
+  assert.throws(
+    () => api.assertPrimaryAuthorityUnchanged(previous),
+    /snapshot|generation|authority/i
+  );
+  assert.throws(() => api.assertPrimaryAuthorityUnchanged({ ...current }), {
+    code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+  });
+  assert.equal(api.assertPrimaryAuthorityUnchanged(current), current);
   await assert.rejects(
     api.assertPrimaryAuthorityGeneration(previous, current),
     /generation|authenticated|authority/i
@@ -501,4 +509,71 @@ test('source manifest check refuses extra rows and newly reachable modules witho
   assert.ok(
     generateProcessSourceContract({ root: f.root }).manifest.files.includes('src/new-source.mjs')
   );
+});
+
+for (const observation of ['selection', 'primary']) {
+  test(
+    '[#187] final ' + observation + ' observation rejects replacement during its last awaited work',
+    { skip: process.platform === 'win32' && observation === 'primary' },
+    () => {
+      const result = spawnSync(
+        process.execPath,
+        [
+          fileURLToPath(new URL('../helpers/authority-final-observation.mjs', import.meta.url)),
+          observation,
+        ],
+        { encoding: 'utf8' }
+      );
+      assert.equal(result.error, undefined);
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+    }
+  );
+}
+
+test('[#187] failed selection descriptor cleanup remains retryable and preserves its original error', async () => {
+  const { createAuthorityReadCleanupCore } = await import('../../src/startup/authority-fence.mjs');
+  assert.equal(typeof createAuthorityReadCleanupCore, 'function');
+  const cleanup = createAuthorityReadCleanupCore();
+  const original = new Error('original-read-failure');
+  let closes = 0;
+  const guard = {
+    async close() {
+      if (++closes === 1) throw new Error('held-descriptor');
+    },
+  };
+  await assert.rejects(
+    cleanup.close(guard, original),
+    (error) => error === original && error.cause.message === 'held-descriptor'
+  );
+  await cleanup.retry();
+  await cleanup.retry();
+  assert.equal(closes, 2);
+  assert.equal(cleanup.verified, false);
+});
+
+test('[#187] private nested admission lineage requires the same context and primary generation', async () => {
+  const { createAdmissionLineageCore } = await import('../../src/startup/authority-fence.mjs');
+  assert.equal(typeof createAdmissionLineageCore, 'function');
+  const lineage = createAdmissionLineageCore();
+  const parent = {},
+    child = {},
+    foreign = {},
+    copied = {};
+  const context = {},
+    primary = {};
+  lineage.bind(parent, { context, primary });
+  lineage.bind(child, { context, primary, parent });
+  lineage.bind(foreign, { context, primary });
+  assert.equal(lineage.same(parent, child), true);
+  assert.equal(lineage.same(parent, foreign), false);
+  assert.equal(lineage.same(parent, copied), false);
+  for (const binding of [
+    { context: {}, primary, parent },
+    { context, primary: {}, parent },
+  ]) {
+    const changed = {};
+    lineage.bind(changed, binding);
+    assert.equal(lineage.same(parent, changed), false);
+  }
+  assert.equal(lineage.verified, false);
 });

@@ -193,10 +193,10 @@ test('[#175] original-budget failure after quarantine action still reports moved
   await interceptFilesystem(t, 'open', async (actual, target, ...args) => {
     const file = await actual(target, ...args);
     if (path.basename(target) === 'fixture-quarantine') {
-      const read = file.readFile.bind(file),
+      const read = file.read.bind(file),
         close = file.close.bind(file);
       let readCalled = false;
-      file.readFile = async (...args) => {
+      file.read = async (...args) => {
         readCalled = true;
         return read(...args);
       };

@@ -131,6 +131,7 @@ function validManifest(overrides = {}) {
         'scripts/ci/record-tests.mjs',
         'scripts/ci/verify-receipts.mjs',
         'scripts/check-runtime-contract-adoption.mjs',
+        'scripts/generate-process-source-contract.mjs',
         'scripts/lib/runtime-contract-evidence.mjs',
         'scripts/lib/runtime-review-grammar-v0.4.1.mjs',
         'scripts/lib/runtime-review-lineage-proof.mjs',
@@ -788,4 +789,15 @@ test('[#170] standalone provenance admits only the bounded process-source eviden
     'evidence/portable-runtime/unrelated.json', 'evidence/private/secret.json',
   ]) await assert.rejects(verifyExtraction({root: '/repo', manifest: validManifest(),
     runGit: fakeGit({current: ['LICENSE', ...allowed, foreign].join('\n')})}), /foreign standalone paths/);
+});
+
+
+test('[#187] admits the declared source-contract generator while refusing neighboring scripts', async () => {
+  const exact = 'scripts/generate-process-source-contract.mjs';
+  await verifyExtraction({ root: '/repo', manifest: validManifest(),
+    runGit: fakeGit({ current: ['LICENSE', exact].join('\n') }) });
+  for (const foreign of ['scripts/generate-process-source-contract-copy.mjs', 'scripts/generate-other.mjs']) {
+    await assert.rejects(verifyExtraction({ root: '/repo', manifest: validManifest(),
+      runGit: fakeGit({ current: ['LICENSE', exact, foreign].join('\n') }) }), /foreign standalone paths/);
+  }
 });

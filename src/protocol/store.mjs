@@ -456,7 +456,11 @@ export async function withReviewLock(workspace, operation, options = {}) {
     ACTIVE_LOCK_TOKENS.delete(token);
     try {
       const owner = JSON.parse(readFileSync(lockFile, 'utf8'));
-      if (owner?.token === token) await effect(() => unlinkSync(lockFile));
+      if (owner?.token === token)
+        await effect(() => {
+          const fresh = JSON.parse(readFileSync(lockFile, 'utf8'));
+          if (fresh?.token === token) unlinkSync(lockFile);
+        });
     } catch (cause) {
       if (cause?.code !== 'ENOENT') {
         // A missing, malformed, or foreign lock is preserved for explicit recovery.

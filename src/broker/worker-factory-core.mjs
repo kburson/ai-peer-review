@@ -327,7 +327,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
       for (const entry of entries) {
         const acquired =
           leases.get(entry.key)?.lease ??
-          acquireResource(
+          (await acquireResource(
             {
               identity: {
                 userId: entry.userId,
@@ -339,7 +339,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
               nonce: owner.nonce,
             },
             platform
-          );
+          ));
         leases.set(entry.key, { entry, lease: acquired, prior: null });
       }
     } catch (error) {
@@ -349,7 +349,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
       throw error;
     }
     const lease = {
-      beforeDelivery(role, observation) {
+      async beforeDelivery(role, observation) {
         if (!owner.verify()) throw failure('Broker ownership changed before provider action.');
         if (role === 'reviewer' && reviewerCapability.resource.concurrent) {
           const deliveryEntry = orderedResources({
@@ -361,7 +361,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
           if (!leases.has(deliveryEntry.key)) {
             leases.set(deliveryEntry.key, {
               entry: deliveryEntry,
-              lease: acquireResource(
+              lease: await acquireResource(
                 {
                   identity: {
                     userId: deliveryEntry.userId,
@@ -391,7 +391,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
             : null);
         const owned = leases.get(entry?.key);
         if (!owned) throw failure('Role has no owned provider resource.');
-        owned.lease.beforeDelivery(observation);
+        await owned.lease.beforeDelivery(observation);
         owned.prior = observation;
       },
       async release() {

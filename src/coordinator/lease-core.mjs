@@ -25,12 +25,8 @@ import {
 export function createCoordinatorLeaseOperations({ performCurrentOperationEffect }) {
   const mkdirSync = async (...args) =>
     await performCurrentOperationEffect(() => rawMkdirSync(...args));
-  const unlinkSync = async (...args) =>
-    await performCurrentOperationEffect(() => rawUnlinkSync(...args));
   const atomicCreate = async (...args) =>
     await performCurrentOperationEffect(() => rawAtomicCreate(...args));
-  const atomicWrite = async (...args) =>
-    await performCurrentOperationEffect(() => rawAtomicWrite(...args));
 
   const LEASE_SCHEMA = 'ai-peer-review.coordinator-lease/v1';
   const LOCK_SCHEMA = 'ai-peer-review.coordinator-lock/v1';
@@ -223,8 +219,11 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
     try {
       await atomicCreate(paths.lease, bytes(lease));
     } catch (cause) {
-      const current = readRegular(paths.lock, 'Coordinator lock');
-      if (current.token === token) await unlinkSync(paths.lock);
+      await performCurrentOperationEffect(() => {
+        const current = readRegular(paths.lock, 'Coordinator lock');
+        if (current.token === token && current.instance_id === instanceId)
+          rawUnlinkSync(paths.lock);
+      });
       throw cause;
     }
 
@@ -251,12 +250,27 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
             'Stop and preserve the foreign coordinator evidence.'
           );
         }
-        current = {
+        const next = {
           ...current,
           heartbeat_sequence: current.heartbeat_sequence + 1,
           observed_at: instant(at),
         };
-        await atomicWrite(paths.lease, bytes(current));
+        await performCurrentOperationEffect(() => {
+          const fresh = inspectCoordinatorLease(workspace);
+          if (
+            fresh.lock.token !== token ||
+            fresh.lease.instance_id !== instanceId ||
+            canonicalProjection(fresh) !== canonicalProjection(inspected)
+          ) {
+            fail(
+              'APR_COORDINATOR_STALE',
+              'Coordinator ownership changed during heartbeat admission.',
+              'Preserve the foreign coordinator evidence.'
+            );
+          }
+          rawAtomicWrite(paths.lease, bytes(next));
+          current = next;
+        });
         return Object.freeze(current);
       },
       stopRequested() {
@@ -273,34 +287,36 @@ export function createCoordinatorLeaseOperations({ performCurrentOperationEffect
       },
       async release() {
         if (released) return false;
-        released = true;
-        let lock;
-        try {
-          lock = readRegular(paths.lock, 'Coordinator lock');
-        } catch {
-          return false;
-        }
-        if (lock.token !== token || lock.instance_id !== instanceId) return false;
-        let storedLease = null;
-        try {
-          storedLease = readRegular(paths.lease, 'Coordinator lease');
-        } catch {
-          storedLease = null;
-        }
-        if (
-          storedLease?.token === token &&
-          storedLease.instance_id === instanceId &&
-          existsSync(paths.lease)
-        ) {
-          await unlinkSync(paths.lease);
-        }
-        if (existsSync(paths.stop)) {
-          const request = validateStopRequest(readRegular(paths.stop, 'Coordinator stop request'));
-          if (request.instance_id === instanceId && request.token === token)
-            await unlinkSync(paths.stop);
-        }
-        if (existsSync(paths.lock)) await unlinkSync(paths.lock);
-        return true;
+        const result = await performCurrentOperationEffect(() => {
+          let lock;
+          try {
+            lock = readRegular(paths.lock, 'Coordinator lock');
+          } catch {
+            return false;
+          }
+          if (lock.token !== token || lock.instance_id !== instanceId) return false;
+          let storedLease = null;
+          try {
+            storedLease = readRegular(paths.lease, 'Coordinator lease');
+          } catch {}
+          if (
+            storedLease &&
+            (storedLease.token !== token || storedLease.instance_id !== instanceId)
+          )
+            return false;
+          let request = null;
+          if (existsSync(paths.stop))
+            request = validateStopRequest(readRegular(paths.stop, 'Coordinator stop request'));
+          // Validate each owned record inside this one admitted synchronous
+          // transaction. An authority await can never separate check and unlink.
+          if (storedLease) rawUnlinkSync(paths.lease);
+          if (request?.instance_id === instanceId && request.token === token)
+            rawUnlinkSync(paths.stop);
+          rawUnlinkSync(paths.lock);
+          return true;
+        });
+        if (result) released = true;
+        return result;
       },
     });
   }

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { initializePortableSystem } from '../broker/portable-system.mjs';
+import { assertProtectedSnapshotUnchanged } from '../broker/storage-protection.mjs';
 import { performance } from 'node:perf_hooks';
 import { AprError } from '../errors.mjs';
 
@@ -143,6 +144,18 @@ export async function assertPrimaryAuthorityGeneration(previous, current) {
   )
     unavailable('Primary authority physical generation changed or is not authenticated.');
   return current;
+}
+export function assertPrimaryAuthorityUnchanged(authority) {
+  try {
+    assertProtectedSnapshotUnchanged(authorityGenerations.get(authority));
+  } catch (cause) {
+    unavailable(
+      'Primary authority physical generation changed or is not authenticated.',
+      {},
+      cause
+    );
+  }
+  return authority;
 }
 const retainedReadGuards = new Set();
 export async function retryPrimaryReadCleanup() {
@@ -352,6 +365,7 @@ export async function resolvePrimaryAuthoritySync({ cwd = process.cwd(), ...opti
         });
     }
     primaryContext(context);
+    assertProtectedSnapshotUnchanged(registrationGenerations.get(final));
     const result = Object.freeze({
       root: record.primary_root,
       commonDir: location.commonDir,

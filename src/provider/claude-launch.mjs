@@ -26,6 +26,8 @@ export function runClaudeReviewerLaunch(input) {
   return withOperationAuthority(
     {
       operation: 'provider.launch',
+      signal: input?.signal,
+      deadline: input?.deadline,
       cwd: input?.contract?.repository_root,
       reviewWorkspace: input?.contract?.workspace,
     },

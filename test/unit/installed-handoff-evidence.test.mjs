@@ -37,9 +37,9 @@ test('live receipt inspection reads real event authority and leaves a pending ha
 test('live receipt requires two acknowledged role wakes and records normal commit authority', async (t) => {
   const fixture = handoffFixture(t, { authorSubmitted: true, reviewerSubmitted: true });
   assert.equal(await inspectInstalledHandoff(fixture.input), null);
-  const author = fixture.wake('author', 'acknowledged');
+  const author = await fixture.wake('author', 'acknowledged');
   assert.equal(await inspectInstalledHandoff(fixture.input), null);
-  const reviewer = fixture.wake('reviewer', 'acknowledged');
+  const reviewer = await fixture.wake('reviewer', 'acknowledged');
   writeFileSync(
     path.join(fixture.input.workspace, 'wake/operations', '.in-progress.json.tmp'),
     'incomplete atomic write'
@@ -132,7 +132,7 @@ for (const role of ['author', 'reviewer']) {
   for (const status of ['outcome-unknown', 'refused']) {
     test(`live inspection fails promptly on ${role} ${status} without leaking provider reason`, async (t) => {
       const fixture = handoffFixture(t, { authorSubmitted: true });
-      fixture.wake(role, status);
+      await fixture.wake(role, status);
       await assert.rejects(inspectInstalledHandoff(fixture.input), (error) => {
         assert.equal(error.code, 'APR_LIVE_HANDOFF_UNPROVEN');
         assert.equal(error.stage, `${role}-wake`);
@@ -144,7 +144,7 @@ for (const role of ['author', 'reviewer']) {
   }
   test(`acknowledged ${role} wake without its subsequent submission fails promptly`, async (t) => {
     const fixture = handoffFixture(t, { authorSubmitted: role === 'reviewer' });
-    fixture.wake(role, 'acknowledged');
+    await fixture.wake(role, 'acknowledged');
     await assert.rejects(inspectInstalledHandoff(fixture.input), {
       code: 'APR_LIVE_HANDOFF_UNPROVEN',
       stage: `${role}-submission`,
@@ -155,8 +155,8 @@ for (const role of ['author', 'reviewer']) {
 
 test('success requires matching bound wake sessions and actual second reviewer submission', async (t) => {
   const fixture = handoffFixture(t, { authorSubmitted: true, reviewerSubmitted: true });
-  fixture.wake('author', 'acknowledged');
-  fixture.wake('reviewer', 'acknowledged', FINGERPRINTS.replacement);
+  await fixture.wake('author', 'acknowledged');
+  await fixture.wake('reviewer', 'acknowledged', FINGERPRINTS.replacement);
   await assert.rejects(inspectInstalledHandoff(fixture.input), {
     code: 'APR_LIVE_BINDING_CONFLICT',
   });
@@ -164,8 +164,8 @@ test('success requires matching bound wake sessions and actual second reviewer s
 
 test('completed author finalization does not invalidate an already proven two-way handoff', async (t) => {
   const fixture = handoffFixture(t, { authorSubmitted: true, reviewerSubmitted: true });
-  fixture.wake('author', 'acknowledged');
-  fixture.wake('reviewer', 'acknowledged');
+  await fixture.wake('author', 'acknowledged');
+  await fixture.wake('reviewer', 'acknowledged');
   appendFileSync(
     path.join(fixture.input.workspace, 'events.jsonl'),
     [
@@ -175,7 +175,7 @@ test('completed author finalization does not invalidate an already proven two-wa
       .map(JSON.stringify)
       .join('\n') + '\n'
   );
-  fixture.wake('author', 'acknowledged', FINGERPRINTS.author, 5);
+  await fixture.wake('author', 'acknowledged', FINGERPRINTS.author, 5);
   assert.equal((await inspectInstalledHandoff(fixture.input)).outcome, 'two-way-acknowledged');
 });
 

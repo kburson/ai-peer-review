@@ -67,7 +67,7 @@ test('refuses contention and never deletes a foreign replacement', async (t) => 
 
   const foreign = JSON.parse(readFileSync(first.paths.lock, 'utf8'));
   writeFileSync(first.paths.lock, `${JSON.stringify({ ...foreign, token: 'foreign-token' })}\n`);
-  first.release();
+  await first.release();
   assert.equal(existsSync(first.paths.lock), true);
 });
 
@@ -83,3 +83,50 @@ test('lease contents alone never override missing or mismatched lock evidence', 
     (error) => error.code === 'APR_COORDINATOR_STALE'
   );
 });
+
+for (const action of ['heartbeat', 'release']) {
+  test(
+    '[#187] coordinator ' + action + ' preserves replacement ownership across awaited admission',
+    async (t) => {
+      const root = workspace(t);
+      const { createCoordinatorLeaseOperations } =
+        await import('../../src/coordinator/lease-core.mjs');
+      let replace = false,
+        foreignLock,
+        foreignLease;
+      const api = createCoordinatorLeaseOperations({
+        async performCurrentOperationEffect(effect) {
+          await Promise.resolve();
+          if (replace) {
+            replace = false;
+            const lock = JSON.parse(readFileSync(controller.paths.lock));
+            const lease = JSON.parse(readFileSync(controller.paths.lease));
+            foreignLock = JSON.stringify({
+              ...lock,
+              instance_id: 'foreign',
+              token: 'foreign-token',
+            });
+            foreignLease = JSON.stringify({
+              ...lease,
+              instance_id: 'foreign',
+              token: 'foreign-token',
+            });
+            writeFileSync(controller.paths.lock, foreignLock);
+            writeFileSync(controller.paths.lease, foreignLease);
+          }
+          return effect();
+        },
+      });
+      const controller = await api.acquireCoordinatorLease(root, { kind: 'cli', pid: 42 }, NOW, {
+        instanceId: 'original',
+        nonce: 'original',
+      });
+      replace = true;
+      if (action === 'heartbeat')
+        await assert.rejects(controller.heartbeat(NOW), { code: 'APR_COORDINATOR_STALE' });
+      else assert.equal(await controller.release(), false);
+      assert.equal(readFileSync(controller.paths.lock, 'utf8'), foreignLock);
+      assert.equal(readFileSync(controller.paths.lease, 'utf8'), foreignLease);
+    }
+  );
+}

@@ -6,6 +6,7 @@ import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import { AprError } from '../errors.mjs';
 import { initializePortableSystem } from '../broker/portable-system.mjs';
+import { assertProtectedSnapshotUnchanged } from '../broker/storage-protection.mjs';
 import {
   verifyRuntimeInventory,
   verifyRuntimeInventorySync,
@@ -455,6 +456,11 @@ export function createSelectionStore({
     )
       refuse('APR_RUNTIME_CHANGED', 'Account selection changed during admission.');
     const finalInventory = await installation(op);
+    try {
+      assertProtectedSnapshotUnchanged(reselectedRead.snapshot);
+    } catch {
+      refuse('APR_RUNTIME_CHANGED', 'Selection changed during final installed observation.');
+    }
     processSelectionId = selected.selection_id;
     processSelectionGeneration = reselectedRead.snapshot;
     const result = Object.freeze({

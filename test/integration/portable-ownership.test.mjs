@@ -25,6 +25,7 @@ async function moduleOrMissing(file) {
 }
 const core = await moduleOrMissing('../../src/broker/portable-ownership-core.mjs');
 const production = await moduleOrMissing('../../src/broker/portable-ownership.mjs');
+import { portableOwnerInstalledFixture } from '../helpers/portable-owner-installed-fixture.mjs';
 const budget = () => ({
   signal: new AbortController().signal,
   deadline: performance.now() + 30000,
@@ -469,6 +470,8 @@ test('production owner observation and acquisition refuse unproved paths without
 });
 
 test('actual protected production paths without admitted source classes create no reserved owner files', async (t) => {
+  const installed = await portableOwnerInstalledFixture(t);
+  const production = await installed.load('src/broker/portable-ownership.mjs');
   assert.equal(
     typeof production.acquirePortableOwner,
     'function',
@@ -476,8 +479,8 @@ test('actual protected production paths without admitted source classes create n
   );
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-production-owner-178-')));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const { portableBrokerPaths } = await import('../../src/broker/portable-paths.mjs');
-  const storage = await import('../../src/broker/storage-protection.mjs'),
+  const { portableBrokerPaths } = await installed.load('src/broker/portable-paths.mjs');
+  const storage = await installed.load('src/broker/storage-protection.mjs'),
     paths = await portableBrokerPaths({ worktree: root }),
     context = budget();
   const privateReceipt = await storage.provisionProtectedRoot({
@@ -1406,11 +1409,13 @@ test('joined client cleanup still closes a genuine read descriptor when socket c
 });
 
 test('complete genuine protected owner records reach the actual unavailable source producer', async (t) => {
+  const installed = await portableOwnerInstalledFixture(t);
+  const production = await installed.load('src/broker/portable-ownership.mjs');
   const { createHash } = await import('node:crypto'),
-    { encodeRequestCanonical } = await import('../../src/api/canonical-json.mjs'),
-    storage = await import('../../src/broker/storage-protection.mjs'),
-    election = await import('../../src/broker/ownership-election.mjs'),
-    { portableBrokerPaths } = await import('../../src/broker/portable-paths.mjs'),
+    { encodeRequestCanonical } = await installed.load('src/api/canonical-json.mjs'),
+    storage = await installed.load('src/broker/storage-protection.mjs'),
+    election = await installed.load('src/broker/ownership-election.mjs'),
+    { portableBrokerPaths } = await installed.load('src/broker/portable-paths.mjs'),
     { rename } = await import('node:fs/promises');
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-observer-review-178-')));
   t.after(() => rm(root, { recursive: true, force: true }));

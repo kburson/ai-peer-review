@@ -10,7 +10,7 @@ import { doctor } from '../../src/doctor.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-test('Historical Phase 2 setup fixture records a runnable package MCP entrypoint and keeps generic manual', (t) => {
+test('Historical Phase 2 setup fixture records a runnable package MCP entrypoint and keeps generic manual', async (t) => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'apr-transport-smoke-'));
   t.after(() => rmSync(fixture, { recursive: true, force: true }));
   const project = path.join(fixture, 'project');
@@ -19,7 +19,7 @@ test('Historical Phase 2 setup fixture records a runnable package MCP entrypoint
   mkdirSync(home);
   writeFileSync(path.join(project, '.git/info/exclude'), '.scratch/peer-review/\n');
 
-  setup({
+  await setup({
     scope: 'project',
     agents: ['codex', 'generic'],
     cwd: project,

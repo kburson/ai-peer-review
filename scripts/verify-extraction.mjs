@@ -95,6 +95,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'scripts/ci/record-tests.mjs',
     'scripts/ci/verify-receipts.mjs',
     'scripts/check-runtime-contract-adoption.mjs',
+    'scripts/generate-process-source-contract.mjs',
     'scripts/lib/runtime-contract-evidence.mjs',
     'scripts/lib/runtime-review-grammar-v0.4.1.mjs',
     'scripts/lib/runtime-review-lineage-proof.mjs',

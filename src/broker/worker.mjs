@@ -242,7 +242,7 @@ export function createReviewWorker({
           recovery: 'Preserve the reserved launch and reconcile the exact provider operation.',
         });
       const observation = await adapter.resourceObservation(input);
-      resourceLease.beforeDelivery(observation);
+      await resourceLease.beforeDelivery(observation);
       const immediatelyBefore = inspectStatus(registration.workspace, {
         now: new Date(clock?.now?.() ?? Date.now()),
       });
