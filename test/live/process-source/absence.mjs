@@ -28,7 +28,7 @@ function kernelBoot() {
   if (!BOOT.test(value)) throw fail('source-capture-boot-unproved');
   return value;
 }
-async function startChild(context) {
+export async function startOwnedConformanceChild(context) {
   budget(context);
   const nonce = randomBytes(32).toString('hex');
   const child = fork(path.join(ROOT, 'test/helpers/process-source-child.mjs'), [], {
@@ -73,7 +73,11 @@ async function startChild(context) {
     child.once('error', reject);
     child.once('exit', () => reject(fail('source-capture-child-exited', obligation())));
   });
-  child.send({ op: 'start', nonce });
+  child.send({
+    op: 'start',
+    nonce,
+    lifetimeMs: Math.max(1, Math.min(800000, Math.floor(budget(context)))),
+  });
   try {
     await wait(ready);
   } catch (error) {
@@ -81,9 +85,35 @@ async function startChild(context) {
     throw error;
   }
   let stopping = false;
+  let sequence = 0;
   return {
     child,
     nonce,
+    async ping() {
+      budget(context);
+      if (exit || stopping) throw fail('source-capture-child-exited', obligation());
+      const current = ++sequence;
+      const acknowledged = new Promise((resolve, reject) => {
+        const message = (m) => {
+          if (
+            m?.event === 'alive' &&
+            m.nonce === nonce &&
+            m.pid === child.pid &&
+            m.sequence === current
+          ) {
+            child.off('message', message);
+            resolve();
+          }
+        };
+        child.on('message', message);
+        exitPromise.then(() => {
+          child.off('message', message);
+          reject(fail('source-capture-child-exited', obligation()));
+        });
+      });
+      child.send({ op: 'ping', nonce, sequence: current });
+      await wait(acknowledged);
+    },
     async stop() {
       if (exit) return exit;
       if (!stopping) {
@@ -144,7 +174,7 @@ export async function captureAbsenceControlsCore(options = {}) {
       ...context,
     });
   const before = kernelBoot();
-  const owned = await startChild(context);
+  const owned = await startOwnedConformanceChild(context);
   let controls, errorResult;
   try {
     const live = await observe(owned.child.pid);

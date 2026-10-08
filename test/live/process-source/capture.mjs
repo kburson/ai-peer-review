@@ -8,6 +8,7 @@ import { readBoundedOrdinaryFile } from '../../../src/startup/runtime-inventory.
 import { inspectInstalledCandidateSource } from './package.mjs';
 import { readApprovedProcessSourceIndex } from './authority.mjs';
 import { captureAbsenceControlsCore } from './absence.mjs';
+import { captureCreationControlsCore } from './creation.mjs';
 import {
   canonicalProcessSourceBytes,
   processSourceRecordDigest,
@@ -34,14 +35,9 @@ function privatePath(value) {
     fail('source-capture-path');
   return file;
 }
-export async function captureRegisteredAbsence({
-  binding,
-  registrationIndex,
-  approvedRef,
-  output,
-} = {}) {
+async function captureRegistered(kind, { binding, registrationIndex, approvedRef, output } = {}) {
   const signal = new AbortController().signal;
-  const deadline = performance.now() + 120000;
+  const deadline = performance.now() + (kind === 'creation' ? 800000 : 120000);
   if (
     typeof registrationIndex !== 'string' ||
     path.resolve(registrationIndex) !== path.join(ROOT, INDEX)
@@ -78,7 +74,7 @@ export async function captureRegisteredAbsence({
   );
   if (
     !registration ||
-    !registration.kinds.includes('absence') ||
+    !registration.kinds.includes(kind) ||
     registration.hostId !== b.hostId ||
     processSourceRecordDigest(registration.package) !== processSourceRecordDigest(b.package)
   )
@@ -114,7 +110,9 @@ export async function captureRegisteredAbsence({
       publicBytes.toString('base64') !== registration.publicKey
     )
       fail('source-capture-key-mismatch');
-    const actual = await captureAbsenceControlsCore({
+    const actual = await (
+      kind === 'creation' ? captureCreationControlsCore : captureAbsenceControlsCore
+    )({
       installation: b.installation,
       packagePath: b.packagePath,
       ...context,
@@ -135,9 +133,9 @@ export async function captureRegisteredAbsence({
       registrationIndexDigest: authority.indexDigest,
       package: b.package,
       scope: actual.scope,
-      kind: 'absence',
+      kind,
       controls: actual.controls,
-      transitions: [],
+      transitions: actual.transitions ?? [],
       boot: actual.boot,
     };
     receipt = {
@@ -161,10 +159,13 @@ export async function captureRegisteredAbsence({
   writeFileSync(destination, JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
   return {
     verified: false,
-    mode: 'captured-absence',
+    mode: 'captured-' + kind,
     output: destination,
     captureId: receipt.captureId,
     receiptDigest: processSourceRecordDigest(receipt),
     classAdmitted: false,
   };
 }
+
+export const captureRegisteredAbsence = (options) => captureRegistered('absence', options);
+export const captureRegisteredCreation = (options) => captureRegistered('creation', options);

@@ -417,8 +417,8 @@ export async function bindProcessSourceCandidate({ packagePath, binding } = {}) 
         nodeMajor: Number(process.versions.node.split('.')[0]),
         probe,
       },
-      kinds: ['absence'],
-      transitions: [],
+      kinds: ['absence', 'creation'],
+      transitions: ['clock-forward', 'clock-backward', 'timezone', 'dst'],
     };
     validateProcessSourceRegistration(registration);
     const currentInventory = inventoryApi.inspectPackageInventory({ packageRoot: installation });

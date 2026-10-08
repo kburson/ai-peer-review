@@ -671,3 +671,166 @@ test('clock observation uses actual system zone and monotonic time without calle
     /clock-observation-options/
   );
 });
+
+test('creation capture rejects expired original deadlines and caller-supplied clock evidence before effects', async () => {
+  let capture;
+  try {
+    capture = await import('../live/process-source/creation.mjs');
+  } catch (error) {
+    if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+  }
+  assert.equal(typeof capture?.captureCreationControlsCore, 'function');
+  await assert.rejects(
+    () =>
+      capture.captureCreationControlsCore({
+        signal: new AbortController().signal,
+        deadline: performance.now() - 1,
+      }),
+    /source-capture-budget/
+  );
+  await assert.rejects(
+    () =>
+      capture.captureCreationControlsCore({
+        signal: new AbortController().signal,
+        deadline: performance.now() + 1000,
+        clock: () => 0,
+        transitions: [],
+        restored: true,
+      }),
+    /source-capture-options/
+  );
+});
+
+test('owned capture child uses the original bounded lifetime and nonce acknowledgements', async () => {
+  const { fork } = await import('node:child_process');
+  const child = fork(new URL('../helpers/process-source-child.mjs', import.meta.url), [], {
+    execPath: process.execPath,
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+  });
+  const nonce = 'd'.repeat(64);
+  const exit = new Promise((resolve) =>
+    child.once('exit', (code, signal) => resolve({ code, signal }))
+  );
+  const ready = new Promise((resolve) => child.once('message', resolve));
+  child.send({ op: 'start', nonce, lifetimeMs: 100 });
+  assert.deepEqual(await ready, { event: 'ready', nonce, pid: child.pid });
+  const ping = new Promise((resolve) => child.once('message', resolve));
+  child.send({ op: 'ping', nonce, sequence: 1 });
+  assert.deepEqual(await ping, { event: 'alive', nonce, pid: child.pid, sequence: 1 });
+  assert.deepEqual(await exit, { code: 2, signal: null });
+});
+
+test('finite class proposals verify signatures and retain historical package without accepting themselves', async () => {
+  let classes;
+  try {
+    classes = await import('../live/process-source/classes.mjs');
+  } catch (error) {
+    if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+  }
+  assert.equal(typeof classes?.proposeProcessSourceClassCore, 'function');
+  const f = fixture();
+  const input = {
+    receipts: [f.receipt],
+    registrations: [f.registration],
+    registrationRevision: 'b'.repeat(40),
+    registrationIndexDigest: H,
+  };
+  const proposal = classes.proposeProcessSourceClassCore(input);
+  assert.equal(proposal.verified, false);
+  assert.equal(proposal.classAdmitted, false);
+  assert.equal(proposal.proposal.capability, 'absence');
+  assert.deepEqual(proposal.proposal.scope.builds, ['6.8.0']);
+  assert.deepEqual(proposal.proposal.scope.architectures, ['x64']);
+  assert.deepEqual(proposal.proposal.scope.nodeMajors, [24]);
+  assert.deepEqual(proposal.proposal.packageProvenance, [f.packageReceipt]);
+  assert.equal(Object.hasOwn(proposal.proposal, 'acceptance'), false);
+  assert.throws(
+    () =>
+      classes.proposeProcessSourceClassCore({
+        ...input,
+        receipts: [f.receipt, f.receipt],
+        registrations: [f.registration, f.registration],
+      }),
+    /duplicate/
+  );
+  assert.throws(
+    () =>
+      classes.proposeProcessSourceClassCore({
+        ...input,
+        receipts: [{ ...f.receipt, hostId: 'sha256:' + 'f'.repeat(64) }],
+      }),
+    /host|signature/
+  );
+  assert.throws(
+    () => classes.proposeProcessSourceClassCore({ ...input, accepted: true }),
+    /proposal-options/
+  );
+});
+
+test('finite class proposals reject unobserved build and Node cross-products', async () => {
+  const { proposeProcessSourceClassCore } = await import('../live/process-source/classes.mjs');
+  const f = fixture(),
+    other = fixture();
+  other.registration = {
+    ...other.registration,
+    captureId: 'control-linux-26',
+    scope: { ...other.registration.scope, build: '6.9.0', nodeMajor: 26 },
+  };
+  const receipt = other.seal({
+    ...other.unsigned,
+    captureId: other.registration.captureId,
+    registrationDigest: digest(other.registration),
+    scope: other.registration.scope,
+  });
+  assert.throws(
+    () =>
+      proposeProcessSourceClassCore({
+        receipts: [f.receipt, receipt],
+        registrations: [f.registration, other.registration],
+        registrationRevision: 'b'.repeat(40),
+        registrationIndexDigest: H,
+      }),
+    /proposal-untested-scope/
+  );
+});
+
+test('current class applicability separates historical package bytes from covered source changes', async () => {
+  const classes = await import('../live/process-source/classes.mjs');
+  assert.equal(typeof classes.verifyProcessSourceProposalCore, 'function');
+  const f = fixture();
+  const input = {
+    receipts: [f.receipt],
+    registrations: [f.registration],
+    registrationRevision: 'b'.repeat(40),
+    registrationIndexDigest: H,
+  };
+  const proposal = classes.proposeProcessSourceClassCore(input).proposal;
+  const current = { contractDigest: H, scope: f.registration.scope };
+  const result = classes.verifyProcessSourceProposalCore({ ...input, proposal, current });
+  assert.equal(result.verified, false);
+  assert.equal(result.applicable, true);
+  assert.equal(result.classAdmitted, false);
+  assert.deepEqual(result.historicalPackages, [f.packageReceipt]);
+  for (const changed of [
+    { ...current, contractDigest: 'sha256:' + 'f'.repeat(64) },
+    { ...current, scope: { ...current.scope, nodeMajor: 26 } },
+    { ...current, scope: { ...current.scope, build: 'untested-build' } },
+    {
+      ...current,
+      scope: { ...current.scope, probe: { ...current.scope.probe, version: 'changed' } },
+    },
+  ])
+    assert.equal(
+      classes.verifyProcessSourceProposalCore({ ...input, proposal, current: changed }).applicable,
+      false
+    );
+  assert.throws(
+    () =>
+      classes.verifyProcessSourceProposalCore({
+        ...input,
+        proposal: { ...proposal, acceptance: { status: 'accepted' } },
+        current,
+      }),
+    /proposal-mismatch/
+  );
+});

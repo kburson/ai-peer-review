@@ -8,7 +8,7 @@ import {
 } from './process-source/package.mjs';
 
 import { verifyRegisteredProcessSources } from './process-source/verify.mjs';
-import { captureRegisteredAbsence } from './process-source/capture.mjs';
+import { captureRegisteredAbsence, captureRegisteredCreation } from './process-source/capture.mjs';
 
 export async function runProcessSourceConformance(options = {}) {
   if (!options || Object.getPrototypeOf(options) !== Object.prototype)
@@ -21,12 +21,14 @@ export async function runProcessSourceConformance(options = {}) {
   )
     return bindProcessSourceCandidate(options);
   if (
-    options.mode === 'capture-absence' &&
+    ['capture-absence', 'capture'].includes(options.mode) &&
     Object.keys(options).every((key) =>
       ['mode', 'binding', 'registrationIndex', 'approvedRef', 'output'].includes(key)
     )
   )
-    return captureRegisteredAbsence(options);
+    return (options.mode === 'capture' ? captureRegisteredCreation : captureRegisteredAbsence)(
+      options
+    );
   if (
     options.mode === 'verify' &&
     Object.keys(options).every((key) =>
@@ -51,7 +53,7 @@ function args(values) {
       ? { '--output': 'output' }
       : mode === 'bind'
         ? { '--package': 'packagePath', '--binding': 'binding' }
-        : mode === 'capture-absence'
+        : ['capture-absence', 'capture'].includes(mode)
           ? {
               '--binding': 'binding',
               '--registration-index': 'registrationIndex',
