@@ -1,0 +1,57 @@
+name: Process source conformance capture
+
+on:
+  push:
+    branches: [codex/170-source-conformance]
+    paths: [.github/workflows/process-source-capture.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: Source capture / Node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        node: ['24', '26']
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      APR_SKIP_NATIVE_BROKER_TESTS: '1'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
+      - name: Verify CI privilege/restoration and prepare exact public registrations
+        run: node test/helpers/process-source-ci-capture.mjs prepare
+      - name: Publish public pre-capture registrations
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-registrations-${{ runner.os }}-${{ matrix.node }}-${{ github.run_attempt }}
+          path: .scratch/peer-review/ci-source-*/public/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      - name: Await immutable ordinary approval, capture real controls, verify restoration
+        run: node test/helpers/process-source-ci-capture.mjs capture
+      - name: Preserve public signed controls and restoration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-controls-${{ runner.os }}-${{ matrix.node }}-${{ github.run_attempt }}
+          path: .scratch/peer-review/ci-source-*/public/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

@@ -2,6 +2,7 @@
 // Owned conformance child: no provider, descendants, filesystem effects or secrets.
 let nonce = null;
 let sequence = 0;
+let stopping = false;
 let timeout = setTimeout(() => process.exit(2), 5000);
 process.on('message', (message) => {
   if (
@@ -25,8 +26,14 @@ process.on('message', (message) => {
     sequence = message.sequence;
     process.send?.({ event: 'alive', nonce, pid: process.pid, sequence });
   } else if (message?.op === 'stop' && message.nonce === nonce) {
+    stopping = true;
     clearTimeout(timeout);
     process.disconnect();
     process.exitCode = 0;
   }
+});
+
+process.on('disconnect', () => {
+  clearTimeout(timeout);
+  if (!stopping) process.exitCode = 2;
 });

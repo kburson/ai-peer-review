@@ -1055,3 +1055,33 @@ test('shipped source ledger equals the independently reviewed class set and keep
   assert.equal(result.absence.status, 'matched');
   assert.equal(result.creation.status, 'unavailable');
 });
+
+test('owned capture child exits with failure when its exact parent IPC disconnects', async (t) => {
+  const { fork } = await import('node:child_process');
+  const child = fork(new URL('../helpers/process-source-child.mjs', import.meta.url), [], {
+    execPath: process.execPath,
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+  });
+  t.after(() => {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  });
+  const ready = new Promise((resolve) => child.once('message', resolve));
+  const exit = new Promise((resolve) =>
+    child.once('exit', (code, signal) => resolve({ code, signal }))
+  );
+  child.send({ op: 'start', nonce: 'e'.repeat(64), lifetimeMs: 30000 });
+  await ready;
+  child.disconnect();
+  let timer;
+  try {
+    const result = await Promise.race([
+      exit,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(Error('owned-child-remained-live')), 1000);
+      }),
+    ]);
+    assert.deepEqual(result, { code: 2, signal: null });
+  } finally {
+    clearTimeout(timer);
+  }
+});
