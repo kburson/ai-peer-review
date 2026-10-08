@@ -233,6 +233,16 @@ test('[#187] hosted CI runs all four portable unit groups on independent bounded
   assert.equal(job.strategy['max-parallel'], 4);
   assert.deepEqual(job.strategy.matrix.node, ['24', '26', 'current']);
   assert.deepEqual(job.strategy.matrix.group, ['selection', 'authority', 'storage', 'identity']);
+  const integration = job.steps.filter((step) =>
+    step.run?.startsWith('node scripts/ci/record-tests.mjs portable-integration-')
+  );
+  assert.equal(integration.length, 1);
+  assert.equal(
+    integration[0].env?.GH_TOKEN,
+    '${{ github.token }}',
+    'moved integration must authenticate actual approval evidence'
+  );
+  assert.equal(integration[0].env?.APR_CONTRACT_GITHUB_CONFORMANCE, '1');
   assert.ok(
     job.steps.some(
       (step) =>
