@@ -1,0 +1,21 @@
+{
+  "schema": "ai-peer-review.process-source-ci-control/v1",
+  "verified": false,
+  "runId": "37741411472",
+  "runAttempt": "1",
+  "codeCommit": "d50e64f9f778f70d4346d00d2e63d645c9e0edc3",
+  "captureProducerCommit": "4af17d7d2297dd0450db50668f021599903c1581",
+  "captureId": "source-27cb7cbfea1bc197c1b1ef84196c2f4d",
+  "kind": "creation",
+  "control": {
+    "verified": false,
+    "prerequisites": "privilege-and-restoration-observed",
+    "restoration": {
+      "verified": false,
+      "restoration": "verified",
+      "zone": "UTC",
+      "networkTime": "yes",
+      "systemZone": "Etc/UTC"
+    }
+  }
+}
