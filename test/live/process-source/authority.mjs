@@ -332,3 +332,38 @@ export async function readReviewedProcessSourceClasses({ approvedClassRef } = {}
     fail('class-review-unavailable');
   }
 }
+
+export async function readReviewedProcessSourceClassSet({ reviewIndex } = {}) {
+  if (
+    !exact(reviewIndex, ['schema', 'refs']) ||
+    reviewIndex.schema !== 'ai-peer-review.process-source-class-review-index/v1' ||
+    !Array.isArray(reviewIndex.refs) ||
+    !reviewIndex.refs.length ||
+    reviewIndex.refs.length > 128
+  )
+    fail('class-review-index-invalid');
+  const proofs = [];
+  const classes = [];
+  for (const ref of reviewIndex.refs) {
+    const proof = await readReviewedProcessSourceClasses({ approvedClassRef: ref });
+    for (const record of proof.classes) {
+      if (classes.some((c) => c.classId === record.classId)) fail('class-review-set-duplicate');
+      for (const existing of classes)
+        if (
+          existing.capability === record.capability &&
+          existing.contractDigest === record.contractDigest &&
+          existing.scope.platform === record.scope.platform &&
+          processSourceRecordDigest(existing.scope.probe) ===
+            processSourceRecordDigest(record.scope.probe) &&
+          existing.scope.builds.some((v) => record.scope.builds.includes(v)) &&
+          existing.scope.architectures.some((v) => record.scope.architectures.includes(v)) &&
+          existing.scope.nodeMajors.some((v) => record.scope.nodeMajors.includes(v))
+        )
+          fail('class-review-set-overlap');
+      classes.push(record);
+    }
+    proofs.push(proof);
+  }
+  if (classes.length > 128) fail('class-review-index-invalid');
+  return Object.freeze({ verified: false, classAuthority: 'reviewed', classes, proofs });
+}

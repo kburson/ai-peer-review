@@ -982,3 +982,76 @@ test('genuine finalized class evidence derives an exact finite record and reject
     /class-review-incomplete/
   );
 });
+
+test('reviewed class sets require normal refs and reject duplicate admission', async () => {
+  const fs = await import('node:fs');
+  const authority = await import('../live/process-source/authority.mjs');
+  assert.equal(typeof authority.readReviewedProcessSourceClassSet, 'function');
+  await assert.rejects(
+    () => authority.readReviewedProcessSourceClassSet({ reviewIndex: { accepted: true } }),
+    /class-review-index-invalid/
+  );
+  const proof = JSON.parse(
+    fs.readFileSync(
+      new URL(
+        '../../evidence/portable-runtime/process-source/classes/170-local-absence-review-ref.json',
+        import.meta.url
+      )
+    )
+  );
+  await assert.rejects(
+    () =>
+      authority.readReviewedProcessSourceClassSet({
+        reviewIndex: {
+          schema: 'ai-peer-review.process-source-class-review-index/v1',
+          refs: [proof, proof],
+        },
+      }),
+    /class-review-set-duplicate/
+  );
+});
+test('shipped source ledger equals the independently reviewed class set and keeps creation unavailable', async () => {
+  const fs = await import('node:fs');
+  const { readReviewedProcessSourceClasses, readReviewedProcessSourceClassSet } =
+    await import('../live/process-source/authority.mjs');
+  const { verifyReviewedInstalledClassSetCore } =
+    await import('../live/process-source/classes.mjs');
+  const proof = JSON.parse(
+    fs.readFileSync(
+      new URL(
+        '../../evidence/portable-runtime/process-source/classes/170-local-absence-review-ref.json',
+        import.meta.url
+      )
+    )
+  );
+  const accepted = await readReviewedProcessSourceClasses({ approvedClassRef: proof });
+  const ledger = JSON.parse(
+    fs.readFileSync(new URL('../../src/protocol/process-source-contracts.json', import.meta.url))
+  );
+  const all = await readReviewedProcessSourceClassSet({
+    reviewIndex: JSON.parse(
+      fs.readFileSync(
+        new URL(
+          '../../evidence/portable-runtime/process-source/classes/review-index.json',
+          import.meta.url
+        )
+      )
+    ),
+  });
+  assert.equal(
+    verifyReviewedInstalledClassSetCore({ ledger, reviewedClasses: all.classes }).ledgerCovered,
+    true
+  );
+  const { verifyProcessSourceClass } =
+    await import('../../src/protocol/process-source-assurance.mjs');
+  const record = accepted.classes[0];
+  const result = verifyProcessSourceClass({
+    ledger: { ...ledger, classes: [record] },
+    host: { platform: 'darwin', build: '25.6.0', architecture: 'arm64', nodeMajor: 26 },
+    adapterHashes: { contractDigest: record.contractDigest },
+    probeObservation: record.scope.probe,
+  });
+  assert.equal(result.verified, false);
+  assert.equal(result.absence.status, 'matched');
+  assert.equal(result.creation.status, 'unavailable');
+});

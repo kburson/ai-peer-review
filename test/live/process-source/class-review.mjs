@@ -5,7 +5,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { realpathSync, lstatSync, readdirSync, writeFileSync } from 'node:fs';
 import { parseRawJson } from '../../../src/api/canonical-json.mjs';
 import { readBoundedOrdinaryFile } from '../../../src/startup/runtime-inventory.mjs';
-import { readApprovedProcessSourceIndex, readReviewedProcessSourceClasses } from './authority.mjs';
+import {
+  readApprovedProcessSourceIndex,
+  readReviewedProcessSourceClasses,
+  readReviewedProcessSourceClassSet,
+} from './authority.mjs';
 import { inspectInstalledCandidateSource } from './package.mjs';
 import {
   proposeProcessSourceClassCore,
@@ -149,7 +153,10 @@ export async function verifyProposedSourceClass(options) {
     !Array.isArray(ledger.classes)
   )
     fail('class-review-installed-ledger-invalid');
-  verifyReviewedInstalledClassSetCore({ ledger, reviewedClasses: accepted.classes });
+  const reviewed = options.classReviewIndex
+    ? await readReviewedProcessSourceClassSet({ reviewIndex: json(options.classReviewIndex) })
+    : { classes: accepted.classes };
+  verifyReviewedInstalledClassSetCore({ ledger, reviewedClasses: reviewed.classes });
   const shipped = accepted.classes.every(
     (c) =>
       ledger.classes.filter(
