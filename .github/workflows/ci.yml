@@ -172,6 +172,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - name: 'Verify tests: portable-ownership'
         run: node scripts/ci/record-tests.mjs portable-ownership
       - name: Publish actual test execution records

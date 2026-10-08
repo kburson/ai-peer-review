@@ -306,12 +306,7 @@ export async function assertOperationAuthority({
   }
   const context = Object.freeze({
     signal: signal ?? new AbortController().signal,
-    deadline:
-      deadline ??
-      performance.now() +
-        (['provider.launch', 'launch-reviewer', 'mcp.wait'].includes(operation)
-          ? 28_800_000
-          : 30000),
+    deadline: deadline ?? performance.now() + 30000,
   });
   const runtime = await assertSelectedRuntime(context);
   const currentNode = nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true }));

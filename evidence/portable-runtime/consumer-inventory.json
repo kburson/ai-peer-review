@@ -224473,8 +224473,8 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 311,
-        "column": 6,
+        "line": 309,
+        "column": 26,
         "kind": "call",
         "targetKind": "origin",
         "target": "now",
@@ -224483,17 +224483,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 312,
-        "column": 9,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "includes",
-        "origins": ["literal"],
-        "owner": 187
-      },
-      {
-        "path": "src/startup/authority-fence.mjs",
-        "line": 316,
+        "line": 311,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224503,7 +224493,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 316,
+        "line": 311,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -224513,7 +224503,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 317,
+        "line": 312,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224523,7 +224513,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 317,
+        "line": 312,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -224533,7 +224523,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 317,
+        "line": 312,
         "column": 35,
         "kind": "call",
         "targetKind": "origin",
@@ -224543,7 +224533,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 317,
+        "line": 312,
         "column": 45,
         "kind": "call",
         "targetKind": "origin",
@@ -224553,7 +224543,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 318,
+        "line": 313,
         "column": 33,
         "kind": "alias",
         "targetKind": "origin",
@@ -224563,7 +224553,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 320,
+        "line": 315,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -224573,7 +224563,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 321,
+        "line": 316,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224583,7 +224573,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 321,
+        "line": 316,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -224593,7 +224583,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 322,
+        "line": 317,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224603,7 +224593,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 322,
+        "line": 317,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -224613,7 +224603,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 323,
+        "line": 318,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224623,7 +224613,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 324,
+        "line": 319,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224633,7 +224623,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 324,
+        "line": 319,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -224643,7 +224633,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 330,
+        "line": 325,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -224653,7 +224643,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 331,
+        "line": 326,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224663,7 +224653,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 331,
+        "line": 326,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -224673,7 +224663,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 333,
+        "line": 328,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -224683,7 +224673,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 334,
+        "line": 329,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -224693,7 +224683,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 334,
+        "line": 329,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -224703,7 +224693,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 339,
+        "line": 334,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -224713,7 +224703,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 343,
+        "line": 338,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -224723,7 +224713,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 345,
+        "line": 340,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -224733,7 +224723,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 347,
+        "line": 342,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -224743,7 +224733,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 347,
+        "line": 342,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -224753,7 +224743,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 349,
+        "line": 344,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -224763,7 +224753,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 351,
+        "line": 346,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -224773,7 +224763,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 351,
+        "line": 346,
         "column": 69,
         "kind": "call",
         "targetKind": "origin",
@@ -224783,7 +224773,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 352,
+        "line": 347,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -224793,7 +224783,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 354,
+        "line": 349,
         "column": 2,
         "kind": "call",
         "targetKind": "origin",
@@ -224803,7 +224793,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 363,
+        "line": 358,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -224813,7 +224803,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 367,
+        "line": 362,
         "column": 2,
         "kind": "call",
         "targetKind": "origin",
@@ -224823,7 +224813,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 368,
+        "line": 363,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -224833,7 +224823,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 372,
+        "line": 367,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224843,7 +224833,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 372,
+        "line": 367,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -224853,7 +224843,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 373,
+        "line": 368,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -224863,7 +224853,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 375,
+        "line": 370,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -224873,7 +224863,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 376,
+        "line": 371,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -224883,7 +224873,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 380,
+        "line": 375,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224893,7 +224883,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 380,
+        "line": 375,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -224903,7 +224893,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 381,
+        "line": 376,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -224913,7 +224903,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 382,
+        "line": 377,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -224933,7 +224923,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 382,
+        "line": 377,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -224943,7 +224933,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 383,
+        "line": 378,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -224953,7 +224943,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 388,
+        "line": 383,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -224963,7 +224953,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 389,
+        "line": 384,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -224973,7 +224963,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 389,
+        "line": 384,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -224983,7 +224973,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 390,
+        "line": 385,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -224993,7 +224983,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 391,
+        "line": 386,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -225003,7 +224993,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 391,
+        "line": 386,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -225013,7 +225003,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 392,
+        "line": 387,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -225023,7 +225013,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 393,
+        "line": 388,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -225033,7 +225023,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 394,
+        "line": 389,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -225043,7 +225033,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 395,
+        "line": 390,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -225053,7 +225043,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 396,
+        "line": 391,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -225063,7 +225053,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 397,
+        "line": 392,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -225083,7 +225073,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 399,
+        "line": 394,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -225093,7 +225083,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 402,
+        "line": 397,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -225103,7 +225093,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 403,
+        "line": 398,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -225113,7 +225103,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 405,
+        "line": 400,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -225123,7 +225113,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 406,
+        "line": 401,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -225133,7 +225123,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 407,
+        "line": 402,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -225143,7 +225133,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 408,
+        "line": 403,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -225153,7 +225143,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 409,
+        "line": 404,
         "column": 16,
         "kind": "alias",
         "targetKind": "origin",
@@ -225173,7 +225163,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 409,
+        "line": 404,
         "column": 31,
         "kind": "call",
         "targetKind": "origin",
@@ -225193,7 +225183,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 410,
+        "line": 405,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -225203,7 +225193,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 411,
+        "line": 406,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -225213,7 +225203,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 415,
+        "line": 410,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -225223,7 +225213,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 421,
+        "line": 416,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -225233,7 +225223,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 421,
+        "line": 416,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -225243,7 +225233,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 422,
+        "line": 417,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -225253,7 +225243,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 423,
+        "line": 418,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -225263,7 +225253,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 427,
+        "line": 422,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -225273,7 +225263,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 427,
+        "line": 422,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -225283,7 +225273,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 428,
+        "line": 423,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -225293,7 +225283,7 @@
       },
       {
         "path": "src/startup/authority-fence.mjs",
-        "line": 429,
+        "line": 424,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -278755,7 +278745,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 324,
+        "line": 319,
         "column": 17,
         "name": "parse",
         "owner": 187
@@ -278763,7 +278753,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 334,
+        "line": 329,
         "column": 23,
         "name": "get",
         "owner": 187
@@ -278771,7 +278761,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 351,
+        "line": 346,
         "column": 29,
         "name": "startsWith",
         "owner": 187
@@ -278779,7 +278769,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 354,
+        "line": 349,
         "column": 2,
         "name": "set",
         "owner": 187
@@ -278787,7 +278777,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 367,
+        "line": 362,
         "column": 2,
         "name": "bind",
         "owner": 187
@@ -278795,7 +278785,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 372,
+        "line": 367,
         "column": 15,
         "name": "get",
         "owner": 187
@@ -278803,7 +278793,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 381,
+        "line": 376,
         "column": 9,
         "name": "run",
         "owner": 187
@@ -278811,7 +278801,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 389,
+        "line": 384,
         "column": 15,
         "name": "get",
         "owner": 187
@@ -278819,7 +278809,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 391,
+        "line": 386,
         "column": 20,
         "name": "getStore",
         "owner": 187
@@ -278827,7 +278817,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 392,
+        "line": 387,
         "column": 19,
         "name": "same",
         "owner": 187
@@ -278835,7 +278825,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 405,
+        "line": 400,
         "column": 21,
         "name": "run",
         "owner": 187
@@ -278843,7 +278833,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 421,
+        "line": 416,
         "column": 16,
         "name": "getStore",
         "owner": 187
@@ -278851,7 +278841,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/startup/authority-fence.mjs",
-        "line": 427,
+        "line": 422,
         "column": 16,
         "name": "getStore",
         "owner": 187
