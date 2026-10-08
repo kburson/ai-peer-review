@@ -7,7 +7,11 @@ import { parseRawJson } from '../../../src/api/canonical-json.mjs';
 import { readBoundedOrdinaryFile } from '../../../src/startup/runtime-inventory.mjs';
 import { readApprovedProcessSourceIndex, readReviewedProcessSourceClasses } from './authority.mjs';
 import { inspectInstalledCandidateSource } from './package.mjs';
-import { proposeProcessSourceClassCore, verifyProcessSourceProposalCore } from './classes.mjs';
+import {
+  proposeProcessSourceClassCore,
+  verifyProcessSourceProposalCore,
+  verifyReviewedInstalledClassSetCore,
+} from './classes.mjs';
 import { processSourceRecordDigest } from './records.mjs';
 const ROOT = realpathSync(fileURLToPath(new URL('../../../', import.meta.url)));
 const INDEX = 'evidence/portable-runtime/process-source/registration-index.json';
@@ -145,6 +149,7 @@ export async function verifyProposedSourceClass(options) {
     !Array.isArray(ledger.classes)
   )
     fail('class-review-installed-ledger-invalid');
+  verifyReviewedInstalledClassSetCore({ ledger, reviewedClasses: accepted.classes });
   const shipped = accepted.classes.every(
     (c) =>
       ledger.classes.filter(

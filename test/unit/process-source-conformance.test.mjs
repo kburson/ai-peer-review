@@ -923,3 +923,62 @@ test('class admission requires its own normal reviewed subject and cannot reuse 
     /class-review-subject-invalid/
   );
 });
+
+test('installed class set refuses unreviewed extras and duplicate reviewed identities', async () => {
+  const classes = await import('../live/process-source/classes.mjs');
+  assert.equal(typeof classes.verifyReviewedInstalledClassSetCore, 'function');
+  const record = { classId: 'reviewed-class', approvalDigest: H };
+  const ledger = { schema: 'ai-peer-review.process-source-ledger/v1', classes: [record] };
+  assert.deepEqual(
+    classes.verifyReviewedInstalledClassSetCore({ ledger, reviewedClasses: [record] }),
+    { verified: false, ledgerCovered: true }
+  );
+  for (const changed of [
+    { ...ledger, classes: [record, { ...record, classId: 'unreviewed-class' }] },
+    { ...ledger, classes: [record, record] },
+    { ...ledger, classes: [{ ...record, approvalDigest: 'sha256:' + 'f'.repeat(64) }] },
+  ])
+    assert.throws(
+      () =>
+        classes.verifyReviewedInstalledClassSetCore({ ledger: changed, reviewedClasses: [record] }),
+      /class-review-installed-ledger/
+    );
+});
+
+test('genuine finalized class evidence derives an exact finite record and rejects altered review metadata', async () => {
+  const fs = await import('node:fs');
+  const { readReviewedProcessSourceClasses } = await import('../live/process-source/authority.mjs');
+  const approvedClassRef = JSON.parse(
+    fs.readFileSync(
+      new URL(
+        '../../evidence/portable-runtime/process-source/classes/170-local-absence-review-ref.json',
+        import.meta.url
+      )
+    )
+  );
+  const accepted = await readReviewedProcessSourceClasses({ approvedClassRef });
+  assert.equal(accepted.verified, false);
+  assert.equal(accepted.classAuthority, 'reviewed');
+  assert.equal(accepted.classes.length, 1);
+  assert.equal(accepted.classes[0].classId, 'source-4e5bd382670e95bb0a76ba960b953740');
+  assert.equal(accepted.classes[0].capability, 'absence');
+  assert.deepEqual(accepted.classes[0].scope.builds, ['25.6.0']);
+  assert.deepEqual(accepted.classes[0].scope.nodeMajors, [26]);
+  assert.equal(
+    accepted.classes[0].approvalDigest,
+    'sha256:05866fc862c31680bd940409b76235c9509a5e26745e2854caf8d28adbf3b3d4'
+  );
+  await assert.rejects(
+    () =>
+      readReviewedProcessSourceClasses({
+        approvedClassRef: {
+          ...approvedClassRef,
+          review: {
+            ...approvedClassRef.review,
+            finalization: { ...approvedClassRef.review.finalization, sha256: 'f'.repeat(64) },
+          },
+        },
+      }),
+    /class-review-incomplete/
+  );
+});

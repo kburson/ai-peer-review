@@ -79,6 +79,7 @@ function validManifest(overrides = {}) {
         'docs/releases',
         'docs/whitepapers',
         'evidence/portable-runtime/contracts',
+    'evidence/portable-runtime/process-source',
         'provenance',
         'schemas',
         'skills/peer-review',
@@ -768,4 +769,21 @@ test('[#144] standalone inventory admits excluded contract evidence and exact ch
     await assert.rejects(verifyExtraction({root:'/repo',manifest:validManifest(),
       runGit:fakeGit({current:['LICENSE',...allowed,foreign].join('\n')})}),/foreign standalone paths/);
   }
+});
+
+test('[#170] standalone provenance admits only the bounded process-source evidence namespace', async () => {
+  const allowed = [
+    'evidence/portable-runtime/process-source/registration-index.json',
+    'evidence/portable-runtime/process-source/registrations/capture-1.json',
+    'evidence/portable-runtime/process-source/capture-1/receipt.json',
+    'evidence/portable-runtime/process-source/classes/class-1.json',
+    'evidence/portable-runtime/process-source/class-reviews/class-1.md',
+  ];
+  await verifyExtraction({root: '/repo', manifest: validManifest(),
+    runGit: fakeGit({current: ['LICENSE', ...allowed].join('\n')})});
+  for (const foreign of [
+    'evidence/portable-runtime/process-source-other/receipt.json',
+    'evidence/portable-runtime/unrelated.json', 'evidence/private/secret.json',
+  ]) await assert.rejects(verifyExtraction({root: '/repo', manifest: validManifest(),
+    runGit: fakeGit({current: ['LICENSE', ...allowed, foreign].join('\n')})}), /foreign standalone paths/);
 });

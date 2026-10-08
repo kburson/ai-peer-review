@@ -1,0 +1,29 @@
+{
+  "schema": "ai-peer-review.process-source-class-approved-ref/v1",
+  "producerVersion": "0.4.1",
+  "review": {
+    "reviewId": "review-651008200478d4a33e77264e8655d4de",
+    "subject": {
+      "revision": "f6ebcbf88bbdddfa1e6c3f621c415013027eeffa",
+      "path": "evidence/portable-runtime/process-source/class-reviews/170-local-absence-class.md",
+      "blob": "2468d12f525ca672672883fa419fc4b8df1f4628",
+      "sha256": "7ee4b82bacbd3ca1b3748b34a7bf0db675a058155baa0209390ef20b31f967ea"
+    },
+    "manifest": {
+      "revision": "314355562cf02d41dbaf59a08fffc092d2a83bf0",
+      "path": "docs/superpowers/peer-reviews/spec/2026-10-08-170-local-absence-class-review-651008200478d4a33e77264e8655d4de/review-651008200478d4a33e77264e8655d4de-review-manifest.md",
+      "blob": "b915811a08fb979b1003b5e743e622e1422cd6e9",
+      "sha256": "f623acee5485f7d94bc71e9b892d06f72183b1bf2544857a57bfe8dcd8f914b8"
+    },
+    "finalResponse": {
+      "revision": "314355562cf02d41dbaf59a08fffc092d2a83bf0",
+      "path": "docs/superpowers/peer-reviews/spec/2026-10-08-170-local-absence-class-review-651008200478d4a33e77264e8655d4de/review-651008200478d4a33e77264e8655d4de-reviewer-response-1.md",
+      "blob": "074ac5604920ed7832cdc56fcca65b230975568e",
+      "sha256": "e1ab9559c4be421458a307116e59b2b516b721c29849b14a57d772d18aa91076"
+    },
+    "finalization": {
+      "revision": "314355562cf02d41dbaf59a08fffc092d2a83bf0",
+      "sha256": "ed82f99522b7590b9067140a0d4a313c7f79a946788edffdb61528ba7b976fbd"
+    }
+  }
+}

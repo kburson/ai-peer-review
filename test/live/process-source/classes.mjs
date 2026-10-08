@@ -131,3 +131,29 @@ export function verifyProcessSourceProposalCore(options = {}) {
     reason: applicable ? 'finite-source-match' : 'source-class-unavailable',
   });
 }
+
+export function verifyReviewedInstalledClassSetCore({ ledger, reviewedClasses } = {}) {
+  if (
+    !ledger ||
+    Object.keys(ledger).sort().join(',') !== 'classes,schema' ||
+    ledger.schema !== 'ai-peer-review.process-source-ledger/v1' ||
+    !Array.isArray(ledger.classes) ||
+    !Array.isArray(reviewedClasses) ||
+    ledger.classes.length > 128 ||
+    reviewedClasses.length > 128 ||
+    ledger.classes.length !== reviewedClasses.length ||
+    new Set(ledger.classes.map((c) => c?.classId)).size !== ledger.classes.length ||
+    new Set(reviewedClasses.map((c) => c?.classId)).size !== reviewedClasses.length
+  )
+    fail('class-review-installed-ledger-invalid');
+  for (const record of ledger.classes)
+    if (
+      !reviewedClasses.some(
+        (c) =>
+          c.classId === record.classId &&
+          processSourceRecordDigest(c) === processSourceRecordDigest(record)
+      )
+    )
+      fail('class-review-installed-ledger-unreviewed');
+  return Object.freeze({ verified: false, ledgerCovered: true });
+}
