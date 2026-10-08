@@ -287,6 +287,17 @@ test('pack and bind preserve exact actual runtime bytes and emit only a public k
   assert.notEqual(unreviewed.status, 0);
   assert.match(unreviewed.stderr, /registration-approved-ref/);
   assert.equal(fs.existsSync(refusedReceipt), false);
+  const unreviewedVerify = call(
+    'verify',
+    '--receipt',
+    refusedReceipt,
+    '--registration-index',
+    'evidence/portable-runtime/process-source/registration-index.json',
+    '--approved-ref',
+    callerApproval
+  );
+  assert.notEqual(unreviewedVerify.status, 0);
+  assert.match(unreviewedVerify.stderr, /registration-approved-ref/);
 
   const absenceApi = await import('../live/process-source/absence.mjs').catch((error) => {
     if (error.code === 'ERR_MODULE_NOT_FOUND') return null;
@@ -556,5 +567,75 @@ test('capture registration refuses caller approval flags and incomplete immutabl
     await assert.rejects(
       () => authority.readApprovedProcessSourceIndex({ approvedRef }),
       (error) => /^registration-(approved|review)/.test(error.message)
+    );
+});
+
+test('creation conformance needs sustained real-transition-shaped windows and exact restoration', () => {
+  const f = fixture();
+  const registration = {
+    ...f.registration,
+    kinds: ['absence', 'creation'],
+    transitions: ['clock-forward', 'clock-backward', 'timezone', 'dst'],
+  };
+  const sample = (second, offset, zone, dst) => ({
+    monotonicNs: String(BigInt(second) * 1000000000n),
+    utcNs: String(
+      1000000000000000000n + BigInt(second) * 1000000000n + BigInt(offset) * 1000000000n
+    ),
+    zone,
+    dst,
+    pid: 111,
+    nonce: f.unsigned.controls.live.nonce,
+    creation: f.unsigned.controls.live.creation,
+  });
+  const window = (start, offset, zone = 'UTC', dst = false) =>
+    [0, 1, 2, 3, 5].map((delta) => sample(start + delta, offset, zone, dst));
+  const transitions = registration.transitions.map((kind, index) => ({
+    kind,
+    before: window(index * 20 + 1, 0),
+    during: window(
+      index * 20 + 7,
+      kind === 'clock-forward'
+        ? 120
+        : kind === 'clock-backward'
+          ? -120
+          : kind === 'dst'
+            ? 86400
+            : 0,
+      kind === 'timezone' ? 'America/Chicago' : 'UTC',
+      kind === 'dst'
+    ),
+    after: window(index * 20 + 13, 0),
+  }));
+  const unsigned = {
+    ...f.unsigned,
+    registrationDigest: digest(registration),
+    kind: 'creation',
+    controls: { ...f.unsigned.controls, cleanup: { childExited: true, restoration: 'verified' } },
+    transitions,
+  };
+  const valid = verify({ ...f, registration, receipt: f.seal(unsigned) });
+  assert.equal(valid.verified, false);
+  assert.equal(valid.evidenceValid, true);
+  for (const changed of [
+    transitions.slice(0, 3),
+    transitions.map((v, i) => (i ? v : { ...v, during: v.before })),
+    transitions.map((v, i) => (i ? v : { ...v, during: v.during.slice(0, 2) })),
+    transitions.map((v, i) => (i ? v : { ...v, after: v.during })),
+    transitions.map((v, i) =>
+      i
+        ? v
+        : {
+            ...v,
+            during: v.during.map((s) => ({
+              ...s,
+              creation: { ...s.creation, lower: '200', upper: '201' },
+            })),
+          }
+    ),
+  ])
+    assert.throws(
+      () => verify({ ...f, registration, receipt: f.seal({ ...unsigned, transitions: changed }) }),
+      /creation|restoration/
     );
 });

@@ -216,6 +216,76 @@ function validateAbsenceControls(c, receipt) {
   )
     fail('controls-creation-invalid');
 }
+function validateCreationControls(receipt, registration) {
+  if (receipt.transitions.length !== 4) fail('creation-transition-missing');
+  let previous = -1n;
+  const original = receipt.controls.live;
+  const asInteger = (value) => {
+    if (typeof value !== 'string' || !/^-?(?:0|[1-9][0-9]{0,29})$/u.test(value))
+      fail('creation-sample-invalid');
+    return BigInt(value);
+  };
+  const phase = (samples) => {
+    if (!Array.isArray(samples) || samples.length < 5 || samples.length > 256)
+      fail('creation-window-inadequate');
+    const points = [];
+    for (const sample of samples) {
+      if (
+        !exact(sample, ['monotonicNs', 'utcNs', 'zone', 'dst', 'pid', 'nonce', 'creation']) ||
+        sample.pid !== original.pid ||
+        sample.nonce !== original.nonce ||
+        !text(sample.zone, 128) ||
+        typeof sample.dst !== 'boolean' ||
+        !same(sample.creation, original.creation)
+      )
+        fail('creation-source-changed');
+      const mono = asInteger(sample.monotonicNs);
+      const utc = asInteger(sample.utcNs);
+      if (mono <= previous || mono < 0n) fail('creation-monotonic-invalid');
+      previous = mono;
+      points.push({ mono, offset: utc - mono, zone: sample.zone, dst: sample.dst });
+    }
+    if (points.at(-1).mono - points[0].mono < 5000000000n) fail('creation-window-inadequate');
+    const offsets = points.map((p) => p.offset);
+    const low = offsets.reduce((a, b) => (a < b ? a : b));
+    const high = offsets.reduce((a, b) => (a > b ? a : b));
+    if (
+      high - low > 500000000n ||
+      points.some((p) => p.zone !== points[0].zone || p.dst !== points[0].dst)
+    )
+      fail('creation-window-unstable');
+    return points[0];
+  };
+  for (let i = 0; i < 4; i += 1) {
+    const transition = receipt.transitions[i];
+    if (
+      !exact(transition, ['kind', 'before', 'during', 'after']) ||
+      transition.kind !== registration.transitions[i]
+    )
+      fail('creation-transition-invalid');
+    const before = phase(transition.before);
+    const during = phase(transition.during);
+    const after = phase(transition.after);
+    const difference = during.offset - before.offset;
+    if (
+      (transition.kind === 'clock-forward' && difference < 60000000000n) ||
+      (transition.kind === 'clock-backward' && difference > -60000000000n) ||
+      (transition.kind === 'timezone' &&
+        (during.zone === before.zone || during.dst !== before.dst)) ||
+      (transition.kind === 'dst' && (during.zone !== before.zone || during.dst === before.dst))
+    )
+      fail('creation-transition-unobserved');
+    const restored = after.offset - before.offset;
+    if (
+      restored < -500000000n ||
+      restored > 500000000n ||
+      after.zone !== before.zone ||
+      after.dst !== before.dst
+    )
+      fail('restoration-unproved');
+  }
+}
+
 export function verifyProcessSourceReceiptCore({
   receipt,
   registration,
@@ -283,7 +353,7 @@ export function verifyProcessSourceReceiptCore({
   validateAbsenceControls(receipt.controls, receipt);
   if (receipt.kind === 'absence') {
     if (receipt.transitions.length) fail('controls-unregistered-transitions');
-  } else fail('creation-controls-unproved');
+  } else validateCreationControls(receipt, registration);
   return Object.freeze({
     verified: false,
     evidenceValid: true,

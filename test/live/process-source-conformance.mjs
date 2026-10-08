@@ -7,6 +7,7 @@ import {
   bindProcessSourceCandidate,
 } from './process-source/package.mjs';
 
+import { verifyRegisteredProcessSources } from './process-source/verify.mjs';
 import { captureRegisteredAbsence } from './process-source/capture.mjs';
 
 export async function runProcessSourceConformance(options = {}) {
@@ -26,6 +27,20 @@ export async function runProcessSourceConformance(options = {}) {
     )
   )
     return captureRegisteredAbsence(options);
+  if (
+    options.mode === 'verify' &&
+    Object.keys(options).every((key) =>
+      [
+        'mode',
+        'receipt',
+        'receiptRoot',
+        'registrationIndex',
+        'approvedRef',
+        'packageReceipt',
+      ].includes(key)
+    )
+  )
+    return verifyRegisteredProcessSources(options);
   throw Error('driver-mode-unavailable');
 }
 function args(values) {
@@ -43,7 +58,15 @@ function args(values) {
               '--approved-ref': 'approvedRef',
               '--output': 'output',
             }
-          : {};
+          : mode === 'verify'
+            ? {
+                '--receipt': 'receipt',
+                '--receipt-root': 'receiptRoot',
+                '--registration-index': 'registrationIndex',
+                '--approved-ref': 'approvedRef',
+                '--package-receipt': 'packageReceipt',
+              }
+            : {};
   for (let i = 0; i < rest.length; i += 2) {
     const name = names[rest[i]],
       value = rest[i + 1];
@@ -59,7 +82,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   } catch (error) {
     const reason = error.details?.reason;
     const suffix =
-      typeof reason === 'string' && /^[a-z0-9-]{1,128}$/u.test(reason) ? ': ' + reason : '';
+      typeof reason === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(reason) ? ': ' + reason : '';
     console.error((error.code ?? error.message) + suffix);
     process.exitCode = 1;
   }

@@ -1,11 +1,12 @@
 // @story #170
 // Actual substrate controls only; results are unverified data, never class admission.
-import { fork } from 'node:child_process';
+import { fork, execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { readFileSync, realpathSync } from 'node:fs';
+import { readFileSync, readlinkSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseRawJson } from '../../../src/api/canonical-json.mjs';
 import { inspectInstalledCandidateSource } from './package.mjs';
 
 const ROOT = realpathSync(fileURLToPath(new URL('../../../', import.meta.url)));
@@ -155,32 +156,56 @@ export async function captureAbsenceControlsCore(options = {}) {
     if (process.platform !== 'linux') {
       errorResult = await observe(Number.MAX_SAFE_INTEGER);
     } else {
-      // The real procfs directory/stat race must be observed. No injected read,
-      // mocked denial or expired-budget result can satisfy the error control.
-      for (let attempt = 0; attempt < 64 && errorResult?.status !== 'unknown'; attempt += 1) {
-        budget(context);
-        const racing = await startChild(context);
-        try {
-          const initial = await observe(racing.child.pid);
-          if (initial.status !== 'live') throw fail('source-error-live-unproved');
-          racing.signalStop();
-          for (let check = 0; check < 128 && !racing.exited(); check += 1) {
-            const value = await observe(racing.child.pid);
-            budget(context);
-            if (value.status === 'unknown' && value.reason === 'identity-unavailable') {
-              errorResult = value;
-              break;
-            }
+      if (
+        process.env.GITHUB_ACTIONS !== 'true' ||
+        process.env.RUNNER_OS !== 'Linux' ||
+        !/^[0-9]+$/u.test(process.env.GITHUB_RUN_ID ?? '')
+      )
+        throw fail('source-error-control-privilege-unavailable');
+      const parentNamespace = readlinkSync('/proc/self/ns/mnt');
+      let value;
+      try {
+        const output = execFileSync(
+          '/usr/bin/sudo',
+          [
+            '-n',
+            '/usr/bin/unshare',
+            '--mount',
+            '--fork',
+            process.execPath,
+            path.join(ROOT, 'test/helpers/process-source-proc-error.mjs'),
+            installation,
+            parentNamespace,
+          ],
+          {
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            timeout: Math.max(1, Math.min(15000, Math.floor(budget(context)))),
           }
-        } finally {
-          const result = await racing.stop();
-          if (result.exitCode !== 0 || result.signal !== null)
-            throw fail('source-error-cleanup-unproved');
-        }
+        );
+        value = parseRawJson(output.trim());
+      } catch {
+        throw fail('source-error-control-privilege-unavailable');
       }
+      if (
+        value?.schema !== 'ai-peer-review.process-source-error-control/v1' ||
+        value.status !== 'unknown' ||
+        value.reason !== 'probe-unclassified' ||
+        value.privilege !== 'cap-sys-admin' ||
+        value.parentNamespace !== parentNamespace ||
+        value.childNamespace === parentNamespace ||
+        value.restored !== true ||
+        readlinkSync('/proc/self/ns/mnt') !== parentNamespace
+      )
+        throw fail('source-error-control-restoration-unproved');
+      errorResult = value;
     }
     budget(context);
-    if (errorResult?.status !== 'unknown' || errorResult.reason !== 'identity-unavailable')
+    if (
+      errorResult?.status !== 'unknown' ||
+      errorResult.reason !==
+        (process.platform === 'linux' ? 'probe-unclassified' : 'identity-unavailable')
+    )
       throw fail('source-error-control-inconclusive');
     controls = {
       producer: {
@@ -191,7 +216,10 @@ export async function captureAbsenceControlsCore(options = {}) {
       live: { pid: live.pid, nonce: owned.nonce, creation: live.creation },
       exit,
       absence: { pid: absence.pid, status: absence.status },
-      error: { status: 'unknown', reason: 'probe-query-error' },
+      error: {
+        status: errorResult.status,
+        reason: process.platform === 'linux' ? 'probe-access-error' : 'probe-query-error',
+      },
       cleanup: { childExited: true, restoration: 'not-required' },
     };
   } finally {
