@@ -156,7 +156,7 @@ test('[#187] every Windows runtime requires all four independent portable unit r
   assert.equal(declared.length, 37);
   assert.equal(
     declared.reduce((count, worker) => count + worker.lanes.length, 0),
-    77
+    86
   );
   const jobs = declared.map((worker) => ({
     name: worker.name,
@@ -325,4 +325,146 @@ test('[#187] preserved-case inspection detects modified assertions, changed gene
   );
   assert.throws(() => runtimeCaseRecords(original + original, file), /duplicate/);
   assert.throws(() => runtimeCaseRecords('test(unresolved,()=>{});', file), /unresolved/);
+});
+
+test('[#187] four integration partitions cover every active baseline file once and preserve native retirement', () => {
+  const files = [
+    'test/integration/ordinary-one.test.mjs',
+    'test/integration/ordinary-two.test.mjs',
+    'test/integration/broker-http-concurrency.test.mjs',
+    'test/integration/storage-protection.test.mjs',
+    'test/integration/owner-publication.test.mjs',
+    'test/integration/portable-ownership.test.mjs',
+    'test/integration/broker-ipc.test.mjs',
+  ];
+  const plan = classifySuiteFiles(files);
+  const shards = plan.windowsIntegrationShards ?? [];
+  assert.equal(shards.length, 4);
+  const executed = shards.flatMap((shard) => shard.groups.flatMap((group) => group.files));
+  assert.equal(new Set(executed).size, executed.length);
+  assert.deepEqual(
+    executed.sort(),
+    files
+      .filter(
+        (file) =>
+          ![
+            'test/integration/owner-publication.test.mjs',
+            'test/integration/portable-ownership.test.mjs',
+            'test/integration/broker-ipc.test.mjs',
+          ].includes(file)
+      )
+      .sort()
+  );
+});
+
+test('[#187] independent integration receipts replace Windows aggregate proof without losing any file', () => {
+  const groups = ['selection', 'authority', 'storage', 'identity'];
+  const files = Object.fromEntries(
+    [
+      'test/integration/ordinary-one.test.mjs',
+      'test/integration/ordinary-two.test.mjs',
+      'test/integration/broker-http-concurrency.test.mjs',
+      'test/integration/storage-protection.test.mjs',
+      'test/integration/owner-publication.test.mjs',
+      'test/integration/portable-ownership.test.mjs',
+    ].map((file) => [file, 'fixture hash'])
+  );
+  const partitions = groups.map((group) => {
+    const lane = 'portable-integration-' + group;
+    assert.deepEqual(laneCommand(lane, 'Windows'), [
+      'node',
+      'test/helpers/run-suite.mjs',
+      'integration',
+      '--integration-shard',
+      group,
+    ]);
+    return Object.keys(laneInventory(files, lane, 'Windows'));
+  });
+  assert.deepEqual(
+    partitions.flat().sort(),
+    Object.keys(files)
+      .filter(
+        (file) =>
+          !file.endsWith('/owner-publication.test.mjs') &&
+          !file.endsWith('/portable-ownership.test.mjs')
+      )
+      .sort()
+  );
+  for (const node of ['24', '26', 'current']) {
+    const baseline = workers().find(
+      (worker) =>
+        (worker.key === 'node-24-24-windows-latest' && node === '24') ||
+        worker.key === 'preferred-node-' + node + '-windows-latest'
+    );
+    assert.equal(baseline.lanes.includes('integration'), false);
+    for (const group of groups)
+      assert.ok(
+        workers()
+          .find(
+            (worker) => worker.key === 'portable-unit-' + group + '-' + node + '-windows-latest'
+          )
+          .lanes.includes('portable-integration-' + group)
+      );
+  }
+  const all = workers();
+  assert.equal(all.length, 37);
+  assert.equal(
+    all.reduce((count, worker) => count + worker.lanes.length, 0),
+    86
+  );
+});
+
+test('[#187] actual independent integration runner invocations execute every disposable file once and propagate failures', (t) => {
+  const fixture = runnerFixture(t);
+  mkdirSync(path.join(fixture.root, 'test/integration'), { recursive: true });
+  const names = [
+    'ordinary-one',
+    'ordinary-two',
+    'ordinary-three',
+    'ordinary-four',
+    'broker-http-concurrency',
+    'storage-protection',
+  ];
+  for (const name of names)
+    writeFileSync(
+      path.join(fixture.root, 'test/integration', name + '.test.mjs'),
+      "import test from 'node:test';import fs from 'node:fs';test('integration case',()=>fs.appendFileSync(" +
+        JSON.stringify(fixture.counter) +
+        ", '" +
+        name +
+        "\\n'));\n"
+    );
+  for (const name of ['owner-publication', 'portable-ownership', 'broker-ipc'])
+    writeFileSync(
+      path.join(fixture.root, 'test/integration', name + '.test.mjs'),
+      "throw Error('delegated or retired integration accidentally executed');\n"
+    );
+  const env = { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true' };
+  delete env.NODE_TEST_CONTEXT;
+  const run = (group) =>
+    spawnSync(
+      process.execPath,
+      ['test/helpers/run-suite.mjs', 'integration', '--integration-shard', group],
+      { cwd: fixture.root, env, encoding: 'utf8', timeout: 10000 }
+    );
+  for (const group of ['selection', 'authority', 'storage', 'identity']) {
+    const result = run(group);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  }
+  assert.deepEqual(
+    readFileSync(fixture.counter, 'utf8').trim().split('\n').sort(),
+    names.slice().sort()
+  );
+  writeFileSync(
+    path.join(fixture.root, 'test/integration/ordinary-one.test.mjs'),
+    "throw Error('actual integration shard failure');\n"
+  );
+  const group = classifySuiteFiles(
+    names.map((name) => 'test/integration/' + name + '.test.mjs')
+  ).windowsIntegrationShards.find((shard) =>
+    shard.groups.some((part) => part.files.includes('test/integration/ordinary-one.test.mjs'))
+  ).name;
+  const failed = run(group);
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout + failed.stderr, /actual integration shard failure/);
 });

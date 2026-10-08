@@ -663,3 +663,31 @@ test('[#187] registration refuses a locator replacement during final guarded cle
   assert.equal(replaced, true);
   assert.deepEqual(readFileSync(locator), readFileSync(locator + '.original'));
 });
+
+test('[#187] an existing registration reads and updates through one retained genuine directory', async (t) => {
+  const { createRequire, syncBuiltinESMExports } = await import('node:module');
+  const fsPromises = createRequire(import.meta.url)('node:fs/promises');
+  const originalOpen = fsPromises.open;
+  const first = runtimeFixture(t),
+    next = runtimeFixture(t);
+  await createSelectionStore({ packageRoot: first.packageRoot, account: first.account }).register();
+  const directory = path.join(
+    first.home,
+    process.platform === 'win32' ? 'AppData/Local/ai-peer-review' : '.config/ai-peer-review'
+  );
+  let opened = 0;
+  fsPromises.open = async function (target, ...args) {
+    const caller = new Error().stack.split('\n')[2] ?? '';
+    if (target === directory && /at (?:async )?openProtectedRoot\b/.test(caller)) opened++;
+    return originalOpen(target, ...args);
+  };
+  syncBuiltinESMExports();
+  t.after(() => {
+    fsPromises.open = originalOpen;
+    syncBuiltinESMExports();
+  });
+  const store = createSelectionStore({ packageRoot: next.packageRoot, account: first.account });
+  const selected = await store.register({ update: true });
+  assert.equal(selected.package_root, next.packageRoot);
+  assert.equal(opened, 1, 'initial read, update and read-back retain one genuine guard');
+});

@@ -58,7 +58,31 @@ export function classifySuiteFiles(discovered) {
     ].sort(),
     filtered: false,
   }));
-  return { groups, excluded, windowsPortableShards };
+  const integrationFiles = groups
+    .flatMap((group) => group.files)
+    .filter(
+      (file) =>
+        file.startsWith('test/integration/') &&
+        ![
+          'test/integration/owner-publication.test.mjs',
+          'test/integration/portable-ownership.test.mjs',
+        ].includes(file)
+    )
+    .sort();
+  const windowsIntegrationShards = WINDOWS_PORTABLE_UNIT_GROUPS.map((name, index) => ({
+    name,
+    groups: groups
+      .map((group) => ({
+        filtered: group.filtered,
+        files: group.files.filter(
+          (file) =>
+            integrationFiles.includes(file) &&
+            integrationFiles.indexOf(file) % WINDOWS_PORTABLE_UNIT_GROUPS.length === index
+        ),
+      }))
+      .filter((group) => group.files.length),
+  }));
+  return { groups, excluded, windowsPortableShards, windowsIntegrationShards };
 }
 export function suiteCommandArguments({ files, filtered }, { suite, platform, hosted }) {
   return [

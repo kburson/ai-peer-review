@@ -37,7 +37,11 @@ export function workers() {
     matrixNode: '26',
     runnerOS: 'Linux',
   });
-  for (const worker of result) worker.lanes = baselineLanes;
+  for (const worker of result)
+    worker.lanes =
+      worker.runnerOS === 'Windows'
+        ? baselineLanes.filter((lane) => lane !== 'integration')
+        : baselineLanes;
   for (const node of ['24', '26', 'current'])
     for (const group of OWNER_PUBLICATION_GROUPS)
       result.push({
@@ -62,7 +66,7 @@ export function workers() {
         name: 'Portable units / ' + group + ' / Node ' + node + ' / windows-latest',
         matrixNode: node,
         runnerOS: 'Windows',
-        lanes: ['portable-unit-' + group],
+        lanes: ['portable-unit-' + group, 'portable-integration-' + group],
       });
   return result;
 }

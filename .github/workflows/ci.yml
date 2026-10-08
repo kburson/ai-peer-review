@@ -51,6 +51,7 @@ jobs:
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
         run: node scripts/ci/record-tests.mjs integration
         env:
           GH_TOKEN: ${{ github.token }}
@@ -99,6 +100,7 @@ jobs:
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
         run: node scripts/ci/record-tests.mjs integration
         env:
           GH_TOKEN: ${{ github.token }}
@@ -237,6 +239,7 @@ jobs:
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
         run: node scripts/ci/record-tests.mjs integration
         env:
           GH_TOKEN: ${{ github.token }}
@@ -318,6 +321,8 @@ jobs:
         run: node test/helpers/warm-packed-cache.mjs
       - name: 'Verify tests: portable-unit-${{ matrix.group }}'
         run: node scripts/ci/record-tests.mjs portable-unit-${{ matrix.group }}
+      - name: 'Verify tests: portable-integration-${{ matrix.group }}'
+        run: node scripts/ci/record-tests.mjs portable-integration-${{ matrix.group }}
       - name: Upload portable unit receipt and raw output
         if: always()
         uses: actions/upload-artifact@v7

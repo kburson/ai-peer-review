@@ -20,6 +20,13 @@ const portableUnitShard =
   WINDOWS_PORTABLE_UNIT_GROUPS.includes(extra[1])
     ? extra[1]
     : null;
+const integrationShard =
+  suite === 'integration' &&
+  extra.length === 2 &&
+  extra[0] === '--integration-shard' &&
+  WINDOWS_PORTABLE_UNIT_GROUPS.includes(extra[1])
+    ? extra[1]
+    : null;
 const unitSelector = hosted && (excludePortableUnit || portableUnitShard !== null);
 const knownSelectors =
   extra.length === new Set(extra).size &&
@@ -30,6 +37,7 @@ if (
   extra.length &&
   !(
     unitSelector ||
+    (hosted && integrationShard !== null) ||
     (knownSelectors &&
       excludeOwners &&
       suite === 'integration' &&
@@ -55,7 +63,9 @@ const groups = excludePortableUnit
   ? plan.groups.filter((group) => group.filtered)
   : portableUnitShard
     ? plan.windowsPortableShards.filter((group) => group.name === portableUnitShard)
-    : plan.groups;
+    : integrationShard
+      ? plan.windowsIntegrationShards.find((group) => group.name === integrationShard).groups
+      : plan.groups;
 console.log('Broker verification paused for #102/#107: ' + excluded.join(', '));
 if (!groups.length) throw new Error('No tests found for ' + suite);
 function argumentsFor(group) {

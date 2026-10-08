@@ -312,65 +312,65 @@ export function createSelectionStore({
     const op = await operation(input);
     await installation(op);
     const ctx = await accountContext(op);
-    let previous = null,
-      previousBytes = null;
+    let exists = false;
     try {
       await lstat(ctx.file);
-      previous = await readWithin(op);
+      exists = true;
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
     }
-    if (previous)
-      previousBytes = await withStore(ctx, op, false, (guard) =>
-        guard.readSnapshot('runtime-selection.json', 8192).then((snapshot) => snapshot.bytes)
-      );
-    const same = previous?.package_root === actualRoot && previous?.node_executable === actualNode;
-    if (previous && !same && !update)
-      refuse(
-        'APR_RUNTIME_SELECTION_INVALID',
-        'Runtime locator relocation requires explicit --update.'
-      );
-    const keys = [
-      'schema',
-      'selection_id',
-      'package_root',
-      'node_executable',
-      'package_name',
-      'registered_at',
-    ];
-    const value = same
-      ? Object.fromEntries(keys.map((key) => [key, previous[key]]))
-      : {
-          schema: 'ai-peer-review.runtime-selection/v1',
-          selection_id: randomUUID(),
-          package_root: actualRoot,
-          node_executable: actualNode,
-          package_name: '@kburson/ai-peer-review',
-          registered_at: new Date().toISOString(),
-        };
-    await installation(op);
-    if (dryRun)
-      return Object.freeze({
-        schema: 'ai-peer-review.runtime-registration-plan/v1',
-        location: ctx.file,
-        before: previous,
-        after: value,
-      });
-    const publication = await withStore(ctx, op, true, async (guard) => {
+    const transact = async (guard) => {
+      const previousSnapshot = exists
+        ? await guard.readSnapshot('runtime-selection.json', 8192)
+        : null;
+      const previous = previousSnapshot ? decode(previousSnapshot.bytes) : null;
+      const same =
+        previous?.package_root === actualRoot && previous?.node_executable === actualNode;
+      if (previous && !same && !update)
+        refuse(
+          'APR_RUNTIME_SELECTION_INVALID',
+          'Runtime locator relocation requires explicit --update.'
+        );
+      const keys = [
+        'schema',
+        'selection_id',
+        'package_root',
+        'node_executable',
+        'package_name',
+        'registered_at',
+      ];
+      const value = same
+        ? Object.fromEntries(keys.map((key) => [key, previous[key]]))
+        : {
+            schema: 'ai-peer-review.runtime-selection/v1',
+            selection_id: randomUUID(),
+            package_root: actualRoot,
+            node_executable: actualNode,
+            package_name: '@kburson/ai-peer-review',
+            registered_at: new Date().toISOString(),
+          };
       await installation(op);
+      if (previousSnapshot) {
+        try {
+          assertProtectedSnapshotUnchanged(previousSnapshot);
+        } catch {
+          refuse('APR_RUNTIME_CHANGED', 'Account selection changed during registration.');
+        }
+      }
+      if (dryRun)
+        return {
+          plan: Object.freeze({
+            schema: 'ai-peer-review.runtime-registration-plan/v1',
+            location: ctx.file,
+            before: previous,
+            after: value,
+          }),
+        };
       if (!same) {
         const bytes = Buffer.from(JSON.stringify(value) + '\n');
-        if (previousBytes) {
-          if (decode(previousBytes).selection_id !== previous.selection_id)
-            refuse('APR_RUNTIME_CHANGED', 'Account selection changed during registration.');
-          await guard.replace('runtime-selection.json', previousBytes, bytes);
-        } else await guard.writeExclusive('runtime-selection.json', bytes);
-      } else {
-        const now = await guard
-          .readSnapshot('runtime-selection.json', 8192)
-          .then((snapshot) => snapshot.bytes);
-        if (!now.equals(previousBytes))
-          refuse('APR_RUNTIME_CHANGED', 'Account selection changed during registration.');
+        if (previousSnapshot)
+          await guard.replace('runtime-selection.json', previousSnapshot.bytes, bytes);
+        else await guard.writeExclusive('runtime-selection.json', bytes);
       }
       const readRetained = async () => {
         const current = await accountContext(op);
@@ -387,6 +387,8 @@ export function createSelectionStore({
         observed.node_executable !== actualNode
       )
         refuse('APR_RUNTIME_SELECTION_INVALID', 'Runtime selection read back disagrees.');
+      if (same && !sameSelectionGeneration(previousSnapshot, observedRead.snapshot))
+        refuse('APR_RUNTIME_CHANGED', 'Account selection generation changed during registration.');
       await installation(op);
       const finalRead = await readRetained();
       if (!sameSelectionGeneration(observedRead.snapshot, finalRead.snapshot))
@@ -395,7 +397,10 @@ export function createSelectionStore({
           'Account selection generation changed during registration read-back.'
         );
       return { observed, snapshot: finalRead.snapshot };
-    });
+    };
+    const publication =
+      dryRun && !exists ? await transact(null) : await withStore(ctx, op, !dryRun, transact);
+    if (publication.plan) return publication.plan;
     try {
       assertProtectedSnapshotUnchanged(publication.snapshot);
     } catch {

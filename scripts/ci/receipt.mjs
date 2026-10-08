@@ -42,6 +42,21 @@ export const LANES = Object.freeze({
       },
     ])
   ),
+  ...Object.fromEntries(
+    WINDOWS_PORTABLE_UNIT_GROUPS.map((group) => [
+      'portable-integration-' + group,
+      {
+        command: [
+          'node',
+          'test/helpers/run-suite.mjs',
+          'integration',
+          '--integration-shard',
+          group,
+        ],
+        integrationGroup: group,
+      },
+    ])
+  ),
   // Retain legacy receipt parsing; current workers require every separate group.
   'owner-publication': {
     command: ['node', '--test', 'test/integration/owner-publication.test.mjs'],
@@ -76,6 +91,16 @@ export function laneInventory(files, lane, runnerOS) {
       (group) => group.name === definition.portableUnitGroup
     );
     return Object.fromEntries(Object.entries(files).filter(([file]) => shard.files.includes(file)));
+  }
+  if (definition.integrationGroup) {
+    const discoveredIntegration = Object.keys(files)
+      .filter((file) => file.startsWith('test/integration/') && file.endsWith('.test.mjs'))
+      .sort();
+    const shard = classifySuiteFiles(discoveredIntegration).windowsIntegrationShards.find(
+      (group) => group.name === definition.integrationGroup
+    );
+    const selected = shard.groups.flatMap((group) => group.files);
+    return Object.fromEntries(Object.entries(files).filter(([file]) => selected.includes(file)));
   }
   const delegated = new Set(
     plan.groups.filter((group) => !group.filtered).flatMap((group) => group.files)
