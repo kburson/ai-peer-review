@@ -48,6 +48,10 @@ jobs:
         run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
+      - name: Trace bounded Windows selection authority
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: node --import ./test/helpers/windows-authority-trace.mjs --test --test-name-pattern="one account selection is shared by clones" test/unit/runtime-selection.test.mjs
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
@@ -96,6 +100,10 @@ jobs:
         run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
       - run: npm run lint
+      - name: Trace bounded Windows selection authority
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: node --import ./test/helpers/windows-authority-trace.mjs --test --test-name-pattern="one account selection is shared by clones" test/unit/runtime-selection.test.mjs
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
