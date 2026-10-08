@@ -105,6 +105,11 @@ export function createSelectionStore({
   }
   async function operation(input = {}) {
     const context = budget(input);
+    if (kind !== process.platform)
+      refuse(
+        'APR_RUNTIME_ACCOUNT_UNAVAILABLE',
+        'Requested OS account does not match the execution host.'
+      );
     const system = await initializePortableSystem(context);
     try {
       await initialize(system, context);

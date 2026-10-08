@@ -31,6 +31,23 @@ test('selection construction observes neither unavailable paths nor account or p
   assert.equal(typeof store.assertSelected, 'function');
 });
 
+test('foreign OS selection input refuses before observing unavailable installation paths', async () => {
+  let accountCalls = 0;
+  const missing = path.join(tmpdir(), 'apr-foreign-host-' + randomUUID());
+  const store = createSelectionStore({
+    packageRoot: missing,
+    nodeExecutable: path.join(missing, 'node'),
+    kind: process.platform === 'win32' ? 'linux' : 'win32',
+    account() {
+      accountCalls++;
+      throw Error('foreign account observed');
+    },
+  });
+  for (const name of ['location', 'read', 'register', 'assertSelected'])
+    await assert.rejects(store[name](), { code: 'APR_RUNTIME_ACCOUNT_UNAVAILABLE' }, name);
+  assert.equal(accountCalls, 0);
+});
+
 import { deriveProcessSourceContract } from '../../scripts/verify-portable-consumers.mjs';
 import { consumerFixture } from '../helpers/portable-consumer-fixtures.mjs';
 

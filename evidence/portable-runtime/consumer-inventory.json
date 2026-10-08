@@ -5761,7 +5761,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 165,
+        "line": 170,
         "column": 51,
         "kind": "dynamic-import",
         "target": "src/broker/storage-protection.mjs",
@@ -146391,7 +146391,17 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 108,
+        "line": 109,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "refuse",
+        "origins": ["function"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 113,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -146401,7 +146411,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 108,
+        "line": 113,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -146411,7 +146421,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 110,
+        "line": 115,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -146421,7 +146431,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 113,
+        "line": 118,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -146431,7 +146441,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 119,
+        "line": 124,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -146441,7 +146451,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 121,
+        "line": 126,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -146451,7 +146461,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 125,
+        "line": 130,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -146461,7 +146471,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 125,
+        "line": 130,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -146471,7 +146481,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 127,
+        "line": 132,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -146481,7 +146491,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 127,
+        "line": 132,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -146491,7 +146501,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 128,
+        "line": 133,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -146501,7 +146511,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 132,
+        "line": 137,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -146511,7 +146521,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 133,
+        "line": 138,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -146521,7 +146531,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 135,
+        "line": 140,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -146531,7 +146541,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 136,
+        "line": 141,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -146541,7 +146551,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 136,
+        "line": 141,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -146551,7 +146561,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 137,
+        "line": 142,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -146561,7 +146571,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 137,
+        "line": 142,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -146571,7 +146581,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 139,
+        "line": 144,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -146581,7 +146591,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 141,
+        "line": 146,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -146591,7 +146601,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 141,
+        "line": 146,
         "column": 64,
         "kind": "call",
         "targetKind": "origin",
@@ -146601,7 +146611,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 143,
+        "line": 148,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -146611,7 +146621,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 146,
+        "line": 151,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -146621,7 +146631,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 148,
+        "line": 153,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -146631,7 +146641,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 149,
+        "line": 154,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -146641,7 +146651,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 150,
+        "line": 155,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -146651,7 +146661,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 150,
+        "line": 155,
         "column": 63,
         "kind": "call",
         "targetKind": "origin",
@@ -146661,7 +146671,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 151,
+        "line": 156,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -146671,7 +146681,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 151,
+        "line": 156,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -146681,7 +146691,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 152,
+        "line": 157,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -146691,7 +146701,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 155,
+        "line": 160,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -146701,7 +146711,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 156,
+        "line": 161,
         "column": 15,
         "kind": "alias",
         "targetKind": "origin",
@@ -146711,7 +146721,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 156,
+        "line": 161,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -146721,7 +146731,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 156,
+        "line": 161,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -146731,7 +146741,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 157,
+        "line": 162,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -146741,7 +146751,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 157,
+        "line": 162,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -146751,7 +146761,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 158,
+        "line": 163,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -146761,7 +146771,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 159,
+        "line": 164,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -146771,7 +146781,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 161,
+        "line": 166,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -146781,7 +146791,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 161,
+        "line": 166,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -146791,7 +146801,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 165,
+        "line": 170,
         "column": 16,
         "kind": "alias",
         "targetKind": "origin",
@@ -146801,7 +146811,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 166,
+        "line": 171,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -146811,7 +146821,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 167,
+        "line": 172,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -146821,7 +146831,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 168,
+        "line": 173,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -146831,7 +146841,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 168,
+        "line": 173,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -146841,7 +146851,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 171,
+        "line": 176,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -146851,7 +146861,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 172,
+        "line": 177,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -146861,7 +146871,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 175,
+        "line": 180,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -146871,7 +146881,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 182,
+        "line": 187,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -146881,7 +146891,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 183,
+        "line": 188,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -146891,7 +146901,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 183,
+        "line": 188,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -146901,7 +146911,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 185,
+        "line": 190,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -146911,7 +146921,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 189,
+        "line": 194,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -146921,7 +146931,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 193,
+        "line": 198,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -146931,7 +146941,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 195,
+        "line": 200,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -146941,7 +146951,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 197,
+        "line": 202,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -146951,7 +146961,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 204,
+        "line": 209,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -146961,7 +146971,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 206,
+        "line": 211,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -146971,7 +146981,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 206,
+        "line": 211,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -146981,7 +146991,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 207,
+        "line": 212,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -146991,7 +147001,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 207,
+        "line": 212,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -147001,7 +147011,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 208,
+        "line": 213,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -147011,7 +147021,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 209,
+        "line": 214,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147021,7 +147031,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 210,
+        "line": 215,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -147031,7 +147041,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 213,
+        "line": 218,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -147041,7 +147051,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 214,
+        "line": 219,
         "column": 39,
         "kind": "call",
         "targetKind": "origin",
@@ -147051,7 +147061,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 215,
+        "line": 220,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147061,7 +147071,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 215,
+        "line": 220,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -147071,7 +147081,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 224,
+        "line": 229,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -147081,7 +147091,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 230,
+        "line": 235,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147091,7 +147101,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 231,
+        "line": 236,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -147101,7 +147111,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 231,
+        "line": 236,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -147111,7 +147121,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 231,
+        "line": 236,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -147121,7 +147131,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 232,
+        "line": 237,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -147131,7 +147141,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 239,
+        "line": 244,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -147141,7 +147151,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 239,
+        "line": 244,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -147151,7 +147161,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 240,
+        "line": 245,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -147161,7 +147171,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 241,
+        "line": 246,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147171,7 +147181,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 241,
+        "line": 246,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -147181,7 +147191,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 242,
+        "line": 247,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -147191,7 +147201,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 246,
+        "line": 251,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -147201,7 +147211,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 249,
+        "line": 254,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -147211,7 +147221,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 249,
+        "line": 254,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -147221,7 +147231,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 252,
+        "line": 257,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -147231,78 +147241,8 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 252,
+        "line": 257,
         "column": 27,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "dirname",
-        "origins": ["builtin"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 252,
-        "column": 40,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "dirname",
-        "origins": ["builtin"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 253,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "basename",
-        "origins": ["builtin"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 254,
-        "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "prefix",
-        "origins": ["unknown"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 254,
-        "column": 17,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "dirname",
-        "origins": ["builtin"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 255,
-        "column": 28,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "basename",
-        "origins": ["builtin"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 255,
-        "column": 61,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "prefix",
-        "origins": ["unknown"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 255,
-        "column": 70,
         "kind": "call",
         "targetKind": "origin",
         "target": "dirname",
@@ -147312,6 +147252,76 @@
       {
         "path": "src/config/runtime-selection-core.mjs",
         "line": 257,
+        "column": 40,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "dirname",
+        "origins": ["builtin"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 258,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "basename",
+        "origins": ["builtin"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 259,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "prefix",
+        "origins": ["unknown"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 259,
+        "column": 17,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "dirname",
+        "origins": ["builtin"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 260,
+        "column": 28,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "basename",
+        "origins": ["builtin"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 260,
+        "column": 61,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "prefix",
+        "origins": ["unknown"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 260,
+        "column": 70,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "dirname",
+        "origins": ["builtin"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 262,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147321,7 +147331,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 258,
+        "line": 263,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -147331,7 +147341,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 260,
+        "line": 265,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -147341,7 +147351,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 260,
+        "line": 265,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -147351,7 +147361,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 266,
+        "line": 271,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -147361,7 +147371,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 266,
+        "line": 271,
         "column": 44,
         "kind": "call",
         "targetKind": "origin",
@@ -147371,7 +147381,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 267,
+        "line": 272,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147381,7 +147391,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 267,
+        "line": 272,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -147391,7 +147401,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 269,
+        "line": 274,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -147401,7 +147411,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 273,
+        "line": 278,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -147411,7 +147421,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 275,
+        "line": 280,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -147421,7 +147431,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 275,
+        "line": 280,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -147431,7 +147441,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 276,
+        "line": 281,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -147441,7 +147451,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 281,
+        "line": 286,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147451,7 +147461,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 281,
+        "line": 286,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -147461,7 +147471,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 283,
+        "line": 288,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -147471,7 +147481,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 285,
+        "line": 290,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147481,7 +147491,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 291,
+        "line": 296,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -147491,7 +147501,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 292,
+        "line": 297,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -147501,7 +147511,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 293,
+        "line": 298,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -147511,7 +147521,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 293,
+        "line": 298,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -147521,7 +147531,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 299,
+        "line": 304,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147531,7 +147541,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 299,
+        "line": 304,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147541,7 +147551,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 299,
+        "line": 304,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147551,7 +147561,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 299,
+        "line": 304,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -147561,7 +147571,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 302,
+        "line": 307,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -147571,7 +147581,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 306,
+        "line": 311,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -147581,7 +147591,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 307,
+        "line": 312,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -147591,7 +147601,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 311,
+        "line": 316,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -147601,7 +147611,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 312,
+        "line": 317,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -147611,7 +147621,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 312,
+        "line": 317,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -147621,7 +147631,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 313,
+        "line": 318,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -147631,7 +147641,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 314,
+        "line": 319,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -147641,7 +147651,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 314,
+        "line": 319,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -147651,28 +147661,8 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 315,
+        "line": 320,
         "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "exists",
-        "origins": ["data"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 317,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "lstat",
-        "origins": ["builtin"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 318,
-        "column": 6,
         "kind": "alias",
         "targetKind": "origin",
         "target": "exists",
@@ -147682,6 +147672,26 @@
       {
         "path": "src/config/runtime-selection-core.mjs",
         "line": 322,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "lstat",
+        "origins": ["builtin"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 323,
+        "column": 6,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "exists",
+        "origins": ["data"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 327,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -147691,7 +147701,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 323,
+        "line": 328,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147701,7 +147711,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 324,
+        "line": 329,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -147711,7 +147721,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 326,
+        "line": 331,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147721,7 +147731,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 326,
+        "line": 331,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -147731,7 +147741,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 327,
+        "line": 332,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147741,7 +147751,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 330,
+        "line": 335,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -147751,7 +147761,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 334,
+        "line": 339,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147761,7 +147771,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 342,
+        "line": 347,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147771,7 +147781,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 343,
+        "line": 348,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -147781,7 +147791,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 343,
+        "line": 348,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -147791,7 +147801,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 346,
+        "line": 351,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -147801,7 +147811,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 350,
+        "line": 355,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -147811,7 +147821,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 350,
+        "line": 355,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -147821,7 +147831,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 352,
+        "line": 357,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -147831,7 +147841,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 355,
+        "line": 360,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -147841,7 +147851,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 357,
+        "line": 362,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -147851,7 +147861,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 362,
+        "line": 367,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -147861,7 +147871,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 370,
+        "line": 375,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -147871,7 +147881,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 370,
+        "line": 375,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -147881,7 +147891,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 370,
+        "line": 375,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -147891,7 +147901,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 372,
+        "line": 377,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -147901,7 +147911,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 373,
+        "line": 378,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -147911,7 +147921,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 375,
+        "line": 380,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147921,7 +147931,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 376,
+        "line": 381,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -147931,7 +147941,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 376,
+        "line": 381,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -147941,7 +147951,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 378,
+        "line": 383,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -147951,7 +147961,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 379,
+        "line": 384,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -147961,7 +147971,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 379,
+        "line": 384,
         "column": 31,
         "kind": "call",
         "targetKind": "origin",
@@ -147971,7 +147981,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 380,
+        "line": 385,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -147981,7 +147991,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 382,
+        "line": 387,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -147991,7 +148001,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 382,
+        "line": 387,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -148001,7 +148011,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 383,
+        "line": 388,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -148011,7 +148021,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 389,
+        "line": 394,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -148021,7 +148031,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 390,
+        "line": 395,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -148031,7 +148041,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 391,
+        "line": 396,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -148041,7 +148051,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 392,
+        "line": 397,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -148051,7 +148061,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 393,
+        "line": 398,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -148061,7 +148071,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 393,
+        "line": 398,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -148071,7 +148081,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 394,
+        "line": 399,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -148081,7 +148091,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 395,
+        "line": 400,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -148091,7 +148101,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 401,
+        "line": 406,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -148101,7 +148111,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 402,
+        "line": 407,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -148111,7 +148121,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 402,
+        "line": 407,
         "column": 55,
         "kind": "call",
         "targetKind": "origin",
@@ -148121,7 +148131,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 405,
+        "line": 410,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -148131,7 +148141,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 407,
+        "line": 412,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -148141,7 +148151,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 409,
+        "line": 414,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -148151,7 +148161,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 410,
+        "line": 415,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -148161,7 +148171,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 414,
+        "line": 419,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -148171,7 +148181,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 419,
+        "line": 424,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -148181,7 +148191,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 419,
+        "line": 424,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -148191,7 +148201,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 420,
+        "line": 425,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -148201,7 +148211,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 421,
+        "line": 426,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -148211,7 +148221,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 421,
+        "line": 426,
         "column": 31,
         "kind": "call",
         "targetKind": "origin",
@@ -148221,7 +148231,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 422,
+        "line": 427,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -148231,7 +148241,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 425,
+        "line": 430,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -148241,7 +148251,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 427,
+        "line": 432,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -148251,7 +148261,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 433,
+        "line": 438,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -148261,22 +148271,12 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 433,
+        "line": 438,
         "column": 31,
         "kind": "call",
         "targetKind": "origin",
         "target": "get",
         "origins": ["unknown"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 435,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "refuse",
-        "origins": ["function"],
         "owner": 187
       },
       {
@@ -148291,7 +148291,17 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 444,
+        "line": 445,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "refuse",
+        "origins": ["function"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 449,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -148301,22 +148311,12 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 444,
+        "line": 449,
         "column": 45,
         "kind": "call",
         "targetKind": "origin",
         "target": "canonicalPaths",
         "origins": ["stock", "unknown"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 454,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "refuse",
-        "origins": ["function"],
         "owner": 187
       },
       {
@@ -148331,7 +148331,17 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 460,
+        "line": 464,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "refuse",
+        "origins": ["function"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 465,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -148341,7 +148351,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 464,
+        "line": 469,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -148351,7 +148361,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 464,
+        "line": 469,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -148361,7 +148371,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 465,
+        "line": 470,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -148371,7 +148381,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 466,
+        "line": 471,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -148381,51 +148391,11 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 467,
+        "line": 472,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
         "target": "refuse",
-        "origins": ["function"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 476,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "refuse",
-        "origins": ["function"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 477,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "finalInventory",
-        "origins": ["unknown"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 477,
-        "column": 33,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "installation",
-        "origins": ["function"],
-        "owner": 187
-      },
-      {
-        "path": "src/config/runtime-selection-core.mjs",
-        "line": 479,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertProtectedSnapshotUnchanged",
         "origins": ["function"],
         "owner": 187
       },
@@ -148441,7 +148411,47 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 483,
+        "line": 482,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "finalInventory",
+        "origins": ["unknown"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 482,
+        "column": 33,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "installation",
+        "origins": ["function"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 484,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertProtectedSnapshotUnchanged",
+        "origins": ["function"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 486,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "refuse",
+        "origins": ["function"],
+        "owner": 187
+      },
+      {
+        "path": "src/config/runtime-selection-core.mjs",
+        "line": 488,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -148451,7 +148461,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 484,
+        "line": 489,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -148461,7 +148471,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 485,
+        "line": 490,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -148471,7 +148481,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 485,
+        "line": 490,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -148481,7 +148491,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 491,
+        "line": 496,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -148491,7 +148501,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 494,
+        "line": 499,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -148501,7 +148511,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 495,
+        "line": 500,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -148511,7 +148521,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 495,
+        "line": 500,
         "column": 64,
         "kind": "call",
         "targetKind": "origin",
@@ -148521,7 +148531,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 500,
+        "line": 505,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -148531,7 +148541,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 501,
+        "line": 506,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -148541,7 +148551,7 @@
       },
       {
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 502,
+        "line": 507,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -263025,7 +263035,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 133,
+        "line": 138,
         "column": 9,
         "name": "isInteger",
         "owner": 187
@@ -263033,7 +263043,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 136,
+        "line": 141,
         "column": 19,
         "name": "canonicalPath",
         "owner": 187
@@ -263041,7 +263051,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 139,
+        "line": 144,
         "column": 9,
         "name": "isDirectory",
         "owner": 187
@@ -263049,7 +263059,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 141,
+        "line": 146,
         "column": 64,
         "name": "userId",
         "owner": 187
@@ -263057,7 +263067,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 156,
+        "line": 161,
         "column": 28,
         "name": "split",
         "owner": 187
@@ -263065,7 +263075,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 171,
+        "line": 176,
         "column": 8,
         "name": "isSymbolicLink",
         "owner": 187
@@ -263073,7 +263083,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 172,
+        "line": 177,
         "column": 9,
         "name": "isDirectory",
         "owner": 187
@@ -263081,7 +263091,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 183,
+        "line": 188,
         "column": 26,
         "name": "observeProtection",
         "owner": 187
@@ -263089,7 +263099,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 189,
+        "line": 194,
         "column": 11,
         "name": "openProtectedRoot",
         "owner": 187
@@ -263097,7 +263107,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 193,
+        "line": 198,
         "column": 12,
         "name": "close",
         "owner": 187
@@ -263105,7 +263115,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 195,
+        "line": 200,
         "column": 6,
         "name": "add",
         "owner": 187
@@ -263113,7 +263123,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 208,
+        "line": 213,
         "column": 12,
         "name": "verify",
         "owner": 187
@@ -263121,7 +263131,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 214,
+        "line": 219,
         "column": 39,
         "name": "startsWith",
         "owner": 187
@@ -263129,7 +263139,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 231,
+        "line": 236,
         "column": 43,
         "name": "parse",
         "owner": 187
@@ -263137,7 +263147,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 232,
+        "line": 237,
         "column": 11,
         "name": "freeze",
         "owner": 187
@@ -263145,7 +263155,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 241,
+        "line": 246,
         "column": 29,
         "name": "readSnapshot",
         "owner": 187
@@ -263153,7 +263163,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 299,
+        "line": 304,
         "column": 6,
         "name": "digest",
         "owner": 187
@@ -263161,7 +263171,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 299,
+        "line": 304,
         "column": 6,
         "name": "update",
         "owner": 187
@@ -263169,7 +263179,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 324,
+        "line": 329,
         "column": 16,
         "name": "readSnapshot",
         "owner": 187
@@ -263177,7 +263187,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 343,
+        "line": 348,
         "column": 10,
         "name": "fromEntries",
         "owner": 187
@@ -263185,7 +263195,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 350,
+        "line": 355,
         "column": 27,
         "name": "toISOString",
         "owner": 187
@@ -263193,7 +263203,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 362,
+        "line": 367,
         "column": 16,
         "name": "freeze",
         "owner": 187
@@ -263201,7 +263211,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 370,
+        "line": 375,
         "column": 22,
         "name": "from",
         "owner": 187
@@ -263209,7 +263219,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 370,
+        "line": 375,
         "column": 34,
         "name": "stringify",
         "owner": 187
@@ -263217,7 +263227,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 372,
+        "line": 377,
         "column": 16,
         "name": "replace",
         "owner": 187
@@ -263225,7 +263235,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 373,
+        "line": 378,
         "column": 19,
         "name": "writeExclusive",
         "owner": 187
@@ -263233,7 +263243,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 379,
+        "line": 384,
         "column": 31,
         "name": "readSnapshot",
         "owner": 187
@@ -263241,7 +263251,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 433,
+        "line": 438,
         "column": 31,
         "name": "get",
         "owner": 187
@@ -263249,7 +263259,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 444,
+        "line": 449,
         "column": 45,
         "name": "canonicalPaths",
         "owner": 187
@@ -263257,7 +263267,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 485,
+        "line": 490,
         "column": 19,
         "name": "freeze",
         "owner": 187
@@ -263265,7 +263275,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 491,
+        "line": 496,
         "column": 4,
         "name": "set",
         "owner": 187
@@ -263273,7 +263283,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 494,
+        "line": 499,
         "column": 9,
         "name": "freeze",
         "owner": 187
@@ -263281,7 +263291,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 501,
+        "line": 506,
         "column": 14,
         "name": "close",
         "owner": 187
@@ -263289,7 +263299,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/config/runtime-selection-core.mjs",
-        "line": 502,
+        "line": 507,
         "column": 8,
         "name": "delete",
         "owner": 187
