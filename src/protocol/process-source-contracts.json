@@ -3,7 +3,111 @@
   "classes": [
     {
       "schema": "ai-peer-review.process-source-class/v1",
-      "classId": "source-4e5bd382670e95bb0a76ba960b953740",
+      "classId": "source-19f754e05b09178cf1b4754fed2c028d",
+      "capability": "absence",
+      "scope": {
+        "platform": "win32",
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [24],
+        "probe": {
+          "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "visibility": "local-cim-query",
+          "errorContract": "completed-cim-query-v1",
+          "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+        }
+      },
+      "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
+      "semantics": "windows-cim-completed-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:e8f4aa168b2a017e13703884feef2fac02793f930a24e2c6ec6a90de83891ae9",
+        "reviewDigest": "sha256:45eeb2f96a119617842d264afb7355dfc1823ee004a002cbd4b8c3cb768ad84b"
+      },
+      "approvalDigest": "sha256:a30df1dc964fddcfd6fa86cbefdb2298ba2c0e7ecac1574caee2ca24eaa693bb"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-21ba2422e8dc51f770b7a1e8e7856878",
+      "capability": "absence",
+      "scope": {
+        "platform": "darwin",
+        "builds": ["25.6.0"],
+        "architectures": ["arm64"],
+        "nodeMajors": [24],
+        "probe": {
+          "path": "/bin/ps",
+          "visibility": "same-user-full-selection",
+          "errorContract": "exact-ps-selection-v1",
+          "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+        }
+      },
+      "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
+      "semantics": "darwin-ps-selection-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:e34a086d39033965796634f91d942d1d82e606c17b6aef66a4d08d5faf318ba5",
+        "reviewDigest": "sha256:45eeb2f96a119617842d264afb7355dfc1823ee004a002cbd4b8c3cb768ad84b"
+      },
+      "approvalDigest": "sha256:12797028cef759443622ed9aa00e589be05b774ca1b0172fc614a85b4a49196c"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-2a1683f485a1a2b1ff22371d754e4693",
+      "capability": "absence",
+      "scope": {
+        "platform": "win32",
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "visibility": "local-cim-query",
+          "errorContract": "completed-cim-query-v1",
+          "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+        }
+      },
+      "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
+      "semantics": "windows-cim-completed-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:f04d9ed0ac764702a28fc93c1465542a4fa97dd9c2e08801043f64f811757af9",
+        "reviewDigest": "sha256:781b16724f1bfa08adb1402cb8fd0ca6daada56dd8071e09534ca0d7acc64f1e"
+      },
+      "approvalDigest": "sha256:f93bb019309fead9791a50d771fa64983387f57830ff12f066446d728bdec84a"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-34eb592e10d3100a44757fd68718c291",
+      "capability": "creation",
+      "scope": {
+        "platform": "linux",
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [24, 26],
+        "probe": {
+          "path": "/proc",
+          "visibility": "full-pid-namespace",
+          "errorContract": "exact-pid-directory-v1",
+          "version": "procfs-v1"
+        }
+      },
+      "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
+      "semantics": "linux-start-ticks-v1",
+      "precision": "one-tick",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:9a2e60ea10b242849e8bc9d5ac16e3724d2db97fb8663759a4e401bc4fcff0e1",
+        "reviewDigest": "sha256:45eeb2f96a119617842d264afb7355dfc1823ee004a002cbd4b8c3cb768ad84b"
+      },
+      "approvalDigest": "sha256:0f5cf55137627ad409497df3cd8b44ed311063e1dcf733ad5140a9c17f0b92c7"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-83214ed59ce8cbe80136a944eba9f15d",
       "capability": "absence",
       "scope": {
         "platform": "darwin",
@@ -14,18 +118,44 @@
           "path": "/bin/ps",
           "visibility": "same-user-full-selection",
           "errorContract": "exact-ps-selection-v1",
-          "version": "sha256:3489ed38c81ce0eccfc9bb63ac3d8111231e5f8567fbb664b211929aea582e50"
+          "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
         }
       },
-      "contractDigest": "sha256:9a9c7b78745abd0a108bc72a0850c5d4bf42c01bc3caaa803964712f09238e55",
+      "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
       "semantics": "darwin-ps-selection-v1",
       "precision": "not-applicable",
       "acceptance": {
         "status": "accepted",
-        "evidenceDigest": "sha256:1d01a9c13c00ef81aad8062e66ac6a655b577b178cd4ad53acd434f0c4799244",
-        "reviewDigest": "sha256:875c99050a95cf022a91b2e302bbe462742de58ce1f40daf60a2f4f7d5d52733"
+        "evidenceDigest": "sha256:b3388c092de39e5fa735ece2c38b3bfb4bb429815aa5fec731e3421e42d0e9c0",
+        "reviewDigest": "sha256:781b16724f1bfa08adb1402cb8fd0ca6daada56dd8071e09534ca0d7acc64f1e"
       },
-      "approvalDigest": "sha256:05866fc862c31680bd940409b76235c9509a5e26745e2854caf8d28adbf3b3d4"
+      "approvalDigest": "sha256:69e6ee3ae4444b75710bd3d23d9daf29b4d4646c2ceef8438dc0fd0a5b77f472"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-f9e5e9b49dd83cf3eb705b91dad088f4",
+      "capability": "absence",
+      "scope": {
+        "platform": "linux",
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [24, 26],
+        "probe": {
+          "path": "/proc",
+          "visibility": "full-pid-namespace",
+          "errorContract": "exact-pid-directory-v1",
+          "version": "procfs-v1"
+        }
+      },
+      "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
+      "semantics": "linux-pid-directory-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:b73a74caa31bf8121904bbf275340a896d7fc995e89f30af834b4ab3192b611e",
+        "reviewDigest": "sha256:45eeb2f96a119617842d264afb7355dfc1823ee004a002cbd4b8c3cb768ad84b"
+      },
+      "approvalDigest": "sha256:c7d5e162a8cda792e41373405a471dc72260795a263aecbcf3897a42c8e8dcff"
     }
   ]
 }

@@ -1,0 +1,26 @@
+{
+  "schema": "ai-peer-review.process-source-class/v1",
+  "classId": "source-34eb592e10d3100a44757fd68718c291",
+  "capability": "creation",
+  "scope": {
+    "platform": "linux",
+    "builds": ["6.17.0-1022-azure"],
+    "architectures": ["x64"],
+    "nodeMajors": [24, 26],
+    "probe": {
+      "path": "/proc",
+      "visibility": "full-pid-namespace",
+      "errorContract": "exact-pid-directory-v1",
+      "version": "procfs-v1"
+    }
+  },
+  "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
+  "semantics": "linux-start-ticks-v1",
+  "precision": "one-tick",
+  "acceptance": {
+    "status": "accepted",
+    "evidenceDigest": "sha256:9a2e60ea10b242849e8bc9d5ac16e3724d2db97fb8663759a4e401bc4fcff0e1",
+    "reviewDigest": "sha256:45eeb2f96a119617842d264afb7355dfc1823ee004a002cbd4b8c3cb768ad84b"
+  },
+  "approvalDigest": "sha256:0f5cf55137627ad409497df3cd8b44ed311063e1dcf733ad5140a9c17f0b92c7"
+}

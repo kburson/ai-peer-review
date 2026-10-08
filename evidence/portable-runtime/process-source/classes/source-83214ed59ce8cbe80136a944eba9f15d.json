@@ -1,0 +1,26 @@
+{
+  "schema": "ai-peer-review.process-source-class/v1",
+  "classId": "source-83214ed59ce8cbe80136a944eba9f15d",
+  "capability": "absence",
+  "scope": {
+    "platform": "darwin",
+    "builds": ["25.6.0"],
+    "architectures": ["arm64"],
+    "nodeMajors": [26],
+    "probe": {
+      "path": "/bin/ps",
+      "visibility": "same-user-full-selection",
+      "errorContract": "exact-ps-selection-v1",
+      "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+    }
+  },
+  "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
+  "semantics": "darwin-ps-selection-v1",
+  "precision": "not-applicable",
+  "acceptance": {
+    "status": "accepted",
+    "evidenceDigest": "sha256:b3388c092de39e5fa735ece2c38b3bfb4bb429815aa5fec731e3421e42d0e9c0",
+    "reviewDigest": "sha256:781b16724f1bfa08adb1402cb8fd0ca6daada56dd8071e09534ca0d7acc64f1e"
+  },
+  "approvalDigest": "sha256:69e6ee3ae4444b75710bd3d23d9daf29b4d4646c2ceef8438dc0fd0a5b77f472"
+}

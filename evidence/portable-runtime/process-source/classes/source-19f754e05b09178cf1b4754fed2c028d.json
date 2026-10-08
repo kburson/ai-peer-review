@@ -1,0 +1,26 @@
+{
+  "schema": "ai-peer-review.process-source-class/v1",
+  "classId": "source-19f754e05b09178cf1b4754fed2c028d",
+  "capability": "absence",
+  "scope": {
+    "platform": "win32",
+    "builds": ["10.0.26100"],
+    "architectures": ["x64"],
+    "nodeMajors": [24],
+    "probe": {
+      "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "visibility": "local-cim-query",
+      "errorContract": "completed-cim-query-v1",
+      "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+    }
+  },
+  "contractDigest": "sha256:524b96e3e80bc4f448713ffaa1ea2a2f3f0ae8ec50722cb9072926b981690ae8",
+  "semantics": "windows-cim-completed-v1",
+  "precision": "not-applicable",
+  "acceptance": {
+    "status": "accepted",
+    "evidenceDigest": "sha256:e8f4aa168b2a017e13703884feef2fac02793f930a24e2c6ec6a90de83891ae9",
+    "reviewDigest": "sha256:45eeb2f96a119617842d264afb7355dfc1823ee004a002cbd4b8c3cb768ad84b"
+  },
+  "approvalDigest": "sha256:a30df1dc964fddcfd6fa86cbefdb2298ba2c0e7ecac1574caee2ca24eaa693bb"
+}
