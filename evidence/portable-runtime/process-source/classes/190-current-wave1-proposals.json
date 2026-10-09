@@ -6,16 +6,9 @@
       "capability": "creation",
       "scope": {
         "platform": "linux",
-        "builds": [
-          "6.17.0-1022-azure"
-        ],
-        "architectures": [
-          "x64"
-        ],
-        "nodeMajors": [
-          24,
-          26
-        ],
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [24, 26],
         "probe": {
           "path": "/proc",
           "visibility": "full-pid-namespace",
@@ -48,15 +41,9 @@
       "capability": "absence",
       "scope": {
         "platform": "darwin",
-        "builds": [
-          "25.6.0"
-        ],
-        "architectures": [
-          "arm64"
-        ],
-        "nodeMajors": [
-          24
-        ],
+        "builds": ["25.6.0"],
+        "architectures": ["arm64"],
+        "nodeMajors": [24],
         "probe": {
           "path": "/bin/ps",
           "visibility": "same-user-full-selection",
@@ -88,15 +75,9 @@
       "capability": "absence",
       "scope": {
         "platform": "win32",
-        "builds": [
-          "10.0.26100"
-        ],
-        "architectures": [
-          "x64"
-        ],
-        "nodeMajors": [
-          24
-        ],
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [24],
         "probe": {
           "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
           "visibility": "local-cim-query",
@@ -128,16 +109,9 @@
       "capability": "absence",
       "scope": {
         "platform": "linux",
-        "builds": [
-          "6.17.0-1022-azure"
-        ],
-        "architectures": [
-          "x64"
-        ],
-        "nodeMajors": [
-          24,
-          26
-        ],
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [24, 26],
         "probe": {
           "path": "/proc",
           "visibility": "full-pid-namespace",
