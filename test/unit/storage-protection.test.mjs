@@ -436,3 +436,24 @@ test('[#188] exact snapshot mutations reject a byte-identical replacement genera
   });
   assert.equal((await guard.read('resource.json')).toString(), 'next');
 });
+
+// @story #190
+// Actual stock observations must fit the fixed production budget; no clock or OS port.
+test('[#190] twenty protected snapshot reads finish under one original operation budget', async (t) => {
+  const root = await temporary(t);
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  const receipt = await storage.provisionProtectedRoot({ root, ...context });
+  const guard = await storage.openProtectedRoot({ receipt, ...context });
+  try {
+    await guard.writeExclusive('budget-observation.json', Buffer.from('{"actual":true}\n'));
+    for (let index = 0; index < 20; index++) {
+      const snapshot = await guard.readSnapshot('budget-observation.json');
+      assert.equal(snapshot.bytes.toString('utf8'), '{"actual":true}\n');
+      storage.assertProtectedSnapshotUnchanged(snapshot);
+    }
+    assert.equal(context.signal.aborted, false);
+    assert.ok(performance.now() < context.deadline);
+  } finally {
+    await guard.close();
+  }
+});

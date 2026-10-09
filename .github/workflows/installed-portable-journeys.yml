@@ -105,3 +105,19 @@ jobs:
           path: .scratch/190-primary-diagnostic-public/timings.json
           if-no-files-found: error
           retention-days: 30
+
+  windows-read-budget:
+    name: Fresh protected reads / Node ${{ matrix.node }}
+    runs-on: windows-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Real stock reads retain one original 30 second budget
+        run: node --test --test-name-pattern='twenty protected snapshot reads' test/unit/storage-protection.test.mjs
