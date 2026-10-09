@@ -557,3 +557,34 @@ test('unverified protocol leases and copied flags never gain provider operationa
   assert.equal(providerResourceModule.isProviderResourceLease({ ...lease, verified: true }), false);
   assert.equal(await lease.releaseUnused(), true);
 });
+
+test('beforeDelivery refuses a provider observation that expires during awaited record update', async () => {
+  const f = fixture();
+  let clock = Date.parse(NOW);
+  f.platform.now = () => new Date(clock).toISOString();
+  const open = f.platform.openPrivateDirectory;
+  f.platform.openPrivateDirectory = (...args) => {
+    const directory = open(...args);
+    return {
+      ...directory,
+      async replace(...values) {
+        const result = directory.replace(...values);
+        clock += 6000;
+        return result;
+      },
+    };
+  };
+  const lease = await acquireProviderResource(
+    { identity, descriptor, instanceId, nonce },
+    f.platform
+  );
+  await assert.rejects(
+    lease.beforeDelivery({
+      status: 'exclusive',
+      resource_id: descriptor.resource_id,
+      observed_at: NOW,
+    }),
+    { code: 'APR_PROVIDER_RESOURCE_STALE' }
+  );
+  assert.equal(f.locks.size, 1);
+});

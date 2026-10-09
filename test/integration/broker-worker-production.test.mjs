@@ -15,7 +15,13 @@ const REVIEWER = `sha256:${'b'.repeat(64)}`;
 const LAUNCH = 'launch:reviewer-operation';
 const workspace = '/tmp/apr-bridge-fixture';
 
-function fixture({ reconcileLaunch, resourceRefusal } = {}) {
+function fixture({
+  reconcileLaunch,
+  resourceRefusal,
+  providerLease,
+  resourceObservation,
+  afterResourceCheck,
+} = {}) {
   let role = 'author';
   let revision = 4;
   let fenced = false;
@@ -56,6 +62,7 @@ function fixture({ reconcileLaunch, resourceRefusal } = {}) {
           return { status: 'acknowledged' };
         },
         async observeResource({ binding }) {
+          if (resourceObservation) return resourceObservation(binding);
           return { session_fingerprint: binding.session_fingerprint };
         },
         async reconcileDelivery(input) {
@@ -89,8 +96,11 @@ function fixture({ reconcileLaunch, resourceRefusal } = {}) {
     },
   };
   const lease = {
+    assertDeliveryFresh: () => providerLease?.assertDeliveryFresh(),
     async beforeDelivery(target, observation) {
       await resourceRefusal?.();
+      await providerLease?.beforeDelivery(observation);
+      afterResourceCheck?.();
       leases.push([target, observation.session_fingerprint]);
     },
   };
@@ -1029,3 +1039,87 @@ for (const reason of ['foreign slot', 'stale generation', 'stale observation']) 
     }
   );
 }
+
+test('actual worker launch refuses freshness lost during its final awaited owner observation', async () => {
+  const f = restartFactoryFixture('launch-pending');
+  const inspected = f.input.inspect;
+  f.input.inspect = () => {
+    const value = inspected();
+    value.state.participants.reviewer = null;
+    return value;
+  };
+  let now = Date.parse('2026-10-03T00:00:00.000Z'),
+    observations = 0;
+  f.input.platform.now = () => new Date(now).toISOString();
+  f.input.owner = {
+    instanceId: 'c'.repeat(64),
+    nonce: 'd'.repeat(64),
+    async verify() {
+      if (++observations === 3) now += 6000;
+      return true;
+    },
+  };
+  f.input.acquireResource = acquireProviderResourceCore;
+  f.input.invitationPath = '/tmp/project/reviewer-invitation.md';
+  f.reviewer.observeLaunchResource = async () => ({
+    status: 'ready',
+    session_handle: 'reviewer-launch',
+    observed_at: new Date(now).toISOString(),
+  });
+  const worker = await createProductionReviewWorker(f.input);
+  await assert.rejects(worker.launchReviewer({ operationId: LAUNCH }), {
+    code: 'APR_PROVIDER_RESOURCE_STALE',
+  });
+  assert.equal(f.stats.providerCalls, 0);
+});
+
+test('actual bridge wake refuses freshness lost after its awaited resource check', async () => {
+  let now = Date.parse('2026-10-03T00:00:00.000Z');
+  const providerLease = await acquireProviderResourceCore(
+    {
+      identity: { userId: 'fixture-user', provider: 'openai', digest: 'a'.repeat(64) },
+      descriptor: { concurrent: true, resource_id: null },
+      instanceId: 'b'.repeat(64),
+      nonce: 'c'.repeat(64),
+    },
+    { userId: async () => 'fixture-user', now: () => new Date(now).toISOString() }
+  );
+  const f = fixture({
+    providerLease,
+    resourceObservation: (binding) => ({
+      status: 'ready',
+      session_handle: binding.handle_locator,
+      observed_at: new Date(now).toISOString(),
+    }),
+    afterResourceCheck: () => {
+      now += 6000;
+    },
+  });
+  await assert.rejects(f.bridge.deliver(f.wake('author')), { code: 'APR_PROVIDER_RESOURCE_STALE' });
+  assert.equal(f.calls.length, 0);
+});
+
+test('partial multi-resource close retries only unresolved provider leases', async () => {
+  const f = restartFactoryFixture('launched');
+  f.input.owner = { verify: async () => true, instanceId: 'c'.repeat(64), nonce: 'd'.repeat(64) };
+  f.input.inspectStatus = () => ({ state: 'accepted' });
+  const calls = { openai: 0, anthropic: 0 };
+  f.input.acquireResource = async (input, platform) => {
+    const lease = await acquireProviderResourceCore(input, platform);
+    return {
+      ...lease,
+      async releaseUnused() {
+        const provider = input.identity.provider;
+        calls[provider]++;
+        if (provider === 'anthropic' && calls[provider] === 1)
+          throw new Error('transient-remaining-release');
+        return await lease.releaseUnused();
+      },
+    };
+  };
+  const worker = await createProductionReviewWorker(f.input);
+  await worker.start();
+  await assert.rejects(worker.close(), /transient-remaining-release/);
+  await worker.close();
+  assert.deepEqual(calls, { openai: 1, anthropic: 2 });
+});

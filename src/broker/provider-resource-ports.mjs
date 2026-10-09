@@ -1,7 +1,6 @@
 // @story #188
 // Fixed production C1/C3 adapter. The explicit protocol core receives only
 // these guarded effects; caller-supplied native directory/lock handles never enter.
-import { homedir } from 'node:os';
 import path from 'node:path';
 import { lstat } from 'node:fs/promises';
 import { AprError } from '../errors.mjs';
@@ -18,7 +17,7 @@ function stale(message, details = {}) {
 }
 export async function createProviderResourcePorts(input, operations) {
   const original = await portableOperationsContext(operations);
-  const home = await operations.canonicalPath(homedir());
+  const home = await operations.accountHome();
   const cacheRoot = path.join(home, '.cache');
   let binding, election, directory, recordName;
   const snapshots = new Map();
@@ -36,6 +35,18 @@ export async function createProviderResourcePorts(input, operations) {
       receipt = await provisionProtectedRoot({ root, ...original });
     }
     return receipt;
+  }
+  async function assertLegacyAbsent(guard) {
+    for (const legacy of ['resource.json', 'resource.lock']) {
+      try {
+        await guard.readSnapshot(legacy);
+        throw stale('Retained native provider evidence requires explicit reconciliation.', {
+          legacyName: legacy,
+        });
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+    }
   }
   function name(value) {
     if (value !== 'resource.json' || !recordName)
@@ -62,6 +73,7 @@ export async function createProviderResourcePorts(input, operations) {
           return true;
         },
         async read(value) {
+          await assertLegacyAbsent(guard);
           try {
             const snapshot = await guard.readSnapshot(name(value));
             // Reading must not silently replace the retained physical generation.
@@ -81,16 +93,19 @@ export async function createProviderResourcePorts(input, operations) {
           }
         },
         async create(value, bytes) {
+          await assertLegacyAbsent(guard);
           await guard.writeExclusive(name(value), bytes, election);
           snapshots.set(value, await guard.readSnapshot(name(value)));
           return true;
         },
         async replace(value, bytes, next) {
+          await assertLegacyAbsent(guard);
           await guard.replace(name(value), await expected(value, bytes), next, election);
           snapshots.set(value, await guard.readSnapshot(name(value)));
           return true;
         },
         async remove(value, bytes) {
+          await assertLegacyAbsent(guard);
           await guard.remove(name(value), await expected(value, bytes), election);
           snapshots.delete(value);
           return true;
@@ -108,6 +123,7 @@ export async function createProviderResourcePorts(input, operations) {
         throw stale('Provider election root changed.');
       const digest = path.basename(directory.root);
       if (!/^[a-f0-9]{64}$/u.test(digest)) throw stale('Provider resource digest is invalid.');
+      await assertLegacyAbsent(directory.guard);
       binding = await bindOwnerElectionPaths({
         receipt: directory.receipt,
         resource: { kind: 'provider-resource', id: 'sha256:' + digest },

@@ -106,6 +106,15 @@ export async function acquireProviderResource(input = {}, operations) {
     get outstandingObligations() {
       return core.outstandingObligations ?? [];
     },
+    assertDeliveryFresh: () => {
+      if (busy || released)
+        throw new AprError(
+          'APR_PROVIDER_RESOURCE_STALE',
+          'Provider delivery freshness is unavailable.',
+          { recovery: 'Keep the lease and obtain a fresh provider observation.' }
+        );
+      return core.assertDeliveryFresh();
+    },
     beforeDelivery: (...args) => run('beforeDelivery', args),
     releaseUnused: (...args) => run('releaseUnused', args),
     release: (...args) => run('release', args),

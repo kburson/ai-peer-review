@@ -203,6 +203,7 @@ export function createProviderBridge({
       await lease.beforeDelivery(input.target_role, resource);
       // Re-open event authority after the lease check, immediately before provider action.
       checkWake(input, guarded());
+      lease.assertDeliveryFresh?.(input.target_role);
       return selected.adapter.deliverToSession({
         binding: selected.binding,
         wakeOperationId: input.operation_id,

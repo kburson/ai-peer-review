@@ -266,6 +266,7 @@ export function createReviewWorker({
           recovery: 'Preserve the reserved launch and reconcile the exact provider operation.',
         });
       }
+      resourceLease.assertDeliveryFresh?.();
       return adapter.launchReviewer(input);
     };
   }

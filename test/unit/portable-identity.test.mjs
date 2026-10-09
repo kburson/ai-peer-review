@@ -328,3 +328,28 @@ test('[#187] compound path observation refuses unbounded, sparse and malformed p
   ])
     await assert.rejects(system.canonicalPaths(values), /identity|context|path/i);
 });
+
+test('stock resource home is observed from the actual account under the original context', async () => {
+  const { userInfo } = await import('node:os');
+  const operations = await api.initializePortableOperations(context());
+  assert.equal(typeof operations.accountHome, 'function');
+  assert.equal(await operations.accountHome(), await realpath(userInfo().homedir));
+});
+
+test('stock whoami principal parser accepts one token SID and refuses malformed or substituted output', async () => {
+  const system = await import('../../src/broker/portable-system.mjs');
+  assert.equal(typeof system.parseWhoamiPrincipalCore, 'function');
+  assert.equal(
+    system.parseWhoamiPrincipalCore('"domain\\account","S-1-5-21-100-200-300-1001"\r\n'),
+    'S-1-5-21-100-200-300-1001'
+  );
+  assert.equal(system.parseWhoamiPrincipalCore('"domain\\ac""count","S-1-5-18"'), 'S-1-5-18');
+  for (const value of [
+    'S-1-5-18',
+    '"account","Administrator"',
+    '"account","S-2-5-18"',
+    '"account","S-1-5-18","extra"',
+    '"account","S-1-5-18"\n"other","S-1-5-19"',
+  ])
+    assert.equal(system.parseWhoamiPrincipalCore(value), null);
+});

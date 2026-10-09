@@ -59,7 +59,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
               : {
                   enumerable: true,
                   value:
-                    typeof descriptor.value === 'function'
+                    typeof descriptor.value === 'function' && name !== 'assertDeliveryFresh'
                       ? async (...methodArgs) =>
                           await performCurrentOperationEffect(() =>
                             descriptor.value.apply(lease, methodArgs)
@@ -424,10 +424,23 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
         await owned.lease.beforeDelivery(observation);
         owned.prior = observation;
       },
+      assertDeliveryFresh(role) {
+        const owned = [...leases.values()].find(
+          ({ entry }) =>
+            entry.role === role ||
+            (role === 'reviewer' &&
+              entry.role === 'reviewer-launch' &&
+              !entry.descriptor.concurrent)
+        );
+        if (!owned?.prior)
+          throw failure('No checked resource observation for this provider action.');
+        return owned.lease.assertDeliveryFresh?.();
+      },
       async release() {
         for (const { entry, lease: owned, prior } of [...leases.values()].reverse()) {
           if (!prior) {
             await owned.releaseUnused();
+            leases.delete(entry.key);
             continue;
           }
           const release = await entry.adapter.observeResourceRelease({
@@ -437,6 +450,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
             projectRoot: project.physicalRoot,
           });
           await owned.release(release);
+          leases.delete(entry.key);
         }
       },
     };
@@ -465,6 +479,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
       launchReviewer: async ({ operationId }) => {
         if (!(await owner.verify()))
           throw failure('Broker ownership changed before reviewer launch.');
+        lease.assertDeliveryFresh('reviewer-launch');
         return reviewerAdapter.launchReviewer({
           invitationPath: invitationPath ?? invitationFor(state),
           expected: {
@@ -505,6 +520,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
       adapter: bridge,
       resourceLease: {
         beforeDelivery: (observation) => lease.beforeDelivery('reviewer-launch', observation),
+        assertDeliveryFresh: () => lease.assertDeliveryFresh('reviewer-launch'),
         release: () => lease.release(),
       },
       clock,

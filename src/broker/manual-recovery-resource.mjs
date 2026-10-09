@@ -1,7 +1,6 @@
 // @story #188
 // Manual recovery owns an independent election, including when a broker is live.
 import path from 'node:path';
-import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { lstat } from 'node:fs/promises';
 import {
@@ -47,7 +46,7 @@ export async function acquireManualRecoveryResource({ workspace, authority, evid
     await existing.handle.verify();
     return existing.handle;
   }
-  const home = await operations.canonicalPath(homedir());
+  const home = await operations.accountHome();
   const root = path.join(home, '.cache', 'ai-peer-review', 'manual-resources', key);
   let receipt = await operations.observeProtection({ root });
   if (!receipt.verified) {
@@ -70,7 +69,7 @@ export async function acquireManualRecoveryResource({ workspace, authority, evid
     throw refusal(result.reason, result.obligations);
   }
   const election = result.lease;
-  const guard = await operations.openProtectedRoot({ receipt });
+  let guard;
   const name = 'apr-resource-' + paths.resourceKey + '.json';
   let snapshot,
     attempted = false,
@@ -84,7 +83,7 @@ export async function acquireManualRecoveryResource({ workspace, authority, evid
     generation: election.retainedGeneration(),
     outcome: 'retained-exclusion',
   });
-  const record = { election, guard, paths, handle: null };
+  const record = { election, guard: null, paths, handle: null };
   async function verify() {
     if (released) throw refusal('manual-lease-released');
     await election.assert();
@@ -100,6 +99,8 @@ export async function acquireManualRecoveryResource({ workspace, authority, evid
     return true;
   }
   try {
+    guard = await operations.openProtectedRoot({ receipt });
+    record.guard = guard;
     try {
       await guard.readSnapshot(name);
       throw refusal('prior-manual-effects-unreconciled', [obligation()]);
@@ -127,11 +128,25 @@ export async function acquireManualRecoveryResource({ workspace, authority, evid
       uncertain.add(record);
       error.details = { ...error.details, outstandingObligations: [obligation()] };
     } else {
-      const withdrawal = await election.release();
-      if (withdrawal.status !== 'withdrawn' || withdrawal.obligations.length) uncertain.add(record);
-      else {
-        await guard.close();
-        await paths.close();
+      try {
+        const withdrawal = await election.release();
+        if (withdrawal.status !== 'withdrawn' || withdrawal.obligations.length) {
+          uncertain.add(record);
+          error.details = {
+            ...error.details,
+            outstandingObligations: [obligation(), ...withdrawal.obligations],
+          };
+        } else {
+          await guard?.close();
+          await paths.close();
+        }
+      } catch (cleanup) {
+        uncertain.add(record);
+        error.cause = cleanup;
+        error.details = {
+          ...error.details,
+          outstandingObligations: [obligation(), ...(cleanup.details?.obligations ?? [])],
+        };
       }
     }
     throw error;

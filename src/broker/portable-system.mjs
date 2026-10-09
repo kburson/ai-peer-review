@@ -9,22 +9,22 @@ import { promisify } from 'node:util';
 import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { userInfo } from 'node:os';
 import { AprError } from '../errors.mjs';
 
 const execute = promisify(execFile);
 const members = new WeakMap();
 const MAX_OUTPUT = 65536;
 const SID = /^S-1-(?:[0-9]+-)+[0-9]+$/u;
-const POWERSHELL = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+const WHOAMI = 'C:\\Windows\\System32\\whoami.exe';
 const GIT = process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : '/usr/bin/git';
-const PRINCIPAL_SCRIPT = [
-  "$ErrorActionPreference='Stop'",
-  "$ProgressPreference='SilentlyContinue'",
-  "$env:PSModulePath='C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules'",
-  '[Console]::OutputEncoding=New-Object System.Text.UTF8Encoding($false)',
-  '$identity=[System.Security.Principal.WindowsIdentity]::GetCurrent()',
-  '[Console]::Out.Write($identity.User.Value)',
-].join('; ');
+// Parsing data cannot provide operational identity; production binds the fixed
+// stock executable's fresh token query and original context separately.
+export function parseWhoamiPrincipalCore(output) {
+  if (typeof output !== 'string') return null;
+  const match = /^"(?:[^"\r\n\0]|"")*","(S-1-(?:[0-9]+-)+[0-9]+)"(?:\r?\n)?$/u.exec(output);
+  return match?.[1] ?? null;
+}
 function refuse(reason) {
   throw new AprError(
     'APR_PORTABLE_OPERATIONS_UNAVAILABLE',
@@ -96,18 +96,10 @@ async function principal(context) {
   }
   if (String(process.env.SystemRoot).toLowerCase() !== 'c:\\windows')
     refuse('stock-principal-probe-unavailable');
-  const value = await run(
-    POWERSHELL,
-    [
-      '-NoLogo',
-      '-NoProfile',
-      '-NonInteractive',
-      '-EncodedCommand',
-      Buffer.from(PRINCIPAL_SCRIPT, 'utf16le').toString('base64'),
-    ],
-    context
+  const value = parseWhoamiPrincipalCore(
+    await run(WHOAMI, ['/user', '/fo', 'csv', '/nh'], context)
   );
-  if (!SID.test(value)) refuse('effective-principal-unproved');
+  if (!SID.test(value ?? '')) refuse('effective-principal-unproved');
   return value;
 }
 export async function initializePortableSystem(input = {}) {
@@ -353,6 +345,25 @@ export async function initializePortableSystem(input = {}) {
     primaryPolicy,
     reviewWorktrees,
     retryCleanup,
+    async accountHome() {
+      await check();
+      const first = userInfo({ encoding: 'utf8' });
+      if (process.platform !== 'win32' && String(first.uid) !== originalPrincipal)
+        refuse('account-profile-principal-mismatch');
+      if (typeof first.homedir !== 'string' || !path.isAbsolute(first.homedir))
+        refuse('account-profile-unavailable');
+      const home = await canonicalPath(first.homedir);
+      await check();
+      const final = userInfo({ encoding: 'utf8' });
+      if (
+        final.uid !== first.uid ||
+        final.username !== first.username ||
+        final.homedir !== first.homedir
+      )
+        refuse('account-profile-replaced');
+      validateContext(context);
+      return home;
+    },
     async userId() {
       await check();
       return originalPrincipal;

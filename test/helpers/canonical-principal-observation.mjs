@@ -31,7 +31,9 @@ fsp.realpath = async (...args) => {
 };
 if (process.platform === 'win32') {
   const original = cp.execFile;
-  const isPrincipal = (args) => {
+  const isPrincipal = (file, args) => {
+    if (file === 'C:\\Windows\\System32\\whoami.exe' && args.join(',') === '/user,/fo,csv,/nh')
+      return true;
     const position = args.indexOf('-EncodedCommand');
     const source =
       position < 0 ? '' : Buffer.from(args[position + 1], 'base64').toString('utf16le');
@@ -39,7 +41,7 @@ if (process.platform === 'win32') {
   };
   function observed(file, args, options, callback) {
     return original(file, args, options, (error, stdout, stderr) => {
-      if (!error && isPrincipal(args)) observe();
+      if (!error && isPrincipal(file, args)) observe();
       callback(error, stdout, stderr);
     });
   }
@@ -47,7 +49,7 @@ if (process.platform === 'win32') {
     const pending = original[promisify.custom](...args);
     pending.then(
       () => {
-        if (isPrincipal(args[1])) observe();
+        if (isPrincipal(args[0], args[1])) observe();
       },
       () => {}
     );

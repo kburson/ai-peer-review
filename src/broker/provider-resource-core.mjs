@@ -261,7 +261,8 @@ function validateProviderObservation(observation, expectedStatus, resourceId, pl
 function serializedProtocolLease(protocol) {
   let busy = false;
   const descriptors = Object.getOwnPropertyDescriptors(protocol);
-  for (const descriptor of Object.values(descriptors)) {
+  for (const [name, descriptor] of Object.entries(descriptors)) {
+    if (name === 'assertDeliveryFresh') continue;
     if (typeof descriptor.value !== 'function') continue;
     const method = descriptor.value;
     descriptor.value = async (...args) => {
@@ -284,6 +285,7 @@ function serializedProtocolLease(protocol) {
 function concurrentLease(platform) {
   let released = false;
   let sessionHandle = null;
+  let lastObservation = null;
   function observe(value, statuses) {
     if (released)
       throw failure('APR_PROVIDER_RESOURCE_STALE', 'Provider session lease is released.');
@@ -314,8 +316,19 @@ function concurrentLease(platform) {
       concurrent: true,
       resourceDigest: null,
       record: null,
+      assertDeliveryFresh() {
+        if (!lastObservation)
+          throw failure(
+            'APR_PROVIDER_RESOURCE_STALE',
+            'No provider delivery observation was checked.'
+          );
+        observe(lastObservation, new Set(['ready']));
+        return true;
+      },
       async beforeDelivery(observation) {
+        observation = Object.freeze({ ...observation });
         observe(observation, new Set(['ready']));
+        lastObservation = observation;
         return true;
       },
       async release(reconciliation) {
@@ -360,6 +373,7 @@ async function exclusiveLease({ identity, descriptor, instanceId, nonce }, platf
   let fenced = false;
   let released = false;
   let used = false;
+  let lastObservation = null;
   let obligations = [];
   let publicationAttempted = false;
 
@@ -546,7 +560,17 @@ async function exclusiveLease({ identity, descriptor, instanceId, nonce }, platf
       get outstandingObligations() {
         return Object.freeze(obligations.map((item) => Object.freeze({ ...item })));
       },
+      assertDeliveryFresh() {
+        if (fenced || released || !lastObservation)
+          throw failure(
+            'APR_PROVIDER_RESOURCE_STALE',
+            'Provider delivery observation is unavailable.'
+          );
+        validateProviderObservation(lastObservation, 'exclusive', descriptor.resource_id, platform);
+        return true;
+      },
       async beforeDelivery(observation) {
+        observation = Object.freeze({ ...observation });
         await verifyOwned();
         const valid = validateProviderObservation(
           observation,
@@ -559,6 +583,8 @@ async function exclusiveLease({ identity, descriptor, instanceId, nonce }, platf
           heartbeat_at: valid.observed_at,
           diagnostic_at: valid.observed_at,
         });
+        validateProviderObservation(valid, 'exclusive', descriptor.resource_id, platform);
+        lastObservation = valid;
         used = true;
         return true;
       },
