@@ -21,6 +21,55 @@ export function installedJourneyComplete(value) {
     ['elevated', 'non-elevated'].includes(value.privilege)
   );
 }
+// Public failure projection is data only; unknown/private fields never enter collateral.
+export function installedJourneyFailure(error) {
+  let observed = error;
+  const stderr = error?.stderr?.toString() ?? '';
+  if (stderr.length <= 1048576)
+    for (const line of stderr.split(/\r?\n/u)) {
+      try {
+        const value = JSON.parse(line);
+        if (
+          value?.schema === 'ai-peer-review.error/v1' &&
+          /^APR_[A-Z_]+$/u.test(value.code ?? '') &&
+          typeof value.message === 'string'
+        ) {
+          observed = value;
+        }
+      } catch {
+        /* Non-JSON diagnostic lines supply no error authority. */
+      }
+    }
+  const obligations = [];
+  for (const value of observed?.details?.obligations ??
+    observed?.details?.outstandingObligations ??
+    []) {
+    if (!value || typeof value !== 'object') continue;
+    const projected = {};
+    for (const key of [
+      'name',
+      'identity',
+      'fileVersion',
+      'rootIdentity',
+      'outcome',
+      'root',
+      'contenderId',
+      'resourceKey',
+      'version',
+      'reason',
+    ]) {
+      if (typeof value[key] === 'string' && value[key].length <= 4096) projected[key] = value[key];
+    }
+    if (Object.keys(projected).length) obligations.push(projected);
+  }
+  return {
+    failure: {
+      code: observed?.code ?? 'JOURNEY_INCOMPLETE',
+      reason: observed?.details?.reason ?? observed?.message ?? 'journey-failure-unavailable',
+    },
+    obligations,
+  };
+}
 function host() {
   if (
     process.env.GITHUB_ACTIONS !== 'true' ||
@@ -116,8 +165,18 @@ export async function runInstalledPortableJourney(options = {}) {
     originalBudgetRenewed: false,
     privilege: privilege(),
     obligations: [],
+    steps: [],
   };
   let child, childExited, locator, client, paths, fence, bootstrap, project, image;
+  const step = async (stage, operation) => {
+    report.stage = stage;
+    const started = performance.now();
+    try {
+      return await operation();
+    } finally {
+      report.steps.push({ stage, elapsedMs: Math.round(performance.now() - started) });
+    }
+  };
   const obligations = report.obligations;
   try {
     for (const name of [
@@ -134,8 +193,22 @@ export async function runInstalledPortableJourney(options = {}) {
     }
     const { bootstrapPortableInventory } = await load('src/installed/portable-inventory.mjs');
     await bootstrapPortableInventory();
-    const cli = (args) =>
-      execute(process.execPath, [path.join(installed, 'bin/peer-review.mjs'), ...args], root);
+    const cli = (args) => {
+      report.stage = 'cli:' + args.slice(0, 2).join(' ');
+      const started = performance.now();
+      try {
+        return execute(
+          process.execPath,
+          [path.join(installed, 'bin/peer-review.mjs'), ...args],
+          root
+        );
+      } finally {
+        report.steps.push({
+          stage: report.stage,
+          elapsedMs: Math.round(performance.now() - started),
+        });
+      }
+    };
     cli(['register-runtime', '--json']);
     const { loadProcessSourceAssurance, isInstalledProcessSourceAssurance } = await load(
       'src/protocol/process-source-assurance.mjs'
@@ -171,6 +244,7 @@ export async function runInstalledPortableJourney(options = {}) {
     git(['add', '.']);
     git(['commit', '-m', 'Activate actual primary policy']);
     cli(['primary', 'activate', '--json']);
+    report.stage = 'broker-bootstrap-and-start';
     fence = await load('src/startup/authority-fence.mjs');
     client = await load('src/broker/client.mjs');
     const projectApi = await load('src/broker/portable-project.mjs');
@@ -178,27 +252,49 @@ export async function runInstalledPortableJourney(options = {}) {
     const bootstrapApi = await load('src/broker/portable-bootstrap.mjs');
     paths = await load('src/broker/portable-paths.mjs');
     await fence.withOperationAuthority({ operation: 'broker.start', cwd: root }, async () => {
-      const context = await fence.currentOperationAuthorityContext();
-      project = await projectApi.observePortableProject({ cwd: root });
-      image = imageApi.pinRuntimeImage({
-        packageRoot: installed,
-        nodeExecutable: await realpath(process.execPath),
-        destination: path.join(root, '.scratch', 'peer-review', 'journey-image'),
-      });
-      bootstrap = await bootstrapApi.writePortableBrokerBootstrap({ project, runtimeImage: image });
-      await fence.performCurrentOperationEffect(() => {
-        // Actual public entry, fixed real Node; this handle owns only this child.
-        child = spawn(
-          process.execPath,
-          [path.join(installed, 'bin/peer-review-broker.mjs'), bootstrap.file],
-          { cwd: root, shell: false, stdio: 'ignore' }
-        );
-        childExited = new Promise((resolve, reject) => {
-          child.once('error', reject);
-          child.once('exit', (code, signal) => resolve({ code, signal }));
-        });
-        childExited.catch(() => {});
-      });
+      const context = await step('broker-admitted-context', () =>
+        fence.currentOperationAuthorityContext()
+      );
+      project = await step('broker-project-observation', () =>
+        projectApi.observePortableProject({ cwd: root })
+      );
+      image = await step('broker-image-pin', async () =>
+        imageApi.pinRuntimeImage({
+          packageRoot: installed,
+          nodeExecutable: await realpath(process.execPath),
+          destination: path.join(root, '.scratch', 'peer-review', 'journey-image'),
+        })
+      );
+      bootstrap = await step('broker-bootstrap-publication', () =>
+        bootstrapApi.writePortableBrokerBootstrap({ project, runtimeImage: image })
+      );
+      await step('broker-owned-spawn', () =>
+        fence.performCurrentOperationEffect(() => {
+          // Actual public entry, fixed real Node; this handle owns only this child.
+          child = spawn(
+            process.execPath,
+            [path.join(installed, 'bin/peer-review-broker.mjs'), bootstrap.file],
+            { cwd: root, shell: false, stdio: ['ignore', 'ignore', 'pipe'] }
+          );
+          let diagnosticBytes = 0;
+          child.stderr.on('data', (bytes) => {
+            diagnosticBytes += bytes.length;
+            if (diagnosticBytes > 65536) return;
+            for (const line of bytes.toString('utf8').split(/\r?\n/u)) {
+              const match = /^(APR_[A-Z_]+): Portable broker startup or cleanup failed\.$/u.exec(
+                line
+              );
+              if (match) report.brokerChildFailureCode = match[1];
+            }
+          });
+          childExited = new Promise((resolve, reject) => {
+            child.once('error', reject);
+            child.once('exit', (code, signal) => resolve({ code, signal }));
+          });
+          childExited.catch(() => {});
+        })
+      );
+      report.stage = 'broker-endpoint-wait';
       locator = await client.connectPortableBroker({ cwd: root });
       const ownedPaths = await paths.portableBrokerPaths({ worktree: root });
       while (true) {
@@ -214,7 +310,9 @@ export async function runInstalledPortableJourney(options = {}) {
         await delay(25, undefined, { signal: context.signal });
       }
       // File presence is waiting data only. Actual production authentication supplies readiness.
-      const status = await client.requestBroker(locator, 'status');
+      const status = await step('broker-authenticated-status', () =>
+        client.requestBroker(locator, 'status')
+      );
       if (status.status !== 'running' || status.reviews !== 0)
         fail('journey-authenticated-status-unavailable');
       if ((await fence.currentOperationAuthorityContext()) !== context)
@@ -222,6 +320,7 @@ export async function runInstalledPortableJourney(options = {}) {
       checked(context);
       report.protection = 'complete';
     });
+    report.stage = 'broker-crash-and-reclaim';
     const originalPid = child.pid;
     if (!child.kill('SIGKILL')) fail('journey-owned-crash-unavailable');
     await childExited;
@@ -241,6 +340,7 @@ export async function runInstalledPortableJourney(options = {}) {
         fail('journey-reclaim-status-unavailable');
       report.broker = 'complete';
     });
+    report.stage = 'broker-stop-and-release';
     const stopped = await client.requestBroker(locator, 'stop');
     if (stopped.status !== 'stopping') fail('journey-authenticated-stop-unavailable');
     const ownedPaths = await paths.portableBrokerPaths({ worktree: root });
@@ -267,10 +367,9 @@ export async function runInstalledPortableJourney(options = {}) {
     // Provider identity/journal input must come from a normal review, never a seeded fixture.
     if (process.platform !== 'linux') obligations.push('actual-manual-review-input-required');
   } catch (error) {
-    report.failure = {
-      code: error.code ?? 'JOURNEY_INCOMPLETE',
-      reason: error.details?.reason ?? error.message,
-    };
+    const failed = installedJourneyFailure(error);
+    report.failure = failed.failure;
+    obligations.push(...failed.obligations);
     if (child && child.exitCode === null && child.signalCode === null) {
       child.kill('SIGTERM');
       obligations.push('owned-child-termination-and-exact-release-unproved');

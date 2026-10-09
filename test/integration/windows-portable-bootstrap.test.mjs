@@ -84,3 +84,48 @@ test('Linux manual exclusion is explicit and cannot waive another OS or broker c
   assert.equal(subject.installedJourneyComplete({ ...observed, cleanup: 'uncertain' }), false);
   assert.equal(subject.installedJourneyComplete({ ...observed, broker: 'incomplete' }), false);
 });
+
+test('failed stock CLI observations retain exact cleanup obligations without publishing private fields', async () => {
+  const subject = await driver();
+  assert.equal(typeof subject.installedJourneyFailure, 'function');
+  const observed = subject.installedJourneyFailure({
+    code: 1,
+    message: 'Command failed',
+    stderr: Buffer.from(
+      JSON.stringify({
+        schema: 'ai-peer-review.error/v1',
+        code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+        message: 'Primary admission election refused',
+        details: {
+          obligations: [
+            {
+              contenderId: 'actual-contender',
+              reason: 'operation-deadline',
+              outcome: 'owned-publication-unconfirmed',
+              credential: 'DO-NOT-PUBLISH',
+            },
+          ],
+        },
+      }) + '\n'
+    ),
+  });
+  assert.equal(observed.failure.code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
+  assert.deepEqual(observed.obligations, [
+    {
+      contenderId: 'actual-contender',
+      reason: 'operation-deadline',
+      outcome: 'owned-publication-unconfirmed',
+    },
+  ]);
+  assert.equal(JSON.stringify(observed).includes('DO-NOT-PUBLISH'), false);
+  assert.deepEqual(
+    subject.installedJourneyFailure({
+      message: 'budget refused',
+      details: {
+        reason: 'operation-deadline',
+        obligations: [{ reason: 'descriptor-close-pending' }],
+      },
+    }).obligations,
+    [{ reason: 'descriptor-close-pending' }]
+  );
+});

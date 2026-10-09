@@ -9,6 +9,8 @@ on:
       - src/broker/portable-bootstrap.mjs
       - test/helpers/installed-portable-journey.mjs
       - test/helpers/installed-portable-ci.mjs
+      - test/helpers/windows-primary-diagnostic.mjs
+      - test/helpers/windows-stock-timing.mjs
       - test/helpers/windows-limited-installed-journey.ps1
       - .github/workflows/installed-portable-journeys.yml
   workflow_dispatch:
@@ -72,5 +74,34 @@ jobs:
           name: installed-${{ runner.os }}-${{ matrix.node }}-${{ matrix.token }}-${{ github.run_attempt }}
           path: .scratch/190-installed-public/
           include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-primary-diagnostic:
+    name: Windows primary timing / Node ${{ matrix.node }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node test/helpers/warm-packed-cache.mjs
+      - name: Observe stock primary costs without changing production inputs or budgets
+        run: node test/helpers/windows-primary-diagnostic.mjs
+      - name: Preserve timing numbers and codes without private details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-primary-timing-${{ matrix.node }}-${{ github.run_attempt }}
+          path: .scratch/190-primary-diagnostic-public/timings.json
           if-no-files-found: error
           retention-days: 30
