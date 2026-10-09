@@ -11,6 +11,40 @@ export class AprError extends Error {
     this.exitCode = exitCode;
   }
 
+  toApiJSON({
+    next_action = {
+      tool: 'get_peer_review_help',
+      arguments: {
+        schema: 'ai-peer-review.help-request/v1',
+        topic: 'errors',
+        format: 'structured',
+      },
+    },
+    issues = [],
+    truncated_issue_count = 0,
+    help_topic = 'errors',
+    schema = null,
+    examples = [],
+  } = {}) {
+    const bounded = issues.slice(0, 20);
+    const details = {
+      issues: bounded,
+      truncated_issue_count: truncated_issue_count + issues.length - bounded.length,
+      help_topic,
+      schema,
+      examples,
+    };
+    return {
+      schema: 'ai-peer-review.response/v1',
+      ok: false,
+      mutation_occurred: false,
+      retry_safe: true,
+      next_action,
+      error: { code: this.code, message: this.message, ...details },
+      details,
+    };
+  }
+
   toJSON() {
     return {
       schema: 'ai-peer-review.error/v1',

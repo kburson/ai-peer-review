@@ -1,3 +1,4 @@
+import { nativeBrokerSkipReason } from '../helpers/native-broker-policy.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -165,7 +166,7 @@ test('missing or mismatched native helper fails with the installation-specific o
 
 test(
   'native broker connection distinguishes denied socket access from a stale endpoint',
-  { skip: process.platform === 'win32' || process.getuid?.() === 0 },
+  { skip: nativeBrokerSkipReason() || process.platform === 'win32' || process.getuid?.() === 0 },
   async (t) => {
     if (!inspectPlatformSecurity().healthy)
       return t.skip('native helper is not built in this isolated checkout');

@@ -1,3 +1,6 @@
+import { helpTopics } from '../api/registry.mjs';
+export const API_HELP_TOPICS = Object.freeze(Object.keys(helpTopics));
+
 export const CONCEPT_HELP_TOPICS = Object.freeze(['spr', 'xpr']);
 
 export const CONCEPT_HELP = Object.freeze({

@@ -16,5 +16,11 @@ native/broker-security/build/
 .claude/scheduled_tasks.lock
 .tmp/
 
+# CI execution records and downloaded verification artifacts
+.scratch/ci-results/
+.scratch/ci-receipts/
+# Disposable CI fixture and packed-cache runtime
+.scratch/test/
+
 # Generated inline execution workspace
 .superpowers/

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.submit-turn-request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.submit-turn-request/v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "stage_attempt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "action_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "phase": {
+      "enum": ["critique", "revision"]
+    },
+    "reviewed_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "response_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "response_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema",
+    "run_id",
+    "stage_attempt_id",
+    "round",
+    "action_id",
+    "expected_revision",
+    "phase",
+    "reviewed_digest",
+    "response_path",
+    "response_digest"
+  ]
+}

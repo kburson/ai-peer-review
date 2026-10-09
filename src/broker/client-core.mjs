@@ -14,7 +14,13 @@ import packageJson from '../../package.json' with { type: 'json' };
 
 import { AprError } from '../errors.mjs';
 
-import { connectBroker, createFrameDecoder, encodeFrame, validateCommand } from './ipc.mjs';
+import {
+  assertBrokerTransport,
+  connectBroker,
+  createFrameDecoder,
+  encodeFrame,
+  validateCommand,
+} from './ipc.mjs';
 
 import { brokerPaths } from './paths.mjs';
 
@@ -220,9 +226,10 @@ export function createBrokerClientOperations({
   }
 
   async function ensureBroker(
-    { project, versions, runtimeImage, platform } = {},
+    { project, versions, runtimeImage, platform, transport = 'legacy' } = {},
     acquisitionDeadline = Infinity
   ) {
+    assertBrokerTransport(transport);
     const deadline = Math.min(performance.now() + 120_000, acquisitionDeadline);
     if (
       !project ||

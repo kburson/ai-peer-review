@@ -1,3 +1,4 @@
+import { assertBrokerTransport } from './ipc.mjs';
 // @story #136
 import {
   withOperationAuthority,
@@ -10,7 +11,8 @@ const operations = createBrokerClientOperations({
   assertCurrentOperationAuthority,
 });
 export const bootstrapRecord = operations.bootstrapRecord;
-export function ensureBroker(input = {}) {
+export async function ensureBroker(input = {}) {
+  assertBrokerTransport(input.transport ?? 'legacy');
   return withOperationAuthority(
     { operation: 'broker.start', cwd: input.project?.physicalRoot },
     () => operations.ensureBroker(input)

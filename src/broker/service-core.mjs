@@ -376,10 +376,10 @@ export function createBrokerService({
         try {
           for (const registration of await registry.list()) await addWorker(registration);
           await settleWorkers({ resetIdle: true });
-          server.start(serializedDispatch);
+          await server.start(serializedDispatch);
           // Recovery can exceed the short handshake deadline. Advertise only after
           // workers are restored and the server can accept authenticated commands.
-          owner.publish?.();
+          await owner.publish?.();
           await untilStopped;
           await sequence;
         } finally {
@@ -414,7 +414,7 @@ export function createBrokerService({
           if (!cleanupError) {
             try {
               await input.cleanupGuard?.();
-              owner.release?.();
+              await owner.release?.();
             } catch (error) {
               cleanupError ??= error;
             }
@@ -425,9 +425,5 @@ export function createBrokerService({
     );
   }
 
-  {
-    IDLE_MILLISECONDS;
-  }
-
-  return Object.freeze({ createAuthenticatedBrokerServer, runBroker });
+  return Object.freeze({ createAuthenticatedBrokerServer, runBroker, IDLE_MILLISECONDS });
 }

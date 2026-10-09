@@ -5,6 +5,7 @@
     "node_modules/**",
     "coverage/**",
     ".git/**",
+    "docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md",
     ".scratch/**",
     ".ai-task-manager/memory/**",
     "docs/superpowers/**",
@@ -12,7 +13,10 @@
     "docs/peer-reviews/**/*reviewer-response-*.md",
     "scripts/providers/**",
     "scripts/review/**",
-    "scripts/tests/**"
+    "scripts/tests/**",
+    ".tmp/**",
+    ".claude/worktrees/**",
+    "evidence/portable-runtime/contracts/2026-10-05-144-author-sar.md"
   ],
   "words": [
     "AITM",
@@ -101,6 +105,13 @@
     "unreviewable",
     "unvalidated",
     "USERPROFILE",
-    "WINDIR"
-  ]
+    "WINDIR",
+    "repoint",
+    "ENOENT",
+    "ECONNREFUSED",
+    "rollups",
+    "unreviewed",
+    "issuecomment"
+  ],
+  "ignoreRegExpList": ["/\"(?:nodeId|commentNodeId)\":\\s*\"IC_[A-Za-z0-9_-]+\"/g"]
 }
