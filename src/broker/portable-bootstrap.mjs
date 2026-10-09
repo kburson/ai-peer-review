@@ -13,7 +13,7 @@ import { performance } from 'node:perf_hooks';
 import { AprError } from '../errors.mjs';
 import { initializePortableOperations } from './portable-platform.mjs';
 import { canonicalPortableProjectIdentity } from './identity.mjs';
-import { parseBrokerBootstrapCore } from './bootstrap-core.mjs';
+import { parseBrokerBootstrapCore, brokerRuntimeImageRecordCore } from './bootstrap-core.mjs';
 import { assertSelectedRuntime } from '../config/runtime-selection.mjs';
 import { verifyRuntimeInventorySync } from '../startup/runtime-inventory.mjs';
 import { assertProtectedSnapshotUnchanged } from './storage-protection.mjs';
@@ -232,7 +232,7 @@ export async function writePortableBrokerBootstrap(input = {}) {
         package_digest: createHash('sha256').update(packageBytes).digest('hex'),
       },
       project: { digest: project.digest, physicalRoot: project.physicalRoot, tuple: project.tuple },
-      runtimeImage: image,
+      runtimeImage: brokerRuntimeImageRecordCore(image),
       versions: {
         package_version: runtime.packageVersion,
         broker_protocol_version: 1,

@@ -3,7 +3,14 @@ name: Installed portable journeys
 on:
   push:
     branches: [codex/190-installed-journeys]
-    paths: [src/protocol/process-source-contracts.json]
+    paths:
+      - src/protocol/process-source-contracts.json
+      - src/broker/bootstrap-core.mjs
+      - src/broker/portable-bootstrap.mjs
+      - test/helpers/installed-portable-journey.mjs
+      - test/helpers/installed-portable-ci.mjs
+      - test/helpers/windows-limited-installed-journey.ps1
+      - .github/workflows/installed-portable-journeys.yml
   workflow_dispatch:
 
 permissions:
