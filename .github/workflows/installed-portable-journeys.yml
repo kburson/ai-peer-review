@@ -1,0 +1,123 @@
+name: Installed portable journeys
+
+on:
+  push:
+    branches: [codex/190-installed-journeys]
+    paths:
+      - src/protocol/process-source-contracts.json
+      - src/broker/bootstrap-core.mjs
+      - src/broker/portable-bootstrap.mjs
+      - test/helpers/installed-portable-journey.mjs
+      - test/helpers/installed-portable-ci.mjs
+      - test/helpers/windows-primary-diagnostic.mjs
+      - test/helpers/windows-stock-timing.mjs
+      - test/helpers/windows-limited-installed-journey.ps1
+      - .github/workflows/installed-portable-journeys.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed:
+    name: Installed / Node ${{ matrix.node }} / ${{ matrix.os }} / ${{ matrix.token }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        node: ['24', '26']
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        token: [ordinary]
+        include:
+          - node: '24'
+            os: windows-latest
+            token: limited
+          - node: '26'
+            os: windows-latest
+            token: limited
+    env:
+      APR_SKIP_NATIVE_BROKER_TESTS: '1'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node test/helpers/warm-packed-cache.mjs
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PSModulePath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules"
+          Get-Command Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json | Out-Null
+          [Security.AccessControl.DirectorySecurity] | Out-Null
+          [Security.AccessControl.FileSecurity] | Out-Null
+          [Security.AccessControl.RawSecurityDescriptor] | Out-Null
+      - name: Actual fresh installed broker and manual journey
+        if: matrix.token == 'ordinary'
+        run: node test/helpers/installed-portable-ci.mjs
+      - name: Actual non-elevated Windows token and fresh installed journey
+        if: matrix.token == 'limited'
+        shell: powershell
+        run: ./test/helpers/windows-limited-installed-journey.ps1
+      - name: Preserve public observations and incomplete outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installed-${{ runner.os }}-${{ matrix.node }}-${{ matrix.token }}-${{ github.run_attempt }}
+          path: .scratch/190-installed-public/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-primary-diagnostic:
+    name: Windows primary timing / Node ${{ matrix.node }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node test/helpers/warm-packed-cache.mjs
+      - name: Observe stock primary costs without changing production inputs or budgets
+        run: node test/helpers/windows-primary-diagnostic.mjs
+      - name: Preserve timing numbers and codes without private details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-primary-timing-${{ matrix.node }}-${{ github.run_attempt }}
+          path: .scratch/190-primary-diagnostic-public/timings.json
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-read-budget:
+    name: Fresh protected reads / Node ${{ matrix.node }}
+    runs-on: windows-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Real stock reads retain one original 30 second budget
+        run: node --test --test-name-pattern='twenty protected snapshot reads' test/unit/storage-protection.test.mjs

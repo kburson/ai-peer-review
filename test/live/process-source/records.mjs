@@ -434,7 +434,7 @@ export function verifyCiCaptureControlsCore({ receipt, hostControl, provenance }
     !/^[a-f0-9]{40}$/u.test(p.sourceCommit) ||
     p.sourceCommit !== receipt?.package?.sourceCommit ||
     p.workflowPath !== '.github/workflows/process-source-capture.yml' ||
-    p.event !== 'push' ||
+    !['push', 'workflow_dispatch'].includes(p.event) ||
     p.status !== 'completed' ||
     p.conclusion !== 'success' ||
     !Array.isArray(p.jobs) ||

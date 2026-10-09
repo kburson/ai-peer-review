@@ -77,6 +77,17 @@ export function parseBrokerBootstrapCore(bytes) {
   return freeze(value);
 }
 
+// Closed wire serialization supplies bytes; it never grants storage authority.
+export function encodeBrokerBootstrapCore(value) {
+  const parsed = parseBrokerBootstrapCore(JSON.stringify(value));
+  return Buffer.from(JSON.stringify(parsed) + '\n', 'utf8');
+}
+
+// Wire data only. Producers verify the full image before selecting these closed fields.
+export function brokerRuntimeImageRecordCore(image) {
+  return { root: image?.root, nodeExecutable: image?.nodeExecutable, digest: image?.digest };
+}
+
 export function bootstrapRecord({ project, versions, runtimeImage }) {
   const root = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
   return parseBrokerBootstrapCore(
@@ -84,7 +95,7 @@ export function bootstrapRecord({ project, versions, runtimeImage }) {
       schema: 'ai-peer-review.broker-bootstrap/v2',
       project: { digest: project.digest, physicalRoot: project.physicalRoot, tuple: project.tuple },
       versions,
-      runtimeImage,
+      runtimeImage: brokerRuntimeImageRecordCore(runtimeImage),
       execution: {
         package_root: root,
         node_executable: realpathSync(process.execPath),

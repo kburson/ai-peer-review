@@ -22,3 +22,13 @@ evidence/portable-runtime/contracts/owners/109-adoption.md
 
 # Preserve historical author SAR bytes from a2d80d9; this record predates independent review.
 evidence/portable-runtime/contracts/2026-10-05-144-author-sar.md
+
+# Preserve exact #190 normally approved registration bytes and immutable SHA-256 references.
+evidence/portable-runtime/process-source/registrations/source-180f544f977969b8262ba42d8e6c6c98.json
+evidence/portable-runtime/process-source/registrations/source-2e4f360c617ef4aaebdbf6fd9af3a25e.json
+evidence/portable-runtime/process-source/registrations/source-524a9193b2d68ca309db4e6881b26d44.json
+evidence/portable-runtime/process-source/registrations/source-656f3f5ab59c6536e2c053a048c7f8bc.json
+evidence/portable-runtime/process-source/registrations/source-74e94707e730215f16a2d82e9b479132.json
+evidence/portable-runtime/process-source/registrations/source-79b5540c1a29e9776e1d65ae55c78966.json
+evidence/portable-runtime/process-source/registrations/source-a0e99c4870830abcf02e3466b3b4000c.json
+evidence/portable-runtime/process-source/registrations/source-aa907980d8d21b00a9d556a315c069ee.json

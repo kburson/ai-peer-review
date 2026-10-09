@@ -106,6 +106,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'scripts/lib/review-grammar-v0.4.1/runtime-descriptor.mjs',
     'scripts/lib/review-grammar-v0.4.1/runtime-v1.json',
     'scripts/build-broker-security.mjs',
+    'scripts/bootstrap-portable-runtime.mjs',
     'scripts/prepare-source-tests.mjs',
     'scripts/run-secret-scan.mjs',
     'scripts/task-tracker/verify-epic-trail.mjs',

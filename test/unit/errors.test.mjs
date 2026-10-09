@@ -55,6 +55,7 @@ test('package identity is public, dependency-audited, and publish-bounded', asyn
     'native/broker-security/posix.cc',
     'native/broker-security/windows.cc',
     'scripts/build-broker-security.mjs',
+    'scripts/bootstrap-portable-runtime.mjs',
     'LICENSE',
     'NOTICE',
     'README.md',

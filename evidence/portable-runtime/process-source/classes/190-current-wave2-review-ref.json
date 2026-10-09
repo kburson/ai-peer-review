@@ -1,0 +1,29 @@
+{
+  "schema": "ai-peer-review.process-source-class-approved-ref/v1",
+  "producerVersion": "0.4.1",
+  "review": {
+    "reviewId": "review-58ce3c1cef222b307232208b248fdb84",
+    "subject": {
+      "revision": "da74e66ac6ecffab6b1a4f802b95d3a468098b23",
+      "path": "evidence/portable-runtime/process-source/class-reviews/190-current-wave2.md",
+      "blob": "228dbbbf16047138dc0d5796697497d5c3ef3870",
+      "sha256": "0c83299c90cad064b2f2f68269bf334a6af34c061da08341739a9d9e381f7344"
+    },
+    "manifest": {
+      "revision": "36d91ffe2ef2e395065c8cb28b6d5bd0c6c83140",
+      "path": "docs/superpowers/peer-reviews/190-class-wave2/spec/2026-10-09-190-current-wave2-review-58ce3c1cef222b307232208b248fdb84/review-58ce3c1cef222b307232208b248fdb84-review-manifest.md",
+      "blob": "d21787dde77dff943d47f627a946c89325324496",
+      "sha256": "485c5bc77c538cc0a8925a422e7be7a53ecd2c482340c5215cf56349ac198347"
+    },
+    "finalResponse": {
+      "revision": "36d91ffe2ef2e395065c8cb28b6d5bd0c6c83140",
+      "path": "docs/superpowers/peer-reviews/190-class-wave2/spec/2026-10-09-190-current-wave2-review-58ce3c1cef222b307232208b248fdb84/review-58ce3c1cef222b307232208b248fdb84-reviewer-response-1.md",
+      "blob": "28269ef2c1b1f016b9e96c87596d90264dd1b167",
+      "sha256": "59d4c806e3be74df8872a5d123fc28925f29be3a6204dd31ba625f94fbac23ec"
+    },
+    "finalization": {
+      "revision": "36d91ffe2ef2e395065c8cb28b6d5bd0c6c83140",
+      "sha256": "5ce11e8895e4de5e562fafa2c907bfb9f8c82e28b360d5a0e134fb2c8fa73ba5"
+    }
+  }
+}

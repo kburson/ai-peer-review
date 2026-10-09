@@ -16,6 +16,7 @@ import { Worker } from 'node:worker_threads';
 
 import { reconcileRegistrations, registerReview } from '../../src/broker/registry.mjs';
 import { pinRuntimeImage, verifyRuntimeImage } from '../../src/broker/runtime-image.mjs';
+import { bootstrapRecord, parseBrokerBootstrapCore } from '../../src/broker/bootstrap-core.mjs';
 import { runNpm } from '../helpers/npm-command.mjs';
 
 const DIGEST_A = 'a'.repeat(64);
@@ -705,5 +706,45 @@ test('reconcileRegistrations refuses a symlinked registration store', async (t) 
       }),
     }),
     (error) => error.code === 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED'
+  );
+});
+
+// #190: actual filesystem image producer, explicitly unverified protocol identity.
+test('actual pinned image serializes only the closed broker descriptor without weakening parsing', (t) => {
+  const value = fixture(t);
+  const project = {
+    ...value.project,
+    tuple: [
+      'ai-peer-review.broker-root/v1',
+      value.project.physicalRoot,
+      null,
+      'unverified-protocol-fixture',
+    ],
+  };
+  const record = bootstrapRecord({
+    project,
+    runtimeImage: value.image,
+    versions: {
+      package_version: '0.4.0',
+      broker_protocol_version: 1,
+      node_major: Number(process.versions.node.split('.')[0]),
+    },
+  });
+  assert.deepEqual(Object.keys(record.runtimeImage).sort(), ['digest', 'nodeExecutable', 'root']);
+  assert.equal(record.runtimeImage.root, value.image.root);
+  assert.equal(record.runtimeImage.nodeExecutable, value.image.nodeExecutable);
+  assert.equal(record.runtimeImage.digest, value.image.digest);
+  assert.equal(verifyRuntimeImage(value.image), true);
+  assert.ok(value.image.files.length > 0);
+  assert.throws(
+    () => parseBrokerBootstrapCore(JSON.stringify({ ...record, runtimeImage: value.image })),
+    (error) => error.code === 'APR_BROKER_START_FAILED'
+  );
+  assert.throws(
+    () =>
+      parseBrokerBootstrapCore(
+        JSON.stringify({ ...record, runtimeImage: { ...record.runtimeImage, injected: true } })
+      ),
+    (error) => error.code === 'APR_BROKER_START_FAILED'
   );
 });
