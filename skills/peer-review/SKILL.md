@@ -5,20 +5,37 @@ description: Run a provider-neutral, integrity-bound AI peer review for a tracke
 
 # AI Peer Review
 
-Run `peer-review setup` with an explicit user or project scope, then run
-`peer-review doctor --mode installation` to check package health. Run
-`peer-review doctor` from the active agent session to check current-session
-readiness before a review. Setup installs Codex and Claude provider hooks that
-capture the current model for each CLI invocation; model and effort may change at
-any time in the same session, so never pin them in project configuration.
-After a package
-upgrade, run `peer-review setup --update --dry-run` then `peer-review setup
---update` in the affected project, or add `--scope user` for a user-scope
-installation. Update discovers all hosts recorded by the prior setup;
-setup backs up the prior bytes. `setup --remove` is an idempotent teardown. If a
-review command reports `APR_SETUP_VERSION_MISMATCH`, run `peer-review explain
-APR_SETUP_VERSION_MISMATCH` and `peer-review help setup`, then refresh each
-previously installed host in the same scope.
+Use the selected global `peer-review` installation. Register its runtime with
+`peer-review register-runtime --dry-run`, inspect the plan, then run
+`peer-review register-runtime`. Account selection belongs to the invoking OS
+account; a source checkout or project dependency cannot select the runtime.
+
+From the physical primary checkout, inspect `peer-review primary register
+--dry-run`, then register it. Run `peer-review setup --scope project --agent
+codex --agent claude --confirm-scratch-exclude --dry-run`, inspect every planned
+write, then apply the same command without `--dry-run`. Add `--migrate` for legacy
+project setup, and `--migrate-user` only when explicitly consenting to move
+machine bindings to the invoking account. Setup preserves policy and foreign
+settings, validates destination formatting/lint, and never commits or activates.
+Commit the generated owned files, inspect `peer-review primary activate
+--dry-run`, then explicitly activate them. Unknown review activity blocks
+maintenance; a proven owned suspension preserves that review's sealed evidence.
+
+Install user wrappers with `peer-review setup --scope user --agent codex --agent
+claude`. Linked worktrees require these discoverable user wrappers. Each wrapper
+runs `peer-review primary inspect --json` from the actual caller's worktree and
+loads the returned primary shared procedure in full. A linked checkout's copied
+skill or configuration cannot become project authority. Primary setup apply,
+registration repair and activation must run from the physical primary.
+
+Run `peer-review doctor --mode installation` for package health and `peer-review
+doctor` from the active session for readiness. Integrations compare their declared
+contract and normalized owned content; an unchanged-contract package upgrade
+needs no refresh. For `APR_SETUP_VERSION_MISMATCH`, read its diagnostic and run
+`peer-review setup --update --scope project --dry-run`, then apply from the
+primary. Use `--scope user` for user wrappers. Commit changed primary owned files
+and explicitly activate their new blobs. `setup --remove` removes only proven
+owned portions and retains foreign settings and local scratch excludes.
 Query
 `peer-review help <command>` whenever syntax is uncertain; never guess flags or
 state transitions.
@@ -36,12 +53,13 @@ Do not copy a child agent's session ID into a parent shell, loosen sandbox
 isolation, relocate the broker socket, or replay an uncertain reviewer launch.
 Read `peer-review broker status --json` before the exact reported recovery
 action; status alone never starts the broker.
-Offline status lists verified pinned-runtime candidates in advisory order and
-retains unverifiable records. `peer-review broker reconcile <workspace>` starts
-the selected pinned image and authenticates its broker; a different image may
-inspect an older review only in recovery mode. Preserve the old review and
-its provider evidence if a candidate fails, then check broker ownership before
-trying another candidate.
+Offline status lists independently verified historical runtime evidence and
+retains unverifiable records. `peer-review broker reconcile <workspace>` uses
+the current selected global installation. Retained images cannot supply
+executable code. Supported collateral still requires sealed identity, protocol,
+provider and ownership checks. Unknown formats remain read-only; status never
+infers terminal state or a decision from unreadable journals. Preserve the review
+and provider settlement evidence when compatibility or safe cleanup is unavailable.
 
 For an unjoined review, `peer-review abandon <workspace> --reason <text>`
 requires a durable fence and complete evidence that no broker, wake, or manual
@@ -49,6 +67,8 @@ Claude launch reached the provider. An absent reviewer join, a hook denial,
 missing legacy launch history, or a generic provider failure is insufficient.
 An independent fresh XPR can use a distinct `--reviews-root` or
 `--review-path-template`; verify its new review ID, invitation, and outputs.
+For an incompatible predecessor, include `--preserved-predecessor <absolute-workspace>`
+to seal its reference in the independent review without modifying the predecessor.
 Changing only `--record-id` does not guarantee a new review ID, and the old
 uncertain attempt remains unresolved. `peer-review supersede` needs exact
 lineage authority and cannot replace abandonment when a lineage receipt is
@@ -56,19 +76,19 @@ missing.
 
 ## Package installation and migration
 
-Install the scoped registry package while continuing to invoke the local `peer-review` binary:
+Install the scoped package globally and invoke its selected binary:
 
 ```bash
-npm install --save-dev @kburson/ai-peer-review
-npx --no-install ai-peer-review --help
+npm install --global @kburson/ai-peer-review
+peer-review register-runtime --dry-run
+peer-review register-runtime
+peer-review doctor --mode installation
 ```
 
-Existing consumers migrate without changing binary, configuration, or runtime paths:
-
-```bash
-npm uninstall ai-peer-review
-npm install --save-dev @kburson/ai-peer-review
-```
+Keep each checkout's project dependencies independent. Setup never installs,
+links, replaces or deletes its `node_modules`. Consumer CI does not need AI peer review
+unless it explicitly invokes a review command. Do not run source test, lint or
+release scripts from an installed package.
 
 Use every generated artifact, workspace, invitation, and response location as
 exact absolute paths. Relay only the reviewer invitation in the default

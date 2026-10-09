@@ -1,0 +1,562 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.runtime-review-lineage-proof/v1",
+  "description": "Reviewed local verification of private original review events and their exact producer; Git consumers verify this retained receipt, not original private journals. No raw provider handles or scratch state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "issue",
+    "reviewId",
+    "producerProfile",
+    "reviewReference",
+    "producer",
+    "verifier",
+    "attempt",
+    "identities",
+    "members",
+    "checks",
+    "reproducibility",
+    "observedAt"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.runtime-review-lineage-proof/v1"
+    },
+    "issue": {
+      "const": 144
+    },
+    "reviewId": {
+      "type": "string",
+      "pattern": "^review-[A-Za-z0-9._-]+$"
+    },
+    "producerProfile": {
+      "const": "0.4.1"
+    },
+    "reviewReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewId", "subject", "manifest", "finalResponse", "finalization"],
+      "properties": {
+        "reviewId": {
+          "type": "string",
+          "pattern": "^review-[A-Za-z0-9._-]+$"
+        },
+        "subject": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revision", "path", "blob", "sha256"],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+            },
+            "blob": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revision", "path", "blob", "sha256"],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+            },
+            "blob": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "finalResponse": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revision", "path", "blob", "sha256"],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+            },
+            "blob": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "finalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revision", "sha256"],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageName",
+        "packageVersion",
+        "runtimeImageDigest",
+        "runtimeImageByteSha256",
+        "fileCount",
+        "nodeMajor",
+        "sources"
+      ],
+      "properties": {
+        "packageName": {
+          "const": "@kburson/ai-peer-review"
+        },
+        "packageVersion": {
+          "const": "0.4.1"
+        },
+        "runtimeImageDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "runtimeImageByteSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "fileCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "nodeMajor": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "src/protocol/compatibility.mjs",
+            "src/protocol/events.mjs",
+            "src/protocol/reducer.mjs",
+            "src/protocol/record-lineage.mjs",
+            "src/startup/runtime.mjs",
+            "src/manifest/render.mjs",
+            "schemas/runtime-v1.json",
+            "schemas/manifest-v1.json",
+            "src/broker/runtime-image.mjs",
+            "src/provider/manual-launch-ledger.mjs",
+            "src/provider/claude-launch.mjs",
+            "src/identity/registry.mjs"
+          ],
+          "properties": {
+            "src/protocol/compatibility.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/protocol/events.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/protocol/reducer.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/protocol/record-lineage.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/startup/runtime.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/manifest/render.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "schemas/runtime-v1.json": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "schemas/manifest-v1.json": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/broker/runtime-image.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/provider/manual-launch-ledger.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/provider/claude-launch.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "src/identity/registry.mjs": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "sources"],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["revision", "path", "blob", "sha256"],
+            "properties": {
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+              },
+              "blob": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewId",
+        "eventCount",
+        "sequence",
+        "revision",
+        "state",
+        "rawEventByteSha256",
+        "canonicalEventDigest",
+        "lineageReceiptByteSha256",
+        "requestDigest",
+        "startupRequestByteSha256",
+        "registrationByteSha256",
+        "manualLaunchHistoryByteSha256",
+        "launchStateByteSha256",
+        "launchOperations"
+      ],
+      "properties": {
+        "reviewId": {
+          "type": "string",
+          "pattern": "^review-[A-Za-z0-9._-]+$"
+        },
+        "eventCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "const": "accepted"
+        },
+        "rawEventByteSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "canonicalEventDigest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "lineageReceiptByteSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "requestDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "startupRequestByteSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "registrationByteSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "manualLaunchHistoryByteSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "launchStateByteSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "launchOperations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["intentDigest", "status"],
+            "properties": {
+              "intentDigest": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "status": {
+                "enum": ["submitted", "not-submitted"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorFingerprint",
+        "reviewerFingerprint",
+        "requestedAuthor",
+        "requestedReviewer",
+        "selectionEvidence",
+        "authorityAssurance"
+      ],
+      "properties": {
+        "authorFingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "reviewerFingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "requestedAuthor": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "host", "model_id", "model_display", "effort"],
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "host": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "model_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "model_display": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "effort": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requestedReviewer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider", "host", "model_id", "model_display", "effort", "selector"],
+          "properties": {
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "host": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model_display": {
+              "type": "string",
+              "minLength": 1
+            },
+            "effort": {
+              "type": "string",
+              "minLength": 1
+            },
+            "selector": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "selectionEvidence": {
+          "const": "requested-declared-and-provider-ack-not-per-turn-observation"
+        },
+        "authorityAssurance": {
+          "enum": ["unavailable", "declared"]
+        }
+      }
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revision", "path", "blob", "sha256"],
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+          },
+          "blob": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "normalCollateral",
+        "persistedEvents",
+        "completeLineage",
+        "producerStartupBinding",
+        "producerImage",
+        "producerSourceProfile",
+        "providerLaunchBinding",
+        "terminalTransaction",
+        "memberBytes",
+        "committedVerifier"
+      ],
+      "properties": {
+        "normalCollateral": {
+          "const": true
+        },
+        "persistedEvents": {
+          "const": true
+        },
+        "completeLineage": {
+          "const": true
+        },
+        "producerStartupBinding": {
+          "const": true
+        },
+        "producerImage": {
+          "const": true
+        },
+        "producerSourceProfile": {
+          "const": true
+        },
+        "providerLaunchBinding": {
+          "const": true
+        },
+        "terminalTransaction": {
+          "const": true
+        },
+        "memberBytes": {
+          "const": true
+        },
+        "committedVerifier": {
+          "const": true
+        }
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "localOriginalEventReplay",
+        "ciOriginalEventReplay",
+        "consumerEvidence",
+        "assurance"
+      ],
+      "properties": {
+        "localOriginalEventReplay": {
+          "const": "complete"
+        },
+        "ciOriginalEventReplay": {
+          "const": "unavailable"
+        },
+        "consumerEvidence": {
+          "const": "retained-reviewed-local-verification"
+        },
+        "assurance": {
+          "enum": ["unavailable", "declared"]
+        }
+      }
+    },
+    "observedAt": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    }
+  }
+}

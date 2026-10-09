@@ -18,18 +18,20 @@ if (
 )
   process.exit(0);
 try {
-  const version = execFileSync('claude', ['--version'], {
-    encoding: 'utf8',
-    timeout: remainingProviderTime(),
-    killSignal: 'SIGKILL',
-  })
-    .trim()
-    .match(/^(\d+\.\d+\.\d+)(?:\s|$)/)?.[1];
-  const output = await captureClaudeStartHookWhenPresent({
-    event,
-    sourceVersion: version,
-    token: randomBytes(16).toString('hex'),
-  });
+  const output = await (async () => {
+    const version = execFileSync('claude', ['--version'], {
+      encoding: 'utf8',
+      timeout: remainingProviderTime(),
+      killSignal: 'SIGKILL',
+    })
+      .trim()
+      .match(/^(\d+\.\d+\.\d+)(?:\s|$)/)?.[1];
+    return captureClaudeStartHookWhenPresent({
+      event,
+      sourceVersion: version,
+      token: randomBytes(16).toString('hex'),
+    });
+  })();
   if (output) process.stdout.write(`${JSON.stringify(output)}\n`);
 } catch (error) {
   process.stderr.write(`${error.code ?? 'APR_CLAUDE_HOOK_INVALID'}: ${error.message}\n`);

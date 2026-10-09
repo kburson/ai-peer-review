@@ -1,0 +1,953 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.runtime-contract-adoption/v1",
+  "description": "Closed document-only contract intent. Normal acceptance, genuine retained lineage and governed native evidence approval are independently required; no activation authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "issue",
+    "amendment",
+    "amendmentReview",
+    "reviewedDigests",
+    "schemas",
+    "decisions",
+    "unresolvedConflicts",
+    "activationBinding",
+    "runtimePolicy",
+    "evidence",
+    "analytics",
+    "telemetry",
+    "governance"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.runtime-contract-adoption/v1"
+    },
+    "issue": {
+      "const": 144
+    },
+    "amendment": {
+      "$ref": "#/$defs/gitRef"
+    },
+    "amendmentReview": {
+      "$ref": "#/$defs/normalReview"
+    },
+    "reviewedDigests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "schemas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/gitRef"
+      }
+    },
+    "decisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtimeInstallation",
+        "policyAuthority",
+        "legacyRecovery",
+        "evidenceIntegration",
+        "telemetryIntegration",
+        "responseCompatibility"
+      ],
+      "properties": {
+        "runtimeInstallation": {
+          "const": "current-global"
+        },
+        "policyAuthority": {
+          "const": "exclusive-primary"
+        },
+        "legacyRecovery": {
+          "const": "drain-before-replacement"
+        },
+        "evidenceIntegration": {
+          "const": "owner30-canonical"
+        },
+        "telemetryIntegration": {
+          "const": "exact-attempt"
+        },
+        "responseCompatibility": {
+          "const": "contextual-schema-artifacts"
+        }
+      }
+    },
+    "unresolvedConflicts": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "activationBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ownerIssue",
+        "interfaces",
+        "guarantees",
+        "source",
+        "registration",
+        "release",
+        "conformance",
+        "unresolvedOverlapObligations",
+        "interfaceSources"
+      ],
+      "properties": {
+        "ownerIssue": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "interfaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "guarantees": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "registration": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "release": {
+          "type": "null"
+        },
+        "conformance": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "unresolvedOverlapObligations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "interfaceSources": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["interface", "reference", "status", "activationAuthorized"],
+            "properties": {
+              "interface": {
+                "enum": [
+                  "assertSelectedRuntime",
+                  "withPrimaryAdmissionFence",
+                  "resolvePrimaryAuthority",
+                  "inspectPrimaryReviewInventory"
+                ]
+              },
+              "reference": {
+                "$ref": "#/$defs/gitRef"
+              },
+              "status": {
+                "const": "observed-unmerged-draft"
+              },
+              "activationAuthorized": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "runtimePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issue",
+        "boundedSubsection",
+        "bundle",
+        "reconciliation",
+        "boundedPlan",
+        "planReview",
+        "nativeAdoption",
+        "preservedBaselines",
+        "remainingObligations"
+      ],
+      "properties": {
+        "issue": {
+          "const": 102
+        },
+        "boundedSubsection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bundle": {
+          "const": "A"
+        },
+        "reconciliation": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "boundedPlan": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "planReview": {
+          "$ref": "#/$defs/normalReview"
+        },
+        "nativeAdoption": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "repository",
+            "ownerIssue",
+            "ownedCommentKey",
+            "commentDatabaseId",
+            "commentNodeId",
+            "url",
+            "body",
+            "bodySha256",
+            "nativeReceipt",
+            "publishedAt",
+            "observedAt"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ownerIssue": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ownedCommentKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "commentDatabaseId": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commentNodeId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "body": {
+              "$ref": "#/$defs/gitRef"
+            },
+            "bodySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "nativeReceipt": {
+              "$ref": "#/$defs/gitRef"
+            },
+            "publishedAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "observedAt": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "preservedBaselines": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "status", "reference"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference": {
+                "$ref": "#/$defs/gitRef"
+              }
+            }
+          }
+        },
+        "remainingObligations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issue",
+        "boundedSubsection",
+        "bundle",
+        "reconciliation",
+        "boundedPlan",
+        "planReview",
+        "nativeAdoption",
+        "preservedBaselines",
+        "remainingObligations"
+      ],
+      "properties": {
+        "issue": {
+          "const": 30
+        },
+        "boundedSubsection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bundle": {
+          "const": "A"
+        },
+        "reconciliation": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "boundedPlan": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "planReview": {
+          "$ref": "#/$defs/normalReview"
+        },
+        "nativeAdoption": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "repository",
+            "ownerIssue",
+            "ownedCommentKey",
+            "commentDatabaseId",
+            "commentNodeId",
+            "url",
+            "body",
+            "bodySha256",
+            "nativeReceipt",
+            "publishedAt",
+            "observedAt"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ownerIssue": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ownedCommentKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "commentDatabaseId": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commentNodeId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "body": {
+              "$ref": "#/$defs/gitRef"
+            },
+            "bodySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "nativeReceipt": {
+              "$ref": "#/$defs/gitRef"
+            },
+            "publishedAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "observedAt": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "preservedBaselines": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "status", "reference"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference": {
+                "$ref": "#/$defs/gitRef"
+              }
+            }
+          }
+        },
+        "remainingObligations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "analytics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issue",
+        "boundedSubsection",
+        "bundle",
+        "reconciliation",
+        "boundedPlan",
+        "planReview",
+        "nativeAdoption",
+        "preservedBaselines",
+        "remainingObligations"
+      ],
+      "properties": {
+        "issue": {
+          "const": 34
+        },
+        "boundedSubsection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bundle": {
+          "const": "A"
+        },
+        "reconciliation": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "boundedPlan": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "planReview": {
+          "$ref": "#/$defs/normalReview"
+        },
+        "nativeAdoption": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "repository",
+            "ownerIssue",
+            "ownedCommentKey",
+            "commentDatabaseId",
+            "commentNodeId",
+            "url",
+            "body",
+            "bodySha256",
+            "nativeReceipt",
+            "publishedAt",
+            "observedAt"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ownerIssue": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ownedCommentKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "commentDatabaseId": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commentNodeId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "body": {
+              "$ref": "#/$defs/gitRef"
+            },
+            "bodySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "nativeReceipt": {
+              "$ref": "#/$defs/gitRef"
+            },
+            "publishedAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "observedAt": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "preservedBaselines": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "status", "reference"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference": {
+                "$ref": "#/$defs/gitRef"
+              }
+            }
+          }
+        },
+        "remainingObligations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issue",
+        "boundedSubsection",
+        "bundle",
+        "reconciliation",
+        "boundedPlan",
+        "planReview",
+        "nativeAdoption",
+        "preservedBaselines",
+        "remainingObligations"
+      ],
+      "properties": {
+        "issue": {
+          "const": 109
+        },
+        "boundedSubsection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bundle": {
+          "const": "A"
+        },
+        "reconciliation": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "boundedPlan": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "planReview": {
+          "$ref": "#/$defs/normalReview"
+        },
+        "nativeAdoption": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "repository",
+            "ownerIssue",
+            "ownedCommentKey",
+            "commentDatabaseId",
+            "commentNodeId",
+            "url",
+            "body",
+            "bodySha256",
+            "nativeReceipt",
+            "publishedAt",
+            "observedAt"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ownerIssue": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ownedCommentKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "commentDatabaseId": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commentNodeId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "body": {
+              "$ref": "#/$defs/gitRef"
+            },
+            "bodySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "nativeReceipt": {
+              "$ref": "#/$defs/gitRef"
+            },
+            "publishedAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "observedAt": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "preservedBaselines": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "status", "reference"],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reference": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/gitRef"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "remainingObligations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "immutableSpecification",
+        "canonicalPlan",
+        "canonicalPlanReview",
+        "companionPlan",
+        "companionPlanReview",
+        "nativeMapping",
+        "normativeTargets",
+        "priorLineage",
+        "expectedEvidenceApprover",
+        "recordReviewSelection",
+        "checkerSchemas",
+        "checkerImporterSources"
+      ],
+      "properties": {
+        "immutableSpecification": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "canonicalPlan": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "canonicalPlanReview": {
+          "$ref": "#/$defs/normalReview"
+        },
+        "companionPlan": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "companionPlanReview": {
+          "$ref": "#/$defs/normalReview"
+        },
+        "nativeMapping": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "issue",
+            "originalSourcePlanCommit",
+            "planMetadataSha256",
+            "scopeSha256",
+            "vc1Sha256"
+          ],
+          "properties": {
+            "repository": {
+              "const": "kburson/ai-peer-review"
+            },
+            "issue": {
+              "const": 144
+            },
+            "originalSourcePlanCommit": {
+              "const": "60efdbbeb60c83c1c56884491ae018eaea70d282"
+            },
+            "planMetadataSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "scopeSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "vc1Sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "normativeTargets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "sections", "schemaIdentifiers", "detailedSchemaFrozen"],
+            "properties": {
+              "source": {
+                "$ref": "#/$defs/gitRef"
+              },
+              "sections": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "schemaIdentifiers": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "detailedSchemaFrozen": {
+                "const": false
+              }
+            }
+          }
+        },
+        "priorLineage": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/lineage"
+          }
+        },
+        "expectedEvidenceApprover": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["githubLogin", "role", "authorSessionFingerprint"],
+          "properties": {
+            "githubLogin": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9-]+$"
+            },
+            "role": {
+              "const": "orchestrator"
+            },
+            "authorSessionFingerprint": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          }
+        },
+        "recordReviewSelection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["selector", "provider", "host", "modelId", "effort"],
+          "properties": {
+            "selector": {
+              "const": "claude"
+            },
+            "provider": {
+              "const": "anthropic"
+            },
+            "host": {
+              "const": "claude-code"
+            },
+            "modelId": {
+              "const": "claude-opus-5-5"
+            },
+            "effort": {
+              "const": "high"
+            }
+          }
+        },
+        "checkerSchemas": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/gitRef"
+          }
+        },
+        "checkerImporterSources": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "$ref": "#/$defs/gitRef"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "gitRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "path", "blob", "sha256"],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(?!(test|tests|node_modules|\\.scratch)/)[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+        },
+        "blob": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "normalReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewId", "subject", "manifest", "finalResponse", "finalization"],
+      "properties": {
+        "reviewId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "manifest": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "finalResponse": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "finalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revision", "sha256"],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review", "receipt", "verifier"],
+      "properties": {
+        "review": {
+          "$ref": "#/$defs/normalReview"
+        },
+        "receipt": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "verifier": {
+          "$ref": "#/$defs/gitRef"
+        }
+      }
+    }
+  }
+}

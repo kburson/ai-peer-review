@@ -13,6 +13,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -20,7 +21,13 @@ import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { joinReview, resumeReview, run, startReview, statusReview } from '../../src/cli/run.mjs';
+import {
+  joinReview,
+  resumeReview,
+  run,
+  startReview,
+  statusReview,
+} from '../helpers/operations-api.mjs';
 import {
   canonicalChallengeBytes,
   digestGrantParameters,
@@ -28,10 +35,10 @@ import {
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
 import { createGitRepository } from '../../src/git/repository.mjs';
 import { participantIdentity, v1Participant } from '../../src/identity/registry.mjs';
-import { canonicalProjection, inspectReview, mutateReview } from '../../src/protocol/service.mjs';
-import { prepareStartup } from '../../src/startup/runtime.mjs';
-import { captureCodexStartHook } from '../../src/providers/codex-hook.mjs';
-import { captureClaudeStartHook } from '../../src/providers/claude-hook.mjs';
+import { canonicalProjection, inspectReview, mutateReview } from '../helpers/protocol-api.mjs';
+import { prepareStartup } from '../helpers/operations-api.mjs';
+import { captureCodexStartHook } from '../helpers/codex-hook-api.mjs';
+import { captureClaudeStartHook } from '../helpers/claude-hook-api.mjs';
 import { createClaudeAdapter, createClaudeProviderSurface } from '../../src/providers/claude.mjs';
 import { createCodexAdapter, createCodexProviderSurface } from '../../src/providers/codex.mjs';
 import { executeJoinCommand } from '../helpers/command-roundtrip.mjs';
@@ -1245,4 +1252,54 @@ test('join rejects scratch context and invitation redirection outside sealed sta
     (error) => error.code === 'APR_INVITATION_INVALID'
   );
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
+});
+
+// @story #135
+test('independent successor seals a preserved predecessor reference without changing unknown evidence', async (t) => {
+  const fx = repositoryFixture();
+  t.after(fx.cleanup);
+  const predecessor = path.join(fx.root, '.scratch/peer-review/old-review');
+  mkdirSync(predecessor, { recursive: true });
+  const bytes = '{"schema":"ai-peer-review.event/v99","state":"accepted"}\n';
+  writeFileSync(path.join(predecessor, 'events.jsonl'), bytes);
+  const input = {
+    ...fixtureSelection('codex', 'gpt-test'),
+    cwd: fx.root,
+    artifact: 'docs/example.md',
+    artifactKind: 'spec',
+    identity: identity('author', 'successor-author'),
+    reviewId: 'independent-successor',
+    recordId: 'successor-record',
+    reviewsRoot: 'docs/independent-reviews',
+    preservedPredecessor: predecessor,
+    noCommit: true,
+    testHumanAuthority: 'fixture-a',
+    now: NOW,
+  };
+  const foreign = repositoryFixture('apr-foreign-predecessor-');
+  t.after(foreign.cleanup);
+  writeFileSync(path.join(foreign.root, 'events.jsonl'), bytes);
+  const linkedPredecessor = path.join(fx.root, 'linked-predecessor');
+  symlinkSync(predecessor, linkedPredecessor, 'junction');
+  for (const unsafe of [foreign.root, linkedPredecessor]) {
+    await assert.rejects(
+      startReview({ ...input, preservedPredecessor: unsafe }, fixtureStartupDeps),
+      (error) => error.code === 'APR_USAGE'
+    );
+  }
+  const started = await startReview(input, fixtureStartupDeps);
+  const context = inspectReview(started.paths.workspace).protocol.startup.context;
+  assert.equal(context.schema, 'ai-peer-review.context/v2');
+  assert.equal(
+    context.preserved_predecessor,
+    process.platform === 'win32' ? realpathSync.native(predecessor) : realpathSync(predecessor)
+  );
+  assert.notEqual(started.paths.workspace, predecessor);
+  assert.equal(readFileSync(path.join(predecessor, 'events.jsonl'), 'utf8'), bytes);
+  const retried = await startReview(input, fixtureStartupDeps);
+  assert.equal(retried.paths.workspace, started.paths.workspace);
+  await assert.rejects(
+    startReview({ ...input, preservedPredecessor: undefined }, fixtureStartupDeps),
+    (error) => error.code === 'APR_OUTPUT_COLLISION'
+  );
 });

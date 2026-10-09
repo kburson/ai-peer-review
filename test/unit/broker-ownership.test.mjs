@@ -1,3 +1,4 @@
+import { nativeBrokerSkipReason } from '../helpers/native-broker-policy.mjs';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import test from 'node:test';
@@ -317,7 +318,11 @@ const nativeAvailable = existsSync(
 );
 test(
   'native ownership and authenticated IPC work across the hosted platform boundary',
-  { skip: !nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED },
+  {
+    skip:
+      nativeBrokerSkipReason() ||
+      (!nativeAvailable && !process.env.CI && !process.env.APR_NATIVE_REQUIRED),
+  },
   async (t) => {
     if (
       !existsSync(
@@ -494,9 +499,10 @@ test(
     secondDecoder.end();
     assert.equal(secondFrames.length, 1);
     validateHandshake(secondFrames[0], nativeHandshake, security.peerUser(accepted));
-    // Windows command reconciliation may outlast the 5-second handshake and
-    // partial-frame bound; the authenticated client must keep waiting.
-    if (process.platform === 'win32') await new Promise((resolve) => setTimeout(resolve, 6_000));
+    // An admitted registration may exceed the old 30-second reply budget.
+    // The authenticated client waits; the later partial-frame test must still
+    // refuse an incomplete untrusted connection within its five-second budget.
+    await new Promise((resolve) => setTimeout(resolve, 31_000));
     accepted.write(encodeFrame(nativeHandshake));
     accepted.close();
     const [ipcStatus] = await ipcExit;

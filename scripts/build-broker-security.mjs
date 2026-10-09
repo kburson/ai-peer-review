@@ -1,8 +1,16 @@
 // cspell:words CXXFLAGS gypi LDFLAGS nodedir MSVS PYTHONPATH
+import {
+  prepareNativeInventory,
+  finishNativeInventory,
+} from '../src/installed/native-inventory.mjs';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import {
   accessSync,
+  cpSync,
+  mkdtempSync,
+  mkdirSync,
+  rmSync,
   constants,
   readFileSync,
   realpathSync,
@@ -10,6 +18,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -17,7 +26,9 @@ const fail = (message) => {
   throw new Error(message);
 };
 
+let buildRoot = null;
 try {
+  const originalInventory = prepareNativeInventory(root);
   const options = {};
   const args = process.argv.slice(2);
   for (let i = 0; i < args.length; i += 2) {
@@ -64,10 +75,13 @@ try {
       ([key]) => !/^(npm_|GYP_|NODE_|PYTHON|CC$|CXX$|LD$|AR$|CFLAGS$|CXXFLAGS$|LDFLAGS$)/i.test(key)
     )
   );
+  buildRoot = mkdtempSync(path.join(os.tmpdir(), 'apr-native-build-'));
+  for (const name of ['binding.gyp', 'addon.cc', 'posix.cc', 'windows.cc'])
+    cpSync(path.join(root, 'native/broker-security', name), path.join(buildRoot, name));
   const invocation = [
     builder,
     'rebuild',
-    `--directory=${path.join(root, 'native/broker-security')}`,
+    `--directory=${buildRoot}`,
     `--nodedir=${options['--nodedir']}`,
     `--arch=${process.arch}`,
   ];
@@ -83,6 +97,12 @@ try {
       'Local compiler/Python/build failed. Provision prerequisites and rerun the explicit command.'
     );
   const output = path.join(root, 'native/broker-security/build/Release/broker_security.node');
+  try {
+    mkdirSync(path.dirname(output), { recursive: true });
+    cpSync(path.join(buildRoot, 'build/Release/broker_security.node'), output);
+  } finally {
+    rmSync(buildRoot, { recursive: true, force: true });
+  }
   if (!statSync(output).isFile()) fail('The builder did not produce the expected native helper.');
   writeFileSync(
     path.join(path.dirname(output), 'build-identity.json'),
@@ -93,10 +113,13 @@ try {
     }) + '\n',
     { mode: 0o600 }
   );
+  finishNativeInventory(root, originalInventory);
   console.log(
     `Built broker security for Node ${process.versions.node} ${process.platform}/${process.arch}.`
   );
 } catch (error) {
   console.error(`APR_BROKER_BUILD_FAILED: ${error.message}`);
   process.exitCode = 1;
+} finally {
+  if (buildRoot) rmSync(buildRoot, { recursive: true, force: true });
 }

@@ -7,7 +7,7 @@ import {
   acquireCoordinatorLease,
   inspectCoordinatorLease,
   requestCoordinatorStop,
-} from '../../src/coordinator/lease.mjs';
+} from '../helpers/coordinator-lease-api.mjs';
 
 const NOW = new Date('2026-09-13T12:00:00.000Z');
 

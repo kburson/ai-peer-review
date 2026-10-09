@@ -87,6 +87,21 @@
           "classification": "test-cloud-complete",
           "kind": "test",
           "command": "node scripts/ci/verify-receipts.mjs"
+        },
+        {
+          "classification": "environment-contract-reference",
+          "kind": "environment",
+          "command": "node scripts/ci/prepare-contract-adoption.mjs"
+        }
+      ],
+      "declaredCommandCoverage": [
+        {
+          "command": "npm test",
+          "requires": ["test-cloud-complete"]
+        },
+        {
+          "command": "npm run test:slow",
+          "requires": ["test-cloud-complete"]
         }
       ]
     }

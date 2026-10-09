@@ -235,7 +235,7 @@ test('delivery uncertainty preserves caller action ID and prevents retry after m
 });
 
 test('broker awaits asynchronous listener startup before publishing discovery', async (t) => {
-  const { runBroker } = await import('../../src/broker/service.mjs');
+  const { runBroker } = await import('../helpers/broker-service-api.mjs');
   const { fakeClock, flush } = await import('../helpers/portable-broker-fixture.mjs');
   const clock = fakeClock();
   let start;
@@ -272,7 +272,7 @@ test('broker awaits asynchronous listener startup before publishing discovery', 
 });
 
 test('broker awaits owner release before reporting shutdown complete', async (t) => {
-  const { runBroker } = await import('../../src/broker/service.mjs');
+  const { runBroker } = await import('../helpers/broker-service-api.mjs');
   const { fakeClock, flush } = await import('../helpers/portable-broker-fixture.mjs');
   const clock = fakeClock();
   let release;
@@ -750,7 +750,7 @@ test('outstanding mutation at shutdown deadline rejects and retains broker owner
   const pending = f.request({ operation: 'cancel', actionId: 'outstanding' });
   await started;
   let released = false;
-  const { runBroker } = await import('../../src/broker/service.mjs');
+  const { runBroker } = await import('../helpers/broker-service-api.mjs');
   const stopped = runBroker({
     identity: { digest: 'a'.repeat(64), physicalRoot: process.cwd() },
     versions: {},

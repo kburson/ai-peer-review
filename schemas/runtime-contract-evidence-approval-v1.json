@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-peer-review.runtime-contract-evidence-approval/v1",
+  "description": "Exact governed post-finalization owned-comment approval of document evidence only, under unchanged unavailable/manual assurance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "issue",
+    "scope",
+    "record",
+    "approvalReview",
+    "canonicalPlanReview",
+    "nativeMapping",
+    "lineageProofs",
+    "nativeTransaction",
+    "rootInspection",
+    "authorityAssurance",
+    "activationAuthorized",
+    "publicationAllowed",
+    "remainingObligations",
+    "observedAt"
+  ],
+  "properties": {
+    "schema": {
+      "const": "ai-peer-review.runtime-contract-evidence-approval/v1"
+    },
+    "issue": {
+      "const": 144
+    },
+    "scope": {
+      "const": "document-contract-adoption-only"
+    },
+    "record": {
+      "$ref": "#/$defs/gitRef"
+    },
+    "approvalReview": {
+      "$ref": "#/$defs/normalReview"
+    },
+    "canonicalPlanReview": {
+      "$ref": "#/$defs/normalReview"
+    },
+    "nativeMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "issue",
+        "originalSourcePlanCommit",
+        "planMetadataSha256",
+        "scopeSha256",
+        "vc1Sha256"
+      ],
+      "properties": {
+        "repository": {
+          "const": "kburson/ai-peer-review"
+        },
+        "issue": {
+          "const": 144
+        },
+        "originalSourcePlanCommit": {
+          "const": "60efdbbeb60c83c1c56884491ae018eaea70d282"
+        },
+        "planMetadataSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scopeSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "vc1Sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "lineageProofs": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/lineage"
+      }
+    },
+    "nativeTransaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issue",
+        "role",
+        "command",
+        "ownedCommentKey",
+        "bindingVerified",
+        "lifecycleApproval",
+        "observedAt",
+        "actorSessionFingerprint",
+        "bindingGenerationId"
+      ],
+      "properties": {
+        "issue": {
+          "const": 144
+        },
+        "role": {
+          "const": "orchestrator"
+        },
+        "command": {
+          "const": "aitm comment"
+        },
+        "ownedCommentKey": {
+          "type": "string",
+          "pattern": "^runtime-contract-approved-evidence\\.review-[A-Za-z0-9._-]+$"
+        },
+        "bindingVerified": {
+          "const": true
+        },
+        "lifecycleApproval": {
+          "const": false
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "actorSessionFingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "bindingGenerationId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        }
+      }
+    },
+    "rootInspection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "receiptReferences", "verifierReferences", "limitations"],
+      "properties": {
+        "method": {
+          "const": "independent-local-source-and-complete-lineage-inspection"
+        },
+        "receiptReferences": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/gitRef"
+          }
+        },
+        "verifierReferences": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/gitRef"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "authorityAssurance": {
+      "const": "unavailable"
+    },
+    "activationAuthorized": {
+      "const": false
+    },
+    "publicationAllowed": {
+      "const": false
+    },
+    "remainingObligations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "gitRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "path", "blob", "sha256"],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(?!(test|tests|node_modules|\\.scratch)/)[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$"
+        },
+        "blob": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "normalReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewId", "subject", "manifest", "finalResponse", "finalization"],
+      "properties": {
+        "reviewId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "manifest": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "finalResponse": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "finalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revision", "sha256"],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review", "receipt", "verifier"],
+      "properties": {
+        "review": {
+          "$ref": "#/$defs/normalReview"
+        },
+        "receipt": {
+          "$ref": "#/$defs/gitRef"
+        },
+        "verifier": {
+          "$ref": "#/$defs/gitRef"
+        }
+      }
+    }
+  }
+}

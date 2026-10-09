@@ -16,7 +16,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { AprError } from '../../src/errors.mjs';
-import { setup } from '../../src/config/setup.mjs';
 import {
   openParticipantBinding,
   recordParticipantBinding,
@@ -27,14 +26,14 @@ import {
   collectClaudeStream,
   readClaudeStreamObservation,
   readClaudeSessionSnapshot,
-} from '../../src/providers/claude-stream.mjs';
-import { run, startReview } from '../../src/cli/run.mjs';
+} from '../helpers/claude-stream-api.mjs';
+import { run, startReview } from '../helpers/operations-api.mjs';
 import { fingerprintSession, participantIdentity } from '../../src/identity/registry.mjs';
 import { createClaudeAdapter } from '../../src/providers/claude.mjs';
 import { createCodexProviderSurface } from '../../src/providers/codex.mjs';
 import { readCodexSessionSnapshot } from '../../src/providers/codex-session.mjs';
-import { captureCodexStartHook, readCodexStartHook } from '../../src/providers/codex-hook.mjs';
-import { activateStartup, prepareStartup } from '../../src/startup/runtime.mjs';
+import { captureCodexStartHook, readCodexStartHook } from '../helpers/codex-hook-api.mjs';
+import { activateStartup, prepareStartup } from '../helpers/operations-api.mjs';
 import { fixtureStartupDeps } from '../helpers/internal-api.mjs';
 
 const NOW = '2026-09-21T00:00:00.000Z';
@@ -668,7 +667,7 @@ test('Claude stream observation is persisted before the provider process exits',
     "const init={type:'system',subtype:'init',model:'claude-opus-5',session_id:'stream-session',claude_code_version:'2.1.278'};",
     "const use={type:'assistant',session_id:'stream-session',timestamp:'2026-09-21T14:35:00.000Z',message:{model:'claude-opus-5',content:[{type:'tool_use',id:'tool-stream',name:'Bash',input:{command:'peer-review join /repo/invitation.md'}}]}};",
     "process.stdout.write(JSON.stringify(init)+'\\n'+JSON.stringify(use)+'\\n');",
-    "setTimeout(()=>{if(!fs.existsSync(process.argv[1]))process.exit(42);process.stdout.write(JSON.stringify({type:'result',session_id:'stream-session',result:'done'})+'\\n');},200);",
+    "const deadline=Date.now()+5000;const wait=()=>{if(fs.existsSync(process.argv[1])){process.stdout.write(JSON.stringify({type:'result',session_id:'stream-session',result:'done'})+'\\n');return;}if(Date.now()>=deadline)process.exit(42);setTimeout(wait,20);};wait();",
   ].join('');
   const child = spawn(
     process.execPath,
@@ -1127,15 +1126,12 @@ test('CLI start uses production adapters when no test registry is injected', asy
 });
 
 test('CLI doctor reports the current provider adapter observation', async (t) => {
-  const fx = repositoryFixture('apr-provider-doctor-');
-  t.after(fx.cleanup);
-  setup({ scope: 'project', agents: ['codex'], cwd: fx.root, confirmScratchExclude: true });
+  const fixture = repositoryFixture('apr-provider-doctor-');
+  t.after(fixture.cleanup);
   let stdout = '';
   const code = await run(['doctor', '--json'], {
-    cwd: fx.root,
+    cwd: fixture.root,
     env: {
-      APPDATA: path.join(fx.root, '.scratch', 'user-config'),
-      XDG_CONFIG_HOME: path.join(fx.root, '.scratch', 'user-config'),
       CODEX_THREAD_ID: 'doctor-session',
       CODEX_MODEL_ID: 'gpt-6-astra',
       CODEX_MODEL_DISPLAY: 'GPT-6 Astra',
@@ -1156,8 +1152,9 @@ test('CLI doctor reports the current provider adapter observation', async (t) =>
     stdout: { write: (value) => (stdout += value) },
     stderr: { write: () => {} },
   });
-  assert.equal(code, 0, stdout);
   const result = JSON.parse(stdout);
+  assert.equal(code, 1);
+  assert.equal(result.rows.find((row) => row.id === 'primary-registration').status, 'unavailable');
   assert.deepEqual(
     result.rows.find((entry) => entry.id === 'provider-adapter'),
     {

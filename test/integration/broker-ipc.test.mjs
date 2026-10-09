@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { requestBroker } from '../../src/broker/client.mjs';
+import { createBrokerClientOperations } from '../../src/broker/client-core.mjs';
+import { requestBroker } from '../helpers/broker-client-api.mjs';
 import {
   connectBroker,
   createFrameDecoder,
@@ -256,4 +257,148 @@ test('broker schema closes handshake, command and reply projections', () => {
   for (const name of ['handshake', 'command', 'reply']) {
     assert.equal(schema.$defs[name].additionalProperties, false);
   }
+});
+
+test('command submission revalidates the carried effect fence after asynchronous connection acquisition', async () => {
+  const failure = Object.assign(new Error('authority changed during handshake'), {
+    code: 'APR_TEST_AUTHORITY_CHANGED',
+  });
+  const operations = createBrokerClientOperations({
+    performCurrentOperationEffect: (operation) => operation(),
+    assertCurrentOperationAuthority() {
+      throw failure;
+    },
+  });
+  let submitted = false;
+  let closed = false;
+  const client = {
+    async takeConnection() {
+      await Promise.resolve();
+      return {
+        exchange() {
+          submitted = true;
+          throw new Error('command was submitted after authority drift');
+        },
+        close() {
+          closed = true;
+        },
+      };
+    },
+  };
+  await assert.rejects(operations.requestBroker(client, 'stop'), (error) => error === failure);
+  assert.equal(submitted, false);
+  assert.equal(closed, true);
+});
+
+test('malformed and truncated command handshakes remain terminal without retry', async () => {
+  for (const message of ['Broker frame prefix is truncated.', 'Malformed broker handshake.']) {
+    const failure = Object.assign(new Error(message), { code: 'APR_BROKER_PROTOCOL' });
+    let attempts = 0;
+    const client = {
+      async takeConnection() {
+        attempts++;
+        throw failure;
+      },
+    };
+    await assert.rejects(requestBroker(client, 'stop'), (error) => error === failure);
+    assert.equal(attempts, 1);
+  }
+});
+
+// @story #137
+test('a busy native endpoint is reacquired before one guarded command submission', async () => {
+  let attempts = 0;
+  let submissions = 0;
+  const client = {
+    async takeConnection() {
+      attempts++;
+      if (attempts === 1)
+        throw Object.assign(new Error('Private named pipe cannot be connected.'), {
+          code: 'EBUSY',
+        });
+      return {
+        exchange(bytes) {
+          submissions++;
+          const decoder = createFrameDecoder();
+          const [command] = decoder.push(bytes);
+          decoder.end();
+          assert.equal(command.command, 'stop');
+          return encodeFrame({ id: command.id, ok: true, result: { status: 'stopping' } });
+        },
+        close() {},
+      };
+    },
+  };
+  assert.equal((await requestBroker(client, 'stop')).status, 'stopping');
+  assert.equal(attempts, 2);
+  assert.equal(submissions, 1);
+});
+
+// @story #137
+test('endpoint access denial and unclassified connection failure remain terminal', async () => {
+  for (const code of ['APR_BROKER_ACCESS_DENIED', 'APR_BROKER_START_FAILED']) {
+    let attempts = 0;
+    const failure = Object.assign(new Error('Private named pipe cannot be connected.'), { code });
+    const client = {
+      async takeConnection() {
+        attempts++;
+        throw failure;
+      },
+    };
+    await assert.rejects(requestBroker(client, 'stop'), (error) => error === failure);
+    assert.equal(attempts, 1);
+  }
+});
+
+// @story #137
+test('retired discovery on a client without admitted startup identity stays terminal', async () => {
+  for (const message of [
+    'Broker discovery metadata is unavailable.',
+    'Broker discovery changed during handshake.',
+  ]) {
+    const failure = Object.assign(new Error(message), { code: 'APR_BROKER_STALE' });
+    let attempts = 0;
+    const client = {
+      async takeConnection() {
+        attempts++;
+        throw failure;
+      },
+    };
+    await assert.rejects(requestBroker(client, 'stop'), (error) => error === failure);
+    assert.equal(attempts, 1);
+  }
+});
+
+// @story #137
+test('changed discovery that is still present refuses an admitted unsent command', async () => {
+  const failure = Object.assign(new Error('Broker discovery changed during handshake.'), {
+    code: 'APR_BROKER_STALE',
+  });
+  let commandConnections = 0;
+  let readinessConnections = 0;
+  const { ensureBroker, requestBroker: request } = createBrokerClientOperations({
+    performCurrentOperationEffect: (operation) => operation(),
+    assertCurrentOperationAuthority: () => {},
+  });
+  const client = await ensureBroker({
+    project: { digest: 'e'.repeat(64) },
+    versions: handshake.versions,
+    runtimeImage: { root: '/runtime', nodeExecutable: process.execPath },
+    platform: {
+      verifyRuntimeImage: () => true,
+      discoveryState: () => 'present',
+      connect() {
+        readinessConnections++;
+        return {
+          async takeConnection() {
+            commandConnections++;
+            throw failure;
+          },
+        };
+      },
+    },
+  });
+  await assert.rejects(request(client, 'stop'), (error) => error === failure);
+  assert.equal(commandConnections, 1);
+  assert.equal(readinessConnections, 1);
 });

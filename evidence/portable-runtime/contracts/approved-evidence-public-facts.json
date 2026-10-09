@@ -1,0 +1,244 @@
+{
+  "record": {
+    "revision": "9414ec7cf317ed8f147d34116104b5418323dcaf",
+    "path": "evidence/portable-runtime/contracts/runtime-contract-adoption.json",
+    "blob": "c4ff0df400d83b8e5a8f71f6216fc47679f1c598",
+    "sha256": "cf697a60ad618ceac7caf2a6f46327cd57842f1582d890edcdd41d300d75c104"
+  },
+  "approvalReview": {
+    "reviewId": "review-6db86bd73e10967f9393c0a8403f9c12",
+    "subject": {
+      "revision": "9414ec7cf317ed8f147d34116104b5418323dcaf",
+      "path": "evidence/portable-runtime/contracts/runtime-contract-adoption.json",
+      "blob": "c4ff0df400d83b8e5a8f71f6216fc47679f1c598",
+      "sha256": "cf697a60ad618ceac7caf2a6f46327cd57842f1582d890edcdd41d300d75c104"
+    },
+    "manifest": {
+      "revision": "7470faf68f716f63f25a5d8a9136c727e2bb93a4",
+      "path": "docs/superpowers/peer-reviews/plan/2026-10-05-runtime-contract-adoption-review-6db86bd73e10967f9393c0a8403f9c12/review-6db86bd73e10967f9393c0a8403f9c12-review-manifest.md",
+      "blob": "eba116745c3629cc4ab50a969a13e5c202a16500",
+      "sha256": "c718c88543d79881b2e796144243adc7f150eff412a929c5ed6851e978e46040"
+    },
+    "finalResponse": {
+      "revision": "7470faf68f716f63f25a5d8a9136c727e2bb93a4",
+      "path": "docs/superpowers/peer-reviews/plan/2026-10-05-runtime-contract-adoption-review-6db86bd73e10967f9393c0a8403f9c12/review-6db86bd73e10967f9393c0a8403f9c12-reviewer-response-2.md",
+      "blob": "5f2797338fa44e230d9f0365cd16d2f2f604ef24",
+      "sha256": "3bac2a635050c898009347623019d08df93be833265548b6cc8fe378a80cd8e7"
+    },
+    "finalization": {
+      "revision": "7470faf68f716f63f25a5d8a9136c727e2bb93a4",
+      "sha256": "a9455b59a682c31642e46ae67225d66ba7303d3d7719472b238909b5fede6bca"
+    }
+  },
+  "lineageProofs": [
+    {
+      "review": {
+        "reviewId": "review-58b490491800f0c13d64191cb58071b5",
+        "subject": {
+          "revision": "4d8815b2fabf861d24d25fa9735b953865e99f55",
+          "path": "docs/superpowers/specs/2026-10-03-107-runtime-policy-reconciliation-design.md",
+          "blob": "dcb99da9191789472bbd1840beb72448bf755fba",
+          "sha256": "4e8d38f06fb53b963089cfe5835e2722cc31a3053ac3ba7076467d93e6973405"
+        },
+        "manifest": {
+          "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-05-2026-10-03-107-runtime-policy-reconciliation-design-review-58b490491800f0c13d64191cb58071b5/review-58b490491800f0c13d64191cb58071b5-review-manifest.md",
+          "blob": "f7fc7a459c1b12605e0c1e1270ed78c07e0e07ef",
+          "sha256": "ff16ea825925148f8ab83ee380f10796fc83c75c3c9d26fc93209383a5983efb"
+        },
+        "finalResponse": {
+          "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-05-2026-10-03-107-runtime-policy-reconciliation-design-review-58b490491800f0c13d64191cb58071b5/review-58b490491800f0c13d64191cb58071b5-reviewer-response-2.md",
+          "blob": "387d981ac81f815b202d309cd8783b7c4cb5c382",
+          "sha256": "2fdfb6635210ee77d793aa1a9779fb908b072e7801a8adbc7f7575cd59c76958"
+        },
+        "finalization": {
+          "revision": "59f9628f30ea3945d92972196d7acda4350592a5",
+          "sha256": "a74efc00e4961460674cbef689140c7a4c478a780ff049c27111af0b0d7fb16d"
+        }
+      },
+      "receipt": {
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
+        "path": "evidence/portable-runtime/contracts/review-lineage/review-58b490491800f0c13d64191cb58071b5.json",
+        "blob": "e87d28a280b75903eb6c5621a6f61780558ee1d8",
+        "sha256": "76a0ca687364aeac8d41d9122a203eea79c7b18cd51f1b731df4a1c21d0b4f23"
+      },
+      "verifier": {
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
+        "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
+        "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
+        "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
+      }
+    },
+    {
+      "review": {
+        "reviewId": "review-057079566301a0106537dde070ea518a",
+        "subject": {
+          "revision": "bdd842694a0494da963c538de686d1c85d689d4d",
+          "path": "docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md",
+          "blob": "95a44172d2683c9c5b213c6e9b7be4cd7b690149",
+          "sha256": "3f04358b465b4722bc0d5880c2896e19df44445a1ee3839887749f24cbb935d8"
+        },
+        "manifest": {
+          "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+          "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-review-manifest.md",
+          "blob": "fbadd11475c4015bc6e1a9944119e27dc4bdb712",
+          "sha256": "05ea2c71b969d6893e9be17d0e32d3161f7810fd2a4a9bf1a62797d0654eda93"
+        },
+        "finalResponse": {
+          "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+          "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-144-contract-owner-adoption-addendum-review-057079566301a0106537dde070ea518a/review-057079566301a0106537dde070ea518a-reviewer-response-2.md",
+          "blob": "1cbb91ae79e3427d5780de156d0e0c21d59d3f30",
+          "sha256": "b29bdd2209341f29b6f8a8affd13576f55d58a20410b9f4aac541b468710ee94"
+        },
+        "finalization": {
+          "revision": "674a5c967ed32122eb0c879f4e9991fa3792535b",
+          "sha256": "77d6eb0ebd44dc4394478e657bc644c670e18acc53ef6ff628ea818a0bfba7d7"
+        }
+      },
+      "receipt": {
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
+        "path": "evidence/portable-runtime/contracts/review-lineage/review-057079566301a0106537dde070ea518a.json",
+        "blob": "6ab2cdf05f5725e4c7737199b36a5444ac054e03",
+        "sha256": "ba1560b9a81c0f5b2875cd2c546de84bde94020164dc7d5235cbab31102418ac"
+      },
+      "verifier": {
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
+        "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
+        "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
+        "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
+      }
+    },
+    {
+      "review": {
+        "reviewId": "review-a4157c49c11ad9d12836d7bfea0df472",
+        "subject": {
+          "revision": "c4ba22817b8d558f4f9ab44c9336f60e059efbdc",
+          "path": "docs/superpowers/plans/2026-10-05-107-runtime-contract-plan-amendment.md",
+          "blob": "ff1a376ef81e26ec5f2402090587cfa2438b347a",
+          "sha256": "208a8e54a014415cdef0dda2b6d266b7745e7126d0902a34c2b7c1041b420828"
+        },
+        "manifest": {
+          "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+          "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-107-runtime-contract-plan-amendment-review-a4157c49c11ad9d12836d7bfea0df472/review-a4157c49c11ad9d12836d7bfea0df472-review-manifest.md",
+          "blob": "b7569d9385992ab4a25c1b239fd5cf42900f3c5c",
+          "sha256": "4a4878c34cea8f9fae8e6dfc38081d15c10e315080053183f1fb6101c66e972f"
+        },
+        "finalResponse": {
+          "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+          "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-05-107-runtime-contract-plan-amendment-review-a4157c49c11ad9d12836d7bfea0df472/review-a4157c49c11ad9d12836d7bfea0df472-reviewer-response-2.md",
+          "blob": "faf3f22fa5cd19cb461a15aa0a62ebe955aa36bb",
+          "sha256": "b2b5008a358f8b7cbc0c625401d6cebbb891b0eedb51aafedef481c0ad81b274"
+        },
+        "finalization": {
+          "revision": "f792abd2061ba344c8603b69c729d14af910cf26",
+          "sha256": "64c53a2ca257709d26779e240899e410c2bdcfe7cba1c39e84fcfaba3067117c"
+        }
+      },
+      "receipt": {
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
+        "path": "evidence/portable-runtime/contracts/review-lineage/review-a4157c49c11ad9d12836d7bfea0df472.json",
+        "blob": "cd0ca70c45e3f7d4992a7fb5e19d01202fff92a1",
+        "sha256": "2e3a0001e7b6926ac8491bda55eef018d6cccb1f06f0e00b1f0fe966f6a654b7"
+      },
+      "verifier": {
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
+        "path": "evidence/portable-runtime/contracts/verifier-sources/32f9a27fc46159d777a8732304ca30d97f9d034f.json",
+        "blob": "c4c4ff45fd78f074256a11119ec4a285a973b454",
+        "sha256": "b48700127797c1b89f5615f69550e894264e12696c2b7d2ab7bbe5b7204a3c14"
+      }
+    },
+    {
+      "review": {
+        "reviewId": "review-6522bc912d65661298c2b1a072c32f0b",
+        "subject": {
+          "revision": "92041e75fb333365cc3f73b9c480cb7bc5a50eb1",
+          "path": "docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+          "blob": "d1724d39193d8c54a70c150f44a009f9d214ef88",
+          "sha256": "e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a"
+        },
+        "manifest": {
+          "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+          "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-03-107-agent-first-portable-runtime-review-6522bc912d65661298c2b1a072c32f0b/review-6522bc912d65661298c2b1a072c32f0b-review-manifest.md",
+          "blob": "0201ae549a1381ce304fdf4e5e2a3e2c6e80f1a8",
+          "sha256": "84c1f2657824b8b7953f76b12e77df5659803cc3feb225f0d432148c697fb026"
+        },
+        "finalResponse": {
+          "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+          "path": "docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-03-107-agent-first-portable-runtime-review-6522bc912d65661298c2b1a072c32f0b/review-6522bc912d65661298c2b1a072c32f0b-reviewer-response-2.md",
+          "blob": "557d427d62f2a1a01cdd74bd8e380fc595137581",
+          "sha256": "cb3e62add4a5b8757c8cd65d7771012b5ab4d1df216c7f00bd32fd3410911b06"
+        },
+        "finalization": {
+          "revision": "d855f5ee8be8faf93d1f5be3d332b5fee0d890ec",
+          "sha256": "318cba13e36f3c0d361047f4a21a61b251dd59d181f913dbb034253e32026880"
+        }
+      },
+      "receipt": {
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
+        "path": "evidence/portable-runtime/contracts/review-lineage/review-6522bc912d65661298c2b1a072c32f0b.json",
+        "blob": "20740e5b4baa33c68560ecf02d1fb5df136cba88",
+        "sha256": "f743d3911e51e188f4dc4ea56502d41060b389ec93c577a28374f9f39fbcb6b3"
+      },
+      "verifier": {
+        "revision": "63b3c4df2a75e37bb3690c54f28d17497679172d",
+        "path": "evidence/portable-runtime/contracts/verifier-sources/91d09d4971ce242397c04f616dc459eb9162076d.json",
+        "blob": "36cc81cd987c1c333aafc38787c47336acc6a08b",
+        "sha256": "6e867728907a8a0a67ee5ffe145560d2fd9a39e94134d409594e540a72d71a59"
+      }
+    },
+    {
+      "review": {
+        "reviewId": "review-6db86bd73e10967f9393c0a8403f9c12",
+        "subject": {
+          "revision": "9414ec7cf317ed8f147d34116104b5418323dcaf",
+          "path": "evidence/portable-runtime/contracts/runtime-contract-adoption.json",
+          "blob": "c4ff0df400d83b8e5a8f71f6216fc47679f1c598",
+          "sha256": "cf697a60ad618ceac7caf2a6f46327cd57842f1582d890edcdd41d300d75c104"
+        },
+        "manifest": {
+          "revision": "7470faf68f716f63f25a5d8a9136c727e2bb93a4",
+          "path": "docs/superpowers/peer-reviews/plan/2026-10-05-runtime-contract-adoption-review-6db86bd73e10967f9393c0a8403f9c12/review-6db86bd73e10967f9393c0a8403f9c12-review-manifest.md",
+          "blob": "eba116745c3629cc4ab50a969a13e5c202a16500",
+          "sha256": "c718c88543d79881b2e796144243adc7f150eff412a929c5ed6851e978e46040"
+        },
+        "finalResponse": {
+          "revision": "7470faf68f716f63f25a5d8a9136c727e2bb93a4",
+          "path": "docs/superpowers/peer-reviews/plan/2026-10-05-runtime-contract-adoption-review-6db86bd73e10967f9393c0a8403f9c12/review-6db86bd73e10967f9393c0a8403f9c12-reviewer-response-2.md",
+          "blob": "5f2797338fa44e230d9f0365cd16d2f2f604ef24",
+          "sha256": "3bac2a635050c898009347623019d08df93be833265548b6cc8fe378a80cd8e7"
+        },
+        "finalization": {
+          "revision": "7470faf68f716f63f25a5d8a9136c727e2bb93a4",
+          "sha256": "a9455b59a682c31642e46ae67225d66ba7303d3d7719472b238909b5fede6bca"
+        }
+      },
+      "receipt": {
+        "revision": "063925a771e812c6774ddfa85087192913fa09a2",
+        "path": "evidence/portable-runtime/contracts/review-lineage/review-6db86bd73e10967f9393c0a8403f9c12.json",
+        "blob": "4b55c11c500898ba41014a0a4be1ae91cc9674b0",
+        "sha256": "7060dd9743f68cf58b5f61328f8e814692a833b17452d078da43e6c19539d1e6"
+      },
+      "verifier": {
+        "revision": "063925a771e812c6774ddfa85087192913fa09a2",
+        "path": "evidence/portable-runtime/contracts/verifier-sources/7470faf68f716f63f25a5d8a9136c727e2bb93a4.json",
+        "blob": "41cc46ef422b33cc47e9712cb5b21e1cc5dc9a2c",
+        "sha256": "0605cc89b32bb32c9b2d31086aaa61704042e1ebce82afdeeda9290fae363694"
+      }
+    }
+  ],
+  "transaction": {
+    "kind": "aitm-owned-comment",
+    "repository": "kburson/ai-peer-review",
+    "issue": 144,
+    "ownedCommentKey": "runtime-contract-approved-evidence.review-6db86bd73e10967f9393c0a8403f9c12",
+    "commentDatabaseId": 6001793829,
+    "commentNodeId": "IC_kwDOUTbzDs8AAAABZbwbJQ",
+    "url": "https://github.com/kburson/ai-peer-review/issues/144#issuecomment-6001793829",
+    "authoredBy": "kburson",
+    "bodyPath": "evidence/portable-runtime/contracts/approved-evidence-body.txt",
+    "bodySha256": "655dc1afbc04e555b76860475ba37732cf90fddb5ef00c31bb08832d8c76749f",
+    "publishedAt": "2026-10-05T19:47:11Z",
+    "observedAt": "2026-10-05T19:48:10.805Z"
+  }
+}

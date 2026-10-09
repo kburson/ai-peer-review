@@ -27,3 +27,28 @@ export {
 export { buildClaudeProviderCapability } from './config/load.mjs';
 export { buildReviewerExecutionContract } from './provider/execution-contract.mjs';
 export { preflightReviewerExecution } from './provider/preflight.mjs';
+
+export {
+  configPaths,
+  loadConfig,
+  resolveConfigFields,
+  validatePrimaryStore,
+  validateUserStore,
+} from './config/load.mjs';
+export { resolvePrimaryAuthority } from './config/primary-authority.mjs';
+
+export {
+  readRuntimeSelection,
+  registerRuntimeSelection,
+  assertSelectedRuntime,
+  inspectRuntimeSelection,
+} from './config/runtime-selection.mjs';
+export { verifyRuntimeInventory } from './startup/runtime-inventory.mjs';
+
+export {
+  activatePrimaryPolicy,
+  registerPrimary,
+  inspectPrimary,
+} from './config/primary-operations.mjs';
+export { assertIntegrationCurrent } from './config/integration-contract.mjs';
+export { validateSetupWriteSet } from './config/setup-validation.mjs';

@@ -1,0 +1,23 @@
+{
+  "schema": "ai-peer-review.runtime-contract-adoption-test-cases/v1",
+  "authority": "illustrative test cases only; never publication evidence",
+  "negativeCases": [
+    "wrong-owner",
+    "unknown-owner",
+    "digest-drift",
+    "wrong-blob",
+    "unavailable-bytes",
+    "requested-revisions",
+    "no-commit",
+    "missing-response",
+    "stale-subject",
+    "same-session",
+    "incomplete-lineage",
+    "fixture-authority",
+    "unresolved-contract",
+    "missing-activation-binding",
+    "pending-release",
+    "overlap-obligation",
+    "path-traversal"
+  ]
+}

@@ -436,11 +436,13 @@ export function enterParticipantLossIntervention(review, role, now = new Date())
   );
 }
 
-export async function recordStaleClaimIntervention(workspace, expected, role, now = new Date()) {
-  return mutateReview(workspace, expected, (current) =>
-    enterStaleClaimIntervention(current, role, now)
-  );
+// @story #136
+export function createStaleClaimRecorder(mutateReview) {
+  if (typeof mutateReview !== 'function') throw new TypeError('Protocol writer required');
+  return async (workspace, expected, role, now = new Date()) =>
+    mutateReview(workspace, expected, (current) => enterStaleClaimIntervention(current, role, now));
 }
+export const recordStaleClaimIntervention = createStaleClaimRecorder(mutateReview);
 
 export function reclaimRole(review, identity, now = new Date()) {
   const protocol = protocolOf(review);

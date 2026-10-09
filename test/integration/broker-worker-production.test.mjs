@@ -4,8 +4,9 @@ import test from 'node:test';
 
 import { createProviderBridge } from '../../src/broker/provider-bridge.mjs';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
-import { createProductionReviewWorker } from '../../src/broker/worker-factory.mjs';
-import { canonicalProjection } from '../../src/protocol/service.mjs';
+import { createProductionWorkerOperations } from '../../src/broker/worker-factory-core.mjs';
+import { createProductionReviewWorker } from '../helpers/broker-worker-api.mjs';
+import { canonicalProjection } from '../helpers/protocol-api.mjs';
 import { recoveryWorkerFixture } from '../helpers/recovery-worker-fixture.mjs';
 
 const AUTHOR = `sha256:${'a'.repeat(64)}`;
@@ -690,12 +691,13 @@ for (const stage of ['launch-pending', 'outcome-unknown']) {
   });
 }
 
-test('a prior pinned runtime becomes recovery-only under a newer broker image', async () => {
+test('supported prior collateral continues under current broker despite a different historical image', async () => {
   const f = restartFactoryFixture('outcome-unknown');
   f.input.runtimeImage = { digest: 'sha256:new-image' };
   const worker = await createProductionReviewWorker(f.input);
-  assert.equal(await worker.start(), 'recovery-only');
-  assert.deepEqual([f.stats.openedReviewer, f.stats.starts, f.stats.providerCalls], [0, 0, 0]);
+  assert.equal(await worker.start(), 'bootstrap');
+  assert.ok(f.stats.openedReviewer > 0);
+  assert.deepEqual([f.stats.starts, f.stats.providerCalls], [0, 0]);
 });
 
 test('production restart rejects a joined binding mismatch while launch is unknown', async () => {
@@ -842,4 +844,97 @@ test('recovery snapshot rejects duplicate identity fields even when the last val
   await restored.start();
   await assert.rejects(restored.suspend(), { code: 'APR_BROKER_START_FAILED' });
   assert.equal(f.bytes(), original);
+});
+
+// @story #137
+test('production concurrent lease validates fresh launch evidence without write-admission delay', async () => {
+  const f = restartFactoryFixture('launch-pending');
+  let now = Date.parse('2026-10-03T00:00:00.000Z');
+  let stale = false;
+  const inspected = f.input.inspect;
+  f.input.inspect = () => {
+    const result = inspected();
+    result.state.participants.reviewer = null;
+    return result;
+  };
+  f.input.owner = { verify: () => true, instanceId: 'c'.repeat(64), nonce: 'd'.repeat(64) };
+  f.input.platform.now = () => new Date(now).toISOString();
+  f.input.invitationPath = '/tmp/project/reviewer-invitation.md';
+  delete f.input.acquireResource;
+  f.reviewer.observeLaunchResource = async () => ({
+    status: 'ready',
+    session_handle: 'reviewer-launch',
+    observed_at: new Date(now - (stale ? 6_000 : 0)).toISOString(),
+  });
+  const operations = createProductionWorkerOperations({
+    performCurrentOperationEffect: (operation) => {
+      // Model slow repository/native write admission, keeping the actual lease real.
+      now += 6_000;
+      return operation();
+    },
+  });
+  const worker = await operations.createProductionReviewWorker(f.input);
+  await worker.launchReviewer({ operationId: LAUNCH });
+  assert.equal(f.stats.providerCalls, 1);
+  stale = true;
+  await assert.rejects(worker.launchReviewer({ operationId: LAUNCH }), {
+    code: 'APR_PROVIDER_RESOURCE_STALE',
+  });
+  assert.equal(f.stats.providerCalls, 1);
+});
+
+// @story #137
+test('production concurrent reviewer wake keeps fresh evidence during first session acquisition', async () => {
+  const f = restartFactoryFixture('launched');
+  let now = Date.parse('2026-10-03T00:00:00.000Z');
+  let bridge;
+  f.input.owner = { verify: () => true, instanceId: 'c'.repeat(64), nonce: 'd'.repeat(64) };
+  f.input.platform.now = () => new Date(now).toISOString();
+  f.input.clock = { now: () => now };
+  const inspectStatus = f.input.inspectStatus;
+  f.input.inspectStatus = () => {
+    const status = inspectStatus();
+    status.review.recovery.event_revision = 2;
+    return status;
+  };
+  delete f.input.acquireResource;
+  f.input.coordinator = async ({ adapter }) => {
+    bridge = adapter;
+  };
+  const openSession = f.input.openSession;
+  f.input.openSession = async (input) => ({
+    ...(await openSession(input)),
+    handle_locator: input.role + '-session',
+  });
+  f.reviewer.observeTransport = async ({ binding }) => ({
+    session_fingerprint: REVIEWER,
+    capability: 'live-wait',
+    adapter_version: '1.0.0',
+    lease: {
+      schema: 'ai-peer-review.resident-lease/v1',
+      process_instance_id: 'reviewer-process',
+      pid: null,
+      opaque_handle: binding.handle_locator,
+      host: 'claude-code',
+      adapter_version: '1.0.0',
+      heartbeat_sequence: 1,
+      observed_at: new Date(now).toISOString(),
+      expires_at: new Date(now + 60_000).toISOString(),
+    },
+  });
+  f.reviewer.observeResource = async ({ binding }) => ({
+    status: 'ready',
+    session_handle: binding.handle_locator,
+    observed_at: new Date(now).toISOString(),
+  });
+  const operations = createProductionWorkerOperations({
+    performCurrentOperationEffect: (operation) => {
+      now += 6_000;
+      return operation();
+    },
+  });
+  const worker = await operations.createProductionReviewWorker(f.input);
+  await worker.start();
+  await bridge.deliver(fixture().wake('reviewer', 2));
+  assert.equal(f.stats.providerCalls, 1);
 });

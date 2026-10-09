@@ -78,6 +78,7 @@ function validManifest(overrides = {}) {
         'docs/superpowers',
         'docs/releases',
         'docs/whitepapers',
+        'evidence/portable-runtime/contracts',
         'provenance',
         'schemas',
         'skills/peer-review',
@@ -130,6 +131,7 @@ function validManifest(overrides = {}) {
         'docs/dependency-audit-mcp.md',
         'docs/manual-cross-provider-peer-review.md',
         'docs/spdx-policy.md',
+        'docs/installation-runtime.md',
         'eslint.config.mjs',
         'package-lock.json',
         'package.json',
@@ -137,16 +139,30 @@ function validManifest(overrides = {}) {
         'native/broker-security/binding.gyp',
         'native/broker-security/posix.cc',
         'native/broker-security/windows.cc',
+        'scripts/ci/prepare-contract-adoption.mjs',
         'scripts/ci/receipt.mjs',
         'scripts/ci/record-tests.mjs',
         'scripts/ci/verify-receipts.mjs',
+        'scripts/check-runtime-contract-adoption.mjs',
+        'scripts/lib/runtime-contract-evidence.mjs',
+        'scripts/lib/runtime-review-grammar-v0.4.1.mjs',
+        'scripts/lib/runtime-review-lineage-proof.mjs',
+        'scripts/lib/review-grammar-v0.4.1/compatibility.mjs',
+        'scripts/lib/review-grammar-v0.4.1/events.mjs',
+        'scripts/lib/review-grammar-v0.4.1/record-lineage.mjs',
+        'scripts/lib/review-grammar-v0.4.1/reducer.mjs',
+        'scripts/lib/review-grammar-v0.4.1/runtime-descriptor.mjs',
+        'scripts/lib/review-grammar-v0.4.1/runtime-v1.json',
         'scripts/build-broker-security.mjs',
+        'scripts/prepare-source-tests.mjs',
         'scripts/run-secret-scan.mjs',
         'scripts/task-tracker/verify-epic-trail.mjs',
         'scripts/update-template-goldens.mjs',
         'scripts/verify-extraction.mjs',
         'scripts/verify-manual-xpr-evidence.mjs',
         'scripts/verify-release.mjs',
+        'scripts/pack-runtime.mjs',
+        'scripts/refuse-source-pack.mjs',
         'vendors/kburson-ai-task-manager-0.1.0.tgz',
       ],
     },
@@ -323,7 +339,6 @@ test('[#107] admits pinned historical contract inputs without widening their dir
     'docs/peer-reviews/spec/2026-09-13-2026-09-13-30-artifact-lifecycle-review-evidence-design-review-2a69dff2dd2992f3d33854e7ca31e888/review-2a69dff2dd2992f3d33854e7ca31e888-reviewer-response-1.md',
     'docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md',
     'docs/plans/2026-09-13-30-artifact-lifecycle-review-evidence.md',
-    'evidence/portable-runtime/contracts/2026-10-05-107-canonical-plan-author-sar.md',
   ];
   await verifyExtraction({
     root: '/repo',
@@ -335,7 +350,6 @@ test('[#107] admits pinned historical contract inputs without widening their dir
     'docs/design/unrelated.md',
     'docs/plans/unrelated.md',
     'docs/peer-reviews/unrelated.md',
-    'evidence/portable-runtime/contracts/unregistered.json',
   ]) {
     await assert.rejects(
       verifyExtraction({
@@ -379,8 +393,9 @@ test('does not widen co-review globs to their containing directories', async () 
   );
 });
 
-test('admits the four declared CI evidence files and rejects neighboring foreign files', async () => {
+test('[#144] admits declared CI evidence and preparation files but rejects neighboring scripts', async () => {
   const declared = [
+    'scripts/ci/prepare-contract-adoption.mjs',
     'docs/ci-verification.md',
     'scripts/ci/receipt.mjs',
     'scripts/ci/record-tests.mjs',
@@ -391,7 +406,11 @@ test('admits the four declared CI evidence files and rejects neighboring foreign
     manifest: validManifest(),
     runGit: fakeGit({ current: ['LICENSE', ...declared].join('\n') }),
   });
-  for (const foreign of ['scripts/ci/other.mjs', 'docs/ci-other.md']) {
+  for (const foreign of [
+    'scripts/ci/prepare-contract-adoption-copy.mjs',
+    'scripts/ci/other.mjs',
+    'docs/ci-other.md',
+  ]) {
     await assert.rejects(
       verifyExtraction({
         root: '/repo',
@@ -782,4 +801,23 @@ test('refuses to record a failed Gitleaks scan as passing', () => {
       }),
     /Gitleaks scan failed/
   );
+});
+
+test('[#144] standalone inventory admits excluded contract evidence and exact checker closure only', async () => {
+  const allowed=[
+    'evidence/portable-runtime/contracts/runtime-contract-adoption.json',
+    'evidence/portable-runtime/contracts/review-lineage/review-fixture.json',
+    'scripts/check-runtime-contract-adoption.mjs',
+    'scripts/lib/runtime-contract-evidence.mjs',
+    'scripts/lib/runtime-review-grammar-v0.4.1.mjs',
+    'scripts/lib/runtime-review-lineage-proof.mjs',
+    'scripts/lib/review-grammar-v0.4.1/events.mjs',
+  ];
+  await verifyExtraction({root:'/repo',manifest:validManifest(),
+    runGit:fakeGit({current:['LICENSE',...allowed].join('\n')})});
+  for(const foreign of ['evidence/portable-runtime/other.json','evidence/other.json',
+    'scripts/lib/unrelated.mjs','scripts/lib/review-grammar-v0.4.1/unrelated.mjs']){
+    await assert.rejects(verifyExtraction({root:'/repo',manifest:validManifest(),
+      runGit:fakeGit({current:['LICENSE',...allowed,foreign].join('\n')})}),/foreign standalone paths/);
+  }
 });
