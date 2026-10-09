@@ -80,7 +80,7 @@ export async function bootstrapPortableInventory(options = {}) {
         if (stamp(file) !== before) throw Error('portable-bootstrap-dependency-changed');
         files.push({ path: target, sha256: digest(bytes) });
         observed.push({ file, stamp: before });
-      } else if (!stat.isFile()) throw Error('portable-bootstrap-nonordinary-entry');
+      } else if (!stat.isFile()) throw Error('portable-bootstrap-non-ordinary-entry');
     }
   }
   visit('node_modules');
