@@ -38,14 +38,21 @@ for (const legacyName of ['resource.json', 'resource.lock']) {
     async (t) => {
       const home = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-provider-legacy-')));
       t.after(() => rm(home, { recursive: true, force: true }));
-      const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+      const bounded = () => ({
+        signal: new AbortController().signal,
+        deadline: performance.now() + 30000,
+      });
+      const setup = bounded();
       const digest = 'a'.repeat(64),
         root = path.join(home, '.cache', 'ai-peer-review', 'provider-resources', digest);
-      const receipt = await provisionProtectedRoot({ root, ...context });
-      const guard = await openProtectedRoot({ receipt, ...context });
+      const receipt = await provisionProtectedRoot({ root, ...setup });
+      const guard = await openProtectedRoot({ receipt, ...setup });
       t.after(() => guard.close());
       const bytes = Buffer.from('retained-uncertain-owner');
       await guard.writeExclusive(legacyName, bytes);
+      // Setup, the refused request, and independent final inspection are three
+      // operations. None may renew the deadline of another in-flight request.
+      const context = bounded();
       let elections = 0;
       const create = await adapter({
         path,
@@ -81,11 +88,18 @@ for (const legacyName of ['resource.json', 'resource.lock']) {
       );
       t.after(() => resources.close());
       await resources.ports.openPrivateDirectory(root);
-      await assert.rejects(resources.ports.acquireExclusive(path.join(root, 'resource.lock')), {
-        code: 'APR_PROVIDER_RESOURCE_STALE',
-      });
+      await assert.rejects(
+        resources.ports.acquireExclusive(path.join(root, 'resource.lock')),
+        (error) =>
+          error.code === 'APR_PROVIDER_RESOURCE_STALE' &&
+          /Retained native provider evidence/.test(error.message)
+      );
       assert.equal(elections, 0);
-      assert.deepEqual(await guard.read(legacyName), bytes);
+      const inspection = bounded();
+      const freshReceipt = await observeStorageProtection({ root, ...inspection });
+      const inspector = await openProtectedRoot({ receipt: freshReceipt, ...inspection });
+      t.after(() => inspector.close());
+      assert.deepEqual(await inspector.read(legacyName), bytes);
     }
   );
 }
