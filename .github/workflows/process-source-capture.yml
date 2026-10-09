@@ -2,7 +2,7 @@ name: Process source conformance capture
 
 on:
   push:
-    branches: [codex/170-source-conformance]
+    branches: [codex/190-installed-journeys]
     paths:
       - .github/workflows/process-source-capture.yml
       - test/helpers/process-source-ci-host.mjs

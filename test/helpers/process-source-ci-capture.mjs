@@ -1,4 +1,5 @@
 // @story #170
+// @story #190
 // Public pre-capture artifacts and signed controls on disposable hosted workers only.
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
@@ -6,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { initializeCiClockHost } from './process-source-ci-host.mjs';
+import { captureProducerFiles, assertCaptureProducerFiles } from './capture-producer-freeze.mjs';
 import { runProcessSourceConformance } from '../live/process-source-conformance.mjs';
 import { readApprovedProcessSourceIndex } from '../live/process-source/authority.mjs';
 import {
@@ -14,14 +16,7 @@ import {
 } from '../live/process-source/records.mjs';
 const ROOT = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
 const DRIVER = 'test/live/process-source-conformance.mjs';
-const PRODUCERS = [
-  'test/live/process-source-conformance.mjs',
-  'test/live/process-source',
-  'test/helpers/process-source-child.mjs',
-  'test/helpers/process-source-proc-error.mjs',
-  'test/helpers/process-source-ci-host.mjs',
-  'test/helpers/process-source-ci-capture.mjs',
-];
+const CAPTURE_BRANCH = 'codex/190-installed-journeys';
 const fail = (code) => {
   throw Error(code);
 };
@@ -36,13 +31,25 @@ function host() {
     !['Linux', 'macOS', 'Windows'].includes(process.env.RUNNER_OS)
   )
     fail('ci-capture-host-unavailable');
+  if (process.env.GITHUB_REF_NAME !== CAPTURE_BRANCH) fail('ci-capture-branch-unavailable');
 }
-const git = (args) =>
+const gitRaw = (args) =>
   execFileSync('git', ['-C', ROOT, ...args], {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
     timeout: 30000,
-  }).trim();
+  });
+const git = (args) => gitRaw(args).trim();
+const paths = (output) => output.split('\0').filter(Boolean);
+const producerFiles = () => captureProducerFiles(paths(gitRaw(['ls-files', '-z'])));
+const assertProducers = (state) => {
+  const current = producerFiles();
+  const changed = paths(gitRaw(['diff', '--name-only', '-z', state.codeCommit, '--']));
+  assertCaptureProducerFiles(state.producerFiles, current, changed);
+  const untracked = paths(gitRaw(['ls-files', '--others', '--exclude-standard', '-z']));
+  if (untracked.length && captureProducerFiles(untracked).length)
+    fail('ci-capture-untracked-producer');
+};
 const json = (file) => JSON.parse(readFileSync(file, 'utf8'));
 const write = (file, value) =>
   writeFileSync(file, JSON.stringify(value, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
@@ -65,6 +72,13 @@ async function prepare() {
     output = path.join(base, 'public');
   mkdirSync(output, { recursive: true });
   const codeCommit = git(['rev-parse', 'HEAD']);
+  const frozen = { codeCommit, producerFiles: producerFiles() };
+  assertProducers(frozen);
+  write(path.join(output, 'producer-freeze.json'), {
+    schema: 'ai-peer-review.capture-producer-freeze/v1',
+    verified: false,
+    ...frozen,
+  });
   let prerequisite = { verified: false, clockChanges: 'none', restoration: 'not-required' };
   if (process.platform === 'linux') {
     const clock = await initializeCiClockHost();
@@ -99,7 +113,7 @@ async function prepare() {
     captures: captures.map((c) => ({ captureId: c.captureId, kind: c.kind })),
   });
   write(path.join(output, 'package-receipt.json'), json(packagePath + '.receipt.json'));
-  write(path.join(base, 'private-state.json'), { codeCommit, captures, packagePath });
+  write(path.join(base, 'private-state.json'), { ...frozen, captures, packagePath });
   console.log('Public pre-capture registrations ready; ordinary review required.');
 }
 async function approval(capture, state) {
@@ -109,7 +123,7 @@ async function approval(capture, state) {
     capture.captureId +
     '.json';
   while (performance.now() < end) {
-    git(['fetch', 'origin', 'codex/170-source-conformance']);
+    git(['fetch', 'origin', CAPTURE_BRANCH]);
     const remote = git(['rev-parse', 'FETCH_HEAD']);
     let value;
     try {
@@ -119,7 +133,7 @@ async function approval(capture, state) {
       continue;
     }
     git(['checkout', '--detach', remote]);
-    git(['diff', '--exit-code', state.codeCommit, '--', ...PRODUCERS]);
+    assertProducers(state);
     const authority = await readApprovedProcessSourceIndex({ approvedRef: value });
     const registered = authority.registrations.get(
       'evidence/portable-runtime/process-source/registrations/' + capture.captureId + '.json'
@@ -199,6 +213,7 @@ async function captureAll() {
   const base = location(),
     state = json(path.join(base, 'private-state.json'));
   for (const capture of state.captures) {
+    assertProducers(state);
     const approved = await approval(capture, state);
     const approvedRef = path.join(base, capture.captureId + '-approved-ref.json');
     write(approvedRef, approved);
