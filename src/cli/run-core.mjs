@@ -12,7 +12,6 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
 
 import {
   canonicalChallengeBytes,
@@ -35,10 +34,11 @@ import {
   openParticipantSession,
   recordParticipantBinding,
 } from '../broker/participant-binding.mjs';
-import { canonicalProjectIdentity } from '../broker/identity.mjs';
-import { connectBroker } from '../broker/ipc.mjs';
-import { brokerPaths } from '../broker/paths.mjs';
-import { platformSecurity } from '../broker/platform.mjs';
+import {
+  observePortableProject,
+  observeReadOnlyPortableProject,
+} from '../broker/portable-project.mjs';
+import { connectPortableBroker } from '../broker/client.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { planReviewRecord } from '../collateral/review-record.mjs';
 import { loadConfig } from '../config/load.mjs';
@@ -69,7 +69,7 @@ import { withoutProviderIdentity } from '../provider/preflight.mjs';
 import { createClaudeStreamRecorder as rawCreateClaudeStreamRecorder } from '../providers/claude-stream.mjs';
 import { authorityDiagnosticRows } from '../startup/authority-diagnostics.mjs';
 import { doctor } from '../doctor.mjs';
-import { inspectPlatformSecurity } from '../broker/platform.mjs';
+import { inspectPortableBrokerSupport } from '../broker/portable-project.mjs';
 import { fenceManualRecovery as rawFenceManualRecovery } from '../broker/client.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { commitExactPaths, createGitTransactionRepository } from '../git/transaction.mjs';
@@ -128,9 +128,13 @@ import { parseCommand } from './parse.mjs';
 // @story #136
 export function createReviewOperations({
   protocol,
+  resolveBrokerProject = async ({ cwd, readOnly }) =>
+    readOnly ? observeReadOnlyPortableProject({ cwd }) : observePortableProject({ cwd }),
+  connectBrokerClient = async ({ project }) => connectPortableBroker({ cwd: project.physicalRoot }),
   ensureBroker = rawEnsureBroker,
   requestBroker = rawRequestBroker,
   fenceManualRecovery = rawFenceManualRecovery,
+  suspendBrokerRecovery = (workspace) => fenceManualRecovery(workspace),
   startup,
   productionProviderAdapters,
   createClaudeStreamingExec,
@@ -4730,47 +4734,21 @@ export function createReviewOperations({
   }
 
   async function brokerCommand(verb, workspace, io) {
-    const readOnlyPlatform = Object.freeze({
-      kind: process.platform,
-      canonicalPath: realpathSync,
-      userId: () => String(process.geteuid?.() ?? process.env.USERNAME),
-    });
-    const repository = io.repository ?? createGitRepository();
-    const offlineProject = canonicalProjectIdentity({
-      cwd: io.cwd,
-      platform: Object.freeze({
-        ...readOnlyPlatform,
-        repository,
-      }),
-    });
-    const inspectEvidence = io.brokerInspectEvidence ?? inspectBrokerEvidence;
-    const evidence = inspectEvidence(offlineProject);
-    let security;
+    let project;
     try {
-      security =
-        io.brokerPlatform ??
-        (io.brokerConnect
-          ? readOnlyPlatform
-          : platformSecurity(io.brokerSecurityRoot ? { root: io.brokerSecurityRoot } : undefined));
+      project = await resolveBrokerProject({ cwd: io.cwd, readOnly: verb === 'status', io });
     } catch (error) {
-      if (verb === 'status' && error?.code === 'APR_BROKER_START_FAILED')
-        return offlineBrokerStatus(offlineProject, evidence, error);
+      if (verb === 'status')
+        return offlineBrokerStatus(
+          { physicalRoot: io.cwd, digest: null },
+          { registrations: [], candidates: [], malformed: [] },
+          error
+        );
       throw error;
     }
-    const project = canonicalProjectIdentity({
-      cwd: io.cwd,
-      platform: Object.freeze({ ...security, repository }),
-    });
+    const evidence = (io.brokerInspectEvidence ?? inspectBrokerEvidence)(project);
     const versions = brokerVersions(io);
-    const paths = io.brokerConnect
-      ? null
-      : brokerPaths({
-          identity: project,
-          platform: security,
-          env: io.env,
-          home: os.homedir(),
-        });
-    const connect = io.brokerConnect ?? ((input) => connectBroker(input, security));
+    const connect = () => connectBrokerClient({ project, versions, io });
     if (verb === 'suspend') {
       const authority = inspectReviewAuthority(workspace);
       if (authority.state.protocol.startup.context.repository_root !== project.physicalRoot) {
@@ -4780,9 +4758,7 @@ export function createReviewOperations({
           'Run the command from the registered project and use its exact review workspace.'
         );
       }
-      const recovery = await fenceManualRecovery(workspace, {
-        connect: () => connect({ identity: project, paths, versions }),
-      });
+      const recovery = await suspendBrokerRecovery(workspace, connect);
       if (!recovery?.fenced) {
         fail(
           'APR_BROKER_START_FAILED',
@@ -4798,10 +4774,11 @@ export function createReviewOperations({
     }
     let client;
     try {
-      client = await connect({ identity: project, paths, versions });
+      client = await connect();
     } catch (error) {
       const absent = ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code);
-      if (verb === 'status' && absent) return offlineBrokerStatus(project, evidence, error);
+      if (verb === 'status' && (absent || error instanceof AprError))
+        return offlineBrokerStatus(project, evidence, error);
       if (verb !== 'reconcile' || !absent) throw error;
       // Startup authority and the pinned image identify the only runtime allowed
       // to inspect this review. Broker startup may recover old registrations but
@@ -4818,14 +4795,18 @@ export function createReviewOperations({
         project,
         versions: runtime.versions,
         runtimeImage: runtime.runtimeImage,
-        platform: security,
       });
     }
     let value;
     try {
       value = await requestBroker(client, verb, workspace);
+    } catch (error) {
+      if (verb === 'status' && error instanceof AprError)
+        return offlineBrokerStatus(project, evidence, error);
+      throw error;
     } finally {
-      client.connection?.close?.();
+      await client.close?.();
+      await client.connection?.close?.();
     }
     return brokerProjection(verb, value);
   }
@@ -5013,7 +4994,7 @@ export function createReviewOperations({
       phaseTwo,
       providerAdapter,
       providerRequired: requestedMode === 'automatic-required',
-      brokerSecurity: io.brokerSecurity ?? inspectPlatformSecurity(),
+      brokerSecurity: io.brokerSecurity ?? (await inspectPortableBrokerSupport({ cwd: io.cwd })),
     };
   }
 
@@ -5231,35 +5212,6 @@ export function createReviewOperations({
             `${parsed.options.dryRun ? 'Preview only; no files changed.' : 'Setup applied.'} Scope: ${response.scope}. Changed ${response.applied ?? 0} files.\n${response.writes.map((entry) => `${entry.owner}: ${entry.file}${parsed.options.dryRun ? `\nBefore (${entry.beforeDigest ?? 'absent'}):\n${entry.before ?? ''}After (${entry.afterDigest ?? 'removed'}):\n${entry.after ?? ''}` : ''}`).join('\n')}\n`
           );
         return 0;
-      }
-      if (parsed.command === 'build') {
-        const nodeRoot = path.dirname(path.dirname(realpathSync(process.execPath)));
-        const script = fileURLToPath(
-          new URL('../../scripts/build-broker-security.mjs', import.meta.url)
-        );
-        try {
-          const output = io.buildBrokerSecurity
-            ? await io.buildBrokerSecurity({ script, nodeRoot, nodeExecutable: process.execPath })
-            : await execFile(process.execPath, [script, '--nodedir', nodeRoot], {
-                cwd: path.dirname(path.dirname(script)),
-                maxBuffer: 1024 * 1024,
-              });
-          io.stdout.write(
-            output?.stdout ?? `Built broker security for Node ${process.versions.node}.\n`
-          );
-          return 0;
-        } catch (cause) {
-          fail(
-            'APR_BROKER_BUILD_FAILED',
-            'Broker security helper build failed.',
-            'Install matching local Node development files and a C++ build toolchain, then rerun peer-review build broker-security.',
-            {
-              reason: String(cause?.stderr ?? cause?.message ?? cause)
-                .trim()
-                .slice(0, 1000),
-            }
-          );
-        }
       }
       if (parsed.command === 'doctor') {
         let loaded;

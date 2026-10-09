@@ -492,3 +492,69 @@ test('startup waits for slow recovery without connecting to an unpublished broke
   assert.equal(result, client);
   assert.equal(launches, 1);
 });
+
+test('portable HTTP isolates project credentials and versions and drains stop before releasing each owner', async (t) => {
+  const { portableServiceJourney } = await import('../helpers/portable-service-journey.mjs');
+  const a = await portableServiceJourney(t, {
+    identity: identity('a'.repeat(64), '/projects/a'),
+    versions: { package_version: '1.0.0', broker_protocol_version: 1, node_major: 24 },
+  });
+  const b = await portableServiceJourney(t, {
+    identity: identity('b'.repeat(64), '/projects/b'),
+    versions: { package_version: '2.0.0', broker_protocol_version: 1, node_major: 26 },
+  });
+  assert.equal(a.verified, false);
+  assert.notEqual(a.endpoint.port, b.endpoint.port);
+  assert.equal((await a.request('status')).result.project_digest, 'a'.repeat(64));
+  assert.equal((await b.request('status')).result.project_digest, 'b'.repeat(64));
+  assert.equal((await a.request('status', null, b.privateBinding)).ok, false);
+  assert.equal((await b.request('status', null, a.privateBinding)).ok, false);
+  assert.equal((await a.request('stop')).result.status, 'stopping');
+  await a.run.untilStopped;
+  assert.deepEqual(a.facts(), { published: true, drained: true, released: true });
+  assert.equal((await b.request('status')).ok, true);
+  assert.equal((await b.request('stop')).result.status, 'stopping');
+  await b.run.untilStopped;
+  assert.deepEqual(b.facts(), { published: true, drained: true, released: true });
+});
+
+test('portable HTTP restores multiple reviews before publication and refuses a foreign registration', async (t) => {
+  const { portableServiceJourney } = await import('../helpers/portable-service-journey.mjs');
+  const local = identity('c'.repeat(64), '/projects/local');
+  const registrations = ['one', 'two'].map((review_id) => ({
+    review_id,
+    workspace: '/projects/local/' + review_id,
+    project_digest: local.digest,
+  }));
+  const restored = [];
+  let state = 'automatic-wait';
+  const journey = await portableServiceJourney(t, {
+    identity: local,
+    versions: { package_version: '1.0.0', broker_protocol_version: 1, node_major: 24 },
+    registrations,
+    workerFactory: (registration) => {
+      restored.push(registration.review_id);
+      return worker(() => state);
+    },
+  });
+  assert.deepEqual(restored, ['one', 'two']);
+  assert.equal(journey.facts().published, true);
+  const foreign = {
+    review_id: 'foreign',
+    workspace: '/projects/local/foreign',
+    project_digest: 'd'.repeat(64),
+  };
+  registrations.push(foreign);
+  const refused = await journey.request('register', foreign.workspace);
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error.code, 'APR_BROKER_AUTH_FAILED');
+  assert.deepEqual(restored, ['one', 'two']);
+  registrations.pop();
+  assert.equal((await journey.request('stop')).error.code, 'APR_BROKER_STOP_REFUSED');
+  state = 'terminal';
+  for (const registration of registrations)
+    assert.equal((await journey.request('reconcile', registration.workspace)).ok, true);
+  assert.equal((await journey.request('stop')).ok, true);
+  await journey.run.untilStopped;
+  assert.equal(journey.facts().released, true);
+});

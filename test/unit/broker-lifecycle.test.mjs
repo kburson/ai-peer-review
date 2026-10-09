@@ -881,3 +881,231 @@ test('recovery snapshot progression does not block broker readiness or launch pr
   await clock.advance(60_000);
   await running;
 });
+
+test('failed worker cleanup retains its subscription and exact owner-release obligations', async () => {
+  const item = registration('retained-worker');
+  const clock = fakeClock();
+  const server = fakeServer();
+  let unsubscribed = 0;
+  let released = 0;
+  const worker = {
+    start: async () => {
+      throw new Error('restoration refused');
+    },
+    reconcile: async () => {},
+    suspend: async () => {},
+    close: async () => {
+      throw new Error('worker cleanup unresolved');
+    },
+    workState: () => 'automatic-wait',
+    onStateChange: () => () => {
+      unsubscribed += 1;
+    },
+  };
+  await assert.rejects(
+    runBroker({
+      ...brokerInput({
+        clock,
+        server,
+        registrations: [item],
+        workers: new Map([[item.review_id, worker]]),
+      }),
+      owner: {
+        instanceId: 'retained-instance',
+        release: () => {
+          released += 1;
+        },
+      },
+    }),
+    (error) => {
+      assert.match(error.message, /worker cleanup unresolved/);
+      assert.ok(
+        error.details?.outstandingObligations?.some(
+          (value) => value.name === 'broker-worker' && value.workspace === item.workspace
+        )
+      );
+      assert.ok(
+        error.details.outstandingObligations.some(
+          (value) => value.name === 'owner-release' && value.instanceId === 'retained-instance'
+        )
+      );
+      return true;
+    }
+  );
+  assert.equal(unsubscribed, 0);
+  assert.equal(released, 0);
+  assert.equal(server.closed, true);
+});
+
+test('not-drained server shutdown retains exact server and owner-release obligations', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  server.close = async () => {
+    throw new Error('stop response not drained');
+  };
+  let released = 0;
+  const running = runBroker({
+    ...brokerInput({ clock, server }),
+    owner: {
+      instanceId: 'not-drained-instance',
+      release: () => {
+        released += 1;
+      },
+    },
+  });
+  const failed = assert.rejects(running, (error) => {
+    assert.match(error.message, /stop response not drained/);
+    assert.ok(
+      error.details?.outstandingObligations?.some((value) => value.name === 'broker-server')
+    );
+    assert.ok(
+      error.details.outstandingObligations.some(
+        (value) => value.name === 'owner-release' && value.instanceId === 'not-drained-instance'
+      )
+    );
+    return true;
+  });
+  await server.ready;
+  await server.request({ id: 'stop-one', command: 'stop', workspace: null });
+  await failed;
+  assert.equal(released, 0);
+});
+
+test('broker startup, later requests and shutdown use independent bounded authority scopes', async () => {
+  const { createBrokerService } = await import('../../src/broker/service-core.mjs');
+  const scopes = [];
+  let active = 0;
+  const service = createBrokerService({
+    withOperationAuthority: async (input, operation) => {
+      scopes.push(input.operation);
+      active += 1;
+      try {
+        return await operation();
+      } finally {
+        active -= 1;
+      }
+    },
+    assertCurrentOperationAuthority: async () => {
+      assert.ok(active > 0);
+    },
+  });
+  const clock = fakeClock();
+  const server = fakeServer();
+  const running = service.runBroker(brokerInput({ clock, server }));
+  await server.ready;
+  await new Promise((resolve) => setImmediate(resolve));
+  const startupActive = active;
+  const status = await server.request({ id: 'status-later', command: 'status', workspace: null });
+  assert.equal(status.status, 'running');
+  await server.request({ id: 'stop-later', command: 'stop', workspace: null });
+  await running;
+  assert.equal(
+    startupActive,
+    0,
+    'startup authority must finish before the long-lived broker waits'
+  );
+  assert.deepEqual(scopes, ['broker.reconcile', 'broker.status', 'broker.stop', 'broker.stop']);
+  assert.equal(active, 0);
+});
+
+test('unavailable shutdown authority retains server and owner obligations before cleanup begins', async () => {
+  const { createBrokerService } = await import('../../src/broker/service-core.mjs');
+  let stopScopes = 0;
+  let released = 0;
+  const service = createBrokerService({
+    withOperationAuthority: async (input, operation) => {
+      if (input.operation === 'broker.stop' && ++stopScopes === 2)
+        throw new Error('cleanup source unavailable');
+      return operation();
+    },
+    assertCurrentOperationAuthority: async () => {},
+  });
+  const clock = fakeClock();
+  const server = fakeServer();
+  const running = service.runBroker({
+    ...brokerInput({ clock, server }),
+    owner: {
+      instanceId: 'retained-source-instance',
+      release: async () => {
+        released += 1;
+      },
+    },
+  });
+  const failed = assert.rejects(running, (error) => {
+    assert.match(error.message, /cleanup source unavailable/);
+    assert.ok(
+      error.details?.outstandingObligations?.some((value) => value.name === 'broker-server')
+    );
+    assert.ok(
+      error.details.outstandingObligations.some(
+        (value) => value.name === 'owner-release' && value.instanceId === 'retained-source-instance'
+      )
+    );
+    return true;
+  });
+  await server.ready;
+  await server.request({ id: 'stop-source', command: 'stop', workspace: null });
+  await failed;
+  assert.equal(server.closed, false);
+  assert.equal(released, 0);
+});
+
+test('a broker run reports completed bounded startup separately from its long-lived stop promise', async () => {
+  const { createBrokerService } = await import('../../src/broker/service-core.mjs');
+  const service = createBrokerService({
+    withOperationAuthority: async (_input, operation) => operation(),
+    assertCurrentOperationAuthority: async () => {},
+  });
+  assert.equal(typeof service.startBroker, 'function');
+  const clock = fakeClock();
+  const server = fakeServer();
+  let published = false;
+  const lifecycle = service.startBroker({
+    ...brokerInput({ clock, server }),
+    owner: {
+      publish: async () => {
+        await new Promise((resolve) => setImmediate(resolve));
+        published = true;
+      },
+      release: async () => {},
+    },
+  });
+  assert.equal(lifecycle.verified, false);
+  await lifecycle.ready;
+  assert.equal(published, true);
+  let stopped = false;
+  lifecycle.untilStopped.then(() => {
+    stopped = true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(stopped, false);
+  await server.request({ id: 'stop-split', command: 'stop', workspace: null });
+  await lifecycle.untilStopped;
+  assert.equal(stopped, true);
+});
+
+test('service lifetime phases use their owned authority path while request scopes remain separate', async () => {
+  const { createBrokerService } = await import('../../src/broker/service-core.mjs');
+  const phases = [];
+  const requests = [];
+  const service = createBrokerService({
+    withOperationAuthority: async (input, operation) => {
+      requests.push(input.operation);
+      return operation();
+    },
+    withLifecycleAuthority: async (input, operation) => {
+      phases.push(input.operation);
+      return operation();
+    },
+    assertCurrentOperationAuthority: async () => {},
+  });
+  const clock = fakeClock();
+  const server = fakeServer();
+  const running = service.runBroker(brokerInput({ clock, server }));
+  await server.ready;
+  await server.request({ id: 'status-phases', command: 'status', workspace: null });
+  await server.request({ id: 'stop-phases', command: 'stop', workspace: null });
+  await running;
+  assert.deepEqual(phases, ['broker.reconcile', 'broker.stop']);
+  assert.deepEqual(requests, ['broker.status', 'broker.stop']);
+});

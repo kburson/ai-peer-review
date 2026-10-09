@@ -451,3 +451,24 @@ test('post-publication proof failure reports the actual retained server and sock
   );
   assert.equal(fx.owner.verified, false);
 });
+
+test('drained readiness is considered only inside the exact private release phase', async (t) => {
+  const { currentLifecyclePhase } = await import('../../src/broker/owner-lifecycle-core.mjs');
+  assert.equal(typeof currentLifecyclePhase, 'function');
+  const fx = await fixture(t);
+  let drained = false;
+  const phases = [];
+  fx.ready(async () => {
+    const phase = currentLifecyclePhase(fx.owner);
+    phases.push(phase);
+    return !drained || phase === 'release';
+  });
+  assert.equal(currentLifecyclePhase(fx.owner), null);
+  assert.equal(currentLifecyclePhase({ verified: true }), null);
+  await fx.owner.publish();
+  drained = true;
+  const result = await fx.owner.release(fx.context());
+  assert.equal(result.released, true);
+  assert.deepEqual(phases, ['publish', 'release']);
+  assert.equal(currentLifecyclePhase(fx.owner), null);
+});

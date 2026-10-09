@@ -5,11 +5,10 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { canonicalProjectIdentity } from '../broker/identity.mjs';
+import { observePortableProject } from '../broker/portable-project.mjs';
 import { requestBroker as rawRequestBroker } from '../broker/client.mjs';
 import { registerReview, readStartupJournal, startupEvidence } from '../broker/registry.mjs';
 import { recordParticipantBinding } from '../broker/participant-binding.mjs';
-import { platformSecurity } from '../broker/platform.mjs';
 import { pinRuntimeImage, verifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { loadConfig } from '../config/load.mjs';
@@ -25,6 +24,7 @@ import { initializeManualLaunchHistory } from '../provider/manual-launch-ledger.
 // @story #136
 export function createStartupRuntime({
   startReview,
+  resolveProject = observePortableProject,
   ensureBroker,
   requestBroker = rawRequestBroker,
   productionProviderAdapters,
@@ -98,19 +98,7 @@ export function createStartupRuntime({
       policy: loaded.config.review,
       capabilities,
     });
-    const brokerPlatform =
-      deps.platform ??
-      (selected.ownership === 'broker' && !deps.ensureBroker ? platformSecurity() : null);
-    const project = canonicalProjectIdentity({
-      cwd: root,
-      platform: {
-        kind: process.platform,
-        canonicalPath: realpathSync,
-        userId:
-          brokerPlatform?.userId ?? (() => String(process.geteuid?.() ?? process.env.USERNAME)),
-        repository,
-      },
-    });
+    const project = await resolveProject({ cwd: root, repository, deps });
     const { classification, ...reviewer } = selection;
     const runtime = validateRuntimeDescriptor({
       schema: 'ai-peer-review.runtime/v1',
@@ -187,7 +175,7 @@ export function createStartupRuntime({
     }
     if (runtime.ownership === 'broker') {
       image =
-        prior?.runtime ??
+        (await prior?.runtime) ??
         (deps.pinRuntimeImage ?? effectPinRuntimeImage)({
           packageRoot,
           nodeExecutable: realpathSync(process.execPath),
@@ -212,7 +200,6 @@ export function createStartupRuntime({
           project,
           runtimeImage: image,
           versions,
-          platform: brokerPlatform,
         });
       }
     }
@@ -253,8 +240,8 @@ export function createStartupRuntime({
     const request = preparedRequests.get(prepared);
     if (!request) usage('Startup requires a validated preparation from this process.');
     if (canonicalProjection(prepared) !== request.preparedSnapshot) {
-      request.broker?.close?.();
-      request.broker?.connection?.close?.();
+      await request.broker?.close?.();
+      await request.broker?.connection?.close?.();
       throw new AprError(
         'APR_OUTPUT_COLLISION',
         'Prepared startup intent changed before activation.',
@@ -485,8 +472,8 @@ export function createStartupRuntime({
         });
       });
     } finally {
-      request.broker?.close?.();
-      request.broker?.connection?.close?.();
+      await request.broker?.close?.();
+      await request.broker?.connection?.close?.();
     }
   }
 

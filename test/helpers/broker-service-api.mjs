@@ -7,4 +7,5 @@ const service = createBrokerService({
   reserveReviewerLaunch,
   settleReservedReviewerLaunch,
 });
-export const { createAuthenticatedBrokerServer, runBroker } = service;
+export const { runBroker } = service;
+export { createLegacyBrokerServer as createAuthenticatedBrokerServer } from '../../src/broker/legacy-service-core.mjs';

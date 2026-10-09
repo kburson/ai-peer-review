@@ -37,6 +37,10 @@ export function currentLifecycleOperation(owner) {
   const frame = operation.getStore();
   return frame?.owner === owner && frame.active ? frame.context : null;
 }
+export function currentLifecyclePhase(owner) {
+  const frame = operation.getStore();
+  return frame?.owner === owner && frame.active ? frame.phase : null;
+}
 export function ownerLifecycleCompleted(owner) {
   const state = lifecycleRecords.get(owner);
   return state?.completed === true && !state.retired && !state.fenced;
@@ -119,7 +123,7 @@ export async function createOwnerLifecycleCore({ ports, budget } = {}) {
       throw refusal(error.details.reason, obligations());
     }
     state.phase = phase; // Reserve before the first await, including release.
-    const frame = { owner, context, active: true };
+    const frame = { owner, context, phase, active: true };
     try {
       return await operation.run(frame, () => effect(context));
     } catch (error) {

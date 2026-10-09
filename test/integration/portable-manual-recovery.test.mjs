@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { createBrokerClientOperations } from '../../src/broker/client-core.mjs';
+import { createBrokerClientOperations } from '../helpers/manual-recovery-api.mjs';
 import { fixture, identity, NOW } from '../helpers/intervention-fixture.mjs';
 import { fixtureStartupDeps, fixtureSelection } from '../helpers/internal-api.mjs';
 import { startReview } from '../helpers/operations-api.mjs';

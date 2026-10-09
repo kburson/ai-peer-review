@@ -4,6 +4,7 @@
   "files": [
     "schemas/process-source-class-v1.json",
     "src/api/canonical-json.mjs",
+    "src/broker/broker-protocol.mjs",
     "src/broker/http-auth.mjs",
     "src/broker/http-client.mjs",
     "src/broker/http-server.mjs",

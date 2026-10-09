@@ -335,7 +335,7 @@ test('offline broker status reads project-local startup evidence without a test 
   assert.doesNotMatch(status.recovery.action, /broker reconcile/);
 });
 
-test('offline broker status survives a real missing native security helper without connector injection', async (t) => {
+test('offline broker status preserves recovery evidence with an unavailable portable fixture connector', async (t) => {
   const projectRoot = mkdtempSync(path.join(tmpdir(), 'apr-broker-native-offline-'));
   t.after(() => rmSync(projectRoot, { recursive: true, force: true }));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: projectRoot, stdio: 'ignore' });
@@ -373,7 +373,7 @@ test('offline broker status survives a real missing native security helper witho
   assert.equal(status.status, 'offline');
   assert.deepEqual(status.recovery.unreconciled_workspaces, [workspace]);
   assert.equal(status.recovery.diagnostic.code, 'APR_BROKER_START_FAILED');
-  assert.match(status.recovery.diagnostic.message, /security helper/);
+  assert.match(status.recovery.diagnostic.message, /Portable fixture connector/);
 });
 
 test('offline broker reconcile restarts exact pinned runtime without replaying a launch', async (t) => {

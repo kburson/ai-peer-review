@@ -1,7 +1,7 @@
 // @story #135
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { acquireBrokerOwnership } from '../../src/broker/ownership.mjs';
+import { acquireBrokerOwnership } from '../../src/broker/legacy-ownership.mjs';
 import { runBroker } from '../helpers/broker-service-api.mjs';
 import { verifyRuntimeInventorySync } from '../../src/startup/runtime-inventory.mjs';
 import { runtimeFixture } from '../helpers/runtime-selection-fixture.mjs';
@@ -134,7 +134,7 @@ test('a plain owner or guessed runtime is not cleanup authority', async () => {
   );
 });
 
-test('authenticated owned cleanup admits the verified runtime and refuses changed proof', async (t) => {
+test('native fixture ownership cannot authorize portable cleanup even with a verified runtime', async (t) => {
   const fx = runtimeFixture(t);
   const runtime = verifyRuntimeInventorySync({ packageRoot: fx.packageRoot });
   let valid = true;
@@ -165,8 +165,9 @@ test('authenticated owned cleanup admits the verified runtime and refuses change
       listenPrivate: () => ({ verify: () => valid, close() {} }),
     }
   );
-  await assert.doesNotReject(() =>
-    compatibility.assertCurrentCleanupOwnership({ owner, protocol: 1, runtime })
+  await assert.rejects(
+    () => compatibility.assertCurrentCleanupOwnership({ owner, protocol: 1, runtime }),
+    unsupported
   );
   await assert.rejects(
     () => compatibility.assertCurrentCleanupOwnership({ owner, protocol: 999, runtime }),

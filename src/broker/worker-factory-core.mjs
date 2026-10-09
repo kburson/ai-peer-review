@@ -37,7 +37,10 @@ import { createReviewWorker } from './worker.mjs';
 import { reconcileReviewerLaunch } from './launch.mjs';
 
 // @story #136
-export function createProductionWorkerOperations({ performCurrentOperationEffect }) {
+export function createProductionWorkerOperations({
+  performCurrentOperationEffect,
+  ownerContext = async () => undefined,
+}) {
   const mkdirSync = async (...args) =>
     await performCurrentOperationEffect(() => rawMkdirSync(...args));
   const writeFileSync = async (...args) =>
@@ -242,7 +245,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
       !registration ||
       !project ||
       !runtimeImage ||
-      !(await owner?.verify?.()) ||
+      !(await owner?.verify?.(await ownerContext(owner))) ||
       !platform ||
       registration.project_root !== project.physicalRoot ||
       registration.project_digest !== project.digest ||
@@ -377,7 +380,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
     }
     const lease = {
       async beforeDelivery(role, observation) {
-        if (!(await owner.verify()))
+        if (!(await owner.verify(await ownerContext(owner))))
           throw failure('Broker ownership changed before provider action.');
         if (role === 'reviewer' && reviewerCapability.resource.concurrent) {
           const deliveryEntry = (
@@ -477,7 +480,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
       owner,
       clock,
       launchReviewer: async ({ operationId }) => {
-        if (!(await owner.verify()))
+        if (!(await owner.verify(await ownerContext(owner))))
           throw failure('Broker ownership changed before reviewer launch.');
         lease.assertDeliveryFresh('reviewer-launch');
         return reviewerAdapter.launchReviewer({
@@ -493,7 +496,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
         });
       },
       reconcileLaunch: async () => {
-        if (!(await owner.verify()))
+        if (!(await owner.verify(await ownerContext(owner))))
           throw failure('Broker ownership changed before launch reconciliation.');
         if (
           typeof reconcileLaunch !== 'function' ||

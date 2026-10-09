@@ -1,3 +1,7 @@
+import {
+  claimPortableServiceRequest,
+  claimPortableServiceLifecycle,
+} from '../broker/owner-readiness.mjs';
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { initializePortableSystem } from '../broker/portable-system.mjs';
@@ -95,6 +99,7 @@ export async function retryAuthoritySelectionCleanup() {
 const fences = new WeakMap();
 const operationContext = new AsyncLocalStorage();
 const effectContext = new AsyncLocalStorage();
+const brokerRequestFrame = new AsyncLocalStorage();
 export const OPERATION_CLASSIFICATION = Object.freeze({
   help: 'read',
   explain: 'read',
@@ -436,6 +441,14 @@ export async function currentOperationAuthorityContext() {
   return seal.context;
 }
 
+export async function currentOperationAuthorityWorktree() {
+  await currentOperationAuthorityContext();
+  const seal = fences.get(operationContext.getStore());
+  if (!seal?.primary?.activeWorktreeRoot)
+    refuse('Current physical worktree authority is unavailable.');
+  return seal.primary.activeWorktreeRoot;
+}
+
 export async function currentProviderOperationAdmission() {
   await currentOperationAuthorityContext();
   const held = effectContext.getStore();
@@ -445,4 +458,75 @@ export async function currentProviderOperationAdmission() {
   const seal = fences.get(fence);
   await assertPrimaryAdmissionFence(held.admission, seal.context);
   return held.admission;
+}
+
+// Only a fresh, single-use admission from the genuine authenticated listener
+// can detach a request from the broker's already-finished startup frame.
+export async function withPortableBrokerRequestAuthority(admission, operation) {
+  const request = claimPortableServiceRequest(admission);
+  if (typeof operation !== 'function') refuse('Broker request effect is unavailable.');
+  const frame = { active: true };
+  try {
+    return await brokerRequestFrame.run(frame, () =>
+      effectContext.run(undefined, () =>
+        operationContext.run(undefined, () =>
+          withOperationAuthority(
+            {
+              operation: 'broker.' + request.operation,
+              cwd: request.worktree,
+              ...(['status', 'stop'].includes(request.operation)
+                ? {}
+                : { reviewWorkspace: request.body.workspace }),
+              ...request.context,
+            },
+            async () => {
+              await assertSelectedRuntime(request.context);
+              if ((await request.owner.verify(request.context)) !== true)
+                refuse('Broker request owner is unavailable.');
+              const result = await operation(request);
+              // A stop can deliberately retire its listener after dispatch; its drain
+              // and release remain separate exact obligations in the service shutdown.
+              if (
+                request.operation !== 'stop' &&
+                (await request.owner.verify(request.context)) !== true
+              )
+                refuse('Broker request owner changed.');
+              return result;
+            }
+          )
+        )
+      )
+    );
+  } finally {
+    frame.active = false;
+  }
+}
+
+export async function withPortableBrokerLifecycleAuthority(admission, operation) {
+  if (brokerRequestFrame.getStore()?.active)
+    refuse('An in-flight broker request cannot renew its context as a lifecycle operation.');
+  const lifecycle = claimPortableServiceLifecycle(admission);
+  if (typeof operation !== 'function') refuse('Broker lifecycle effect is unavailable.');
+  return effectContext.run(undefined, () =>
+    operationContext.run(undefined, () =>
+      withOperationAuthority(
+        {
+          operation: lifecycle.phase === 'cleanup' ? 'broker.stop' : 'broker.reconcile',
+          cwd: lifecycle.worktree,
+          ...lifecycle.context,
+        },
+        async () => {
+          if ((await lifecycle.owner.verify(lifecycle.context)) !== true)
+            refuse('Broker lifecycle owner is unavailable.');
+          const result = await operation(lifecycle);
+          if (
+            lifecycle.phase !== 'cleanup' &&
+            (await lifecycle.owner.verify(lifecycle.context)) !== true
+          )
+            refuse('Broker lifecycle owner changed.');
+          return result;
+        }
+      )
+    )
+  );
 }

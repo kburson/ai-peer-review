@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { acquireBrokerOwnership } from '../../src/broker/ownership.mjs';
+import { acquireBrokerOwnership } from '../../src/broker/legacy-ownership.mjs';
 import { platformSecurity } from '../../src/broker/platform.mjs';
 import { createAuthenticatedBrokerServer, runBroker } from '../helpers/broker-service-api.mjs';
 

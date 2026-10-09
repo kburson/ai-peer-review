@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { createBrokerClientOperations } from '../../src/broker/client-core.mjs';
+import { createBrokerClientOperations } from '../../src/broker/legacy-client-core.mjs';
 import { connectBroker, encodeFrame } from '../../src/broker/ipc.mjs';
 
 const nativeAvailable = existsSync(
@@ -376,3 +376,68 @@ test(
     }
   }
 );
+
+// Active portable consumer migrations. OS/source-class installed admission is
+// deliberately separate (#190); these exercise real HTTP with unverified ports.
+for (const scenario of [
+  {
+    name: 'reacquires an empty broker retiring during an unsent stop handshake',
+    retireDuringHandshake: true,
+  },
+  {
+    name: 'refuses handshake retirement after authority drift',
+    retireDuringHandshake: true,
+    authorityDrift: true,
+  },
+  {
+    name: 'refuses reacquisition after retired owner authority drift',
+    idleRetire: true,
+    authorityDrift: true,
+  },
+  { name: 'reacquires a normally retired empty broker', idleRetire: true },
+  {
+    name: 'refuses forty-second restoration without advertising or renewing thirty-second startup',
+    recoveryMs: 40000,
+  },
+  { name: 'allows a six-second authenticated command reply', commandMs: 6000 },
+  { name: 'authenticates a fresh command after six-second preparation', prepareMs: 6000 },
+  { name: 'authenticates after twelve-second occupied owner observation', occupiedMs: 12000 },
+])
+  test('portable HTTP consumer ' + scenario.name, async (t) => {
+    const { portableConsumerJourney } = await import('../helpers/portable-consumer-journey.mjs');
+    const journey = await portableConsumerJourney(t, scenario);
+    assert.equal(journey.verified, false);
+    const original = journey.context.deadline;
+    if (scenario.recoveryMs) {
+      await assert.rejects(journey.core.ensure(journey.input, journey.context), {
+        code: 'APR_BROKER_START_FAILED',
+      });
+      assert.equal(journey.facts().advertised, false);
+      assert.equal(journey.facts().commands, 0);
+    } else {
+      await journey.start();
+      if (scenario.idleRetire) {
+        await journey.retire();
+        if (scenario.authorityDrift) journey.drift();
+      }
+      journey.prepare();
+      if (scenario.authorityDrift) {
+        await assert.rejects(
+          journey.core.request(journey.input, 'stop', null, journey.context),
+          /current authority changed/
+        );
+        assert.equal(journey.facts().launches, 0);
+        assert.equal(journey.facts().commands, 0);
+      } else {
+        assert.deepEqual(await journey.core.request(journey.input, 'stop', null, journey.context), {
+          status: 'stopped',
+        });
+        assert.equal(journey.facts().commands, 1);
+        assert.equal(
+          journey.facts().launches,
+          scenario.idleRetire || scenario.retireDuringHandshake ? 1 : 0
+        );
+      }
+    }
+    assert.equal(journey.context.deadline, original);
+  });

@@ -16,7 +16,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { acquireBrokerOwnership } from '../../src/broker/ownership.mjs';
+import { acquireBrokerOwnership } from '../../src/broker/legacy-ownership.mjs';
 import { createFrameDecoder, encodeFrame, validateHandshake } from '../../src/broker/ipc.mjs';
 
 const identity = {
