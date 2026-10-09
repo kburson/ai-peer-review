@@ -44,6 +44,22 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
@@ -93,6 +109,22 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
@@ -144,6 +176,22 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: 'Verify tests: owner-publication-${{ matrix.group }}'
         run: node scripts/ci/record-tests.mjs owner-publication-${{ matrix.group }}
       - name: Publish actual test execution records
@@ -174,6 +222,22 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - name: 'Verify tests: portable-ownership'
@@ -317,6 +381,22 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - name: 'Verify tests: portable-unit-${{ matrix.group }}'
