@@ -1109,3 +1109,28 @@ test('service lifetime phases use their owned authority path while request scope
   assert.deepEqual(phases, ['broker.reconcile', 'broker.stop']);
   assert.deepEqual(requests, ['broker.status', 'broker.stop']);
 });
+
+test('review correction: successful drain reaches the private release without ordinary closed-listener verification', async () => {
+  const clock = fakeClock(),
+    server = fakeServer();
+  let releases = 0;
+  const running = runBroker({
+    ...brokerInput({ clock, server }),
+    cleanupGuard: async () => {
+      if (server.closed) throw new Error('ordinary verify cannot accept drained readiness');
+    },
+    owner: {
+      instanceId: 'drain-release',
+      release: async () => {
+        assert.equal(server.closed, true);
+        releases++;
+        return { released: true };
+      },
+    },
+  });
+  const checked = assert.doesNotReject(running);
+  await server.ready;
+  await server.request({ id: 'stop-drain', command: 'stop', workspace: null });
+  await checked;
+  assert.equal(releases, 1);
+});

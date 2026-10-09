@@ -1,3 +1,4 @@
+import { startupEvidence } from '../../src/broker/registry.mjs';
 import { AprError } from '../../src/errors.mjs';
 import { realpathSync } from 'node:fs';
 import { canonicalProjectIdentity } from '../../src/broker/identity.mjs';
@@ -66,6 +67,13 @@ const startup = createStartupRuntime({
   performCurrentOperationEffect: (operation) => operation(),
 });
 const operations = createReviewOperations({
+  brokerRecoveryRuntime: (workspace, io) => {
+    if (io.brokerReconcileRuntime) return io.brokerReconcileRuntime(workspace);
+    const authority = protocol.inspectReviewAuthority(workspace);
+    const observed = startupEvidence(workspace, authority.state);
+    return { versions: observed.journal.versions, runtimeImage: observed.journal.runtime };
+  },
+  prepareBrokerClient: (input, io) => (io.brokerEnsure ?? ensureBroker)(input),
   resolveBrokerProject: ({ cwd, io }) =>
     canonicalProjectIdentity({
       cwd,

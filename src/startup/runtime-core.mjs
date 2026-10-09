@@ -174,13 +174,12 @@ export function createStartupRuntime({
       );
     }
     if (runtime.ownership === 'broker') {
-      image =
-        (await prior?.runtime) ??
+      image = await (prior?.runtime ??
         (deps.pinRuntimeImage ?? effectPinRuntimeImage)({
           packageRoot,
           nodeExecutable: realpathSync(process.execPath),
           destination: path.join(root, '.scratch', 'peer-review', 'runtimes', requestDigest),
-        });
+        }));
       versions = prior?.versions ?? {
         package_version: JSON.parse(
           readFileSync(path.join(image.root, 'package/package.json'), 'utf8')

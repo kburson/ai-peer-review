@@ -612,3 +612,69 @@ test('integrity and unsupported-capability failures invoke no adapter', async (t
   );
   assert.equal(wakeAdapter.calls.length, 0);
 });
+
+test('review correction: reconcile prepares recorded runtime after lazy client proves absence before dispatch', async (t) => {
+  const io = brokerIo(t, () => null);
+  const root = workspace(t, io.cwd);
+  let restarts = 0,
+    dispatches = 0;
+  io.brokerConnect = async () => ({
+    request: async () => {
+      throw new AprError('APR_BROKER_STALE', 'Owner absent before dispatch.', {
+        recovery: 'Reconcile recorded runtime.',
+        details: {
+          reason: 'owner-absent-before-dispatch',
+          ownerState: 'missing',
+          mutationOccurred: false,
+          retrySafe: true,
+        },
+      });
+    },
+  });
+  io.brokerReconcileRuntime = () => ({
+    versions: { package_version: '0.3.0', broker_protocol_version: 1, node_major: 26 },
+    runtimeImage: { root: '/pinned', nodeExecutable: process.execPath, digest: 'sha256:pinned' },
+  });
+  io.brokerEnsure = async (input) => {
+    assert.equal(input.runtimeImage.root, '/pinned');
+    restarts++;
+    return {
+      request: async (message) => {
+        assert.equal(message.command, 'reconcile');
+        dispatches++;
+        return { status: 'recovery-only' };
+      },
+    };
+  };
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0, io.stderrBytes.join(''));
+  assert.equal(restarts, 1);
+  assert.equal(dispatches, 1);
+});
+
+test('review correction: reconcile never prepares another broker after a possibly submitted command', async (t) => {
+  const io = brokerIo(t, () => null);
+  const root = workspace(t, io.cwd);
+  let restarts = 0,
+    requests = 0;
+  io.brokerConnect = async () => ({
+    request: async () => {
+      requests++;
+      throw new AprError('APR_BROKER_STALE', 'Command outcome is unknown.', {
+        recovery: 'Reconcile the original outcome.',
+        details: {
+          reason: 'owner-absent-before-dispatch',
+          ownerState: 'missing',
+          mutationOccurred: null,
+          retrySafe: false,
+        },
+      });
+    },
+  });
+  io.brokerEnsure = async () => {
+    restarts++;
+    throw new Error('unsafe replay');
+  };
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 1);
+  assert.equal(requests, 1);
+  assert.equal(restarts, 0);
+});

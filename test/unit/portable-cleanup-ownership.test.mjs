@@ -52,7 +52,7 @@ test('production copied owner cannot invoke even a Promise resolving true', asyn
 
 async function shippedGuard(bindings) {
   const source = await readFile(
-    new URL('../../bin/peer-review-broker.mjs', import.meta.url),
+    new URL('../../src/broker/portable-service.mjs', import.meta.url),
     'utf8'
   );
   const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module', range: true });
@@ -99,7 +99,10 @@ test('shipped-composition-awaits-refusal before actual service worker close or o
     },
     owner,
     bootstrap: { versions: { broker_protocol_version: 1 } },
-    runtimeObservation: {},
+    runtime: {},
+    currentOperationAuthorityContext: async () => ({}),
+    isPreparedPortableOwner: () => false,
+    publishedPortableBrokerOwner: (value) => value,
   });
   const project = { physicalRoot: 'fixture-project', digest: 'a'.repeat(64) };
   const run = runBroker({

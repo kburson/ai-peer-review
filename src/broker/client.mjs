@@ -16,6 +16,7 @@ import { portableBrokerPaths } from './portable-paths.mjs';
 import { bindOwnerElectionPaths, inspectOwnerElectionPaths } from './ownership-election.mjs';
 import {
   observeAuthenticatedOwner,
+  isAuthenticatedOwnerObservation,
   joinVerifiedBroker,
   disposeAuthenticatedOwnerObservation,
 } from './portable-ownership.mjs';
@@ -91,7 +92,19 @@ async function observe(input, context) {
       retained.delete(pending);
       return { status: 'missing' };
     }
-    if (statuses.includes('missing')) throw stale('partial-owner-roots');
+    if (statuses.includes('missing')) {
+      for (let i = 0; i < statuses.length; i++)
+        if (statuses[i] === 'present') {
+          const receipt = await operations.observeProtection({
+            root: [paths.privateRoot, paths.runtimeRoot][i],
+          });
+          const guard = await operations.openProtectedRoot({ receipt });
+          await guard.close();
+        }
+      await assertCurrentOperationAuthority();
+      retained.delete(pending);
+      return { status: 'pending' }; // Waiting only; no ownership/launch permission.
+    }
     const receipts = await Promise.all(
       [paths.privateRoot, paths.runtimeRoot].map((root) => operations.observeProtection({ root }))
     );
@@ -123,8 +136,23 @@ async function observe(input, context) {
       retained.delete(pending);
       return { status: 'missing' };
     }
-    if (states.some((value) => value === null)) throw stale('partial-owner-publication');
+    if (states.some((value) => value === null)) {
+      await assertCurrentOperationAuthority();
+      await bound.close();
+      retained.delete(pending);
+      return { status: 'pending' }; // C1-held partial bytes never authorize a join.
+    }
     observation = await observeAuthenticatedOwner({ paths: bound, ...context });
+    if (observation.status === 'dead' && isAuthenticatedOwnerObservation(observation)) {
+      await assertCurrentOperationAuthority();
+      await disposeAuthenticatedOwnerObservation({ observation });
+      observation = null;
+      await bound.close();
+      retained.delete(pending);
+      // The candidate still re-observes death and wins genuine C3. No namespace
+      // deletion or effect permission is derived from this projected state.
+      return { status: 'dead' };
+    }
     if (observation.status !== 'authenticated-live')
       throw stale(observation.reason || 'owner-not-authenticated', {
         outstandingObligations: observation.outstandingObligations,

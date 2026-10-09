@@ -1922,3 +1922,20 @@ test('authenticated suspension cannot be undone by a later worker reconciliation
   assert.equal(providerCalls.length, 0);
   assert.equal(worker.workState(), 'recovery-only');
 });
+
+test('review correction: new broker startup awaits an asynchronous runtime pin before reading versions', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  let pinned = false;
+  const prepared = await prepareStartup(request(fx.root), {
+    ...fixtureStartupDeps,
+    pinRuntimeImage: async (options) => {
+      await Promise.resolve();
+      const image = fixtureStartupDeps.pinRuntimeImage(options);
+      pinned = true;
+      return image;
+    },
+  });
+  assert.equal(pinned, true);
+  assert.equal(prepared.runtime.ownership, 'broker');
+});

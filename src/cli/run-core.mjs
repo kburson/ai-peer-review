@@ -23,6 +23,7 @@ import {
   ensureBroker as rawEnsureBroker,
   requestBroker as rawRequestBroker,
 } from '../broker/client.mjs';
+import { inspectReviewAuthority as rawInspectReviewAuthority } from '../protocol/service.mjs';
 import { inspectOfflineRecoveryCandidates, startupEvidence } from '../broker/registry.mjs';
 import {
   manualLaunchProvesNonSubmission,
@@ -132,6 +133,18 @@ export function createReviewOperations({
     readOnly ? observeReadOnlyPortableProject({ cwd }) : observePortableProject({ cwd }),
   connectBrokerClient = async ({ project }) => connectPortableBroker({ cwd: project.physicalRoot }),
   ensureBroker = rawEnsureBroker,
+  brokerRecoveryRuntime = (workspace) => {
+    const authority = rawInspectReviewAuthority(workspace);
+    const observed = startupEvidence(workspace, authority.state);
+    if (!observed?.journal?.runtime)
+      throw new AprError(
+        'APR_BROKER_START_FAILED',
+        'Recorded broker recovery runtime is unavailable.',
+        { recovery: 'Restore the exact recorded review runtime before reconciliation.' }
+      );
+    return { versions: observed.journal.versions, runtimeImage: observed.journal.runtime };
+  },
+  prepareBrokerClient = null,
   requestBroker = rawRequestBroker,
   fenceManualRecovery = rawFenceManualRecovery,
   suspendBrokerRecovery = (workspace) => fenceManualRecovery(workspace),
@@ -4772,7 +4785,15 @@ export function createReviewOperations({
         project_digest: project.digest,
       });
     }
+    const prepareRecordedClient = async () => {
+      const runtime = await brokerRecoveryRuntime(workspace, io);
+      return await (prepareBrokerClient ?? ensureBroker)(
+        { project, versions: runtime.versions, runtimeImage: runtime.runtimeImage },
+        io
+      );
+    };
     let client;
+    let prepared = false;
     try {
       client = await connect();
     } catch (error) {
@@ -4780,22 +4801,8 @@ export function createReviewOperations({
       if (verb === 'status' && (absent || error instanceof AprError))
         return offlineBrokerStatus(project, evidence, error);
       if (verb !== 'reconcile' || !absent) throw error;
-      // Startup authority and the pinned image identify the only runtime allowed
-      // to inspect this review. Broker startup may recover old registrations but
-      // reconciliation never submits or retries a provider launch.
-      const runtime = (
-        io.brokerReconcileRuntime ??
-        ((target) => {
-          const authority = inspectReviewAuthority(target);
-          const observed = startupEvidence(target, authority.state);
-          return { versions: observed.journal.versions, runtimeImage: observed.journal.runtime };
-        })
-      )(workspace);
-      client = await (io.brokerEnsure ?? ensureBroker)({
-        project,
-        versions: runtime.versions,
-        runtimeImage: runtime.runtimeImage,
-      });
+      client = await prepareRecordedClient();
+      prepared = true;
     }
     let value;
     try {
@@ -4803,7 +4810,18 @@ export function createReviewOperations({
     } catch (error) {
       if (verb === 'status' && error instanceof AprError)
         return offlineBrokerStatus(project, evidence, error);
-      throw error;
+      const unsentAbsence =
+        error?.code === 'APR_BROKER_STALE' &&
+        error.details?.reason === 'owner-absent-before-dispatch' &&
+        ['missing', 'dead'].includes(error.details.ownerState) &&
+        error.details.mutationOccurred === false &&
+        error.details.retrySafe === true;
+      if (verb !== 'reconcile' || prepared || !unsentAbsence) throw error;
+      await client.close?.();
+      await client.connection?.close?.();
+      client = await prepareRecordedClient();
+      prepared = true;
+      value = await requestBroker(client, verb, workspace);
     } finally {
       await client.close?.();
       await client.connection?.close?.();

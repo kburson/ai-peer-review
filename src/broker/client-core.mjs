@@ -37,7 +37,24 @@ export function createPortableClientCore({
       await check(context);
       return;
     }
-    if (state.status !== 'missing') throw failure('owner-observation-unproved', state.error);
+    if (state.status === 'pending') {
+      // An existing prepared owner can only be awaited, never promoted or
+      // replaced from partial publication. The original budget stays sealed.
+      do {
+        await check(context);
+        await delay(Math.min(25, Math.max(1, context.deadline - clock.now())), context);
+        await check(context);
+        state = await observe(input, context);
+      } while (state.status === 'pending');
+      if (state.status !== 'live') throw failure('owner-observation-unproved', state.error);
+      retained.add(state);
+      await state.close();
+      retained.delete(state);
+      await check(context);
+      return;
+    }
+    if (!['missing', 'dead'].includes(state.status))
+      throw failure('owner-observation-unproved', state.error);
     // A candidate process still must win genuine C3 before publishing anything.
     // Silence, busy, conflicting generations and unknown observations never launch.
     await check(context);
@@ -55,7 +72,8 @@ export function createPortableClientCore({
           retained.delete(process);
           return;
         }
-        if (state.status !== 'missing') throw failure('owner-observation-unproved', state.error);
+        if (!['missing', 'pending', 'dead'].includes(state.status))
+          throw failure('owner-observation-unproved', state.error);
         if (process.exited()) throw failure('broker-process-exited-before-readiness');
         await delay(Math.min(25, Math.max(1, context.deadline - clock.now())), context);
       }
@@ -67,10 +85,29 @@ export function createPortableClientCore({
     const message = validateCommand({ id: randomUUID(), command, workspace });
     await check(context);
     let state = await observe(input, context);
-    if (state.status === 'missing' && command !== 'status' && input.runtimeImage) {
+    if (
+      ['missing', 'dead', 'pending'].includes(state.status) &&
+      command !== 'status' &&
+      input.runtimeImage
+    ) {
       await ensure(input, context);
       state = await observe(input, context);
     }
+    if (['missing', 'dead'].includes(state.status))
+      throw new AprError(
+        'APR_BROKER_STALE',
+        'Owner absence was observed before command dispatch.',
+        {
+          recovery:
+            'Acquire the recorded compatible broker runtime through guarded reconciliation.',
+          details: {
+            reason: 'owner-absent-before-dispatch',
+            ownerState: state.status,
+            mutationOccurred: false,
+            retrySafe: true,
+          },
+        }
+      );
     if (state.status !== 'live') throw failure('owner-observation-unproved', state.error);
     retained.add(state);
     try {

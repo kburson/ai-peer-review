@@ -346,6 +346,14 @@ export function createBrokerService({
                 cleanupError ??= error;
               }
             }
+            if (!cleanupError) {
+              try {
+                await input.cleanupGuard?.();
+                await assertCurrentOperationAuthority();
+              } catch (error) {
+                cleanupError ??= error;
+              }
+            }
             try {
               // A stop dispatch can resolve before its authenticated reply is written.
               // Keep the endpoint owned until that in-flight connection closes.
@@ -356,7 +364,9 @@ export function createBrokerService({
             }
             if (!cleanupError) {
               try {
-                await input.cleanupGuard?.();
+                // Drained readiness is valid only in the owner's private release
+                // transaction, which freshly verifies exact lease/files/runtime.
+                await assertCurrentOperationAuthority();
                 const release = await owner.release?.();
                 ownerReleased = release?.released === true;
               } catch (error) {
