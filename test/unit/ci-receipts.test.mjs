@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { load as loadYaml } from 'js-yaml';
 // @story #140
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -329,34 +331,37 @@ test('[#175] Windows baseline receipt cannot substitute the full-suite command o
   );
 });
 test('[#175] hosted proof requires independent successful owner jobs for each Windows runtime', () => {
-  const required = workers();
   for (const node of ['24', '26', 'current']) {
-    const owner = required.filter(
+    const owners = workers().filter(
       (w) =>
-        w.runnerOS === 'Windows' && w.matrixNode === node && w.lanes.includes('owner-publication')
+        w.runnerOS === 'Windows' &&
+        w.matrixNode === node &&
+        w.lanes.some((lane) => lane.startsWith('owner-publication-'))
     );
-    assert.equal(owner.length, 1);
-    assert.deepEqual(owner[0].lanes, ['owner-publication']);
-    const job = {
-      name: owner[0].name,
-      status: 'completed',
-      conclusion: 'success',
-      steps: [{ name: 'Verify tests: owner-publication', conclusion: 'success' }],
-    };
-    assert.equal(validateRequiredJob([job], owner[0]), true);
-    assert.throws(() => validateRequiredJob([], owner[0]), /ci-receipt:/);
-    assert.throws(
-      () =>
-        validateRequiredJob(
-          [{ ...job, steps: [{ name: 'Verify tests: integration', conclusion: 'success' }] }],
-          owner[0]
-        ),
-      /ci-receipt:/
-    );
-    assert.throws(
-      () => validateRequiredJob([{ ...job, conclusion: 'failure' }], owner[0]),
-      /ci-receipt:/
-    );
+    assert.equal(owners.length, 4);
+    for (const owner of owners) {
+      const lane = owner.lanes[0];
+      const job = {
+        name: owner.name,
+        status: 'completed',
+        conclusion: 'success',
+        steps: [{ name: 'Verify tests: ' + lane, conclusion: 'success' }],
+      };
+      assert.equal(validateRequiredJob([job], owner), true);
+      assert.throws(() => validateRequiredJob([], owner), /ci-receipt:/);
+      assert.throws(
+        () =>
+          validateRequiredJob(
+            [{ ...job, steps: [{ name: 'Verify tests: integration', conclusion: 'success' }] }],
+            owner
+          ),
+        /ci-receipt:/
+      );
+      assert.throws(
+        () => validateRequiredJob([{ ...job, conclusion: 'failure' }], owner),
+        /ci-receipt:/
+      );
+    }
   }
 });
 
@@ -432,4 +437,66 @@ test('[#169] portable composition receipts refuse substituted commands and inven
     () => validateLaneReceipt({ ...record, command: ['npm', 'run', 'test:integration'] }, want),
     /ci-receipt:/
   );
+});
+
+// @story #186
+test('every Windows owner-publication group requires its own successful hosted worker', () => {
+  for (const node of ['24', '26', 'current']) {
+    for (const group of ['generations', 'quarantine', 'budget', 'faults']) {
+      const lane = 'owner-publication-' + group;
+      const matches = workers().filter(
+        (w) => w.runnerOS === 'Windows' && w.matrixNode === node && w.lanes.includes(lane)
+      );
+      assert.equal(matches.length, 1, node + '/' + group + ' must run on exactly one worker');
+      assert.deepEqual(laneCommand(lane, 'Windows'), [
+        'node',
+        '--test',
+        'test/integration/owner-publication-cases/' + group + '.mjs',
+      ]);
+      const path = 'test/integration/owner-publication-cases/' + group + '.mjs';
+      assert.deepEqual(
+        laneInventory({ [path]: 'a', 'test/integration/other.test.mjs': 'b' }, lane, 'Windows'),
+        { [path]: 'a' }
+      );
+      const job = {
+        name: matches[0].name,
+        status: 'completed',
+        conclusion: 'success',
+        steps: [{ name: 'Verify tests: ' + lane, conclusion: 'success' }],
+      };
+      assert.equal(validateRequiredJob([job], matches[0]), true);
+      assert.throws(() => validateRequiredJob([], matches[0]), /job/);
+      assert.throws(
+        () => validateRequiredJob([{ ...job, conclusion: 'failure' }], matches[0]),
+        /job/
+      );
+    }
+  }
+});
+
+test('expanded Windows owner workflow jobs match every required receipt worker', () => {
+  const workflow = loadYaml(
+    readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+  );
+  const job = workflow.jobs['owner-publication-windows'];
+  assert.deepEqual(job.strategy.matrix.group, ['generations', 'quarantine', 'budget', 'faults']);
+  for (const node of job.strategy.matrix.node)
+    for (const group of job.strategy.matrix.group) {
+      const render = (value) =>
+        value
+          .replace(/\$\{\{ matrix\.node \}\}/g, node)
+          .replace(/\$\{\{ matrix\.group \}\}/g, group);
+      const name = render(job.name),
+        key = render(job.env.APR_CI_JOB_KEY),
+        lane = 'owner-publication-' + group;
+      const worker = workers().find((w) => w.name === name);
+      assert.ok(worker, name);
+      assert.equal(worker.key, key);
+      assert.deepEqual(worker.lanes, [lane]);
+      const steps = job.steps.filter(
+        (step) => step.name && render(step.name) === 'Verify tests: ' + lane
+      );
+      assert.equal(steps.length, 1);
+      assert.equal(render(steps[0].run), 'node scripts/ci/record-tests.mjs ' + lane);
+    }
 });

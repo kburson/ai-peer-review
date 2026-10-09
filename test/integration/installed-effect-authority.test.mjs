@@ -12,7 +12,7 @@ import { startReview, joinReview } from '../helpers/operations-api.mjs';
 import { authorityInstalledFixture } from '../helpers/authority-installed-fixture.mjs';
 
 test(
-  'installed submission fences draft and registry writes after primary policy changes',
+  'installed submission fences draft and registry writes under current source and primary authority',
   {
     skip:
       process.platform === 'win32'
@@ -89,15 +89,19 @@ test(
     const result = f.execute(
       'import {submitReviewTurn} from ' +
         f.module('src/cli/run.mjs') +
+        ';import {isInstalledProcessSourceAssurance} from ' +
+        f.module('src/protocol/process-source-assurance.mjs') +
+        ';import {observeOriginalProcess} from ' +
+        f.module('src/protocol/process-identity.mjs') +
         ';import {readFileSync,writeFileSync,existsSync} from "node:fs";import path from "node:path";' +
-        'let changed=false,failure;try{await submitReviewTurn(' +
+        'const currentProcess=await observeOriginalProcess({signal:new AbortController().signal,deadline:performance.now()+30000});const sourceAvailable=currentProcess.status==="live"&&isInstalledProcessSourceAssurance(currentProcess.assurance);let changed=false,failure;try{await submitReviewTurn(' +
         JSON.stringify(input) +
         ',{checkpoint(name){' +
         'if(name==="author-claimed"){changed=true;const file=path.join(process.cwd(),".ai-peer-review/config.json");' +
-        'writeFileSync(file,readFileSync(file,"utf8")+" ");}}});}catch(error){failure={code:error.code};}' +
+        'writeFileSync(file,readFileSync(file,"utf8")+" ");}}});}catch(error){failure={code:error.code,message:error.message};}' +
         'const workspace=' +
         JSON.stringify(started.paths.workspace) +
-        ';console.log(JSON.stringify({changed,failure,' +
+        ';console.log(JSON.stringify({changed,failure,sourceAvailable,' +
         'draftExists:existsSync(' +
         JSON.stringify(
           joined.paths.response.replace('reviewer-response-1.md', 'author-response-1.md')
@@ -107,7 +111,12 @@ test(
     );
     assert.equal(result.status, 0, result.stderr);
     const observed = JSON.parse(result.stdout);
-    assert.equal(observed.changed, true);
+    assert.equal(observed.changed, observed.sourceAvailable);
+    if (!observed.sourceAvailable)
+      assert.match(
+        observed.failure.message,
+        /^Primary admission election refused: source-class-unavailable$/
+      );
     assert.equal(observed.failure.code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
     assert.equal(observed.draftExists, false);
     assert.equal(observed.registryExists, false);

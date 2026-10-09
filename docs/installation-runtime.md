@@ -101,4 +101,21 @@ Broker startup uses a two-minute elapsed readiness deadline, counting connection
 
 During delivery of #102 and the JavaScript broker replacement in #107, source CI omits native compiler/header provisioning and broker builds. Default source suites omit broker tests and installed fixtures that compile the native helper, and report those exclusions explicitly. Native broker coverage is paused; these skips are not passing broker evidence. The runtime tarball still retains native source assets until #107 replaces the transport. Consumers continue to run their ordinary builds independently of ai-peer-review.
 
-On Windows, primary registration and account-selection fixtures that require the native security helper are also explicitly skipped during this pause. Their corresponding POSIX cases and independent Windows checks remain enabled. Actual Windows CI results must still be verified after the change is pushed.
+Account selection and protected primary registration readers now use stock portable operations. Their portable controls run independently of the native broker build. Installed journeys that require the completed portable transport remain pending its delivery; native-dependent exclusions continue to be reported explicitly.
+
+## Awaited runtime and primary observations
+
+JavaScript callers must await `configPaths`, `loadConfig`, `resolvePrimaryAuthority`,
+runtime registration, and current-operation authority checks. These operations
+verify the actual account, installed bytes, protected records, and physical Git
+membership before returning. Existing CLI JSON schemas remain unchanged.
+
+Replacing a selected runtime or primary registration revokes its previous physical
+generation, including replacement with identical bytes. Copied or serialized
+observations cannot authorize effects. Retry through a fresh classified entry point
+after completing explicit registration or activation.
+
+The process-source contract binds the generated closure of actual storage, election,
+owner, and HTTP dependencies. Changing covered code leaves the previous source
+classes unavailable until normal installed recapture and adoption. Ordinary
+execution preserves ownership and refuses without a native fallback.

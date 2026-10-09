@@ -92,7 +92,12 @@ export function createClaudeHook({ performCurrentOperationEffect }) {
     return entry.message.model;
   }
 
-  function captureClaudeStartHook({ event, sourceVersion, token, observedAt = new Date() } = {}) {
+  async function captureClaudeStartHook({
+    event,
+    sourceVersion,
+    token,
+    observedAt = new Date(),
+  } = {}) {
     const command = event?.tool_input?.command;
     if (!COMMAND.test(command ?? '')) return null;
     const model = toolObservation(event, sourceVersion, observedAt);
@@ -111,7 +116,7 @@ export function createClaudeHook({ performCurrentOperationEffect }) {
     };
     if (START.test(command) || JOIN.test(command)) {
       const file = recordFile(event.cwd, token);
-      performCurrentOperationEffect(() => {
+      await performCurrentOperationEffect(() => {
         mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
         atomicWrite(file, `${JSON.stringify(record)}\n`);
       });
@@ -133,7 +138,7 @@ export function createClaudeHook({ performCurrentOperationEffect }) {
   async function captureClaudeStartHookWhenPresent(input, { delay = 100, attempts = 20 } = {}) {
     for (let index = 0; index < attempts; index += 1) {
       try {
-        return captureClaudeStartHook(input);
+        return await captureClaudeStartHook(input);
       } catch (cause) {
         if (
           cause?.code !== 'APR_CLAUDE_HOOK_INVALID' ||

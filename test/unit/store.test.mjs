@@ -351,3 +351,25 @@ test('appendLockedEvents makes one newline-terminated atomic batch', async (t) =
     '{"sequence":1,"type":"first"}\n{"sequence":2,"type":"second"}\n'
   );
 });
+
+test('[#187] lock cleanup preserves a foreign owner installed during awaited effect admission', async (t) => {
+  const workspace = workspaceFixture(t);
+  const lockFile = path.join(workspace, 'locks', 'review.lock');
+  const foreign = JSON.stringify({
+    schema: 'ai-peer-review.lock/v1',
+    token: 'foreign-after-await',
+    pid: 1,
+  });
+  let effects = 0;
+  await withReviewLock(workspace, async () => 'complete', {
+    async effect(operation) {
+      effects++;
+      await Promise.resolve();
+      if (effects === 2) writeFileSync(lockFile, foreign);
+      return operation();
+    },
+  });
+  assert.equal(effects, 2);
+  assert.equal(existsSync(lockFile), true);
+  assert.equal(readFileSync(lockFile, 'utf8'), foreign);
+});

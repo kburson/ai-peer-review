@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import {
-  LANES,
+  OWNER_PUBLICATION_GROUPS,
   laneInventory,
   fail,
   projectState,
@@ -14,6 +14,8 @@ import {
   validateRequiredJob,
   validateTestedCommit,
 } from './receipt.mjs';
+
+import { WINDOWS_PORTABLE_UNIT_GROUPS } from '../../test/helpers/suite-plan.mjs';
 
 const OS = { 'ubuntu-latest': 'Linux', 'macos-latest': 'macOS', 'windows-latest': 'Windows' };
 const baselineLanes = ['fast', 'integration', 'mcp', 'packaging', 'smoke'];
@@ -35,15 +37,20 @@ export function workers() {
     matrixNode: '26',
     runnerOS: 'Linux',
   });
-  for (const worker of result) worker.lanes = baselineLanes;
+  for (const worker of result)
+    worker.lanes =
+      worker.runnerOS === 'Windows'
+        ? baselineLanes.filter((lane) => lane !== 'integration')
+        : baselineLanes;
   for (const node of ['24', '26', 'current'])
-    result.push({
-      key: 'owner-publication-' + node + '-windows-latest',
-      name: 'Owner publication / Node ' + node + ' / windows-latest',
-      matrixNode: node,
-      runnerOS: 'Windows',
-      lanes: ['owner-publication'],
-    });
+    for (const group of OWNER_PUBLICATION_GROUPS)
+      result.push({
+        key: 'owner-publication-' + group + '-' + node + '-windows-latest',
+        name: 'Owner publication ' + group + ' / Node ' + node + ' / windows-latest',
+        matrixNode: node,
+        runnerOS: 'Windows',
+        lanes: ['owner-publication-' + group],
+      });
   for (const node of ['24', '26', 'current'])
     result.push({
       key: 'portable-ownership-' + node + '-windows-latest',
@@ -52,16 +59,28 @@ export function workers() {
       runnerOS: 'Windows',
       lanes: ['portable-ownership'],
     });
+  for (const node of ['24', '26', 'current'])
+    for (const group of WINDOWS_PORTABLE_UNIT_GROUPS)
+      result.push({
+        key: 'portable-unit-' + group + '-' + node + '-windows-latest',
+        name: 'Portable units / ' + group + ' / Node ' + node + ' / windows-latest',
+        matrixNode: node,
+        runnerOS: 'Windows',
+        lanes: ['portable-unit-' + group, 'portable-integration-' + group],
+      });
   return result;
+}
+export function verificationLanes(mode = 'all') {
+  if (!['all', 'fast', 'slow'].includes(mode)) fail('mode');
+  const required = [...new Set(workers().flatMap((worker) => worker.lanes))];
+  const isFast = (lane) => lane === 'fast' || lane.startsWith('portable-unit-');
+  return mode === 'all'
+    ? required
+    : required.filter((lane) => (mode === 'fast' ? isFast(lane) : !isFast(lane)));
 }
 export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' } = {}) {
   if (!['all', 'fast', 'slow'].includes(mode)) fail('mode');
-  const lanes =
-    mode === 'fast'
-      ? ['fast']
-      : mode === 'slow'
-        ? ['integration', 'mcp', 'packaging', 'smoke', 'owner-publication', 'portable-ownership']
-        : Object.keys(LANES);
+  const lanes = verificationLanes(mode);
   const execute = (command, args) =>
     execFileSync(command, args, { cwd: projectDir, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   const state = projectState(projectDir);

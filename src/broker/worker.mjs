@@ -61,6 +61,7 @@ export function createReviewWorker({
   let started = false;
   let suspended = false;
   let closed = false;
+  let closeOperation = null;
   let coordinatorStop = null;
   let coordinatorRun = null;
   let coordinatorFailure = null;
@@ -206,12 +207,20 @@ export function createReviewWorker({
     },
     async close() {
       if (closed) return;
-      if (state !== 'terminal' && !suspended) await this.suspend();
-      closed = true;
-      coordinatorStop?.();
-      if (coordinatorRun) await coordinatorRun;
-      if (!coordinatorRun) await adapter?.close?.();
-      await resourceLease?.release?.();
+      if (closeOperation) return await closeOperation;
+      closeOperation = (async () => {
+        if (state !== 'terminal' && !suspended) await this.suspend();
+        coordinatorStop?.();
+        if (coordinatorRun) await coordinatorRun;
+        if (!coordinatorRun) await adapter?.close?.();
+        await resourceLease?.release?.();
+        closed = true;
+      })();
+      try {
+        await closeOperation;
+      } finally {
+        closeOperation = null;
+      }
     },
     onStateChange(listener) {
       if (typeof listener !== 'function') throw new TypeError('broker-worker: listener required');
@@ -242,7 +251,7 @@ export function createReviewWorker({
           recovery: 'Preserve the reserved launch and reconcile the exact provider operation.',
         });
       const observation = await adapter.resourceObservation(input);
-      resourceLease.beforeDelivery(observation);
+      await resourceLease.beforeDelivery(observation);
       const immediatelyBefore = inspectStatus(registration.workspace, {
         now: new Date(clock?.now?.() ?? Date.now()),
       });
@@ -257,6 +266,7 @@ export function createReviewWorker({
           recovery: 'Preserve the reserved launch and reconcile the exact provider operation.',
         });
       }
+      resourceLease.assertDeliveryFresh?.();
       return adapter.launchReviewer(input);
     };
   }

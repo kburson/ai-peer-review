@@ -165,3 +165,88 @@ test('a present invalid child environment fails before provider execution', asyn
   );
   assert.equal(executed, false);
 });
+
+test('[#187] reviewer execution waits after the launch admission has released', async (t) => {
+  const fixture = launchFixture(t);
+  const { createClaudeLaunchOperations } =
+    await import('../../src/provider/claude-launch-core.mjs');
+  let admissionHeld = false,
+    blockedChild = false;
+  const api = createClaudeLaunchOperations({
+    async performCurrentOperationEffect(effect) {
+      admissionHeld = true;
+      try {
+        return await effect();
+      } finally {
+        admissionHeld = false;
+      }
+    },
+    assertCurrentOperationAuthority() {},
+  });
+  const authorities = [
+    launchAuthority({ joined: false, sequence: 1, revision: 0 }),
+    launchAuthority(),
+  ];
+  await api.runClaudeReviewerLaunch({
+    contract: fixture.contract,
+    inspectAuthority: () => authorities.shift(),
+    execFile: () =>
+      new Promise((resolve) =>
+        setImmediate(() => {
+          blockedChild = admissionHeld;
+          resolve({ stdout: JSON.stringify({ session_id: 'fixture-claude-session' }), stderr: '' });
+        })
+      ),
+  });
+  assert.equal(blockedChild, false, 'Reviewer join/submit must acquire its own primary generation');
+});
+
+test('[#187] an executor with its own spawn admission is not wrapped in a second held admission', async (t) => {
+  const fixture = launchFixture(t);
+  const { createClaudeLaunchOperations } =
+    await import('../../src/provider/claude-launch-core.mjs');
+  let held = false,
+    started = false;
+  async function admit(effect) {
+    if (held) throw new Error('nested primary owner');
+    held = true;
+    try {
+      return await effect();
+    } finally {
+      held = false;
+    }
+  }
+  const execFile = async () => {
+    await admit(() => {
+      started = true;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    return { stdout: JSON.stringify({ session_id: 'fixture-claude-session' }), stderr: '' };
+  };
+  const api = createClaudeLaunchOperations({
+    performCurrentOperationEffect: admit,
+    assertCurrentOperationAuthority() {},
+    executionOwnsAdmission: (execution) => execution === execFile,
+  });
+  const authorities = [
+    launchAuthority({ joined: false, sequence: 1, revision: 0 }),
+    launchAuthority(),
+  ];
+  await api.runClaudeReviewerLaunch({
+    contract: fixture.contract,
+    inspectAuthority: () => authorities.shift(),
+    execFile,
+  });
+  assert.equal(started, true);
+});
+
+test('[#187] only privately factory-owned streaming executors claim spawn admission', async () => {
+  const api = await import('../../src/providers/claude-stream.mjs');
+  const execution = api.createClaudeStreamingExec({ recorder: { accept() {} } });
+  assert.equal(api.isAdmissionOwnedClaudeExecutor(execution), true);
+  assert.equal(
+    api.isAdmissionOwnedClaudeExecutor(() => {}),
+    false
+  );
+  assert.equal(api.isAdmissionOwnedClaudeExecutor({ ...execution }), false);
+});

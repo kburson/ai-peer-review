@@ -7,6 +7,7 @@ import { parseRawJson, encodeRequestCanonical } from '../api/canonical-json.mjs'
 import {
   portableOwnerReadinessObligations,
   createPortableOwnerReadiness,
+  drainPortableOwnerReadiness,
 } from './owner-readiness.mjs';
 import {
   createPortableOwnerLifecycle,
@@ -15,7 +16,6 @@ import {
 import { observePortableReconciliation } from './portable-reconciliation.mjs';
 import { verifyRuntimeInventorySync } from '../startup/runtime-inventory.mjs';
 import path from 'node:path';
-import packageJson from '../../package.json' with { type: 'json' };
 import { portableBrokerPaths } from './portable-paths.mjs';
 import {
   acquireOwnerElection,
@@ -35,7 +35,10 @@ import {
   isVerifiedOwnerConnection,
 } from './owner-connection.mjs';
 import { observeOriginalProcess, reconcileOriginalProcess } from '../protocol/process-identity.mjs';
-import { isInstalledProcessSourceAssurance } from '../protocol/process-source-assurance.mjs';
+import {
+  isInstalledProcessSourceAssurance,
+  revalidateInstalledProcessSourceAssurance,
+} from '../protocol/process-source-assurance.mjs';
 import { assertLifecycleBoundary } from './owner-lifecycle-core.mjs';
 import {
   acquirePortableOwnerCore,
@@ -190,6 +193,12 @@ export async function observeAuthenticatedOwner(input = {}) {
   try {
     result = await (async () => {
       const context = ownerBudget(input);
+      const runtime = verifyRuntimeInventorySync({ packageRoot: loadedInstallation });
+      const currentRuntime = () =>
+        verifyRuntimeInventorySync({
+          packageRoot: loadedInstallation,
+          previousObservation: runtime,
+        });
       const view = await inspectOwnerElectionPaths({ paths: input.paths, ...context });
       const state = await readOwnerState(view);
       if (!state.owner || !state.credential || !state.endpoint)
@@ -204,7 +213,7 @@ export async function observeAuthenticatedOwner(input = {}) {
         state,
         worktree,
         versions: {
-          package_version: packageJson.version,
+          package_version: currentRuntime().packageVersion,
           broker_protocol_version: 1,
           node_major: Number(process.versions.node.split('.')[0]),
         },
@@ -233,6 +242,7 @@ export async function observeAuthenticatedOwner(input = {}) {
       });
       connection = proof.connection; // Capture before any conflicting-evidence branch.
       const decision = assessOwnerEvidenceCore({ process: originalProcess, endpoint: proof });
+      currentRuntime();
       if (decision.status === 'dead') {
         if (!sameOwnerState(state, await readOwnerState(view)))
           throw boundedOwnershipError('owner-generation-changed');
@@ -248,6 +258,7 @@ export async function observeAuthenticatedOwner(input = {}) {
           process: originalProcess,
           context,
         });
+        currentRuntime();
         return observed;
       }
       if (decision.status !== 'authenticated-live') return unknownOwner(decision.reason);
@@ -272,6 +283,7 @@ export async function observeAuthenticatedOwner(input = {}) {
           return client.close(context);
         },
         async reread(next) {
+          currentRuntime();
           await inspectOwnerElectionPaths({ paths: input.paths, ...next });
           if (!sameOwnerState(state, await readOwnerState(view)))
             throw boundedOwnershipError('owner-generation-changed');
@@ -281,6 +293,7 @@ export async function observeAuthenticatedOwner(input = {}) {
               .status !== 'live'
           )
             throw boundedOwnershipError('original-process-unproved');
+          currentRuntime();
         },
         async connect(next) {
           if (
@@ -289,6 +302,7 @@ export async function observeAuthenticatedOwner(input = {}) {
             !isVerifiedOwnerConnection(heldConnection)
           )
             throw boundedOwnershipError('proved-socket-lost');
+          currentRuntime();
           observations.delete(observed);
           return Object.freeze({
             ...client,
@@ -301,6 +315,7 @@ export async function observeAuthenticatedOwner(input = {}) {
           });
         },
       };
+      currentRuntime();
       bindings.set(binding, record);
       const observed = Object.freeze({
         status: 'authenticated-live',
@@ -330,7 +345,99 @@ export async function observeAuthenticatedOwner(input = {}) {
   }
   return result;
 }
+const preparedOwners = new WeakMap();
+export function isPreparedPortableOwner(owner) {
+  const record = preparedOwners.get(owner);
+  return !!record && record.phase === 'prepared' && !record.fenced;
+}
+export function resolvePortableWorkerOwner(owner) {
+  if (isPortableBrokerOwner(owner)) return owner;
+  const record = preparedOwners.get(owner);
+  if (
+    !record ||
+    record.fenced ||
+    !['prepared', 'published'].includes(record.phase) ||
+    (record.phase === 'published' && !isPortableBrokerOwner(record.owner))
+  )
+    throw boundedOwnershipError('genuine-worker-owner-required');
+  return owner;
+}
+export function publishedPortableBrokerOwner(owner) {
+  if (isPortableBrokerOwner(owner)) return owner;
+  const record = preparedOwners.get(owner);
+  if (
+    !record ||
+    record.fenced ||
+    record.phase !== 'published' ||
+    !isPortableBrokerOwner(record.owner)
+  )
+    throw boundedOwnershipError('genuine-published-owner-required');
+  return record.owner;
+}
+export function preparedPortableOwnerContext(owner) {
+  if (!isPreparedPortableOwner(owner))
+    throw boundedOwnershipError('genuine-prepared-owner-required');
+  const record = preparedOwners.get(owner);
+  ownerBudget(record.context);
+  return record.context;
+}
+const preparedServices = new WeakMap();
+export function resolvePreparedPortableService(server) {
+  const record = preparedServices.get(server);
+  if (
+    !record ||
+    record.closed ||
+    record.prepared.fenced ||
+    typeof record.dispatch !== 'function' ||
+    !['prepared', 'publishing', 'published'].includes(record.prepared.phase)
+  )
+    throw boundedOwnershipError('genuine-prepared-service-required');
+  if (record.prepared.phase === 'published' && !isPortableBrokerOwner(record.prepared.owner))
+    throw boundedOwnershipError('genuine-service-owner-required');
+  return Object.freeze({
+    owner: record.owner,
+    context: record.prepared.context,
+    instanceId: record.prepared.candidate.facts.instanceId,
+    dispatch: record.dispatch,
+    worktree: record.prepared.worktree,
+    published: record.prepared.phase === 'published',
+  });
+}
+export function createPreparedPortableBrokerServer({ owner } = {}) {
+  if (!isPreparedPortableOwner(owner))
+    throw boundedOwnershipError('genuine-prepared-owner-required');
+  const prepared = preparedOwners.get(owner);
+  if (prepared.service) throw boundedOwnershipError('prepared-service-already-bound');
+  const record = { owner, prepared, dispatch: null, started: false, closed: false };
+  const server = Object.freeze({
+    async start(dispatch) {
+      if (record.started || record.closed || typeof dispatch !== 'function')
+        throw boundedOwnershipError('prepared-service-start-refused');
+      record.started = true;
+      await owner.verify(prepared.context);
+      record.dispatch = dispatch;
+    },
+    async close(context = prepared.context) {
+      if (record.closed) return true;
+      if (prepared.candidate.readinessServer)
+        await drainPortableOwnerReadiness({
+          readiness: prepared.candidate.readinessServer,
+          service: server,
+          ...context,
+        });
+      record.closed = true;
+      return true;
+    },
+  });
+  preparedServices.set(server, record);
+  prepared.service = server;
+  return server;
+}
 export async function acquirePortableOwner(input = {}) {
+  const prepared = await preparePortableOwner(input);
+  return isPreparedPortableOwner(prepared) ? await prepared.publish() : prepared;
+}
+export async function preparePortableOwner(input = {}) {
   let bound,
     lease,
     candidate,
@@ -340,6 +447,7 @@ export async function acquirePortableOwner(input = {}) {
     transferred = false,
     effectStarted = false;
   const record = { input, lease: null, candidate: null };
+  let preparation = null;
   try {
     assertLifecycleBoundary();
     const context = ownerBudget(input);
@@ -348,6 +456,9 @@ export async function acquirePortableOwner(input = {}) {
       Object.keys(input).sort().join(',') !== 'deadline,paths,protection,reconcile,signal,worktree'
     )
       throw boundedOwnershipError('owner-options-invalid');
+    const runtime = verifyRuntimeInventorySync({ packageRoot: loadedInstallation });
+    const currentRuntime = () =>
+      verifyRuntimeInventorySync({ packageRoot: loadedInstallation, previousObservation: runtime });
     const canonical = await portableBrokerPaths({ worktree: input.worktree });
     if (
       !input.paths ||
@@ -466,7 +577,7 @@ export async function acquirePortableOwner(input = {}) {
         },
         async create(current) {
           effectStarted = true;
-          const runtime = verifyRuntimeInventorySync({ packageRoot: loadedInstallation });
+          currentRuntime();
           const versions = Object.freeze({
             package_version: runtime.packageVersion,
             broker_protocol_version: 1,
@@ -490,6 +601,7 @@ export async function acquirePortableOwner(input = {}) {
             ownerVersion: createHash('sha256').update(bytes).digest('hex'),
           };
           record.candidate = candidate;
+          currentRuntime();
           candidate.publication = await createHeldPrivatePublication({
             guard: view.privateGuard,
             name: 'owner.json',
@@ -499,6 +611,7 @@ export async function acquirePortableOwner(input = {}) {
           });
           const secret = randomBytes(32);
           try {
+            currentRuntime();
             candidate.credential = await createHeldPrivatePublication({
               guard: view.privateGuard,
               name: 'credential',
@@ -512,6 +625,7 @@ export async function acquirePortableOwner(input = {}) {
           return candidate;
         },
         async ready(value, current) {
+          currentRuntime();
           const expected = {
             instanceId: value.facts.instanceId,
             worktree: value.facts.worktree,
@@ -520,6 +634,7 @@ export async function acquirePortableOwner(input = {}) {
           value.readinessServer = await createPortableOwnerReadiness({
             credential: value.credential,
             expected,
+            ...(preparation?.service ? { service: preparation.service } : {}),
             ...current,
           });
           const proof = await observeLoopbackOwner({
@@ -534,6 +649,7 @@ export async function acquirePortableOwner(input = {}) {
           return value.readinessServer;
         },
         async publishEndpoint(value, ready, current) {
+          currentRuntime();
           const subject = {
             instanceId: value.facts.instanceId,
             worktree: value.facts.worktree,
@@ -557,6 +673,7 @@ export async function acquirePortableOwner(input = {}) {
           });
         },
         async lifecycle(value, current) {
+          currentRuntime();
           genuineOwner = await createPortableOwnerLifecycle({
             publication: value.publication,
             credential: value.credential,
@@ -619,13 +736,91 @@ export async function acquirePortableOwner(input = {}) {
         },
       });
     }
-    // Public production acquisition completes the one bounded startup itself.
-    // The injected protocol object is never returned as genuine ownership.
-    await protocol.publish();
-    if (!isPortableBrokerOwner(genuineOwner))
-      throw boundedOwnershipError('genuine-owner-completion-unproved');
+    // Preparation retains actual C1/C3 producers but advertises no discovery.
+    // It is not published ownership and never exposes the injected protocol object.
+    const preparedRecord = {
+      context,
+      phase: 'prepared',
+      fenced: false,
+      owner: null,
+      candidate,
+      service: null,
+      worktree: canonical.worktree,
+    };
+    const nonce = randomBytes(32).toString('hex');
+    const prepared = Object.freeze({
+      instanceId: candidate.facts.instanceId,
+      nonce,
+      handshake: Object.freeze({
+        instance_id: candidate.facts.instanceId,
+        versions: candidate.facts.versions,
+      }),
+      async verify(supplied = context) {
+        if (preparedRecord.fenced) throw boundedOwnershipError('prepared-owner-fenced');
+        if (preparedRecord.phase === 'published') return genuineOwner.verify(supplied);
+        if (
+          preparedRecord.phase !== 'prepared' ||
+          supplied.signal !== context.signal ||
+          supplied.deadline !== context.deadline
+        )
+          throw boundedOwnershipError('prepared-owner-budget-mismatch');
+        try {
+          ownerBudget(context);
+          currentRuntime();
+          await lease.assert(context);
+          if (!(await revalidateInstalledProcessSourceAssurance(source, context)))
+            throw boundedOwnershipError('source-class-unavailable');
+          await candidate.publication.verify(context);
+          await candidate.credential.verify(context);
+          await lease.assert(context);
+          ownerBudget(context);
+          currentRuntime();
+          return true;
+        } catch (error) {
+          preparedRecord.fenced = true;
+          retainedTransactions.add(record);
+          throw error;
+        }
+      },
+      async publish() {
+        if (preparedRecord.phase !== 'prepared' || preparedRecord.fenced)
+          throw boundedOwnershipError('prepared-owner-publication-refused');
+        preparedRecord.phase = 'publishing';
+        try {
+          await protocol.publish();
+          if (!isPortableBrokerOwner(genuineOwner))
+            throw boundedOwnershipError('genuine-owner-completion-unproved');
+          preparedRecord.owner = genuineOwner;
+          preparedRecord.phase = 'published';
+          return genuineOwner;
+        } catch (error) {
+          preparedRecord.fenced = true;
+          retainedTransactions.add(record);
+          throw error;
+        }
+      },
+      async release(supplied) {
+        if (preparedRecord.phase !== 'published' || preparedRecord.fenced)
+          throw boundedOwnershipError('prepared-owner-release-unproved', {
+            outstandingObligations: ownerTransactionObligationsCore({
+              files: [candidate.publication, candidate.credential, candidate.endpointPublication]
+                .filter(Boolean)
+                .map((value) => value.retainedGeneration()),
+              quarantines: record.quarantined || [],
+              transports: candidate.readinessServer
+                ? portableOwnerReadinessObligations(candidate.readinessServer)
+                : [],
+            }),
+          });
+        const result = await genuineOwner.release(supplied);
+        preparedRecord.phase = 'released';
+        return result;
+      },
+    });
+    preparation = preparedRecord;
+    preparedOwners.set(prepared, preparedRecord);
     transferred = true;
-    return genuineOwner;
+    return prepared;
   } catch (error) {
     failure = boundedOwnershipError(
       error?.details?.reason || 'owner-acquisition-unproved',

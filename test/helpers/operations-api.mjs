@@ -1,3 +1,7 @@
+import { startupEvidence } from '../../src/broker/registry.mjs';
+import { AprError } from '../../src/errors.mjs';
+import { realpathSync } from 'node:fs';
+import { canonicalProjectIdentity } from '../../src/broker/identity.mjs';
 import { requestBroker, ensureBroker, fenceManualRecovery } from './broker-client-api.mjs';
 // @story #136
 import { runClaudeReviewerLaunch } from './claude-launch-api.mjs';
@@ -46,6 +50,16 @@ const createClaudeStreamingExec = (input) => {
   return createStream(input);
 };
 const startup = createStartupRuntime({
+  resolveProject: ({ cwd, repository, deps }) =>
+    canonicalProjectIdentity({
+      cwd,
+      platform: {
+        kind: process.platform,
+        canonicalPath: realpathSync,
+        userId: deps.platform?.userId ?? (() => String(process.geteuid?.() ?? 'fixture-user')),
+        repository,
+      },
+    }),
   startReview: (...args) => operations.startReview(...args),
   ensureBroker: denyProvider,
   requestBroker,
@@ -53,11 +67,37 @@ const startup = createStartupRuntime({
   performCurrentOperationEffect: (operation) => operation(),
 });
 const operations = createReviewOperations({
+  brokerRecoveryRuntime: (workspace, io) => {
+    if (io.brokerReconcileRuntime) return io.brokerReconcileRuntime(workspace);
+    const authority = protocol.inspectReviewAuthority(workspace);
+    const observed = startupEvidence(workspace, authority.state);
+    return { versions: observed.journal.versions, runtimeImage: observed.journal.runtime };
+  },
+  prepareBrokerClient: (input, io) => (io.brokerEnsure ?? ensureBroker)(input),
+  resolveBrokerProject: ({ cwd, io }) =>
+    canonicalProjectIdentity({
+      cwd,
+      platform: {
+        kind: process.platform,
+        canonicalPath: realpathSync,
+        userId: () => String(process.geteuid?.() ?? 'fixture-user'),
+        repository: io.repository,
+      },
+    }),
+  connectBrokerClient: ({ project, versions, io }) =>
+    io.brokerConnect
+      ? io.brokerConnect({ identity: project, versions, paths: null })
+      : Promise.reject(
+          new AprError('APR_BROKER_START_FAILED', 'Portable fixture connector is unavailable.', {
+            recovery: 'Inject an explicit unverified connector in this fixture.',
+          })
+        ),
   protocol,
   startup,
   ensureBroker,
   requestBroker,
   fenceManualRecovery,
+  suspendBrokerRecovery: (workspace, connect) => fenceManualRecovery(workspace, { connect }),
   productionProviderAdapters,
   requestGrant,
   runClaudeReviewerLaunch,

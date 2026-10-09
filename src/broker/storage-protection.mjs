@@ -2,7 +2,15 @@
 // @story #168
 // @story #175
 // cspell:words notin DACL SID SIDFullControl Win32PowerShell fsync nlink ino lstat reparse ldne rwxst readattr writeattr readextattr writeextattr readsecurity writesecurity statfs hardlink readback
-import { constants } from 'node:fs';
+import {
+  constants,
+  lstatSync,
+  realpathSync,
+  openSync,
+  fstatSync,
+  readSync,
+  closeSync,
+} from 'node:fs';
 import {
   access,
   chmod,
@@ -14,7 +22,11 @@ import {
   unlink,
   statfs,
 } from 'node:fs/promises';
-import { assertOwnerElectionLease, ownerElectionBudget } from './ownership-election.mjs';
+import {
+  assertOwnerElectionLease,
+  ownerElectionBudget,
+  providerElectionRootOperation,
+} from './ownership-election.mjs';
 import { opendir } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -26,6 +38,59 @@ import { AprError } from '../errors.mjs';
 
 const execute = promisify(execFile);
 const receipts = new WeakMap();
+const protectedSnapshots = new WeakMap();
+const snapshotStamp = (stat) =>
+  [stat.dev, stat.ino, stat.uid, stat.mode, stat.size, stat.mtimeNs, stat.ctimeNs]
+    .map(String)
+    .join(':');
+// Integrity adjunct for an already awaited genuine C1 observation. This cannot
+// mint a snapshot, protection receipt, lease, or operational permission.
+export function assertProtectedSnapshotUnchanged(snapshot) {
+  const original = protectedSnapshots.get(snapshot);
+  if (!original) throw failure('APR_BROKER_STALE', 'genuine-protected-snapshot-required');
+  original.budget.check();
+  for (const entry of original.ancestry) {
+    const stat = lstatSync(entry.path, { bigint: true });
+    if (
+      stat.isSymbolicLink() ||
+      !stat.isDirectory() ||
+      identity(stat) !== entry.identity ||
+      mode(stat) !== entry.mode ||
+      String(stat.uid) !== entry.uid ||
+      realpathSync(entry.path) !== entry.path
+    )
+      throw failure('APR_BROKER_STALE', 'snapshot-ancestor-changed');
+  }
+  if (
+    snapshotStamp(lstatSync(original.root, { bigint: true })) !== original.rootStamp ||
+    realpathSync(original.root) !== original.root ||
+    snapshotStamp(lstatSync(original.location, { bigint: true })) !== original.fileStamp
+  )
+    throw failure('APR_BROKER_STALE', 'protected-snapshot-changed');
+  const descriptor = openSync(original.location, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+  try {
+    if (snapshotStamp(fstatSync(descriptor, { bigint: true })) !== original.fileStamp)
+      throw failure('APR_BROKER_STALE', 'protected-snapshot-changed');
+    const bytes = Buffer.alloc(original.bytes.length + 1);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+      if (!count) break;
+      offset += count;
+    }
+    if (
+      offset !== original.bytes.length ||
+      !bytes.subarray(0, offset).equals(original.bytes) ||
+      snapshotStamp(fstatSync(descriptor, { bigint: true })) !== original.fileStamp ||
+      snapshotStamp(lstatSync(original.location, { bigint: true })) !== original.fileStamp
+    )
+      throw failure('APR_BROKER_STALE', 'protected-snapshot-changed');
+  } finally {
+    closeSync(descriptor);
+  }
+  original.budget.check();
+  return snapshot;
+}
 const guards = new WeakMap();
 const heldPublications = new WeakMap();
 const credentialObservations = new WeakMap();
@@ -748,7 +813,9 @@ function safeBytes(value) {
 }
 export async function openProtectedRoot({ receipt: r, signal, deadline, clock } = {}) {
   const admitted = () => {
-    const current = portableOwnerRootOperation(r?.root, { signal, deadline });
+    const current =
+      providerElectionRootOperation(r?.root, { signal, deadline }) ||
+      portableOwnerRootOperation(r?.root, { signal, deadline });
     if (current && clock !== undefined) throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
     return current;
   };
@@ -841,7 +908,9 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     )
       throw failure('APR_BROKER_STALE', 'private-file-changed');
   }
-  async function readObserved(name, writable = false) {
+  async function readObserved(name, writable = false, maxBytes = MAX_BYTES) {
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_BYTES)
+      throw failure('APR_BROKER_PATH_INVALID', 'private-read-bound-invalid');
     const target = path.join(r.root, resourceName(name));
     await verify();
     let file;
@@ -862,10 +931,20 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       if (
         identity(stat) !== entry.identity ||
         version(stat) !== entry.fileVersion ||
-        stat.size > BigInt(MAX_BYTES)
+        stat.size > BigInt(maxBytes)
       )
         throw failure('APR_BROKER_STALE', 'private-file-changed');
-      const bytes = await file.readFile();
+      const buffer = Buffer.alloc(Number(stat.size) + 1);
+      let offset = 0;
+      while (offset < buffer.length) {
+        budget.check();
+        const { bytesRead } = await file.read(buffer, offset, buffer.length - offset, offset);
+        if (bytesRead === 0) break;
+        offset += bytesRead;
+      }
+      if (offset !== Number(stat.size) || offset > maxBytes)
+        throw failure('APR_BROKER_STALE', 'private-read-bound-changed');
+      const bytes = buffer.subarray(0, offset);
       await verify();
       await matchFile(entry, file);
       return { ...entry, bytes };
@@ -1020,14 +1099,37 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       }
     }, resourceLease);
   }
+  function expectedMutation(name, expected) {
+    if (Buffer.isBuffer(expected)) return { bytes: safeBytes(expected), check: () => {} };
+    const original = protectedSnapshots.get(expected);
+    if (
+      !original ||
+      original.root !== r.root ||
+      original.name !== name ||
+      original.rootIdentity !== r.identity
+    )
+      throw failure('APR_BROKER_STALE', 'genuine-mutation-snapshot-required');
+    return {
+      bytes: Buffer.from(original.bytes),
+      check(observed) {
+        if (
+          observed.identity !== original.identity ||
+          observed.fileVersion !== original.fileVersion
+        )
+          throw failure('APR_BROKER_STALE', 'private-generation-changed');
+      },
+    };
+  }
   async function remove(name, expected, resourceLease = null) {
     const target = path.join(r.root, ordinaryMutationName(name)),
-      old = safeBytes(expected);
+      generation = expectedMutation(name, expected),
+      old = generation.bytes;
     if (resourceLease) await assertOwnerElectionLease(resourceLease, { root: r.root, name });
     return mutate(async (leaseCheck) => {
       const observed = await readObserved(name);
       let caught;
       try {
+        generation.check(observed);
         if (!observed.bytes.equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
         await closeFile(observed.file);
         await leaseCheck();
@@ -1052,7 +1154,8 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
   }
   async function replace(name, expected, value, resourceLease = null) {
     const target = path.join(r.root, ordinaryMutationName(name)),
-      old = safeBytes(expected),
+      generation = expectedMutation(name, expected),
+      old = generation.bytes,
       bytes = safeBytes(value);
     if (resourceLease) await assertOwnerElectionLease(resourceLease, { root: r.root, name });
     return mutate(async (leaseCheck) => {
@@ -1062,6 +1165,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
         attempted = false,
         caught;
       try {
+        generation.check(observed);
         if (!observed.bytes.equals(old)) throw failure('APR_BROKER_STALE', 'private-bytes-changed');
         temporary = await createFile('publish-' + randomUUID(), bytes, true);
         await closeFile(observed.file);
@@ -1119,10 +1223,10 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     }, resourceLease);
   }
 
-  async function readSnapshot(name) {
-    const observed = await readObserved(name);
+  async function readSnapshot(name, maxBytes = MAX_BYTES) {
+    const observed = await readObserved(name, false, maxBytes);
     try {
-      return Object.freeze({
+      const snapshot = Object.freeze({
         name,
         root: r.root,
         location: path.join(r.root, name),
@@ -1132,6 +1236,28 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
         rootIdentity: r.identity,
         bytes: Buffer.from(observed.bytes),
       });
+      const finalFile = lstatSync(snapshot.location, { bigint: true });
+      if (
+        identity(finalFile) !== observed.identity ||
+        version(finalFile) !== observed.fileVersion ||
+        identity(lstatSync(r.root, { bigint: true })) !== r.identity
+      )
+        throw failure('APR_BROKER_STALE', 'protected-snapshot-changed');
+      protectedSnapshots.set(snapshot, {
+        name,
+        identity: observed.identity,
+        fileVersion: observed.fileVersion,
+        rootIdentity: r.identity,
+        budget,
+        root: r.root,
+        location: snapshot.location,
+        ancestry: r.ancestry,
+        rootStamp: snapshotStamp(lstatSync(r.root, { bigint: true })),
+        fileStamp: snapshotStamp(finalFile),
+        bytes: Buffer.from(observed.bytes),
+      });
+      assertProtectedSnapshotUnchanged(snapshot);
+      return snapshot;
     } finally {
       await closeOwnedFile(observed);
     }
@@ -1779,8 +1905,16 @@ async function ownerGuard(guard, lease, name, context) {
     !Number.isFinite(context.deadline) ||
     context.signal !== original.signal ||
     context.deadline !== original.deadline ||
-    (!portableOwnerRootOperation(record.root, record) && context.signal !== record.signal) ||
-    (!portableOwnerRootOperation(record.root, record) && context.deadline !== record.deadline)
+    (!(
+      providerElectionRootOperation(record.root, record) ||
+      portableOwnerRootOperation(record.root, record)
+    ) &&
+      context.signal !== record.signal) ||
+    (!(
+      providerElectionRootOperation(record.root, record) ||
+      portableOwnerRootOperation(record.root, record)
+    ) &&
+      context.deadline !== record.deadline)
   )
     throw failure('APR_BROKER_STALE', 'lease-budget-mismatch');
   return record;

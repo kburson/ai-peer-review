@@ -7,7 +7,9 @@ import { createReviewRecordOperations } from './review-record-core.mjs';
 const operations = createReviewRecordOperations({ performCurrentOperationEffect });
 export const { planReviewRecord, renderReviewHistory } = operations;
 export function applyReviewRecord(plan, options) {
-  return withOperationAuthority({ operation: 'record.apply', cwd: plan?.repository_root }, () =>
-    performCurrentOperationEffect(() => operations.applyReviewRecord(plan, options))
+  return withOperationAuthority(
+    { operation: 'record.apply', cwd: plan?.repository_root },
+    async () =>
+      await performCurrentOperationEffect(() => operations.applyReviewRecord(plan, options))
   );
 }

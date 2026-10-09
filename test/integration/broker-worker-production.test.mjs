@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
+import { acquireProviderResourceCore } from '../../src/broker/provider-resource-core.mjs';
 import { createProviderBridge } from '../../src/broker/provider-bridge.mjs';
 import { createReviewWorker } from '../../src/broker/worker.mjs';
 import { createProductionWorkerOperations } from '../../src/broker/worker-factory-core.mjs';
@@ -14,7 +15,13 @@ const REVIEWER = `sha256:${'b'.repeat(64)}`;
 const LAUNCH = 'launch:reviewer-operation';
 const workspace = '/tmp/apr-bridge-fixture';
 
-function fixture({ reconcileLaunch } = {}) {
+function fixture({
+  reconcileLaunch,
+  resourceRefusal,
+  providerLease,
+  resourceObservation,
+  afterResourceCheck,
+} = {}) {
   let role = 'author';
   let revision = 4;
   let fenced = false;
@@ -55,6 +62,7 @@ function fixture({ reconcileLaunch } = {}) {
           return { status: 'acknowledged' };
         },
         async observeResource({ binding }) {
+          if (resourceObservation) return resourceObservation(binding);
           return { session_fingerprint: binding.session_fingerprint };
         },
         async reconcileDelivery(input) {
@@ -88,7 +96,11 @@ function fixture({ reconcileLaunch } = {}) {
     },
   };
   const lease = {
-    beforeDelivery(target, observation) {
+    assertDeliveryFresh: () => providerLease?.assertDeliveryFresh(),
+    async beforeDelivery(target, observation) {
+      await resourceRefusal?.();
+      await providerLease?.beforeDelivery(observation);
+      afterResourceCheck?.();
       leases.push([target, observation.session_fingerprint]);
     },
   };
@@ -860,7 +872,7 @@ test('production concurrent lease validates fresh launch evidence without write-
   f.input.owner = { verify: () => true, instanceId: 'c'.repeat(64), nonce: 'd'.repeat(64) };
   f.input.platform.now = () => new Date(now).toISOString();
   f.input.invitationPath = '/tmp/project/reviewer-invitation.md';
-  delete f.input.acquireResource;
+  f.input.acquireResource = acquireProviderResourceCore;
   f.reviewer.observeLaunchResource = async () => ({
     status: 'ready',
     session_handle: 'reviewer-launch',
@@ -897,7 +909,7 @@ test('production concurrent reviewer wake keeps fresh evidence during first sess
     status.review.recovery.event_revision = 2;
     return status;
   };
-  delete f.input.acquireResource;
+  f.input.acquireResource = acquireProviderResourceCore;
   f.input.coordinator = async ({ adapter }) => {
     bridge = adapter;
   };
@@ -937,4 +949,177 @@ test('production concurrent reviewer wake keeps fresh evidence during first sess
   await worker.start();
   await bridge.deliver(fixture().wake('reviewer', 2));
   assert.equal(f.stats.providerCalls, 1);
+});
+
+test('worker factory awaits asynchronous owner refusal before resource acquisition', async () => {
+  const f = restartFactoryFixture('launch-pending');
+  let acquired = 0;
+  f.input.owner.verify = async () => false;
+  f.input.acquireResource = async () => {
+    acquired++;
+    return { async releaseUnused() {}, async release() {} };
+  };
+  await assert.rejects(createProductionReviewWorker(f.input), { code: 'APR_BROKER_START_FAILED' });
+  assert.equal(acquired, 0);
+});
+
+test('worker factory awaits actual user identity before creating resource identities', async () => {
+  const f = restartFactoryFixture('launch-pending');
+  const identities = [];
+  f.input.platform.userId = async () => 'actual-async-user';
+  f.input.acquireResource = async ({ identity }) => {
+    identities.push(identity.userId);
+    return { async releaseUnused() {}, async release() {} };
+  };
+  const worker = await createProductionReviewWorker(f.input);
+  assert.ok(identities.length > 0);
+  assert.ok(identities.every((value) => value === 'actual-async-user'));
+  await worker.close();
+});
+
+for (const reason of ['foreign slot', 'stale generation', 'stale observation']) {
+  test('worker launch awaits provider lease refusal for ' + reason, async () => {
+    const f = restartFactoryFixture('launch-pending');
+    const inspect = f.input.inspect;
+    f.input.inspect = () => {
+      const value = inspect();
+      value.state.participants.reviewer = null;
+      return value;
+    };
+    f.input.invitationPath = '/tmp/project/reviewer-invitation.md';
+    f.input.acquireResource = async () => ({
+      async beforeDelivery() {
+        await Promise.resolve();
+        throw Object.assign(new Error(reason), { code: 'APR_PROVIDER_RESOURCE_STALE' });
+      },
+      async releaseUnused() {},
+      async release() {},
+    });
+    const worker = await createProductionReviewWorker(f.input);
+    await assert.rejects(worker.launchReviewer({ operationId: LAUNCH }), {
+      code: 'APR_PROVIDER_RESOURCE_STALE',
+    });
+    assert.equal(f.stats.providerCalls, 0);
+    await worker.close();
+  });
+}
+
+test('worker close does not claim completion when awaited resource release fails', async () => {
+  let releases = 0;
+  const worker = createReviewWorker({
+    registration: { workspace },
+    inspectStatus: () => ({ state: 'accepted' }),
+    resourceLease: {
+      async release() {
+        releases++;
+        if (releases === 1) throw new Error('resource-release-failed');
+      },
+    },
+  });
+  await worker.start();
+  await assert.rejects(worker.close(), /resource-release-failed/);
+  await worker.close();
+  assert.equal(releases, 2);
+});
+
+for (const reason of ['foreign slot', 'stale generation', 'stale observation']) {
+  test(
+    'provider bridge awaits resource refusal for ' + reason + ' before waking a session',
+    async () => {
+      const f = fixture({
+        resourceRefusal: async () => {
+          await Promise.resolve();
+          throw Object.assign(new Error(reason), { code: 'APR_PROVIDER_RESOURCE_STALE' });
+        },
+      });
+      await assert.rejects(f.bridge.deliver(f.wake('author')), {
+        code: 'APR_PROVIDER_RESOURCE_STALE',
+      });
+      assert.equal(f.calls.length, 0);
+    }
+  );
+}
+
+test('actual worker launch refuses freshness lost during its final awaited owner observation', async () => {
+  const f = restartFactoryFixture('launch-pending');
+  const inspected = f.input.inspect;
+  f.input.inspect = () => {
+    const value = inspected();
+    value.state.participants.reviewer = null;
+    return value;
+  };
+  let now = Date.parse('2026-10-03T00:00:00.000Z'),
+    observations = 0;
+  f.input.platform.now = () => new Date(now).toISOString();
+  f.input.owner = {
+    instanceId: 'c'.repeat(64),
+    nonce: 'd'.repeat(64),
+    async verify() {
+      if (++observations === 3) now += 6000;
+      return true;
+    },
+  };
+  f.input.acquireResource = acquireProviderResourceCore;
+  f.input.invitationPath = '/tmp/project/reviewer-invitation.md';
+  f.reviewer.observeLaunchResource = async () => ({
+    status: 'ready',
+    session_handle: 'reviewer-launch',
+    observed_at: new Date(now).toISOString(),
+  });
+  const worker = await createProductionReviewWorker(f.input);
+  await assert.rejects(worker.launchReviewer({ operationId: LAUNCH }), {
+    code: 'APR_PROVIDER_RESOURCE_STALE',
+  });
+  assert.equal(f.stats.providerCalls, 0);
+});
+
+test('actual bridge wake refuses freshness lost after its awaited resource check', async () => {
+  let now = Date.parse('2026-10-03T00:00:00.000Z');
+  const providerLease = await acquireProviderResourceCore(
+    {
+      identity: { userId: 'fixture-user', provider: 'openai', digest: 'a'.repeat(64) },
+      descriptor: { concurrent: true, resource_id: null },
+      instanceId: 'b'.repeat(64),
+      nonce: 'c'.repeat(64),
+    },
+    { userId: async () => 'fixture-user', now: () => new Date(now).toISOString() }
+  );
+  const f = fixture({
+    providerLease,
+    resourceObservation: (binding) => ({
+      status: 'ready',
+      session_handle: binding.handle_locator,
+      observed_at: new Date(now).toISOString(),
+    }),
+    afterResourceCheck: () => {
+      now += 6000;
+    },
+  });
+  await assert.rejects(f.bridge.deliver(f.wake('author')), { code: 'APR_PROVIDER_RESOURCE_STALE' });
+  assert.equal(f.calls.length, 0);
+});
+
+test('partial multi-resource close retries only unresolved provider leases', async () => {
+  const f = restartFactoryFixture('launched');
+  f.input.owner = { verify: async () => true, instanceId: 'c'.repeat(64), nonce: 'd'.repeat(64) };
+  f.input.inspectStatus = () => ({ state: 'accepted' });
+  const calls = { openai: 0, anthropic: 0 };
+  f.input.acquireResource = async (input, platform) => {
+    const lease = await acquireProviderResourceCore(input, platform);
+    return {
+      ...lease,
+      async releaseUnused() {
+        const provider = input.identity.provider;
+        calls[provider]++;
+        if (provider === 'anthropic' && calls[provider] === 1)
+          throw new Error('transient-remaining-release');
+        return await lease.releaseUnused();
+      },
+    };
+  };
+  const worker = await createProductionReviewWorker(f.input);
+  await worker.start();
+  await assert.rejects(worker.close(), /transient-remaining-release/);
+  await worker.close();
+  assert.deepEqual(calls, { openai: 1, anthropic: 2 });
 });

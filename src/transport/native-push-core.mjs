@@ -144,13 +144,11 @@ export function createNativePushOperations({
         ...input,
         dispatch:
           typeof dispatch === 'function'
-            ? (...args) =>
-                performCurrentOperationEffect(() => ({ pending: dispatch(...args) })).pending
+            ? async (...args) => await performCurrentOperationEffect(() => dispatch(...args))
             : dispatch,
         reconcile:
           typeof reconcile === 'function'
-            ? (...args) =>
-                performCurrentOperationEffect(() => ({ pending: reconcile(...args) })).pending
+            ? async (...args) => await performCurrentOperationEffect(() => reconcile(...args))
             : reconcile,
       };
       const transport = createNativePushTransport(protectedInput);

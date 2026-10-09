@@ -4,7 +4,7 @@ import { tmpdir, userInfo } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 export function runtimeFixture(t) {
-  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'peer account ')));
+  const root = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'peer account ')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const home = path.join(root, 'account');
   const packageRoot = path.join(root, 'global package');

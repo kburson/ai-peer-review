@@ -13,17 +13,18 @@ import { readStartupJournal, startupEvidence } from './registry.mjs';
 export function createBrokerLaunchOperations({ performCurrentOperationEffect }) {
   if (typeof performCurrentOperationEffect !== 'function')
     throw new TypeError('Explicit broker effect authority required');
-  const atomicWrite = (...args) => performCurrentOperationEffect(() => rawAtomicWrite(...args));
+  const atomicWrite = async (...args) =>
+    await performCurrentOperationEffect(() => rawAtomicWrite(...args));
   const withReviewLock = (workspace, callback, options = {}) =>
     rawWithReviewLock(
       workspace,
       async (...args) => {
-        performCurrentOperationEffect(() => {});
+        await performCurrentOperationEffect(() => {});
         const result = await callback(...args);
-        performCurrentOperationEffect(() => {});
+        await performCurrentOperationEffect(() => {});
         return result;
       },
-      { ...options, effect: (operation) => performCurrentOperationEffect(operation) }
+      { ...options, effect: async (operation) => await performCurrentOperationEffect(operation) }
     );
   const NOT_SUBMITTED = new Set([
     'APR_PROVIDER_QUOTA',
@@ -53,15 +54,15 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
     });
   }
 
-  function save(workspace, journal) {
-    atomicWrite(path.join(workspace, 'startup-request.json'), `${JSON.stringify(journal)}\n`);
+  async function save(workspace, journal) {
+    await atomicWrite(path.join(workspace, 'startup-request.json'), `${JSON.stringify(journal)}\n`);
   }
 
   async function reserveReviewerLaunch({ registration, worker } = {}) {
     if (!registration?.workspace || typeof worker?.launchReviewer !== 'function')
       throw unavailable('Broker worker has no validated reviewer launch capability.');
     const workspace = registration.workspace;
-    return withReviewLock(path.join(workspace, 'dispatch'), () => {
+    return withReviewLock(path.join(workspace, 'dispatch'), async () => {
       const state = inspectReview(workspace);
       const evidence = startupEvidence(workspace, state);
       const journal = evidence?.journal;
@@ -89,7 +90,7 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
           session_fingerprint: null,
         },
       };
-      save(workspace, next);
+      await save(workspace, next);
       return next.provider_operation;
     });
   }
@@ -115,12 +116,12 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
     let timer;
     try {
       outcome = await Promise.race([
-        performCurrentOperationEffect(() => ({
-          pending: worker.launchReviewer({
+        performCurrentOperationEffect(() =>
+          worker.launchReviewer({
             operationId: operation.operation_id,
             intentDigest: operation.intent_digest,
-          }),
-        })).pending,
+          })
+        ),
         new Promise((_, reject) => {
           timer = setTimeout(() => reject(unknown(workspace)), timeoutMs);
         }),
@@ -141,7 +142,7 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
           : 'outcome-unknown';
     const sessionFingerprint =
       outcome?.observation?.session_fingerprint ?? outcome?.session_fingerprint ?? null;
-    await withReviewLock(path.join(workspace, 'dispatch'), () => {
+    await withReviewLock(path.join(workspace, 'dispatch'), async () => {
       const journal = readStartupJournal(workspace);
       const state = inspectReview(workspace);
       const current = journal?.provider_operation;
@@ -170,7 +171,7 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
           sessionFingerprint !== state.participants.reviewer.session_fingerprint)
       )
         status = 'outcome-unknown';
-      save(workspace, {
+      await save(workspace, {
         ...journal,
         stage:
           status === 'acknowledged'
@@ -228,14 +229,14 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
       !['reserved', 'outcome-unknown'].includes(operation?.status)
     )
       return Object.freeze({ status: 'outcome-unknown' });
-    const outcome = await performCurrentOperationEffect(() => ({
-      pending: observe({ operationId: operation.operation_id }),
-    })).pending;
-    performCurrentOperationEffect(() => {});
+    const outcome = await performCurrentOperationEffect(() =>
+      observe({ operationId: operation.operation_id })
+    );
+    await performCurrentOperationEffect(() => {});
     const fingerprint = outcome?.observation?.session_fingerprint;
     if (outcome?.status !== 'launched' || !/^sha256:[a-f0-9]{64}$/.test(fingerprint ?? ''))
       return Object.freeze({ status: 'outcome-unknown' });
-    return withReviewLock(path.join(workspace, 'dispatch'), () => {
+    return withReviewLock(path.join(workspace, 'dispatch'), async () => {
       const current = read();
       const latest = current.journal.provider_operation;
       if (
@@ -251,7 +252,7 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
         (latest.status === 'acknowledged' && latest.session_fingerprint !== fingerprint)
       )
         throw stale();
-      save(workspace, {
+      await save(workspace, {
         ...current.journal,
         stage: 'launched',
         provider_operation: {

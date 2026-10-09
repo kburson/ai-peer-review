@@ -22,8 +22,10 @@ import { atomicCreate as rawAtomicCreate } from '../protocol/store.mjs';
 
 // @story #136
 export function createCoordinatorLedgerOperations({ performCurrentOperationEffect }) {
-  const mkdirSync = (...args) => performCurrentOperationEffect(() => rawMkdirSync(...args));
-  const atomicCreate = (...args) => performCurrentOperationEffect(() => rawAtomicCreate(...args));
+  const mkdirSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawMkdirSync(...args));
+  const atomicCreate = async (...args) =>
+    await performCurrentOperationEffect(() => rawAtomicCreate(...args));
 
   const OPERATION_SCHEMA = 'ai-peer-review.wake-operation/v1';
   const OUTCOME_SCHEMA = 'ai-peer-review.wake-outcome/v1';
@@ -313,13 +315,13 @@ export function createCoordinatorLedgerOperations({ performCurrentOperationEffec
     };
   }
 
-  function reserveWakeOperation(workspace, decision, now = new Date()) {
+  async function reserveWakeOperation(workspace, decision, now = new Date()) {
     const operation = operationRecord(decision, now);
     validateOperation(operation);
     const file = operationPath(workspace, operation.operation_id);
     const bytes = canonicalBytes(operation);
     try {
-      atomicCreate(file, bytes);
+      await atomicCreate(file, bytes);
     } catch (cause) {
       if (cause?.code !== 'APR_OUTPUT_COLLISION') throw cause;
       const existing = validateOperation(parseCanonical(file, OPERATION_SCHEMA, 'Wake operation'));
@@ -393,7 +395,7 @@ export function createCoordinatorLedgerOperations({ performCurrentOperationEffec
     );
   }
 
-  function appendWakeOutcome(workspace, operationId, outcome, now = new Date()) {
+  async function appendWakeOutcome(workspace, operationId, outcome, now = new Date()) {
     exactKeys(outcome, ['status', 'reason'], 'Wake outcome input');
     if (!OUTCOMES.has(outcome.status) || typeof outcome.reason !== 'string' || !outcome.reason) {
       fail(
@@ -422,8 +424,8 @@ export function createCoordinatorLedgerOperations({ performCurrentOperationEffec
     };
     const directory = outcomeDirectory(workspace, operationId);
     assertDirectoryNotSymlink(directory, 'Wake outcome directory');
-    mkdirSync(directory, { recursive: true });
-    atomicCreate(
+    await mkdirSync(directory, { recursive: true });
+    await atomicCreate(
       path.join(directory, `${String(sequence).padStart(6, '0')}.json`),
       canonicalBytes(record)
     );

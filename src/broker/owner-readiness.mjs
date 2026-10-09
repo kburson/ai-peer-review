@@ -1,12 +1,66 @@
 // @story #178
 import path from 'node:path';
-import { createLoopbackServer } from './http-server.mjs';
+import { createLoopbackServer, authenticatedLoopbackRequestFacts } from './http-server.mjs';
 import { isHeldPrivatePublication } from './storage-protection.mjs';
 import { portableOwnerOperation } from './portable-owner-lifecycle.mjs';
 import { assertLifecycleBoundary } from './owner-lifecycle-core.mjs';
-import { boundedOwnershipError } from './portable-ownership.mjs';
+import { boundedOwnershipError, resolvePreparedPortableService } from './portable-ownership.mjs';
+import { dispatchBrokerCommandCore } from './broker-protocol.mjs';
 const servers = new WeakMap();
 const retainedServers = new Set();
+const requestAdmissions = new WeakMap();
+export function claimPortableServiceRequest(admission) {
+  const record = requestAdmissions.get(admission);
+  if (!record || record.claimed) throw boundedOwnershipError('genuine-service-request-required');
+  record.claimed = true; // One request cannot renew its sealed context by replay.
+  const service = resolvePreparedPortableService(record.service);
+  if (!service.published) throw boundedOwnershipError('service-startup-incomplete');
+  budget(record.context);
+  return Object.freeze({
+    ...record.facts,
+    context: record.context,
+    owner: service.owner,
+    worktree: service.worktree,
+  });
+}
+const lifecycleAdmissions = new WeakMap();
+export function createPortableServiceLifecycleAdmission({ service, phase } = {}) {
+  if (!['cleanup', 'reconcile'].includes(phase))
+    throw boundedOwnershipError('service-lifecycle-phase-unproved');
+  const current = resolvePreparedPortableService(service);
+  if (!current.published) throw boundedOwnershipError('service-startup-incomplete');
+  const context = Object.freeze({
+    signal: new AbortController().signal,
+    deadline: performance.now() + 30000,
+  });
+  const admission = Object.freeze({});
+  lifecycleAdmissions.set(admission, { service, phase, context, claimed: false });
+  return admission;
+}
+export function claimPortableServiceLifecycle(admission) {
+  const record = lifecycleAdmissions.get(admission);
+  if (!record || record.claimed) throw boundedOwnershipError('genuine-service-lifecycle-required');
+  record.claimed = true;
+  const current = resolvePreparedPortableService(record.service);
+  if (!current.published) throw boundedOwnershipError('service-startup-incomplete');
+  budget(record.context);
+  return Object.freeze({
+    phase: record.phase,
+    context: record.context,
+    owner: current.owner,
+    worktree: current.worktree,
+  });
+}
+function admitServiceRequest({ server, service, request }) {
+  const facts = authenticatedLoopbackRequestFacts(request, server);
+  const current = resolvePreparedPortableService(service);
+  if (!current.published) throw boundedOwnershipError('service-startup-incomplete');
+  const context = Object.freeze({ signal: facts.signal, deadline: performance.now() + 30000 });
+  budget(context);
+  const admission = Object.freeze({});
+  requestAdmissions.set(admission, { service, facts, context, claimed: false });
+  return admission;
+}
 const exact = (value, keys) =>
   value && Object.keys(value).sort().join(',') === keys.slice().sort().join(',');
 function budget(context, expected = context) {
@@ -28,7 +82,13 @@ export function isPortableOwnerReadiness(value) {
 export async function createPortableOwnerReadiness(input = {}) {
   assertLifecycleBoundary();
   if (
-    !exact(input, ['credential', 'expected', 'signal', 'deadline']) ||
+    !exact(input, [
+      'credential',
+      'expected',
+      'signal',
+      'deadline',
+      ...(input.service !== undefined ? ['service'] : []),
+    ]) ||
     !isHeldPrivatePublication(input.credential) ||
     input.credential.retainedGeneration().name !== 'credential' ||
     path.basename(input.credential.retainedGeneration().root) !== 'private' ||
@@ -44,18 +104,41 @@ export async function createPortableOwnerReadiness(input = {}) {
   if (!Buffer.isBuffer(snapshot.bytes) || snapshot.bytes.length !== 32)
     throw boundedOwnershipError('credential-publication-invalid');
   const expected = Object.freeze({ ...input.expected });
+  const service =
+    input.service === undefined ? null : resolvePreparedPortableService(input.service);
+  if (
+    service &&
+    (service.instanceId !== expected.instanceId ||
+      service.context.signal !== context.signal ||
+      service.context.deadline !== context.deadline)
+  )
+    throw boundedOwnershipError('prepared-service-binding-mismatch');
   const server = await createLoopbackServer({
     binding: { ...expected, credential: snapshot.bytes.toString('hex') },
-    // C4 supplies authenticated readiness only. Operational portable consumers
-    // and guarded registry/provider dispatch remain the C6 producer obligation.
-    dispatch: async () => {
-      throw boundedOwnershipError('portable-consumer-unavailable');
+    dispatch: async (request) => {
+      if (!service) throw boundedOwnershipError('portable-consumer-unavailable');
+      const current = resolvePreparedPortableService(input.service);
+      return dispatchBrokerCommandCore({
+        request,
+        dispatch: (message) => {
+          const admission = admitServiceRequest({ server, service: input.service, request });
+          return current.dispatch(message, admission);
+        },
+      });
     },
   });
   const handle = Object.freeze({
     endpoint: Object.freeze({ host: '127.0.0.1', port: server.port }),
   });
-  const record = { server, credential: input.credential, expected, context, closed: false };
+  const record = {
+    server,
+    credential: input.credential,
+    expected,
+    context,
+    service: input.service,
+    closed: false,
+    drained: false,
+  };
   servers.set(handle, record);
   try {
     budget(context);
@@ -136,4 +219,52 @@ export function portableOwnerReadinessObligations(readiness) {
       outcome: 'server-shutdown-pending',
     }),
   ]);
+}
+
+export async function drainPortableOwnerReadiness({ readiness, service, signal, deadline } = {}) {
+  const record = servers.get(readiness);
+  const current = resolvePreparedPortableService(service);
+  const context = { signal, deadline };
+  if (!record || record.service !== service || record.expected.instanceId !== current.instanceId)
+    throw boundedOwnershipError('genuine-service-readiness-required');
+  budget(context);
+  if (record.closed) return true;
+  await current.owner.verify(context);
+  try {
+    await record.server.close();
+    budget(context);
+    record.closed = true;
+    record.drained = true;
+    return true;
+  } catch (error) {
+    retainedServers.add(record);
+    throw boundedOwnershipError('owner-service-drain-unproved', {
+      outstandingObligations: [
+        ...portableOwnerReadinessObligations(readiness),
+        ...(error?.details?.outstandingObligations || []),
+      ],
+    });
+  }
+}
+
+// Completion data from the exact private listener; absence alone is never proof.
+export function isPortableOwnerReadinessDrainedFor({
+  readiness,
+  credential,
+  expected,
+  endpoint,
+} = {}) {
+  const record = servers.get(readiness);
+  return (
+    !!record &&
+    record.closed &&
+    record.drained &&
+    !!record.service &&
+    record.credential === credential &&
+    isHeldPrivatePublication(credential) &&
+    exact(expected, ['instanceId', 'worktree', 'ownerVersion']) &&
+    Object.keys(record.expected).every((key) => record.expected[key] === expected[key]) &&
+    endpoint?.host === '127.0.0.1' &&
+    endpoint.port === readiness.endpoint.port
+  );
 }

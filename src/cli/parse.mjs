@@ -22,7 +22,6 @@ export const COMMAND_FLAGS = Object.freeze({
     '--migrate-user',
     '--json',
   ]),
-  build: frozenList([]),
   doctor: frozenList(['--mode', '--json']),
   start: frozenList([
     '--artifact-kind',
@@ -99,7 +98,6 @@ export const COMMAND_USAGE = Object.freeze({
   'register-runtime': 'peer-review register-runtime [--dry-run] [--update] [--json]',
   setup:
     'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--migrate] [--migrate-user] [--json]',
-  build: 'peer-review build broker-security',
   doctor:
     'peer-review doctor [--mode <installation|manual|resume-only|automatic-required>] [--json]',
   start:
@@ -139,7 +137,6 @@ export const POSITIONAL_GRAMMAR = Object.freeze({
   primary: grammar(1),
   'register-runtime': grammar(0),
   setup: grammar(0),
-  build: grammar(1),
   doctor: grammar(0),
   start: grammar(1),
   advance: grammar(2),
@@ -267,9 +264,6 @@ function validateConstraints(command, args, options) {
         usage('--agent must be one of: codex, claude, grok, generic');
       }
     }
-  }
-  if (command === 'build' && args[0] !== 'broker-security') {
-    usage('build target must be broker-security');
   }
   if (command === 'doctor') {
     validateEnum(options, 'mode', '--mode', [

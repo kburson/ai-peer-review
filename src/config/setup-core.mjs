@@ -2,7 +2,8 @@
 // Internal maintenance-only core. It has no provider or review execution capability.
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { withPrimaryAdmissionFence } from './primary-admission.mjs';
+import { performance } from 'node:perf_hooks';
+import { withPrimaryAdmissionFence, assertPrimaryAdmissionFence } from './primary-admission.mjs';
 import { readFileSync, lstatSync, realpathSync } from 'node:fs';
 import { modify, applyEdits } from 'jsonc-parser';
 import {
@@ -11,9 +12,11 @@ import {
 } from './primary-inventory.mjs';
 import { ownedContentDigest } from './owned-content-digest.mjs';
 import { AprError } from '../errors.mjs';
-import { discoverAuthorityRepository, authorityGit } from '../git/repository.mjs';
+import { authorityGit } from '../git/repository.mjs';
+import { discoverPrimaryAuthorityRepository as discoverAuthorityRepository } from './primary-authority.mjs';
 import {
   readPrimaryRegistration,
+  assertPrimaryRegistrationGeneration,
   PRIMARY_CONFIG_PATH,
   PRIMARY_SKILL_PATH,
 } from './primary-authority.mjs';
@@ -25,7 +28,7 @@ import {
 } from './load.mjs';
 import { createIntegrationChecker } from './integration-contract-core.mjs';
 import { resolvePrimaryAuthoritySync } from './primary-authority.mjs';
-import { createPrimaryMaintenance } from './primary-maintenance.mjs';
+import { createPrimaryMaintenanceCore } from './primary-maintenance.mjs';
 import { validateSetupWriteSet, applyAtomicValidatedWrites } from './setup-validation.mjs';
 
 const directories = { codex: '.codex', claude: '.claude', grok: '.grok', generic: '.agents' };
@@ -94,10 +97,20 @@ function splitLegacy(legacy) {
     }
   return { primary, user };
 }
-export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit }) {
+export function createSetupMaintenanceCore({
+  packageRoot,
+  userFile,
+  home,
+  admit,
+  primaryAdmission,
+}) {
+  const admission = primaryAdmission ?? {
+    run: withPrimaryAdmissionFence,
+    assert: assertPrimaryAdmissionFence,
+  };
   const skill = readFileSync(path.join(packageRoot, 'skills/peer-review/SKILL.md'), 'utf8');
-  async function setupUnchecked(options = {}) {
-    await admit();
+  async function setupUnchecked(options = {}, beforeEffect) {
+    await admit({ signal: options.signal, deadline: options.deadline });
     const scope = options.scope ?? 'project';
     if (!['project', 'user'].includes(scope)) conflict('Setup scope is invalid.');
     const agents = [...new Set(options.agents ?? ['generic'])].sort();
@@ -117,8 +130,14 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
       registration,
       inventory;
     if (scope === 'project') {
-      location = discoverAuthorityRepository(options.cwd ?? process.cwd());
-      registration = readPrimaryRegistration(location);
+      location = await discoverAuthorityRepository(options.cwd ?? process.cwd(), {
+        signal: options.signal,
+        deadline: options.deadline,
+      });
+      registration = await readPrimaryRegistration(location, {
+        signal: options.signal,
+        deadline: options.deadline,
+      });
       projectOnly(location, registration.record, options.dryRun);
       root = registration.record.primary_root;
       let ignored = false;
@@ -147,7 +166,10 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
           'local-scratch-exclude'
         );
       }
-      inventory = inspectPrimaryReviewInventory(location.commonDir, root);
+      inventory = await inspectPrimaryReviewInventory(location.commonDir, root, {
+        signal: options.signal,
+        deadline: options.deadline,
+      });
       configFile = path.join(root, PRIMARY_CONFIG_PATH);
       legacyFile = path.join(root, '.ai-peer-review.json');
       legacy = parse(read(legacyFile), legacyFile);
@@ -327,10 +349,22 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
     const userChecked = userWrites.length
       ? await validateSetupWriteSet({ writes: userWrites, destinationRoot: userRoot })
       : null;
-    await admit();
+    await admit({ signal: options.signal, deadline: options.deadline });
     if (location) {
-      assertPrimaryInventoryObservation(inventory, location.commonDir, root);
-      const observed = readPrimaryRegistration(discoverAuthorityRepository(root));
+      await assertPrimaryInventoryObservation(inventory, location.commonDir, root, {
+        signal: options.signal,
+        deadline: options.deadline,
+      });
+      const observed = await readPrimaryRegistration(
+        await discoverAuthorityRepository(root, {
+          signal: options.signal,
+          deadline: options.deadline,
+        }),
+        {
+          signal: options.signal,
+          deadline: options.deadline,
+        }
+      );
       if (!observed.bytes.equals(registration.bytes))
         conflict('Primary registration changed during setup.');
     }
@@ -366,8 +400,19 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
         applied: 0,
         dryRun: true,
       });
+    const checkAuthority = async () => {
+      await beforeEffect?.();
+      if (location) {
+        const current = await readPrimaryRegistration(location, {
+          signal: options.signal,
+          deadline: options.deadline,
+        });
+        await assertPrimaryRegistrationGeneration(registration, current);
+      }
+    };
     const result = await applyAtomicValidatedWrites(
-      [checked, userChecked, localChecked].filter(Boolean)
+      [checked, userChecked, localChecked].filter(Boolean),
+      { beforeEffect: checkAuthority }
     );
     return Object.freeze({
       schema: 'ai-peer-review.setup-result/v1',
@@ -379,27 +424,42 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
     });
   }
   async function setup(options = {}) {
-    await admit();
-    if (options.scope === 'user') return setupUnchecked(options);
-    const location = discoverAuthorityRepository(options.cwd ?? process.cwd());
-    return withPrimaryAdmissionFence(
-      { commonDir: location.commonDir, dryRun: options.dryRun },
-      () => setupUnchecked(options)
+    const context = Object.freeze({
+      signal: options.signal ?? new AbortController().signal,
+      deadline: options.deadline ?? performance.now() + 30000,
+    });
+    await admit(context);
+    if (options.scope === 'user')
+      return setupUnchecked({ ...options, ...context }, () => admit(context));
+    const location = await discoverAuthorityRepository(options.cwd ?? process.cwd(), context);
+    return admission.run(
+      { commonDir: location.commonDir, dryRun: options.dryRun, ...context },
+      async (fence, original) => {
+        await admission.assert(fence, original);
+        const beforeEffect = async () => {
+          await admit(original);
+          await admission.assert(fence, original);
+        };
+        const result = await setupUnchecked({ ...options, ...original }, beforeEffect);
+        await admission.assert(fence, original);
+        return result;
+      }
     );
   }
   const checker = createIntegrationChecker({ packageRoot, home });
   async function inspectIntegration({ cwd = process.cwd() } = {}) {
     await admit();
-    return checker.check(resolvePrimaryAuthoritySync({ cwd }));
+    return checker.check(await resolvePrimaryAuthoritySync({ cwd }));
   }
   return Object.freeze({
     setup,
     inspectIntegration,
-    ...createPrimaryMaintenance({
+    ...createPrimaryMaintenanceCore({
       packageRoot,
       home,
       admit,
       integrationContract: INTEGRATION_CONTRACT,
+      admission,
     }),
   });
 }

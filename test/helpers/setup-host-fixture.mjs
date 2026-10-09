@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { primaryAdmissionFixture } from './primary-admission-fixture.mjs';
 import { createSetupMaintenanceCore } from '../../src/config/setup-core.mjs';
 export async function setupHostFixture(t) {
   const parent = realpathSync(mkdtempSync(path.join(tmpdir(), 'primary setup ')));
@@ -48,7 +49,9 @@ export async function setupHostFixture(t) {
   const commonDir = realpathSync(path.resolve(root, git('rev-parse', '--git-common-dir')));
   const registrationPath = path.join(commonDir, 'ai-peer-review', 'primary-activation.json');
   const sourceRoot = fileURLToPath(new URL('../..', import.meta.url));
+  const admission = primaryAdmissionFixture();
   const core = createSetupMaintenanceCore({
+    primaryAdmission: admission,
     packageRoot: sourceRoot,
     userFile: path.join(home, '.config/ai-peer-review/config.json'),
     home,
@@ -63,17 +66,18 @@ export async function setupHostFixture(t) {
       integration_contract: null,
       owned_blobs: null,
     }) + '\n';
-  if (process.platform === 'win32') {
-    const { platformSecurity } = await import('../../src/broker/platform.mjs');
-    const directory = platformSecurity().openPrivateDirectory(path.dirname(registrationPath));
-    try {
-      directory.create(path.basename(registrationPath), registrationBytes);
-    } finally {
-      directory.close();
-    }
-  } else {
-    mkdirSync(path.dirname(registrationPath), { mode: 0o700 });
-    writeFileSync(registrationPath, registrationBytes, { mode: 0o600 });
+  const { provisionProtectedRoot, openProtectedRoot } =
+    await import('../../src/broker/storage-protection.mjs');
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  const receipt = await provisionProtectedRoot({
+    root: path.dirname(registrationPath),
+    ...context,
+  });
+  const guard = await openProtectedRoot({ receipt, ...context });
+  try {
+    await guard.writeExclusive(path.basename(registrationPath), Buffer.from(registrationBytes));
+  } finally {
+    await guard.close();
   }
   const setupApply = (options = {}) =>
     core.setup({
@@ -102,6 +106,7 @@ export async function setupHostFixture(t) {
     commonDir,
     registrationPath,
     core,
+    admission,
     git,
     write,
     installTool,

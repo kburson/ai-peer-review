@@ -69,7 +69,7 @@ function repositoryBytes(root) {
   });
 }
 
-test('sealNoCommitHandoff returns one immutable event-ready snapshot seal', () => {
+test('sealNoCommitHandoff returns one immutable event-ready snapshot seal', async () => {
   assert.equal(typeof api.sealNoCommitHandoff, 'function');
   const bytes = Buffer.from('# Snapshot\n');
   const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -82,7 +82,7 @@ test('sealNoCommitHandoff returns one immutable event-ready snapshot seal', () =
     },
   };
   let asserted = false;
-  const sealed = api.sealNoCommitHandoff({
+  const sealed = await api.sealNoCommitHandoff({
     review,
     artifactBytes: bytes,
     responses: [{ digest: `sha256:${'b'.repeat(64)}` }],
@@ -106,9 +106,9 @@ test('sealNoCommitHandoff returns one immutable event-ready snapshot seal', () =
   });
   assert.equal(Object.isFrozen(sealed), true);
   assert.equal(Object.isFrozen(sealed.response_digests), true);
-  assert.throws(
-    () =>
-      api.sealNoCommitHandoff({
+  await assert.rejects(
+    async () =>
+      await api.sealNoCommitHandoff({
         review: { protocol: { ...review.protocol, commit_mode: 'normal' } },
         artifactBytes: bytes,
         responses: [{ digest: `sha256:${'b'.repeat(64)}` }],

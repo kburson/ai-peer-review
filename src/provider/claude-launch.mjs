@@ -5,9 +5,11 @@ import {
   assertCurrentOperationAuthority,
 } from '../startup/authority-fence.mjs';
 import { createClaudeLaunchOperations } from './claude-launch-core.mjs';
+import { isAdmissionOwnedClaudeExecutor } from '../providers/claude-stream.mjs';
 const operations = createClaudeLaunchOperations({
   performCurrentOperationEffect,
   assertCurrentOperationAuthority,
+  executionOwnsAdmission: isAdmissionOwnedClaudeExecutor,
 });
 export const {
   buildClaudeLaunchEnvironment,
@@ -26,6 +28,8 @@ export function runClaudeReviewerLaunch(input) {
   return withOperationAuthority(
     {
       operation: 'provider.launch',
+      signal: input?.signal,
+      deadline: input?.deadline,
       cwd: input?.contract?.repository_root,
       reviewWorkspace: input?.contract?.workspace,
     },

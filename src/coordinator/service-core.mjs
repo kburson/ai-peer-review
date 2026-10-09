@@ -37,11 +37,11 @@ export function createCoordinatorOperations({
   reserveWakeOperation = rawReserveWakeOperation,
   wakeOperationExists = rawWakeOperationExists,
 }) {
-  const mkdirSync = (...args) => performCurrentOperationEffect(() => rawMkdirSync(...args));
+  const mkdirSync = async (...args) =>
+    await performCurrentOperationEffect(() => rawMkdirSync(...args));
   const dispatch = async (operation) => {
-    const { pending } = performCurrentOperationEffect(() => ({ pending: operation() }));
-    const result = await pending;
-    performCurrentOperationEffect(() => {});
+    const result = await performCurrentOperationEffect(operation);
+    await performCurrentOperationEffect(() => {});
     return result;
   };
 
@@ -134,7 +134,7 @@ export function createCoordinatorOperations({
 
   async function reconcileReserved(workspace, operation, adapter, now) {
     if (typeof adapter?.reconcile !== 'function') {
-      return appendWakeOutcome(
+      return await appendWakeOutcome(
         workspace,
         operation.operation_id,
         { status: 'outcome-unknown', reason: 'adapter-reconciliation-unavailable' },
@@ -147,12 +147,12 @@ export function createCoordinatorOperations({
     } catch {
       result = { status: 'outcome-unknown', reason: 'adapter-reconciliation-failed' };
     }
-    return appendWakeOutcome(workspace, operation.operation_id, result, new Date(now));
+    return await appendWakeOutcome(workspace, operation.operation_id, result, new Date(now));
   }
 
   async function deliverReserved(workspace, operation, adapter, now) {
     if (typeof adapter?.deliver !== 'function') {
-      return appendWakeOutcome(
+      return await appendWakeOutcome(
         workspace,
         operation.operation_id,
         { status: 'refused', reason: 'wake-adapter-unavailable' },
@@ -167,7 +167,7 @@ export function createCoordinatorOperations({
       console.error('[peer-review] adapter-delivery-failed', code);
       result = { status: 'outcome-unknown', reason: 'adapter-delivery-failed' };
     }
-    return appendWakeOutcome(workspace, operation.operation_id, result, new Date(now));
+    return await appendWakeOutcome(workspace, operation.operation_id, result, new Date(now));
   }
 
   async function reconcileWake({
@@ -185,7 +185,7 @@ export function createCoordinatorOperations({
 
     const operationId = wakeOperationKey(decision);
     const existed = wakeOperationExists(workspace, operationId);
-    let operation = reserveWakeOperation(workspace, decision, new Date(now));
+    let operation = await reserveWakeOperation(workspace, decision, new Date(now));
     if (TERMINAL_OPERATION.has(operation.status)) return operation;
 
     if (existed && operation.status === 'reserved') {
@@ -225,18 +225,24 @@ export function createCoordinatorOperations({
     });
   }
 
-  function defaultSubscribe(workspace, { onChange, onError }, watch = watchFilesystem) {
+  async function defaultSubscribe(workspace, { onChange, onError }, watch = watchFilesystem) {
     const deliveries = path.join(workspace, 'deliveries');
     const coordinator = path.join(workspace, 'coordinator');
-    mkdirSync(deliveries, { recursive: true });
-    mkdirSync(coordinator, { recursive: true });
+    await mkdirSync(deliveries, { recursive: true });
+    await mkdirSync(coordinator, { recursive: true });
     const targets = [path.join(workspace, 'events.jsonl'), deliveries];
-    const watchers = targets.map((target) => {
-      const watcher = performCurrentOperationEffect(() => watch(target, onChange));
-      watcher.on('error', onError);
-      return watcher;
-    });
-    const stopWatcher = performCurrentOperationEffect(() =>
+    const watchers = [];
+    try {
+      for (const target of targets) {
+        const watcher = await performCurrentOperationEffect(() => watch(target, onChange));
+        watchers.push(watcher);
+        watcher.on('error', onError);
+      }
+    } catch (error) {
+      for (const watcher of watchers) watcher.close();
+      throw error;
+    }
+    const stopWatcher = await performCurrentOperationEffect(() =>
       watch(coordinator, (_event, filename) => {
         if (String(filename ?? '') === 'stop-request.json') onChange();
       })
@@ -267,7 +273,7 @@ export function createCoordinatorOperations({
   }
 
   async function runCoordinator(input = {}) {
-    const lease = acquireCoordinatorLease(
+    const lease = await acquireCoordinatorLease(
       input.workspace,
       input.owner,
       new Date(input.now ?? Date.now()),
@@ -293,7 +299,7 @@ export function createCoordinatorOperations({
         const observation =
           typeof input.observe === 'function' ? await input.observe() : input.observation;
         last = await reconcileWake({ ...input, observation });
-        lease.heartbeat(new Date(input.now ?? Date.now()));
+        await lease.heartbeat(new Date(input.now ?? Date.now()));
         await input.onSettled?.(last);
         return last;
       });
@@ -310,7 +316,7 @@ export function createCoordinatorOperations({
     };
     try {
       await reconcile();
-      subscription = (input.subscribe ?? defaultSubscribe)(
+      subscription = await (input.subscribe ?? defaultSubscribe)(
         input.workspace,
         {
           onChange: () => void reconcile(),
@@ -345,7 +351,7 @@ export function createCoordinatorOperations({
       subscription?.close();
       await input.beforeRelease?.(Object.freeze({ last, fatal }));
       await adapterClose(input.adapter);
-      lease.release();
+      await lease.release();
     }
   }
 

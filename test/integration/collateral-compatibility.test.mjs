@@ -317,8 +317,8 @@ test('archive support names the actual sealed relocation contracts and refuses u
 
 test('unknown archive plans refuse before interpreting their shape or applying writes', async () => {
   const { applyReviewRecord } = await import('../helpers/review-record-api.mjs');
-  assert.throws(
-    () => applyReviewRecord({ schema: 'ai-peer-review.relocation-plan/v99' }),
+  await assert.rejects(
+    async () => await applyReviewRecord({ schema: 'ai-peer-review.relocation-plan/v99' }),
     (error) => error.code === 'APR_REVIEW_RUNTIME_UNSUPPORTED'
   );
 });

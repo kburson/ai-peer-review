@@ -19,13 +19,16 @@ import {
 export function createClaudeLaunchOperations({
   performCurrentOperationEffect,
   assertCurrentOperationAuthority,
+  executionOwnsAdmission = () => false,
 }) {
   if (
     typeof performCurrentOperationEffect !== 'function' ||
-    typeof assertCurrentOperationAuthority !== 'function'
+    typeof assertCurrentOperationAuthority !== 'function' ||
+    typeof executionOwnsAdmission !== 'function'
   )
     throw new TypeError('Explicit provider effect authority required');
-  const atomicWrite = (...args) => performCurrentOperationEffect(() => rawAtomicWrite(...args));
+  const atomicWrite = async (...args) =>
+    await performCurrentOperationEffect(() => rawAtomicWrite(...args));
   const UNSUPPORTED_PATTERN = /[*?\[\]\\]/u;
   const UNSUPPORTED_BASH_PATTERN = /[*?\[\]\\()]/u;
   const PACKAGE_BIN = fileURLToPath(new URL('../../bin/peer-review.mjs', import.meta.url));
@@ -995,13 +998,24 @@ export function createClaudeLaunchOperations({
         env: environment,
         maxBuffer: 1024 * 1024,
       };
-      execution = await performCurrentOperationEffect(() => ({
-        pending: execFile(contract.command.file, args, executionOptions),
-      })).pending;
+      if (executionOwnsAdmission(execFile)) {
+        // This genuine factory admits its actual spawn itself. Completion is
+        // supervised outside the primary lease, without nested held admission.
+        execution = await execFile(contract.command.file, args, executionOptions);
+      } else {
+        let completion;
+        await performCurrentOperationEffect(() => {
+          // Admission covers initiating the process. The reviewer needs its own
+          // primary admission while it joins and submits; waiting is not an effect.
+          completion = Promise.resolve(execFile(contract.command.file, args, executionOptions));
+          completion.catch(() => {}); // Retain rejection until completion is consumed below.
+        });
+        execution = await completion;
+      }
     } catch (cause) {
       executionError = cause;
     }
-    assertCurrentOperationAuthority();
+    await assertCurrentOperationAuthority();
     const after = inspectAuthority(contract.workspace);
     const providerResult = normalizeClaudeExecution({ execution, error: executionError });
     const returnedHandle = providerResult.session_id_present ? providerResult.session_id : null;
@@ -1034,7 +1048,7 @@ export function createClaudeLaunchOperations({
     const first = classifyClaudeReviewerOutcome(outcomeInput);
     let resumeAvailable = Boolean(priorState);
     if (providerResult.output_valid && sessionHandle) {
-      atomicWrite(
+      await atomicWrite(
         launchStatePath(contract),
         `${JSON.stringify(
           {

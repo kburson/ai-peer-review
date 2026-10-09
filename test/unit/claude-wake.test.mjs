@@ -92,7 +92,7 @@ test('Claude wake remains correlated across multiple tool-use and tool-result ex
   assert.deepEqual(outcome(location), { status: 'acknowledged', reason: 'provider-terminal-turn' });
 });
 
-test('Claude wake correlates completed Skill metadata and acknowledges a terminal refusal only as transport', (t) => {
+test('Claude wake correlates completed Skill metadata and acknowledges a terminal refusal only as transport', async (t) => {
   const denied = toolResult('denied-command');
   denied.message.content[0].is_error = true;
   denied.message.content[0].content = 'Permission denied for this Bash command.';
@@ -110,15 +110,15 @@ test('Claude wake correlates completed Skill metadata and acknowledges a termina
       sessionId: SESSION,
       expectedModel: 'claude-opus-5',
     });
-    recorder.accept({
+    await recorder.accept({
       type: 'system',
       subtype: 'init',
       session_id: SESSION,
       model: 'claude-opus-5',
       claude_code_version: '2.1.278',
     });
-    for (const value of entries) recorder.accept({ ...value, session_id: value.sessionId });
-    recorder.accept({ type: 'result', session_id: SESSION, is_error: false });
+    for (const value of entries) await recorder.accept({ ...value, session_id: value.sessionId });
+    await recorder.accept({ type: 'result', session_id: SESSION, is_error: false });
     assert.equal(recorder.confirm().session_id, SESSION);
     assert.deepEqual(outcome(fixture(t, entries)), {
       status: 'acknowledged',
@@ -290,21 +290,21 @@ test('Claude transcript absence and incomplete turns never authorize blind retry
   );
 });
 
-test('Claude wake requires live stream initialization and assistant model for one exact session', () => {
+test('Claude wake requires live stream initialization and assistant model for one exact session', async () => {
   const recorder = createClaudeWakeRecorder({ sessionId: SESSION, expectedModel: 'claude-opus-5' });
-  recorder.accept({
+  await recorder.accept({
     type: 'system',
     subtype: 'init',
     session_id: SESSION,
     model: 'claude-opus-5',
     claude_code_version: '2.1.278',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'assistant',
     session_id: SESSION,
     message: { model: 'claude-opus-5', role: 'assistant', content: [] },
   });
-  recorder.accept({ type: 'result', session_id: SESSION, is_error: false });
+  await recorder.accept({ type: 'result', session_id: SESSION, is_error: false });
   assert.deepEqual(recorder.confirm(), {
     session_id: SESSION,
     model_id: 'claude-opus-5',
@@ -343,19 +343,19 @@ test('Claude surface resumes only the bound session and acknowledges its streame
       assert.equal(env.CLAUDE_MODEL_ID, 'claude-opus-5');
       assert.equal(env.CLAUDE_MODEL_DISPLAY, 'claude-opus-5');
       assert.equal(env.CLAUDE_CODE_SESSION_ID, undefined);
-      recorder.accept({
+      await recorder.accept({
         type: 'system',
         subtype: 'init',
         session_id: SESSION,
         model: 'claude-opus-5',
         claude_code_version: '2.1.278',
       });
-      recorder.accept({
+      await recorder.accept({
         type: 'assistant',
         session_id: SESSION,
         message: { model: 'claude-opus-5' },
       });
-      recorder.accept({ type: 'result', session_id: SESSION, is_error: false });
+      await recorder.accept({ type: 'result', session_id: SESSION, is_error: false });
       appendFileSync(
         location.transcript,
         `${JSON.stringify(entry('user', args[1], '2026-09-21T18:00:01.000Z'))}\n${JSON.stringify(entry('assistant', 'done', '2026-09-21T18:00:02.000Z'))}\n`

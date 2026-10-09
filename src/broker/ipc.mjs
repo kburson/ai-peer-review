@@ -3,17 +3,11 @@ import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { AprError } from '../errors.mjs';
 import { requestLoopback } from './http-client.mjs';
+import { brokerError, validateCommand } from './broker-protocol.mjs';
+export { brokerError, validateCommand } from './broker-protocol.mjs';
 
 const MAX_FRAME = 65536;
-const COMMANDS = new Set(['status', 'register', 'launch', 'suspend', 'stop', 'reconcile']);
 const HASH = /^[a-f0-9]{64}$/;
-
-export function brokerError(code, message) {
-  return new AprError(code, message, {
-    recovery:
-      'Preserve broker evidence. Restore the recorded compatible runtime and reconcile registry/provider ownership before retrying.',
-  });
-}
 
 function closed(value, fields) {
   return (
@@ -112,22 +106,6 @@ export function validateHandshake(message, expected, kernelUser) {
     );
   }
   return true;
-}
-
-export function validateCommand(message) {
-  if (
-    !closed(message, ['id', 'command', 'workspace']) ||
-    !/^[a-zA-Z0-9-]{1,64}$/.test(message.id) ||
-    !COMMANDS.has(message.command) ||
-    (['status', 'stop'].includes(message.command)
-      ? message.workspace !== null
-      : typeof message.workspace !== 'string' ||
-        message.workspace.includes('\0') ||
-        !(path.posix.isAbsolute(message.workspace) || path.win32.isAbsolute(message.workspace)))
-  ) {
-    throw brokerError('APR_BROKER_PROTOCOL', 'Unknown or malformed broker command.');
-  }
-  return message;
 }
 
 function expectedHandshake(identity, versions, discovery) {

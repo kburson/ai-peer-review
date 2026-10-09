@@ -110,7 +110,11 @@
     "ECONNREFUSED",
     "rollups",
     "unreviewed",
-    "issuecomment"
+    "issuecomment",
+    "statfs",
+    "unawaited",
+    "readback",
+    "ioreg"
   ],
   "ignoreRegExpList": ["/\"(?:nodeId|commentNodeId)\":\\s*\"IC_[A-Za-z0-9_-]+\"/g"]
 }

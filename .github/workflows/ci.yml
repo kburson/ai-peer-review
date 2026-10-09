@@ -44,6 +44,22 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
@@ -51,6 +67,7 @@ jobs:
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
         run: node scripts/ci/record-tests.mjs integration
         env:
           GH_TOKEN: ${{ github.token }}
@@ -92,6 +109,22 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - run: npm run format:check
@@ -99,6 +132,7 @@ jobs:
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
         run: node scripts/ci/record-tests.mjs integration
         env:
           GH_TOKEN: ${{ github.token }}
@@ -123,14 +157,15 @@ jobs:
   # Dedicated machines retain every owner case without loading the baseline's
   # expensive stock Windows probes at the same time. Each partition publishes receipts.
   owner-publication-windows:
-    name: Owner publication / Node ${{ matrix.node }} / windows-latest
+    name: Owner publication ${{ matrix.group }} / Node ${{ matrix.node }} / windows-latest
     strategy:
       fail-fast: false
       matrix:
         node: ['24', '26', 'current']
+        group: ['generations', 'quarantine', 'budget', 'faults']
     runs-on: windows-latest
     env:
-      APR_CI_JOB_KEY: owner-publication-${{ matrix.node }}-windows-latest
+      APR_CI_JOB_KEY: owner-publication-${{ matrix.group }}-${{ matrix.node }}-windows-latest
       APR_CI_MATRIX_NODE: '${{ matrix.node }}'
     steps:
       - uses: actions/checkout@v6
@@ -141,8 +176,24 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - name: 'Verify tests: owner-publication'
-        run: node scripts/ci/record-tests.mjs owner-publication
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
+      - name: 'Verify tests: owner-publication-${{ matrix.group }}'
+        run: node scripts/ci/record-tests.mjs owner-publication-${{ matrix.group }}
       - name: Publish actual test execution records
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -171,6 +222,24 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
       - name: 'Verify tests: portable-ownership'
         run: node scripts/ci/record-tests.mjs portable-ownership
       - name: Publish actual test execution records
@@ -234,6 +303,7 @@ jobs:
       - name: 'Verify tests: fast'
         run: node scripts/ci/record-tests.mjs fast
       - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
         run: node scripts/ci/record-tests.mjs integration
         env:
           GH_TOKEN: ${{ github.token }}
@@ -289,3 +359,59 @@ jobs:
           name: claude-live-conformance-sanitized
           path: ${{ runner.temp }}/claude-conformance/sanitized-result.json
           if-no-files-found: error
+
+  portable-units:
+    name: Portable units / ${{ matrix.group }} / Node ${{ matrix.node }} / windows-latest
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        node: ['24', '26', 'current']
+        group: [selection, authority, storage, identity]
+    env:
+      APR_CI_JOB_KEY: portable-unit-${{ matrix.group }}-${{ matrix.node }}-windows-latest
+      APR_CI_MATRIX_NODE: ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
+      - name: 'Verify tests: portable-unit-${{ matrix.group }}'
+        run: node scripts/ci/record-tests.mjs portable-unit-${{ matrix.group }}
+      - name: 'Verify tests: portable-integration-${{ matrix.group }}'
+        run: node scripts/ci/record-tests.mjs portable-integration-${{ matrix.group }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APR_CONTRACT_GITHUB_CONFORMANCE: '1'
+      - name: Upload portable unit receipt and raw output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14

@@ -24,6 +24,7 @@ import {
 import {
   createOwnerLifecycleCore,
   currentLifecycleOperation,
+  currentLifecyclePhase,
   ownerLifecycleCompleted,
   assertLifecycleBoundary,
   sameProcessOwnerFacts,
@@ -33,6 +34,7 @@ import {
   assertPortableOwnerReadiness,
   closePortableOwnerReadiness,
   isPortableOwnerReadiness,
+  isPortableOwnerReadinessDrainedFor,
   portableOwnerReadinessObligations,
 } from './owner-readiness.mjs';
 
@@ -260,6 +262,22 @@ export async function createPortableOwnerLifecycle(input = {}) {
   });
   const retainedConnections = new Map([[connection, startup]]);
   const readiness = async (context) => {
+    if (
+      currentLifecyclePhase(core) === 'release' &&
+      isPortableOwnerReadinessDrainedFor({
+        readiness: input.readinessServer,
+        credential,
+        expected,
+        endpoint,
+      })
+    ) {
+      await credential.verify(context);
+      verifyRuntimeInventorySync({
+        packageRoot: runtime.packageRoot,
+        previousObservation: runtime,
+      });
+      return true;
+    }
     await assertPortableOwnerReadiness({
       readiness: input.readinessServer,
       credential,

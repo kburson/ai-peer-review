@@ -11,7 +11,7 @@ import {
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { readBrokerBootstrap } from '../../bin/peer-review-broker.mjs';
+import { readBrokerBootstrap } from '../../src/broker/legacy-entry.mjs';
 import { ensureBroker } from '../helpers/broker-client-api.mjs';
 
 function fixture(t) {

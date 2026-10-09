@@ -51,12 +51,14 @@ test('setup help and explain make package upgrades and teardown discoverable', (
   assert.match(explainError('APR_SETUP_VERSION_MISMATCH').recovery, /setup --update --dry-run/i);
 });
 
-test('build and setup help explain explicit execution and applied output', () => {
-  const build = helpRequest('build', 'json');
-  assert.equal(build.usage, 'peer-review build broker-security');
-  assert.match(build.preconditions.join(' '), /matching local Node development headers/i);
-  assert.match(build.effects.join(' '), /derives the Node development root/i);
-  assert.match(explainError('APR_BROKER_BUILD_FAILED').recovery, /build broker-security/);
+test('portable help omits the removed native build command and retains setup applied output', () => {
+  assert.equal(COMMANDS.includes('build'), false);
+  assert.throws(() => helpRequest('build', 'json'), { code: 'APR_USAGE' });
+  const all = helpRequest(null, 'json', { all: true });
+  assert.equal(
+    all.topics.some((command) => command.command === 'build'),
+    false
+  );
   assert.match(helpRequest('setup', 'json').effects.join(' '), /setup-result\/v1/);
 });
 

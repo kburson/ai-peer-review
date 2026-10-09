@@ -73,8 +73,8 @@ function stableDelivery(value, { reviewId, participant, afterSequence }) {
   return Object.freeze({ ...value });
 }
 
-function pending(reason, input) {
-  const manual = input.deliveries.manualRecovery({
+async function pending(reason, input) {
+  const manual = await input.deliveries.manualRecovery({
     reviewId: input.reviewId,
     participant: input.participant,
     afterSequence: input.afterSequence,
@@ -125,9 +125,9 @@ function waitForChange(input) {
       cleanup();
       action(value);
     };
-    const finishPending = (reason) => {
+    const finishPending = async (reason) => {
       try {
-        finish(resolve, pending(reason, input));
+        finish(resolve, await pending(reason, input));
       } catch (error) {
         finish(reject, error);
       }
@@ -165,30 +165,35 @@ function waitForChange(input) {
       finishPending('wait-cancelled');
       return;
     }
-    try {
-      subscription = input.deliveries.subscribe({
-        reviewId: input.reviewId,
-        participant: input.participant,
-        onChange: check,
-        onError,
-      });
-      if (!subscription || typeof subscription.close !== 'function') {
-        finishPending('wait-unavailable');
-        return;
-      }
-      if (settled) {
-        subscription.close();
-        return;
-      }
-    } catch {
-      finishPending('wait-unavailable');
-      return;
-    }
     input.signal?.addEventListener('abort', onAbort, { once: true });
     if (input.timeoutMs !== undefined) {
       timer = setTimeout(() => finishPending('wait-timeout'), input.timeoutMs);
     }
-    void check();
+    void (async () => {
+      try {
+        subscription = await input.deliveries.subscribe({
+          reviewId: input.reviewId,
+          participant: input.participant,
+          onChange: check,
+          onError,
+        });
+        if (!subscription || typeof subscription.close !== 'function') {
+          await finishPending('wait-unavailable');
+          return;
+        }
+        if (settled) {
+          subscription.close();
+          return;
+        }
+        if (input.signal?.aborted) {
+          await finishPending('wait-cancelled');
+          return;
+        }
+        await check();
+      } catch {
+        await finishPending('wait-unavailable');
+      }
+    })();
   });
 }
 
@@ -236,9 +241,9 @@ function waitOnShared(shared, input) {
       release();
       action(value);
     };
-    const finishPending = (reason) => {
+    const finishPending = async (reason) => {
       try {
-        finish(resolve, pending(reason, input));
+        finish(resolve, await pending(reason, input));
       } catch (error) {
         finish(reject, error);
       }

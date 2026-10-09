@@ -185,7 +185,7 @@ test('portable client startup cannot fall back to native platform or launch', as
         },
       },
     }),
-    { code: 'APR_BROKER_PROTECTION_UNAVAILABLE' }
+    { code: 'APR_BROKER_PROTOCOL' }
   );
   assert.equal(touched, false);
 });
@@ -310,11 +310,11 @@ test('broker awaits owner release before reporting shutdown complete', async (t)
 test('portable bin entrypoint refuses before reading native bootstrap', async () => {
   const { runBrokerEntrypoint } = await import('../../bin/peer-review-broker.mjs');
   await assert.rejects(runBrokerEntrypoint('/absent-bootstrap', { transport: 'portable' }), {
-    code: 'APR_BROKER_PROTECTION_UNAVAILABLE',
+    code: 'APR_BROKER_START_FAILED',
   });
 });
 
-test('portable IPC client awaits authenticated HTTP command without native exchange', async (t) => {
+test('explicit IPC protocol fixture awaits authenticated HTTP command without native exchange', async (t) => {
   const f = await portableBrokerFixture(t);
   const ipc = await import('../../src/broker/ipc.mjs');
   assert.equal(typeof ipc.createLoopbackBrokerClient, 'function');
@@ -323,8 +323,10 @@ test('portable IPC client awaits authenticated HTTP command without native excha
     privateBinding: f.privateBinding,
     agent: f.agent,
   });
-  const { requestBroker } = await import('../../src/broker/client.mjs');
-  assert.deepEqual(await requestBroker(client, 'status'), { operation: 'status' });
+  assert.deepEqual(
+    await client.request({ id: 'fixture-status', command: 'status', workspace: null }),
+    { operation: 'status' }
+  );
 });
 
 test(
@@ -537,16 +539,24 @@ test('production import graph cannot activate unprotected loopback server', () =
           if (!serverModule(node.source.value)) return;
           if (
             protectedBridge &&
-            node.specifiers.length === 1 &&
-            node.specifiers[0].type === 'ImportSpecifier' &&
-            node.specifiers[0].imported.name === 'createLoopbackServer'
+            node.specifiers.every(
+              (specifier) =>
+                specifier.type === 'ImportSpecifier' &&
+                ['createLoopbackServer', 'authenticatedLoopbackRequestFacts'].includes(
+                  specifier.imported.name
+                )
+            )
           )
             return;
           if (
             node.specifiers.some(
               (specifier) =>
                 specifier.type !== 'ImportSpecifier' ||
-                specifier.imported.name !== 'HTTP_BODY_LIMIT'
+                ![
+                  'HTTP_BODY_LIMIT',
+                  'isAuthenticatedLoopbackRequestFor',
+                  'authenticatedLoopbackRequestFacts',
+                ].includes(specifier.imported.name)
             )
           )
             context.report({

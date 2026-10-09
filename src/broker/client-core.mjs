@@ -1,530 +1,144 @@
-import { randomUUID, createHash } from 'node:crypto';
-
-import { mkdirSync, writeFileSync, realpathSync, readFileSync } from 'node:fs';
-
-import { homedir } from 'node:os';
-
-import path from 'node:path';
-
-import { spawn } from 'node:child_process';
-
-import { fileURLToPath } from 'node:url';
-
-import packageJson from '../../package.json' with { type: 'json' };
-
+// @story #189
+// Explicit unverified orchestration core. Production fixes every dependency.
+import { randomUUID } from 'node:crypto';
 import { AprError } from '../errors.mjs';
-
-import {
-  assertBrokerTransport,
-  connectBroker,
-  createFrameDecoder,
-  encodeFrame,
-  validateCommand,
-} from './ipc.mjs';
-
-import { brokerPaths } from './paths.mjs';
-
-import { verifyRuntimeImage } from './runtime-image.mjs';
-
-import { startupEvidence } from './registry.mjs';
-
-import { inspectReviewAuthority, canonicalProjection } from '../protocol/service.mjs';
-
-import {
-  atomicCreate as rawAtomicCreate,
-  withReviewLock as rawWithReviewLock,
-} from '../protocol/store.mjs';
-
-import { allWakeOperations, latestWakeOperation } from '../coordinator/ledger.mjs';
-
-import { canonicalProjectIdentity } from './identity.mjs';
-
-import { platformSecurity } from './platform.mjs';
-
-import { createGitRepository } from '../git/repository.mjs';
-
-import { manualLaunchProvesNonSubmission } from '../provider/manual-launch-ledger.mjs';
-
-// @story #136
-export function createBrokerClientOperations({
-  performCurrentOperationEffect,
-  assertCurrentOperationAuthority,
+import { validateCommand } from './broker-protocol.mjs';
+export function createPortableClientCore({
+  observe,
+  launch,
+  current,
+  effect,
+  delay,
+  clock = performance,
 }) {
-  const startupInputs = new WeakMap();
-  const atomicCreate = (...args) => performCurrentOperationEffect(() => rawAtomicCreate(...args));
-  const withReviewLock = (workspace, callback, options = {}) =>
-    rawWithReviewLock(
-      workspace,
-      async (...args) => {
-        performCurrentOperationEffect(() => {});
-        const result = await callback(...args);
-        performCurrentOperationEffect(() => {});
-        return result;
-      },
-      { ...options, effect: (operation) => performCurrentOperationEffect(operation) }
-    );
-  const dispatch = async (operation) => {
-    const { pending } = performCurrentOperationEffect(() => ({ pending: operation() }));
-    const result = await pending;
-    performCurrentOperationEffect(() => {});
-    return result;
-  };
-
-  function startFailure(cause, details = {}) {
+  const retained = new Set();
+  const failure = (reason, cause) => {
     const error = new AprError(
       'APR_BROKER_START_FAILED',
-      'Project broker did not become authentically ready.',
+      'Portable broker readiness is unproved.',
       {
-        recovery:
-          'Preserve broker ownership and bootstrap evidence, inspect the recorded compatible runtime, and retry only after reconciliation.',
-        details,
+        recovery: 'Retain exact startup and owner obligations; reconcile before retrying.',
+        details: { reason },
       }
     );
     if (cause) error.cause = cause;
     return error;
-  }
-
-  function bootstrapRecord({ project, versions, runtimeImage }) {
-    return Object.freeze({
-      schema: 'ai-peer-review.broker-bootstrap/v2',
-      execution: Object.freeze({
-        package_root: realpathSync(fileURLToPath(new URL('../..', import.meta.url))),
-        node_executable: realpathSync(process.execPath),
-        package_digest: createHash('sha256')
-          .update(readFileSync(new URL('../../package.json', import.meta.url)))
-          .digest('hex'),
-      }),
-      project: Object.freeze({
-        digest: project.digest,
-        physicalRoot: project.physicalRoot,
-        tuple: project.tuple ?? null,
-      }),
-      versions: Object.freeze({ ...versions }),
-      runtimeImage: Object.freeze({
-        root: runtimeImage.root,
-        nodeExecutable: runtimeImage.nodeExecutable,
-        digest: runtimeImage.digest,
-      }),
-    });
-  }
-
-  function rawCreateBootstrap(record, platform) {
-    const root = path.join(record.project.physicalRoot, '.scratch', 'peer-review', 'broker');
-    const file = path.join(root, `bootstrap-${randomUUID()}.json`);
-    const bytes = `${JSON.stringify(record)}\n`;
-    if ((platform?.kind ?? process.platform) === 'win32') {
-      mkdirSync(path.dirname(root), { recursive: true });
-      const directory = (platform ?? platformSecurity()).openPrivateDirectory(root);
-      try {
-        if (!directory.verify()) throw startFailure(null, { reason: 'bootstrap-directory-unsafe' });
-        directory.create(path.basename(file), bytes);
-        if (!directory.verify())
-          throw startFailure(null, { reason: 'bootstrap-directory-changed' });
-      } finally {
-        directory.close();
-      }
-    } else {
-      mkdirSync(root, { recursive: true, mode: 0o700 });
-      writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
+  };
+  const check = async (context) => {
+    if (context.signal.aborted || clock.now() >= context.deadline)
+      throw failure('readiness-budget-expired');
+    await current();
+  };
+  async function ensure(input, context) {
+    await check(context);
+    let state = await observe(input, context);
+    if (state.status === 'live') {
+      await state.close();
+      await check(context);
+      return;
     }
-    return file;
-  }
-
-  function defaultConnect(project, versions, platform) {
-    const paths = brokerPaths({
-      identity: project,
-      platform,
-      env: process.env,
-      home: homedir(),
-    });
-    return connectBroker({ identity: project, paths, versions }, platform);
-  }
-
-  function unsentHandshakeTimeout(error) {
-    return (
-      error?.code === 'APR_BROKER_PROTOCOL' && error.message === 'Broker frame prefix timed out.'
-    );
-  }
-
-  async function connectUntilReady(connect, platform, retryable, deadline) {
-    let last = startFailure(null, { reason: 'readiness-deadline-expired' });
-    // Allow up to two minutes of readiness polling for recovery before
-    // discovery is published; established IPC keeps its short handshake bound.
-    while (performance.now() < deadline) {
-      try {
-        return await connect();
-      } catch (error) {
-        if (
-          !['ENOENT', 'ECONNREFUSED', 'EBUSY', 'APR_BROKER_START_FAILED'].includes(error?.code) &&
-          !unsentHandshakeTimeout(error) &&
-          !retryable(error)
-        )
-          throw error;
-        last = error;
-      }
-      const remaining = deadline - performance.now();
-      if (remaining <= 0) break;
-      const delay = Math.min(25, remaining);
-      if (typeof platform?.delay === 'function') await platform.delay(delay);
-      else await new Promise((resolve) => setTimeout(resolve, delay));
+    if (state.status === 'pending') {
+      // An existing prepared owner can only be awaited, never promoted or
+      // replaced from partial publication. The original budget stays sealed.
+      do {
+        await check(context);
+        await delay(Math.min(25, Math.max(1, context.deadline - clock.now())), context);
+        await check(context);
+        state = await observe(input, context);
+      } while (state.status === 'pending');
+      if (state.status !== 'live') throw failure('owner-observation-unproved', state.error);
+      retained.add(state);
+      await state.close();
+      retained.delete(state);
+      await check(context);
+      return;
     }
-    throw last;
-  }
-
-  function missingDiscovery(project, platform) {
-    if (typeof platform?.discoveryState === 'function') {
-      return platform.discoveryState({ project }) === 'missing';
-    }
-    let directory;
+    if (!['missing', 'dead'].includes(state.status))
+      throw failure('owner-observation-unproved', state.error);
+    // A candidate process still must win genuine C3 before publishing anything.
+    // Silence, busy, conflicting generations and unknown observations never launch.
+    await check(context);
+    const process = await effect(() => launch(input, context));
+    retained.add(process);
     try {
-      const paths = brokerPaths({ identity: project, platform, env: process.env, home: homedir() });
-      const values = paths.authorityDirectories ?? [paths.directory];
-      directory = platform.openPrivateDirectory(values.at(-1));
-      return directory.read(path.basename(paths.metadata)) === null;
-    } catch {
-      return false;
-    } finally {
-      directory?.close?.();
-    }
-  }
-
-  function discoveryChangedDuringHandshake(error) {
-    return (
-      error?.code === 'APR_BROKER_STALE' &&
-      error.message === 'Broker discovery changed during handshake.'
-    );
-  }
-
-  function discoveryPublicationPending(error) {
-    // A writer can publish broker.json between the failed read and a second
-    // presence check. Retry only these incomplete-publication observations;
-    // conflicting owner, ACL, and handshake failures stay terminal.
-    return (
-      error?.code === 'APR_BROKER_STALE' &&
-      [
-        'Broker discovery metadata is unavailable.',
-        'Broker discovery metadata is malformed.',
-        'Broker discovery changed during handshake.',
-      ].includes(error.message)
-    );
-  }
-
-  function observeLaunch(child) {
-    if (child?.ready && typeof child.ready.then === 'function') return child.ready;
-    if (!child || typeof child.once !== 'function') return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      child.once('spawn', resolve);
-      child.once('error', reject);
-      child.once('exit', (code, signal) => {
-        if (code !== null || signal !== null) {
-          reject(
-            Object.assign(new Error('Broker process exited before readiness.'), { code, signal })
-          );
+      await process.ready;
+      while (true) {
+        await check(context);
+        state = await observe(input, context);
+        if (state.status === 'live') {
+          await state.close();
+          await check(context);
+          process.unref();
+          retained.delete(process);
+          return;
         }
-      });
-    });
-  }
-
-  async function ensureBroker(
-    { project, versions, runtimeImage, platform, transport = 'legacy' } = {},
-    acquisitionDeadline = Infinity
-  ) {
-    assertBrokerTransport(transport);
-    const deadline = Math.min(performance.now() + 120_000, acquisitionDeadline);
-    if (
-      !project ||
-      !/^[a-f0-9]{64}$/.test(project.digest ?? '') ||
-      typeof runtimeImage?.root !== 'string' ||
-      typeof runtimeImage?.nodeExecutable !== 'string' ||
-      !versions
-    ) {
-      throw startFailure(null, { reason: 'invalid-startup-input' });
-    }
-    versions = {
-      package_version: packageJson.version,
-      broker_protocol_version: 1,
-      node_major: Number(process.versions.node.split('.')[0]),
-    };
-    const runtimeVerified = platform?.verifyRuntimeImage ?? verifyRuntimeImage;
-    if (!runtimeVerified(runtimeImage)) {
-      throw startFailure(null, { reason: 'runtime-image-invalid' });
-    }
-    const connect = async () => {
-      if (performance.now() >= deadline)
-        throw startFailure(null, { reason: 'readiness-deadline-expired' });
-      const client =
-        typeof platform?.connect === 'function'
-          ? await platform.connect({ project, versions, runtimeImage })
-          : await defaultConnect(project, versions, platform);
-      if (performance.now() >= deadline) {
-        client.connection?.close?.();
-        throw startFailure(null, { reason: 'readiness-deadline-expired' });
+        if (!['missing', 'pending', 'dead'].includes(state.status))
+          throw failure('owner-observation-unproved', state.error);
+        if (process.exited()) throw failure('broker-process-exited-before-readiness');
+        await delay(Math.min(25, Math.max(1, context.deadline - clock.now())), context);
       }
-      startupInputs.set(client, { project, versions, runtimeImage, platform });
-      return client;
-    };
-    try {
-      return await connect();
     } catch (error) {
-      // A Windows exclusive writer may still be publishing discovery. Wait for
-      // that existing broker; never launch a second process for this condition.
-      if (
-        error?.code === 'EBUSY' ||
-        discoveryChangedDuringHandshake(error) ||
-        unsentHandshakeTimeout(error)
-      )
-        return connectUntilReady(connect, platform, discoveryPublicationPending, deadline);
-      const launchable =
-        ['ENOENT', 'ECONNREFUSED', 'APR_BROKER_OWNED'].includes(error?.code) ||
-        (error?.code === 'APR_BROKER_STALE' && missingDiscovery(project, platform));
-      if (!launchable) throw error;
-    }
-
-    const record = bootstrapRecord({ project, versions, runtimeImage });
-    const bootstrap =
-      typeof platform?.createBootstrap === 'function'
-        ? performCurrentOperationEffect(() =>
-            platform.createBootstrap({ project, versions, runtimeImage, record })
-          )
-        : performCurrentOperationEffect(() => rawCreateBootstrap(record, platform));
-    const entrypoint = fileURLToPath(new URL('../../bin/peer-review-broker.mjs', import.meta.url));
-    const launch = platform?.spawn ?? spawn;
-    let child;
-    try {
-      child = performCurrentOperationEffect(() =>
-        launch(realpathSync(process.execPath), [entrypoint, bootstrap], {
-          shell: false,
-          detached: true,
-          stdio: 'ignore',
-        })
-      );
-      await observeLaunch(child);
-      child?.unref?.();
-    } catch (error) {
-      try {
-        return await connect();
-      } catch (connectError) {
-        throw startFailure(connectError, { bootstrap, launch_error: error?.code ?? 'unknown' });
-      }
-    }
-    try {
-      return await connectUntilReady(
-        connect,
-        platform,
-        (error) =>
-          error?.code === 'APR_BROKER_STALE' &&
-          (missingDiscovery(project, platform) || discoveryPublicationPending(error)),
-        deadline
-      );
-    } catch (error) {
-      throw startFailure(error, { bootstrap });
+      throw failure('broker-startup-incomplete', error);
     }
   }
-
-  async function takeCommandConnection(client, command) {
-    if (!client.takeConnection) return client.connection;
-    const deadline = performance.now() + 120_000;
-    for (;;) {
-      try {
-        const connection = await client.takeConnection();
-        if (performance.now() >= deadline) {
-          connection.close?.();
-          throw startFailure(null, { reason: 'command-acquisition-deadline-expired' });
-        }
-        return connection;
-      } catch (error) {
-        const startup = startupInputs.get(client);
-        // A readiness observation can outlive an empty broker's normal idle
-        // retirement, including between handshake and discovery reread. Reacquire
-        // only our own admitted startup when discovery is now absent.
-        // External clients, malformed discovery and submitted commands never retry.
-        if (
-          command !== 'status' &&
-          startup &&
-          error?.code === 'APR_BROKER_STALE' &&
-          (error.message === 'Broker discovery metadata is unavailable.' ||
-            discoveryChangedDuringHandshake(error)) &&
-          performance.now() < deadline
-        ) {
-          assertCurrentOperationAuthority();
-          if (!missingDiscovery(startup.project, startup.platform)) throw error;
-          client = await ensureBroker(startup, deadline);
-          continue;
-        }
-        // No command was sent. A busy owner can occupy the native endpoint or
-        // miss one short handshake window; malformed/auth failures never retry.
-        const retryable = error?.code === 'EBUSY' || unsentHandshakeTimeout(error);
-        if (!retryable || performance.now() >= deadline) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
-    }
-  }
-
-  async function requestBroker(client, command, workspace = null) {
+  async function request(input, command, workspace, context) {
     const message = validateCommand({ id: randomUUID(), command, workspace });
-    if (typeof client?.request === 'function') return client.request(message);
-    const decoder = createFrameDecoder();
-    const connection = await takeCommandConnection(client, command);
-    let bytes;
-    try {
-      // IPC delegates effects to the broker. Revalidate without taking the
-      // clone writer lock: broker workers must fence their own disk effects.
-      if (command !== 'status') assertCurrentOperationAuthority();
-      bytes = await connection.exchange(encodeFrame(message));
-    } finally {
-      connection.close?.();
+    await check(context);
+    let state = await observe(input, context);
+    if (
+      ['missing', 'dead', 'pending'].includes(state.status) &&
+      command !== 'status' &&
+      input.runtimeImage
+    ) {
+      await ensure(input, context);
+      state = await observe(input, context);
     }
-    const values = decoder.push(bytes);
-    decoder.end();
-    if (values.length !== 1 || values[0].id !== message.id || typeof values[0].ok !== 'boolean')
-      throw startFailure(null, { reason: 'invalid-command-response' });
-    const response = values[0];
-    if (!response.ok)
-      throw new AprError(response.error.code, response.error.message, {
-        recovery: response.error.recovery,
-      });
-    return response.result;
-  }
-
-  async function fenceManualRecovery(workspace, deps = {}) {
-    const authority = inspectReviewAuthority(workspace);
-    const evidence = startupEvidence(workspace, authority.state);
-    if (!evidence || evidence.recovery.fenced) return evidence?.recovery ?? null;
-    if (authority.state.protocol.startup.runtime.ownership !== 'broker') return null;
-    const unknown = () =>
-      new AprError(
-        'APR_WAKE_OUTCOME_UNKNOWN',
-        'Provider outcome must be reconciled before manual recovery.',
-        { recovery: evidence.recovery.reconciliation_command }
+    if (['missing', 'dead'].includes(state.status))
+      throw new AprError(
+        'APR_BROKER_STALE',
+        'Owner absence was observed before command dispatch.',
+        {
+          recovery:
+            'Acquire the recorded compatible broker runtime through guarded reconciliation.',
+          details: {
+            reason: 'owner-absent-before-dispatch',
+            ownerState: state.status,
+            mutationOccurred: false,
+            retrySafe: true,
+          },
+        }
       );
-    let platform, project, paths, client, ownership;
-    const location = () => {
-      platform ??= deps.platform ?? platformSecurity();
-      project ??= canonicalProjectIdentity({
-        cwd: authority.state.protocol.startup.context.repository_root,
-        platform: { ...platform, repository: createGitRepository() },
-      });
-      paths ??= brokerPaths({ identity: project, platform, env: process.env, home: homedir() });
-      return { platform, project, paths };
-    };
+    if (state.status !== 'live') throw failure('owner-observation-unproved', state.error);
+    retained.add(state);
     try {
-      try {
-        client = await (
-          deps.connect ??
-          (() => {
-            const current = location();
-            return connectBroker(
-              {
-                identity: current.project,
-                paths: current.paths,
-                versions: evidence.journal.versions,
-              },
-              current.platform
-            );
-          })
-        )();
-      } catch (error) {
-        if (!['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code)) throw error;
-        // Hold the same OS-enforced broker lock across reconciliation and fence
-        // publication. A stale file or a failed connect is never ownership proof.
-        ownership = deps.acquireRecoveryOwnership
-          ? await deps.acquireRecoveryOwnership()
-          : (() => {
-              const current = location();
-              return current.platform.acquireExclusive(current.paths.lock, {
-                instanceId: randomUUID(),
-                nonce: randomUUID(),
-              });
-            })();
-        if (!ownership?.verify())
-          throw startFailure(null, { reason: 'recovery-ownership-unproven' });
-      }
-      // Persist exclusion before asking the broker to remove its current worker.
-      // Replacements must see it even if suspension/publication is interrupted.
-      await withReviewLock(path.join(workspace, 'dispatch'), () =>
-        withReviewLock(workspace, () => {
-          const fresh = inspectReviewAuthority(workspace);
-          const current = startupEvidence(workspace, fresh.state);
-          if (current.recovery.fenced || current.recovery.suspending) return;
-          atomicCreate(
-            path.join(workspace, 'manual-suspension.json'),
-            `${JSON.stringify({
-              schema: 'ai-peer-review.manual-suspension/v1',
-              review_id: fresh.state.protocol.review_id,
-              request_digest: current.recovery.request_digest,
-              event_revision: fresh.state.protocol.revision,
-            })}\n`
-          );
-        })
-      );
-      if (client) {
-        const settled = await requestBroker(client, 'suspend', workspace);
-        if (!['recovery-only', 'terminal'].includes(settled?.status))
-          throw startFailure(null, { reason: 'suspension-unsettled' });
-      }
-      return await withReviewLock(path.join(workspace, 'dispatch'), async () => {
-        const observed = startupEvidence(workspace, inspectReviewAuthority(workspace).state);
-        const operation = latestWakeOperation(workspace);
-        const wakeOperations = allWakeOperations(workspace);
-        const manualNotSubmitted = manualLaunchProvesNonSubmission(workspace, {
-          reviewId: observed.journal.review_id,
-          requestDigest: observed.journal.request_digest,
-        });
-        const definitelyNotSubmitted =
-          ['authority', 'manual', 'registered'].includes(observed.journal.stage) &&
-          (!observed.journal.provider_operation ||
-            observed.journal.provider_operation.status === 'not-submitted') &&
-          wakeOperations.every((entry) => ['not-submitted', 'refused'].includes(entry.status)) &&
-          manualNotSubmitted;
-        if (!manualNotSubmitted) throw unknown();
-        if (wakeOperations.some((entry) => ['reserved', 'outcome-unknown'].includes(entry.status)))
-          throw unknown();
-        if (ownership && !definitelyNotSubmitted) {
-          const outcome = await dispatch(() =>
-            deps.reconcileProvider?.({
-              workspace,
-              journal: observed.journal,
-              operation,
-            })
-          );
-          if (!['acknowledged', 'not-submitted', 'refused'].includes(outcome?.status))
-            throw unknown();
-        } else if (
-          ['launch-pending', 'outcome-unknown'].includes(observed.journal.stage) ||
-          ['reserved', 'outcome-unknown'].includes(operation?.status)
-        )
-          throw unknown();
-        return await withReviewLock(workspace, () => {
-          const fresh = inspectReviewAuthority(workspace);
-          const current = startupEvidence(workspace, fresh.state);
-          if (current.recovery.fenced) return current.recovery;
-          if (
-            canonicalProjection(allWakeOperations(workspace)) !==
-            canonicalProjection(wakeOperations)
-          )
-            throw unknown();
-          if (current.journal.stage !== observed.journal.stage) throw unknown();
-          if (ownership && !ownership.verify())
-            throw startFailure(null, { reason: 'recovery-ownership-lost' });
-          if (fresh.state.protocol.revision !== authority.state.protocol.revision)
-            throw new AprError(
-              'APR_BROKER_STALE',
-              'Review changed while suspending automatic delivery.',
-              { recovery: evidence.recovery.reconciliation_command }
-            );
-          atomicCreate(
-            path.join(workspace, 'manual-fence.json'),
-            `${JSON.stringify({ schema: 'ai-peer-review.manual-fence/v1', review_id: fresh.state.protocol.review_id, request_digest: current.recovery.request_digest, event_revision: fresh.state.protocol.revision })}\n`
-          );
-          return { ...current.recovery, fenced: true, suspending: false };
-        });
+      await check(context);
+      const response = await state.request({
+        operation: command,
+        actionId: message.id,
+        body: workspace === null ? {} : { workspace },
+        ...context,
       });
+      if (
+        response?.schema !== 'ai-peer-review.response/v1' ||
+        response.action_id !== message.id ||
+        typeof response.ok !== 'boolean'
+      )
+        throw failure('command-response-unproved');
+      if (!response.ok)
+        throw new AprError(response.error.code, response.error.message, {
+          details: {
+            mutationOccurred: response.mutation_occurred,
+            retrySafe: response.retry_safe,
+            nextAction: response.next_action,
+          },
+          recovery: 'Reconcile the exact command outcome before retrying.',
+        });
+      await check(context);
+      return response.result;
     } finally {
-      client?.close?.();
-      client?.connection?.close?.();
-      ownership?.release?.();
+      await state.close();
+      retained.delete(state);
     }
   }
-
-  return Object.freeze({ ensureBroker, bootstrapRecord, requestBroker, fenceManualRecovery });
+  return Object.freeze({ verified: false, ensure, request });
 }

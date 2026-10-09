@@ -11,7 +11,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { platformSecurity } from '../../src/broker/platform.mjs';
+import { provisionProtectedRoot, openProtectedRoot } from '../../src/broker/storage-protection.mjs';
+import { performance } from 'node:perf_hooks';
 
 const realpathSync = process.platform === 'win32' ? nodeRealpathSync.native : nodeRealpathSync;
 
@@ -92,7 +93,7 @@ export function createRepositoryFixture(t, { directoryName = 'repository' } = {}
 }
 
 // An explicit committed-policy fixture; no production API accepts this override.
-export function createPrimaryAuthorityFixture(
+export async function createPrimaryAuthorityFixture(
   t,
   { separateGitDir = false, pathsWithSpaces = false } = {}
 ) {
@@ -142,16 +143,19 @@ export function createPrimaryAuthorityFixture(
     'ai-peer-review',
     'primary-activation.json'
   );
-  if (process.platform === 'win32') {
-    const directory = platformSecurity().openPrivateDirectory(path.dirname(registrationPath));
-    try {
-      directory.create(path.basename(registrationPath), Buffer.from(JSON.stringify(record) + '\n'));
-    } finally {
-      directory.close();
-    }
-  } else {
-    mkdirSync(path.dirname(registrationPath), { mode: 0o700 });
-    writeFileSync(registrationPath, JSON.stringify(record) + '\n', { mode: 0o600 });
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  const receipt = await provisionProtectedRoot({
+    root: path.dirname(registrationPath),
+    ...context,
+  });
+  const guard = await openProtectedRoot({ receipt, ...context });
+  try {
+    await guard.writeExclusive(
+      path.basename(registrationPath),
+      Buffer.from(JSON.stringify(record) + '\n')
+    );
+  } finally {
+    await guard.close();
   }
   return {
     ...fixture,

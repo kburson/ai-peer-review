@@ -364,7 +364,7 @@ test('installed release preserves legacy evidence, current broker execution and 
     },
   };
   if (process.platform === 'win32') {
-    const { readBrokerBootstrap } = await load('bin/peer-review-broker.mjs');
+    const { readBrokerBootstrap } = await load('src/broker/legacy-entry.mjs');
     await verifyWindowsBootstrapSecurity(scratch, platform, readBrokerBootstrap);
   }
   const idleIdentity = canonicalProjectIdentity({ cwd: projects[0].root, platform });

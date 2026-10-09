@@ -106,3 +106,37 @@ test(
     assert.equal(existsSync(paths.endpoint), false);
   }
 );
+
+test('portable production-derived worktree paths use an ephemeral HTTP endpoint without native socket path limits', async (t) => {
+  const { mkdtemp, realpath, rm } = await import('node:fs/promises');
+  const path = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { portableBrokerPaths } = await import('../../src/broker/portable-paths.mjs');
+  const { initializePortableOperations } = await import('../../src/broker/portable-platform.mjs');
+  const { canonicalPortableProjectIdentity } = await import('../../src/broker/identity.mjs');
+  const { portableServiceJourney } = await import('../helpers/portable-service-journey.mjs');
+  const root = await realpath(
+    await mkdtemp(path.join(tmpdir(), 'portable-' + 'x'.repeat(75) + '-'))
+  );
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  const operations = await initializePortableOperations(context);
+  const identity = await canonicalPortableProjectIdentity({ cwd: root, operations, ...context });
+  const paths = await portableBrokerPaths({ worktree: identity.physicalRoot });
+  assert.equal(paths.worktree, root);
+  assert.equal(
+    paths.endpoint,
+    path.join(root, '.scratch', 'peer-review', 'runtime', 'endpoint.json')
+  );
+  const journey = await portableServiceJourney(t, {
+    identity,
+    versions: { package_version: '1.0.0', broker_protocol_version: 1, node_major: 24 },
+  });
+  assert.equal(journey.endpoint.host, '127.0.0.1');
+  assert.ok(journey.endpoint.port > 0);
+  assert.equal((await journey.request('status')).result.project_digest, identity.digest);
+  assert.equal((await journey.request('status', null, { worktree: 'f'.repeat(64) })).ok, false);
+  assert.equal((await journey.request('stop')).ok, true);
+  await journey.run.untilStopped;
+  assert.equal(journey.facts().drained, true);
+});

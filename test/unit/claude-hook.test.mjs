@@ -52,9 +52,9 @@ function fixture(t, { model = 'claude-opus-5', command = COMMAND } = {}) {
   };
 }
 
-test('Claude PreToolUse binds exact transcript model, session, and start command', (t) => {
+test('Claude PreToolUse binds exact transcript model, session, and start command', async (t) => {
   const { root, event } = fixture(t);
-  const output = captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  const output = await captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
   assert.equal(output.hookSpecificOutput.permissionDecision, 'allow');
   assert.equal(
     output.hookSpecificOutput.updatedInput.command,
@@ -71,18 +71,20 @@ test('Claude PreToolUse binds exact transcript model, session, and start command
   assert.equal(observed.operation_id, 'start:review-01');
 });
 
-test('Claude start hook refuses transcript model or tool-use divergence', (t) => {
+test('Claude start hook refuses transcript model or tool-use divergence', async (t) => {
   const changed = fixture(t, { command: 'peer-review status /tmp/review' });
-  assert.throws(() =>
-    captureClaudeStartHook({ event: changed.event, sourceVersion: '2.1.278', token: TOKEN })
+  await assert.rejects(
+    async () =>
+      await captureClaudeStartHook({ event: changed.event, sourceVersion: '2.1.278', token: TOKEN })
   );
   const missing = fixture(t);
-  assert.throws(() =>
-    captureClaudeStartHook({
-      event: { ...missing.event, tool_use_id: 'call-other' },
-      sourceVersion: '2.1.278',
-      token: TOKEN,
-    })
+  await assert.rejects(
+    async () =>
+      await captureClaudeStartHook({
+        event: { ...missing.event, tool_use_id: 'call-other' },
+        sourceVersion: '2.1.278',
+        token: TOKEN,
+      })
   );
 });
 
@@ -100,7 +102,7 @@ test('Claude start hook waits briefly for the same provider tool use to reach it
 
 test('verified active Claude author tool use supplies a current automatic transport lease', async (t) => {
   const { root, event } = fixture(t);
-  captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  await captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
   const observed = readClaudeStartHook({
     root,
     token: TOKEN,
@@ -125,9 +127,9 @@ test('verified active Claude author tool use supplies a current automatic transp
   assert.equal(transport.lease.opaque_handle, SESSION);
 });
 
-test('running broker reopens exactly one owner-only Claude start hook without inherited token', (t) => {
+test('running broker reopens exactly one owner-only Claude start hook without inherited token', async (t) => {
   const { root, event } = fixture(t);
-  captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  await captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
   assert.equal(
     readClaudeStartHookForSession({ root, sessionId: SESSION, operationId: 'start:review-01' })
       .model_id,
@@ -147,17 +149,17 @@ test('running broker reopens exactly one owner-only Claude start hook without in
     }).model_id,
     'claude-opus-5'
   );
-  captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: 'b'.repeat(32) });
+  await captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: 'b'.repeat(32) });
   assert.throws(() =>
     readClaudeStartHookForSession({ root, sessionId: SESSION, operationId: 'start:review-01' })
   );
 });
 
-test('Claude recovery selects the exact tool use when a session changes model between starts', (t) => {
+test('Claude recovery selects the exact tool use when a session changes model between starts', async (t) => {
   const command = 'ai-peer-review start docs/spec.md --artifact-kind spec';
   const { root, event } = fixture(t, { command, model: 'claude-opus-5' });
   event.tool_input.command = command;
-  captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  await captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
   const second = { ...event, tool_use_id: 'call-start-02' };
   writeFileSync(
     event.transcript_path,
@@ -174,7 +176,7 @@ test('Claude recovery selects the exact tool use when a session changes model be
     })}\n`,
     { mode: 0o600 }
   );
-  captureClaudeStartHook({ event: second, sourceVersion: '2.1.278', token: 'b'.repeat(32) });
+  await captureClaudeStartHook({ event: second, sourceVersion: '2.1.278', token: 'b'.repeat(32) });
   assert.equal(
     readClaudeStartHookForSession({
       root,
@@ -195,22 +197,22 @@ test('Claude recovery selects the exact tool use when a session changes model be
   );
 });
 
-test('Claude hook supplies the current transcript model to a later command', (t) => {
+test('Claude hook supplies the current transcript model to a later command', async (t) => {
   const command = 'ai-peer-review doctor';
   const { event } = fixture(t, { command, model: 'claude-opus-5-5' });
   event.tool_input.command = command;
-  const result = captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  const result = await captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
   assert.equal(
     result.hookSpecificOutput.updatedInput.command,
     `CLAUDE_CODE_SESSION_ID=${SESSION} CLAUDE_MODEL_ID=claude-opus-5-5 CLAUDE_MODEL_DISPLAY=claude-opus-5-5 ${command}`
   );
 });
 
-test('Claude join reads the exact current tool use through its private hook token', (t) => {
+test('Claude join reads the exact current tool use through its private hook token', async (t) => {
   const command = 'ai-peer-review join /absolute/invitation.md';
   const { root, event } = fixture(t, { command, model: 'claude-opus-5-5' });
   event.tool_input.command = command;
-  const output = captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
+  const output = await captureClaudeStartHook({ event, sourceVersion: '2.1.278', token: TOKEN });
   assert.match(output.hookSpecificOutput.updatedInput.command, /APR_CLAUDE_HOOK_TOKEN=/);
   assert.equal(
     readClaudeStartHook({ root, token: TOKEN, sessionId: SESSION, operationId: 'join:review-01' })

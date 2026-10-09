@@ -141,7 +141,7 @@ export function createLiveWaitOperations({ performCurrentOperationEffect }) {
     return current;
   }
 
-  function createLiveDeliverySource({ repositoryRoot, reviewId, watch = watchFilesystem }) {
+  async function createLiveDeliverySource({ repositoryRoot, reviewId, watch = watchFilesystem }) {
     if (typeof repositoryRoot !== 'string' || !repositoryRoot) {
       invalid('Repository root is required.');
     }
@@ -153,15 +153,15 @@ export function createLiveWaitOperations({ performCurrentOperationEffect }) {
       path.join(workspace, 'deliveries'),
       'delivery directory'
     ).absolute;
-    performCurrentOperationEffect(() => mkdirSync(deliveryDirectory, { recursive: true }));
+    await performCurrentOperationEffect(() => mkdirSync(deliveryDirectory, { recursive: true }));
     const workspaceIdentity = directoryIdentity(repositoryRoot, workspace, 'review workspace');
     const deliveryDirectoryIdentity = directoryIdentity(
       repositoryRoot,
       deliveryDirectory,
       'delivery directory'
     );
-    const assertBoundIdentity = () => {
-      performCurrentOperationEffect(() => {});
+    const assertBoundIdentity = async () => {
+      await performCurrentOperationEffect(() => {});
       assertDirectoryIdentity(repositoryRoot, workspace, workspaceIdentity, 'review workspace');
       assertDirectoryIdentity(
         repositoryRoot,
@@ -172,9 +172,9 @@ export function createLiveWaitOperations({ performCurrentOperationEffect }) {
     };
 
     return Object.freeze({
-      readAfter(input) {
+      async readAfter(input) {
         if (input?.reviewId !== reviewId) invalid('Wait review ID does not match its source.');
-        assertBoundIdentity();
+        await assertBoundIdentity();
         try {
           const { events } = inspectReviewAuthority(workspace);
           const matched = events.find(
@@ -194,18 +194,20 @@ export function createLiveWaitOperations({ performCurrentOperationEffect }) {
             digest: matched.payload.delivery.digest,
           });
         } finally {
-          assertBoundIdentity();
+          await assertBoundIdentity();
         }
       },
-      subscribe({ reviewId: requestedReviewId, onChange, onError }) {
+      async subscribe({ reviewId: requestedReviewId, onChange, onError }) {
         if (requestedReviewId !== reviewId) invalid('Wait review ID does not match its source.');
         if (typeof onChange !== 'function' || typeof onError !== 'function') {
           invalid('Wait subscription callbacks are invalid.');
         }
-        assertBoundIdentity();
-        const watcher = performCurrentOperationEffect(() => watch(deliveryDirectory, onChange));
+        await assertBoundIdentity();
+        const watcher = await performCurrentOperationEffect(() =>
+          watch(deliveryDirectory, onChange)
+        );
         try {
-          assertBoundIdentity();
+          await assertBoundIdentity();
           watcher.on?.('error', onError);
         } catch (error) {
           watcher.close();
@@ -217,8 +219,8 @@ export function createLiveWaitOperations({ performCurrentOperationEffect }) {
           },
         });
       },
-      manualRecovery() {
-        assertBoundIdentity();
+      async manualRecovery() {
+        await assertBoundIdentity();
         return Object.freeze({
           available: true,
           command: renderCommand(['peer-review', 'resume', workspace]),
@@ -233,8 +235,8 @@ export function createLiveWaitOperations({ performCurrentOperationEffect }) {
       host: 'any',
       capability: 'live-wait',
       healthy: true,
-      wait(input) {
-        const deliveries = createLiveDeliverySource({
+      async wait(input) {
+        const deliveries = await createLiveDeliverySource({
           repositoryRoot,
           reviewId: input.reviewId,
           ...(watch ? { watch } : {}),

@@ -9,7 +9,6 @@ const EXPECTED_COMMANDS = [
   'primary',
   'register-runtime',
   'setup',
-  'build',
   'doctor',
   'start',
   'advance',
@@ -31,15 +30,14 @@ const EXPECTED_COMMANDS = [
   'explain',
 ];
 
-test('build accepts only the package-owned broker-security target', () => {
-  assert.deepEqual(parseCommand(['build', 'broker-security']), {
-    command: 'build',
-    args: ['broker-security'],
-    options: {},
-  });
-  usage(['build'], /positional/i);
-  usage(['build', 'broker'], /broker-security/i);
-  usage(['build', 'broker-security', 'extra'], /positional/i);
+test('portable command parsing refuses all broker build targets', () => {
+  for (const argv of [
+    ['build'],
+    ['build', 'broker-security'],
+    ['build', 'broker'],
+    ['build', 'broker-security', 'extra'],
+  ])
+    usage(argv, /unknown|unsupported/i);
 });
 
 function usage(argv, pattern) {

@@ -1,0 +1,98 @@
+{
+  "schema": "apr.runtime-selection-case-baseline/v1",
+  "sourceHead": "7c67cf6d3f4e54e995f260a555ac19bcdc693d81",
+  "records": [
+    {
+      "name": "an old process fences changed runtime bytes even without a caller observation",
+      "bodySha256": "94ea7c376c419057e0933907e1ed1fe55f9d84c3e7352078831a2aa33310fcde"
+    },
+    {
+      "name": "bounded ordinary reads reject oversized and linked files before consuming bytes",
+      "bodySha256": "99fbba309ee4f1d4514d409210519a1041119878edad4dc1d660e308484c4a06"
+    },
+    {
+      "name": "caller-selected foreign OS account authority refuses",
+      "bodySha256": "5e2533b1dd3321d181a05cb2df80125e4473266252e3c91ad5d938f955942c5e"
+    },
+    {
+      "name": "extra executable files cannot hide outside the declared module inventory",
+      "bodySha256": "6afa2cacfa484b893a6f0260a397d1f2ce1e55d8ddbfa8585d821074fbd5cc1d"
+    },
+    {
+      "name": "in-place Node replacement fences the old process",
+      "bodySha256": "129b68cd613940d3ddda895d2dae7201282aae721947591d7596d5eb53d7ad63"
+    },
+    {
+      "name": "in-place upgrade keeps locator generation but fences old observations",
+      "bodySha256": "fdffb73ead99c88b7ea91c75e0ffb53deffe9009def8ffafca83f8bb2f0d36a7"
+    },
+    {
+      "name": "mixed replacement and unsafe declared paths refuse inventory admission",
+      "bodySha256": "6d44bfc152b51d7a97ecc3dc278dc2ae8393ad8f82cb42bac1408e544167f257"
+    },
+    {
+      "name": "Node below 24 and unknown selection schema refuse without registration",
+      "bodySha256": "09c05948a7ecc70829a990f5ccb66c95dc464b79e191cfee5c4bfea7089955cc"
+    },
+    {
+      "name": "one account selection is shared by clones and ignores caller environment",
+      "bodySha256": "a60a18ed77eff35d6497ab93d2caa639243982b7acc22cad16671f383c35236c"
+    },
+    {
+      "name": "one Node-manager relocation updates both clones through the account generation",
+      "bodySha256": "f73933c45f7bf2d826b65a0d426bc2475a57b4e3744d775822f82eb6372d0942"
+    },
+    {
+      "name": "relocation requires explicit update and rejects stale generation or forged caller paths",
+      "bodySha256": "7e7e21cffa8de14289330a1d8e8f99aef3f7dda0349d2113ddd4ae022895402b"
+    },
+    {
+      "name": "removing the loaded selected installation refuses with a runtime diagnostic",
+      "bodySha256": "e5041f727e28b176d975f8ebaab0c5d421e0687e52b167cc4795032c576127ff"
+    },
+    {
+      "name": "replacement during dry-run planning refuses an old registration process",
+      "bodySha256": "5c65ce3c5ea762c1c55aaaba10d050d4e916fcfe9748b5797c9dbc5924f1906a"
+    },
+    {
+      "name": "replacement during final async account lookup fences admission",
+      "bodySha256": "2d7de1f8da61222a6cca9751815022a09863cdaa6e3df9020d482bb1f82fb2c9"
+    },
+    {
+      "name": "replacement during registration read back refuses an old registration process",
+      "bodySha256": "58f43034763bc899f196bfcc1184e0c023bcad158754a7ce2c97c89fa9dd47b9"
+    },
+    {
+      "name": "revalidated admission preserves unrelated clone dependencies and records timing",
+      "bodySha256": "027b7be8bcfc838f3541c23638dae9b8272912533a3facb61ef3991bf0a535a3"
+    },
+    {
+      "name": "runtime registration has a complete offline help contract",
+      "bodySha256": "da0fc56b4ebde83310dca87a8e65c7886696f3724cb549c7c99151fa3d599b73"
+    },
+    {
+      "name": "runtime registration is an explicit narrow maintenance command",
+      "bodySha256": "dfaa18d6eac0a2dd26bb0a4763a8f4e869f4047c92a0d110c5a7b7aabcae1782"
+    },
+    {
+      "name": "runtime registration refuses caller-selected account and package roots",
+      "bodySha256": "1f0a8656cc38a8dba4adc7ae70d7398e0464a2aa1974899f706be0dd0644b36a"
+    },
+    {
+      "name": "selection generation changes fence the process without caller observations",
+      "bodySha256": "2853f623e6f8841143e4092e02785df39579be20b00ffa0e8c52145e11a74e00"
+    },
+    {
+      "name": "selection uses actual host protection and never invokes a caller native adapter",
+      "bodySha256": "01a39dec1e252554b3d8ab3b0f6b460f8f33cf979d992412d33407c8908bf046"
+    },
+    {
+      "name": "stable observation is reusable after revalidation and symlink modules refuse",
+      "bodySha256": "3e4abb8823f2f468c58f5caa7c85135d4b87b24ee968163e324e2dea38ca0b98"
+    },
+    {
+      "name": "unavailable account and unsafe selection bytes refuse",
+      "bodySha256": "207dab5e9a83ff6953348dacefaea3ff19c72d062e45648fa412a181af0ba52f"
+    }
+  ]
+}

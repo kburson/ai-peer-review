@@ -308,9 +308,9 @@ test('[#168] snapshot descriptor close failure retains a cleanup obligation', as
     const file = await original(value, ...args);
     if (value === path.join(root, name) && (Number(args[0]) & constants.O_CREAT) === 0 && !failed) {
       const close = file.close.bind(file),
-        read = file.readFile.bind(file);
+        read = file.read.bind(file);
       let readCalled = false;
-      file.readFile = async (...args) => {
+      file.read = async (...args) => {
         readCalled = true;
         retained = file;
         return read(...args);
@@ -416,4 +416,23 @@ test('[#168] uncertain owned rename retains both generation locators without cla
   const stat = await lstat(path.join(root, name), { bigint: true });
   assert.equal(pending.identity, [stat.dev, stat.ino].map(String).join(':'));
   await assert.rejects(publication.withdraw(first), { code: 'APR_BROKER_STALE' });
+});
+
+test('[#188] exact snapshot mutations reject a byte-identical replacement generation', async (t) => {
+  const { unlink } = await import('node:fs/promises');
+  const root = await temporary(t);
+  const receipt = await storage.provisionProtectedRoot({ root });
+  const guard = await storage.openProtectedRoot({ receipt });
+  t.after(() => guard.close());
+  await guard.writeExclusive('resource.json', Buffer.from('original'));
+  const first = await guard.readSnapshot('resource.json');
+  await guard.replace('resource.json', first, Buffer.from('next'));
+  const next = await guard.readSnapshot('resource.json');
+  await unlink(path.join(root, 'resource.json'));
+  await guard.writeExclusive('resource.json', Buffer.from('next'));
+  await assert.rejects(guard.remove('resource.json', next), { code: 'APR_BROKER_STALE' });
+  await assert.rejects(guard.replace('resource.json', { ...next }, Buffer.from('copied')), {
+    code: 'APR_BROKER_STALE',
+  });
+  assert.equal((await guard.read('resource.json')).toString(), 'next');
 });

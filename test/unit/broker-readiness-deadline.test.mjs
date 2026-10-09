@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { performance } from 'node:perf_hooks';
-import { createBrokerClientOperations } from '../../src/broker/client-core.mjs';
+import { createBrokerClientOperations } from '../../src/broker/legacy-client-core.mjs';
 
 for (const recovery of [false, true]) {
   test(

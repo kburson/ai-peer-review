@@ -1,10 +1,33 @@
 // @story #102
 import { globSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
+import {
+  classifySuiteFiles,
+  suiteCommandArguments,
+  WINDOWS_PORTABLE_UNIT_GROUPS,
+} from './suite-plan.mjs';
 
 const [suite, ...extra] = process.argv.slice(2);
 const excludeOwners = extra.includes('--exclude-owner-publication');
 const excludeComposition = extra.includes('--exclude-portable-ownership');
+const hosted = process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true';
+const excludePortableUnit =
+  suite === 'unit' && extra.length === 1 && extra[0] === '--exclude-portable-unit';
+const portableUnitShard =
+  suite === 'unit' &&
+  extra.length === 2 &&
+  extra[0] === '--portable-unit-shard' &&
+  WINDOWS_PORTABLE_UNIT_GROUPS.includes(extra[1])
+    ? extra[1]
+    : null;
+const integrationShard =
+  suite === 'integration' &&
+  extra.length === 2 &&
+  extra[0] === '--integration-shard' &&
+  WINDOWS_PORTABLE_UNIT_GROUPS.includes(extra[1])
+    ? extra[1]
+    : null;
+const unitSelector = hosted && (excludePortableUnit || portableUnitShard !== null);
 const knownSelectors =
   extra.length === new Set(extra).size &&
   extra.every((value) =>
@@ -13,11 +36,13 @@ const knownSelectors =
 if (
   extra.length &&
   !(
-    knownSelectors &&
-    excludeOwners &&
-    suite === 'integration' &&
-    process.env.CI === 'true' &&
-    process.env.GITHUB_ACTIONS === 'true'
+    unitSelector ||
+    (hosted && integrationShard !== null) ||
+    (knownSelectors &&
+      excludeOwners &&
+      suite === 'integration' &&
+      process.env.CI === 'true' &&
+      process.env.GITHUB_ACTIONS === 'true')
   )
 )
   throw new Error('Unexpected test selector');
@@ -31,51 +56,24 @@ const discovered = globSync(`test/${suite}/**/*.test.mjs`)
   .filter(
     (file) => !(excludeComposition && file === 'test/integration/portable-ownership.test.mjs')
   );
-// #107 portable tests do not load/build the retired native broker. Run these
-// without the legacy name filter, which would otherwise hide their broker cases.
-const portable = discovered.filter(
-  (file) =>
-    file === 'test/unit/ci-native-build-policy.test.mjs' ||
-    /[\/]broker-http(?:-concurrency)?\.test\.mjs$/.test(file) ||
-    /[\/](?:portable-[^\/]+|windows-portable-bootstrap|storage-protection|ownership-election|process-source-[^\/]+)\.test\.mjs$/.test(
-      file
-    )
-);
-const excluded = discovered.filter(
-  (file) =>
-    !portable.includes(file) &&
-    (/[\\/]broker-[^\\/]+\.test\.mjs$/.test(file) ||
-      file === 'test/smoke/cli.test.mjs' ||
-      file === 'test/unit/source-test-preparation.test.mjs')
-);
-const files = discovered.filter((file) => !excluded.includes(file) && !portable.includes(file));
+// The same complete file partition feeds execution and its scheduling controls.
+const plan = classifySuiteFiles(discovered);
+const { excluded } = plan;
+const groups = excludePortableUnit
+  ? plan.groups.filter((group) => group.filtered)
+  : portableUnitShard
+    ? plan.windowsPortableShards.filter((group) => group.name === portableUnitShard)
+    : integrationShard
+      ? plan.windowsIntegrationShards.find((group) => group.name === integrationShard).groups
+      : plan.groups;
 console.log('Broker verification paused for #102/#107: ' + excluded.join(', '));
-if (!files.length && !portable.length) throw new Error(`No tests found for ${suite}`);
-
-const groups = [
-  [files, true],
-  [portable, false],
-].filter(([selected]) => selected.length);
-function argumentsFor([selected, filtered]) {
-  return [
-    '--test',
-    ...(filtered
-      ? [
-          '--test-skip-pattern=/broker|native helper|native exclusive|standalone production worker/i',
-        ]
-      : []),
-    ...(suite === 'integration' ? ['--test-concurrency=2'] : []),
-    // Serialize portable unit files on hosted Windows: each may run multiple
-    // stock ACL probes, whose original 15-second bound must remain intact.
-    ...(suite === 'unit' &&
-    !filtered &&
-    process.platform === 'win32' &&
-    process.env.CI === 'true' &&
-    process.env.GITHUB_ACTIONS === 'true'
-      ? ['--test-concurrency=1']
-      : []),
-    ...selected,
-  ];
+if (!groups.length) throw new Error('No tests found for ' + suite);
+function argumentsFor(group) {
+  return suiteCommandArguments(group, {
+    suite,
+    platform: process.platform,
+    hosted: process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true',
+  });
 }
 // Both disjoint groups execute every discovered active test. Hosted integration
 // runs two independent Node processes; each keeps its existing two-file limit.

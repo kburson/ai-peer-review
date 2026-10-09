@@ -335,7 +335,7 @@ test('offline broker status reads project-local startup evidence without a test 
   assert.doesNotMatch(status.recovery.action, /broker reconcile/);
 });
 
-test('offline broker status survives a real missing native security helper without connector injection', async (t) => {
+test('offline broker status preserves recovery evidence with an unavailable portable fixture connector', async (t) => {
   const projectRoot = mkdtempSync(path.join(tmpdir(), 'apr-broker-native-offline-'));
   t.after(() => rmSync(projectRoot, { recursive: true, force: true }));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: projectRoot, stdio: 'ignore' });
@@ -373,7 +373,7 @@ test('offline broker status survives a real missing native security helper witho
   assert.equal(status.status, 'offline');
   assert.deepEqual(status.recovery.unreconciled_workspaces, [workspace]);
   assert.equal(status.recovery.diagnostic.code, 'APR_BROKER_START_FAILED');
-  assert.match(status.recovery.diagnostic.message, /security helper/);
+  assert.match(status.recovery.diagnostic.message, /Portable fixture connector/);
 });
 
 test('offline broker reconcile restarts exact pinned runtime without replaying a launch', async (t) => {
@@ -418,7 +418,7 @@ test('restart reconciles a crash after reservation before provider delivery', as
     workspace: root,
     now: NOW,
   });
-  reserveWakeOperation(root, decision, new Date(NOW));
+  await reserveWakeOperation(root, decision, new Date(NOW));
 
   const recovered = await reconcileWake(input(root, wakeAdapter, NOW + 1000));
   assert.equal(wakeAdapter.reconciliations.length, 1);
@@ -492,8 +492,8 @@ test('foreground coordinator honors only its exact durable stop request', async 
     ...input(root, wakeAdapter),
     owner: { kind: 'cli', pid: 42 },
     leaseOptions: { instanceId: 'coordinator-stop-01', nonce: 'nonce-stop-01' },
-    subscribe(_workspace, handlers) {
-      requestCoordinatorStop(root, new Date(NOW + 1000));
+    async subscribe(_workspace, handlers) {
+      await requestCoordinatorStop(root, new Date(NOW + 1000));
       handlers.onChange();
       return { close() {} };
     },
@@ -576,7 +576,7 @@ test('default observation ignores its own heartbeat and reacts to only an exact 
       await new Promise((resolve) => setImmediate(resolve));
       assert.equal(inspections, 2);
 
-      requestCoordinatorStop(root, new Date(NOW + 1000));
+      await requestCoordinatorStop(root, new Date(NOW + 1000));
       coordinatorWatcher.callback('rename', 'stop-request.json');
       await new Promise((resolve) => setImmediate(resolve));
     },
@@ -611,4 +611,70 @@ test('integrity and unsupported-capability failures invoke no adapter', async (t
     (error) => error.code === 'APR_TRANSPORT_UNAVAILABLE'
   );
   assert.equal(wakeAdapter.calls.length, 0);
+});
+
+test('review correction: reconcile prepares recorded runtime after lazy client proves absence before dispatch', async (t) => {
+  const io = brokerIo(t, () => null);
+  const root = workspace(t, io.cwd);
+  let restarts = 0,
+    dispatches = 0;
+  io.brokerConnect = async () => ({
+    request: async () => {
+      throw new AprError('APR_BROKER_STALE', 'Owner absent before dispatch.', {
+        recovery: 'Reconcile recorded runtime.',
+        details: {
+          reason: 'owner-absent-before-dispatch',
+          ownerState: 'missing',
+          mutationOccurred: false,
+          retrySafe: true,
+        },
+      });
+    },
+  });
+  io.brokerReconcileRuntime = () => ({
+    versions: { package_version: '0.3.0', broker_protocol_version: 1, node_major: 26 },
+    runtimeImage: { root: '/pinned', nodeExecutable: process.execPath, digest: 'sha256:pinned' },
+  });
+  io.brokerEnsure = async (input) => {
+    assert.equal(input.runtimeImage.root, '/pinned');
+    restarts++;
+    return {
+      request: async (message) => {
+        assert.equal(message.command, 'reconcile');
+        dispatches++;
+        return { status: 'recovery-only' };
+      },
+    };
+  };
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 0, io.stderrBytes.join(''));
+  assert.equal(restarts, 1);
+  assert.equal(dispatches, 1);
+});
+
+test('review correction: reconcile never prepares another broker after a possibly submitted command', async (t) => {
+  const io = brokerIo(t, () => null);
+  const root = workspace(t, io.cwd);
+  let restarts = 0,
+    requests = 0;
+  io.brokerConnect = async () => ({
+    request: async () => {
+      requests++;
+      throw new AprError('APR_BROKER_STALE', 'Command outcome is unknown.', {
+        recovery: 'Reconcile the original outcome.',
+        details: {
+          reason: 'owner-absent-before-dispatch',
+          ownerState: 'missing',
+          mutationOccurred: null,
+          retrySafe: false,
+        },
+      });
+    },
+  });
+  io.brokerEnsure = async () => {
+    restarts++;
+    throw new Error('unsafe replay');
+  };
+  assert.equal(await run(['broker', 'reconcile', root, '--json'], io), 1);
+  assert.equal(requests, 1);
+  assert.equal(restarts, 0);
 });

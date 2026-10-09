@@ -3,7 +3,9 @@ import path from 'node:path';
 import { lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { AprError } from '../errors.mjs';
-import { authorityGit, discoverAuthorityRepository } from '../git/repository.mjs';
+import { discoverPrimaryAuthorityRepository as discoverAuthorityRepository } from './primary-authority.mjs';
+import { initializePortableSystem } from '../broker/portable-system.mjs';
+import { performance } from 'node:perf_hooks';
 import { inspectReviewAuthority } from '../protocol/service.mjs';
 import { verifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { startupEvidence, readStartupJournal } from '../broker/registry.mjs';
@@ -33,8 +35,13 @@ function metadata(file) {
     throw error;
   }
 }
-export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
-  const records = authorityGit(primaryRoot, ['worktree', 'list', '--porcelain', '-z']);
+export async function inspectPrimaryReviewInventory(commonDir, primaryRoot, options = {}) {
+  const context = Object.freeze({
+    signal: options.signal ?? new AbortController().signal,
+    deadline: options.deadline ?? performance.now() + 30000,
+  });
+  const system = await initializePortableSystem(context);
+  const records = await system.reviewWorktrees({ root: primaryRoot });
   if (Buffer.byteLength(records) > 1024 * 1024)
     unavailable('Worktree inventory exceeds its bound.');
   const worktrees = records.split('\0\0').filter(Boolean);
@@ -156,7 +163,7 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
     const listedRoot = value.slice(9);
     let location;
     try {
-      location = discoverAuthorityRepository(realpathSync(listedRoot));
+      location = await discoverAuthorityRepository(realpathSync(listedRoot), context);
     } catch (error) {
       unavailable('A clone worktree cannot be inventoried.', {
         root: listedRoot,
@@ -248,6 +255,8 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
       } else inspect(file);
     }
   }
+  if ((await system.reviewWorktrees({ root: primaryRoot })) !== records)
+    unavailable('Clone worktrees changed during inventory.');
   const result = Object.freeze({
     commonDir,
     primaryRoot,
@@ -257,14 +266,19 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
   observations.add(result);
   return result;
 }
-export function assertPrimaryInventoryObservation(value, commonDir, primaryRoot) {
+export async function assertPrimaryInventoryObservation(
+  value,
+  commonDir,
+  primaryRoot,
+  options = {}
+) {
   if (
     !observations.has(value) ||
     value.commonDir !== commonDir ||
     value.primaryRoot !== primaryRoot
   )
     unavailable('Caller-provided inventory is not an authenticated observation.');
-  const fresh = inspectPrimaryReviewInventory(commonDir, primaryRoot);
+  const fresh = await inspectPrimaryReviewInventory(commonDir, primaryRoot, options);
   if (fresh.digest !== value.digest) unavailable('Review inventory changed before activation.');
   return fresh;
 }

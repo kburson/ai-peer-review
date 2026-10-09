@@ -1,6 +1,7 @@
 // @story #134
 import { userConfigPath } from './load.mjs';
 import { userInfo } from 'node:os';
+import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { AprError } from '../errors.mjs';
 import { assertSelectedRuntime } from './runtime-selection.mjs';
@@ -16,6 +17,8 @@ const allowed = new Set([
   'confirmScratchExclude',
   'migrate',
   'migrateUser',
+  'signal',
+  'deadline',
 ]);
 function core(options) {
   if (
@@ -34,8 +37,13 @@ function core(options) {
   return createSetupMaintenanceCore({ packageRoot, home, userFile, admit: assertSelectedRuntime });
 }
 export async function setup(options = {}) {
-  await assertSelectedRuntime();
-  return core(options).setup(options);
+  const context = Object.freeze({
+    signal: options.signal ?? new AbortController().signal,
+    deadline: options.deadline ?? performance.now() + 30000,
+  });
+  const operations = core(options);
+  await assertSelectedRuntime(context);
+  return operations.setup({ ...options, ...context });
 }
 export async function planSetup(options = {}) {
   return setup({ ...options, dryRun: true });

@@ -11,6 +11,10 @@ function fixture(t, fail = '') {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, 'test', 'integration'), { recursive: true });
   copyFileSync(runner, path.join(root, 'runner.mjs'));
+  copyFileSync(
+    new URL('../helpers/suite-plan.mjs', import.meta.url),
+    path.join(root, 'suite-plan.mjs')
+  );
   for (const [group, file, other] of [
     ['primary', 'primary.test.mjs', 'portable'],
     ['portable', 'storage-protection.test.mjs', 'primary'],
@@ -69,6 +73,10 @@ test('[#175] explicit hosted baseline selector omits only separately recorded ow
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, 'test/integration'), { recursive: true });
   copyFileSync(runner, path.join(root, 'runner.mjs'));
+  copyFileSync(
+    new URL('../helpers/suite-plan.mjs', import.meta.url),
+    path.join(root, 'suite-plan.mjs')
+  );
   for (const [file, marker] of [
     ['ordinary.test.mjs', 'baseline-executed'],
     ['owner-publication.test.mjs', 'owners-executed'],
@@ -102,6 +110,10 @@ test('[#169] hosted Windows baseline executes ordinary cases and delegates both 
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, 'test/integration'), { recursive: true });
   copyFileSync(runner, path.join(root, 'runner.mjs'));
+  copyFileSync(
+    new URL('../helpers/suite-plan.mjs', import.meta.url),
+    path.join(root, 'suite-plan.mjs')
+  );
   for (const [file, marker] of [
     ['ordinary.test.mjs', 'baseline'],
     ['owner-publication.test.mjs', 'publication'],

@@ -1,3 +1,4 @@
+import { assertPortableOperationsContext } from './portable-platform.mjs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
@@ -80,4 +81,25 @@ export function canonicalProjectIdentity({ cwd, platform } = {}) {
     commonDirectory,
     userId,
   });
+}
+
+export async function canonicalPortableProjectIdentity({ cwd, operations, signal, deadline } = {}) {
+  const context = { signal, deadline };
+  await assertPortableOperationsContext(operations, context);
+  const location = await operations.physicalLocation(cwd);
+  const physicalRoot = await operations.canonicalPath(location.physicalRoot);
+  const commonDirectory =
+    location.commonDirectory === null
+      ? null
+      : await operations.canonicalPath(location.commonDirectory);
+  const userId = await operations.userId();
+  if (typeof userId !== 'string' || !userId.trim())
+    throw invalid('Portable identity principal is unavailable.');
+  await assertPortableOperationsContext(operations, context);
+  const fresh = await operations.physicalLocation(cwd);
+  if (fresh.physicalRoot !== physicalRoot || fresh.commonDirectory !== commonDirectory)
+    throw invalid('Portable project location changed.');
+  await assertPortableOperationsContext(operations, context);
+  const tuple = Object.freeze([ROOT_SCHEMA, physicalRoot, commonDirectory, userId]);
+  return Object.freeze({ tuple, digest: rootDigest(tuple), physicalRoot, commonDirectory, userId });
 }

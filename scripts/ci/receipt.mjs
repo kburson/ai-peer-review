@@ -3,7 +3,17 @@
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { isDeepStrictEqual } from 'node:util';
+import {
+  classifySuiteFiles,
+  WINDOWS_PORTABLE_UNIT_GROUPS,
+} from '../../test/helpers/suite-plan.mjs';
 
+export const OWNER_PUBLICATION_GROUPS = Object.freeze([
+  'generations',
+  'quarantine',
+  'budget',
+  'faults',
+]);
 export const LANES = Object.freeze({
   fast: { command: ['npm', 'test'], directories: ['unit', 'golden'] },
   integration: { command: ['npm', 'run', 'test:integration'], directories: ['integration'] },
@@ -14,6 +24,40 @@ export const LANES = Object.freeze({
     command: ['node', '--test', 'test/integration/portable-ownership.test.mjs'],
     files: ['test/integration/portable-ownership.test.mjs'],
   },
+  ...Object.fromEntries(
+    OWNER_PUBLICATION_GROUPS.map((group) => [
+      'owner-publication-' + group,
+      {
+        command: ['node', '--test', 'test/integration/owner-publication-cases/' + group + '.mjs'],
+        files: ['test/integration/owner-publication-cases/' + group + '.mjs'],
+      },
+    ])
+  ),
+  ...Object.fromEntries(
+    WINDOWS_PORTABLE_UNIT_GROUPS.map((group) => [
+      'portable-unit-' + group,
+      {
+        command: ['node', 'test/helpers/run-suite.mjs', 'unit', '--portable-unit-shard', group],
+        portableUnitGroup: group,
+      },
+    ])
+  ),
+  ...Object.fromEntries(
+    WINDOWS_PORTABLE_UNIT_GROUPS.map((group) => [
+      'portable-integration-' + group,
+      {
+        command: [
+          'node',
+          'test/helpers/run-suite.mjs',
+          'integration',
+          '--integration-shard',
+          group,
+        ],
+        integrationGroup: group,
+      },
+    ])
+  ),
+  // Retain legacy receipt parsing; current workers require every separate group.
   'owner-publication': {
     command: ['node', '--test', 'test/integration/owner-publication.test.mjs'],
     files: ['test/integration/owner-publication.test.mjs'],
@@ -23,6 +67,8 @@ export const LANES = Object.freeze({
 // their actual command and exact inventory to the same complete source fingerprint.
 export function laneCommand(lane, runnerOS) {
   if (!LANES[lane]) fail('lane');
+  if (lane === 'fast' && runnerOS === 'Windows')
+    return ['node', 'test/helpers/run-windows-fast.mjs'];
   return lane === 'integration' && runnerOS === 'Windows'
     ? [
         'node',
@@ -36,6 +82,29 @@ export function laneCommand(lane, runnerOS) {
 export function laneInventory(files, lane, runnerOS) {
   const definition = LANES[lane];
   if (!definition) fail('lane');
+  const discovered = Object.keys(files)
+    .filter((file) => file.startsWith('test/unit/') && file.endsWith('.test.mjs'))
+    .sort();
+  const plan = classifySuiteFiles(discovered);
+  if (definition.portableUnitGroup) {
+    const shard = plan.windowsPortableShards.find(
+      (group) => group.name === definition.portableUnitGroup
+    );
+    return Object.fromEntries(Object.entries(files).filter(([file]) => shard.files.includes(file)));
+  }
+  if (definition.integrationGroup) {
+    const discoveredIntegration = Object.keys(files)
+      .filter((file) => file.startsWith('test/integration/') && file.endsWith('.test.mjs'))
+      .sort();
+    const shard = classifySuiteFiles(discoveredIntegration).windowsIntegrationShards.find(
+      (group) => group.name === definition.integrationGroup
+    );
+    const selected = shard.groups.flatMap((group) => group.files);
+    return Object.fromEntries(Object.entries(files).filter(([file]) => selected.includes(file)));
+  }
+  const delegated = new Set(
+    plan.groups.filter((group) => !group.filtered).flatMap((group) => group.files)
+  );
   return Object.fromEntries(
     Object.entries(files).filter(([file]) =>
       definition.files
@@ -43,6 +112,7 @@ export function laneInventory(files, lane, runnerOS) {
         : definition.directories.some(
             (dir) => file.startsWith('test/' + dir + '/') && file.endsWith('.test.mjs')
           ) &&
+          !(lane === 'fast' && runnerOS === 'Windows' && delegated.has(file)) &&
           !(
             lane === 'integration' &&
             runnerOS === 'Windows' &&

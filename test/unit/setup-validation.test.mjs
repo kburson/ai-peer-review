@@ -564,3 +564,53 @@ test('repeated host check flags refuse malformed input within a bounded validati
   assert.equal(observed.status, 0, observed.stderr);
   assert.equal(observed.stdout.trim(), 'refused');
 });
+
+test('setup awaits current authority before staging any destination bytes', async (t) => {
+  const f = await setupHostFixture(t),
+    api = await import('../../src/config/setup-validation.mjs');
+  const file = path.join(f.root, 'generation-guard.json');
+  const checked = await api.validateSetupWriteSet({
+    destinationRoot: f.root,
+    writes: [{ file, before: null, after: '{"a":1}\n', owner: 'package-config' }],
+  });
+  let called = 0;
+  await assert.rejects(
+    api.applyAtomicValidatedWrites(checked, {
+      beforeEffect: async () => {
+        called++;
+        await Promise.resolve();
+        throw Object.assign(new Error('current primary changed'), {
+          code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+        });
+      },
+    }),
+    { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
+  );
+  assert.equal(called, 1);
+  assert.equal(existsSync(file), false);
+});
+
+test('setup publication preserves a foreign replacement made during the awaited authority check', async (t) => {
+  const f = await setupHostFixture(t),
+    api = await import('../../src/config/setup-validation.mjs');
+  const file = path.join(f.root, 'awaited-publication.json'),
+    before = '{"a":1}\n',
+    foreign = '{"a":99}\n';
+  writeFileSync(file, before);
+  const checked = await api.validateSetupWriteSet({
+    destinationRoot: f.root,
+    writes: [{ file, before, after: '{"a":2}\n', owner: 'package-config' }],
+  });
+  let checks = 0;
+  await assert.rejects(
+    api.applyAtomicValidatedWrites(checked, {
+      beforeEffect: async () => {
+        await Promise.resolve();
+        if (++checks === 2) writeFileSync(file, foreign);
+      },
+    }),
+    { code: 'APR_SETUP_CONFLICT' }
+  );
+  assert.equal(checks, 2);
+  assert.equal(readFileSync(file, 'utf8'), foreign);
+});

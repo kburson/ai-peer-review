@@ -11,15 +11,15 @@ function setup(t) {
   t.after(() => rmSync(workspace, { recursive: true, force: true }));
   const input = { workspace, operationId: 'join:106', handleLocator: 'session-106' };
   const recorder = stream.createClaudeStreamRecorder({ ...input, expectedCommand: 'join-exact' });
-  const publish = () => {
-    recorder.accept({
+  const publish = async () => {
+    await recorder.accept({
       type: 'system',
       subtype: 'init',
       session_id: input.handleLocator,
       model: 'claude-opus-5',
       claude_code_version: '2.1.278',
     });
-    recorder.accept({
+    await recorder.accept({
       type: 'assistant',
       session_id: input.handleLocator,
       timestamp: new Date().toISOString(),

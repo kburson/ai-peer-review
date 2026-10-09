@@ -210,14 +210,14 @@ export async function exerciseClaudeLaunchCli(
     operationId: `join:${reviewId}`,
     expectedCommand: `peer-review join ${invitation}`,
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'system',
     subtype: 'init',
     model: 'claude-opus-5',
     session_id: REVIEWER_SESSION,
     claude_code_version: '2.1.278',
   });
-  recorder.accept({
+  await recorder.accept({
     type: 'assistant',
     session_id: REVIEWER_SESSION,
     timestamp: NOW.toISOString(),

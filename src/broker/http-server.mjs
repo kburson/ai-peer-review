@@ -9,6 +9,37 @@ import {
   createOwnerProof,
 } from './http-auth.mjs';
 
+// Network provenance is private and scoped to one authenticated dispatch.
+const authenticatedRequests = new WeakMap();
+const loopbackServers = new WeakMap();
+export function isAuthenticatedLoopbackRequestFor(request, server) {
+  const record = authenticatedRequests.get(request);
+  const held = loopbackServers.get(server);
+  if (!record || !held || held.closed || record.server !== held.server || record.signal.aborted)
+    return false;
+  try {
+    return (
+      request.operation === record.operation &&
+      request.actionId === record.actionId &&
+      request.brokerSignal === record.signal &&
+      JSON.stringify(request.body) === record.bodyBytes
+    );
+  } catch {
+    return false;
+  }
+}
+export function authenticatedLoopbackRequestFacts(request, server) {
+  if (!isAuthenticatedLoopbackRequestFor(request, server))
+    throw new TypeError('Authenticated loopback request provenance is unavailable.');
+  const record = authenticatedRequests.get(request);
+  return Object.freeze({
+    operation: record.operation,
+    actionId: record.actionId,
+    body: Object.freeze(JSON.parse(record.bodyBytes)),
+    signal: record.signal,
+  });
+}
+
 export const HTTP_BODY_LIMIT = 1_048_576;
 // Shutdown never releases ownership while dispatch/drain obligations remain.
 export const HTTP_SHUTDOWN_GRACE_MS = 10_000;
@@ -235,6 +266,13 @@ export async function createLoopbackServer({
       req.body = parsed.body;
       req.actionId = parsed.action_id;
       req.brokerSignal = state.abort.signal;
+      authenticatedRequests.set(req, {
+        server,
+        operation: parsed.operation,
+        actionId: parsed.action_id,
+        bodyBytes: JSON.stringify(parsed.body),
+        signal: state.abort.signal,
+      });
       clear(state, 'receipt');
     } catch {
       return reject(res, 400);
@@ -271,6 +309,8 @@ export async function createLoopbackServer({
     } catch {
       if (res.headersSent) res.destroy();
       else reject(res, 500);
+    } finally {
+      authenticatedRequests.delete(req);
     }
   };
   const accept = (req, res, expectation) => {
@@ -341,7 +381,8 @@ export async function createLoopbackServer({
   });
   expected.port = server.address().port;
   let closed;
-  return Object.freeze({
+  const serverRecord = { server, closed: false };
+  const serverHandle = Object.freeze({
     port: expected.port,
     close() {
       closed ??= (async () => {
@@ -379,6 +420,7 @@ export async function createLoopbackServer({
           await Promise.race([Promise.allSettled([...active, ...rpcDispatches.keys()]), deadline]);
           for (const socket of sockets.keys()) socket.destroy();
           await stopped;
+          serverRecord.closed = true;
         } catch (error) {
           for (const socket of sockets.keys()) socket.destroy();
           await stopped;
@@ -390,4 +432,6 @@ export async function createLoopbackServer({
       return closed;
     },
   });
+  loopbackServers.set(serverHandle, serverRecord);
+  return serverHandle;
 }
