@@ -61,6 +61,31 @@ processes fence changed bytes; use a fresh invocation of the current installatio
 Historical runtime images remain evidence. Supported collateral can continue;
 unsupported collateral remains intact and read-only.
 
+## Portable candidate inventory bootstrap
+
+The #190 candidate ships an explicit JavaScript inventory bootstrap for fresh
+portable installation verification. After installing its exact tarball globally,
+run the utility from that installed package, before runtime registration:
+
+```bash
+node /absolute/global/node_modules/@kburson/ai-peer-review/scripts/bootstrap-portable-runtime.mjs
+peer-review register-runtime --dry-run
+peer-review register-runtime
+```
+
+Use the actual global package directory reported by `npm root --global` (with the
+platform's corresponding absolute path). The utility accepts no options and
+operates only on its executing installation. It verifies unchanged shipped
+assets and exact installed dependency versions, then atomically seals those
+actual dependency bytes. Repeated execution verifies the existing inventory;
+changed source or dependencies refuse without resealing.
+
+This operation builds no native broker and initializes no review or capture
+registration. Inventory integrity alone does not establish process-source
+coverage, primary activation, broker readiness or review identity. Those retain
+their independent current-runtime and normally reviewed finite-source gates.
+Actual installed/manual OS acceptance and the whole #107 release remain pending.
+
 ## Source CI and releases
 
 Source maintainers run tests, lint, formatting and release verification in this
