@@ -478,3 +478,17 @@ test('[#187] actual independent integration runner invocations execute every dis
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout + failed.stderr, /actual integration shard failure/);
 });
+
+test('[#188] actual C1 provider-port controls execute once in a serial portable worker', () => {
+  const file = 'test/unit/provider-resource-ports.test.mjs';
+  const plan = classifySuiteFiles([file]);
+  assert.equal(plan.groups.find((group) => !group.filtered)?.files.includes(file), true);
+  assert.equal(
+    plan.windowsPortableShards
+      .flatMap((group) => group.files)
+      .filter((candidate) => candidate === file).length,
+    1
+  );
+  const shard = plan.windowsPortableShards.find((group) => group.files.includes(file));
+  assert.equal(shard.name, 'storage');
+});

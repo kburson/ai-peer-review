@@ -13,6 +13,7 @@ export function runtimeSelectionCaseFile(group) {
 }
 function portableUnitGroup(file) {
   if (file === 'test/unit/portable-authority-fences.test.mjs') return 'authority';
+  if (file === 'test/unit/provider-resource-ports.test.mjs') return 'storage';
   if (
     /[\/](?:storage-protection|ownership-election|portable-(?:storage|election)[^\/]*)\.test\.mjs$/.test(
       file
@@ -28,6 +29,7 @@ export function classifySuiteFiles(discovered) {
   const portable = discovered.filter(
     (file) =>
       file === 'test/unit/ci-native-build-policy.test.mjs' ||
+      file === 'test/unit/provider-resource-ports.test.mjs' ||
       file === 'test/unit/runtime-selection.test.mjs' ||
       /[\/]broker-http(?:-concurrency)?\.test\.mjs$/.test(file) ||
       /[\/](?:portable-[^\/]+|windows-portable-bootstrap|storage-protection|ownership-election|process-source-[^\/]+)\.test\.mjs$/.test(
