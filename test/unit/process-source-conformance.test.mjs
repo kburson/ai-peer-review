@@ -1274,6 +1274,25 @@ test('CI class controls require successful exact job scope and final original-st
     verified: false,
     controlsValid: true,
   });
+  // #190: explicit dispatch is supported by the real capture workflow; data stays unverified.
+  assert.deepEqual(
+    records.verifyCiCaptureControlsCore({
+      receipt,
+      hostControl,
+      provenance: { ...provenance, event: 'workflow_dispatch' },
+    }),
+    { verified: false, controlsValid: true }
+  );
+  for (const event of ['pull_request', 'workflow_run', 'schedule', 'repository_dispatch', ''])
+    assert.throws(
+      () =>
+        records.verifyCiCaptureControlsCore({
+          receipt,
+          hostControl,
+          provenance: { ...provenance, event },
+        }),
+      /ci-control-provenance/
+    );
   for (const changed of [
     { ...provenance, conclusion: 'failure' },
     { ...provenance, sourceCommit: 'f'.repeat(40) },
