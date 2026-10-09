@@ -77,6 +77,12 @@ export function parseBrokerBootstrapCore(bytes) {
   return freeze(value);
 }
 
+// Closed wire serialization supplies bytes; it never grants storage authority.
+export function encodeBrokerBootstrapCore(value) {
+  const parsed = parseBrokerBootstrapCore(JSON.stringify(value));
+  return Buffer.from(JSON.stringify(parsed) + '\n', 'utf8');
+}
+
 // Wire data only. Producers verify the full image before selecting these closed fields.
 export function brokerRuntimeImageRecordCore(image) {
   return { root: image?.root, nodeExecutable: image?.nodeExecutable, digest: image?.digest };

@@ -13,7 +13,11 @@ import { performance } from 'node:perf_hooks';
 import { AprError } from '../errors.mjs';
 import { initializePortableOperations } from './portable-platform.mjs';
 import { canonicalPortableProjectIdentity } from './identity.mjs';
-import { parseBrokerBootstrapCore, brokerRuntimeImageRecordCore } from './bootstrap-core.mjs';
+import {
+  parseBrokerBootstrapCore,
+  brokerRuntimeImageRecordCore,
+  encodeBrokerBootstrapCore,
+} from './bootstrap-core.mjs';
 import { assertSelectedRuntime } from '../config/runtime-selection.mjs';
 import { verifyRuntimeInventorySync } from '../startup/runtime-inventory.mjs';
 import { assertProtectedSnapshotUnchanged } from './storage-protection.mjs';
@@ -251,10 +255,10 @@ export async function writePortableBrokerBootstrap(input = {}) {
         ...context,
       });
       guard = await operations.openProtectedRoot({ receipt });
-      await guard.writeExclusive(path.basename(file), JSON.stringify(value) + '\n');
+      const bytes = encodeBrokerBootstrapCore(value);
+      await guard.writeExclusive(path.basename(file), bytes);
       const snapshot = await guard.readSnapshot(path.basename(file));
-      if (!snapshot || !snapshot.bytes.equals(Buffer.from(JSON.stringify(value) + '\n')))
-        throw fail('bootstrap-publication-unproved');
+      if (!snapshot || !snapshot.bytes.equals(bytes)) throw fail('bootstrap-publication-unproved');
       await assertSelectedRuntime({ previousObservation: runtime, ...context });
       assertProtectedSnapshotUnchanged(snapshot);
     });

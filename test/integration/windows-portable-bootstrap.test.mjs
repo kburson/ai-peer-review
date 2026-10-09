@@ -64,3 +64,23 @@ test('reporting never promotes missing manual or privilege evidence to complete'
     false
   );
 });
+
+// The user explicitly excludes unavailable Linux manual review from #190.
+test('Linux manual exclusion is explicit and cannot waive another OS or broker cleanup', async () => {
+  const subject = await driver();
+  const observed = {
+    platform: 'linux',
+    broker: 'complete',
+    originalPidAbsent: true,
+    originalBudgetRenewed: false,
+    manual: 'excluded-by-user-linux',
+    protection: 'complete',
+    cleanup: 'complete',
+    privilege: 'non-elevated',
+  };
+  assert.equal(subject.installedJourneyComplete(observed), true);
+  assert.equal(subject.installedJourneyComplete({ ...observed, platform: 'darwin' }), false);
+  assert.equal(subject.installedJourneyComplete({ ...observed, platform: 'win32' }), false);
+  assert.equal(subject.installedJourneyComplete({ ...observed, cleanup: 'uncertain' }), false);
+  assert.equal(subject.installedJourneyComplete({ ...observed, broker: 'incomplete' }), false);
+});

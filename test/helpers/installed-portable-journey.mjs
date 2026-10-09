@@ -14,7 +14,8 @@ export function installedJourneyComplete(value) {
     value?.broker === 'complete' &&
     value.originalPidAbsent === true &&
     value.originalBudgetRenewed === false &&
-    value.manual === 'complete' &&
+    (value.manual === 'complete' ||
+      (value.platform === 'linux' && value.manual === 'excluded-by-user-linux')) &&
     value.protection === 'complete' &&
     value.cleanup === 'complete' &&
     ['elevated', 'non-elevated'].includes(value.privilege)
@@ -108,7 +109,7 @@ export async function runInstalledPortableJourney(options = {}) {
     runId: process.env.GITHUB_RUN_ID,
     runAttempt: process.env.GITHUB_RUN_ATTEMPT,
     broker: 'incomplete',
-    manual: 'incomplete',
+    manual: process.platform === 'linux' ? 'excluded-by-user-linux' : 'incomplete',
     protection: 'incomplete',
     cleanup: 'uncertain',
     originalPidAbsent: false,
@@ -264,7 +265,7 @@ export async function runInstalledPortableJourney(options = {}) {
     }
     report.cleanup = 'complete';
     // Provider identity/journal input must come from a normal review, never a seeded fixture.
-    obligations.push('actual-manual-review-input-required');
+    if (process.platform !== 'linux') obligations.push('actual-manual-review-input-required');
   } catch (error) {
     report.failure = {
       code: error.code ?? 'JOURNEY_INCOMPLETE',
