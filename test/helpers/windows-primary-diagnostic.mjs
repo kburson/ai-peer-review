@@ -1,7 +1,7 @@
 // @story #190
 // Diagnostic data only: genuine stock calls and unchanged original budgets.
 // Public output contains only timings/categories/codes, never paths, identities or error details.
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { userInfo } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -66,32 +66,30 @@ execFileSync(process.execPath, [cli, 'register-runtime', '--json'], {
   cwd: project,
   stdio: 'pipe',
 });
-let stderr = '',
-  status = 'diagnostic-returned',
-  code = null;
-try {
-  execFileSync(
-    process.execPath,
-    [
-      '--import',
-      path.join(root, 'test/helpers/windows-stock-timing.mjs'),
-      cli,
-      'primary',
-      'register',
-      '--json',
-    ],
-    {
-      cwd: project,
-      encoding: 'utf8',
-      timeout: 120000,
-      maxBuffer: 1048576,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }
-  );
-} catch (error) {
-  stderr = error.stderr?.toString() ?? '';
-  status = 'diagnostic-refused';
-}
+const child = spawnSync(
+  process.execPath,
+  [
+    '--import',
+    pathToFileURL(path.join(root, 'test/helpers/windows-stock-timing.mjs')).href,
+    cli,
+    'primary',
+    'register',
+    '--json',
+  ],
+  {
+    cwd: project,
+    encoding: 'utf8',
+    timeout: 120000,
+    maxBuffer: 1048576,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }
+);
+const stderr = (child.stderr ?? '') + '\n' + (child.stdout ?? '');
+const status = child.status === 0 ? 'diagnostic-returned' : 'diagnostic-refused';
+let code = null;
+// Node loader failures are codes only; their stack/path/message is never uploaded.
+const loaderCode = /\b(ERR_[A-Z_]+)\b/u.exec(stderr)?.[1];
+if (loaderCode) code = loaderCode;
 const timings = stderr.split(/\r?\n/u).flatMap((line) => {
   try {
     const v = JSON.parse(line);
