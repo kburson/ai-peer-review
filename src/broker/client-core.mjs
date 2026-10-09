@@ -43,14 +43,19 @@ import { platformSecurity } from './platform.mjs';
 
 import { createGitRepository } from '../git/repository.mjs';
 
+import { acquireManualRecoveryResource as rawAcquireManualRecoveryResource } from './manual-recovery-resource.mjs';
+import { isVerifiedOwnerConnection } from './owner-connection.mjs';
 import { manualLaunchProvesNonSubmission } from '../provider/manual-launch-ledger.mjs';
 
 // @story #136
 export function createBrokerClientOperations({
   performCurrentOperationEffect,
   assertCurrentOperationAuthority,
+  acquireManualRecoveryResource = rawAcquireManualRecoveryResource,
+  authenticateManualOwnerConnection = (client) => isVerifiedOwnerConnection(client?.connection),
 }) {
   const startupInputs = new WeakMap();
+  const pendingManualCleanup = new Set();
   const atomicCreate = async (...args) =>
     await performCurrentOperationEffect(() => rawAtomicCreate(...args));
   const withReviewLock = (workspace, callback, options = {}) =>
@@ -398,6 +403,8 @@ export function createBrokerClientOperations({
         { recovery: evidence.recovery.reconciliation_command }
       );
     let platform, project, paths, client, ownership;
+    let disconnected = false,
+      durableFence = false;
     const location = () => {
       platform ??= deps.platform ?? platformSecurity();
       project ??= canonicalProjectIdentity({
@@ -408,6 +415,11 @@ export function createBrokerClientOperations({
       return { platform, project, paths };
     };
     try {
+      ownership = await performCurrentOperationEffect(() =>
+        acquireManualRecoveryResource({ workspace, authority, evidence, deps })
+      );
+      if (!(await performCurrentOperationEffect(() => ownership?.verify?.())))
+        throw startFailure(null, { reason: 'recovery-ownership-unproven' });
       try {
         client = await (
           deps.connect ??
@@ -425,19 +437,7 @@ export function createBrokerClientOperations({
         )();
       } catch (error) {
         if (!['ENOENT', 'ECONNREFUSED', 'APR_BROKER_STALE'].includes(error?.code)) throw error;
-        // Hold the same OS-enforced broker lock across reconciliation and fence
-        // publication. A stale file or a failed connect is never ownership proof.
-        ownership = deps.acquireRecoveryOwnership
-          ? await deps.acquireRecoveryOwnership()
-          : (() => {
-              const current = location();
-              return current.platform.acquireExclusive(current.paths.lock, {
-                instanceId: randomUUID(),
-                nonce: randomUUID(),
-              });
-            })();
-        if (!ownership?.verify())
-          throw startFailure(null, { reason: 'recovery-ownership-unproven' });
+        disconnected = true;
       }
       // Persist exclusion before asking the broker to remove its current worker.
       // Replacements must see it even if suspension/publication is interrupted.
@@ -458,6 +458,9 @@ export function createBrokerClientOperations({
         })
       );
       if (client) {
+        if (!(await authenticateManualOwnerConnection(client)))
+          throw startFailure(null, { reason: 'manual-owner-connection-unproved' });
+        await performCurrentOperationEffect(() => ownership.verify());
         const settled = await requestBroker(client, 'suspend', workspace);
         if (!['recovery-only', 'terminal'].includes(settled?.status))
           throw startFailure(null, { reason: 'suspension-unsettled' });
@@ -479,7 +482,7 @@ export function createBrokerClientOperations({
         if (!manualNotSubmitted) throw unknown();
         if (wakeOperations.some((entry) => ['reserved', 'outcome-unknown'].includes(entry.status)))
           throw unknown();
-        if (ownership && !definitelyNotSubmitted) {
+        if (disconnected && !definitelyNotSubmitted) {
           const outcome = await dispatch(() =>
             deps.reconcileProvider?.({
               workspace,
@@ -497,14 +500,17 @@ export function createBrokerClientOperations({
         return await withReviewLock(workspace, async () => {
           const fresh = inspectReviewAuthority(workspace);
           const current = startupEvidence(workspace, fresh.state);
-          if (current.recovery.fenced) return current.recovery;
+          if (current.recovery.fenced) {
+            durableFence = true;
+            return current.recovery;
+          }
           if (
             canonicalProjection(allWakeOperations(workspace)) !==
             canonicalProjection(wakeOperations)
           )
             throw unknown();
           if (current.journal.stage !== observed.journal.stage) throw unknown();
-          if (ownership && !ownership.verify())
+          if (!(await performCurrentOperationEffect(() => ownership.verify())))
             throw startFailure(null, { reason: 'recovery-ownership-lost' });
           if (fresh.state.protocol.revision !== authority.state.protocol.revision)
             throw new AprError(
@@ -516,13 +522,35 @@ export function createBrokerClientOperations({
             path.join(workspace, 'manual-fence.json'),
             `${JSON.stringify({ schema: 'ai-peer-review.manual-fence/v1', review_id: fresh.state.protocol.review_id, request_digest: current.recovery.request_digest, event_revision: fresh.state.protocol.revision })}\n`
           );
+          durableFence = true;
           return { ...current.recovery, fenced: true, suspending: false };
         });
       });
     } finally {
-      client?.close?.();
-      client?.connection?.close?.();
-      ownership?.release?.();
+      try {
+        if (ownership) {
+          if (durableFence) await performCurrentOperationEffect(() => ownership.release());
+          else await ownership.retain?.();
+        }
+      } finally {
+        const cleanup = await Promise.allSettled([
+          Promise.resolve().then(() => client?.close?.()),
+          Promise.resolve().then(() => client?.connection?.close?.()),
+        ]);
+        const failures = cleanup.filter((result) => result.status === 'rejected');
+        if (failures.length) {
+          pendingManualCleanup.add({ workspace, client, ownership });
+          const error = failures[0].reason;
+          error.details = {
+            ...error.details,
+            outstandingObligations: [
+              ...(error.details?.outstandingObligations ?? []),
+              { name: 'manual-owner-connection', workspace, outcome: 'close-unproved' },
+            ],
+          };
+          throw error;
+        }
+      }
     }
   }
 

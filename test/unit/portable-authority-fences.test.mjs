@@ -708,3 +708,11 @@ test('[#187] an existing registration reads and updates through one retained gen
   assert.equal(selected.package_root, next.packageRoot);
   assert.equal(opened, 1, 'initial read, update and read-back retain one genuine guard');
 });
+
+import { primaryAdmissionContext } from '../../src/config/primary-admission.mjs';
+test('copied primary admission fields cannot provide a provider operation context', async () => {
+  await assert.rejects(
+    primaryAdmissionContext({ root: '/copied', resource: 'primary-admission', verified: true }),
+    { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
+  );
+});

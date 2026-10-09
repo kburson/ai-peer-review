@@ -156,3 +156,9 @@ export async function withPrimaryAdmissionFence(options = {}, operation) {
 export async function withPrimaryAdmissionFenceSync(options, operation) {
   return withPrimaryAdmissionFence(options, operation);
 }
+
+// A context can only be observed from a genuine, still-held admission.
+export async function primaryAdmissionContext(fence) {
+  await assertPrimaryAdmissionFence(fence);
+  return records.get(fence).context;
+}

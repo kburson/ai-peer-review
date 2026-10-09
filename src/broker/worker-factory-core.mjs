@@ -26,6 +26,8 @@ import {
   providerResourceDigest,
 } from './provider-resources.mjs';
 
+import { isPortableOperations, initializePortableOperations } from './portable-platform.mjs';
+import { currentOperationAuthorityContext } from '../startup/authority-fence.mjs';
 import { startupEvidence } from './registry.mjs';
 
 import { verifyRuntimeImage } from './runtime-image.mjs';
@@ -47,14 +49,25 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
     if (args[0]?.descriptor?.concurrent === true) return rawAcquireProviderResource(...args);
     const lease = await performCurrentOperationEffect(() => rawAcquireProviderResource(...args));
     return Object.freeze(
-      Object.fromEntries(
-        Object.entries(lease).map(([name, value]) => [
-          name,
-          typeof value === 'function'
-            ? async (...methodArgs) =>
-                await performCurrentOperationEffect(() => value.apply(lease, methodArgs))
-            : value,
-        ])
+      Object.defineProperties(
+        {},
+        Object.fromEntries(
+          Object.entries(Object.getOwnPropertyDescriptors(lease)).map(([name, descriptor]) => [
+            name,
+            descriptor.get
+              ? { enumerable: true, get: () => lease[name] }
+              : {
+                  enumerable: true,
+                  value:
+                    typeof descriptor.value === 'function'
+                      ? async (...methodArgs) =>
+                          await performCurrentOperationEffect(() =>
+                            descriptor.value.apply(lease, methodArgs)
+                          )
+                      : descriptor.value,
+                },
+          ])
+        )
       )
     );
   };
@@ -185,8 +198,12 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
     );
   }
 
-  function orderedResources({ participants, capabilities, project, platform }) {
-    const userId = platform.userId();
+  async function orderedResources({ participants, capabilities, project, platform }) {
+    // A later independent worker request uses its actual new admission; the
+    // original acquisition object cannot extend an in-flight request budget.
+    if (isPortableOperations(platform))
+      platform = await initializePortableOperations(await currentOperationAuthorityContext());
+    const userId = await platform.userId();
     return participants
       .map(({ role, adapter }) => {
         const descriptor = capabilities[role].resource;
@@ -197,7 +214,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
               provider: adapter.provider,
               resourceId: descriptor.resource_id,
             });
-        return { role, adapter, descriptor, key, userId, digest: project.digest };
+        return { role, adapter, descriptor, key, userId, digest: project.digest, platform };
       })
       .sort((left, right) => left.key.localeCompare(right.key));
   }
@@ -225,7 +242,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
       !registration ||
       !project ||
       !runtimeImage ||
-      !owner?.verify?.() ||
+      !(await owner?.verify?.()) ||
       !platform ||
       registration.project_root !== project.physicalRoot ||
       registration.project_digest !== project.digest ||
@@ -314,7 +331,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
     }
 
     const leases = new Map();
-    const entries = orderedResources({
+    const entries = await orderedResources({
       participants: [
         { role: 'author', adapter: authorAdapter },
         { role: 'reviewer-launch', adapter: reviewerAdapter },
@@ -334,11 +351,21 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
                 provider: entry.adapter.provider,
                 digest: entry.digest,
               },
+              reconcileProviderResource:
+                typeof entry.adapter.reconcileProviderResource === 'function'
+                  ? (value) =>
+                      entry.adapter.reconcileProviderResource({
+                        ...value,
+                        role: entry.role,
+                        workspace,
+                        projectRoot: project.physicalRoot,
+                      })
+                  : undefined,
               descriptor: entry.descriptor,
               instanceId: owner.instanceId,
               nonce: owner.nonce,
             },
-            platform
+            entry.platform
           ));
         leases.set(entry.key, { entry, lease: acquired, prior: null });
       }
@@ -350,14 +377,17 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
     }
     const lease = {
       async beforeDelivery(role, observation) {
-        if (!owner.verify()) throw failure('Broker ownership changed before provider action.');
+        if (!(await owner.verify()))
+          throw failure('Broker ownership changed before provider action.');
         if (role === 'reviewer' && reviewerCapability.resource.concurrent) {
-          const deliveryEntry = orderedResources({
-            participants: [{ role: 'reviewer', adapter: reviewerAdapter }],
-            capabilities: { reviewer: reviewerCapability },
-            project,
-            platform,
-          })[0];
+          const deliveryEntry = (
+            await orderedResources({
+              participants: [{ role: 'reviewer', adapter: reviewerAdapter }],
+              capabilities: { reviewer: reviewerCapability },
+              project,
+              platform,
+            })
+          )[0];
           if (!leases.has(deliveryEntry.key)) {
             leases.set(deliveryEntry.key, {
               entry: deliveryEntry,
@@ -372,7 +402,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
                   instanceId: owner.instanceId,
                   nonce: owner.nonce,
                 },
-                platform
+                deliveryEntry.platform
               ),
               prior: null,
             });
@@ -433,7 +463,8 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
       owner,
       clock,
       launchReviewer: async ({ operationId }) => {
-        if (!owner.verify()) throw failure('Broker ownership changed before reviewer launch.');
+        if (!(await owner.verify()))
+          throw failure('Broker ownership changed before reviewer launch.');
         return reviewerAdapter.launchReviewer({
           invitationPath: invitationPath ?? invitationFor(state),
           expected: {
@@ -447,7 +478,7 @@ export function createProductionWorkerOperations({ performCurrentOperationEffect
         });
       },
       reconcileLaunch: async () => {
-        if (!owner.verify())
+        if (!(await owner.verify()))
           throw failure('Broker ownership changed before launch reconciliation.');
         if (
           typeof reconcileLaunch !== 'function' ||

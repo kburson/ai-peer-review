@@ -417,3 +417,22 @@ test('[#168] uncertain owned rename retains both generation locators without cla
   assert.equal(pending.identity, [stat.dev, stat.ino].map(String).join(':'));
   await assert.rejects(publication.withdraw(first), { code: 'APR_BROKER_STALE' });
 });
+
+test('[#188] exact snapshot mutations reject a byte-identical replacement generation', async (t) => {
+  const { unlink, writeFile } = await import('node:fs/promises');
+  const root = await temporary(t);
+  const receipt = await storage.provisionProtectedRoot({ root });
+  const guard = await storage.openProtectedRoot({ receipt });
+  t.after(() => guard.close());
+  await guard.writeExclusive('resource.json', Buffer.from('original'));
+  const first = await guard.readSnapshot('resource.json');
+  await guard.replace('resource.json', first, Buffer.from('next'));
+  const next = await guard.readSnapshot('resource.json');
+  await unlink(path.join(root, 'resource.json'));
+  await writeFile(path.join(root, 'resource.json'), 'next', { mode: 0o600 });
+  await assert.rejects(guard.remove('resource.json', next), { code: 'APR_BROKER_STALE' });
+  await assert.rejects(guard.replace('resource.json', { ...next }, Buffer.from('copied')), {
+    code: 'APR_BROKER_STALE',
+  });
+  assert.equal((await guard.read('resource.json')).toString(), 'next');
+});

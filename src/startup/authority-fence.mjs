@@ -423,3 +423,26 @@ export async function assertCurrentOperationAuthority() {
   if (!fence) refuse('Production operation has no admitted context.');
   return await assertOperationAuthorityNow(fence);
 }
+
+// Observes the current privately admitted context; supplied option copies cannot
+// create or replace an operation frame. All callers still revalidate authority.
+export async function currentOperationAuthorityContext() {
+  const fence = operationContext.getStore();
+  if (!fence) refuse('Production operation has no admitted context.');
+  await assertOperationAuthorityNow(fence);
+  const seal = fences.get(fence);
+  if (!seal || seal.kind === 'read')
+    refuse('Provider effects require admitted mutation authority.');
+  return seal.context;
+}
+
+export async function currentProviderOperationAdmission() {
+  await currentOperationAuthorityContext();
+  const held = effectContext.getStore();
+  if (!held?.active || !held.admission)
+    refuse('Provider election requires the current held effect admission.');
+  const fence = operationContext.getStore();
+  const seal = fences.get(fence);
+  await assertPrimaryAdmissionFence(held.admission, seal.context);
+  return held.admission;
+}

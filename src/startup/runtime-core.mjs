@@ -375,7 +375,7 @@ export function createStartupRuntime({
         save('authority');
         await deps.afterStartupStage?.('authority', { workspace });
         if (prepared.runtime.ownership === 'broker') {
-          const registration = (deps.registerReview ?? effectRegisterReview)(
+          const registration = await (deps.registerReview ?? effectRegisterReview)(
             {
               project: request.project,
               requestDigest: prepared.requestDigest,

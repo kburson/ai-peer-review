@@ -14,12 +14,18 @@ import {
 } from '../protocol/process-source-assurance.mjs';
 import { sameProcessOwnerFacts } from './owner-lifecycle-core.mjs';
 import { portableOwnerOperation, portableOwnerRootOperation } from './portable-owner-lifecycle.mjs';
+import {
+  assertPrimaryAdmissionFence,
+  primaryAdmissionContext,
+} from '../config/primary-admission.mjs';
 import { AprError } from '../errors.mjs';
 
 const pathBindings = new WeakMap();
 const productionLeases = new WeakMap();
 const coreProductionLeases = new WeakMap();
 const heldContext = new AsyncLocalStorage();
+const providerOperations = new AsyncLocalStorage();
+const providerBusy = new WeakSet();
 const recordSchema = 'ai-peer-review.election-slot/v1';
 function stale(reason, obligations = []) {
   return new AprError('APR_BROKER_STALE', 'Resource election could not be established.', {
@@ -120,7 +126,7 @@ export async function acquireOwnerElectionCore({
   let heldLease;
   const check = () => {
     const genuine = heldLease && coreProductionLeases.get(heldLease);
-    const admitted = genuine && portableOwnerOperation(genuine);
+    const admitted = genuine && currentElectionOperation(genuine);
     budget = admitted || initial.budget;
     return admitted ? coreBudget({ ...admitted, clock }).check() : initial.check();
   };
@@ -561,7 +567,7 @@ export async function assertOwnerElectionLease(lease, { root, name, quarantineOf
   if (
     !(await revalidateInstalledProcessSourceAssurance(
       record.assurance,
-      portableOwnerOperation(lease) || record.budget
+      currentElectionOperation(lease) || record.budget
     ))
   )
     throw stale('source-class-unavailable');
@@ -690,7 +696,7 @@ export async function acquireOwnerElection(options = {}) {
           return core.run(effect);
         },
         async release() {
-          portableOwnerOperation(lease);
+          currentElectionOperation(lease);
           try {
             const result = await completeElectionWithdrawalCore({
               withdraw: () => core.release(),
@@ -780,7 +786,7 @@ export async function acquireOwnerElection(options = {}) {
 }
 export async function ownerElectionBudget(lease, { root } = {}) {
   await assertOwnerElectionLease(lease, { root });
-  return portableOwnerOperation(lease) || productionLeases.get(lease).budget;
+  return currentElectionOperation(lease) || productionLeases.get(lease).budget;
 }
 function protectedStore(binding, ownId, lift, heldLease) {
   const name = (id) => binding.prefix + id + '.json';
@@ -919,4 +925,61 @@ export function ownerPublicationRootMatchesCore({ root, privateRoot, name, quara
   )
     return false;
   return source === 'endpoint.json' ? root !== privateRoot : root === privateRoot;
+}
+
+// Independent provider operations use the actual current authority admission.
+// A completed acquisition is retained across requests; no in-flight deadline is
+// extended, and no broker lifetime can grant provider-root authority.
+function providerOperation(lease) {
+  const frame = providerOperations.getStore();
+  if (!frame || frame.lease !== lease) return null;
+  if (!frame.active) throw stale('provider-operation-completed');
+  coreBudget(frame.context).check();
+  return frame.context;
+}
+function currentElectionOperation(lease) {
+  return providerOperation(lease) || portableOwnerOperation(lease);
+}
+export function providerElectionRootOperation(root, original) {
+  const frame = providerOperations.getStore();
+  if (!frame || frame.record.binding.root !== root) return null;
+  const context = providerOperation(frame.lease);
+  if (
+    original &&
+    ![frame.record.budget, context].some(
+      (value) => value.signal === original.signal && value.deadline === original.deadline
+    )
+  )
+    throw stale('provider-guard-budget-mismatch');
+  return context;
+}
+export async function withProviderElectionOperation(lease, operation, admission) {
+  const record = productionLeases.get(lease);
+  if (
+    !record ||
+    record.binding.resourceKind !== 'provider-resource' ||
+    typeof operation !== 'function'
+  )
+    throw stale('genuine-provider-election-required');
+  if (providerOperations.getStore() || providerBusy.has(lease))
+    throw stale('provider-operation-busy');
+  // Reserve before the first await. This reservation cannot grant authority.
+  providerBusy.add(lease);
+  let frame;
+  try {
+    const context = await primaryAdmissionContext(admission);
+    coreBudget(context).check();
+    frame = { lease, record, context, active: true };
+    return await providerOperations.run(frame, async () => {
+      await assertOwnerElectionLease(lease);
+      const result = await operation(context);
+      if (productionLeases.has(lease)) await assertOwnerElectionLease(lease);
+      await assertPrimaryAdmissionFence(admission, context);
+      coreBudget(context).check();
+      return result;
+    });
+  } finally {
+    if (frame) frame.active = false;
+    providerBusy.delete(lease);
+  }
 }

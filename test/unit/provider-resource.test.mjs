@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import * as providerResourceModule from '../../src/broker/provider-resources.mjs';
 
 import {
-  acquireProviderResource,
+  acquireProviderResourceCore as acquireProviderResource,
+  acquireProviderResource as acquireOperationalProviderResource,
   providerResourceDigest,
 } from '../../src/broker/provider-resources.mjs';
 
@@ -55,6 +57,12 @@ function fixture() {
           const current = state.files.get(name);
           if (!current || !current.equals(Buffer.from(bytes))) return false;
           state.files.delete(name);
+          return true;
+        },
+        replace: (name, expected, next) => {
+          const current = state.files.get(name);
+          if (!state.valid || !current || !current.equals(Buffer.from(expected))) return false;
+          state.files.set(name, Buffer.from(next));
           return true;
         },
         close: () => {
@@ -141,9 +149,12 @@ test('provider resource schema closes every persisted field', () => {
   ]);
 });
 
-test('exclusive lease persists only digests and verifies provider state before delivery', () => {
+test('exclusive lease persists only digests and verifies provider state before delivery', async () => {
   const f = fixture();
-  const lease = acquireProviderResource({ identity, descriptor, instanceId, nonce }, f.platform);
+  const lease = await acquireProviderResource(
+    { identity, descriptor, instanceId, nonce },
+    f.platform
+  );
   const digest = providerResourceDigest({
     userId: identity.userId,
     provider: identity.provider,
@@ -168,7 +179,7 @@ test('exclusive lease persists only digests and verifies provider state before d
   });
   assert.equal(JSON.stringify(lease.record).includes(nonce), false);
   assert.equal(
-    lease.beforeDelivery({
+    await lease.beforeDelivery({
       status: 'exclusive',
       resource_id: descriptor.resource_id,
       observed_at: NOW,
@@ -179,18 +190,21 @@ test('exclusive lease persists only digests and verifies provider state before d
 
 test('exclusive lease refuses missing resource identity, stale observation and unresolved release', async () => {
   const f = fixture();
-  assert.throws(
-    () =>
-      acquireProviderResource(
+  await assert.rejects(
+    async () =>
+      await acquireProviderResource(
         { identity, descriptor: { concurrent: false, resource_id: null }, instanceId, nonce },
         f.platform
       ),
     { code: 'APR_PROVIDER_RESOURCE_ID_REQUIRED' }
   );
-  const lease = acquireProviderResource({ identity, descriptor, instanceId, nonce }, f.platform);
-  assert.throws(
-    () =>
-      lease.beforeDelivery({
+  const lease = await acquireProviderResource(
+    { identity, descriptor, instanceId, nonce },
+    f.platform
+  );
+  await assert.rejects(
+    async () =>
+      await lease.beforeDelivery({
         status: 'exclusive',
         resource_id: descriptor.resource_id,
         observed_at: '2026-09-20T11:59:00.000Z',
@@ -237,18 +251,22 @@ test('exclusive lease refuses missing resource identity, stale observation and u
   assert.equal(f.locks.size, 0);
 });
 
-test('acquisition binds caller identity to the actual operating-system user', () => {
+test('acquisition binds caller identity to the actual operating-system user', async () => {
   const mismatch = fixture();
   mismatch.platform.userId = () => '502';
-  assert.throws(
-    () => acquireProviderResource({ identity, descriptor, instanceId, nonce }, mismatch.platform),
+  await assert.rejects(
+    async () =>
+      await acquireProviderResource({ identity, descriptor, instanceId, nonce }, mismatch.platform),
     { code: 'APR_PROVIDER_RESOURCE_INTEGRITY' }
   );
   const unavailable = fixture();
   delete unavailable.platform.userId;
-  assert.throws(
-    () =>
-      acquireProviderResource({ identity, descriptor, instanceId, nonce }, unavailable.platform),
+  await assert.rejects(
+    async () =>
+      await acquireProviderResource(
+        { identity, descriptor, instanceId, nonce },
+        unavailable.platform
+      ),
     { code: 'APR_PROVIDER_RESOURCE_INTEGRITY' }
   );
   assert.equal(mismatch.opened.length, 0);
@@ -257,7 +275,7 @@ test('acquisition binds caller identity to the actual operating-system user', ()
 
 test('concurrent adapter retains an exact session handle without claiming a shared lock', async () => {
   const f = fixture();
-  const lease = acquireProviderResource(
+  const lease = await acquireProviderResource(
     {
       identity,
       descriptor: { concurrent: true, resource_id: null },
@@ -270,7 +288,7 @@ test('concurrent adapter retains an exact session handle without claiming a shar
   assert.equal(lease.resourceDigest, null);
   assert.equal(f.opened.length, 0);
   assert.equal(
-    lease.beforeDelivery({
+    await lease.beforeDelivery({
       status: 'ready',
       session_handle: 'claude-session-123',
       observed_at: NOW,
@@ -296,14 +314,246 @@ test('concurrent adapter retains an exact session handle without claiming a shar
   );
 });
 
-test('desktop-style descriptors default to exclusive and fail closed without an ID', () => {
+test('desktop-style descriptors default to exclusive and fail closed without an ID', async () => {
   const f = fixture();
-  assert.throws(
-    () =>
-      acquireProviderResource(
+  await assert.rejects(
+    async () =>
+      await acquireProviderResource(
         { identity, descriptor: { resource_id: null }, instanceId, nonce },
         f.platform
       ),
     { code: 'APR_PROVIDER_RESOURCE_ID_REQUIRED' }
   );
+});
+
+// @story #188 — copied/native-looking ports cannot mint operational leases.
+test('operational provider acquisition rejects caller platform ports before any resource effect', async () => {
+  const f = fixture();
+  await assert.rejects(
+    async () =>
+      await acquireOperationalProviderResource(
+        { identity, descriptor, instanceId, nonce },
+        f.platform
+      ),
+    { code: 'APR_PROVIDER_RESOURCE_INTEGRITY' }
+  );
+  assert.deepEqual(f.opened, []);
+  assert.equal(f.locks.size, 0);
+});
+
+test('explicit provider protocol core awaits observations and retains an unverified exact lease', async () => {
+  const f = fixture();
+  const original = f.platform;
+  const asyncHandle = (handle) =>
+    Object.freeze(
+      Object.fromEntries(
+        Object.entries(handle).map(([key, value]) => [
+          key,
+          typeof value === 'function' ? async (...args) => value(...args) : value,
+        ])
+      )
+    );
+  const ports = {
+    ...original,
+    userId: async () => original.userId(),
+    openPrivateDirectory: async (...args) => asyncHandle(original.openPrivateDirectory(...args)),
+    acquireExclusive: async (...args) => asyncHandle(original.acquireExclusive(...args)),
+    reconcileProviderResource: async (...args) => original.reconcileProviderResource(...args),
+  };
+  const acquire =
+    providerResourceModule.acquireProviderResourceCore ??
+    providerResourceModule.acquireProviderResource;
+  const lease = await acquire({ identity, descriptor, instanceId, nonce }, ports);
+  assert.equal(lease.verified, false);
+  assert.equal(
+    await lease.beforeDelivery({
+      status: 'exclusive',
+      resource_id: descriptor.resource_id,
+      observed_at: NOW,
+    }),
+    true
+  );
+  await assert.rejects(
+    lease.release({ status: 'complete', resource_id: 'foreign', observed_at: NOW }),
+    { code: 'APR_PROVIDER_RESOURCE_STALE' }
+  );
+  assert.equal(f.locks.size, 1);
+  assert.equal(
+    await lease.release({
+      status: 'complete',
+      resource_id: descriptor.resource_id,
+      observed_at: NOW,
+    }),
+    true
+  );
+  assert.equal(f.locks.size, 0);
+});
+
+test('acquisition rechecks election ownership after awaited provider reconciliation before publication', async () => {
+  const f = fixture();
+  const acquire = f.platform.acquireExclusive;
+  let state;
+  f.platform.acquireExclusive = (...args) => {
+    const lease = acquire(...args);
+    state = f.locks.get(args[0]);
+    return lease;
+  };
+  f.platform.reconcileProviderResource = async ({ resourceId }) => {
+    state.active = false;
+    return { status: 'available', resource_id: resourceId, observed_at: NOW };
+  };
+  await assert.rejects(
+    acquireProviderResource({ identity, descriptor, instanceId, nonce }, f.platform),
+    { code: 'APR_PROVIDER_RESOURCE_STALE' }
+  );
+  const digest = providerResourceDigest({
+    userId: identity.userId,
+    provider: identity.provider,
+    resourceId: descriptor.resource_id,
+  });
+  assert.equal(f.files(`/cache/ai-peer-review/provider-resources/${digest}`).size, 0);
+});
+
+test('failed election release retains the exact resource record and an outstanding obligation', async () => {
+  const f = fixture();
+  const acquire = f.platform.acquireExclusive;
+  f.platform.acquireExclusive = (...args) => {
+    const original = acquire(...args);
+    return { ...original, release: async () => false };
+  };
+  const lease = await acquireProviderResource(
+    { identity, descriptor, instanceId, nonce },
+    f.platform
+  );
+  const records = f.files(`/cache/ai-peer-review/provider-resources/${lease.resourceDigest}`);
+  const originalBytes = Buffer.from(records.get('resource.json'));
+  await assert.rejects(
+    lease.release({ status: 'complete', resource_id: descriptor.resource_id, observed_at: NOW }),
+    { code: 'APR_PROVIDER_RESOURCE_STALE' }
+  );
+  assert.deepEqual(records.get('resource.json'), originalBytes);
+  assert.equal(f.locks.size, 1);
+  assert.ok(lease.outstandingObligations.some((o) => o.name === 'provider-resource'));
+});
+
+test('uncertain record publication retains election exclusion and reports exact obligations', async () => {
+  const f = fixture();
+  const open = f.platform.openPrivateDirectory;
+  f.platform.openPrivateDirectory = (...args) => {
+    const directory = open(...args);
+    return {
+      ...directory,
+      create: async (...values) => {
+        directory.create(...values);
+        throw Object.assign(new Error('aborted after publication'), { code: 'ABORT_ERR' });
+      },
+    };
+  };
+  await assert.rejects(
+    acquireProviderResource({ identity, descriptor, instanceId, nonce }, f.platform),
+    (error) => {
+      assert.ok(error.details?.outstandingObligations?.some((o) => o.name === 'provider-resource'));
+      return true;
+    }
+  );
+  assert.equal(f.locks.size, 1);
+  const digest = providerResourceDigest({
+    userId: identity.userId,
+    provider: identity.provider,
+    resourceId: descriptor.resource_id,
+  });
+  assert.ok(f.files(`/cache/ai-peer-review/provider-resources/${digest}`).has('resource.json'));
+});
+
+test('provider core refuses overlapping release while an awaited record update is active', async () => {
+  const f = fixture();
+  const open = f.platform.openPrivateDirectory;
+  let entered, finish;
+  const updating = new Promise((resolve) => {
+    entered = resolve;
+  });
+  const pending = new Promise((resolve) => {
+    finish = resolve;
+  });
+  f.platform.openPrivateDirectory = (...args) => {
+    const directory = open(...args);
+    return {
+      ...directory,
+      async replace(...values) {
+        entered();
+        await pending;
+        return directory.replace(...values);
+      },
+    };
+  };
+  const lease = await acquireProviderResource(
+    { identity, descriptor, instanceId, nonce },
+    f.platform
+  );
+  const delivery = lease.beforeDelivery({
+    status: 'exclusive',
+    resource_id: descriptor.resource_id,
+    observed_at: NOW,
+  });
+  await updating;
+  try {
+    await assert.rejects(
+      lease.release({ status: 'complete', resource_id: descriptor.resource_id, observed_at: NOW }),
+      { code: 'APR_PROVIDER_RESOURCE_STALE' }
+    );
+    assert.equal(f.locks.size, 1);
+  } finally {
+    finish();
+  }
+  await delivery;
+  assert.equal(
+    await lease.release({
+      status: 'complete',
+      resource_id: descriptor.resource_id,
+      observed_at: NOW,
+    }),
+    true
+  );
+});
+
+test('provider acquisition seals descriptor and identity before the first observation await', async () => {
+  const f = fixture();
+  const mutableIdentity = { ...identity };
+  const mutableDescriptor = { ...descriptor };
+  f.platform.userId = async () => {
+    mutableIdentity.provider = 'openai';
+    mutableDescriptor.resource_id = 'changed-surface';
+    return identity.userId;
+  };
+  const lease = await acquireProviderResource(
+    { identity: mutableIdentity, descriptor: mutableDescriptor, instanceId, nonce },
+    f.platform
+  );
+  assert.equal(
+    lease.resourceDigest,
+    providerResourceDigest({
+      userId: identity.userId,
+      provider: identity.provider,
+      resourceId: descriptor.resource_id,
+    })
+  );
+  assert.equal(
+    await lease.beforeDelivery({
+      status: 'exclusive',
+      resource_id: descriptor.resource_id,
+      observed_at: NOW,
+    }),
+    true
+  );
+});
+
+test('unverified protocol leases and copied flags never gain provider operational membership', async () => {
+  const f = fixture();
+  const lease = await acquireProviderResource(
+    { identity, descriptor, instanceId, nonce },
+    f.platform
+  );
+  assert.equal(providerResourceModule.isProviderResourceLease(lease), false);
+  assert.equal(providerResourceModule.isProviderResourceLease({ ...lease, verified: true }), false);
+  assert.equal(await lease.releaseUnused(), true);
 });

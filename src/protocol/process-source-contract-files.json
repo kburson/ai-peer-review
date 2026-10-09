@@ -19,6 +19,7 @@
     "src/broker/portable-reconciliation.mjs",
     "src/broker/portable-system.mjs",
     "src/broker/storage-protection.mjs",
+    "src/config/primary-admission.mjs",
     "src/config/runtime-selection-core.mjs",
     "src/config/runtime-selection.mjs",
     "src/errors.mjs",

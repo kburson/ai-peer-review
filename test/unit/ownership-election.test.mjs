@@ -984,3 +984,19 @@ for (const [phase, enumeration] of [
     });
   }
 }
+
+test('provider operation frames reject copied leases before invoking any effect', async () => {
+  assert.equal(typeof api.withProviderElectionOperation, 'function');
+  let effects = 0;
+  await assert.rejects(
+    api.withProviderElectionOperation(
+      { resourceKey: 'copied', assert: async () => true },
+      async () => {
+        effects++;
+      }
+    ),
+    { code: 'APR_BROKER_STALE' }
+  );
+  assert.equal(effects, 0);
+  assert.equal(api.providerElectionRootOperation('/copied', {}), null);
+});

@@ -16,7 +16,7 @@ export async function initializePortableOperations(input = {}) {
       return assurance;
     },
   });
-  members.set(operations, { system });
+  members.set(operations, { system, context });
   return operations;
 }
 export function isPortableOperations(value) {
@@ -26,4 +26,10 @@ export async function assertPortableOperationsContext(value, context) {
   const record = members.get(value);
   // The actual system assertion refuses copied membership as well as replaced contexts.
   await assertPortableSystemContext(record?.system, context);
+}
+
+export async function portableOperationsContext(value) {
+  const record = members.get(value);
+  await assertPortableOperationsContext(value, record?.context);
+  return record.context;
 }
