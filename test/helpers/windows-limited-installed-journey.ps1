@@ -9,7 +9,8 @@ $root = (Get-Location).ProviderPath
 $private = Join-Path $root '.scratch/190-installed-private'
 $public = Join-Path $root '.scratch/190-installed-public'
 New-Item -ItemType Directory -Path $private, $public -Force | Out-Null
-$node = (Get-Command node -CommandType Application).Source
+$node = (Get-Command node -CommandType Application | Select-Object -First 1).Source
+if (-not (Test-Path -LiteralPath $node -PathType Leaf)) { throw 'journey-node-executable-unavailable' }
 $script = Join-Path $private 'limited.ps1'
 $result = Join-Path $public 'limited-token.json'
 $metadata = Join-Path $private 'environment.json'
