@@ -39,11 +39,19 @@ jobs:
       - run: npm run format:check
       - run: npm run lint
       - name: Run default tests
-        run: npm test
-      - run: npm run test:integration
-      - run: npm run test:mcp
+        run: node scripts/ci/run-receipt.mjs fast
+      - run: node scripts/ci/run-receipt.mjs slow
       - run: npm run test:packaging
       - run: npm run pack:runtime -- --dry-run
+      - name: Preserve actual command receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apr-ci-${{ github.job }}-${{ runner.os }}-${{ matrix.node || '24' }}-${{ github.run_attempt }}
+          path: .scratch/ci-command-receipts/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
 
   preferred-node:
     name: Node ${{ matrix.node }} / ${{ matrix.os == 'ubuntu-latest' && 'Ubuntu' || matrix.os }}
@@ -67,11 +75,19 @@ jobs:
       - run: npm run format:check
       - run: npm run lint
       - run: npm run test:smoke
-      - run: npm test
-      - run: npm run test:integration
-      - run: npm run test:mcp
+      - run: node scripts/ci/run-receipt.mjs fast
+      - run: node scripts/ci/run-receipt.mjs slow
       - run: npm run test:packaging
       - run: npm run pack:runtime -- --dry-run
+      - name: Preserve actual command receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apr-ci-${{ github.job }}-${{ runner.os }}-${{ matrix.node || '24' }}-${{ github.run_attempt }}
+          path: .scratch/ci-command-receipts/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
 
   npm-pack-compatibility:
     name: npm ${{ matrix.npm }} / Node ${{ matrix.node }}
@@ -119,12 +135,20 @@ jobs:
       - run: npm run lint
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm ls --omit=dev --json
-      - run: npm test
-      - run: npm run test:integration
-      - run: npm run test:mcp
+      - run: node scripts/ci/run-receipt.mjs fast
+      - run: node scripts/ci/run-receipt.mjs slow
       - run: npm run test:packaging
       - run: npm run test:smoke
       - run: npm run pack:runtime -- --dry-run
+      - name: Preserve actual command receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apr-ci-${{ github.job }}-${{ runner.os }}-${{ matrix.node || '24' }}-${{ github.run_attempt }}
+          path: .scratch/ci-command-receipts/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
 
   live-provider-optional:
     name: Optional live-provider probe

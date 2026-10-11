@@ -123,6 +123,10 @@ function validManifest(overrides = {}) {
         'native/broker-security/binding.gyp',
         'native/broker-security/posix.cc',
         'native/broker-security/windows.cc',
+        'scripts/ci/receipt-core.mjs',
+        'scripts/ci/run-receipt.mjs',
+        'scripts/ci/verify-receipts.mjs',
+        'scripts/ci/verify-windows-probe-measurement.mjs',
         'scripts/build-broker-security.mjs',
         'scripts/prepare-source-tests.mjs',
         'scripts/run-secret-scan.mjs',
@@ -704,4 +708,12 @@ test('refuses to record a failed Gitleaks scan as passing', () => {
       }),
     /Gitleaks scan failed/
   );
+});
+
+test('allows the four exact hosted evidence scripts while refusing neighboring script paths',async()=>{
+  const manifest=validManifest();
+  for(const file of ['scripts/ci/receipt-core.mjs','scripts/ci/run-receipt.mjs','scripts/ci/verify-receipts.mjs','scripts/ci/verify-windows-probe-measurement.mjs']){
+    await verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n'+file})});
+  }
+  await assert.rejects(verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\nscripts/ci/undeclared.mjs'})}),/foreign standalone paths/);
 });
