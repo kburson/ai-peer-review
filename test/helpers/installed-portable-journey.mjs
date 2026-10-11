@@ -9,6 +9,45 @@ import { setTimeout as delay } from 'node:timers/promises';
 const fail = (reason) => {
   throw Error(reason);
 };
+const childRefusalReasons = new Set([
+  'bootstrap-budget-unproved',
+  'bootstrap-generation-changed',
+  'bootstrap-locator-changed',
+  'bootstrap-file-missing',
+  'executing-bootstrap-provenance-required',
+  'bootstrap-executing-runtime-changed',
+  'bootstrap-project-changed',
+  'bootstrap-cleanup-unproved',
+  'source-class-unavailable',
+  'root-protection-changed',
+  'private-file-unproved',
+  'operation-deadline',
+  'operation-aborted',
+  'service-startup-context-mismatch',
+  'service-project-changed',
+  'another-owner-already-live',
+  'prepared-cleanup-owner-unproved',
+]);
+export function brokerChildRefusalReasons(text) {
+  if (typeof text !== 'string' || text.length > 65536) return [];
+  for (const line of text.split(/\r?\n/u)) {
+    try {
+      const value = JSON.parse(line);
+      if (
+        value.schema === 'ai-peer-review.broker-startup-diagnostic/v1' &&
+        value.verified === false &&
+        Array.isArray(value.reasons) &&
+        value.reasons.length <= 4 &&
+        value.reasons.every((reason) => childRefusalReasons.has(reason))
+      ) {
+        return value.reasons;
+      }
+    } catch {
+      /* Private text is never a publishable category. */
+    }
+  }
+  return [];
+}
 export function brokerChildFailureCode(text) {
   if (typeof text !== 'string' || text.length > 65536) return null;
   for (const line of text.split(/\r?\n/u)) {
@@ -297,6 +336,8 @@ export async function runInstalledPortableJourney(options = {}) {
             if (diagnosticBytes > 65536) return;
             const code = brokerChildFailureCode(bytes.toString('utf8'));
             if (code) report.brokerChildFailureCode = code;
+            const reasons = brokerChildRefusalReasons(bytes.toString('utf8'));
+            if (reasons.length) report.brokerChildRefusalReasons = reasons;
           });
           childExited = new Promise((resolve, reject) => {
             child.once('error', reject);

@@ -14,6 +14,46 @@ import {
   currentOperationAuthorityContext,
 } from '../src/startup/authority-fence.mjs';
 
+const diagnosticReasons = new Set([
+  'bootstrap-budget-unproved',
+  'bootstrap-generation-changed',
+  'bootstrap-locator-changed',
+  'bootstrap-file-missing',
+  'executing-bootstrap-provenance-required',
+  'bootstrap-executing-runtime-changed',
+  'bootstrap-project-changed',
+  'bootstrap-cleanup-unproved',
+  'source-class-unavailable',
+  'root-protection-changed',
+  'private-file-unproved',
+  'operation-deadline',
+  'operation-aborted',
+  'service-startup-context-mismatch',
+  'service-project-changed',
+  'another-owner-already-live',
+  'prepared-cleanup-owner-unproved',
+]);
+export function brokerStartupDiagnostic(error) {
+  const reasons = [],
+    seen = new Set();
+  let current = error;
+  for (let depth = 0; current && depth < 4 && !seen.has(current); depth++) {
+    seen.add(current);
+    const reason = current.details?.reason;
+    if (diagnosticReasons.has(reason) && !reasons.includes(reason)) reasons.push(reason);
+    current = current.cause;
+  }
+  return {
+    schema: 'ai-peer-review.broker-startup-diagnostic/v1',
+    verified: false,
+    code:
+      typeof error?.code === 'string' && /^APR_[A-Z_]{1,64}$/u.test(error.code)
+        ? error.code
+        : 'APR_BROKER_START_FAILED',
+    reasons,
+  };
+}
+
 export async function runBrokerEntrypoint(file, options = {}) {
   assertBrokerTransport(options.transport ?? 'portable');
   if (Object.keys(options).some((key) => key !== 'transport'))
@@ -60,6 +100,7 @@ async function main(argv = process.argv.slice(2)) {
 }
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   main().catch((error) => {
+    process.stderr.write(JSON.stringify(brokerStartupDiagnostic(error)) + '\n');
     process.stderr.write(
       `${error.code ?? 'APR_BROKER_START_FAILED'}: Portable broker startup or cleanup failed.\n`
     );

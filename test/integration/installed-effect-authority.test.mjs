@@ -111,7 +111,7 @@ test(
     );
     assert.equal(result.status, 0, result.stderr);
     const observed = JSON.parse(result.stdout);
-    assert.equal(observed.changed, observed.sourceAvailable);
+    assert.equal(observed.changed, observed.sourceAvailable, JSON.stringify(observed));
     if (!observed.sourceAvailable)
       assert.match(
         observed.failure.message,

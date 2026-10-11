@@ -10,6 +10,26 @@ async function driver() {
     throw error;
   }
 }
+test('child refusal diagnostics reject private or unrecognized categories', async () => {
+  const subject = await driver();
+  assert.equal(typeof subject.brokerChildRefusalReasons, 'function');
+  const record = {
+    schema: 'ai-peer-review.broker-startup-diagnostic/v1',
+    verified: false,
+    code: 'APR_BROKER_STALE',
+    reasons: ['bootstrap-executing-runtime-changed', 'operation-deadline'],
+  };
+  assert.deepEqual(subject.brokerChildRefusalReasons(JSON.stringify(record)), record.reasons);
+  assert.deepEqual(
+    subject.brokerChildRefusalReasons(JSON.stringify({ ...record, reasons: ['private-secret'] })),
+    []
+  );
+  assert.deepEqual(
+    subject.brokerChildRefusalReasons(JSON.stringify({ ...record, verified: true })),
+    []
+  );
+  assert.deepEqual(subject.brokerChildRefusalReasons('x'.repeat(65537)), []);
+});
 test('broker child diagnostics publish bounded codes without requiring one exact private message', async () => {
   const subject = await driver();
   assert.equal(typeof subject.brokerChildFailureCode, 'function');
