@@ -11,6 +11,7 @@ on:
       - test/helpers/installed-portable-ci.mjs
       - test/helpers/windows-primary-diagnostic.mjs
       - test/helpers/windows-stock-timing.mjs
+      - test/helpers/windows-acl-api-benchmark.mjs
       - test/helpers/windows-limited-installed-journey.ps1
       - .github/workflows/installed-portable-journeys.yml
   workflow_dispatch:
@@ -121,3 +122,22 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Real stock reads retain one original 30 second budget
         run: node --test --test-name-pattern='twenty protected snapshot reads' test/unit/storage-protection.test.mjs
+
+  windows-acl-benchmark:
+    name: Stock Windows ACL API comparison
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26'
+      - name: Compare genuine stock API descriptor bytes and cost
+        run: node test/helpers/windows-acl-api-benchmark.mjs
+      - name: Preserve only comparison booleans and timing numbers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stock-acl-api-comparison-${{ github.run_attempt }}
+          path: .scratch/190-acl-benchmark-public/comparison.json
+          if-no-files-found: error
