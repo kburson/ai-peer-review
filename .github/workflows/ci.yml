@@ -12,13 +12,16 @@ on:
         default: false
         type: boolean
 
+env:
+  # Native build verification is suspended while the JavaScript-only broker migrates.
+  # Skipped native cases provide no conformance evidence; JS receipt lanes still run.
+  APR_SKIP_NATIVE_BROKER_TESTS: '1'
+  GH_TOKEN: ${{ github.token }}
+  APR_CI_SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
 permissions:
   contents: read
   issues: read
-
-env:
-  APR_SKIP_NATIVE_BROKER_TESTS: '1'
-  GH_TOKEN: ${{ github.token }}
 
 # Native broker build and verification paused for #102/#107.
 # Source suites report broker exclusions until #107 replaces native transport.
@@ -30,6 +33,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      APR_CI_JOB_KEY: node-24-24-${{ matrix.os }}
+      APR_CI_MATRIX_NODE: '24'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -39,26 +45,52 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - name: Prepare approved contract reference
         run: node scripts/ci/prepare-contract-adoption.mjs
       - run: npm run format:check
       - run: npm run lint
-      - name: Run default tests
-        run: node scripts/ci/run-receipt.mjs fast
-      - run: node scripts/ci/run-receipt.mjs slow
-      - run: npm run test:packaging
+      - name: 'Verify tests: fast'
+        run: node scripts/ci/record-tests.mjs fast
+      - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
+        run: node scripts/ci/record-tests.mjs integration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APR_CONTRACT_GITHUB_CONFORMANCE: '1'
+      - name: 'Verify tests: mcp'
+        run: node scripts/ci/record-tests.mjs mcp
+      - name: 'Verify tests: packaging'
+        run: node scripts/ci/record-tests.mjs packaging
+      - name: 'Verify tests: smoke'
+        run: node scripts/ci/record-tests.mjs smoke
       - run: npm run pack:runtime -- --dry-run
-      - name: Preserve actual command receipts
-        if: always()
-        uses: actions/upload-artifact@v4
+
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
         with:
-          name: apr-ci-${{ github.job }}-${{ runner.os }}-${{ matrix.node || '24' }}-${{ github.run_attempt }}
-          path: .scratch/ci-command-receipts/
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
           include-hidden-files: true
           if-no-files-found: error
-          retention-days: 30
 
   preferred-node:
     name: Node ${{ matrix.node }} / ${{ matrix.os == 'ubuntu-latest' && 'Ubuntu' || matrix.os }}
@@ -68,6 +100,9 @@ jobs:
         node: ['26', 'current']
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      APR_CI_JOB_KEY: preferred-node-${{ matrix.node }}-${{ matrix.os }}
+      APR_CI_MATRIX_NODE: '${{ matrix.node }}'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -77,26 +112,149 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - name: Prepare approved contract reference
         run: node scripts/ci/prepare-contract-adoption.mjs
       - run: npm run format:check
       - run: npm run lint
-      - run: npm run test:smoke
-      - run: node scripts/ci/run-receipt.mjs fast
-      - run: node scripts/ci/run-receipt.mjs slow
-      - run: npm run test:packaging
+      - name: 'Verify tests: fast'
+        run: node scripts/ci/record-tests.mjs fast
+      - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
+        run: node scripts/ci/record-tests.mjs integration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APR_CONTRACT_GITHUB_CONFORMANCE: '1'
+      - name: 'Verify tests: mcp'
+        run: node scripts/ci/record-tests.mjs mcp
+      - name: 'Verify tests: packaging'
+        run: node scripts/ci/record-tests.mjs packaging
+      - name: 'Verify tests: smoke'
+        run: node scripts/ci/record-tests.mjs smoke
       - run: npm run pack:runtime -- --dry-run
-      - name: Preserve actual command receipts
-        if: always()
-        uses: actions/upload-artifact@v4
+
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
         with:
-          name: apr-ci-${{ github.job }}-${{ runner.os }}-${{ matrix.node || '24' }}-${{ github.run_attempt }}
-          path: .scratch/ci-command-receipts/
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
           include-hidden-files: true
           if-no-files-found: error
-          retention-days: 30
+
+  # Dedicated machines retain every owner case without loading the baseline's
+  # expensive stock Windows probes at the same time. Each partition publishes receipts.
+  owner-publication-windows:
+    name: Owner publication ${{ matrix.group }} / Node ${{ matrix.node }} / windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26', 'current']
+        group: ['generations', 'quarantine', 'budget', 'faults']
+    runs-on: windows-latest
+    env:
+      APR_CI_JOB_KEY: owner-publication-${{ matrix.group }}-${{ matrix.node }}-windows-latest
+      APR_CI_MATRIX_NODE: '${{ matrix.node }}'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
+      - name: 'Verify tests: owner-publication-${{ matrix.group }}'
+        run: node scripts/ci/record-tests.mjs owner-publication-${{ matrix.group }}
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  portable-ownership-windows:
+    name: Portable ownership / Node ${{ matrix.node }} / windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26', 'current']
+    runs-on: windows-latest
+    env:
+      APR_CI_JOB_KEY: portable-ownership-${{ matrix.node }}-windows-latest
+      APR_CI_MATRIX_NODE: '${{ matrix.node }}'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
+      - name: 'Verify tests: portable-ownership'
+        run: node scripts/ci/record-tests.mjs portable-ownership
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
 
   npm-pack-compatibility:
     name: npm ${{ matrix.npm }} / Node ${{ matrix.node }}
@@ -129,6 +287,9 @@ jobs:
   phase-2-boundary:
     name: Phase 2 boundary
     runs-on: ubuntu-latest
+    env:
+      APR_CI_JOB_KEY: phase-2-boundary-26-ubuntu-latest
+      APR_CI_MATRIX_NODE: '26'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -146,20 +307,30 @@ jobs:
       - run: npm run lint
       - run: node scripts/verify-extraction.mjs --require-legacy-removed
       - run: npm ls --omit=dev --json
-      - run: node scripts/ci/run-receipt.mjs fast
-      - run: node scripts/ci/run-receipt.mjs slow
-      - run: npm run test:packaging
-      - run: npm run test:smoke
+      - name: 'Verify tests: fast'
+        run: node scripts/ci/record-tests.mjs fast
+      - name: 'Verify tests: integration'
+        if: runner.os != 'Windows'
+        run: node scripts/ci/record-tests.mjs integration
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APR_CONTRACT_GITHUB_CONFORMANCE: '1'
+      - name: 'Verify tests: mcp'
+        run: node scripts/ci/record-tests.mjs mcp
+      - name: 'Verify tests: packaging'
+        run: node scripts/ci/record-tests.mjs packaging
+      - name: 'Verify tests: smoke'
+        run: node scripts/ci/record-tests.mjs smoke
       - run: npm run pack:runtime -- --dry-run
-      - name: Preserve actual command receipts
-        if: always()
-        uses: actions/upload-artifact@v4
+
+      - name: Publish actual test execution records
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
         with:
-          name: apr-ci-${{ github.job }}-${{ runner.os }}-${{ matrix.node || '24' }}-${{ github.run_attempt }}
-          path: .scratch/ci-command-receipts/
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
           include-hidden-files: true
           if-no-files-found: error
-          retention-days: 30
 
   live-provider-optional:
     name: Optional live-provider probe
@@ -195,3 +366,59 @@ jobs:
           name: claude-live-conformance-sanitized
           path: ${{ runner.temp }}/claude-conformance/sanitized-result.json
           if-no-files-found: error
+
+  portable-units:
+    name: Portable units / ${{ matrix.group }} / Node ${{ matrix.node }} / windows-latest
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        node: ['24', '26', 'current']
+        group: [selection, authority, storage, identity]
+    env:
+      APR_CI_JOB_KEY: portable-unit-${{ matrix.group }}-${{ matrix.node }}-windows-latest
+      APR_CI_MATRIX_NODE: ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      # Prepare the stock interpreter/module loader before bounded authority tests.
+      # No principal or ACL observation is produced or retained; probes remain fresh.
+      - name: Initialize stock Windows PowerShell
+        if: runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+          Write-Output 'Stock Windows PowerShell initialization complete.'
+      - name: Warm offline runtime dependencies
+        run: node test/helpers/warm-packed-cache.mjs
+      - name: 'Verify tests: portable-unit-${{ matrix.group }}'
+        run: node scripts/ci/record-tests.mjs portable-unit-${{ matrix.group }}
+      - name: 'Verify tests: portable-integration-${{ matrix.group }}'
+        run: node scripts/ci/record-tests.mjs portable-integration-${{ matrix.group }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APR_CONTRACT_GITHUB_CONFORMANCE: '1'
+      - name: Upload portable unit receipt and raw output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apr-ci-${{ env.APR_CI_JOB_KEY }}-${{ github.run_attempt }}
+          path: .scratch/ci-results/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14

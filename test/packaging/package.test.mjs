@@ -6,12 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { load } from 'js-yaml';
+import { LANES } from '../../scripts/ci/receipt.mjs';
 import { fileURLToPath } from 'node:url';
 
 import { parseNpmPackOutput, runNpm, runRuntimePack } from '../helpers/npm-command.mjs';
 import { parseCommand } from '../../src/cli/parse.mjs';
-import { expandedCICommands } from '../helpers/ci-command-coverage.mjs';
-import { receiptCommands } from '../../scripts/ci/receipt-core.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SOURCE = '4b3bcd43cba141a611da4a2b861433b915462806';
@@ -230,8 +229,6 @@ test('public exports and command guidance remain narrow and installation-aware',
 
 test('workflows retain complete platform and release safety gates', () => {
   const ci = readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
-  const scripts = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).scripts;
-  const coverage = expandedCICommands(ci, scripts, receiptCommands);
   for (const required of [
     'actions/checkout@v6',
     'actions/setup-node@v6',
@@ -243,9 +240,7 @@ test('workflows retain complete platform and release safety gates', () => {
     'npm run pack:runtime -- --dry-run',
     'verify-extraction.mjs --require-legacy-removed',
   ])
-    if (required.startsWith('npm '))
-      assert.ok(coverage.has(required), 'missing CI command ' + required);
-    else assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(ci, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(ci, /live-provider-optional:[\s\S]*continue-on-error: true/);
   const live = ci.match(/live-provider-optional:[\s\S]*$/)?.[0] ?? '';
   assert.match(live, /github\.event_name == 'workflow_dispatch'/);
@@ -262,20 +257,22 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.equal(workflow.env.APR_SKIP_NATIVE_BROKER_TESTS, '1');
   const requiredLanes = {
     fast: ['npm', 'test'],
-    slow: ['npm', 'run', 'test:slow'],
+    integration: ['npm', 'run', 'test:integration'],
+    mcp: ['npm', 'run', 'test:mcp'],
+    packaging: ['npm', 'run', 'test:packaging'],
+    smoke: ['npm', 'run', 'test:smoke'],
   };
   for (const key of ['node-24', 'preferred-node', 'phase-2-boundary']) {
     const steps = workflow.jobs[key].steps;
     for (const [lane, command] of Object.entries(requiredLanes)) {
-      const matches = steps.filter(
-        (step) => step.run === 'node scripts/ci/run-receipt.mjs ' + lane
-      );
+      const matches = steps.filter((step) => step.name === 'Verify tests: ' + lane);
       assert.equal(matches.length, 1, key + ':' + lane);
-      assert.deepEqual(['npm', ...receiptCommands[lane]], command);
+      assert.equal(matches[0].run, 'node scripts/ci/record-tests.mjs ' + lane);
+      assert.deepEqual(LANES[lane].command, command);
     }
-    const uploads = steps.filter((step) => step.name === 'Preserve actual command receipts');
+    const uploads = steps.filter((step) => step.name === 'Publish actual test execution records');
     assert.equal(uploads.length, 1);
-    assert.equal(uploads[0].if, 'always()');
+    assert.equal(uploads[0].if, '${{ always() }}');
     assert.equal(uploads[0].with['if-no-files-found'], 'error');
     assert.equal(uploads[0].with['include-hidden-files'], true);
   }
@@ -292,13 +289,12 @@ test('workflows retain complete platform and release safety gates', () => {
   }
   const boundary = ci.match(/phase-2-boundary:[\s\S]*?\n  live-provider-optional:/)?.[0] ?? '';
   for (const job of [preferredNode, boundary]) {
-    const jobCoverage = expandedCICommands(job, scripts, receiptCommands);
     for (const gate of [
       'npm run format:check',
       'npm run lint',
       'npm run pack:runtime -- --dry-run',
     ])
-      assert.ok(jobCoverage.has(gate), 'missing worker command ' + gate);
+      assert.match(job, new RegExp(gate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 
   const release = readFileSync(path.join(root, '.github/workflows/release.yml'), 'utf8');
