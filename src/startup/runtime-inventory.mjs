@@ -153,10 +153,12 @@ function observeRuntimeInventory({
       identity(ordinary(root, 'runtime-inventory.json').stat) ===
         previousObservation.manifestIdentity
     ) {
+      // Membership only: rebuild from this authenticated inventory for each
+      // verification; all physical identities and metadata are still read fresh.
+      const declaredPaths = new Set(previousObservation.entries.map((entry) => entry.path));
       assertRuntimeDependencyClosure(root, {
         readMetadata: (relative) => JSON.parse(stableBytes(root, relative, 1048576).bytes),
-        isDeclared: (relative) =>
-          previousObservation.entries.some((entry) => entry.path === relative),
+        isDeclared: (relative) => declaredPaths.has(relative),
       });
       const renewed = Object.freeze({
         ...previousObservation,
@@ -217,11 +219,13 @@ function observeRuntimeInventory({
           invalid('Runtime dependency disagrees with its installed metadata.');
       }
     }
-    if (!diagnosticOnly)
+    if (!diagnosticOnly) {
+      const declaredPaths = new Set(entries.map((entry) => entry.path));
       assertRuntimeDependencyClosure(root, {
         readMetadata: (relative) => JSON.parse(stableBytes(root, relative, 1048576).bytes),
-        isDeclared: (relative) => entries.some((entry) => entry.path === relative),
+        isDeclared: (relative) => declaredPaths.has(relative),
       });
+    }
     // Recheck every identity after the whole observation, rejecting mixed replacement.
     for (const entry of entries)
       if (identity(ordinary(root, entry.path).stat) !== entry.identity)

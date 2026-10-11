@@ -1,7 +1,8 @@
 // @story #190
+// cspell:words fsmonitor textconv
 // Read-only comparison of the exact stock script; private records never leave this process.
 import { execFileSync } from 'node:child_process';
-import { readFile, mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
@@ -16,9 +17,17 @@ if (
   process.env.NODE_OPTIONS
 )
   throw Error('benchmark-host-unavailable');
-const source = await readFile(
-  new URL('../../src/broker/storage-protection.mjs', import.meta.url),
-  'utf8'
+const source = execFileSync(
+  'git',
+  [
+    '-c',
+    'core.fsmonitor=false',
+    'show',
+    '--no-ext-diff',
+    '--no-textconv',
+    '11c83fa0c1b01448719bbbb336d41296fd17ec91:src/broker/storage-protection.mjs',
+  ],
+  { encoding: 'utf8', timeout: 30000 }
 );
 const matches = [...source.matchAll(/const windowsScript = String\.raw`([\s\S]*?)`;/gu)];
 if (matches.length !== 1) throw Error('benchmark-script-unavailable');

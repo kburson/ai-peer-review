@@ -209,7 +209,9 @@ $stage='input'
 [Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 $OutputEncoding=[Console]::OutputEncoding
-$inputRecord = [Console]::In.ReadToEnd() | ConvertFrom-Json
+[Reflection.Assembly]::Load('System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35') | Out-Null
+$json = [System.Web.Script.Serialization.JavaScriptSerializer]::new()
+$inputRecord = $json.DeserializeObject([Console]::In.ReadToEnd())
 $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
 $user = $identity.User.Value
 $adminSid = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
@@ -288,9 +290,9 @@ $records = foreach ($entry in $paths) {
     aces = @($aces)
   }
 }
-[ordered]@{schema='ai-peer-review.windows-protection-observation/v1'; records=@($records)} | ConvertTo-Json -Depth 8 -Compress
+[Console]::Out.Write($json.Serialize([ordered]@{schema='ai-peer-review.windows-protection-observation/v1'; records=@($records)}))
 } catch {
-  [ordered]@{schema='ai-peer-review.windows-protection-error/v1'; exception=$_.Exception.GetType().Name; line=$_.InvocationInfo.ScriptLineNumber; stage=$stage} | ConvertTo-Json -Compress
+  [Console]::Out.Write($json.Serialize([ordered]@{schema='ai-peer-review.windows-protection-error/v1'; exception=$_.Exception.GetType().Name; line=$_.InvocationInfo.ScriptLineNumber; stage=$stage}))
   exit 1
 }
 `;
@@ -455,18 +457,6 @@ async function windowsProbe(targets, provision = false, budget = operationBudget
   )
     throw failure('APR_BROKER_START_FAILED', 'stock-acl-probe-malformed');
   return data.records;
-}
-async function macAcl(value, ancestor = false, budget = operationBudget()) {
-  budget.check();
-  const { stdout, stderr } = await execute('/bin/ls', ['-ldne', value], {
-    encoding: 'utf8',
-    maxBuffer: 65536,
-    ...budget.options(5000),
-    env: { ...process.env, LC_ALL: 'C' },
-  });
-  budget.check();
-  if (stderr.trim()) throw failure('APR_BROKER_START_FAILED', 'acl-query-failed');
-  return parseMacAclBatchCore(stdout, [{ path: value, ancestor }]).records[0].rules;
 }
 // Parsing is unverified data. Only the fixed stock-probe path mints receipts.
 export function parseMacAclBatchCore(stdout, targets) {
@@ -706,7 +696,11 @@ async function inspectAncestors(
       stats[i].acl = windowsAncestor(x, stats[i].path === path.parse(stats[i].path).root);
     });
   } else if (process.platform === 'darwin' && !deferWindowsAcl) {
-    for (const item of stats) item.acl = await macAcl(item.path, true, budget);
+    const records = await macAclBatch(
+      stats.map((item) => ({ path: item.path, ancestor: true })),
+      budget
+    );
+    for (const item of stats) item.acl = records.get(item.path);
   }
   return { uid, stats, chain: stats.map((x) => x.path) };
 }
