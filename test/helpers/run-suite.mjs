@@ -22,6 +22,7 @@ const result = spawnSync(
   process.execPath,
   [
     '--test',
+    '--test-timeout=800000',
     '--test-skip-pattern=/broker|native helper|native exclusive|standalone production worker/i',
     ...(suite === 'integration' ? ['--test-concurrency=2'] : []),
     ...files,

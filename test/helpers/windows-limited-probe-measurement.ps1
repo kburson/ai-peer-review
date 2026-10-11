@@ -69,6 +69,8 @@ try {
   $env:npm_config_cache = Join-Path $env:LOCALAPPDATA 'npm-cache'
   New-Item -ItemType Directory -Path $env:TEMP, $env:APPDATA, $env:npm_config_cache -Force | Out-Null
   Copy-Item -LiteralPath (Join-Path __CACHE__ '_cacache') -Destination $env:npm_config_cache -Recurse
+  & 'C:\Program Files\Git\cmd\git.exe' config --global core.longpaths true
+  if ($LASTEXITCODE -ne 0) { throw 'measurement-long-path-checkout-unavailable' }
   & 'C:\Program Files\Git\cmd\git.exe' config --global --add safe.directory __ROOT__
   if ($LASTEXITCODE -ne 0) { throw 'measurement-source-checkout-unavailable' }
   & 'C:\Program Files\Git\cmd\git.exe' config --global --add safe.directory (Join-Path __ROOT__ '.scratch/198-candidate')

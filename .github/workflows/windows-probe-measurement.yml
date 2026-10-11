@@ -20,6 +20,8 @@ jobs:
         node: ['24', '26']
         token: [ordinary, limited]
     steps:
+      - name: Enable checkout of retained long review paths
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
