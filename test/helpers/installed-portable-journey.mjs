@@ -9,6 +9,21 @@ import { setTimeout as delay } from 'node:timers/promises';
 const fail = (reason) => {
   throw Error(reason);
 };
+export function brokerChildFailureCode(text) {
+  if (typeof text !== 'string' || text.length > 65536) return null;
+  for (const line of text.split(/\r?\n/u)) {
+    const plain = /^(APR_[A-Z_]{1,64}): /u.exec(line);
+    if (plain) return plain[1];
+    try {
+      const value = JSON.parse(line);
+      if (value.schema === 'ai-peer-review.error/v1' && /^APR_[A-Z_]{1,64}$/u.test(value.code))
+        return value.code;
+    } catch {
+      // Unstructured private diagnostic text supplies no publishable code.
+    }
+  }
+  return null;
+}
 export function installedJourneyComplete(value) {
   return (
     value?.broker === 'complete' &&
@@ -280,12 +295,8 @@ export async function runInstalledPortableJourney(options = {}) {
           child.stderr.on('data', (bytes) => {
             diagnosticBytes += bytes.length;
             if (diagnosticBytes > 65536) return;
-            for (const line of bytes.toString('utf8').split(/\r?\n/u)) {
-              const match = /^(APR_[A-Z_]+): Portable broker startup or cleanup failed\.$/u.exec(
-                line
-              );
-              if (match) report.brokerChildFailureCode = match[1];
-            }
+            const code = brokerChildFailureCode(bytes.toString('utf8'));
+            if (code) report.brokerChildFailureCode = code;
           });
           childExited = new Promise((resolve, reject) => {
             child.once('error', reject);

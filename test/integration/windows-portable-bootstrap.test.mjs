@@ -10,6 +10,33 @@ async function driver() {
     throw error;
   }
 }
+test('broker child diagnostics publish bounded codes without requiring one exact private message', async () => {
+  const subject = await driver();
+  assert.equal(typeof subject.brokerChildFailureCode, 'function');
+  assert.equal(
+    subject.brokerChildFailureCode('APR_PRIMARY_AUTHORITY_UNAVAILABLE: private details\n'),
+    'APR_PRIMARY_AUTHORITY_UNAVAILABLE'
+  );
+  assert.equal(
+    subject.brokerChildFailureCode(
+      JSON.stringify({
+        schema: 'ai-peer-review.error/v1',
+        code: 'APR_BROKER_STALE',
+        message: 'DO-NOT-PUBLISH',
+        details: { credential: 'DO-NOT-PUBLISH' },
+      })
+    ),
+    'APR_BROKER_STALE'
+  );
+  for (const value of [
+    'DO-NOT-PUBLISH',
+    'prefix APR_BROKER_STALE: private',
+    '{"code":"APR_BROKER_STALE"}',
+    'APR_BAD-CODE: private',
+    'x'.repeat(65537),
+  ])
+    assert.equal(subject.brokerChildFailureCode(value), null);
+});
 test('installed journey refuses ports, class overrides and missing actual inputs before effects', async () => {
   const subject = await driver();
   assert.equal(

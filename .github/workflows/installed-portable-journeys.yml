@@ -144,3 +144,12 @@ jobs:
           name: stock-acl-api-comparison-${{ github.run_attempt }}
           path: .scratch/190-acl-benchmark-public/comparison.json
           if-no-files-found: error
+      - name: Compare exact stock script JSON conversion without changing production code
+        run: node test/helpers/windows-json-benchmark.mjs
+      - name: Preserve only JSON equality and timing data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stock-json-comparison-${{ github.run_attempt }}
+          path: .scratch/190-json-benchmark-public/comparison.json
+          if-no-files-found: error
