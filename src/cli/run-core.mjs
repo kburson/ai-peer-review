@@ -59,6 +59,7 @@ import {
   sealResponse as rawSealResponse,
 } from '../collateral/responses.mjs';
 import { AprError } from '../errors.mjs';
+import { currentActor } from '../protocol/reducer.mjs';
 import '../providers/codex.mjs';
 import '../providers/claude.mjs';
 import '../providers/grok.mjs';
@@ -2435,11 +2436,8 @@ export function createReviewOperations({
     const absolute = path.resolve(input.workspace);
     const authority = inspectReviewAuthority(absolute);
     let state = authority.state;
-    const role = state.protocol.intervention?.interrupted_state?.startsWith('author')
-      ? 'author'
-      : state.protocol.intervention?.interrupted_state?.startsWith('reviewer')
-        ? 'reviewer'
-        : state.protocol.current_actor;
+    const role =
+      currentActor(state.protocol.intervention?.interrupted_state) ?? state.protocol.current_actor;
     if (!input.reclaim && !input.replaceParticipant) {
       const observed = ['author', 'reviewer'].includes(role)
         ? deriveClaimStatus(state, role, input.now ?? new Date())
@@ -5829,11 +5827,8 @@ export function createReviewOperations({
         const loaded = loadConfig({ cwd: io.cwd, env: io.env });
         const role =
           parsed.options.replaceParticipant ??
-          (state.protocol.intervention?.interrupted_state?.startsWith('author')
-            ? 'author'
-            : state.protocol.intervention?.interrupted_state?.startsWith('reviewer')
-              ? 'reviewer'
-              : state.protocol.current_actor);
+          currentActor(state.protocol.intervention?.interrupted_state) ??
+          state.protocol.current_actor;
         response = await recoverReview(
           {
             cwd: io.cwd,

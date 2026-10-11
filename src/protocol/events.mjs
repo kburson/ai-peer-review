@@ -1127,6 +1127,18 @@ export function validateVersionedEvent(value) {
   if (value.type === 'compatibility-declared') return validateV2Declaration(value);
   if (Object.hasOwn(V2_ONLY_DEFINITIONS, value.type)) return validateV2OnlyEvent(value);
   if (!Object.hasOwn(EVENT_DEFINITIONS, value.type)) throw readerUpgrade(value);
+  if (
+    value.type === 'intervention-entered' &&
+    ['acceptance-pending', 'author-finalization'].includes(value.payload?.interrupted_state)
+  ) {
+    if (value.payload.reason !== 'stale-claim') throw invalid('finalization intervention reason');
+    // Validate the unchanged envelope and closed shared fields through the v1 projection.
+    return validateEvent({
+      ...value,
+      schema: EVENT_V1_SCHEMA,
+      payload: { ...value.payload, interrupted_state: 'author-revision' },
+    });
+  }
   const participantField = {
     'review-created': 'author',
     'reviewer-joined': 'reviewer',

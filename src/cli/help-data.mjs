@@ -96,7 +96,13 @@ const STATES = Object.freeze({
   supplement: ['intervention-required'],
   continue: ['intervention-required'],
   finalize: ['acceptance-pending', 'author-finalization', 'intervention-required'],
-  recover: ['reviewer-turn', 'author-revision', 'intervention-required'],
+  recover: [
+    'reviewer-turn',
+    'author-revision',
+    'acceptance-pending',
+    'author-finalization',
+    'intervention-required',
+  ],
   abandon: ['intervention-required', 'awaiting-reviewer after proven non-submission and fence'],
   supersede: [
     'awaiting-reviewer',

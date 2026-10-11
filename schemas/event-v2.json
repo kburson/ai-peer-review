@@ -115,7 +115,7 @@
     {
       "properties": {
         "type": { "const": "intervention-entered" },
-        "payload": { "$ref": "event-v1.json#/$defs/intervention" }
+        "payload": { "$ref": "#/$defs/intervention" }
       }
     },
     {
@@ -217,6 +217,40 @@
     }
   ],
   "$defs": {
+    "intervention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intervention_id", "reason", "interrupted_state"],
+      "properties": {
+        "intervention_id": {
+          "$ref": "event-v1.json#/$defs/id"
+        },
+        "reason": {
+          "enum": ["turn-budget-exhausted", "stale-claim", "participant-loss"]
+        },
+        "interrupted_state": {
+          "enum": ["reviewer-turn", "author-revision", "acceptance-pending", "author-finalization"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "interrupted_state": {
+                "enum": ["acceptance-pending", "author-finalization"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "const": "stale-claim"
+              }
+            }
+          }
+        }
+      ]
+    },
     "participant": {
       "type": "object",
       "additionalProperties": false,
