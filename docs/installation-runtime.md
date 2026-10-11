@@ -80,7 +80,11 @@ preservation does not claim acceptance, abandonment, provider settlement or safe
 deletion. Age, filenames and issue closure never classify an attempt automatically.
 Changed evidence, replaced parents or unsafe receipt storage refuses migration.
 Preserve a whole top-level scratch unit or a direct `reviews` container entry;
-partial review files and deeper targets refuse. Enclosing containers protect
+partial review files and deeper targets refuse. An individual obsolete broker
+registration is another whole unit: preserve its exact
+`.scratch/peer-review/broker/registrations/<review-id>.json` file with an explicit
+historical reason. The closed registration remains unchanged and cannot restore
+a worker; broker directories and other authority stores still refuse. Enclosing containers protect
 their descendant registrations and effects. Passive scratch
 reports remain hashed evidence, and unclassified activity remains a blocker.
 

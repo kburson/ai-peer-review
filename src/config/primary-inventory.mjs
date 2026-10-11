@@ -7,7 +7,7 @@ import { authorityGit, discoverAuthorityRepository } from '../git/repository.mjs
 import { inspectReviewAuthority } from '../protocol/service.mjs';
 import { verifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { startupEvidence, readStartupJournal } from '../broker/registry.mjs';
-import { findReviewPreservation } from './review-history.mjs';
+import { findReviewPreservation, readReviewPreservation } from './review-history.mjs';
 const observations = new WeakSet();
 const terminal = new Set([
   'accepted',
@@ -234,6 +234,13 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
                 registration = JSON.parse(readFileSync(registrationFile, 'utf8'));
               } catch {
                 unavailable('Broker registration cannot be inspected.', { file: registrationFile });
+              }
+              const retained = readReviewPreservation(commonDir, registrationFile, {
+                verifySnapshot: true,
+              });
+              if (retained?.record.kind === 'history' && !retained.released) {
+                hash.update(registrationFile).update(retained.recordDigest);
+                continue;
               }
               const keys = [
                 'created_at',

@@ -479,7 +479,7 @@ function exactFields(value, fields) {
   );
 }
 
-function validRegistrationShape(registration) {
+export function validRegistrationShape(registration) {
   if (
     !exactFields(registration, REGISTRATION_FIELDS) ||
     !exactFields(registration.runtime, RUNTIME_FIELDS) ||
@@ -803,6 +803,7 @@ export async function reconcileRegistrations({
   store,
   inspectAuthority,
   isPreserved = () => false,
+  isPreservedRegistration = () => false,
 } = {}) {
   const identity = canonicalProject(project);
   const root = registrationRoot(identity, store, { recovery: true });
@@ -831,6 +832,15 @@ export async function reconcileRegistrations({
       const file = path.join(root, name);
       const registration = readRegistration(file);
       if (!registration) continue;
+      if (isPreservedRegistration(file)) {
+        if (
+          !validRegistrationShape(registration) ||
+          file !== path.join(root, registration.review_id + '.json')
+        )
+          authorityFailure('Historical registration has an invalid closed identity.', { file });
+        registrations.set(registration.review_id, registration);
+        continue;
+      }
       const claimsProject =
         registration.project_digest === identity.digest ||
         registration.project_root === identity.physicalRoot;

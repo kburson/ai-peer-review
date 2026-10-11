@@ -40,3 +40,13 @@ export function reviewHistoryAncestry(commonDir, worktreeRoot, target) {
     refuse('Preserved ancestry or worktree membership cannot be verified.');
   }
 }
+
+export function isHistoryRegistrationRelative(relative) {
+  const parts = relative.split(path.sep);
+  return (
+    parts.length === 3 &&
+    parts[0] === 'broker' &&
+    parts[1] === 'registrations' &&
+    /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$/.test(parts[2])
+  );
+}

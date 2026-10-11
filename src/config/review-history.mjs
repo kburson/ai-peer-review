@@ -11,7 +11,10 @@ import {
 } from 'node:fs';
 import { platformSecurity } from '../broker/platform.mjs';
 import { snapshotReviewHistory, historyUnavailable as refuse } from './review-history-snapshot.mjs';
-import { reviewHistoryAncestry } from './review-history-ancestry.mjs';
+import {
+  reviewHistoryAncestry,
+  isHistoryRegistrationRelative,
+} from './review-history-ancestry.mjs';
 export { snapshotReviewHistory } from './review-history-snapshot.mjs';
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const stable = (value) => JSON.stringify(value) + '\n';
@@ -146,7 +149,8 @@ function readGeneration(commonDir, target, generation, verifySnapshot) {
     relative.startsWith('..' + path.sep) ||
     relative === '..' ||
     path.isAbsolute(relative) ||
-    ['broker', 'runtimes', 'codex-hooks', 'claude-hooks'].includes(relative.split(path.sep)[0])
+    (['broker', 'runtimes', 'codex-hooks', 'claude-hooks'].includes(relative.split(path.sep)[0]) &&
+      !(record.kind === 'history' && isHistoryRegistrationRelative(relative)))
   )
     refuse('History record crosses scratch authority.');
   let released = false;
@@ -310,4 +314,19 @@ export function assertReviewNotPreserved(commonDir, target) {
         : 'Current review is held for primary migration.',
       { target, preservedTarget: value.record.target }
     );
+}
+
+// Exact registration bytes can remain history after a worktree was relocated.
+export function createReviewPreservationLookup(commonDir, registrationRoot) {
+  const registration = (file) => {
+    const value = readReviewPreservation(commonDir, file, { verifySnapshot: true });
+    return Boolean(value && value.record.kind === 'history' && !value.released);
+  };
+  const workspace = (target) => {
+    if (findReviewPreservation(commonDir, target, { verifySnapshot: true })) return true;
+    const file = path.join(registrationRoot, path.basename(target) + '.json');
+    if (!registration(file)) return false;
+    return JSON.parse(readFileSync(file, 'utf8')).workspace === target;
+  };
+  return Object.freeze({ workspace, registration });
 }

@@ -1,8 +1,10 @@
 // @story #202
 import path from 'node:path';
-import { realpathSync, lstatSync } from 'node:fs';
+import { realpathSync, lstatSync, readFileSync } from 'node:fs';
 import { authorityGit, discoverAuthorityRepository } from '../git/repository.mjs';
 import { withPrimaryAdmissionFence } from './primary-admission.mjs';
+import { isHistoryRegistrationRelative } from './review-history-ancestry.mjs';
+import { validRegistrationShape } from '../broker/registry.mjs';
 import { inspectReviewAuthority } from '../protocol/service.mjs';
 import { preserveReviewHistory, releaseReviewHold } from './review-history.mjs';
 import { historyUnavailable as refuse } from './review-history-snapshot.mjs';
@@ -41,13 +43,36 @@ function locate(cwd, target) {
       )
         refuse('Reserved authority stores cannot be preserved as history.');
       if (
-        ['broker', 'runtimes', 'codex-hooks', 'claude-hooks'].includes(relative.split(path.sep)[0])
+        ['broker', 'runtimes', 'codex-hooks', 'claude-hooks'].includes(
+          relative.split(path.sep)[0]
+        ) &&
+        !isHistoryRegistrationRelative(relative)
       )
         refuse('Reserved authority stores cannot be preserved as history.');
       const parts = relative.split(path.sep);
-      if (parts.length !== 1 && !(parts.length === 2 && parts[0] === 'reviews'))
+      const registration = isHistoryRegistrationRelative(relative);
+      if (!registration && parts.length !== 1 && !(parts.length === 2 && parts[0] === 'reviews'))
         refuse('Preserve a whole inventory unit, never a partial review.');
-      if (!lstatSync(target).isDirectory())
+      const status = lstatSync(target);
+      if (registration) {
+        if (!status.isFile() || status.size > 16384)
+          refuse('Historical registration must be a bounded ordinary file.');
+        let record;
+        try {
+          record = JSON.parse(readFileSync(target, 'utf8'));
+        } catch {
+          refuse('Historical registration cannot be read.');
+        }
+        if (
+          !validRegistrationShape(record) ||
+          path.basename(target) !== record.review_id + '.json' ||
+          typeof record.workspace !== 'string' ||
+          !path.isAbsolute(record.workspace) ||
+          typeof record.project_root !== 'string' ||
+          !path.isAbsolute(record.project_root)
+        )
+          refuse('Historical registration is outside its closed schema.');
+      } else if (!status.isDirectory())
         refuse('Preservation requires a whole review or historical container.');
       const member = discoverAuthorityRepository(realpathSync(root));
       if (member.root !== root || member.commonDir !== location.commonDir)
@@ -80,6 +105,13 @@ export function createReviewHistoryMaintenance({ admit, packageRoot, home }) {
         const fresh = locate(cwd, target);
         if (fresh.worktreeRoot !== location.worktreeRoot || fresh.commonDir !== location.commonDir)
           refuse('History membership changed.');
+        if (
+          kind !== 'history' &&
+          isHistoryRegistrationRelative(
+            path.relative(path.join(location.worktreeRoot, '.scratch/peer-review'), target)
+          )
+        )
+          refuse('Historical registrations cannot hold or release a current review.');
         if (kind === 'hold') {
           const state = inspectReviewAuthority(target).state;
           if (state.protocol.startup.context.repository_root !== location.worktreeRoot)

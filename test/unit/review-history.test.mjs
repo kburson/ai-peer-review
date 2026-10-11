@@ -430,3 +430,66 @@ for (const kind of ['history', 'hold'])
     assert.equal(JSON.parse(stderr).code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
     assert.deepEqual(snapshotReviewHistory(workspace), before);
   });
+
+test(
+  'explicit obsolete registration history permits a relocated clone to migrate without rewriting the orphan',
+  options,
+  async (t) => {
+    const f = await fixture(t);
+    await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete fixture' });
+    const oldRoot = path.join(f.parent, 'former-worktree');
+    const workspace = path.join(oldRoot, '.scratch/peer-review/review-orphan');
+    const record = {
+      schema: 'ai-peer-review.broker-registration/v1',
+      created_at: '2026-09-12T12:00:00.000Z',
+      review_id: 'review-orphan',
+      project_digest: 'c'.repeat(64),
+      project_root: oldRoot,
+      workspace,
+      request_digest: 'a'.repeat(64),
+      runtime: {
+        root: path.join(oldRoot, 'missing-runtime'),
+        entrypoint: path.join(oldRoot, 'missing-runtime/bin/peer-review.mjs'),
+        nodeExecutable: process.execPath,
+        digest: 'sha256:' + 'b'.repeat(64),
+      },
+    };
+    const file = f.write(
+      '.scratch/peer-review/broker/registrations/review-orphan.json',
+      JSON.stringify(record) + '\n'
+    );
+    const before = readFileSync(file);
+    assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+      code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+    });
+    await f.api.preserveHistory({
+      cwd: f.root,
+      target: file,
+      reason: 'explicit obsolete relocated registration; preserve unknown outcome',
+    });
+    assert.deepEqual(readFileSync(file), before);
+    assert.doesNotThrow(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
+    const { createReviewPreservationLookup, assertReviewNotPreserved } =
+      await import('../../src/config/review-history.mjs');
+    const lookup = createReviewPreservationLookup(f.commonDir, path.dirname(file));
+    const records = await reconcileRegistrations({
+      project: { digest: 'd'.repeat(64), physicalRoot: f.root },
+      store: { root: path.dirname(file) },
+      inspectAuthority: inspectStartupAuthority,
+      isPreserved: lookup.workspace,
+      isPreservedRegistration: lookup.registration,
+    });
+    assert.equal(records.length, 1);
+    assert.equal(records[0].workspace, workspace);
+    assert.equal(lookup.workspace(workspace), true);
+    assert.equal(lookup.workspace(path.join(f.root, '.scratch/peer-review/review-orphan')), false);
+    assert.throws(() => assertReviewNotPreserved(f.commonDir, file), {
+      code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+    });
+    await assert.rejects(
+      f.api.holdReview({ cwd: f.root, target: file, reason: 'not a current review' }),
+      { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
+    );
+    assert.deepEqual(readFileSync(file), before);
+  }
+);
