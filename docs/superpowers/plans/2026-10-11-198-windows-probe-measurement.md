@@ -17,8 +17,8 @@ Implement standalone #198 diagnostics and its receipt support. Do not change #17
 ## Plan Metadata
 
 - Priority: P0
-- Size: S
-- Estimate: 4 base human hours before rubric
+- Size: L (native rubric)
+- Estimate: 10 adjusted human hours (4 base hours; native forecast01M4NEJHNNC9Z6G2T9XZD33TT2)
 
 ## Story Intent
 
