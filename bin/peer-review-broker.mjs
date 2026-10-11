@@ -24,7 +24,7 @@ import { createProductionReviewWorker } from '../src/broker/worker-factory.mjs';
 import { withOperationAuthority, performOperationEffect } from '../src/startup/authority-fence.mjs';
 import { createGitRepository } from '../src/git/repository.mjs';
 import { discoverAuthorityRepository } from '../src/git/repository.mjs';
-import { readReviewPreservation } from '../src/config/review-history.mjs';
+import { findReviewPreservation } from '../src/config/review-history.mjs';
 
 function exact(value, fields) {
   return (
@@ -222,7 +222,7 @@ export async function runBrokerEntrypoint(file) {
       };
       const commonDir = discoverAuthorityRepository(identity.physicalRoot).commonDir;
       const isPreserved = (workspace) => {
-        const value = readReviewPreservation(commonDir, workspace, { verifySnapshot: true });
+        const value = findReviewPreservation(commonDir, workspace, { verifySnapshot: true });
         return Boolean(value && !value.released);
       };
       const loadRegistrations = () =>

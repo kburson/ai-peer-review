@@ -44,6 +44,11 @@ function locate(cwd, target) {
         ['broker', 'runtimes', 'codex-hooks', 'claude-hooks'].includes(relative.split(path.sep)[0])
       )
         refuse('Reserved authority stores cannot be preserved as history.');
+      const parts = relative.split(path.sep);
+      if (parts.length !== 1 && !(parts.length === 2 && parts[0] === 'reviews'))
+        refuse('Preserve a whole inventory unit, never a partial review.');
+      if (!lstatSync(target).isDirectory())
+        refuse('Preservation requires a whole review or historical container.');
       const member = discoverAuthorityRepository(realpathSync(root));
       if (member.root !== root || member.commonDir !== location.commonDir)
         refuse('History target crosses clone authority.');

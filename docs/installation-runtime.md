@@ -78,7 +78,10 @@ clone receipt. It retains the original location and bytes, including uncertain
 launch information. History cannot execute or be released as a current review;
 preservation does not claim acceptance, abandonment, provider settlement or safe
 deletion. Age, filenames and issue closure never classify an attempt automatically.
-Changed evidence or unsafe receipt storage refuses migration. Passive scratch
+Changed evidence, replaced parents or unsafe receipt storage refuses migration.
+Preserve a whole top-level scratch unit or a direct `reviews` container entry;
+partial review files and deeper targets refuse. Enclosing containers protect
+their descendant registrations and effects. Passive scratch
 reports remain hashed evidence, and unclassified activity remains a blocker.
 
 For a genuinely pending review, use a separate temporary maintenance hold:
@@ -98,7 +101,9 @@ peer-review primary release-review /absolute/worktree/.scratch/peer-review/revie
 ```
 
 Release requires current activated primary integration and unchanged held bytes.
-Its audit record remains. Continue through the original review's ordinary
+Its audit record remains. A later migration can hold the same current review
+again; each hold and release adds a new generation without replacing prior
+records. Continue through the original review's ordinary
 identity, claim and provider guards; release never dispatches a provider or
 replays an uncertain launch. Historical registrations remain retained and are
 excluded from broker worker restoration. These maintenance operations require

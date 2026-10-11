@@ -7,7 +7,7 @@ import { authorityGit, discoverAuthorityRepository } from '../git/repository.mjs
 import { inspectReviewAuthority } from '../protocol/service.mjs';
 import { verifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { startupEvidence, readStartupJournal } from '../broker/registry.mjs';
-import { readReviewPreservation } from './review-history.mjs';
+import { findReviewPreservation } from './review-history.mjs';
 const observations = new WeakSet();
 const terminal = new Set([
   'accepted',
@@ -117,7 +117,7 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
     }
   }
   function inspect(workspace) {
-    const preserved = readReviewPreservation(commonDir, workspace, { verifySnapshot: true });
+    const preserved = findReviewPreservation(commonDir, workspace, { verifySnapshot: true });
     if (preserved && !preserved.released) {
       hash
         .update(workspace)
@@ -262,7 +262,7 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
                 unavailable('Broker registration refers to missing review activity.', {
                   file: registrationFile,
                 });
-              const preserved = readReviewPreservation(commonDir, workspace, {
+              const preserved = findReviewPreservation(commonDir, workspace, {
                 verifySnapshot: true,
               });
               if (preserved && !preserved.released) {

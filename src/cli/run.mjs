@@ -22,6 +22,7 @@ const current = () =>
     productionProviderAdapters,
     createClaudeStreamingExec,
     performCurrentOperationEffect,
+    withReviewOperationAuthority: withOperationAuthority,
     requestGrant,
     runClaudeReviewerLaunch,
     applyReviewRecord,

@@ -877,7 +877,8 @@ export async function reconcileRegistrations({
   const reconciled = [];
   for (const workspace of [...workspaces].sort()) {
     const reviewId = path.basename(workspace);
-    const registration = registrations.get(reviewId) ?? null;
+    const candidate = registrations.get(reviewId);
+    const registration = candidate?.workspace === workspace ? candidate : null;
     if (isPreserved(workspace)) {
       if (registration) reconciled.push(registration);
       continue;

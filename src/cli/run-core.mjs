@@ -139,6 +139,7 @@ export function createReviewOperations({
   createClaudeStreamingExec,
   createClaudeStreamRecorder = rawCreateClaudeStreamRecorder,
   performCurrentOperationEffect,
+  withReviewOperationAuthority,
   requestGrant,
   runClaudeReviewerLaunch,
   applyReviewRecord,
@@ -149,6 +150,7 @@ export function createReviewOperations({
     !startup ||
     !productionProviderAdapters ||
     typeof createClaudeStreamingExec !== 'function' ||
+    typeof withReviewOperationAuthority !== 'function' ||
     typeof performCurrentOperationEffect !== 'function'
   )
     throw new TypeError('Explicit operation dependencies required');
@@ -5162,6 +5164,23 @@ export function createReviewOperations({
     }
   }
 
+  // Bind the exact review before legacy checks or any manual-launch bookkeeping.
+  async function runWithReviewAuthority(argv, io) {
+    try {
+      const parsed = parseCommand(argv);
+      if (parsed.command !== 'launch-reviewer') return run(argv, io);
+      const values = invitationValues(path.resolve(io.cwd, parsed.args[0]));
+      return await withReviewOperationAuthority(
+        { operation: 'launch-reviewer', cwd: io.cwd, reviewWorkspace: values.workspace },
+        () => run(argv, io)
+      );
+    } catch (error) {
+      if (!(error instanceof AprError)) throw error;
+      writeJson(io.stderr, error.toJSON());
+      return error.exitCode;
+    }
+  }
+
   async function run(argv, io) {
     try {
       const parsed = parseCommand(argv);
@@ -5435,6 +5454,7 @@ export function createReviewOperations({
         const operation =
           evidence &&
           (await reserveManualLaunch(values.workspace, launchDetails, {
+            effect: performCurrentOperationEffect,
             verifyAuthority() {
               const fresh = inspectReviewAuthority(values.workspace).state;
               const observed = startupEvidence(values.workspace, fresh);
@@ -5487,7 +5507,8 @@ export function createReviewOperations({
               operation.id,
               ['submitted', 'permission-blocked'].includes(response.status)
                 ? 'submitted'
-                : 'outcome-unknown'
+                : 'outcome-unknown',
+              { effect: performCurrentOperationEffect }
             );
         } catch (error) {
           if (operation && error?.code === 'APR_REVIEWER_SELECTION_REFUSED') {
@@ -5509,7 +5530,8 @@ export function createReviewOperations({
                 values.workspace,
                 launchDetails,
                 operation.id,
-                'not-submitted'
+                'not-submitted',
+                { effect: performCurrentOperationEffect }
               );
           }
           throw error;
@@ -5918,7 +5940,7 @@ export function createReviewOperations({
     submitReviewTurn,
     submitAuthorTurn,
     finalizeReview,
-    run,
+    run: runWithReviewAuthority,
     runHandoffMcpStdio,
   });
 }

@@ -1,7 +1,15 @@
 // @story #202
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, chmodSync, symlinkSync } from 'node:fs';
+import {
+  readFileSync,
+  existsSync,
+  chmodSync,
+  symlinkSync,
+  renameSync,
+  mkdirSync,
+  readdirSync,
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPrimaryMaintenance } from '../../src/config/primary-maintenance.mjs';
@@ -36,61 +44,73 @@ async function pending(f) {
   return workspace;
 }
 
-test(
-  'broker reconciliation retains historical registration without restoring obsolete runtime',
-  options,
-  async (t) => {
-    const f = await fixture(t);
-    f.write(
-      '.scratch/peer-review/obsolete/startup-request.json',
-      JSON.stringify({
-        schema: 'ai-peer-review.startup-request/v1',
-        workspace: f.target,
+for (const nested of [false, true])
+  test(
+    `reconciliation retains ${nested ? 'nested' : 'direct'} historical registration without restoration`,
+    options,
+    async (t) => {
+      const f = await fixture(t);
+      if (nested) {
+        await f.api.preserveHistory({
+          cwd: f.root,
+          target: f.target,
+          reason: 'obsolete original fixture',
+        });
+        f.target = path.dirname(
+          f.write('.scratch/peer-review/reviews/group/retained.txt', 'old group')
+        );
+      }
+      const registeredWorkspace = nested ? path.join(f.target, 'obsolete') : f.target;
+      f.write(
+        path.relative(f.root, registeredWorkspace) + '/startup-request.json',
+        JSON.stringify({
+          schema: 'ai-peer-review.startup-request/v1',
+          workspace: registeredWorkspace,
+          review_id: 'obsolete',
+        })
+      );
+      const record = {
+        schema: 'ai-peer-review.broker-registration/v1',
+        created_at: '2026-09-12T12:00:00.000Z',
         review_id: 'obsolete',
-      })
-    );
-    const record = {
-      schema: 'ai-peer-review.broker-registration/v1',
-      created_at: '2026-09-12T12:00:00.000Z',
-      review_id: 'obsolete',
-      project_digest: 'c'.repeat(64),
-      project_root: f.root,
-      workspace: f.target,
-      request_digest: 'a'.repeat(64),
-      runtime: {
-        root: path.join(f.root, 'missing-old-runtime'),
-        entrypoint: path.join(f.root, 'missing-old-runtime/bin/peer-review.mjs'),
-        nodeExecutable: process.execPath,
-        digest: 'sha256:' + 'b'.repeat(64),
-      },
-    };
-    const file = f.write(
-      '.scratch/peer-review/broker/registrations/obsolete.json',
-      JSON.stringify(record) + '\n'
-    );
-    const before = readFileSync(file);
-    await f.api.preserveHistory({
-      cwd: f.root,
-      target: f.target,
-      reason: 'obsolete runtime and attempt remain historical',
-    });
-    const { readReviewPreservation } = await import('../../src/config/review-history.mjs');
-    const records = await reconcileRegistrations({
-      project: { digest: 'c'.repeat(64), physicalRoot: f.root },
-      store: { root: path.dirname(file) },
-      inspectAuthority: inspectStartupAuthority,
-      isPreserved: (workspace) =>
-        Boolean(
-          readReviewPreservation(f.commonDir, workspace, { verifySnapshot: true })?.record.kind ===
-          'history'
-        ),
-    });
-    assert.equal(records.length, 1);
-    assert.equal(records[0].workspace, f.target);
-    assert.deepEqual(readFileSync(file), before);
-    assert.doesNotThrow(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
-  }
-);
+        project_digest: 'c'.repeat(64),
+        project_root: f.root,
+        workspace: registeredWorkspace,
+        request_digest: 'a'.repeat(64),
+        runtime: {
+          root: path.join(f.root, 'missing-old-runtime'),
+          entrypoint: path.join(f.root, 'missing-old-runtime/bin/peer-review.mjs'),
+          nodeExecutable: process.execPath,
+          digest: 'sha256:' + 'b'.repeat(64),
+        },
+      };
+      const file = f.write(
+        '.scratch/peer-review/broker/registrations/obsolete.json',
+        JSON.stringify(record) + '\n'
+      );
+      const before = readFileSync(file);
+      await f.api.preserveHistory({
+        cwd: f.root,
+        target: f.target,
+        reason: 'obsolete runtime and attempt remain historical',
+      });
+      const { findReviewPreservation } = await import('../../src/config/review-history.mjs');
+      const records = await reconcileRegistrations({
+        project: { digest: 'c'.repeat(64), physicalRoot: f.root },
+        store: { root: path.dirname(file) },
+        inspectAuthority: inspectStartupAuthority,
+        isPreserved: (workspace) =>
+          Boolean(
+            findReviewPreservation(f.commonDir, workspace, { verifySnapshot: true })?.record
+              .kind === 'history'
+          ),
+      });
+      assert.equal(records.length, 1);
+      assert.equal(records[0].workspace, registeredWorkspace);
+      assert.deepEqual(readFileSync(file), before);
+      assert.doesNotThrow(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
+    }
+  );
 
 test(
   'explicit history preservation unblocks inventory without rewriting uncertain evidence',
@@ -264,3 +284,149 @@ test('unsafe history records and symlinked target parents fail closed', options,
     { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
   );
 });
+
+// These regressions catch ancestry bypass, replaced parents, partial targets and lost hold generations.
+test('nested scratch names cannot conceal a preserved ancestor', options, async (t) => {
+  const f = await fixture(t);
+  const child = f.write(
+    '.scratch/peer-review/obsolete/.scratch/peer-review/child/events.jsonl',
+    'old child\n'
+  );
+  await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete tree' });
+  const { assertReviewNotPreserved } = await import('../../src/config/review-history.mjs');
+  assert.throws(() => assertReviewNotPreserved(f.commonDir, path.dirname(child)), {
+    code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+  });
+});
+
+for (const alias of [true, false]) {
+  test(
+    `replaced ${alias ? 'symbolic' : 'ordinary'} parent invalidates unchanged history`,
+    options,
+    async (t) => {
+      const f = await fixture(t);
+      await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete tree' });
+      const scratch = path.join(f.root, '.scratch');
+      const moved = path.join(f.root, 'retained-scratch');
+      renameSync(scratch, moved);
+      if (alias) symlinkSync(moved, scratch, 'dir');
+      else {
+        mkdirSync(scratch);
+        renameSync(path.join(moved, 'peer-review'), path.join(scratch, 'peer-review'));
+      }
+      assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+        code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+      });
+    }
+  );
+}
+
+test('partial review preservation refuses before catalog write', options, async (t) => {
+  const f = await fixture(t);
+  const workspace = await pending(f);
+  const file = path.join(workspace, 'events.jsonl');
+  const before = readFileSync(file);
+  await assert.rejects(
+    f.api.preserveHistory({ cwd: f.root, target: file, reason: 'partial review' }),
+    { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
+  );
+  assert.deepEqual(readFileSync(file), before);
+  assert.equal(existsSync(path.join(f.commonDir, 'ai-peer-review/review-history')), false);
+});
+
+test(
+  'a current review can be held again without removing any prior audit generation',
+  options,
+  async (t) => {
+    const f = await fixture(t);
+    await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete tree' });
+    const workspace = await pending(f);
+    await f.api.holdReview({ cwd: f.root, target: workspace, reason: 'first migration' });
+    await f.setupApply();
+    f.git('add', '.ai-peer-review', '.codex');
+    f.git('commit', '-m', 'owned integration');
+    await f.api.activate({ cwd: f.root });
+    await f.api.releaseReview({ cwd: f.root, target: workspace });
+    const directory = path.join(f.commonDir, 'ai-peer-review/review-history');
+    const prior = new Map(
+      readdirSync(directory).map((name) => [name, readFileSync(path.join(directory, name))])
+    );
+    const bytes = readFileSync(path.join(workspace, 'events.jsonl'));
+    await f.api.holdReview({ cwd: f.root, target: workspace, reason: 'second migration' });
+    const { assertReviewNotPreserved } = await import('../../src/config/review-history.mjs');
+    assert.throws(() => assertReviewNotPreserved(f.commonDir, workspace), {
+      code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+    });
+    for (const [name, bytes] of prior)
+      assert.deepEqual(readFileSync(path.join(directory, name)), bytes);
+    await f.api.releaseReview({ cwd: f.root, target: workspace });
+    assert.doesNotThrow(() => assertReviewNotPreserved(f.commonDir, workspace));
+    assert.deepEqual(readFileSync(path.join(workspace, 'events.jsonl')), bytes);
+  }
+);
+
+for (const kind of ['history', 'hold'])
+  test(`${kind} launch refuses before bookkeeping or provider effects`, options, async (t) => {
+    const f = await fixture(t);
+    await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete fixture' });
+    await f.setupApply();
+    f.git('add', '.ai-peer-review', '.codex');
+    f.git('commit', '-m', 'owned integration');
+    await f.api.activate({ cwd: f.root });
+    const workspace = await pending(f);
+    const { createReviewOperations } = await import('../../src/cli/run-core.mjs');
+    const protocol = await import('../helpers/protocol-api.mjs');
+    const { assertReviewNotPreserved, snapshotReviewHistory } =
+      await import('../../src/config/review-history.mjs');
+    const routing = {
+      schema: 'ai-peer-review.invitation-routing/v1',
+      review_id: 'review-current',
+      workspace,
+      artifact: 'spec.md',
+      response: 'response.md',
+    };
+    const invitation = f.write(
+      'reviewer-invitation.md',
+      '<!-- ai-peer-review-invitation data="' +
+        Buffer.from(JSON.stringify(routing)).toString('base64url') +
+        '" -->\n'
+    );
+    await f.api[kind === 'hold' ? 'holdReview' : 'preserveHistory']({
+      cwd: f.root,
+      target: workspace,
+      reason: 'migration checkpoint',
+    });
+    const before = snapshotReviewHistory(workspace);
+    const operations = createReviewOperations({
+      protocol,
+      startup: {},
+      productionProviderAdapters: () => new Map(),
+      createClaudeStreamingExec: () => {
+        throw new Error('provider effect');
+      },
+      requestGrant: () => {
+        throw new Error('grant effect');
+      },
+      performCurrentOperationEffect: (effect) => effect(),
+      withReviewOperationAuthority: async (input, operation) => {
+        assertReviewNotPreserved(f.commonDir, input.reviewWorkspace);
+        return operation();
+      },
+      runClaudeReviewerLaunch: () => {
+        throw new Error('provider launch');
+      },
+    });
+    let stderr = '';
+    const code = await operations.run(
+      ['launch-reviewer', invitation, '--host', 'claude', '--resume', '--json'],
+      {
+        cwd: f.root,
+        env: {},
+        stdout: { write() {} },
+        stderr: { write: (value) => (stderr += value) },
+      }
+    );
+    assert.notEqual(code, 0);
+    assert.equal(JSON.parse(stderr).code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
+    assert.deepEqual(snapshotReviewHistory(workspace), before);
+  });

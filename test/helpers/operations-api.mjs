@@ -62,6 +62,7 @@ const operations = createReviewOperations({
   requestGrant,
   runClaudeReviewerLaunch,
   applyReviewRecord,
+  withReviewOperationAuthority: async (_input, operation) => operation(),
   createClaudeStreamingExec,
   createClaudeStreamRecorder,
   performCurrentOperationEffect: (operation) => operation(),
