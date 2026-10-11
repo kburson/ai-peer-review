@@ -12,6 +12,15 @@
 
 ## Global Constraints
 
+## Story Intent
+
+- **Beneficiary:** Review operators upgrading existing clones
+- **Capability:** Preserve obsolete attempts as non-executable history and checkpoint current reviews safely during migration
+- **Need:** Migration currently cannot distinguish preserved obsolete activity from current review authority and demands settlement before its own recovery tools can run
+- **Value or failure prevented:** Prevent permanently blocked upgrades without losing evidence or granting historical attempts current execution authority
+
+## Global Constraints
+
 - Preserve all original target bytes, uncertain launches and participant identity.
 - No automatic historical classification from age, filename or issue state.
 - Current selected installation executes; retained images remain evidence.
