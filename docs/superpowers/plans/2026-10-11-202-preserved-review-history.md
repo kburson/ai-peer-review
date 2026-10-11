@@ -10,8 +10,6 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-11-202-preserved-review-history-design.md`
 
-## Global Constraints
-
 ## Story Intent
 
 - **Beneficiary:** Review operators upgrading existing clones

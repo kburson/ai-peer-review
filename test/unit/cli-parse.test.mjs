@@ -31,6 +31,30 @@ const EXPECTED_COMMANDS = [
   'explain',
 ];
 
+test('primary history maintenance requires exact target and explicit rationale', () => {
+  for (const verb of ['preserve-history', 'hold-review']) {
+    const parsed = parseCommand([
+      'primary',
+      verb,
+      '/repo/.scratch/peer-review/review-old',
+      '--reason',
+      'obsolete or held',
+      '--dry-run',
+    ]);
+    assert.deepEqual(parsed.args, [verb, '/repo/.scratch/peer-review/review-old']);
+    assert.equal(parsed.options.reason, 'obsolete or held');
+    usage(['primary', verb, '/target'], /reason/i);
+    usage(['primary', verb, '/target', '--reason', ''], /reason/i);
+    usage(['primary', verb, '/target', '--reason', 'valid', '--update'], /update/i);
+  }
+  assert.deepEqual(parseCommand(['primary', 'release-review', '/target']).args, [
+    'release-review',
+    '/target',
+  ]);
+  usage(['primary', 'register', '/target'], /target|positional/i);
+  usage(['primary', 'release-review', '/target', '--reason', 'unneeded'], /reason/i);
+});
+
 test('build accepts only the package-owned broker-security target', () => {
   assert.deepEqual(parseCommand(['build', 'broker-security']), {
     command: 'build',

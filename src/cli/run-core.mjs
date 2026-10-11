@@ -46,6 +46,9 @@ import {
   registerPrimary,
   activatePrimaryPolicy,
   inspectPrimary,
+  preserveHistory,
+  holdReview,
+  releaseReview,
 } from '../config/primary-operations.mjs';
 import { setup, updateSetup } from '../config/setup.mjs';
 import { assertProjectSetupCompatible } from '../config/installation-identity.mjs';
@@ -5190,13 +5193,21 @@ export function createReviewOperations({
       }
       if (parsed.command === 'primary') {
         const verb = parsed.args[0];
-        const response = await (
-          verb === 'register'
-            ? registerPrimary
-            : verb === 'activate'
-              ? activatePrimaryPolicy
-              : inspectPrimary
-        )({ cwd: io.cwd, dryRun: parsed.options.dryRun, update: parsed.options.update });
+        const operation = {
+          register: registerPrimary,
+          activate: activatePrimaryPolicy,
+          inspect: inspectPrimary,
+          'preserve-history': preserveHistory,
+          'hold-review': holdReview,
+          'release-review': releaseReview,
+        }[verb];
+        const response = await operation({
+          cwd: io.cwd,
+          dryRun: parsed.options.dryRun,
+          update: parsed.options.update,
+          target: parsed.args[1],
+          reason: parsed.options.reason,
+        });
         if (parsed.options.json) writeJson(io.stdout, response);
         else io.stdout.write(JSON.stringify(response, null, 2) + '\n');
         return 0;

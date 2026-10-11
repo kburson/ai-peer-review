@@ -798,7 +798,12 @@ async function inspectWorkspaceAuthority(inspectAuthority, project, workspace, r
   }
 }
 
-export async function reconcileRegistrations({ project, store, inspectAuthority } = {}) {
+export async function reconcileRegistrations({
+  project,
+  store,
+  inspectAuthority,
+  isPreserved = () => false,
+} = {}) {
   const identity = canonicalProject(project);
   const root = registrationRoot(identity, store, { recovery: true });
   if (typeof inspectAuthority !== 'function') {
@@ -850,7 +855,7 @@ export async function reconcileRegistrations({ project, store, inspectAuthority 
         'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
         'Registered review workspace'
       );
-      runtimeRecord(registration.runtime);
+      if (!isPreserved(registration.workspace)) runtimeRecord(registration.runtime);
       registrations.set(registration.review_id, result(registration, file));
     }
   }
@@ -873,6 +878,10 @@ export async function reconcileRegistrations({ project, store, inspectAuthority 
   for (const workspace of [...workspaces].sort()) {
     const reviewId = path.basename(workspace);
     const registration = registrations.get(reviewId) ?? null;
+    if (isPreserved(workspace)) {
+      if (registration) reconciled.push(registration);
+      continue;
+    }
     const authority = await inspectWorkspaceAuthority(
       inspectAuthority,
       identity,

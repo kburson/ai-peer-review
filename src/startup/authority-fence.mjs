@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { inspectReviewAuthority } from '../protocol/service.mjs';
+import { assertReviewNotPreserved } from '../config/review-history.mjs';
 import {
   assertCollateralCompatible,
   readRuntimeCompatibility,
@@ -39,6 +40,9 @@ export const OPERATION_CLASSIFICATION = Object.freeze({
   'register-runtime': 'maintenance',
   'primary.register': 'maintenance',
   'primary.activate': 'maintenance',
+  'primary.preserve-history': 'maintenance',
+  'primary.hold-review': 'maintenance',
+  'primary.release-review': 'maintenance',
   setup: 'maintenance',
   build: 'maintenance',
   start: 'mutation',
@@ -125,6 +129,7 @@ function observePrimary(cwd) {
 function assertReviewAuthority(seal) {
   if (!seal.reviewWorkspace) return;
   const workspace = path.resolve(seal.reviewWorkspace);
+  assertReviewNotPreserved(seal.primary.commonDir, workspace);
   let existing = workspace;
   while (!existsSync(existing)) {
     const parent = path.dirname(existing);
