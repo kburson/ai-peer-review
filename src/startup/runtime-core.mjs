@@ -547,6 +547,7 @@ export function createStartupRuntime({
         'classification',
         'ownership',
         'transport_mode',
+        ...(value?.author === undefined ? [] : ['author']),
         'reviewer',
         'adapter_version',
         'project_root_digest',
@@ -560,6 +561,21 @@ export function createStartupRuntime({
     if (!OWNERSHIPS.has(value.ownership)) usage('Runtime descriptor ownership is invalid.');
     if (!TRANSPORTS.has(value.transport_mode))
       usage('Runtime descriptor transport mode is invalid.');
+    if (value.author !== undefined) {
+      exactKeys(
+        value.author,
+        ['provider', 'host', 'model_id', 'model_display', 'effort'],
+        'Runtime descriptor author'
+      );
+      if (
+        !PROVIDERS.has(value.author.provider) ||
+        !text(value.author.host) ||
+        !text(value.author.model_id) ||
+        !text(value.author.model_display) ||
+        !text(value.author.effort)
+      )
+        usage('Runtime descriptor author selection is invalid.');
+    }
     exactKeys(
       value.reviewer,
       ['selector', 'provider', 'host', 'model_id', 'model_display', 'effort'],
