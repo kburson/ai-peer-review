@@ -779,6 +779,79 @@ async function inspect(value, type = 'directory', budget = operationBudget()) {
   const fingerprint = createHash('sha256').update(JSON.stringify(observation)).digest('hex');
   return { observation, fingerprint };
 }
+// A single new stock query observes the root, file and complete ancestry together.
+// This private helper returns no receipt and retains no observation between calls.
+async function inspectWindowsReadPair(root, target, budget) {
+  budget.check();
+  const { stats, chain } = await inspectAncestors(root, false, budget, true);
+  const rootStat = await sameCanonical(root),
+    fileStat = await sameCanonical(target);
+  if (!rootStat.isDirectory() || !fileStat.isFile())
+    throw failure('APR_BROKER_START_FAILED', 'storage-type-unproved');
+  if (fileStat.nlink !== 1n) throw failure('APR_BROKER_START_FAILED', 'storage-hardlink');
+  const records = await windowsProbe([...chain, root, target], false, budget);
+  records.slice(0, chain.length).forEach((record, index) => {
+    stats[index].acl = windowsAncestor(record, chain[index] === path.parse(chain[index]).root);
+  });
+  const rootRecord = records.at(-2),
+    fileRecord = records.at(-1);
+  const rootPolicy = assessWindowsProtection(rootRecord),
+    filePolicy = assessWindowsProtection(fileRecord);
+  if (!rootPolicy.verified || !filePolicy.verified)
+    throw failure('APR_BROKER_START_FAILED', [...rootPolicy.reasons, ...filePolicy.reasons][0]);
+  if (records.some((record) => record.principalSid !== rootRecord.principalSid))
+    throw failure('APR_BROKER_START_FAILED', 'effective-principal-unproved');
+  for (const [value, stat] of [
+    [root, rootStat],
+    [target, fileStat],
+  ]) {
+    const handle = await open(value, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    try {
+      if (identity(await handle.stat({ bigint: true })) !== identity(stat))
+        throw failure('APR_BROKER_START_FAILED', 'descriptor-substitution');
+    } finally {
+      await handle.close();
+    }
+  }
+  const rootObservation = {
+    root,
+    kind: process.platform,
+    type: 'directory',
+    principal: rootRecord.principalSid,
+    identity: identity(rootStat),
+    ancestry: stats,
+    acl: rootRecord,
+    trustedAllowances: rootPolicy.trustedAllowances,
+  };
+  const fileObservation = {
+    root: target,
+    kind: process.platform,
+    type: 'file',
+    fileVersion: [fileStat.size, fileStat.mtimeNs, fileStat.ctimeNs].map(String).join(':'),
+    principal: fileRecord.principalSid,
+    identity: identity(fileStat),
+    ancestry: [
+      ...stats,
+      {
+        path: root,
+        identity: identity(rootStat),
+        mode: mode(rootStat),
+        uid: String(rootStat.uid),
+        acl: windowsAncestor(rootRecord, false),
+      },
+    ],
+    acl: fileRecord,
+    trustedAllowances: filePolicy.trustedAllowances,
+  };
+  budget.check();
+  return {
+    root: {
+      observation: rootObservation,
+      fingerprint: createHash('sha256').update(JSON.stringify(rootObservation)).digest('hex'),
+    },
+    file: { observation: fileObservation },
+  };
+}
 function receipt(value, reasons, verified = false) {
   return freeze({
     schema: 'ai-peer-review.storage-protection/v1',
@@ -986,10 +1059,29 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_BYTES)
       throw failure('APR_BROKER_PATH_INVALID', 'private-read-bound-invalid');
     const target = path.join(r.root, resourceName(name));
-    await verify();
+    budget.check();
+    if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
     let file;
     try {
-      const before = await inspect(target, 'file', budget);
+      let before;
+      if (process.platform === 'win32') {
+        let pair;
+        try {
+          pair = await inspectWindowsReadPair(r.root, target, budget);
+        } catch (error) {
+          if (error.code === 'ENOENT') await verify();
+          throw error;
+        }
+        if (
+          pair.root.fingerprint !== binding.fingerprint ||
+          identity(await directory.stat({ bigint: true })) !== r.identity
+        )
+          throw failure('APR_BROKER_STALE', 'root-protection-changed');
+        before = pair.file;
+      } else {
+        await verify();
+        before = await inspect(target, 'file', budget);
+      }
       file = await open(
         target,
         (writable ? constants.O_RDWR : constants.O_RDONLY) | (constants.O_NOFOLLOW || 0)
@@ -1019,8 +1111,25 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       if (offset !== Number(stat.size) || offset > maxBytes)
         throw failure('APR_BROKER_STALE', 'private-read-bound-changed');
       const bytes = buffer.subarray(0, offset);
-      await verify();
-      await matchFile(entry, file);
+      if (process.platform === 'win32') {
+        const pair = await inspectWindowsReadPair(r.root, target, budget);
+        if (
+          pair.root.fingerprint !== binding.fingerprint ||
+          identity(await directory.stat({ bigint: true })) !== r.identity
+        )
+          throw failure('APR_BROKER_STALE', 'root-protection-changed');
+        const fresh = await file.stat({ bigint: true });
+        if (
+          pair.file.observation.identity !== entry.identity ||
+          pair.file.observation.fileVersion !== entry.fileVersion ||
+          identity(fresh) !== entry.identity ||
+          version(fresh) !== entry.fileVersion
+        )
+          throw failure('APR_BROKER_STALE', 'private-file-changed');
+      } else {
+        await verify();
+        await matchFile(entry, file);
+      }
       return { ...entry, bytes };
     } catch (error) {
       if (file) {
