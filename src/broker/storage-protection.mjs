@@ -216,6 +216,7 @@ $adminSid = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
 $member = @($identity.Groups | ForEach-Object { $_.Value }) -contains $adminSid.Value
 $effective = [System.Security.Principal.WindowsPrincipal]::new($identity).IsInRole($adminSid)
 $paths = @($inputRecord.paths)
+$sections = [System.Security.AccessControl.AccessControlSections]'Access,Owner,Group'
 foreach($candidate in $paths) {
   $drive=[System.IO.DriveInfo]::new([System.IO.Path]::GetPathRoot($candidate))
   if($drive.DriveType -ne [System.IO.DriveType]::Fixed -or $drive.DriveFormat -notin @('NTFS','ReFS')) {
@@ -224,17 +225,20 @@ foreach($candidate in $paths) {
 }
 if ($inputRecord.mode -eq 'provision') {
   if ($paths.Count -ne 1) { throw 'Invalid provision inventory' }
-  $target = Get-Item -LiteralPath $paths[0] -Force -ErrorAction Stop
-  if (($target.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Reparse refused' }
-  $prior = Get-Acl -LiteralPath $paths[0] -ErrorAction Stop
+  $attributes = [System.IO.File]::GetAttributes([string]$paths[0])
+  if (($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Reparse refused' }
+  $isDirectory = ($attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+  $prior = if($isDirectory) {
+    [System.IO.Directory]::GetAccessControl([string]$paths[0],$sections)
+  } else { [System.IO.File]::GetAccessControl([string]$paths[0],$sections) }
   $owner = $prior.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
   if ($owner -ne $user -and -not ($owner -eq $adminSid.Value -and $member)) { throw 'Foreign owner refused' }
-  $descriptor = if ($target.PSIsContainer) {
+  $descriptor = if ($isDirectory) {
     [System.Security.AccessControl.DirectorySecurity]::new()
   } else { [System.Security.AccessControl.FileSecurity]::new() }
   $descriptor.SetOwner($identity.User)
   $descriptor.SetAccessRuleProtection($true, $false)
-  $inherit = if ($target.PSIsContainer) {
+  $inherit = if ($isDirectory) {
     [System.Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit'
   } else { [System.Security.AccessControl.InheritanceFlags]::None }
   foreach ($sid in @($user,'S-1-5-18')) {
@@ -248,8 +252,10 @@ if ($inputRecord.mode -eq 'provision') {
   Set-Acl -LiteralPath $paths[0] -AclObject $descriptor -ErrorAction Stop
 }
 $records = foreach ($entry in $paths) {
-  $item = Get-Item -LiteralPath $entry -Force -ErrorAction Stop
-  $acl = Get-Acl -LiteralPath $entry -ErrorAction Stop
+  $attributes = [System.IO.File]::GetAttributes([string]$entry)
+  $acl = if (($attributes -band [System.IO.FileAttributes]::Directory) -ne 0) {
+    [System.IO.Directory]::GetAccessControl([string]$entry,$sections)
+  } else { [System.IO.File]::GetAccessControl([string]$entry,$sections) }
   $raw = [System.Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
   $aces = @()
   foreach ($ace in $raw.DiscretionaryAcl) {
@@ -278,7 +284,7 @@ $records = foreach ($entry in $paths) {
     administratorMember = [bool]$member; administratorEffective = [bool]$effective
     inheritanceProtected = [bool]$acl.AreAccessRulesProtected
     canonical = [bool]$acl.AreAccessRulesCanonical
-    reparsePoint = ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    reparsePoint = ($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
     aces = @($aces)
   }
 }
