@@ -122,6 +122,9 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Real stock reads retain one original 30 second budget
         run: node --test --test-name-pattern='twenty protected snapshot reads' test/unit/storage-protection.test.mjs
+      - name: Diagnose the same reads with unchanged stock calls and budget
+        if: failure()
+        run: node --import ./test/helpers/windows-stock-timing.mjs --test --test-name-pattern='twenty protected snapshot reads' test/unit/storage-protection.test.mjs
 
   windows-acl-benchmark:
     name: Stock Windows ACL API comparison
