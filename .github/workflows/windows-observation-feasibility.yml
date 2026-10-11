@@ -1,0 +1,48 @@
+name: Windows observation feasibility
+on:
+  push:
+    branches: [codex/190-installed-journeys]
+    paths:
+      - test/helpers/windows-observation-feasibility*.mjs
+      - test/helpers/windows-limited-observation-feasibility.ps1
+      - .github/workflows/windows-observation-feasibility.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  observation:
+    name: Observation / Node ${{ matrix.node }} / ${{ matrix.token }}
+    runs-on: windows-2025
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        node: ['24', '26']
+        token: [ordinary, limited]
+    steps:
+      - name: Enable retained long public review paths
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Observe actual ordinary-token records and restored fixture ACL
+        if: matrix.token == 'ordinary'
+        run: node test/helpers/windows-observation-feasibility.mjs ordinary
+      - name: Observe actual limited-token records and restored fixture ACL
+        if: matrix.token == 'limited'
+        shell: powershell
+        run: ./test/helpers/windows-limited-observation-feasibility.ps1
+      - name: Retain sanitized diagnostics and incomplete outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-observation-${{ matrix.node }}-${{ matrix.token }}-${{ github.run_attempt }}
+          path: .scratch/190-feasibility-public/
+          if-no-files-found: error
+          retention-days: 30
