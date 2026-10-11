@@ -2,7 +2,7 @@
 # Disposable authorized hosted worker: a real non-admin account and loaded OS profile.
 # Password stays in memory; no reported SID, substituted home, or elevated token grants authority.
 $ErrorActionPreference = 'Stop'
-if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:GITHUB_REPOSITORY -ne 'kburson/ai-peer-review' -or $env:GITHUB_WORKFLOW -ne 'Windows probe measurement' -or $env:GITHUB_REF_NAME -ne 'codex/198-draft') { throw 'measurement-host-unavailable' }
+if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:GITHUB_REPOSITORY -ne 'kburson/ai-peer-review' -or $env:GITHUB_WORKFLOW -ne 'Windows probe measurement') { throw 'measurement-host-unavailable' }
 $parentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not ([Security.Principal.WindowsPrincipal]::new($parentIdentity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'measurement-account-provisioning-unavailable' }
 $root = (Get-Location).ProviderPath
@@ -11,6 +11,8 @@ $public = Join-Path $root '.scratch/198-measurement-public'
 New-Item -ItemType Directory -Path $private, $public -Force | Out-Null
 $node = (Get-Command node -CommandType Application | Select-Object -First 1).Source
 if (-not (Test-Path -LiteralPath $node -PathType Leaf)) { throw 'measurement-node-executable-unavailable' }
+& $node 'test/helpers/windows-probe-measurement-host.mjs'
+if ($LASTEXITCODE -ne 0) { throw 'measurement-host-unavailable' }
 $script = Join-Path $private 'limited.ps1'
 $result = Join-Path $private 'limited-token.json'
 $metadata = Join-Path $private 'environment.json'

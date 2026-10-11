@@ -1,3 +1,4 @@
+import { assertMeasurementHost } from './windows-probe-measurement-host.mjs';
 // @story #198
 // Fixed installed candidate, actual OS identity. Raw streams stay private.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -14,17 +15,9 @@ import {
 } from './windows-probe-measurement-report.mjs';
 const root = await realpath(fileURLToPath(new URL('../../', import.meta.url)));
 const token = process.argv[2];
-if (
-  process.argv.length !== 3 ||
-  !['ordinary', 'limited'].includes(token) ||
-  process.platform !== 'win32' ||
-  process.env.GITHUB_ACTIONS !== 'true' ||
-  process.env.RUNNER_ENVIRONMENT !== 'github-hosted' ||
-  process.env.GITHUB_REPOSITORY !== 'kburson/ai-peer-review' ||
-  process.env.GITHUB_WORKFLOW !== 'Windows probe measurement' ||
-  process.env.NODE_OPTIONS
-)
-  throw Error('measurement-host-unavailable');
+assertMeasurementHost();
+if (process.argv.length !== 3 || !['ordinary', 'limited'].includes(token))
+  throw Error('measurement-token-unavailable');
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 const producer = git(root, 'rev-parse', 'HEAD');
 if (producer !== process.env.GITHUB_SHA) throw Error('measurement-producer-mismatch');

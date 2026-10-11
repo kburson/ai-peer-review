@@ -4,9 +4,11 @@ export function createProbeMeasurement({ limit = 4096 } = {}) {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 4096) throw Error('measurement-limit');
   const guards = new WeakMap(),
     contexts = new WeakMap(),
-    tokens = new WeakMap();
+    tokens = new WeakMap(),
+    checks = new WeakMap();
   const calls = [],
-    active = new Set();
+    active = new Set(),
+    waitingChecks = new Set();
   let guardSequence = 0,
     contextSequence = 0,
     total = 0,
@@ -16,6 +18,7 @@ export function createProbeMeasurement({ limit = 4096 } = {}) {
   function begin({ signal, kind = 'other' } = {}) {
     total++;
     pending = null;
+    for (const item of waitingChecks) item.record.ambiguous = true;
     const token = {};
     if (calls.length >= limit) {
       truncated = true;
@@ -34,7 +37,7 @@ export function createProbeMeasurement({ limit = 4096 } = {}) {
       elapsedMs: 0,
       success: false,
       category: 'outside',
-      ambiguous: active.size > 0,
+      ambiguous: active.size > 0 || waitingChecks.size > 0,
     };
     for (const item of active) item.ambiguous = true;
     calls.push(record);
@@ -67,14 +70,29 @@ export function createProbeMeasurement({ limit = 4096 } = {}) {
     if (!guards.has(handle))
       guards.set(handle, { id: ++guardSequence, closed: false, seen: new Set() });
   }
-  function checkGuard(handle, { success = false } = {}) {
+  function beginGuardCheck(handle) {
     const record = pending;
     pending = null;
     const guard = guards.get(handle);
-    if (!record || !guard || guard.closed || !success || active.size || truncated) return;
+    const token = {};
+    if (record && guard && !guard.closed && !active.size && !truncated) {
+      const check = { record, guard };
+      checks.set(token, check);
+      waitingChecks.add(check);
+    }
+    return token;
+  }
+  function completeGuardCheck(token, { success = false } = {}) {
+    const check = checks.get(token);
+    if (!check || !waitingChecks.delete(check)) return;
+    const { record, guard } = check;
+    if (record.ambiguous || guard.closed || !success || active.size || truncated) return;
     record.guard = guard.id;
     record.category = guard.seen.has(record.context) ? 'removable' : 'first';
     guard.seen.add(record.context);
+  }
+  function checkGuard(handle, result) {
+    completeGuardCheck(beginGuardCheck(handle), result);
   }
   function closeGuard(handle) {
     const guard = guards.get(handle);
@@ -111,5 +129,15 @@ export function createProbeMeasurement({ limit = 4096 } = {}) {
       decision: 'insufficient-evidence',
     };
   }
-  return { begin, setKind, complete, registerGuard, checkGuard, closeGuard, report };
+  return {
+    begin,
+    setKind,
+    complete,
+    registerGuard,
+    beginGuardCheck,
+    completeGuardCheck,
+    checkGuard,
+    closeGuard,
+    report,
+  };
 }

@@ -115,11 +115,18 @@ fs.open = function (...args) {
             /\bat (?:async )?(?:openProtectedRoot|verify|readObserved) \([^\n]*[\\/]src[\\/]broker[\\/]storage-protection\.mjs:/.test(
               checkStack
             );
-          const promise = Reflect.apply(stat, this, values);
+          const check = known ? measurement.beginGuardCheck(handle) : null;
+          let promise;
+          try {
+            promise = Reflect.apply(stat, this, values);
+          } catch (error) {
+            if (check) measurement.completeGuardCheck(check, { success: false });
+            throw error;
+          }
           if (known)
             promise.then(
-              () => measurement.checkGuard(handle, { success: true }),
-              () => measurement.checkGuard(handle, { success: false })
+              () => measurement.completeGuardCheck(check, { success: true }),
+              () => measurement.completeGuardCheck(check, { success: false })
             );
           return promise;
         };

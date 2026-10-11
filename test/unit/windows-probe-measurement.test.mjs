@@ -281,3 +281,66 @@ test('actual collection provenance refuses missing, duplicate and failed workers
     assert.throws(() => validateMeasurementProvenance(bad, producer));
   }
 });
+
+test('delayed checks cannot consume later unrelated observations sharing a signal', async () => {
+  await withHandles(async (a, b) => {
+    const m = createProbeMeasurement(),
+      signal = new AbortController().signal;
+    m.registerGuard(a);
+    m.registerGuard(b);
+    observe(m, signal, a);
+    const q = m.begin({ signal, kind: 'observe' });
+    m.complete(q, { success: true, elapsedMs: 350 });
+    const check = m.beginGuardCheck(a);
+    const unrelated = m.begin({ signal, kind: 'observe' });
+    m.complete(unrelated, { success: true, elapsedMs: 350 });
+    m.completeGuardCheck(check, { success: true });
+    const otherCheck = m.beginGuardCheck(b);
+    m.completeGuardCheck(otherCheck, { success: true });
+    const r = m.report();
+    assert.equal(r.calls[1].category, 'outside');
+    assert.equal(r.calls[2].guard, null);
+    assert.equal(r.calls[2].category, 'outside');
+    assert.deepEqual(r.counts, { total: 3, first: 1, removable: 0, outside: 2 });
+  });
+});
+test('isolated asynchronous checks capture exactly their own observation', async () => {
+  await withHandles(async (a) => {
+    const m = createProbeMeasurement(),
+      signal = new AbortController().signal;
+    m.registerGuard(a);
+    for (let i = 0; i < 2; i++) {
+      const q = m.begin({ signal, kind: 'observe' });
+      m.complete(q, { success: true, elapsedMs: 350 });
+      const check = m.beginGuardCheck(a);
+      await a.stat();
+      m.completeGuardCheck(check, { success: true });
+    }
+    assert.deepEqual(m.report().counts, { total: 2, first: 1, removable: 1, outside: 0 });
+  });
+});
+
+test('host admission permits both intended branches and refuses foreign refs before collection', async () => {
+  const { assertMeasurementHost } = await import('../helpers/windows-probe-measurement-host.mjs');
+  const environment = {
+    GITHUB_ACTIONS: 'true',
+    RUNNER_ENVIRONMENT: 'github-hosted',
+    GITHUB_REPOSITORY: 'kburson/ai-peer-review',
+    GITHUB_WORKFLOW: 'Windows probe measurement',
+    GITHUB_REF_NAME: 'codex/198-draft',
+  };
+  assert.doesNotThrow(() => assertMeasurementHost({ environment, platform: 'win32' }));
+  assert.doesNotThrow(() =>
+    assertMeasurementHost({
+      environment: { ...environment, GITHUB_REF_NAME: 'trunk' },
+      platform: 'win32',
+    })
+  );
+  assert.throws(() =>
+    assertMeasurementHost({
+      environment: { ...environment, GITHUB_REF_NAME: 'foreign' },
+      platform: 'win32',
+    })
+  );
+  assert.throws(() => assertMeasurementHost({ environment, platform: 'linux' }));
+});
