@@ -42,7 +42,7 @@
       {
         "hooks": [],
         "matcher": "apply_patch|Edit|Write|NotebookEdit"
-      }
+      },{"matcher":"Bash","hooks":[{"type":"command","command":"peer-review-codex-hook"}]}
     ],
     "PostToolUse": [
       {

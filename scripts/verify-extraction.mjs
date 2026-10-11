@@ -51,6 +51,8 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
   ],
   exact: [
     '.ai-peer-review.json',
+    '.ai-peer-review/config.json',
+    '.ai-peer-review/skills/peer-review/SKILL.md',
     '.claude/commands/task.md',
     '.claude/settings.json',
     '.github/CODEOWNERS',

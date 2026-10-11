@@ -21,6 +21,15 @@ export async function registerPrimary(options = {}) {
 export async function activatePrimaryPolicy(options = {}) {
   return maintenance().activate(options);
 }
+export async function preserveHistory(options = {}) {
+  return maintenance().preserveHistory(options);
+}
+export async function holdReview(options = {}) {
+  return maintenance().holdReview(options);
+}
+export async function releaseReview(options = {}) {
+  return maintenance().releaseReview(options);
+}
 export async function inspectPrimary({ cwd = process.cwd() } = {}) {
   const runtime = await assertSelectedRuntime();
   const primary = resolvePrimaryAuthoritySync({ cwd });

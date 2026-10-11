@@ -51,6 +51,14 @@ workspaces. Account-level runtime selection is shared by clones and identifies
 the actual package path and Node executable. Project-local dependencies and source
 checkouts cannot register as the shared runner.
 
+If the account configuration still uses the legacy schema, migrate its owned
+user integrations first with `peer-review setup --scope user --update --migrate
+--dry-run`, then apply the same command without `--dry-run`. The original account
+configuration is retained byte for byte in its `legacy-config-evidence` directory.
+Legacy account authority or review policy refuses rather than silently moving to
+a different scope. Project machine-field migration uses explicit `--migrate-user`
+and refuses conflicts with the invoking account.
+
 For an in-place global upgrade, rebuild the native helper, run deployment and
 doctor diagnostics, and refresh stale owned integrations with setup --update
 --dry-run followed by setup --update. Commit and activate changed owned primary
@@ -60,6 +68,59 @@ register-runtime --update --dry-run, then register-runtime --update. Existing
 processes fence changed bytes; use a fresh invocation of the current installation.
 Historical runtime images remain evidence. Supported collateral can continue;
 unsupported collateral remains intact and read-only.
+
+## Preserved obsolete reviews during migration
+
+Old interrupted attempts can remain useful audit evidence even after a later
+review accepted their revised design. They are not current work merely because
+their original protocol journal remains unfinished. From the physical primary,
+inspect and explicitly preserve each obsolete target:
+
+```bash
+peer-review primary preserve-history /absolute/worktree/.scratch/peer-review/review-obsolete --reason "Obsolete predecessor; canonical later acceptance is preserved in the review archive" --dry-run
+peer-review primary preserve-history /absolute/worktree/.scratch/peer-review/review-obsolete --reason "Obsolete predecessor; canonical later acceptance is preserved in the review archive"
+```
+
+The selected installation measures the exact target and adds an account-private
+clone receipt. It retains the original location and bytes, including uncertain
+launch information. History cannot execute or be released as a current review;
+preservation does not claim acceptance, abandonment, provider settlement or safe
+deletion. Age, filenames and issue closure never classify an attempt automatically.
+Changed evidence, replaced parents or unsafe receipt storage refuses migration.
+Preserve a whole top-level scratch unit or a direct `reviews` container entry;
+partial review files and deeper targets refuse. An individual obsolete broker
+registration is another whole unit: preserve its exact
+`.scratch/peer-review/broker/registrations/<review-id>.json` file with an explicit
+historical reason. The closed registration remains unchanged and cannot restore
+a worker; broker directories and other authority stores still refuse. Enclosing containers protect
+their descendant registrations and effects. Passive scratch
+reports remain hashed evidence, and unclassified activity remains a blocker.
+
+For a genuinely pending review, use a separate temporary maintenance hold:
+
+```bash
+peer-review primary hold-review /absolute/worktree/.scratch/peer-review/review-current --reason "Temporary primary migration checkpoint" --dry-run
+peer-review primary hold-review /absolute/worktree/.scratch/peer-review/review-current --reason "Temporary primary migration checkpoint"
+```
+
+A hold preserves the exact current protocol and participant identity and blocks
+effects while primary setup is migrated. Perform the documented registration,
+setup, commit and activation steps above, then inspect and release that hold:
+
+```bash
+peer-review primary release-review /absolute/worktree/.scratch/peer-review/review-current --dry-run
+peer-review primary release-review /absolute/worktree/.scratch/peer-review/review-current
+```
+
+Release requires current activated primary integration and unchanged held bytes.
+Its audit record remains. A later migration can hold the same current review
+again; each hold and release adds a new generation without replacing prior
+records. Continue through the original review's ordinary
+identity, claim and provider guards; release never dispatches a provider or
+replays an uncertain launch. Historical registrations remain retained and are
+excluded from broker worker restoration. These maintenance operations require
+the physical primary and current selected installation even before initial
+primary activation; ordinary effects and new reviews still require activation.
 
 ## Source CI and releases
 

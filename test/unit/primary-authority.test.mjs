@@ -176,3 +176,14 @@ test('shipped partial and assembled schemas independently enforce field ownershi
     false
   );
 });
+
+test('account automatic preferences do not enable an undeclared primary capability', () => {
+  const p = primary(),
+    u = user();
+  delete p.hosts.codex.automatic;
+  const before = structuredClone(u);
+  const resolved = config.resolveConfigFields({ primary: p, user: u });
+  assert.equal(resolved.hosts.codex.automatic, undefined);
+  assert.deepEqual(resolved.hosts.codex.resume.command, ['codex', 'resume']);
+  assert.deepEqual(u, before);
+});

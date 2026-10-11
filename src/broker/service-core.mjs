@@ -195,6 +195,12 @@ export function createBrokerService({
         };
         const addWorker = async (registration) => {
           const valid = assertRegistration(identity, registration);
+          if (input.isPreserved?.(valid.workspace))
+            fail(
+              'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+              'Preserved review cannot restore a broker worker.',
+              'Retain its history or release a current migration hold through primary maintenance.'
+            );
           const existing = workers.get(valid.workspace);
           if (existing) return existing;
           const worker = await workerFactory(valid);
@@ -280,6 +286,7 @@ export function createBrokerService({
             try {
               await input.cleanupGuard?.();
               for (const registration of await registry.list()) {
+                if (input.isPreserved?.(registration.workspace)) continue;
                 const worker = await addWorker(registration);
                 if (worker.workState() === 'recovery-only')
                   unreconciled.push(registration.workspace);
@@ -374,7 +381,9 @@ export function createBrokerService({
         };
 
         try {
-          for (const registration of await registry.list()) await addWorker(registration);
+          for (const registration of await registry.list()) {
+            if (!input.isPreserved?.(registration.workspace)) await addWorker(registration);
+          }
           await settleWorkers({ resetIdle: true });
           server.start(serializedDispatch);
           // Recovery can exceed the short handshake deadline. Advertise only after

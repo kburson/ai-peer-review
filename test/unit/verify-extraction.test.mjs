@@ -87,6 +87,8 @@ function validManifest(overrides = {}) {
       ],
       exact: [
         '.ai-peer-review.json',
+    '.ai-peer-review/config.json',
+    '.ai-peer-review/skills/peer-review/SKILL.md',
         '.claude/commands/task.md',
         '.claude/settings.json',
         '.github/CODEOWNERS',
@@ -716,4 +718,11 @@ test('allows the four exact hosted evidence scripts while refusing neighboring s
     await verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n'+file})});
   }
   await assert.rejects(verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\nscripts/ci/undeclared.mjs'})}),/foreign standalone paths/);
+});
+
+// Exact primary policy paths cannot broaden the standalone boundary to private state.
+test('primary policy paths are admitted while neighboring private state remains foreign', async () => {
+ const manifest=validManifest();
+ await verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n.ai-peer-review/config.json\n.ai-peer-review/skills/peer-review/SKILL.md'})});
+ for(const file of ['.ai-peer-review/credentials.json','.ai-peer-review/review-history/entry.json','.ai-peer-review/skills/other/SKILL.md']) await assert.rejects(verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n'+file})}),/foreign standalone paths/);
 });

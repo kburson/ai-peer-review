@@ -46,6 +46,9 @@ import {
   registerPrimary,
   activatePrimaryPolicy,
   inspectPrimary,
+  preserveHistory,
+  holdReview,
+  releaseReview,
 } from '../config/primary-operations.mjs';
 import { setup, updateSetup } from '../config/setup.mjs';
 import { assertProjectSetupCompatible } from '../config/installation-identity.mjs';
@@ -136,6 +139,7 @@ export function createReviewOperations({
   createClaudeStreamingExec,
   createClaudeStreamRecorder = rawCreateClaudeStreamRecorder,
   performCurrentOperationEffect,
+  withReviewOperationAuthority,
   requestGrant,
   runClaudeReviewerLaunch,
   applyReviewRecord,
@@ -146,6 +150,7 @@ export function createReviewOperations({
     !startup ||
     !productionProviderAdapters ||
     typeof createClaudeStreamingExec !== 'function' ||
+    typeof withReviewOperationAuthority !== 'function' ||
     typeof performCurrentOperationEffect !== 'function'
   )
     throw new TypeError('Explicit operation dependencies required');
@@ -5159,6 +5164,23 @@ export function createReviewOperations({
     }
   }
 
+  // Bind the exact review before legacy checks or any manual-launch bookkeeping.
+  async function runWithReviewAuthority(argv, io) {
+    try {
+      const parsed = parseCommand(argv);
+      if (parsed.command !== 'launch-reviewer') return run(argv, io);
+      const values = invitationValues(path.resolve(io.cwd, parsed.args[0]));
+      return await withReviewOperationAuthority(
+        { operation: 'launch-reviewer', cwd: io.cwd, reviewWorkspace: values.workspace },
+        () => run(argv, io)
+      );
+    } catch (error) {
+      if (!(error instanceof AprError)) throw error;
+      writeJson(io.stderr, error.toJSON());
+      return error.exitCode;
+    }
+  }
+
   async function run(argv, io) {
     try {
       const parsed = parseCommand(argv);
@@ -5190,13 +5212,21 @@ export function createReviewOperations({
       }
       if (parsed.command === 'primary') {
         const verb = parsed.args[0];
-        const response = await (
-          verb === 'register'
-            ? registerPrimary
-            : verb === 'activate'
-              ? activatePrimaryPolicy
-              : inspectPrimary
-        )({ cwd: io.cwd, dryRun: parsed.options.dryRun, update: parsed.options.update });
+        const operation = {
+          register: registerPrimary,
+          activate: activatePrimaryPolicy,
+          inspect: inspectPrimary,
+          'preserve-history': preserveHistory,
+          'hold-review': holdReview,
+          'release-review': releaseReview,
+        }[verb];
+        const response = await operation({
+          cwd: io.cwd,
+          dryRun: parsed.options.dryRun,
+          update: parsed.options.update,
+          target: parsed.args[1],
+          reason: parsed.options.reason,
+        });
         if (parsed.options.json) writeJson(io.stdout, response);
         else io.stdout.write(JSON.stringify(response, null, 2) + '\n');
         return 0;
@@ -5424,6 +5454,7 @@ export function createReviewOperations({
         const operation =
           evidence &&
           (await reserveManualLaunch(values.workspace, launchDetails, {
+            effect: performCurrentOperationEffect,
             verifyAuthority() {
               const fresh = inspectReviewAuthority(values.workspace).state;
               const observed = startupEvidence(values.workspace, fresh);
@@ -5476,7 +5507,8 @@ export function createReviewOperations({
               operation.id,
               ['submitted', 'permission-blocked'].includes(response.status)
                 ? 'submitted'
-                : 'outcome-unknown'
+                : 'outcome-unknown',
+              { effect: performCurrentOperationEffect }
             );
         } catch (error) {
           if (operation && error?.code === 'APR_REVIEWER_SELECTION_REFUSED') {
@@ -5498,7 +5530,8 @@ export function createReviewOperations({
                 values.workspace,
                 launchDetails,
                 operation.id,
-                'not-submitted'
+                'not-submitted',
+                { effect: performCurrentOperationEffect }
               );
           }
           throw error;
@@ -5907,7 +5940,7 @@ export function createReviewOperations({
     submitReviewTurn,
     submitAuthorTurn,
     finalizeReview,
-    run,
+    run: runWithReviewAuthority,
     runHandoffMcpStdio,
   });
 }

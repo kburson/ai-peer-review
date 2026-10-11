@@ -7,6 +7,7 @@ import { authorityGit, discoverAuthorityRepository } from '../git/repository.mjs
 import { inspectReviewAuthority } from '../protocol/service.mjs';
 import { verifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { startupEvidence, readStartupJournal } from '../broker/registry.mjs';
+import { findReviewPreservation, readReviewPreservation } from './review-history.mjs';
 const observations = new WeakSet();
 const terminal = new Set([
   'accepted',
@@ -116,6 +117,22 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
     }
   }
   function inspect(workspace) {
+    const preserved = findReviewPreservation(commonDir, workspace, { verifySnapshot: true });
+    if (preserved && !preserved.released) {
+      hash
+        .update(workspace)
+        .update(preserved.recordDigest)
+        .update(preserved.record.snapshot.digest);
+      reviews.push(
+        Object.freeze({
+          workspace,
+          state: null,
+          suspended: false,
+          preservation: preserved.record.kind,
+        })
+      );
+      return;
+    }
     boundTree(workspace);
     if (!metadata(path.join(workspace, 'events.jsonl'))) {
       const journal = readStartupJournal(workspace);
@@ -154,6 +171,13 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
     const value = fields.find((field) => field.startsWith('worktree '));
     if (!value || fields.includes('bare')) unavailable('Worktree inventory is malformed.');
     const listedRoot = value.slice(9);
+    if (
+      fields.some((field) => field.startsWith('prunable ')) &&
+      !metadata(path.join(listedRoot, '.scratch/peer-review'))
+    ) {
+      hash.update(listedRoot).update('disconnected-worktree-without-review-scratch');
+      continue;
+    }
     let location;
     try {
       location = discoverAuthorityRepository(realpathSync(listedRoot));
@@ -173,8 +197,16 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
     for (const entry of readdirSync(scratch, { withFileTypes: true })) {
       const file = path.join(scratch, entry.name),
         stat = metadata(file);
-      if (!stat.isDirectory())
-        unavailable('Unknown review scratch entry blocks activation.', { file });
+      if (!stat.isDirectory()) {
+        if (
+          !stat.isFile() ||
+          stat.size > 16 * 1024 * 1024 ||
+          (total += stat.size) > 64 * 1024 * 1024
+        )
+          unavailable('Passive scratch evidence exceeds its bound.', { file });
+        hash.update(file).update(readFileSync(file));
+        continue;
+      }
       if (['codex-hooks', 'claude-hooks'].includes(entry.name)) {
         inspectHookStore(file, entry.name.split('-')[0]);
         continue;
@@ -203,6 +235,13 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
               } catch {
                 unavailable('Broker registration cannot be inspected.', { file: registrationFile });
               }
+              const retained = readReviewPreservation(commonDir, registrationFile, {
+                verifySnapshot: true,
+              });
+              if (retained?.record.kind === 'history' && !retained.released) {
+                hash.update(registrationFile).update(retained.recordDigest);
+                continue;
+              }
               const keys = [
                 'created_at',
                 'project_digest',
@@ -230,6 +269,13 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
                 unavailable('Broker registration refers to missing review activity.', {
                   file: registrationFile,
                 });
+              const preserved = findReviewPreservation(commonDir, workspace, {
+                verifySnapshot: true,
+              });
+              if (preserved && !preserved.released) {
+                hash.update(workspace).update(preserved.recordDigest);
+                continue;
+              }
               const journal = readStartupJournal(workspace);
               if (
                 !journal ||
