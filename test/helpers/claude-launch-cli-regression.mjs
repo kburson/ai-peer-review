@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import {
   mkdirSync,
   mkdtempSync,
@@ -13,7 +15,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { run } from '../helpers/operations-api.mjs';
-import { fingerprintSession } from '../../src/identity/registry.mjs';
+import { enterStaleClaimIntervention, fingerprintSession } from '../../src/identity/registry.mjs';
+import { inspectReviewAuthority, mutateReview } from './protocol-api.mjs';
 import { createClaudeAdapter } from '../../src/providers/claude.mjs';
 import { createClaudeStreamRecorder, readClaudeStreamObservation } from './claude-stream-api.mjs';
 import { fixtureObservation, fixtureStartupDeps, statusReview } from './internal-api.mjs';
@@ -109,7 +112,10 @@ export function isolateClaudeCliFixture(t, { configured = true } = {}) {
   return { root, configHome, parentEnvironment, adapters };
 }
 
-export function cliCall(argv, { root, env, execFile, startup = false, adapters, now = NOW } = {}) {
+export function cliCall(
+  argv,
+  { root, env, execFile, spawnProcess, startup = false, adapters, now = NOW } = {}
+) {
   let stdout = '';
   let stderr = '';
   const io = {
@@ -131,6 +137,7 @@ export function cliCall(argv, { root, env, execFile, startup = false, adapters, 
       },
     },
     ...(execFile ? { execFile } : {}),
+    ...(spawnProcess ? { spawnProcess } : {}),
   };
   return run(argv, io).then((code) => ({ code, stdout, stderr }));
 }
@@ -167,6 +174,9 @@ export async function exerciseClaudeLaunchCli(
     expired = false,
     recoveryFailure = null,
     staleAuthor = false,
+    persistedIntervention = false,
+    repeatExpiry = false,
+    stream = false,
     cleanParent = false,
     modelSource = 'runtime',
   } = {}
@@ -247,7 +257,8 @@ export async function exerciseClaudeLaunchCli(
   let launchCount = 0;
   let childEnv;
   let fixtureFailure;
-  const resumedAt = expired ? new Date(NOW.getTime() + 9 * 60 * 60 * 1000) : NOW;
+  let resumedAt = expired ? new Date(NOW.getTime() + 9 * 60 * 60 * 1000) : NOW;
+  let deniedAfterReclaim = false;
   async function fakeClaudeImpl(_file, args, options) {
     launchCount += 1;
     assert.equal(options.shell, false);
@@ -307,7 +318,10 @@ export async function exerciseClaudeLaunchCli(
     } else {
       assert.equal(resume, true);
       assert.deepEqual(args.slice(0, 2), ['--resume', REVIEWER_SESSION]);
-      if (expired && launchCount === 2) {
+      if (
+        expired &&
+        !args.slice(args.indexOf('--allowedTools') + 1).some((rule) => rule.startsWith('Edit('))
+      ) {
         const prompt = args[args.indexOf('-p') + 1];
         assert.match(prompt, /recover.*--reclaim/);
         assert.match(prompt, /before.*(?:edit|submit)/i);
@@ -348,6 +362,17 @@ export async function exerciseClaudeLaunchCli(
           }),
         };
       }
+      if (repeatExpiry && !deniedAfterReclaim) {
+        deniedAfterReclaim = true;
+        return {
+          exit_code: 1,
+          stderr: '',
+          stdout: JSON.stringify({
+            session_id: REVIEWER_SESSION,
+            permission_denials: [{ tool: 'Edit', path: response }],
+          }),
+        };
+      }
     }
     for (const [heading, content] of [
       ['Summary', 'The fixture artifact is ready.'],
@@ -384,6 +409,48 @@ export async function exerciseClaudeLaunchCli(
     }
   }
 
+  function spawnClaude(file, args, options) {
+    assert.equal(options.env.APR_PROVIDER_DEADLINE_MS, undefined);
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    // Inert unbounded fixture: lifetime.stop calls only this child's fake kill.
+    child.pid = 314159;
+    let stopped = false;
+    child.kill = () => {
+      stopped = true;
+      child.stdout.end();
+      child.stderr.end();
+      child.emit('close', 1);
+    };
+    setImmediate(async () => {
+      child.stdout.write(
+        JSON.stringify({
+          type: 'system',
+          subtype: 'init',
+          model: 'claude-opus-5',
+          session_id: REVIEWER_SESSION,
+          claude_code_version: '2.1.278',
+        }) + '\n'
+      );
+      await new Promise((resolve) => setImmediate(resolve));
+      if (stopped) return;
+      try {
+        const result = await fakeClaude(file, args, { ...options, shell: false });
+        child.stdout.write(JSON.stringify({ type: 'result', ...JSON.parse(result.stdout) }) + '\n');
+        child.stdout.end();
+        child.stderr.end();
+        child.exitCode = result.exit_code;
+        child.emit('close', result.exit_code);
+      } catch (error) {
+        fixtureFailure = error;
+        child.kill();
+      }
+    });
+    return child;
+  }
+  const provider = stream ? { spawnProcess: spawnClaude } : { execFile: fakeClaude };
+
   const initial = await cliCall(
     [
       'launch-reviewer',
@@ -396,7 +463,7 @@ export async function exerciseClaudeLaunchCli(
       'high',
       '--json',
     ],
-    { root: fx.root, env: launchEnvironment, execFile: fakeClaude }
+    { root: fx.root, env: launchEnvironment, ...provider }
   );
   if (fixtureFailure) throw fixtureFailure;
   assert.equal(initial.code, 0, initial.stderr);
@@ -408,6 +475,19 @@ export async function exerciseClaudeLaunchCli(
       JSON.stringify(initialResult)
     );
     if (!staleAuthor) assert.ok(initialResult.recovery?.command);
+    if (persistedIntervention) {
+      const { state } = inspectReviewAuthority(workspace);
+      await mutateReview(
+        workspace,
+        {
+          reviewId,
+          revision: state.protocol.revision,
+          sequence: state.protocol.sequence,
+          actor: 'reviewer',
+        },
+        (current) => enterStaleClaimIntervention(current, 'reviewer', resumedAt)
+      );
+    }
     if (recoveryFailure === 'private-session-mismatch') {
       const file = path.join(workspace, 'provider', 'claude', 'launch-state.json');
       const state = JSON.parse(readFileSync(file, 'utf8'));
@@ -415,10 +495,19 @@ export async function exerciseClaudeLaunchCli(
       state.session_fingerprint = fingerprintSession('anthropic', state.session_handle);
       writeFileSync(file, JSON.stringify(state));
     }
-    const resumed = await cliCall(
+    let resumed = await cliCall(
       ['launch-reviewer', invitation, '--host', 'claude', '--resume', '--json'],
-      { root: fx.root, env: launchEnvironment, execFile: fakeClaude, now: resumedAt }
+      { root: fx.root, env: launchEnvironment, ...provider, now: resumedAt }
     );
+    if (repeatExpiry) {
+      assert.equal(resumed.code, 0, resumed.stderr);
+      assert.equal(JSON.parse(resumed.stdout).status, 'permission-blocked');
+      resumedAt = new Date(resumedAt.getTime() + 9 * 60 * 60 * 1000);
+      resumed = await cliCall(
+        ['launch-reviewer', invitation, '--host', 'claude', '--resume', '--json'],
+        { root: fx.root, env: launchEnvironment, ...provider, now: resumedAt }
+      );
+    }
     if (staleAuthor) {
       assert.equal(resumed.code, 1);
       assert.match(resumed.stderr, /no current reviewer response authority/);
@@ -440,7 +529,7 @@ export async function exerciseClaudeLaunchCli(
     }
     assert.equal(resumed.code, 0, resumed.stderr);
     assert.equal(JSON.parse(resumed.stdout).status, 'submitted');
-    assert.equal(launchCount, expired ? 3 : 2);
+    assert.equal(launchCount, repeatExpiry ? 5 : expired ? 3 : 2);
   } else {
     assert.equal(initialResult.status, 'submitted', JSON.stringify(initialResult));
     assert.equal(launchCount, 1);

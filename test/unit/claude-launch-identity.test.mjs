@@ -46,6 +46,12 @@ test('expired author claim cannot start reviewer recovery', { concurrency: false
   await exerciseClaudeLaunchCli(t, { resume: true, expired: true, staleAuthor: true });
 });
 
+for (const mode of ['persistedIntervention', 'repeatExpiry', 'stream']) {
+  test(`expired reviewer continuity handles ${mode}`, { concurrency: false }, async (t) => {
+    await exerciseClaudeLaunchCli(t, { resume: true, expired: true, [mode]: true });
+  });
+}
+
 const identityKeys = [
   'CODEX_SESSION_ID',
   'CODEX_THREAD_ID',

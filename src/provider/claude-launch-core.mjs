@@ -1040,6 +1040,7 @@ export function createClaudeLaunchOperations({
             encoding: 'utf8',
             env: environment,
             maxBuffer: 1024 * 1024,
+            reviewerRecoveryCommand: recoverCommand,
           }),
         })).pending;
       } catch (cause) {
