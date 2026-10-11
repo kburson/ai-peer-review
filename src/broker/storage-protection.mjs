@@ -460,9 +460,57 @@ async function macAcl(value, ancestor = false, budget = operationBudget()) {
   });
   budget.check();
   if (stderr.trim()) throw failure('APR_BROKER_START_FAILED', 'acl-query-failed');
-  const rows = stdout.trimEnd().split('\n');
-  if (!/^[d-][rwxstST-]{9}[@+]?\s/.test(rows.shift() || ''))
+  return parseMacAclBatchCore(stdout, [{ path: value, ancestor }]).records[0].rules;
+}
+// Parsing is unverified data. Only the fixed stock-probe path mints receipts.
+export function parseMacAclBatchCore(stdout, targets) {
+  if (
+    typeof stdout !== 'string' ||
+    Buffer.byteLength(stdout) > 65536 ||
+    !Array.isArray(targets) ||
+    targets.length < 1 ||
+    targets.length > 128 ||
+    targets.some(
+      (value) =>
+        !value ||
+        Object.keys(value).sort().join(',') !== 'ancestor,path' ||
+        typeof value.path !== 'string' ||
+        !path.posix.isAbsolute(value.path) ||
+        /[\u0000-\u001f\u007f]/u.test(value.path) ||
+        typeof value.ancestor !== 'boolean'
+    ) ||
+    new Set(targets.map((value) => value.path)).size !== targets.length
+  )
     throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+  const sections = new Map();
+  let section;
+  for (const row of stdout.trimEnd().split('\n')) {
+    const header =
+      /^[d-][rwxstST-]{9}[@+]?\s+\d+\s+\d+\s+\d+\s+\d+\s+[A-Za-z]{3}\s+\d+\s+(?:\d{2}:\d{2}|\d{4})\s+(\/.*)$/u.exec(
+        row
+      );
+    if (header) {
+      const target = targets.find((value) => value.path === header[1]);
+      if (!target || sections.has(target.path))
+        throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+      section = [];
+      sections.set(target.path, section);
+    } else {
+      if (!section) throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+      section.push(row);
+    }
+  }
+  if (sections.size !== targets.length)
+    throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+  return {
+    verified: false,
+    records: targets.map((target) => ({
+      path: target.path,
+      rules: parseMacRules(sections.get(target.path), target.ancestor),
+    })),
+  };
+}
+function parseMacRules(rows, ancestor) {
   const rules = [];
   const allRights = new Set([
     'read',
@@ -517,6 +565,24 @@ async function macAcl(value, ancestor = false, budget = operationBudget()) {
     rules.push({ subject: match[1], kind: match[2], rights });
   }
   return rules;
+}
+async function macAclBatch(targets, budget) {
+  budget.check();
+  const { stdout, stderr } = await execute(
+    '/bin/ls',
+    ['-ldne', ...targets.map((value) => value.path)],
+    {
+      encoding: 'utf8',
+      maxBuffer: 65536,
+      ...budget.options(5000),
+      env: { ...process.env, LC_ALL: 'C' },
+    }
+  );
+  budget.check();
+  if (stderr.trim()) throw failure('APR_BROKER_START_FAILED', 'acl-query-failed');
+  return new Map(
+    parseMacAclBatchCore(stdout, targets).records.map((value) => [value.path, value.rules])
+  );
 }
 
 /** Closed readonly ancestry policy; caller data cannot mint an operational receipt. */
@@ -633,7 +699,7 @@ async function inspectAncestors(
     records.forEach((x, i) => {
       stats[i].acl = windowsAncestor(x, stats[i].path === path.parse(stats[i].path).root);
     });
-  } else if (process.platform === 'darwin') {
+  } else if (process.platform === 'darwin' && !deferWindowsAcl) {
     for (const item of stats) item.acl = await macAcl(item.path, true, budget);
   }
   return { uid, stats, chain: stats.map((x) => x.path) };
@@ -672,7 +738,15 @@ async function inspect(value, type = 'directory', budget = operationBudget()) {
       throw failure('APR_BROKER_START_FAILED', 'owner-or-mode-unproved');
     principal = String(uid);
     if (process.platform === 'darwin') {
-      acl = await macAcl(value, false, budget);
+      const records = await macAclBatch(
+        [
+          ...chain.map((entry) => ({ path: entry, ancestor: true })),
+          { path: value, ancestor: false },
+        ],
+        budget
+      );
+      for (const entry of stats) entry.acl = records.get(entry.path);
+      acl = records.get(value);
     } else if (process.platform === 'linux') acl = [];
     else throw failure('APR_BROKER_START_FAILED', 'os-protection-unsupported');
     await access(

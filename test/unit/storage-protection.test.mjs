@@ -1,4 +1,5 @@
 // cspell:words unleased
+// cspell:ignore drwx drwxr
 // @story #166
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -456,4 +457,40 @@ test('[#190] twenty protected snapshot reads finish under one original operation
   } finally {
     await guard.close();
   }
+});
+
+// @story #190
+// Batch parsing is unverified data: only the real fixed stock probe can mint receipts.
+test('[#190] macOS ACL batches require every exact path and apply leaf and ancestor policies separately', () => {
+  assert.equal(typeof storage.parseMacAclBatchCore, 'function');
+  const targets = [
+    { path: '/actual parent', ancestor: true },
+    { path: '/actual parent/private', ancestor: false },
+  ];
+  const text =
+    'drwx------  2 501 20 64 Oct 9 12:00 /actual parent/private\n' +
+    'drwxr-xr-x+  3 501 20 96 Oct 9 12:00 /actual parent\n' +
+    ' 0: group:everyone allow read,list,search\n';
+  const parsed = storage.parseMacAclBatchCore(text, targets);
+  assert.equal(parsed.verified, false);
+  assert.deepEqual(parsed.records, [
+    {
+      path: '/actual parent',
+      rules: [{ subject: 'group:everyone', kind: 'allow', rights: ['read', 'list', 'search'] }],
+    },
+    { path: '/actual parent/private', rules: [] },
+  ]);
+  for (const refused of [
+    text.replace('read,list,search', 'write,delete'),
+    text.replace(
+      '/actual parent/private\n',
+      '/actual parent/private\n 0: group:everyone allow read\n'
+    ),
+    text.split('\n').slice(1).join('\n'),
+    text + 'drwx------  2 501 20 64 Oct 9 12:00 /unexpected\n',
+    text + 'drwx------  2 501 20 64 Oct 9 12:00 /actual parent/private\n',
+  ])
+    assert.throws(() => storage.parseMacAclBatchCore(refused, targets), {
+      code: 'APR_BROKER_START_FAILED',
+    });
 });
