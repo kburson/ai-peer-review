@@ -340,6 +340,6 @@ export function createPrimaryMaintenanceCore({
     verified: false,
     activate: guarded(activate),
     register: guarded(register),
-    ...createReviewHistoryMaintenance({ admit, packageRoot, home }),
+    ...createReviewHistoryMaintenance({ admit, packageRoot, home, admission }),
   });
 }

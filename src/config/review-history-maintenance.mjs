@@ -1,8 +1,8 @@
 // @story #202
 import path from 'node:path';
 import { realpathSync, lstatSync, readFileSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
 import { authorityGit, discoverAuthorityRepository } from '../git/repository.mjs';
-import { withPrimaryAdmissionFence } from './primary-admission.mjs';
 import { isHistoryRegistrationRelative } from './review-history-ancestry.mjs';
 import { validRegistrationShape } from '../broker/registry.mjs';
 import { inspectReviewAuthority } from '../protocol/service.mjs';
@@ -94,43 +94,56 @@ function locate(cwd, target) {
   if (!worktreeRoot) refuse('History target is outside this clone’s review scratch.');
   return { ...location, worktreeRoot };
 }
-export function createReviewHistoryMaintenance({ admit, packageRoot, home }) {
+export function createReviewHistoryMaintenance({ admit, packageRoot, home, admission }) {
+  if (typeof admission?.run !== 'function' || typeof admission?.assert !== 'function')
+    throw new TypeError('Explicit primary admission ports required.');
   const operation =
     (kind) =>
-    async ({ cwd = process.cwd(), target, reason, dryRun = false } = {}) => {
-      await admit();
-      const location = locate(cwd, target);
-      return withPrimaryAdmissionFence({ commonDir: location.commonDir, dryRun }, async () => {
-        await admit();
-        const fresh = locate(cwd, target);
-        if (fresh.worktreeRoot !== location.worktreeRoot || fresh.commonDir !== location.commonDir)
-          refuse('History membership changed.');
-        if (
-          kind !== 'history' &&
-          isHistoryRegistrationRelative(
-            path.relative(path.join(location.worktreeRoot, '.scratch/peer-review'), target)
-          )
-        )
-          refuse('Historical registrations cannot hold or release a current review.');
-        if (kind === 'hold') {
-          const state = inspectReviewAuthority(target).state;
-          if (state.protocol.startup.context.repository_root !== location.worktreeRoot)
-            refuse('Held review belongs to another worktree.');
-        }
-        if (kind === 'release') {
-          const primary = resolvePrimaryAuthoritySync({ cwd });
-          createIntegrationChecker({ packageRoot, home }).check(primary, { primaryOnly: true });
-          return releaseReviewHold(location.commonDir, target, { dryRun });
-        }
-        return preserveReviewHistory({
-          commonDir: location.commonDir,
-          worktreeRoot: location.worktreeRoot,
-          target,
-          kind,
-          reason,
-          dryRun,
-        });
+    async ({ cwd = process.cwd(), target, reason, dryRun = false, signal, deadline } = {}) => {
+      const original = Object.freeze({
+        signal: signal ?? new AbortController().signal,
+        deadline: deadline ?? performance.now() + 30000,
       });
+      await admit(original);
+      const location = locate(cwd, target);
+      return admission.run(
+        { commonDir: location.commonDir, dryRun, ...original },
+        async (fence, context) => {
+          await admit(context);
+          await admission.assert(fence, context);
+          const fresh = locate(cwd, target);
+          if (
+            fresh.worktreeRoot !== location.worktreeRoot ||
+            fresh.commonDir !== location.commonDir
+          )
+            refuse('History membership changed.');
+          if (
+            kind !== 'history' &&
+            isHistoryRegistrationRelative(
+              path.relative(path.join(location.worktreeRoot, '.scratch/peer-review'), target)
+            )
+          )
+            refuse('Historical registrations cannot hold or release a current review.');
+          if (kind === 'hold') {
+            const state = inspectReviewAuthority(target).state;
+            if (state.protocol.startup.context.repository_root !== location.worktreeRoot)
+              refuse('Held review belongs to another worktree.');
+          }
+          if (kind === 'release') {
+            const primary = await resolvePrimaryAuthoritySync({ cwd, ...context });
+            createIntegrationChecker({ packageRoot, home }).check(primary, { primaryOnly: true });
+            return releaseReviewHold(location.commonDir, target, { dryRun });
+          }
+          return preserveReviewHistory({
+            commonDir: location.commonDir,
+            worktreeRoot: location.worktreeRoot,
+            target,
+            kind,
+            reason,
+            dryRun,
+          });
+        }
+      );
     };
   return Object.freeze({
     preserveHistory: operation('history'),

@@ -26,7 +26,7 @@ async function fixture(t) {
   const f = await setupHostFixture(t);
   // Component scheduling is explicitly unverified; no installed admission is minted.
   const api = createPrimaryMaintenanceCore({
-    primaryAdmission: f.admission,
+    admission: f.admission,
     packageRoot: fileURLToPath(new URL('../..', import.meta.url)),
     home: f.home,
     admit: async () => {},
@@ -45,6 +45,25 @@ async function pending(f) {
   await initializeReview(workspace, e);
   return workspace;
 }
+
+test(
+  'history maintenance retains the caller deadline before catalog effects',
+  options,
+  async (t) => {
+    const f = await fixture(t);
+    await assert.rejects(
+      f.api.preserveHistory({
+        cwd: f.root,
+        target: f.target,
+        reason: 'expired maintenance',
+        signal: new AbortController().signal,
+        deadline: 0,
+      }),
+      { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
+    );
+    assert.equal(existsSync(path.join(f.commonDir, 'ai-peer-review/review-history')), false);
+  }
+);
 
 for (const nested of [false, true])
   test(
@@ -110,7 +129,7 @@ for (const nested of [false, true])
       assert.equal(records.length, 1);
       assert.equal(records[0].workspace, registeredWorkspace);
       assert.deepEqual(readFileSync(file), before);
-      assert.doesNotThrow(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
+      await assert.doesNotReject(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
     }
   );
 
@@ -119,7 +138,7 @@ test(
   options,
   async (t) => {
     const f = await fixture(t);
-    assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+    await assert.rejects(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
       code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
     });
     const before = readFileSync(path.join(f.target, 'events.jsonl'));
@@ -135,7 +154,7 @@ test(
     });
     assert.equal(record.kind, 'history');
     assert.deepEqual(readFileSync(path.join(f.target, 'events.jsonl')), before);
-    const inventory = inspectPrimaryReviewInventory(f.commonDir, f.root);
+    const inventory = await inspectPrimaryReviewInventory(f.commonDir, f.root);
     assert.equal(inventory.reviews.find((x) => x.workspace === f.target).preservation, 'history');
   }
 );
@@ -153,7 +172,7 @@ test(
       dryRun: true,
     });
     assert.equal(existsSync(path.join(f.commonDir, 'ai-peer-review/review-history')), false);
-    assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+    await assert.rejects(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
       code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
     });
   }
@@ -164,7 +183,7 @@ test('changed historical bytes invalidate migration exemption', options, async (
   assert.equal(typeof f.api.preserveHistory, 'function');
   await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete attempt' });
   f.write('.scratch/peer-review/obsolete/events.jsonl', 'changed uncertain journal\n');
-  assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+  await assert.rejects(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
     code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
   });
 });
@@ -258,10 +277,10 @@ test(
     assert.equal(typeof f.api.preserveHistory, 'function');
     await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete attempt' });
     const report = f.write('.scratch/peer-review/old-report.md', '# Historical diagnosis\n');
-    assert.doesNotThrow(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
+    await assert.doesNotReject(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
     assert.equal(readFileSync(report, 'utf8'), '# Historical diagnosis\n');
     f.write('.scratch/peer-review/unknown/startup.json', '{"stage":"reserved"}\n');
-    assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+    await assert.rejects(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
       code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
     });
   }
@@ -272,7 +291,7 @@ test('unsafe history records and symlinked target parents fail closed', options,
   assert.equal(typeof f.api.preserveHistory, 'function');
   await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete attempt' });
   chmodSync(path.join(f.commonDir, 'ai-peer-review/review-history'), 0o755);
-  assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+  await assert.rejects(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
     code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
   });
   chmodSync(path.join(f.commonDir, 'ai-peer-review/review-history'), 0o700);
@@ -316,7 +335,7 @@ for (const alias of [true, false]) {
         mkdirSync(scratch);
         renameSync(path.join(moved, 'peer-review'), path.join(scratch, 'peer-review'));
       }
-      assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+      await assert.rejects(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
         code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
       });
     }
@@ -461,7 +480,7 @@ test(
       JSON.stringify(record) + '\n'
     );
     const before = readFileSync(file);
-    assert.throws(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
+    await assert.rejects(() => inspectPrimaryReviewInventory(f.commonDir, f.root), {
       code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
     });
     await f.api.preserveHistory({
@@ -470,7 +489,7 @@ test(
       reason: 'explicit obsolete relocated registration; preserve unknown outcome',
     });
     assert.deepEqual(readFileSync(file), before);
-    assert.doesNotThrow(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
+    await assert.doesNotReject(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
     const { createReviewPreservationLookup, assertReviewNotPreserved } =
       await import('../../src/config/review-history.mjs');
     const lookup = createReviewPreservationLookup(f.commonDir, path.dirname(file));
