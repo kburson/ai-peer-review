@@ -13,7 +13,11 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 
 import * as api from '../helpers/internal-api.mjs';
-import { participantIdentity } from '../../src/identity/registry.mjs';
+import {
+  participantIdentity,
+  claimRole,
+  enterStaleClaimIntervention,
+} from '../../src/identity/registry.mjs';
 import { inspectReviewAuthority, mutateReview } from '../helpers/protocol-api.mjs';
 import {
   budgetIntervention,
@@ -55,7 +59,7 @@ function identity(role, session) {
   });
 }
 
-function finalizeWithCli(root, workspace, session) {
+function finalizeWithCli(root, workspace, session, command = ['finalize', workspace]) {
   const env = { ...process.env };
   for (const key of [
     'CLAUDE_CODE_SESSION_ID',
@@ -69,10 +73,94 @@ function finalizeWithCli(root, workspace, session) {
   env.CODEX_THREAD_ID = session;
   env.CODEX_MODEL_ID = 'gpt-test';
   env.CODEX_MODEL_DISPLAY = 'GPT Test';
-  return spawnSync(process.execPath, [CLI, 'finalize', workspace], {
+  return spawnSync(process.execPath, [CLI, ...command], {
     cwd: root,
     encoding: 'utf8',
     env,
+  });
+}
+
+for (const interruptedState of ['acceptance-pending', 'author-finalization']) {
+  test(`expired author recovery preserves ${interruptedState} and finalizes the accepted response`, async (t) => {
+    const fx = fixture();
+    t.after(fx.cleanup);
+    const id = `recover-${interruptedState}`;
+    const review = await acceptedReview(fx.root, id);
+    const workspace = review.started.paths.workspace;
+    const acceptedBytes = readFileSync(review.accepted.paths.response);
+    const append = async (make) => {
+      const { state } = inspectReviewAuthority(workspace);
+      return mutateReview(
+        workspace,
+        {
+          reviewId: state.protocol.review_id,
+          revision: state.protocol.revision,
+          sequence: state.protocol.sequence,
+          actor: state.protocol.current_actor,
+        },
+        make
+      );
+    };
+    await append((state) => claimRole(state, review.author, new Date('2026-09-09T12:02:00Z')));
+    if (interruptedState === 'author-finalization') {
+      await append((state) => ({
+        schema: 'ai-peer-review.event/v1',
+        review_id: state.protocol.review_id,
+        sequence: state.protocol.sequence + 1,
+        revision: state.protocol.revision + 1,
+        type: 'finalization-started',
+        actor: review.author.session_fingerprint,
+        at: '2026-09-09T12:03:00.000Z',
+        payload: {},
+      }));
+    }
+    const prefix = readFileSync(review.started.paths.events);
+    const state = inspectReviewAuthority(workspace).state;
+    assert.throws(
+      () => enterStaleClaimIntervention(state, 'author', new Date('2026-09-09T12:04:00Z')),
+      (error) => error.code === 'APR_CLAIM_NOT_STALE'
+    );
+    assert.throws(
+      () => enterStaleClaimIntervention(state, 'reviewer', new Date('2026-09-09T20:03:00Z')),
+      (error) => error.code === 'APR_CLAIM_INVALID'
+    );
+    await append((current) =>
+      enterStaleClaimIntervention(current, 'author', new Date('2026-09-09T20:03:00Z'))
+    );
+    await assert.rejects(
+      api.recoverReview({
+        workspace,
+        identity: identity('author', 'another-session'),
+        reclaim: true,
+        now: '2026-09-09T20:04:00.000Z',
+      }),
+      (error) => ['APR_CLAIM_CONFLICT', 'APR_IDENTITY_CONFLICT'].includes(error.code)
+    );
+    // The source command engine resolves the author from the recorded interrupted state.
+    const recovered = finalizeWithCli(fx.root, workspace, `${id}-author`, [
+      'recover',
+      workspace,
+      '--reclaim',
+    ]);
+    assert.equal(recovered.status, 0, recovered.stderr);
+    assert.equal(inspectReviewAuthority(workspace).state.protocol.state, interruptedState);
+    assert.equal(
+      readFileSync(review.started.paths.events).subarray(0, prefix.length).equals(prefix),
+      true
+    );
+    const finalized = await api.finalizeReview({
+      cwd: fx.root,
+      workspace,
+      identity: review.author,
+      now: new Date().toISOString(),
+    });
+    assert.equal(finalized.state, 'accepted');
+    assert.deepEqual(readFileSync(review.accepted.paths.response), acceptedBytes);
+    assert.equal(
+      inspectReviewAuthority(workspace).events.filter((entry) => entry.type === 'reviewer-accepted')
+        .length,
+      1
+    );
   });
 }
 

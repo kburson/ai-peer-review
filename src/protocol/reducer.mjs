@@ -58,6 +58,8 @@ const TRANSITIONS = new Map([
   ['awaiting-phase-artifact|phase-artifact-sealed-no-commit', 'reviewer-turn'],
   ['reviewer-turn|intervention-entered', 'intervention-required'],
   ['author-revision|intervention-entered', 'intervention-required'],
+  ['acceptance-pending|intervention-entered', 'intervention-required'],
+  ['author-finalization|intervention-entered', 'intervention-required'],
   ['intervention-required|continued-to-reviewer', 'reviewer-turn'],
   ['intervention-required|continued-to-author', 'author-revision'],
   ['intervention-required|same-session-reclaim', 'restore'],
@@ -178,7 +180,7 @@ function nextAction(state) {
   );
 }
 
-function currentActor(state) {
+export function currentActor(state) {
   return (
     {
       'awaiting-reviewer': 'reviewer',
@@ -327,6 +329,26 @@ function ensureStatePreservingAllowed(protocol, event) {
 function applyLifecycle(protocol, participants, event) {
   if (!LIFECYCLE_EVENT_TYPES.includes(event.type)) return protocol.state;
   if (TERMINAL_STATES.has(protocol.state)) throw transitionError(protocol.state, event);
+  if (
+    event.type === 'intervention-entered' &&
+    ['acceptance-pending', 'author-finalization'].includes(protocol.state)
+  ) {
+    const claim = protocol.claims.author;
+    if (
+      event.schema !== EVENT_V2_SCHEMA ||
+      event.payload.reason !== 'stale-claim' ||
+      event.payload.interrupted_state !== protocol.state ||
+      !claim ||
+      claim.session_fingerprint !== participants.author?.session_fingerprint ||
+      Date.parse(claim.expires_at) > Date.parse(event.at)
+    ) {
+      throw transitionError(
+        protocol.state,
+        event,
+        'finalization requires the exact stale author claim'
+      );
+    }
+  }
   if (event.type === 'superseded') {
     if (protocol.state === null || !registeredFingerprint(participants, event.actor)) {
       throw transitionError(
@@ -452,7 +474,7 @@ function applyLifecycle(protocol, participants, event) {
         !exactlyEqual(currentClaim, oldClaim) ||
         oldClaim.role !== newClaim.role ||
         oldClaim.session_fingerprint !== newClaim.session_fingerprint ||
-        newClaim.role !== protocol.intervention.interrupted_state.replace(/-.+$/, '')
+        newClaim.role !== currentActor(protocol.intervention.interrupted_state)
       ) {
         throw transitionError(protocol.state, event, 'conflicting reclaim');
       }

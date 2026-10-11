@@ -4,6 +4,7 @@ import { AprError } from '../errors.mjs';
 import { EVENT_V2_SCHEMA } from '../protocol/compatibility.mjs';
 import { validateEvent, validateVersionedEvent } from '../protocol/events.mjs';
 import { mutateReview } from '../protocol/service.mjs';
+import { currentActor } from '../protocol/reducer.mjs';
 import { identityEvidence, mergeObservedIdentity, v1Participant } from './evidence.mjs';
 import { claudeAdapter } from './claude.mjs';
 import { codexAdapter } from './codex.mjs';
@@ -22,6 +23,12 @@ const PROVIDERS = new Set(['openai', 'anthropic', 'xai', 'other']);
 const SOURCES = new Set(['runtime', 'declared']);
 const DEFAULT_CLAIM_TTL_MS = 8 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+const STALE_CLAIM_STATES = new Set([
+  'reviewer-turn',
+  'author-revision',
+  'acceptance-pending',
+  'author-finalization',
+]);
 
 function fail(code, message, recovery, details = {}) {
   throw new AprError(code, message, { recovery, details });
@@ -384,8 +391,8 @@ export function enterStaleClaimIntervention(review, role, now = new Date()) {
       'Wait for the recorded expiry or resume with the current claimant.'
     );
   }
-  const interruptedState = role === 'reviewer' ? 'reviewer-turn' : 'author-revision';
-  if (protocol.state !== interruptedState) {
+  const interruptedState = protocol.state;
+  if (!STALE_CLAIM_STATES.has(interruptedState) || currentActor(interruptedState) !== role) {
     fail(
       'APR_CLAIM_INVALID',
       'Stale intervention does not match the claimed role turn.',
@@ -402,7 +409,10 @@ export function enterStaleClaimIntervention(review, role, now = new Date()) {
       reason: 'stale-claim',
       interrupted_state: interruptedState,
     },
-    1
+    1,
+    ['acceptance-pending', 'author-finalization'].includes(interruptedState)
+      ? EVENT_V2_SCHEMA
+      : 'ai-peer-review.event/v1'
   );
 }
 
@@ -450,8 +460,8 @@ export function reclaimRole(review, identity, now = new Date()) {
   if (
     protocol.state !== 'intervention-required' ||
     protocol.intervention?.reason !== 'stale-claim' ||
-    protocol.intervention?.interrupted_state !==
-      (identity?.role === 'reviewer' ? 'reviewer-turn' : 'author-revision') ||
+    !STALE_CLAIM_STATES.has(protocol.intervention?.interrupted_state) ||
+    currentActor(protocol.intervention?.interrupted_state) !== identity?.role ||
     !oldClaim ||
     oldClaim.session_fingerprint !== identity.session_fingerprint
   ) {
