@@ -53,6 +53,8 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
   ],
   exact: [
     '.ai-peer-review.json',
+    '.ai-peer-review/config.json',
+    '.ai-peer-review/skills/peer-review/SKILL.md',
     '.claude/commands/task.md',
     '.claude/settings.json',
     '.github/CODEOWNERS',
@@ -105,6 +107,9 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'scripts/lib/review-grammar-v0.4.1/reducer.mjs',
     'scripts/lib/review-grammar-v0.4.1/runtime-descriptor.mjs',
     'scripts/lib/review-grammar-v0.4.1/runtime-v1.json',
+    'scripts/ci/receipt-core.mjs',
+    'scripts/ci/run-receipt.mjs',
+    'scripts/ci/verify-windows-probe-measurement.mjs',
     'scripts/build-broker-security.mjs',
     'scripts/bootstrap-portable-runtime.mjs',
     'scripts/prepare-source-tests.mjs',

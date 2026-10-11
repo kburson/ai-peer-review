@@ -1,5 +1,6 @@
 // @story #134
 import path from 'node:path';
+import { createReviewHistoryMaintenance } from './review-history-maintenance.mjs';
 import { withPrimaryAdmissionFence, assertPrimaryAdmissionFence } from './primary-admission.mjs';
 import { ownedContentDigest } from './owned-content-digest.mjs';
 import { createIntegrationChecker } from './integration-contract-core.mjs';
@@ -339,5 +340,6 @@ export function createPrimaryMaintenanceCore({
     verified: false,
     activate: guarded(activate),
     register: guarded(register),
+    ...createReviewHistoryMaintenance({ admit, packageRoot, home }),
   });
 }

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { AprError } from '../../src/errors.mjs';
 
 import {
   initializeManualLaunchHistory,
@@ -53,4 +54,27 @@ test('missing legacy manual history is not treated as a complete empty history',
     }),
     null
   );
+});
+
+test('refused launch bookkeeping leaves the complete workspace unchanged before lock creation', async (t) => {
+  const workspace = mkdtempSync(path.join(os.tmpdir(), 'apr-refused-launch-'));
+  t.after(() => rmSync(workspace, { recursive: true, force: true }));
+  const details = {
+    reviewId: 'review-one',
+    requestDigest: 'a'.repeat(64),
+    intentDigest: 'sha256:' + 'b'.repeat(64),
+  };
+  const { snapshotReviewHistory } = await import('../../src/config/review-history-snapshot.mjs');
+  const before = snapshotReviewHistory(workspace);
+  await assert.rejects(
+    reserveManualLaunch(workspace, details, {
+      effect: () => {
+        throw new AprError('APR_PRIMARY_AUTHORITY_UNAVAILABLE', 'held review', {
+          recovery: 'Keep the held evidence intact.',
+        });
+      },
+    }),
+    /held review/
+  );
+  assert.deepEqual(snapshotReviewHistory(workspace), before);
 });

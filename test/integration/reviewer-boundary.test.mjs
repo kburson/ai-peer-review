@@ -186,6 +186,7 @@ test('Claude permission recovery preserves reviewer and repository boundaries', 
   let joined;
   const denied = await runClaudeReviewerLaunch({
     contract,
+    now: NOW,
     execFile: async () => {
       joined = await joinReview({
         runtimeObservation: fixtureObservation('anthropic', 'claude-code', 'claude-opus-5', 'high'),
@@ -209,6 +210,7 @@ test('Claude permission recovery preserves reviewer and repository boundaries', 
   const recovered = await runClaudeReviewerLaunch({
     contract,
     resume: true,
+    now: NOW,
     execFile: async (_file, args) => {
       assert.deepEqual(args.slice(0, 2), ['--resume', rawSession]);
       replaceSection(joined.paths.response, 'Summary', 'Recovered without widening access.');

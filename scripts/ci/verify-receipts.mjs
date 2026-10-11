@@ -1,132 +1,56 @@
-// @story #140
-// Read successful GitHub CI and freshly download evidence; never run host suites.
+// @story #198
+// Native verification consumes actual downloaded CI evidence only.
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
-import {
-  OWNER_PUBLICATION_GROUPS,
-  laneInventory,
-  fail,
-  projectState,
-  validateCloudRun,
-  validateLaneReceipt,
-  validateRequiredJob,
-  validateTestedCommit,
-} from './receipt.mjs';
-
-import { WINDOWS_PORTABLE_UNIT_GROUPS } from '../../test/helpers/suite-plan.mjs';
-
-const OS = { 'ubuntu-latest': 'Linux', 'macos-latest': 'macOS', 'windows-latest': 'Windows' };
-const baselineLanes = ['fast', 'integration', 'mcp', 'packaging', 'smoke'];
-export function workers() {
-  const result = [];
-  for (const [os, runnerOS] of Object.entries(OS)) {
-    result.push({ key: 'node-24-24-' + os, name: 'Node 24 / ' + os, matrixNode: '24', runnerOS });
-    for (const node of ['26', 'current'])
-      result.push({
-        key: 'preferred-node-' + node + '-' + os,
-        name: 'Node ' + node + ' / ' + (os === 'ubuntu-latest' ? 'Ubuntu' : os),
-        matrixNode: node,
-        runnerOS,
-      });
-  }
-  result.push({
-    key: 'phase-2-boundary-26-ubuntu-latest',
-    name: 'Phase 2 boundary',
-    matrixNode: '26',
-    runnerOS: 'Linux',
-  });
-  for (const worker of result)
-    worker.lanes =
-      worker.runnerOS === 'Windows'
-        ? baselineLanes.filter((lane) => lane !== 'integration')
-        : baselineLanes;
-  for (const node of ['24', '26', 'current'])
-    for (const group of OWNER_PUBLICATION_GROUPS)
-      result.push({
-        key: 'owner-publication-' + group + '-' + node + '-windows-latest',
-        name: 'Owner publication ' + group + ' / Node ' + node + ' / windows-latest',
-        matrixNode: node,
-        runnerOS: 'Windows',
-        lanes: ['owner-publication-' + group],
-      });
-  for (const node of ['24', '26', 'current'])
-    result.push({
-      key: 'portable-ownership-' + node + '-windows-latest',
-      name: 'Portable ownership / Node ' + node + ' / windows-latest',
-      matrixNode: node,
-      runnerOS: 'Windows',
-      lanes: ['portable-ownership'],
-    });
-  for (const node of ['24', '26', 'current'])
-    for (const group of WINDOWS_PORTABLE_UNIT_GROUPS)
-      result.push({
-        key: 'portable-unit-' + group + '-' + node + '-windows-latest',
-        name: 'Portable units / ' + group + ' / Node ' + node + ' / windows-latest',
-        matrixNode: node,
-        runnerOS: 'Windows',
-        lanes: ['portable-unit-' + group, 'portable-integration-' + group],
-      });
-  return result;
-}
-export function verificationLanes(mode = 'all') {
-  if (!['all', 'fast', 'slow'].includes(mode)) fail('mode');
-  const required = [...new Set(workers().flatMap((worker) => worker.lanes))];
-  const isFast = (lane) => lane === 'fast' || lane.startsWith('portable-unit-');
-  return mode === 'all'
-    ? required
-    : required.filter((lane) => (mode === 'fast' ? isFast(lane) : !isFast(lane)));
-}
-export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' } = {}) {
-  if (!['all', 'fast', 'slow'].includes(mode)) fail('mode');
-  const lanes = verificationLanes(mode);
+import { validateCIRun, validateReceipt } from './receipt-core.mjs';
+export function verifyCloudReceipts({ projectDir = process.cwd() } = {}) {
   const execute = (command, args) =>
     execFileSync(command, args, { cwd: projectDir, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-  const state = projectState(projectDir);
-  const repository = JSON.parse(
-    readFileSync(path.join(projectDir, '.ai-task-manager/task-tracker.json'), 'utf8')
-  ).repo;
-  if (repository !== 'kburson/ai-peer-review') fail('repository');
-  const api = (...parts) =>
-    JSON.parse(execute('gh', ['api', ['repos', repository, ...parts].join('/')]));
-  const remote = execute('git', ['config', '--get', 'remote.origin.url']).trim();
+  const git = (...args) => execute('git', args).trim();
+  if (git('status', '--porcelain', '--untracked-files=all')) throw Error('receipt-dirty-source');
+  const head = git('rev-parse', 'HEAD'),
+    tree = git('rev-parse', 'HEAD^{tree}'),
+    repository = 'kburson/ai-peer-review';
   if (
     ![
+      'git@github.com:' + repository + '.git',
       'https://github.com/' + repository + '.git',
       'https://github.com/' + repository,
-      'git@github.com:' + repository + '.git',
-    ].includes(remote)
+    ].includes(git('config', '--get', 'remote.origin.url'))
   )
-    fail('origin identity');
+    throw Error('receipt-origin-mismatch');
+  const api = (endpoint) =>
+    JSON.parse(execute('gh', ['api', 'repos/' + repository + '/' + endpoint]));
   const runs = api(
-    'actions',
-    'workflows',
-    'ci.yml',
-    'runs?head_sha=' + state.head + '&per_page=100'
+    'actions/workflows/ci.yml/runs?head_sha=' + head + '&per_page=100'
   ).workflow_runs;
-  // An older passing attempt cannot mask the latest PR run's failure.
-  const run = runs.find((item) => item.event === 'pull_request') ?? runs[0];
-  validateCloudRun(run, { repository, sourceHead: state.head });
-  const jobs = api('actions', 'runs', run.id, 'attempts', run.run_attempt, 'jobs?per_page=100');
-  if (jobs.total_count !== jobs.jobs.length) fail('incomplete job inventory');
-  const expectedWorkers = workers();
-  for (const worker of expectedWorkers)
-    validateRequiredJob(jobs.jobs, { name: worker.name, lanes: worker.lanes });
-  const artifacts = api('actions', 'runs', run.id, 'artifacts?per_page=100');
-  if (artifacts.total_count !== artifacts.artifacts.length) fail('incomplete artifact inventory');
-  const names = expectedWorkers.map((worker) => 'apr-ci-' + worker.key + '-' + run.run_attempt);
+  const run = runs.find((r) => r.event === 'pull_request') ?? runs[0];
+  if (!run) throw Error('receipt-ci-unavailable');
+  const jobs = api(
+    'actions/runs/' + run.id + '/attempts/' + run.run_attempt + '/jobs?per_page=100'
+  );
+  validateCIRun(run, jobs, head);
+  const artifacts = api('actions/runs/' + run.id + '/artifacts?per_page=100');
+  if (artifacts.total_count !== artifacts.artifacts.length)
+    throw Error('receipt-incomplete-artifacts');
+  const workers = [
+    { os: 'Linux', platform: 'linux' },
+    { os: 'macOS', platform: 'darwin' },
+    { os: 'Windows', platform: 'win32' },
+  ];
+  const names = workers.map((w) => 'apr-ci-node-24-' + w.os + '-24-' + run.run_attempt);
   for (const name of names) {
-    const matches = artifacts.artifacts.filter((artifact) => artifact.name === name);
-    if (matches.length !== 1 || matches[0].expired)
-      fail('missing, duplicate or expired artifact ' + name);
+    const matches = artifacts.artifacts.filter((a) => a.name === name);
+    if (matches.length !== 1 || matches[0].expired) throw Error('receipt-artifact-unavailable');
   }
-  const root = path.join(projectDir, '.scratch', 'ci-receipts');
-  mkdirSync(root, { recursive: true });
-  const dir = mkdtempSync(path.join(root, run.id + '-' + run.run_attempt + '-'));
+  const base = path.join(projectDir, '.scratch', 'ci-receipts');
+  mkdirSync(base, { recursive: true });
+  const dir = mkdtempSync(path.join(base, run.id + '-' + run.run_attempt + '-'));
   writeFileSync(
     path.join(dir, 'provenance.json'),
-    JSON.stringify({ repository, sourceHead: state.head, run, jobs, artifacts }, null, 2) + '\n'
+    JSON.stringify({ head, tree, run, jobs, artifacts }, null, 2) + '\n'
   );
   execute('gh', [
     'run',
@@ -138,50 +62,49 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
     dir,
     ...names.flatMap((name) => ['--name', name]),
   ]);
-  let commit;
-  let records = 0;
-  for (const worker of expectedWorkers) {
-    for (const lane of worker.lanes.filter((lane) => lanes.includes(lane))) {
-      const location = path.join(dir, 'apr-ci-' + worker.key + '-' + run.run_attempt);
-      const record = JSON.parse(readFileSync(path.join(location, lane + '.json'), 'utf8'));
-      if (commit === undefined) commit = record.testedCommit;
-      validateLaneReceipt(record, {
-        repository,
-        sourceHead: state.head,
-        testedCommit: commit,
-        runId: String(run.id),
-        runAttempt: String(run.run_attempt),
-        jobKey: worker.key,
-        matrixNode: worker.matrixNode,
-        runnerOS: worker.runnerOS,
-        lane,
-        fingerprint: state.fingerprint,
-        inventory: laneInventory(state.fingerprint, lane, worker.runnerOS),
-        log: readFileSync(path.join(location, lane + '.log')),
-      });
-      records++;
+  let testedHead;
+  for (const [i, w] of workers.entries())
+    for (const lane of ['fast', 'slow']) {
+      const folder = path.join(dir, names[i]);
+      const r = JSON.parse(readFileSync(path.join(folder, lane + '.json'), 'utf8'));
+      validateReceipt(
+        r,
+        {
+          sourceHead: head,
+          testedTree: tree,
+          runId: String(run.id),
+          runAttempt: String(run.run_attempt),
+          job: 'node-24',
+          platform: w.platform,
+          node: '24',
+          command: lane === 'fast' ? 'npm test' : 'npm run test:slow',
+        },
+        readFileSync(path.join(folder, lane + '.log'))
+      );
+      if (testedHead && testedHead !== r.testedHead) throw Error('receipt-tested-head-mismatch');
+      testedHead = r.testedHead;
     }
-  }
-  validateTestedCommit(commit, {
-    sourceHead: state.head,
-    event: run.event,
-    commitObject: commit === state.head ? null : api('git', 'commits', commit),
-  });
-  return {
-    sourceHead: state.head,
-    testedCommit: commit,
+  const actual = api('git/commits/' + testedHead);
+  if (
+    actual.tree?.sha !== tree ||
+    (run.event === 'pull_request' && !actual.parents?.some((p) => p.sha === head)) ||
+    (run.event !== 'pull_request' && testedHead !== head)
+  )
+    throw Error('receipt-tested-commit-mismatch');
+  if (git('rev-parse', 'HEAD') !== head || git('status', '--porcelain', '--untracked-files=all'))
+    throw Error('receipt-source-changed');
+  const receipt = {
+    schema: 'ai-peer-review.hosted-tests-verified/v1',
+    head,
+    tree,
     runId: run.id,
     runAttempt: run.run_attempt,
-    workers: expectedWorkers.length,
-    records,
-    lanes,
-    runUrl: run.html_url,
-    artifactDirectory: dir,
+    commands: ['npm test', 'npm run test:slow'],
+    workers: 3,
+    dir,
   };
+  writeFileSync(path.join(dir, 'accepted.json'), JSON.stringify(receipt, null, 2) + '\n');
+  return receipt;
 }
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const args = process.argv.slice(2);
-  if (args.length && (args.length !== 2 || args[0] !== '--lane'))
-    fail('usage: verify-receipts [--lane fast|slow]');
-  console.log(JSON.stringify(verifyCloudReceipts({ mode: args[1] ?? 'all' }), null, 2));
-}
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+  console.log(JSON.stringify(verifyCloudReceipts(), null, 2));

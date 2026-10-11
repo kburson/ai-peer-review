@@ -121,6 +121,23 @@ function brokerInput({ clock, server, registrations = [], workers = new Map(), i
   };
 }
 
+test('preserved obsolete registrations do not restore workers or prevent broker stop', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  const item = registration('obsolete');
+  const input = brokerInput({ clock, server, registrations: [item] });
+  input.isPreserved = (workspace) => workspace === item.workspace;
+  input.workerFactory = () => {
+    throw new Error('Historical provider execution attempted');
+  };
+  const running = runBroker(input);
+  await Promise.race([server.ready, running]);
+  assert.equal((await server.request({ id: 'status', command: 'status' })).reviews, 0);
+  assert.equal((await server.request({ id: 'stop', command: 'stop' })).status, 'stopping');
+  await running;
+  assert.equal(input.registry.list().length, 1, 'historical registration remains preserved');
+});
+
 test('installed recovery-only broker worker refuses launch before provider action', async () => {
   const clock = fakeClock();
   const server = fakeServer();

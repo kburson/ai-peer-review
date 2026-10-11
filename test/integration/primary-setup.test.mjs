@@ -1,7 +1,7 @@
 // @story #134
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { platformSecurity } from '../../src/broker/platform.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
@@ -1022,7 +1022,17 @@ test(
       user.file,
       JSON.stringify({
         schema: 'ai-peer-review.user-config/v2',
-        hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
+        hosts: {
+          codex: {
+            resume: { command: ['codex', 'resume'] },
+            automatic: {
+              server_command: ['peer-review-mcp'],
+              tool_timeout_ms: 1000,
+              heartbeat_interval_ms: 10,
+              lease_ttl_ms: 20,
+            },
+          },
+        },
       })
     );
     const { loadConfig } = await import('../../src/config/load.mjs');
@@ -1030,6 +1040,7 @@ test(
     assert.equal(loaded.config.review.max_turns, 7);
     assert.deepEqual(loaded.config.hosts.codex.resume.command, ['codex', 'resume']);
     assert.equal(loaded.paths.primaryRoot, null);
+    assert.equal(loaded.config.hosts.codex.automatic, undefined);
     await assert.rejects(
       async () => await assertProjectSetupCompatible({ cwd: f.root, env: user.env }),
       {
@@ -1047,3 +1058,85 @@ function pathForUser(f) {
     env: { XDG_CONFIG_HOME: f.home + '/.config' },
   };
 }
+
+test(
+  'explicit legacy account migration retains original evidence and machine commands before project migration',
+  { skip: process.platform === 'win32' ? 'Native private storage paused for #102/#107' : false },
+  async (t) => {
+    const f = await setupHostFixture(t);
+    const file = path.join(f.home, '.config/ai-peer-review/config.json');
+    const legacy = {
+      schema: 'ai-peer-review.config/v1',
+      hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
+      setup: {
+        owner: 'ai-peer-review',
+        version: 2,
+        agents: ['codex'],
+        config_created: true,
+        scratch_exclude_added: false,
+        resume_commands_added: ['codex'],
+        automatic_adapters_added: [],
+      },
+    };
+    const raw = JSON.stringify(legacy) + '\n';
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, raw);
+    const adapter = path.join(f.home, '.codex/config.json');
+    mkdirSync(path.dirname(adapter), { recursive: true });
+    const foreign =
+      '{"foreign":{"command":"keep exactly"},"ai_peer_review":{"owner":"ai-peer-review","version":2}}\n';
+    writeFileSync(adapter, foreign);
+    await assert.rejects(f.core.setup({ scope: 'user', update: true }), {
+      code: 'APR_CONFIG_INVALID',
+    });
+    const preview = await f.core.setup({
+      scope: 'user',
+      update: true,
+      migrate: true,
+      dryRun: true,
+    });
+    assert.equal(readFileSync(file, 'utf8'), raw);
+    const evidence = preview.writes.find((x) => x.owner === 'legacy-user-config-evidence');
+    assert.ok(evidence);
+    await f.core.setup({ scope: 'user', update: true, migrate: true });
+    const current = JSON.parse(readFileSync(file, 'utf8'));
+    assert.equal(current.schema, 'ai-peer-review.user-config/v2');
+    assert.deepEqual(current.hosts.codex.resume.command, ['codex', 'resume']);
+    assert.equal(readFileSync(evidence.file, 'utf8'), raw);
+    const migratedAdapter = readFileSync(adapter, 'utf8');
+    assert.ok(migratedAdapter.includes('"foreign":{"command":"keep exactly"}'));
+    assert.equal(JSON.parse(migratedAdapter).ai_peer_review, undefined);
+  }
+);
+
+test(
+  'removing the sole owned adapter property permits the destination formatter',
+  { skip: process.platform === 'win32' ? 'Native private storage paused for #102/#107' : false },
+  async (t) => {
+    const f = await setupHostFixture(t);
+    f.write('.prettierrc.json', '{"tabWidth":2}\n');
+    f.write(
+      '.ai-peer-review.json',
+      JSON.stringify({
+        schema: 'ai-peer-review.config/v1',
+        setup: {
+          owner: 'ai-peer-review',
+          version: 2,
+          agents: ['codex'],
+          package_version: '0.4.1',
+          skill_sha256: 'a'.repeat(64),
+          config_created: true,
+          scratch_exclude_added: false,
+          resume_commands_added: [],
+          automatic_adapters_added: [],
+        },
+      }) + '\n'
+    );
+    f.write(
+      '.codex/config.json',
+      '{\n  "ai_peer_review": { "owner": "ai-peer-review", "version": 2 }\n}\n'
+    );
+    await f.setupApply({ update: true, migrate: true });
+    assert.equal(f.read('.codex/config.json'), '{}\n');
+  }
+);

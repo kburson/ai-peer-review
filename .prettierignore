@@ -37,3 +37,6 @@ evidence/portable-runtime/process-source/registrations/source-d1a6dd1eac1d1c38ca
 # Preserve exact normally accepted class proposal bytes and immutable SHA-256 references.
 evidence/portable-runtime/process-source/classes/190-current-wave6-proposals.json
 evidence/portable-runtime/process-source/classes/190-current-wave7-proposals.json
+
+# Mixed provider hooks retain foreign bytes during owned integration updates.
+/.codex/hooks.json
