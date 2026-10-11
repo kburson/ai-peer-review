@@ -19,6 +19,33 @@ for (const resume of [false, true]) {
   });
 }
 
+test(
+  'expired reviewer resumes and reclaims in its same recorded Claude session',
+  { concurrency: false },
+  async (t) => {
+    await exerciseClaudeLaunchCli(t, { resume: true, expired: true });
+  }
+);
+
+for (const recoveryFailure of [
+  'missing-reclaim',
+  'wrong-session',
+  'denied',
+  'private-session-mismatch',
+]) {
+  test(
+    `expired reviewer recovery refuses ${recoveryFailure} before response permissions`,
+    { concurrency: false },
+    async (t) => {
+      await exerciseClaudeLaunchCli(t, { resume: true, expired: true, recoveryFailure });
+    }
+  );
+}
+
+test('expired author claim cannot start reviewer recovery', { concurrency: false }, async (t) => {
+  await exerciseClaudeLaunchCli(t, { resume: true, expired: true, staleAuthor: true });
+});
+
 const identityKeys = [
   'CODEX_SESSION_ID',
   'CODEX_THREAD_ID',

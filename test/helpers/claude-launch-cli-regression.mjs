@@ -109,7 +109,7 @@ export function isolateClaudeCliFixture(t, { configured = true } = {}) {
   return { root, configHome, parentEnvironment, adapters };
 }
 
-export function cliCall(argv, { root, env, execFile, startup = false, adapters } = {}) {
+export function cliCall(argv, { root, env, execFile, startup = false, adapters, now = NOW } = {}) {
   let stdout = '';
   let stderr = '';
   const io = {
@@ -119,7 +119,7 @@ export function cliCall(argv, { root, env, execFile, startup = false, adapters }
     runtimeObservation: fixtureObservation('openai', 'codex', 'gpt-test'),
     cwd: root,
     env,
-    now: NOW,
+    now,
     stdout: {
       write: (value) => {
         stdout += value;
@@ -162,7 +162,14 @@ function childEnvironment(environment, { modelSource = 'runtime' } = {}) {
 
 export async function exerciseClaudeLaunchCli(
   t,
-  { resume = false, cleanParent = false, modelSource = 'runtime' } = {}
+  {
+    resume = false,
+    expired = false,
+    recoveryFailure = null,
+    staleAuthor = false,
+    cleanParent = false,
+    modelSource = 'runtime',
+  } = {}
 ) {
   const fx = isolateClaudeCliFixture(t);
   const launchEnvironment = { ...fx.parentEnvironment };
@@ -240,6 +247,7 @@ export async function exerciseClaudeLaunchCli(
   let launchCount = 0;
   let childEnv;
   let fixtureFailure;
+  const resumedAt = expired ? new Date(NOW.getTime() + 9 * 60 * 60 * 1000) : NOW;
   async function fakeClaudeImpl(_file, args, options) {
     launchCount += 1;
     assert.equal(options.shell, false);
@@ -286,7 +294,7 @@ export async function exerciseClaudeLaunchCli(
       assert.equal(reviewer.identity_source, modelSource === 'configured' ? 'declared' : 'runtime');
       assert.equal(reviewer.session_fingerprint, fingerprintSession('anthropic', REVIEWER_SESSION));
       assert.notEqual(reviewer.session_fingerprint, author.session_fingerprint);
-      if (resume) {
+      if (resume && !staleAuthor) {
         return {
           exit_code: 1,
           stderr: '',
@@ -299,19 +307,64 @@ export async function exerciseClaudeLaunchCli(
     } else {
       assert.equal(resume, true);
       assert.deepEqual(args.slice(0, 2), ['--resume', REVIEWER_SESSION]);
+      if (expired && launchCount === 2) {
+        const prompt = args[args.indexOf('-p') + 1];
+        assert.match(prompt, /recover.*--reclaim/);
+        assert.match(prompt, /before.*(?:edit|submit)/i);
+        const permissions = args.slice(args.indexOf('--allowedTools') + 1);
+        assert.equal(
+          permissions.some((rule) => rule.startsWith('Edit(')),
+          false
+        );
+        assert.equal(
+          permissions.some((rule) => /\bsubmit\b/.test(rule)),
+          false
+        );
+        assert.equal(
+          permissions.some((rule) => /\brecover\b.*--reclaim/.test(rule)),
+          true
+        );
+        if (recoveryFailure === 'missing-reclaim') {
+          return {
+            exit_code: 0,
+            stderr: '',
+            stdout: JSON.stringify({ session_id: REVIEWER_SESSION, permission_denials: [] }),
+          };
+        }
+        const recovered = await cliCall(['recover', workspace, '--reclaim'], {
+          root: fx.root,
+          env: childEnv,
+          now: resumedAt,
+        });
+        assert.equal(recovered.code, 0, recovered.stderr);
+        return {
+          exit_code: 0,
+          stderr: '',
+          stdout: JSON.stringify({
+            session_id:
+              recoveryFailure === 'wrong-session' ? 'different-reviewer' : REVIEWER_SESSION,
+            permission_denials:
+              recoveryFailure === 'denied' ? [{ tool: 'Bash', path: workspace }] : [],
+          }),
+        };
+      }
     }
     for (const [heading, content] of [
       ['Summary', 'The fixture artifact is ready.'],
       ['Findings', 'None.'],
       ['Required changes', 'None.'],
       ['Optional suggestions', 'None.'],
-      ['Decision', 'accepted'],
+      ['Decision', staleAuthor ? 'revisions-requested' : 'accepted'],
     ])
       replaceSection(response, heading, content);
-    const submitted = await cliCall(['submit', workspace, '--decision', 'accepted'], {
-      root: fx.root,
-      env: childEnv,
-    });
+    const submitted = await cliCall(
+      ['submit', workspace, '--decision', staleAuthor ? 'revisions-requested' : 'accepted'],
+      {
+        root: fx.root,
+        env: childEnv,
+        now: launchCount === 1 ? NOW : resumedAt,
+      }
+    );
     assert.equal(submitted.code, 0, submitted.stderr);
     return {
       exit_code: 0,
@@ -349,15 +402,45 @@ export async function exerciseClaudeLaunchCli(
   assert.equal(initial.code, 0, initial.stderr);
   const initialResult = JSON.parse(initial.stdout);
   if (resume) {
-    assert.equal(initialResult.status, 'permission-blocked', JSON.stringify(initialResult));
-    assert.ok(initialResult.recovery?.command);
+    assert.equal(
+      initialResult.status,
+      staleAuthor ? 'submitted' : 'permission-blocked',
+      JSON.stringify(initialResult)
+    );
+    if (!staleAuthor) assert.ok(initialResult.recovery?.command);
+    if (recoveryFailure === 'private-session-mismatch') {
+      const file = path.join(workspace, 'provider', 'claude', 'launch-state.json');
+      const state = JSON.parse(readFileSync(file, 'utf8'));
+      state.session_handle = 'different-recorded-reviewer';
+      state.session_fingerprint = fingerprintSession('anthropic', state.session_handle);
+      writeFileSync(file, JSON.stringify(state));
+    }
     const resumed = await cliCall(
       ['launch-reviewer', invitation, '--host', 'claude', '--resume', '--json'],
-      { root: fx.root, env: launchEnvironment, execFile: fakeClaude }
+      { root: fx.root, env: launchEnvironment, execFile: fakeClaude, now: resumedAt }
     );
+    if (staleAuthor) {
+      assert.equal(resumed.code, 1);
+      assert.match(resumed.stderr, /no current reviewer response authority/);
+      assert.equal(launchCount, 1);
+      return;
+    }
+    if (recoveryFailure) {
+      assert.equal(resumed.code, 1, resumed.stdout);
+      assert.match(
+        resumed.stderr,
+        recoveryFailure === 'private-session-mismatch'
+          ? /conflicts with reviewer/
+          : /did not prove same-session reclaim/
+      );
+      assert.equal(launchCount, recoveryFailure === 'private-session-mismatch' ? 1 : 2);
+      const events = readFileSync(path.join(workspace, 'events.jsonl'), 'utf8');
+      assert.doesNotMatch(events, /reviewer-accepted/);
+      return;
+    }
     assert.equal(resumed.code, 0, resumed.stderr);
     assert.equal(JSON.parse(resumed.stdout).status, 'submitted');
-    assert.equal(launchCount, 2);
+    assert.equal(launchCount, expired ? 3 : 2);
   } else {
     assert.equal(initialResult.status, 'submitted', JSON.stringify(initialResult));
     assert.equal(launchCount, 1);

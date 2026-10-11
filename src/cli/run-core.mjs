@@ -5340,8 +5340,12 @@ export function createReviewOperations({
         };
         if (parsed.options.resume) {
           const current = statusReview(values.workspace, { now: io.now ?? new Date() });
+          const reclaimReviewer =
+            current.state === 'intervention-required' &&
+            current.claim?.role === 'reviewer' &&
+            current.claim?.status === 'stale';
           if (
-            current.state !== 'reviewer-turn' ||
+            (current.state !== 'reviewer-turn' && !reclaimReviewer) ||
             current.paths.invitation !== invitation ||
             typeof current.paths.response !== 'string'
           ) {
@@ -5420,7 +5424,14 @@ export function createReviewOperations({
                 observed.journal.request_digest !== launchDetails.requestDigest ||
                 observed.recovery.fenced ||
                 observed.recovery.suspending ||
-                !['awaiting-reviewer', 'reviewer-turn'].includes(fresh.protocol.state)
+                (!['awaiting-reviewer', 'reviewer-turn'].includes(fresh.protocol.state) &&
+                  !(
+                    parsed.options.resume &&
+                    fresh.protocol.state === 'intervention-required' &&
+                    fresh.protocol.intervention?.reason === 'stale-claim' &&
+                    fresh.protocol.intervention?.interrupted_state === 'reviewer-turn' &&
+                    deriveClaimStatus(fresh, 'reviewer', io.now ?? new Date()).status === 'stale'
+                  ))
               ) {
                 fail(
                   'APR_WAKE_OUTCOME_UNKNOWN',
@@ -5439,6 +5450,7 @@ export function createReviewOperations({
               io.execFile ?? createClaudeStreamingExec({ recorder, spawnProcess: io.spawnProcess }),
             inspectAuthority: io.inspectAuthority,
             fingerprintSession: io.fingerprintSession,
+            now: io.now ?? new Date(),
           });
           if (operation)
             await settleManualLaunch(
