@@ -32,3 +32,8 @@ evidence/portable-runtime/process-source/registrations/source-74e94707e730215f16
 evidence/portable-runtime/process-source/registrations/source-79b5540c1a29e9776e1d65ae55c78966.json
 evidence/portable-runtime/process-source/registrations/source-a0e99c4870830abcf02e3466b3b4000c.json
 evidence/portable-runtime/process-source/registrations/source-aa907980d8d21b00a9d556a315c069ee.json
+evidence/portable-runtime/process-source/registrations/source-4658749c30dfb5f201f6da0a4c927106.json
+evidence/portable-runtime/process-source/registrations/source-d1a6dd1eac1d1c38caa62b36e3adbd59.json
+# Preserve exact normally accepted class proposal bytes and immutable SHA-256 references.
+evidence/portable-runtime/process-source/classes/190-current-wave6-proposals.json
+evidence/portable-runtime/process-source/classes/190-current-wave7-proposals.json
