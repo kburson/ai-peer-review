@@ -261,7 +261,8 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
       const adapter = path.join(hostRoot, 'config.json'),
         adapterBytes = read(adapter);
       if (adapterBytes !== null) {
-        const metadata = parse(adapterBytes, adapter).ai_peer_review;
+        const adapterValue = parse(adapterBytes, adapter);
+        const metadata = adapterValue.ai_peer_review;
         if (metadata) {
           if (metadata.owner !== 'ai-peer-review' || !legacy?.setup?.agents?.includes(host))
             conflict('Provider adapter metadata ownership is unknown.', { file: adapter });
@@ -269,7 +270,7 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
             adapter,
             applyEdits(adapterBytes, modify(adapterBytes, ['ai_peer_review'], undefined, {})),
             host + '-legacy-adapter',
-            true
+            Object.keys(adapterValue).some((key) => key !== 'ai_peer_review')
           );
         }
       }
