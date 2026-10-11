@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,7 +7,10 @@ import { renderCommand } from '../cli/help-data.mjs';
 import { verifyRuntimeImage as defaultVerifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
-import { fingerprintSession as defaultFingerprintSession } from '../identity/registry.mjs';
+import {
+  deriveClaimStatus,
+  fingerprintSession as defaultFingerprintSession,
+} from '../identity/registry.mjs';
 import { inspectReviewAuthority as defaultInspectAuthority } from '../protocol/service.mjs';
 import { atomicWrite as rawAtomicWrite } from '../protocol/store.mjs';
 import { safeSelectionIdentifier } from '../providers/registry.mjs';
@@ -889,6 +893,7 @@ export function createClaudeLaunchOperations({
     execFile,
     inspectAuthority = defaultInspectAuthority,
     fingerprintSession = defaultFingerprintSession,
+    now = new Date(),
   } = {}) {
     if (
       contract?.schema !== 'ai-peer-review.claude-launch/v1' ||
@@ -907,6 +912,14 @@ export function createClaudeLaunchOperations({
     const priorState = resume
       ? readLaunchState(contract, fingerprintSession, { allowPriorResponse: true })
       : null;
+    const staleReviewer = deriveClaimStatus(before.state, 'reviewer', now);
+    const needsReclaim =
+      resume &&
+      staleReviewer.status === 'stale' &&
+      (prior.protocol.state === 'reviewer-turn' ||
+        (prior.protocol.state === 'intervention-required' &&
+          prior.protocol.intervention?.reason === 'stale-claim' &&
+          prior.protocol.intervention?.interrupted_state === 'reviewer-turn'));
     if (priorState && Number.isSafeInteger(prior.protocol.turns_used)) {
       const turn = prior.protocol.turns_used + 1;
       const current = path.basename(contract.response).match(/^(.*reviewer-response-)(\d+)\.md$/u);
@@ -917,7 +930,7 @@ export function createClaudeLaunchOperations({
         ? path.join(path.dirname(contract.response), `${current[1]}${turn}.md`)
         : null;
       if (
-        prior.protocol.state !== 'reviewer-turn' ||
+        (prior.protocol.state !== 'reviewer-turn' && !needsReclaim) ||
         !Number.isSafeInteger(turn) ||
         turn < 1 ||
         !current ||
@@ -985,6 +998,100 @@ export function createClaudeLaunchOperations({
       });
     }
     const environment = hasEnvironment ? contract.environment : buildClaudeLaunchEnvironment();
+    if (needsReclaim) {
+      if (
+        !priorState ||
+        staleReviewer.claim.role !== 'reviewer' ||
+        staleReviewer.claim.session_fingerprint !== priorState.session_fingerprint
+      ) {
+        throw sessionError(
+          'Expired reviewer claim does not match its recorded session.',
+          'Preserve the review and restore the original registered reviewer session.'
+        );
+      }
+      const recover = [...packageCommand('recover', contract.workspace), '--reclaim'];
+      const recoverCommand = renderClaudeBashCommand(recover);
+      const recoverArgs = [
+        '--resume',
+        priorState.session_handle,
+        '-p',
+        `Run only ${recoverCommand} in your original reviewer session before any edit or submit. Do not edit any file, rejoin, or submit a response during this recovery turn. Stop on any refusal and report it.`,
+        '--output-format',
+        'json',
+        '--permission-mode',
+        'dontAsk',
+        '--model',
+        contract.model,
+        '--effort',
+        contract.effort,
+        '--allowedTools',
+        'Read',
+        'Glob',
+        'Grep',
+        encodeClaudeBashRule(recover),
+      ];
+      let recoveredExecution;
+      let recoveryError = null;
+      try {
+        recoveredExecution = await performCurrentOperationEffect(() => ({
+          pending: execFile(contract.command.file, recoverArgs, {
+            cwd: contract.repository_root,
+            shell: false,
+            encoding: 'utf8',
+            env: environment,
+            maxBuffer: 1024 * 1024,
+            reviewerRecoveryCommand: recoverCommand,
+          }),
+        })).pending;
+      } catch (cause) {
+        recoveryError = cause;
+      }
+      assertCurrentOperationAuthority();
+      const recovered = inspectAuthority(contract.workspace);
+      const observed = normalizeClaudeExecution({
+        execution: recoveredExecution,
+        error: recoveryError,
+      });
+      atomicWrite(
+        path.join(contract.workspace, 'provider', 'claude', `recovery-${randomUUID()}.json`),
+        `${JSON.stringify({
+          schema: 'ai-peer-review.claude-recovery-diagnostic/v1',
+          review_id: contract.review_id,
+          claim_id: staleReviewer.claim.claim_id,
+          before_sequence: prior.protocol.sequence,
+          after_sequence: recovered.state.protocol.sequence,
+          observation: observed,
+        })}\n`
+      );
+      const reclaim = recovered.events.find(
+        (event) =>
+          event.sequence > prior.protocol.sequence &&
+          event.type === 'same-session-reclaim' &&
+          event.actor === priorState.session_fingerprint &&
+          event.payload.old_claim.claim_id === staleReviewer.claim.claim_id &&
+          event.payload.new_claim.role === 'reviewer' &&
+          event.payload.new_claim.session_fingerprint === priorState.session_fingerprint
+      );
+      if (
+        !observed.output_valid ||
+        observed.exit_code !== 0 ||
+        observed.interrupted ||
+        observed.provider_failed ||
+        observed.permission_denials.length !== 0 ||
+        observed.session_id !== priorState.session_handle ||
+        !reclaim ||
+        recovered.state.protocol.state !== 'reviewer-turn' ||
+        recovered.state.participants.reviewer.session_fingerprint !==
+          priorState.session_fingerprint ||
+        deriveClaimStatus(recovered.state, 'reviewer', now).status !== 'active' ||
+        recovered.state.protocol.claims.reviewer.claim_id !== reclaim.payload.new_claim.claim_id
+      ) {
+        throw sessionError(
+          'Claude reviewer recovery did not prove same-session reclaim.',
+          'Preserve the recovery output and review events; do not edit, submit, replace, or replay an uncertain reviewer launch.'
+        );
+      }
+    }
     let execution;
     let executionError = null;
     try {

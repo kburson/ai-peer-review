@@ -40,6 +40,28 @@ const observation = Object.freeze({
   assurance: 'runtime',
 });
 
+test('reads the published author-selection descriptor without changing sealed metadata', () => {
+  const author = {
+    provider: 'openai',
+    host: 'codex',
+    model_id: 'fixture-author',
+    model_display: 'Fixture Author',
+    effort: 'high',
+  };
+  const historical = { ...runtime, author };
+  assert.equal(validateRuntimeDescriptor(historical), historical);
+  for (const invalid of [
+    { ...author, session_id: 'private-handle' },
+    { ...author, provider: 'unknown' },
+    { ...author, effort: '' },
+    { ...author, model_id: undefined },
+  ]) {
+    assert.throws(() => validateRuntimeDescriptor({ ...runtime, author: invalid }), {
+      code: 'APR_USAGE',
+    });
+  }
+});
+
 test('validates the closed runtime descriptor without resume handles', () => {
   assert.deepEqual(validateRuntimeDescriptor(runtime), runtime);
   assert.deepEqual(
