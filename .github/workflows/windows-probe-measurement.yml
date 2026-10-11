@@ -1,0 +1,54 @@
+name: Windows probe measurement
+on:
+  push:
+    branches: [codex/198-draft, trunk]
+    paths:
+      - test/helpers/windows-probe-measurement*.mjs
+      - test/helpers/windows-limited-probe-measurement.ps1
+      - .github/workflows/windows-probe-measurement.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    name: Windows probes / Node ${{ matrix.node }} / ${{ matrix.token }}
+    runs-on: windows-2025
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26']
+        token: [ordinary, limited]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@v6
+        with:
+          ref: 40a3e279d551719416eb750974fe30d011d6a37a
+          path: .scratch/198-candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: .scratch/198-candidate
+      - run: node test/helpers/warm-packed-cache.mjs
+        working-directory: .scratch/198-candidate
+      - name: Collect actual ordinary-token measurement
+        if: matrix.token == 'ordinary'
+        run: node test/helpers/windows-probe-measurement-ci.mjs ordinary
+      - name: Collect actual limited-token measurement
+        if: matrix.token == 'limited'
+        shell: powershell
+        run: ./test/helpers/windows-limited-probe-measurement.ps1
+      - name: Preserve sanitized diagnostic data even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-probes-${{ matrix.node }}-${{ matrix.token }}-${{ github.run_attempt }}
+          path: .scratch/198-measurement-public/measurement.json
+          if-no-files-found: error
+          retention-days: 30

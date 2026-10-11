@@ -61,6 +61,8 @@ export function createProbeMeasurement({ limit = 4096 } = {}) {
         : null;
   }
   function registerGuard(handle) {
+    // Observations made before the retained guard exists stay one-shot.
+    pending = null;
     if (!handle || handle.constructor?.name !== 'FileHandle' || handle.fd < 0) return;
     if (!guards.has(handle))
       guards.set(handle, { id: ++guardSequence, closed: false, seen: new Set() });

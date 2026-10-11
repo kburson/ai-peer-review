@@ -157,3 +157,127 @@ test('preload preserves real file operations, callback exec and promisified exec
   assert.equal(projection.diagnostic, 'windows-probe-measurement');
   assert.deepEqual(projection.counts, { total: 0, first: 0, removable: 0, outside: 0 });
 });
+
+test('download validation rejects private fields, wrong source and invented saved time', async () => {
+  const { validateMeasurementReport } =
+    await import('../helpers/windows-probe-measurement-report.mjs');
+  const producer = '1'.repeat(40);
+  const fixture = {
+    schema: 'ai-peer-review.windows-probe-measurement/v1',
+    candidate: '40a3e279d551719416eb750974fe30d011d6a37a',
+    producer,
+    runId: '123',
+    runAttempt: '1',
+    job: 'probe',
+    node: '24.20.0',
+    platform: 'win32',
+    release: '10.0.26100',
+    token: 'ordinary',
+    collectionComplete: true,
+    status: 'primary-refused',
+    code: 'APR_BROKER_STALE',
+    cleanup: 'retained-unproved',
+    measurement: {
+      verified: false,
+      operationalAuthority: 'unavailable',
+      calls: [],
+      counts: { total: 0, first: 0, removable: 0, outside: 0 },
+      truncated: false,
+      dropped: 0,
+      originalBudgetMs: 30000,
+      elapsedMs: 30250,
+      residualStarts: 0,
+      guaranteedSavedMs: 0,
+      requiredSavingPerRepeatMs: null,
+      decision: 'insufficient-evidence',
+    },
+  };
+  const expected = { producer, runId: '123', runAttempt: '1', token: 'ordinary', node: '24' };
+  assert.doesNotThrow(() => validateMeasurementReport(fixture, expected));
+  for (const mutate of [
+    (r) => (r.path = 'secret'),
+    (r) => (r.candidate = '2'.repeat(40)),
+    (r) => (r.producer = '3'.repeat(40)),
+    (r) => (r.measurement.guaranteedSavedMs = 300),
+    (r) => (r.measurement.operationalAuthority = 'available'),
+    (r) => (r.measurement.counts.removable = 1),
+    (r) => (r.collectionComplete = false),
+    (r) => (r.node = '26.0.0'),
+  ]) {
+    const bad = structuredClone(fixture);
+    mutate(bad);
+    assert.throws(() => validateMeasurementReport(bad, expected));
+  }
+});
+
+test('an observation before the retained guard exists remains outside', async () => {
+  await withHandles(async (a) => {
+    const m = createProbeMeasurement(),
+      signal = new AbortController().signal;
+    const c = m.begin({ signal, kind: 'observe' });
+    m.complete(c, { success: true, elapsedMs: 350 });
+    m.registerGuard(a);
+    m.checkGuard(a, { success: true });
+    observe(m, signal, a);
+    observe(m, signal, a);
+    assert.deepEqual(m.report().counts, { total: 3, first: 1, removable: 1, outside: 1 });
+  });
+});
+
+test('actual collection provenance refuses missing, duplicate and failed workers', async () => {
+  const { validateMeasurementProvenance } =
+    await import('../helpers/windows-probe-measurement-report.mjs');
+  const producer = '1'.repeat(40);
+  const names = [
+    'Windows probes / Node 24 / ordinary',
+    'Windows probes / Node 24 / limited',
+    'Windows probes / Node 26 / ordinary',
+    'Windows probes / Node 26 / limited',
+  ];
+  const value = {
+    run: {
+      id: 123,
+      run_attempt: 1,
+      head_sha: producer,
+      status: 'completed',
+      conclusion: 'success',
+      path: '.github/workflows/windows-probe-measurement.yml',
+      event: 'push',
+      head_branch: 'codex/198-draft',
+      repository: { full_name: 'kburson/ai-peer-review' },
+    },
+    jobs: {
+      total_count: 4,
+      jobs: names.map((name, i) => ({
+        id: i + 1,
+        name,
+        status: 'completed',
+        conclusion: 'success',
+        run_id: 123,
+        run_attempt: 1,
+      })),
+    },
+    artifacts: {
+      total_count: 4,
+      artifacts: ['24-ordinary', '24-limited', '26-ordinary', '26-limited'].map((key, i) => ({
+        id: i + 1,
+        name: 'windows-probes-' + key + '-1',
+        expired: false,
+      })),
+    },
+  };
+  assert.doesNotThrow(() => validateMeasurementProvenance(value, producer));
+  for (const mutate of [
+    (r) => r.jobs.jobs.pop(),
+    (r) => (r.jobs.jobs[1].name = r.jobs.jobs[0].name),
+    (r) => (r.jobs.jobs[0].conclusion = 'failure'),
+    (r) => (r.run.head_sha = '2'.repeat(40)),
+    (r) => (r.artifacts.artifacts[0].expired = true),
+    (r) => (r.run.path = '.github/workflows/other.yml'),
+    (r) => (r.jobs.jobs[0].run_id = 124),
+  ]) {
+    const bad = structuredClone(value);
+    mutate(bad);
+    assert.throws(() => validateMeasurementProvenance(bad, producer));
+  }
+});
