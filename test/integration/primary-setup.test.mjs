@@ -1,7 +1,7 @@
 // @story #134
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { platformSecurity } from '../../src/broker/platform.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
@@ -1042,3 +1042,53 @@ function pathForUser(f) {
     env: { XDG_CONFIG_HOME: f.home + '/.config' },
   };
 }
+
+test(
+  'explicit legacy account migration retains original evidence and machine commands before project migration',
+  { skip: process.platform === 'win32' ? 'Native private storage paused for #102/#107' : false },
+  async (t) => {
+    const f = await setupHostFixture(t);
+    const file = path.join(f.home, '.config/ai-peer-review/config.json');
+    const legacy = {
+      schema: 'ai-peer-review.config/v1',
+      hosts: { codex: { resume: { command: ['codex', 'resume'] } } },
+      setup: {
+        owner: 'ai-peer-review',
+        version: 2,
+        agents: ['codex'],
+        config_created: true,
+        scratch_exclude_added: false,
+        resume_commands_added: ['codex'],
+        automatic_adapters_added: [],
+      },
+    };
+    const raw = JSON.stringify(legacy) + '\n';
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, raw);
+    const adapter = path.join(f.home, '.codex/config.json');
+    mkdirSync(path.dirname(adapter), { recursive: true });
+    const foreign =
+      '{"foreign":{"command":"keep exactly"},"ai_peer_review":{"owner":"ai-peer-review","version":2}}\n';
+    writeFileSync(adapter, foreign);
+    await assert.rejects(f.core.setup({ scope: 'user', update: true }), {
+      code: 'APR_CONFIG_INVALID',
+    });
+    const preview = await f.core.setup({
+      scope: 'user',
+      update: true,
+      migrate: true,
+      dryRun: true,
+    });
+    assert.equal(readFileSync(file, 'utf8'), raw);
+    const evidence = preview.writes.find((x) => x.owner === 'legacy-user-config-evidence');
+    assert.ok(evidence);
+    await f.core.setup({ scope: 'user', update: true, migrate: true });
+    const current = JSON.parse(readFileSync(file, 'utf8'));
+    assert.equal(current.schema, 'ai-peer-review.user-config/v2');
+    assert.deepEqual(current.hosts.codex.resume.command, ['codex', 'resume']);
+    assert.equal(readFileSync(evidence.file, 'utf8'), raw);
+    const migratedAdapter = readFileSync(adapter, 'utf8');
+    assert.ok(migratedAdapter.includes('"foreign":{"command":"keep exactly"}'));
+    assert.equal(JSON.parse(migratedAdapter).ai_peer_review, undefined);
+  }
+);

@@ -193,7 +193,26 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
     } else {
       root = realpathSync(home);
       configFile = userFile;
-      current = parse(read(configFile), configFile) ?? { schema: 'ai-peer-review.user-config/v2' };
+      const rawUser = read(configFile);
+      current = parse(rawUser, configFile) ?? { schema: 'ai-peer-review.user-config/v2' };
+      if (current.schema === 'ai-peer-review.config/v1' && options.migrate) {
+        validateConfig(current);
+        if (current.authority !== undefined || current.review !== undefined)
+          conflict(
+            'Legacy account policy must be resolved separately; migration preserves it unchanged.'
+          );
+        legacy = current;
+        const backup = path.join(
+          path.dirname(userFile),
+          'legacy-config-evidence',
+          createHash('sha256').update(rawUser).digest('hex') + '.original'
+        );
+        const prior = read(backup);
+        if (prior !== null && prior !== rawUser)
+          conflict('Legacy account evidence conflicts with its original bytes.', { file: backup });
+        add(backup, rawUser, 'legacy-user-config-evidence');
+        current = splitLegacy(legacy).user;
+      }
       validateUserStore(current);
     }
     const next = structuredClone(current);

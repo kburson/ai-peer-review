@@ -51,6 +51,14 @@ workspaces. Account-level runtime selection is shared by clones and identifies
 the actual package path and Node executable. Project-local dependencies and source
 checkouts cannot register as the shared runner.
 
+If the account configuration still uses the legacy schema, migrate its owned
+user integrations first with `peer-review setup --scope user --update --migrate
+--dry-run`, then apply the same command without `--dry-run`. The original account
+configuration is retained byte for byte in its `legacy-config-evidence` directory.
+Legacy account authority or review policy refuses rather than silently moving to
+a different scope. Project machine-field migration uses explicit `--migrate-user`
+and refuses conflicts with the invoking account.
+
 For an in-place global upgrade, rebuild the native helper, run deployment and
 doctor diagnostics, and refresh stale owned integrations with setup --update
 --dry-run followed by setup --update. Commit and activate changed owned primary
