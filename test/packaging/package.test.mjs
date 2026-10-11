@@ -6,7 +6,6 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { load } from 'js-yaml';
-import { LANES } from '../../scripts/ci/receipt.mjs';
 import { fileURLToPath } from 'node:url';
 
 import { parseNpmPackOutput, runNpm, runRuntimePack } from '../helpers/npm-command.mjs';
@@ -263,22 +262,20 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.equal(workflow.env.APR_SKIP_NATIVE_BROKER_TESTS, '1');
   const requiredLanes = {
     fast: ['npm', 'test'],
-    integration: ['npm', 'run', 'test:integration'],
-    mcp: ['npm', 'run', 'test:mcp'],
-    packaging: ['npm', 'run', 'test:packaging'],
-    smoke: ['npm', 'run', 'test:smoke'],
+    slow: ['npm', 'run', 'test:slow'],
   };
   for (const key of ['node-24', 'preferred-node', 'phase-2-boundary']) {
     const steps = workflow.jobs[key].steps;
     for (const [lane, command] of Object.entries(requiredLanes)) {
-      const matches = steps.filter((step) => step.name === 'Verify tests: ' + lane);
+      const matches = steps.filter(
+        (step) => step.run === 'node scripts/ci/run-receipt.mjs ' + lane
+      );
       assert.equal(matches.length, 1, key + ':' + lane);
-      assert.equal(matches[0].run, 'node scripts/ci/record-tests.mjs ' + lane);
-      assert.deepEqual(LANES[lane].command, command);
+      assert.deepEqual(['npm', ...receiptCommands[lane]], command);
     }
-    const uploads = steps.filter((step) => step.name === 'Publish actual test execution records');
+    const uploads = steps.filter((step) => step.name === 'Preserve actual command receipts');
     assert.equal(uploads.length, 1);
-    assert.equal(uploads[0].if, '${{ always() }}');
+    assert.equal(uploads[0].if, 'always()');
     assert.equal(uploads[0].with['if-no-files-found'], 'error');
     assert.equal(uploads[0].with['include-hidden-files'], true);
   }
