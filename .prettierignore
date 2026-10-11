@@ -10,3 +10,6 @@ test/unit/verify-extraction.test.mjs
 test/golden/templates/*.md
 test/golden/manifests/*.md
 docs/superpowers/peer-reviews/**
+
+# Mixed provider hooks retain foreign bytes during owned integration updates.
+/.codex/hooks.json
