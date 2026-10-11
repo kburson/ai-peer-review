@@ -73,3 +73,24 @@ test('closed diagnostic report cannot authorize a worker or disclose private rec
     assert.throws(() => api.validateObservationFeasibilityReport(value));
   }
 });
+
+test('probe failure diagnostics retain known stage and code without private exception text', () => {
+  assert.equal(typeof api.observationFeasibilityFailure, 'function');
+  const error = new Error('private SID and directory');
+  assert.deepEqual(api.observationFeasibilityFailure(error, 'validate'), {
+    stage: 'validate',
+    reason: 'unavailable',
+    errorKind: 'Error',
+  });
+  assert.deepEqual(
+    api.observationFeasibilityFailure(
+      new Error('observation-feasibility-restoration-unproved'),
+      'restore'
+    ),
+    {
+      stage: 'restore',
+      reason: 'observation-feasibility-restoration-unproved',
+      errorKind: 'Error',
+    }
+  );
+});

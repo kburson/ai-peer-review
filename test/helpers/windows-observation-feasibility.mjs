@@ -8,7 +8,10 @@ import { tmpdir, release, arch } from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
-import { validateObservationFeasibilityReport } from './windows-observation-feasibility-report.mjs';
+import {
+  validateObservationFeasibilityReport,
+  observationFeasibilityFailure,
+} from './windows-observation-feasibility-report.mjs';
 const token = process.argv[2];
 if (
   process.platform !== 'win32' ||
@@ -116,7 +119,9 @@ const parseRecord = (raw) => {
 };
 const base = await mkdtemp(path.join(tmpdir(), 'apr190-observation-'));
 let childExitObserved = false,
-  cleanupProved = false;
+  cleanupProved = false,
+  stage = 'setup',
+  rows = null;
 try {
   const directory = path.join(base, 'directory'),
     file = path.join(base, 'record.json');
@@ -125,12 +130,14 @@ try {
   const query = JSON.stringify({ mode: 'observe', paths: [directory, file] });
   const oneShotMs = [],
     baseline = [];
+  stage = 'one-shot';
   for (let i = 0; i < 10; i++) {
     const started = performance.now();
     const raw = execFileSync(executable, args(original), { ...options, input: query });
     oneShotMs.push(Math.round(performance.now() - started));
     baseline.push(parseRecord(raw));
   }
+  stage = 'batch';
   const started = performance.now();
   let coldFirstQueryMs = null,
     seen = '';
@@ -162,7 +169,8 @@ try {
     child.stdin.on('error', () => reject(Error('observation-feasibility-input-refused')));
     child.stdin.end(JSON.stringify({ query, directory }));
   });
-  const rows = output
+  stage = 'decode';
+  rows = output
     .trim()
     .split(/\r?\n/)
     .map((line) => JSON.parse(line));
@@ -173,6 +181,7 @@ try {
     rows[11].kind !== 'restored'
   )
     throw Error('observation-feasibility-output-shape');
+  stage = 'validate';
   const report = validateObservationFeasibilityReport({
     schema: 'ai-peer-review.windows-observation-feasibility/v1',
     verified: false,
@@ -198,14 +207,16 @@ try {
     parentLossProved: false,
     guaranteedStartupSavingMs: 0,
   });
+  stage = 'restore';
   if (!report.aclRestored) throw Error('observation-feasibility-restoration-unproved');
   cleanupProved = report.aclRestored && report.childExitObserved;
+  stage = 'publish';
   const out = path.join(process.cwd(), '.scratch/190-feasibility-public');
   await mkdir(out, { recursive: true });
   await writeFile(path.join(out, 'report.json'), JSON.stringify(report, null, 2) + '\n', {
     flag: 'wx',
   });
-} catch {
+} catch (error) {
   const out = path.join(process.cwd(), '.scratch/190-feasibility-public');
   await mkdir(out, { recursive: true });
   await writeFile(
@@ -220,6 +231,14 @@ try {
         token,
         childExitObserved,
         cleanup: cleanupProved ? 'proved' : 'unproved',
+        ...observationFeasibilityFailure(error, stage),
+        frameCount: rows?.length ?? null,
+        recordTypes:
+          rows
+            ?.slice(0, 10)
+            .map((row) => (Array.isArray(row.record) ? 'array' : typeof row.record)) ?? null,
+        aclRestoreReported:
+          typeof rows?.[11]?.aclRestored === 'boolean' ? rows[11].aclRestored : null,
       },
       null,
       2

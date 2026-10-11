@@ -66,3 +66,29 @@ export function validateObservationFeasibilityReport(value) {
     throw Error('observation-feasibility-report-invalid');
   return value;
 }
+const failureStages = new Set([
+  'setup',
+  'one-shot',
+  'batch',
+  'decode',
+  'validate',
+  'restore',
+  'publish',
+]);
+const failureReasons = new Set([
+  'observation-feasibility-batch-refused',
+  'observation-feasibility-exit-unproved',
+  'observation-feasibility-output-bound',
+  'observation-feasibility-input-refused',
+  'observation-feasibility-output-shape',
+  'observation-feasibility-record-unavailable',
+  'observation-feasibility-report-invalid',
+  'observation-feasibility-restoration-unproved',
+]);
+export function observationFeasibilityFailure(error, stage) {
+  return {
+    stage: failureStages.has(stage) ? stage : 'unavailable',
+    reason: failureReasons.has(error?.message) ? error.message : 'unavailable',
+    errorKind: ['Error', 'SyntaxError', 'TypeError'].includes(error?.name) ? error.name : 'Error',
+  };
+}
