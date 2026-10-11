@@ -123,8 +123,11 @@ export async function inspectPrimaryReviewInventory(commonDir, primaryRoot, opti
         unavailable('Hook observation has an unknown or malformed record.', { file });
     }
   }
-  function inspect(workspace) {
-    const preserved = findReviewPreservation(commonDir, workspace, { verifySnapshot: true });
+  async function inspect(workspace) {
+    const preserved = await findReviewPreservation(commonDir, workspace, {
+      verifySnapshot: true,
+      ...context,
+    });
     if (preserved && !preserved.released) {
       hash
         .update(workspace)
@@ -242,8 +245,9 @@ export async function inspectPrimaryReviewInventory(commonDir, primaryRoot, opti
               } catch {
                 unavailable('Broker registration cannot be inspected.', { file: registrationFile });
               }
-              const retained = readReviewPreservation(commonDir, registrationFile, {
+              const retained = await readReviewPreservation(commonDir, registrationFile, {
                 verifySnapshot: true,
+                ...context,
               });
               if (retained?.record.kind === 'history' && !retained.released) {
                 hash.update(registrationFile).update(retained.recordDigest);
@@ -276,8 +280,9 @@ export async function inspectPrimaryReviewInventory(commonDir, primaryRoot, opti
                 unavailable('Broker registration refers to missing review activity.', {
                   file: registrationFile,
                 });
-              const preserved = findReviewPreservation(commonDir, workspace, {
+              const preserved = await findReviewPreservation(commonDir, workspace, {
                 verifySnapshot: true,
+                ...context,
               });
               if (preserved && !preserved.released) {
                 hash.update(workspace).update(preserved.recordDigest);
@@ -297,8 +302,8 @@ export async function inspectPrimaryReviewInventory(commonDir, primaryRoot, opti
         continue;
       }
       if (entry.name === 'reviews') {
-        for (const child of readdirSync(file)) inspect(path.join(file, child));
-      } else inspect(file);
+        for (const child of readdirSync(file)) await inspect(path.join(file, child));
+      } else await inspect(file);
     }
   }
   if ((await system.reviewWorktrees({ root: primaryRoot })) !== records)

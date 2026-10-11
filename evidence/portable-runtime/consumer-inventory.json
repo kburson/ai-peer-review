@@ -437,6 +437,26 @@
       "disposition": "portable"
     },
     {
+      "path": "src/config/review-history-ancestry.mjs",
+      "owner": 190,
+      "disposition": "portable"
+    },
+    {
+      "path": "src/config/review-history-maintenance.mjs",
+      "owner": 190,
+      "disposition": "portable"
+    },
+    {
+      "path": "src/config/review-history-snapshot.mjs",
+      "owner": 190,
+      "disposition": "portable"
+    },
+    {
+      "path": "src/config/review-history.mjs",
+      "owner": 190,
+      "disposition": "portable"
+    },
+    {
       "path": "src/config/runtime-selection-core.mjs",
       "owner": 187,
       "disposition": "portable"
@@ -564,6 +584,11 @@
     {
       "path": "src/installed/native-inventory.mjs",
       "owner": 186,
+      "disposition": "portable"
+    },
+    {
+      "path": "src/installed/portable-inventory.mjs",
+      "owner": 190,
       "disposition": "portable"
     },
     {

@@ -17,7 +17,10 @@ import { createHash } from 'node:crypto';
 import { userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { inspectReviewAuthority } from '../protocol/service.mjs';
-import { assertReviewNotPreserved } from '../config/review-history.mjs';
+import {
+  observeReviewHistoryExclusion,
+  assertReviewHistoryExclusionUnchanged,
+} from '../config/review-history.mjs';
 import {
   assertCollateralCompatible,
   readRuntimeCompatibility,
@@ -185,10 +188,19 @@ async function observePrimary(cwd, context) {
   );
   return { primary, integrationDigest: digest(JSON.stringify(integration)) };
 }
-function assertReviewAuthority(seal) {
+async function assertReviewAuthority(seal) {
   if (!seal.reviewWorkspace) return;
   const workspace = path.resolve(seal.reviewWorkspace);
-  assertReviewNotPreserved(seal.primary.commonDir, workspace);
+  seal.historyObservation = await observeReviewHistoryExclusion(
+    seal.primary.commonDir,
+    workspace,
+    seal.context
+  );
+  assertReviewLocation(seal);
+}
+function assertReviewLocation(seal) {
+  if (!seal.reviewWorkspace) return;
+  const workspace = path.resolve(seal.reviewWorkspace);
   let existing = workspace;
   while (!existsSync(existing)) {
     const parent = path.dirname(existing);
@@ -233,7 +245,8 @@ function assertEffectIntegrity(seal) {
   )
     refuse('Node identity changed before the effect.');
   verifyRuntimeInventorySync({ packageRoot, previousObservation: seal.runtime.inventory });
-  assertReviewAuthority(seal);
+  if (seal.reviewWorkspace) assertReviewHistoryExclusionUnchanged(seal.historyObservation);
+  assertReviewLocation(seal);
 }
 // Every effect awaits fresh protected authority under the original context.
 // Only tokens minted here carry production authority.
@@ -267,7 +280,7 @@ export async function assertOperationAuthorityNow(fence) {
     observed.integrationDigest !== seal.integrationDigest
   )
     refuse('Primary activation or integration changed during the operation.');
-  assertReviewAuthority(seal);
+  await assertReviewAuthority(seal);
   if (seal.context.signal.aborted || performance.now() >= seal.context.deadline)
     refuse('Original operation context was aborted or expired.');
   if (
@@ -306,11 +319,10 @@ export async function assertOperationAuthority({
       realpathSync(reviewContext.repository_root) !== seal.primary.activeWorktreeRoot
     )
       refuse('Review context belongs to a different physical worktree.');
-    assertReviewAuthority(seal);
-    // Parent revalidation above completed both asynchronous runtime admission
-    // and the final synchronous physical observation. No promise boundary lies
-    // between that observation and this child seal. Effects and post-operation
-    // validation still make their own fresh observations.
+    await assertReviewAuthority(seal);
+    // The awaited history reader keeps the inherited original context. Effects
+    // and post-operation validation make fresh protected observations and their
+    // final synchronous physical checks before using this child seal.
     fences.set(fence, seal);
     admissionLineage.bind(fence, { context: seal.context, primary: seal.primary, parent });
     return fence;

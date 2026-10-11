@@ -1,15 +1,62 @@
 // @story #202
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { lstatSync, realpathSync, readFileSync, readdirSync } from 'node:fs';
+import { performance } from 'node:perf_hooks';
 import {
-  lstatSync,
-  realpathSync,
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  readdirSync,
-} from 'node:fs';
-import { platformSecurity } from '../broker/platform.mjs';
+  observeStorageProtection,
+  openProtectedRoot,
+  provisionProtectedRoot,
+} from '../broker/storage-protection.mjs';
+const retainedHistoryGuards = new Set();
+function historyContext(options = {}) {
+  const context = {
+    signal: options.signal ?? new AbortController().signal,
+    deadline: options.deadline ?? performance.now() + 30000,
+  };
+  if (
+    !(context.signal instanceof AbortSignal) ||
+    !Number.isFinite(context.deadline) ||
+    context.deadline - performance.now() > 30000 ||
+    context.signal.aborted ||
+    performance.now() >= context.deadline
+  )
+    refuse('History operation requires its live original bounded context.');
+  return context;
+}
+async function closeHistoryGuard(guard, original) {
+  try {
+    await guard.close();
+    retainedHistoryGuards.delete(guard);
+  } catch (cleanup) {
+    retainedHistoryGuards.add(guard);
+    if (original) {
+      original.cause = cleanup;
+      throw original;
+    }
+    throw cleanup;
+  }
+}
+export async function retryHistoryStorageCleanup() {
+  for (const guard of retainedHistoryGuards) await closeHistoryGuard(guard);
+}
+async function withHistoryGuard(directory, context, operation) {
+  historyContext(context);
+  await retryHistoryStorageCleanup();
+  historyContext(context);
+  const receipt = await observeStorageProtection({ root: directory, ...context });
+  if (!receipt.verified) refuse('History storage is not account-private.', { directory });
+  const guard = await openProtectedRoot({ receipt, ...context });
+  let original;
+  try {
+    return await operation(guard);
+  } catch (error) {
+    original = error;
+    throw error;
+  } finally {
+    await closeHistoryGuard(guard, original);
+  }
+}
 import { snapshotReviewHistory, historyUnavailable as refuse } from './review-history-snapshot.mjs';
 import {
   reviewHistoryAncestry,
@@ -50,14 +97,6 @@ function ordinary(file, directory) {
     refuse('History storage is not a bounded ordinary path.', { file });
   if (process.platform !== 'win32' && (s.uid !== process.getuid() || s.mode & 0o077))
     refuse('History storage is not account-private.', { file });
-  if (directory && process.platform === 'win32') {
-    const h = platformSecurity().openPrivateDirectory(file);
-    try {
-      if (!h.verify()) refuse('History directory ownership changed.');
-    } finally {
-      h.close();
-    }
-  }
   return s;
 }
 function paths(commonDir, target, generation = 1) {
@@ -76,20 +115,18 @@ function paths(commonDir, target, generation = 1) {
   );
   return { parent, directory, file, release: file + '.released' };
 }
-function readPrivate(file) {
+async function readPrivate(file, context) {
   const directory = path.dirname(file);
   if (!ordinary(directory, true)) return null;
   if (!ordinary(file, false)) return null;
-  if (process.platform !== 'win32') return readFileSync(file);
-  const h = platformSecurity().openPrivateDirectory(directory);
-  try {
-    const bytes = h.read(path.basename(file));
-    if (!bytes || !h.verify()) refuse('History file ownership changed.');
-    return bytes;
-  } finally {
-    h.close();
-  }
+  return withHistoryGuard(directory, context, async (guard) => {
+    const snapshot = await guard.readSnapshot(path.basename(file), 16384);
+    await guard.verify();
+    historyContext(context);
+    return snapshot.bytes;
+  });
 }
+
 function closed(value, keys) {
   if (
     !value ||
@@ -106,10 +143,10 @@ function time(value) {
     new Date(value).toISOString() === value
   );
 }
-function readGeneration(commonDir, target, generation, verifySnapshot) {
+async function readGeneration(commonDir, target, generation, verifySnapshot, context) {
   const p = paths(commonDir, target, generation);
   if (stat(p.directory)) ordinary(p.parent, true);
-  const bytes = readPrivate(p.file);
+  const bytes = await readPrivate(p.file, context);
   if (!bytes) return null;
   let record;
   try {
@@ -154,7 +191,7 @@ function readGeneration(commonDir, target, generation, verifySnapshot) {
   )
     refuse('History record crosses scratch authority.');
   let released = false;
-  const releaseBytes = readPrivate(p.release);
+  const releaseBytes = await readPrivate(p.release, context);
   if (releaseBytes) {
     let release;
     try {
@@ -181,9 +218,12 @@ function readGeneration(commonDir, target, generation, verifySnapshot) {
     )
       refuse('Preserved historical or held bytes or parents changed.', { target });
   }
+  historyContext(context);
   return Object.freeze({ record, released, recordDigest: digest(bytes) });
 }
-export function readReviewPreservation(commonDir, target, { verifySnapshot = false } = {}) {
+export async function readReviewPreservation(commonDir, target, options = {}) {
+  const context = historyContext(options);
+  const { verifySnapshot = false } = options;
   const p = paths(commonDir, target);
   if (!stat(p.directory)) return null;
   ordinary(p.parent, true);
@@ -193,7 +233,7 @@ export function readReviewPreservation(commonDir, target, { verifySnapshot = fal
   let last = null;
   let files = 0;
   for (let generation = 1; generation <= 128; generation++) {
-    const next = readGeneration(commonDir, target, generation, false);
+    const next = await readGeneration(commonDir, target, generation, verifySnapshot, context);
     if (!next) break;
     if (
       last &&
@@ -207,15 +247,17 @@ export function readReviewPreservation(commonDir, target, { verifySnapshot = fal
     last = next;
   }
   if (related.length !== files) refuse('History generations contain gaps or unknown evidence.');
-  return last ? readGeneration(commonDir, target, last.record.generation, verifySnapshot) : null;
+  historyContext(context);
+  return last;
 }
 
 // One lookup protects effects, inventory, and restoration, including enclosing containers.
-export function findReviewPreservation(commonDir, target, options = {}) {
+export async function findReviewPreservation(commonDir, target, options = {}) {
+  const context = historyContext(options);
   let current = path.resolve(target),
     found = null;
   for (let depth = 0; depth < 128; depth++) {
-    const value = readReviewPreservation(commonDir, current, options);
+    const value = await readReviewPreservation(commonDir, current, { ...options, ...context });
     if (value && !value.released) found ??= value;
     const parent = path.dirname(current);
     if (parent === current) return found;
@@ -223,32 +265,31 @@ export function findReviewPreservation(commonDir, target, options = {}) {
   }
   refuse('Review preservation ancestry exceeds its bound.');
 }
-function createPrivate(file, bytes) {
+async function createPrivate(file, bytes, context) {
   const parent = path.dirname(file);
-  mkdirSync(parent, { recursive: true, mode: 0o700 });
-  ordinary(path.dirname(parent), true);
-  ordinary(parent, true);
-  if (process.platform !== 'win32') writeFileSync(file, bytes, { flag: 'wx', mode: 0o600 });
-  else {
-    const h = platformSecurity().openPrivateDirectory(parent);
-    try {
-      if (!h.verify()) refuse('History ownership changed.');
-      h.create(path.basename(file), bytes);
-      if (!h.verify()) refuse('History ownership changed.');
-    } finally {
-      h.close();
-    }
+  for (const directory of [path.dirname(parent), parent]) {
+    if (!stat(directory)) await provisionProtectedRoot({ root: directory, ...context });
+    ordinary(directory, true);
   }
-  if (!readPrivate(file)?.equals(Buffer.from(bytes))) refuse('History record read-back disagrees.');
+  await withHistoryGuard(parent, context, async (guard) => {
+    await guard.writeExclusive(path.basename(file), Buffer.from(bytes));
+    await guard.verify();
+  });
+  if (!(await readPrivate(file, context))?.equals(Buffer.from(bytes)))
+    refuse('History record read-back disagrees.');
 }
-export function preserveReviewHistory({
+
+export async function preserveReviewHistory({
   commonDir,
   worktreeRoot,
   target,
   kind,
   reason,
   dryRun = false,
+  signal,
+  deadline,
 }) {
+  const context = historyContext({ signal, deadline });
   if (
     !['history', 'hold'].includes(kind) ||
     typeof reason !== 'string' ||
@@ -257,7 +298,10 @@ export function preserveReviewHistory({
     /[\r\n\0]/.test(reason)
   )
     refuse('Explicit preservation kind and single-line reason are required.');
-  const existing = readReviewPreservation(commonDir, target, { verifySnapshot: true });
+  const existing = await readReviewPreservation(commonDir, target, {
+    verifySnapshot: true,
+    ...context,
+  });
   if (existing) {
     if (existing.record.kind !== kind || existing.record.worktree_root !== worktreeRoot)
       refuse('Existing preservation cannot be reclassified.');
@@ -284,29 +328,37 @@ export function preserveReviewHistory({
       stable(snapshotReviewHistory(target)) !== stable(snapshot)
     )
       refuse('History changed before preservation write.');
-    createPrivate(paths(commonDir, target, record.generation).file, stable(record));
-    readReviewPreservation(commonDir, target, { verifySnapshot: true });
+    await createPrivate(paths(commonDir, target, record.generation).file, stable(record), context);
+    await readReviewPreservation(commonDir, target, { verifySnapshot: true, ...context });
   }
+  historyContext(context);
   return Object.freeze(record);
 }
-export function releaseReviewHold(commonDir, target, { dryRun = false } = {}) {
-  const before = readReviewPreservation(commonDir, target, { verifySnapshot: true });
+export async function releaseReviewHold(commonDir, target, options = {}) {
+  const context = historyContext(options);
+  const { dryRun = false } = options;
+  const before = await readReviewPreservation(commonDir, target, {
+    verifySnapshot: true,
+    ...context,
+  });
   if (!before || before.record.kind !== 'hold')
     refuse('Only an explicit current-review hold can be released.');
   if (!before.released && !dryRun)
-    createPrivate(
+    await createPrivate(
       paths(commonDir, target, before.record.generation).release,
       stable({
         schema: 'ai-peer-review.review-hold-release/v1',
         target,
         record_digest: before.recordDigest,
         released_at: new Date().toISOString(),
-      })
+      }),
+      context
     );
+  historyContext(context);
   return Object.freeze({ target, released: !dryRun || before.released });
 }
-export function assertReviewNotPreserved(commonDir, target) {
-  const value = findReviewPreservation(commonDir, target);
+export async function assertReviewNotPreserved(commonDir, target, options = {}) {
+  const value = await findReviewPreservation(commonDir, target, options);
   if (value)
     refuse(
       value.record.kind === 'history'
@@ -316,16 +368,66 @@ export function assertReviewNotPreserved(commonDir, target) {
     );
 }
 
+const exclusions = new WeakMap();
+function catalogGeneration(commonDir) {
+  const parent = path.join(commonDir, 'ai-peer-review');
+  const directory = path.join(parent, 'review-history');
+  const entries = [commonDir, parent, directory];
+  if (stat(directory)) {
+    ordinary(parent, true);
+    ordinary(directory, true);
+    const names = readdirSync(directory).sort();
+    if (names.length > 32768) refuse('History catalog exceeds its entry bound.');
+    for (const name of names) entries.push(path.join(directory, name));
+  }
+  return stable(
+    entries.map((file) => {
+      let s;
+      try {
+        s = lstatSync(file, { bigint: true });
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+      return [
+        file,
+        s ? [s.dev, s.ino, s.uid, s.mode, s.size, s.mtimeNs, s.ctimeNs].map(String) : null,
+      ];
+    })
+  );
+}
+// Integrity adjunct for the awaited fixed reader, never an admission capability.
+export async function observeReviewHistoryExclusion(commonDir, target, options = {}) {
+  const context = historyContext(options);
+  const generation = catalogGeneration(commonDir);
+  await assertReviewNotPreserved(commonDir, target, context);
+  if (catalogGeneration(commonDir) !== generation) refuse('History changed during observation.');
+  const observation = Object.freeze({ verified: false });
+  exclusions.set(observation, { commonDir, generation, context });
+  return observation;
+}
+export function assertReviewHistoryExclusionUnchanged(observation) {
+  const original = exclusions.get(observation);
+  if (!original) refuse('History observation was not issued by the fixed reader.');
+  historyContext(original.context);
+  if (catalogGeneration(original.commonDir) !== original.generation)
+    refuse('History changed after protected observation.');
+}
+
 // Exact registration bytes can remain history after a worktree was relocated.
 export function createReviewPreservationLookup(commonDir, registrationRoot) {
-  const registration = (file) => {
-    const value = readReviewPreservation(commonDir, file, { verifySnapshot: true });
+  const registration = async (file, options = {}) => {
+    const value = await readReviewPreservation(commonDir, file, {
+      verifySnapshot: true,
+      ...options,
+    });
     return Boolean(value && value.record.kind === 'history' && !value.released);
   };
-  const workspace = (target) => {
-    if (findReviewPreservation(commonDir, target, { verifySnapshot: true })) return true;
+  const workspace = async (target, options = {}) => {
+    const context = historyContext(options);
+    if (await findReviewPreservation(commonDir, target, { verifySnapshot: true, ...context }))
+      return true;
     const file = path.join(registrationRoot, path.basename(target) + '.json');
-    if (!registration(file)) return false;
+    if (!(await registration(file, context))) return false;
     return JSON.parse(readFileSync(file, 'utf8')).workspace === target;
   };
   return Object.freeze({ workspace, registration });

@@ -832,7 +832,7 @@ export async function reconcileRegistrations({
       const file = path.join(root, name);
       const registration = readRegistration(file);
       if (!registration) continue;
-      if (isPreservedRegistration(file)) {
+      if (await isPreservedRegistration(file)) {
         if (
           !validRegistrationShape(registration) ||
           file !== path.join(root, registration.review_id + '.json')
@@ -865,7 +865,7 @@ export async function reconcileRegistrations({
         'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
         'Registered review workspace'
       );
-      if (!isPreserved(registration.workspace)) runtimeRecord(registration.runtime);
+      if (!(await isPreserved(registration.workspace))) runtimeRecord(registration.runtime);
       registrations.set(registration.review_id, result(registration, file));
     }
   }
@@ -889,7 +889,7 @@ export async function reconcileRegistrations({
     const reviewId = path.basename(workspace);
     const candidate = registrations.get(reviewId);
     const registration = candidate?.workspace === workspace ? candidate : null;
-    if (isPreserved(workspace)) {
+    if (await isPreserved(workspace)) {
       if (registration) reconciled.push(registration);
       continue;
     }

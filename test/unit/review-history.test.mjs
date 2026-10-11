@@ -18,10 +18,90 @@ import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 import { initializeReview, inspectReviewAuthority } from '../helpers/protocol-api.mjs';
 import { event } from '../helpers/review-fixture.mjs';
 import { reconcileRegistrations, inspectStartupAuthority } from '../../src/broker/registry.mjs';
+import { parse } from 'espree';
+import { compileFunction } from 'node:vm';
+import { runBroker } from '../helpers/broker-service-api.mjs';
+
+// Execute the exact shipped registry and history closures against real history;
+// fixture context is not a production operation grant or bootstrap capability.
+function shippedRestorationPorts(identity, context) {
+  const source = readFileSync(
+    new URL('../../src/broker/portable-service.mjs', import.meta.url),
+    'utf8'
+  );
+  const ast = parse(source, { ecmaVersion: 'latest', sourceType: 'module', range: true });
+  const body = ast.body.find((node) => node.declaration?.id?.name === 'startPortableBrokerService')
+    .declaration.body.body;
+  const names = ['store', 'history', 'isPreserved', 'isPreservedRegistration', 'registrations'];
+  const declarations = body.filter(
+    (node) => node.type === 'VariableDeclaration' && names.includes(node.declarations[0].id.name)
+  );
+  const run = body.find(
+    (node) => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'run'
+  );
+  const properties = run.declarations[0].init.arguments[0].properties.filter((node) =>
+    ['registry', 'isPreserved'].includes(node.key.name)
+  );
+  const code =
+    declarations.map((node) => source.slice(...node.range)).join('\n') +
+    '\nreturn {' +
+    properties.map((node) => source.slice(...node.range)).join(',') +
+    '};';
+  return import('../../src/config/review-history.mjs').then(({ createReviewPreservationLookup }) =>
+    compileFunction(code, [
+      'identity',
+      'path',
+      'createReviewPreservationLookup',
+      'currentOperationAuthorityContext',
+      'reconcileRegistrations',
+      'inspectStartupAuthority',
+    ])(
+      identity,
+      path,
+      createReviewPreservationLookup,
+      async () => context,
+      reconcileRegistrations,
+      inspectStartupAuthority
+    )
+  );
+}
 
 const options = {
   skip: process.platform === 'win32' ? 'Native private storage paused for #102/#107' : false,
 };
+
+test('history lookup refuses an expired original operation even when no catalog exists', async () => {
+  const { readReviewPreservation } = await import('../../src/config/review-history.mjs');
+  await assert.rejects(
+    () =>
+      Promise.resolve(
+        readReviewPreservation(path.resolve('.scratch'), path.resolve('.scratch/absent'), {
+          signal: new AbortController().signal,
+          deadline: 0,
+        })
+      ),
+    { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
+  );
+});
+
+test(
+  'history exclusion rejects a catalog created after the awaited observation',
+  options,
+  async (t) => {
+    const f = await fixture(t);
+    const history = await import('../../src/config/review-history.mjs');
+    assert.equal(typeof history.observeReviewHistoryExclusion, 'function');
+    const observation = await history.observeReviewHistoryExclusion(f.commonDir, f.target);
+    assert.doesNotThrow(() => history.assertReviewHistoryExclusionUnchanged(observation));
+    await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'new obsolete attempt' });
+    assert.throws(() => history.assertReviewHistoryExclusionUnchanged(observation), {
+      code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+    });
+    assert.throws(() => history.assertReviewHistoryExclusionUnchanged({ ...observation }), {
+      code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+    });
+  }
+);
 async function fixture(t) {
   const f = await setupHostFixture(t);
   // Component scheduling is explicitly unverified; no installed admission is minted.
@@ -45,6 +125,28 @@ async function pending(f) {
   await initializeReview(workspace, e);
   return workspace;
 }
+
+test('stock history storage preserves an obsolete attempt and refuses execution on every OS', async (t) => {
+  const f = await fixture(t);
+  const file = path.join(f.target, 'events.jsonl');
+  const before = readFileSync(file);
+  await f.api.preserveHistory({
+    cwd: f.root,
+    target: f.target,
+    reason: 'obsolete stock-storage control',
+  });
+  const history = await import('../../src/config/review-history.mjs');
+  const value = await history.readReviewPreservation(f.commonDir, f.target, {
+    verifySnapshot: true,
+  });
+  assert.equal(value.record.kind, 'history');
+  assert.deepEqual(readFileSync(file), before);
+  await assert.rejects(() => history.assertReviewNotPreserved(f.commonDir, f.target), {
+    code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+  });
+  const files = readdirSync(path.join(f.commonDir, 'ai-peer-review/review-history'));
+  assert.equal(files.length, 1);
+});
 
 test(
   'history maintenance retains the caller deadline before catalog effects',
@@ -120,9 +222,9 @@ for (const nested of [false, true])
         project: { digest: 'c'.repeat(64), physicalRoot: f.root },
         store: { root: path.dirname(file) },
         inspectAuthority: inspectStartupAuthority,
-        isPreserved: (workspace) =>
+        isPreserved: async (workspace) =>
           Boolean(
-            findReviewPreservation(f.commonDir, workspace, { verifySnapshot: true })?.record
+            (await findReviewPreservation(f.commonDir, workspace, { verifySnapshot: true }))?.record
               .kind === 'history'
           ),
       });
@@ -193,7 +295,7 @@ test('historical review execution remains fenced after preservation', options, a
   assert.equal(typeof f.api.preserveHistory, 'function');
   await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete attempt' });
   const { assertReviewNotPreserved } = await import('../../src/config/review-history.mjs');
-  assert.throws(() => assertReviewNotPreserved(f.commonDir, f.target), {
+  await assert.rejects(() => assertReviewNotPreserved(f.commonDir, f.target), {
     code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
   });
   await assert.rejects(f.api.releaseReview({ cwd: f.root, target: f.target }), {
@@ -212,7 +314,7 @@ test(
     );
     await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete container' });
     const { assertReviewNotPreserved } = await import('../../src/config/review-history.mjs');
-    assert.throws(() => assertReviewNotPreserved(f.commonDir, path.dirname(child)), {
+    await assert.rejects(() => assertReviewNotPreserved(f.commonDir, path.dirname(child)), {
       code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
     });
   }
@@ -235,7 +337,7 @@ test(
     assert.equal(inspectReviewAuthority(workspace).state.protocol.state, 'awaiting-reviewer');
     assert.deepEqual(readFileSync(path.join(workspace, 'events.jsonl')), bytes);
     const { assertReviewNotPreserved } = await import('../../src/config/review-history.mjs');
-    assert.throws(() => assertReviewNotPreserved(f.commonDir, workspace), {
+    await assert.rejects(() => assertReviewNotPreserved(f.commonDir, workspace), {
       code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
     });
     await assert.rejects(f.api.releaseReview({ cwd: f.root, target: workspace }), {
@@ -246,7 +348,7 @@ test(
     f.git('commit', '-m', 'owned integration');
     await f.api.activate({ cwd: f.root });
     await f.api.releaseReview({ cwd: f.root, target: workspace });
-    assert.doesNotThrow(() => assertReviewNotPreserved(f.commonDir, workspace));
+    await assert.doesNotReject(() => assertReviewNotPreserved(f.commonDir, workspace));
     assert.deepEqual(readFileSync(path.join(workspace, 'events.jsonl')), bytes);
   }
 );
@@ -315,7 +417,7 @@ test('nested scratch names cannot conceal a preserved ancestor', options, async 
   );
   await f.api.preserveHistory({ cwd: f.root, target: f.target, reason: 'obsolete tree' });
   const { assertReviewNotPreserved } = await import('../../src/config/review-history.mjs');
-  assert.throws(() => assertReviewNotPreserved(f.commonDir, path.dirname(child)), {
+  await assert.rejects(() => assertReviewNotPreserved(f.commonDir, path.dirname(child)), {
     code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
   });
 });
@@ -375,13 +477,13 @@ test(
     const bytes = readFileSync(path.join(workspace, 'events.jsonl'));
     await f.api.holdReview({ cwd: f.root, target: workspace, reason: 'second migration' });
     const { assertReviewNotPreserved } = await import('../../src/config/review-history.mjs');
-    assert.throws(() => assertReviewNotPreserved(f.commonDir, workspace), {
+    await assert.rejects(() => assertReviewNotPreserved(f.commonDir, workspace), {
       code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
     });
     for (const [name, bytes] of prior)
       assert.deepEqual(readFileSync(path.join(directory, name)), bytes);
     await f.api.releaseReview({ cwd: f.root, target: workspace });
-    assert.doesNotThrow(() => assertReviewNotPreserved(f.commonDir, workspace));
+    await assert.doesNotReject(() => assertReviewNotPreserved(f.commonDir, workspace));
     assert.deepEqual(readFileSync(path.join(workspace, 'events.jsonl')), bytes);
   }
 );
@@ -430,7 +532,7 @@ for (const kind of ['history', 'hold'])
       },
       performCurrentOperationEffect: (effect) => effect(),
       withReviewOperationAuthority: async (input, operation) => {
-        assertReviewNotPreserved(f.commonDir, input.reviewWorkspace);
+        await assertReviewNotPreserved(f.commonDir, input.reviewWorkspace);
         return operation();
       },
       runClaudeReviewerLaunch: () => {
@@ -490,6 +592,33 @@ test(
     });
     assert.deepEqual(readFileSync(file), before);
     await assert.doesNotReject(() => inspectPrimaryReviewInventory(f.commonDir, f.root));
+    const identity = { digest: 'd'.repeat(64), physicalRoot: f.root, commonDirectory: f.commonDir };
+    const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+    const ports = await shippedRestorationPorts(identity, context);
+    const ready = Promise.withResolvers();
+    let dispatch;
+    const running = runBroker({
+      identity,
+      ...ports,
+      owner: { release() {} },
+      versions: { package_version: '1.0.0', broker_protocol_version: 1, node_major: 24 },
+      workerFactory() {
+        throw Error('Historical provider execution attempted');
+      },
+      clock: { now: () => 0, setTimeout: () => 1, clearTimeout() {} },
+      server: {
+        start(handler) {
+          dispatch = handler;
+          ready.resolve();
+        },
+        close() {},
+      },
+    });
+    await Promise.race([ready.promise, running]);
+    assert.equal((await dispatch({ id: 'status', command: 'status' })).reviews, 0);
+    await dispatch({ id: 'stop', command: 'stop' });
+    await running;
+    assert.deepEqual(readFileSync(file), before);
     const { createReviewPreservationLookup, assertReviewNotPreserved } =
       await import('../../src/config/review-history.mjs');
     const lookup = createReviewPreservationLookup(f.commonDir, path.dirname(file));
@@ -502,9 +631,12 @@ test(
     });
     assert.equal(records.length, 1);
     assert.equal(records[0].workspace, workspace);
-    assert.equal(lookup.workspace(workspace), true);
-    assert.equal(lookup.workspace(path.join(f.root, '.scratch/peer-review/review-orphan')), false);
-    assert.throws(() => assertReviewNotPreserved(f.commonDir, file), {
+    assert.equal(await lookup.workspace(workspace), true);
+    assert.equal(
+      await lookup.workspace(path.join(f.root, '.scratch/peer-review/review-orphan')),
+      false
+    );
+    await assert.rejects(() => assertReviewNotPreserved(f.commonDir, file), {
       code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
     });
     await assert.rejects(

@@ -132,7 +132,7 @@ export function createReviewHistoryMaintenance({ admit, packageRoot, home, admis
           if (kind === 'release') {
             const primary = await resolvePrimaryAuthoritySync({ cwd, ...context });
             createIntegrationChecker({ packageRoot, home }).check(primary, { primaryOnly: true });
-            return releaseReviewHold(location.commonDir, target, { dryRun });
+            return releaseReviewHold(location.commonDir, target, { dryRun, ...context });
           }
           return preserveReviewHistory({
             commonDir: location.commonDir,
@@ -141,6 +141,7 @@ export function createReviewHistoryMaintenance({ admit, packageRoot, home, admis
             kind,
             reason,
             dryRun,
+            ...context,
           });
         }
       );

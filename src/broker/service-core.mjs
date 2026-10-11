@@ -97,7 +97,7 @@ export function createBrokerService({
     };
     const addWorker = async (registration) => {
       const valid = assertRegistration(identity, registration);
-      if (input.isPreserved?.(valid.workspace))
+      if (await input.isPreserved?.(valid.workspace))
         fail(
           'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
           'Preserved review cannot restore a broker worker.',
@@ -193,7 +193,7 @@ export function createBrokerService({
         try {
           await input.cleanupGuard?.();
           for (const registration of await registry.list()) {
-            if (input.isPreserved?.(registration.workspace)) continue;
+            if (await input.isPreserved?.(registration.workspace)) continue;
             const worker = await addWorker(registration);
             if (worker.workState() === 'recovery-only') unreconciled.push(registration.workspace);
           }
@@ -302,7 +302,7 @@ export function createBrokerService({
         { operation: 'broker.reconcile', cwd: identity.physicalRoot },
         async () => {
           for (const registration of await registry.list()) {
-            if (!input.isPreserved?.(registration.workspace)) await addWorker(registration);
+            if (!(await input.isPreserved?.(registration.workspace))) await addWorker(registration);
           }
           await settleWorkers({ resetIdle: true });
           await server.start(serializedDispatch);

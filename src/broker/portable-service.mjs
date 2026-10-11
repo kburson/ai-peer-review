@@ -17,6 +17,7 @@ import {
 } from './portable-bootstrap.mjs';
 import { createPortableBrokerServer, portableBrokerLifecycleAdmission } from './service.mjs';
 import { createBrokerService } from './service-core.mjs';
+import { createReviewPreservationLookup } from '../config/review-history.mjs';
 import { reconcileRegistrations, inspectStartupAuthority } from './registry.mjs';
 import { createProductionReviewWorker } from './worker-factory.mjs';
 import { reserveReviewerLaunch, settleReservedReviewerLaunch } from './launch.mjs';
@@ -102,8 +103,19 @@ export async function startPortableBrokerService(input = {}) {
   const store = {
     root: path.join(identity.physicalRoot, '.scratch', 'peer-review', 'broker', 'registrations'),
   };
+  const history = createReviewPreservationLookup(identity.commonDirectory, store.root);
+  const isPreserved = async (workspace) =>
+    history.workspace(workspace, await currentOperationAuthorityContext());
+  const isPreservedRegistration = async (file) =>
+    history.registration(file, await currentOperationAuthorityContext());
   const registrations = () =>
-    reconcileRegistrations({ project: identity, store, inspectAuthority: inspectStartupAuthority });
+    reconcileRegistrations({
+      project: identity,
+      store,
+      inspectAuthority: inspectStartupAuthority,
+      isPreserved,
+      isPreservedRegistration,
+    });
   const service = createBrokerService({
     withOperationAuthority,
     assertCurrentOperationAuthority,
@@ -135,6 +147,7 @@ export async function startPortableBrokerService(input = {}) {
       },
       release: async () => owner.release(await currentOperationAuthorityContext()),
     },
+    isPreserved,
     registry: {
       list: registrations,
       async get(workspace) {
