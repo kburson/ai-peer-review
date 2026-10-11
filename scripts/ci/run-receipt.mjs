@@ -5,8 +5,8 @@ import { mkdirSync, openSync, closeSync, readFileSync, writeFileSync } from 'nod
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { runNpm } from '../../test/helpers/npm-command.mjs';
-const lane = process.argv[2],
-  commands = { fast: ['test'], slow: ['run', 'test:slow'] };
+import { receiptCommands as commands } from './receipt-core.mjs';
+const lane = process.argv[2];
 if (
   process.argv.length !== 3 ||
   !commands[lane] ||

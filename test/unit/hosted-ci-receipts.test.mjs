@@ -101,3 +101,40 @@ test('full CI must succeed on exact PR head and actual required workers', () => 
     assert.throws(() => validateCIRun(bad.run, bad.jobs, sha));
   }
 });
+
+test('workflow command coverage follows real receipt lanes and rejects dropped suite coverage', async () => {
+  const { expandedCICommands } = await import('../helpers/ci-command-coverage.mjs');
+  const recipes = { fast: ['test'], slow: ['run', 'test:slow'] };
+  const scripts = {
+    test: 'npm run test:unit && npm run test:golden',
+    'test:slow': 'npm run test:integration && npm run test:mcp && npm run test:smoke',
+  };
+  const workflow =
+    '      - run: node scripts/ci/run-receipt.mjs fast\n      - run: node scripts/ci/run-receipt.mjs slow\n';
+  const commands = expandedCICommands(workflow, scripts, recipes);
+  for (const command of [
+    'npm test',
+    'npm run test:unit',
+    'npm run test:golden',
+    'npm run test:integration',
+    'npm run test:mcp',
+    'npm run test:smoke',
+  ])
+    assert.ok(commands.has(command));
+  const missing = expandedCICommands(
+    workflow,
+    { ...scripts, 'test:slow': 'npm run test:mcp && npm run test:smoke' },
+    recipes
+  );
+  assert.equal(missing.has('npm run test:integration'), false);
+  const noFast = expandedCICommands(
+    '      - run: node scripts/ci/run-receipt.mjs slow\n',
+    scripts,
+    recipes
+  );
+  assert.equal(noFast.has('npm test'), false);
+  assert.throws(
+    () => expandedCICommands('      - run: npm test\n', { test: 'npm test' }, recipes),
+    /cycle/
+  );
+});

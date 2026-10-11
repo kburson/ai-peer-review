@@ -6,6 +6,10 @@ on:
       - test/helpers/windows-probe-measurement*.mjs
       - test/helpers/windows-limited-probe-measurement.ps1
       - .github/workflows/windows-probe-measurement.yml
+      - .github/workflows/ci.yml
+      - scripts/ci/**
+      - test/helpers/ci-command-coverage.mjs
+      - test/packaging/package.test.mjs
   workflow_dispatch:
 permissions:
   contents: read

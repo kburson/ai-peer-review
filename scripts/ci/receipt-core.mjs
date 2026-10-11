@@ -1,5 +1,9 @@
 // @story #198
 import { createHash } from 'node:crypto';
+export const receiptCommands = Object.freeze({
+  fast: Object.freeze(['test']),
+  slow: Object.freeze(['run', 'test:slow']),
+});
 const fail = () => {
   throw Error('hosted-receipt-invalid');
 };
