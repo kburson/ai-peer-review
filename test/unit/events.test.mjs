@@ -10,6 +10,26 @@ import {
 } from '../../src/protocol/events.mjs';
 import { event, v2Event } from '../helpers/review-fixture.mjs';
 
+test('finalization stale-claim interventions are v2 only and refuse other reasons', () => {
+  for (const interrupted_state of ['acceptance-pending', 'author-finalization']) {
+    const intervention = v2Event('intervention-entered', {
+      payload: { reason: 'stale-claim', interrupted_state },
+    });
+    assert.equal(validateVersionedEvent(intervention), true);
+    assert.throws(
+      () => validateEvent({ ...intervention, schema: 'ai-peer-review.event/v1' }),
+      (error) => error.code === 'APR_EVENT_INVALID'
+    );
+    for (const reason of ['participant-loss', 'turn-budget-exhausted']) {
+      assert.throws(
+        () =>
+          validateVersionedEvent({ ...intervention, payload: { ...intervention.payload, reason } }),
+        (error) => error.code === 'APR_EVENT_INVALID'
+      );
+    }
+  }
+});
+
 test('schema artifacts identify the three closed v1 projections', () => {
   for (const [file, id] of [
     ['schemas/event-v1.json', 'ai-peer-review.event/v1'],
