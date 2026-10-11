@@ -98,7 +98,7 @@ test(
         JSON.stringify(input) +
         ',{checkpoint(name){' +
         'if(name==="author-claimed"){changed=true;const file=path.join(process.cwd(),".ai-peer-review/config.json");' +
-        'writeFileSync(file,readFileSync(file,"utf8")+" ");}}});}catch(error){failure={code:error.code,message:error.message};}' +
+        'writeFileSync(file,readFileSync(file,"utf8")+" ");}}});}catch(error){failure={code:error.code,message:error.message,reason:["operation-deadline","operation-aborted","invalid-context-input"].includes(error.details?.reason)?error.details.reason:null};}' +
         'const workspace=' +
         JSON.stringify(started.paths.workspace) +
         ';console.log(JSON.stringify({changed,failure,sourceAvailable,' +
@@ -117,7 +117,11 @@ test(
         observed.failure.message,
         /^Primary admission election refused: source-class-unavailable$/
       );
-    assert.equal(observed.failure.code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
+    assert.equal(
+      observed.failure.code,
+      'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+      JSON.stringify(observed)
+    );
     assert.equal(observed.draftExists, false);
     assert.equal(observed.registryExists, false);
   }

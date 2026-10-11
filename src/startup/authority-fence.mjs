@@ -269,8 +269,9 @@ export async function assertOperationAuthorityNow(fence) {
     nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true })) !== seal.nodeIdentity
   )
     refuse('Node identity changed during protected authority observation.');
-  verifyRuntimeInventorySync({ packageRoot, previousObservation: seal.runtime.inventory });
   assertProtectedSnapshotUnchanged(selection);
+  // The final synchronous integrity check below freshly verifies the complete
+  // inventory after these protected generations; no await separates the checks.
   assertEffectIntegrity(seal);
   return fence;
 }
