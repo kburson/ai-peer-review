@@ -12,7 +12,7 @@ export function reviewHistoryAncestry(commonDir, worktreeRoot, target) {
     const roots = authorityGit(worktreeRoot, ['worktree', 'list', '--porcelain', '-z'])
       .split('\0')
       .filter((x) => x.startsWith('worktree '))
-      .map((x) => x.slice(9));
+      .map((x) => realpathSync(path.resolve(x.slice(9))));
     if (
       member.root !== worktreeRoot ||
       member.commonDir !== commonDir ||
