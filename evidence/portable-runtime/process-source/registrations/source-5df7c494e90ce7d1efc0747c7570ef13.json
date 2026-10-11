@@ -1,0 +1,28 @@
+{
+  "schema": "ai-peer-review.process-source-registration/v1",
+  "captureId": "source-5df7c494e90ce7d1efc0747c7570ef13",
+  "hostId": "sha256:c98070aa1ea6c2bfbc72fe53cca254cb886ef4066c4da3e3c03a2f2a19eb9efc",
+  "publicKey": "MCowBQYDK2VwAyEA1Lh1kOF9+7lo3WebMt9hONAiYZ4x2zodp3QzwxsCS9A=",
+  "keyId": "sha256:647378eef90c404d71bc94da562b69968ec98a7d264ccaf7b7ad5a964973e9df",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "7d4223faf123716406c78b4fa9d0ffa553f4c73c",
+    "tarballDigest": "sha256:ebfb15c0515f29ad9315ead4ac39c5c8d85eb28b46ea46286fc2f81e63d6f367",
+    "inventoryDigest": "sha256:262ecbb6f04b37c8aca2cf6c4b42e251e201bbfb370df39e535a2a0f1043f050",
+    "contractDigest": "sha256:424f35d0c9e24283d43ddc3550ed4923fdc444219331cd5fe39aa676c043fedb"
+  },
+  "scope": {
+    "platform": "linux",
+    "build": "6.17.0-1022-azure",
+    "architecture": "x64",
+    "nodeMajor": 24,
+    "probe": {
+      "path": "/proc",
+      "visibility": "full-pid-namespace",
+      "errorContract": "exact-pid-directory-v1",
+      "version": "procfs-v1"
+    }
+  },
+  "kinds": ["creation"],
+  "transitions": ["clock-forward", "clock-backward", "timezone", "dst"]
+}
