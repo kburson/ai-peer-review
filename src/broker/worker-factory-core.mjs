@@ -249,6 +249,14 @@ export function createProductionWorkerOperations({
     // The supported authority parser and exact journal/registration checks above
     // remain mandatory before current adapters may continue the review.
     if (
+      [
+        'accepted',
+        'accepted-uncommitted',
+        'accepted-over-objections',
+        'accepted-over-objections-uncommitted',
+        'abandoned',
+        'superseded',
+      ].includes(state.protocol.state) ||
       runtime.transport_mode !== 'automatic-required' ||
       evidence.recovery?.fenced ||
       evidence.recovery?.suspending ||

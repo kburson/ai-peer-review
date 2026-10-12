@@ -204,7 +204,7 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
 
   // Reconcile a completed adapter acknowledgement across the journal-write crash
   // window. Missing evidence remains unknown; this path never dispatches a launch.
-  async function reconcileReviewerLaunch({ registration, observe } = {}) {
+  async function reconcileReviewerLaunch({ registration, observe, beforeWrite } = {}) {
     const workspace = registration?.workspace;
     if (!workspace || typeof observe !== 'function')
       throw unavailable('Launch reconciliation authority is incomplete.');
@@ -252,6 +252,7 @@ export function createBrokerLaunchOperations({ performCurrentOperationEffect }) 
         (latest.status === 'acknowledged' && latest.session_fingerprint !== fingerprint)
       )
         throw stale();
+      await beforeWrite?.();
       await save(workspace, {
         ...current.journal,
         stage: 'launched',

@@ -216,3 +216,41 @@ test('restoration receipts and initial registrations cannot be supplied by copie
     { code: 'APR_BROKER_STALE' }
   );
 });
+test('startup service refuses commands before its owner publication completes', async () => {
+  const { createBrokerService } = await import('../../src/broker/service-core.mjs');
+  let releasePublish;
+  const publishWait = new Promise((resolve) => {
+    releasePublish = resolve;
+  });
+  let dispatch, serverStarted;
+  const started = new Promise((resolve) => {
+    serverStarted = resolve;
+  });
+  const service = createBrokerService({
+    withOperationAuthority: (_scope, operation) => operation(),
+    assertCurrentOperationAuthority: async () => {},
+  });
+  const run = service.startBroker({
+    identity: { digest: 'a'.repeat(64), physicalRoot: '/project' },
+    versions: {},
+    owner: { publish: () => publishWait, release: async () => {} },
+    registry: { list: () => [], get: () => null },
+    workerFactory: async () => {},
+    clock: { now: Date.now, setTimeout: () => 1, clearTimeout() {} },
+    server: {
+      start: async (value) => {
+        dispatch = value;
+        serverStarted();
+      },
+      close: async () => {},
+    },
+  });
+  await started;
+  await assert.rejects(() => dispatch({ command: 'status', workspace: null }), {
+    code: 'APR_BROKER_STALE',
+  });
+  releasePublish();
+  await run.ready;
+  await dispatch({ command: 'stop', workspace: null });
+  await run.untilStopped;
+});

@@ -374,6 +374,26 @@ test('offline broker status preserves recovery evidence with an unavailable port
   assert.deepEqual(status.recovery.unreconciled_workspaces, [workspace]);
   assert.equal(status.recovery.diagnostic.code, 'APR_BROKER_START_FAILED');
   assert.match(status.recovery.diagnostic.message, /Portable fixture connector/);
+  io.brokerConnect = async () => {
+    throw new AprError('APR_BROKER_START_FAILED', '/private child stderr must not escape', {
+      recovery: 'Retain the original broker evidence.',
+      details: {
+        childFailure: {
+          schema: 'ai-peer-review.broker-child-failure/v1',
+          reason: 'manual-resource-retained',
+          obligations: ['manual-resource-retained'],
+          private: '/private',
+        },
+        childExit: { code: 7, signal: null },
+      },
+    });
+  };
+  assert.equal(await run(['broker', 'status', '--json'], io), 0);
+  const diagnostic = JSON.parse(stdout.at(-1)).recovery.diagnostic;
+  assert.equal(diagnostic.reason, 'manual-resource-retained');
+  assert.deepEqual(diagnostic.obligations, ['manual-resource-retained']);
+  assert.deepEqual(diagnostic.child_exit, { code: 7, signal: null });
+  assert.equal(JSON.stringify(diagnostic).includes('/private'), false);
 });
 
 test('offline broker reconcile restarts exact pinned runtime without replaying a launch', async (t) => {

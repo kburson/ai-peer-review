@@ -322,6 +322,22 @@ test('timed-out broker launch is durable unknown and never dispatches a second c
   );
   assert.deepEqual(registry.readStartupJournal(workspace).provider_operation, reserved);
   const fingerprint = `sha256:${'b'.repeat(64)}`;
+  const beforeGuard = readFileSync(path.join(workspace, 'startup-request.json'));
+  await assert.rejects(
+    () =>
+      reconcileReviewerLaunch({
+        registration,
+        observe: async () => ({
+          status: 'launched',
+          observation: { session_fingerprint: fingerprint },
+        }),
+        beforeWrite: async () => {
+          throw new Error('generation guard refused');
+        },
+      }),
+    /generation guard refused/
+  );
+  assert.deepEqual(readFileSync(path.join(workspace, 'startup-request.json')), beforeGuard);
   assert.equal(
     (
       await reconcileReviewerLaunch({

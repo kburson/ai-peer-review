@@ -874,11 +874,29 @@ function boundInventory(input) {
 }
 // Read-only proof of the stores an existing-effect producer does not own. This is no write permit.
 export async function assertReconciliationExistingEffectScope(input = {}) {
-  const record = boundInventory(input);
+  const { effect, ...binding } = input;
+  const record = boundInventory(binding);
+  if (
+    effect !== undefined &&
+    (Object.keys(effect ?? {})
+      .sort()
+      .join(',') !== 'mutableFiles,workspace' ||
+      !record.namespaces.some(
+        (namespace) => namespace.kind === 'review' && namespace.root === effect.workspace
+      ) ||
+      !Array.isArray(effect.mutableFiles) ||
+      effect.mutableFiles.length > 1 ||
+      effect.mutableFiles.some(
+        (name) =>
+          name !== 'startup-request.json' &&
+          !/^wake\/outcomes\/[a-f0-9]{64}\/\d{6}\.json$/u.test(name)
+      ))
+  )
+    refuse('reconciliation-context-unproved');
   await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
   for (const observed of record.ordinary) {
     const original = observations.get(observed);
-    if (original.mode !== 'membership') continue;
+    if (!['membership', 'absence-anchor'].includes(original.mode)) continue;
     const current = await capture(original.root, original.context, original.mode);
     try {
       const entries = (value) =>
@@ -886,7 +904,7 @@ export async function assertReconciliationExistingEffectScope(input = {}) {
           relativePath,
           type,
           identity,
-          ...(type === 'file' ? { fileVersion } : {}),
+          ...(type !== 'directory' ? { fileVersion } : {}),
         }));
       const chain = (value) => value.chain.map(([directory, facts]) => [directory, facts.identity]);
       if (
@@ -899,15 +917,25 @@ export async function assertReconciliationExistingEffectScope(input = {}) {
     }
   }
   for (const namespace of record.namespaces.filter((entry) => entry.kind === 'review')) {
+    if (namespace.root !== effect?.workspace) {
+      await assertOrdinaryReconciliationTreeUnchanged(namespace.observation);
+      continue;
+    }
     const original = observations.get(namespace.observation);
     const current = await capture(original.root, original.context, original.mode);
     try {
       assertReviewNamespace(current.entries);
+      const mutable = new Set(effect.mutableFiles),
+        lock = 'dispatch/locks/review.lock';
+      const ownedDirectory = (name) =>
+        ['dispatch', 'dispatch/locks', 'dispatch/locks/stale'].includes(name) ||
+        [...mutable].some((file) => file.startsWith(name + '/'));
       const critical = (value) =>
-        value.entries.filter(({ relativePath }) =>
-          ['manual-fence.json', 'manual-suspension.json', 'manual-launch-history.json'].includes(
-            relativePath
-          )
+        value.entries.filter(
+          ({ relativePath, type }) =>
+            !mutable.has(relativePath) &&
+            relativePath !== lock &&
+            !(type === 'directory' && ownedDirectory(relativePath))
         );
       const chain = (value) => value.chain.map(([directory, facts]) => [directory, facts.identity]);
       if (
@@ -915,7 +943,28 @@ export async function assertReconciliationExistingEffectScope(input = {}) {
         JSON.stringify(critical(current)) !== JSON.stringify(critical(original.recorded))
       )
         refuse('reconciliation-generation-changed');
-      for (const { relativePath } of critical(original.recorded))
+      const metadata = (facts) => facts.version.split(':').slice(1, 5).join(':');
+      if (
+        current.directories[0].identity !== original.recorded.directories[0].identity ||
+        metadata(current.directories[0]) !== metadata(original.recorded.directories[0])
+      )
+        refuse('reconciliation-generation-changed');
+      for (const old of original.recorded.entries.filter(
+        (entry) => entry.type === 'directory' && ownedDirectory(entry.relativePath)
+      )) {
+        const fresh = current.entries.find((entry) => entry.relativePath === old.relativePath);
+        if (
+          !fresh ||
+          fresh.type !== old.type ||
+          fresh.identity !== old.identity ||
+          fresh.fileVersion.split(':').slice(1, 5).join(':') !==
+            old.fileVersion.split(':').slice(1, 5).join(':')
+        )
+          refuse('reconciliation-generation-changed');
+      }
+      for (const { relativePath } of critical(original.recorded).filter(
+        (entry) => entry.type === 'file'
+      ))
         if (
           current.files.get(relativePath)?.digest !==
           original.recorded.files.get(relativePath)?.digest
@@ -1027,6 +1076,35 @@ export async function readReconciliationInventory(input = {}) {
   });
 }
 
+// A new authorized store must retain the old nearest absence parent's surrounding
+// membership in its genuine after observation, under the same original context.
+export async function retainReconciliationTransitionAnchors(input = {}) {
+  if (Object.keys(input).sort().join(',') !== 'after,before,deadline,paths,signal')
+    refuse('reconciliation-context-unproved');
+  const before = boundInventory({
+    observation: input.before,
+    paths: input.paths,
+    signal: input.signal,
+    deadline: input.deadline,
+  });
+  const after = boundInventory({
+    observation: input.after,
+    paths: input.paths,
+    signal: input.signal,
+    deadline: input.deadline,
+  });
+  for (const absence of before.absent) {
+    const original = observations.get(absence.observed);
+    if (after.ordinary.some((entry) => observations.get(entry).root === original.root)) continue;
+    await ordinaryInventoryAccess(after).ordinaryRoot(original.root, original.mode);
+  }
+  await assertReconciliationInventory({
+    observation: input.after,
+    paths: input.paths,
+    signal: input.signal,
+    deadline: input.deadline,
+  });
+}
 export async function retryReconciliationInventoryCleanup() {
   for (const record of [...pendingInventories]) await closeInventory(record);
   await retryOrdinaryReconciliationCleanup();

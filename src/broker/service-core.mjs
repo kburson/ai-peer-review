@@ -178,6 +178,12 @@ export function createBrokerService({
       }
     };
     const dispatch = async (message) => {
+      if (starting)
+        fail(
+          'APR_BROKER_STALE',
+          'Broker restoration has not completed publication.',
+          'Wait for the original bounded startup result before sending broker commands.'
+        );
       if (stopped) {
         fail(
           'APR_BROKER_STALE',

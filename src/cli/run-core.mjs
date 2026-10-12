@@ -1,4 +1,5 @@
 import { registerRuntimeSelection, inspectRuntimeSelection } from '../config/runtime-selection.mjs';
+import { projectPortableBrokerChildDiagnostic } from '../broker/portable-child-failure.mjs';
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
 import { execFile as execFileCallback } from 'node:child_process';
 import {
@@ -4736,7 +4737,10 @@ export function createReviewOperations({
         ...evidence,
         ...(error
           ? {
-              diagnostic: { code: error.code ?? 'APR_BROKER_START_FAILED', message: error.message },
+              diagnostic: projectPortableBrokerChildDiagnostic(error) ?? {
+                code: error.code ?? 'APR_BROKER_START_FAILED',
+                message: error.message,
+              },
             }
           : {}),
         action: workspace

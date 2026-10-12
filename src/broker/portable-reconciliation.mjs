@@ -6,9 +6,13 @@ import {
   observeReconciliationInventory,
   assertReconciliationInventory,
   readReconciliationInventory,
+  retainReconciliationTransitionAnchors,
 } from './portable-reconciliation-inventory.mjs';
 import { readPortableReconciliationProjection } from './portable-reconciliation-projection.mjs';
-import { reconcilePortableExistingEffects } from './portable-existing-effect-reconciliation.mjs';
+import {
+  reconcilePortableExistingEffects,
+  readPortableExistingEffectTransition,
+} from './portable-existing-effect-reconciliation.mjs';
 import {
   inspectPortableWorkerRestorationReceipt,
   inspectPortableWorkerRestorationResources,
@@ -16,14 +20,119 @@ import {
 import {
   comparePortableRestorationTransitionCore,
   nextPortableRestorationStageCore,
+  normalizePortableForeignScopeCore,
+  comparePortableForeignResourceTransitionCore,
 } from './portable-restoration-transition.mjs';
 import { classifyPortableReconciliationCore } from './portable-reconciliation-policy.mjs';
 import { canonicalProjection } from '../protocol/canonical-projection.mjs';
 
-// Preparation is privately bound to the won election and its original context. The wired
-// owner path below stays non-clear until every publication/restoration guard is installed.
+// Preparation is privately bound to the won election and its original context.
+// Only the fixed ownership facade consumes its private assertion/publication path.
 const observations = new WeakMap();
 const retained = new Set();
+function foreignRoots(data, projection) {
+  const roots = [];
+  for (const resource of projection.resources) {
+    const foreign =
+      resource.kind === 'provider-resources'
+        ? resource.record.owner_project_root_digest !== data.project.digest
+        : resource.association?.project_digest !== data.project.digest;
+    if (
+      !foreign ||
+      classifyPortableReconciliationCore({
+        project: data.project,
+        reviews: [],
+        registrations: [],
+        resources: [resource],
+      }).status !== 'clear'
+    )
+      continue;
+    const namespace = data.namespaces.find(
+      (entry) => entry.kind === resource.kind && path.basename(entry.root) === resource.key
+    );
+    if (!namespace) throw boundedOwnershipError('resource-association-unproved');
+    roots.push(namespace.root);
+    if (resource.kind === 'manual-resources') roots.push(resource.association.workspace);
+  }
+  return roots;
+}
+function withoutOwnedResources(projection, workers) {
+  const owned = [...workers]
+    .flatMap((worker) => worker.resources)
+    .filter((resource) => !resource.concurrent && !resource.released);
+  return projection.resources.filter(
+    (resource) =>
+      !owned.some(
+        (lease) =>
+          resource.kind === 'provider-resources' &&
+          resource.key === lease.resourceDigest &&
+          canonicalProjection(resource.record) === canonicalProjection(lease.record)
+      )
+  );
+}
+async function observeFreshForeignChanges(record) {
+  let next,
+    transferred = false;
+  try {
+    next = await observeReconciliationInventory({
+      paths: record.paths,
+      signal: record.signal,
+      deadline: record.deadline,
+    });
+    await retainReconciliationTransitionAnchors({
+      before: record.inventory,
+      after: next,
+      paths: record.paths,
+      signal: record.signal,
+      deadline: record.deadline,
+    });
+    const data = await readReconciliationInventory({
+      observation: next,
+      paths: record.paths,
+      signal: record.signal,
+      deadline: record.deadline,
+    });
+    const projection = await readPortableReconciliationProjection({
+      inventory: next,
+      paths: record.paths,
+      signal: record.signal,
+      deadline: record.deadline,
+    });
+    const disposition = classifyPortableReconciliationCore({
+      project: projection.project,
+      reviews: projection.reviews,
+      registrations: projection.registrations,
+      resources: withoutOwnedResources(projection, record.workers?.values() ?? []),
+    });
+    if (disposition.status !== 'clear')
+      throw boundedOwnershipError('owner-reconciliation-unproved', disposition);
+    const compared = comparePortableForeignResourceTransitionCore({
+      before: record.data,
+      after: data,
+      foreignRoots: [
+        ...new Set([
+          ...foreignRoots(record.data, record.projection),
+          ...foreignRoots(data, projection),
+        ]),
+      ],
+    });
+    if (compared.status !== 'transition')
+      throw boundedOwnershipError('reconciliation-generation-changed');
+    await inspectOwnerElectionLease({
+      lease: record.lease,
+      paths: record.paths,
+      signal: record.signal,
+      deadline: record.deadline,
+    });
+    await record.inventory.close();
+    record.inventory = next;
+    record.data = data;
+    record.projection = projection;
+    transferred = true;
+  } finally {
+    if (next && !transferred) await next.close();
+  }
+}
 export async function readPortableRestorationBaseline(input = {}) {
   const record = observationRecord(input);
   await assertPortableReconciliation(input);
@@ -75,9 +184,25 @@ export async function acceptPortableRestorationReceipt(input = {}) {
     signal: record.signal,
     deadline: record.deadline,
   });
-  const compared = comparePortableRestorationTransitionCore({
+  const projection = await readPortableReconciliationProjection({
+    inventory: receipt.after,
+    paths: record.paths,
+    signal: record.signal,
+    deadline: record.deadline,
+  });
+  const normalized = normalizePortableForeignScopeCore({
     before: receipt.before.data,
     after,
+    foreignRoots: [
+      ...new Set([
+        ...foreignRoots(receipt.before.data, record.projection),
+        ...foreignRoots(after, projection),
+      ]),
+    ],
+  });
+  const compared = comparePortableRestorationTransitionCore({
+    before: normalized.before,
+    after: normalized.after,
     registration: receipt.registration,
     stage: receipt.stage,
     protocolState: receipt.protocolState,
@@ -85,12 +210,6 @@ export async function acceptPortableRestorationReceipt(input = {}) {
   });
   if (!['unchanged', 'transition'].includes(compared.status))
     throw boundedOwnershipError('reconciliation-generation-changed', compared);
-  const projection = await readPortableReconciliationProjection({
-    inventory: receipt.after,
-    paths: record.paths,
-    signal: record.signal,
-    deadline: record.deadline,
-  });
   const held = [...(record.workers?.values() ?? [])].filter(
     (worker) => worker.registration.workspace !== receipt.registration.workspace
   );
@@ -119,6 +238,7 @@ export async function acceptPortableRestorationReceipt(input = {}) {
   await record.inventory.close();
   record.initialRegistrations ??= structuredClone(record.projection.registrations);
   record.inventory = receipt.after;
+  record.data = after;
   record.projection = projection;
   record.workers ??= new Map();
   record.workers.set(receipt.registration.workspace, { ...receipt, receipt: input.receipt });
@@ -188,12 +308,16 @@ export async function assertPortableReconciliation(input = {}) {
     deadline: record.deadline,
   });
   await assertResources();
-  await assertReconciliationInventory({
-    observation: record.inventory,
-    paths: record.paths,
-    signal: record.signal,
-    deadline: record.deadline,
-  });
+  try {
+    await assertReconciliationInventory({
+      observation: record.inventory,
+      paths: record.paths,
+      signal: record.signal,
+      deadline: record.deadline,
+    });
+  } catch {
+    await observeFreshForeignChanges(record);
+  }
   await assertResources();
   await inspectOwnerElectionLease({
     lease: record.lease,
@@ -208,9 +332,12 @@ export async function preparePortableReconciliation(input = {}) {
     throw boundedOwnershipError('reconciliation-context-unproved');
   const { paths, lease, signal, deadline } = input;
   await inspectOwnerElectionLease({ lease, paths, signal, deadline });
+  let adopted;
   // One existing effect per capture. Re-enumeration never changes the startup budget.
   for (let transitions = 0; transitions <= 4096; transitions++) {
-    const inventory = await observeReconciliationInventory({ paths, signal, deadline });
+    const inventory =
+      adopted ?? (await observeReconciliationInventory({ paths, signal, deadline }));
+    adopted = null;
     let transferred = false,
       preparedRecord;
     try {
@@ -221,7 +348,17 @@ export async function preparePortableReconciliation(input = {}) {
         signal,
         deadline,
       });
-      if (effects.status === 'changed') continue;
+      if (effects.status === 'changed') {
+        adopted = await readPortableExistingEffectTransition({
+          result: effects,
+          inventory,
+          paths,
+          lease,
+          signal,
+          deadline,
+        });
+        continue;
+      }
       const projection = await readPortableReconciliationProjection({
         inventory,
         paths,
@@ -236,6 +373,12 @@ export async function preparePortableReconciliation(input = {}) {
         deadline,
         inventory,
         projection,
+        data: await readReconciliationInventory({
+          observation: inventory,
+          paths,
+          signal,
+          deadline,
+        }),
         closing: false,
         closed: false,
       };
@@ -269,8 +412,8 @@ export async function preparePortableReconciliation(input = {}) {
   }
   throw boundedOwnershipError('reconciliation-inventory-overflow');
 }
-// Observation only. Existing legacy reconciliation is not portable authority;
-// C6 must supply the actual registry/manual/wake/provider discharge producers.
+// The lease-free compatibility observation cannot grant clearance. Production
+// ownership uses the separately bound preparation and private effect assertions.
 export async function observePortableReconciliation(input = {}) {
   if (!input || Object.keys(input).sort().join(',') !== 'deadline,paths,signal')
     throw boundedOwnershipError('reconciliation-options-invalid');
@@ -293,18 +436,15 @@ export async function observePortableReconciliation(input = {}) {
       if (error.code !== 'ENOENT') throw error;
     }
   }
-  for (const name of [
-    'registry-reconciliation',
-    'manual-reconciliation',
-    'wake-reconciliation',
-    'provider-reconciliation',
-  ])
-    outstandingObligations.push({ name, outcome: 'producer-unavailable' });
+  outstandingObligations.push({
+    name: 'owner-reconciliation-unproved',
+    outcome: 'won-election-required',
+  });
   await inspectOwnerElectionPaths(input);
   return Object.freeze({
     status: 'unknown',
     verified: false,
-    reason: 'guarded-reconciliation-unavailable',
+    reason: 'owner-reconciliation-unproved',
     outstandingObligations: Object.freeze(outstandingObligations),
   });
 }

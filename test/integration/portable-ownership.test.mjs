@@ -1146,7 +1146,7 @@ test('readiness server factory refuses unverified or copied publication capabili
   assert.equal(effects, 0);
 });
 
-test('actual guarded reconciliation remains unknown while portable wake and provider producers are unavailable', async (t) => {
+test('lease-free guarded reconciliation retains legacy evidence and cannot grant owner clearance', async (t) => {
   const api = await moduleOrMissing('../../src/broker/portable-reconciliation.mjs');
   assert.equal(
     typeof api.observePortableReconciliation,
@@ -1176,7 +1176,8 @@ test('actual guarded reconciliation remains unknown while portable wake and prov
   );
   assert.ok(
     observed.outstandingObligations.some(
-      (item) => item.name === 'provider-reconciliation' && item.outcome === 'producer-unavailable'
+      (item) =>
+        item.name === 'owner-reconciliation-unproved' && item.outcome === 'won-election-required'
     )
   );
   assert.equal(JSON.stringify(observed).includes('uncertain private registry'), false);

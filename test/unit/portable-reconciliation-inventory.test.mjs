@@ -605,6 +605,15 @@ test('fixed genuine-path inventory observes ordinary project stores and rejects 
     () => api.assertReconciliationExistingEffectScope({ observation: observed, paths, ...context }),
     (error) => error.details?.reason === 'reconciliation-generation-changed'
   );
+  await rm(path.join(base, 'retained-review', 'manual-fence.json'));
+  const forEvents = await api.observeReconciliationInventory({ paths, ...context });
+  t.after(() => forEvents.close());
+  await writeFile(path.join(base, 'retained-review', 'events.jsonl'), '{}\n');
+  await assert.rejects(
+    () =>
+      api.assertReconciliationExistingEffectScope({ observation: forEvents, paths, ...context }),
+    (error) => error.details?.reason === 'reconciliation-generation-changed'
+  );
   await mkdir(path.join(base, 'new-orphan'), { mode: 0o755 });
   await assert.rejects(
     () => api.assertReconciliationInventory({ observation: observed, paths, ...context }),

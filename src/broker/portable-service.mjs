@@ -10,6 +10,8 @@ import {
   preparePortableOwner,
   isPreparedPortableOwner,
   publishedPortableBrokerOwner,
+  readPreparedPortableRegistrations,
+  acceptPortableWorkerRestoration,
 } from './portable-ownership.mjs';
 import {
   assertPortableBrokerBootstrap,
@@ -18,7 +20,10 @@ import {
 import { createPortableBrokerServer, portableBrokerLifecycleAdmission } from './service.mjs';
 import { createBrokerService } from './service-core.mjs';
 import { reconcileRegistrations, inspectStartupAuthority } from './registry.mjs';
-import { createProductionReviewWorker } from './worker-factory.mjs';
+import {
+  createProductionReviewWorker,
+  portableWorkerRestorationReceipt,
+} from './worker-factory.mjs';
 import { reserveReviewerLaunch, settleReservedReviewerLaunch } from './launch.mjs';
 import { assertSelectedRuntime } from '../config/runtime-selection.mjs';
 import { assertCurrentCleanupOwnership } from '../protocol/compatibility.mjs';
@@ -85,7 +90,6 @@ export async function startPortableBrokerService(input = {}) {
     worktree: identity.physicalRoot,
     paths,
     protection,
-    reconcile: async () => {},
     ...context,
   });
   if (!isPreparedPortableOwner(owner)) {
@@ -103,7 +107,13 @@ export async function startPortableBrokerService(input = {}) {
     root: path.join(identity.physicalRoot, '.scratch', 'peer-review', 'broker', 'registrations'),
   };
   const registrations = () =>
-    reconcileRegistrations({ project: identity, store, inspectAuthority: inspectStartupAuthority });
+    isPreparedPortableOwner(owner)
+      ? readPreparedPortableRegistrations({ owner, ...context })
+      : reconcileRegistrations({
+          project: identity,
+          store,
+          inspectAuthority: inspectStartupAuthority,
+        });
   const service = createBrokerService({
     withOperationAuthority,
     assertCurrentOperationAuthority,
@@ -147,6 +157,12 @@ export async function startPortableBrokerService(input = {}) {
         project: identity,
         runtimeImage: bootstrap.runtimeImage,
         owner,
+      }),
+    acceptWorkerRestoration: (worker, stage) =>
+      acceptPortableWorkerRestoration({
+        owner,
+        receipt: portableWorkerRestorationReceipt({ worker, stage }),
+        ...context,
       }),
     cleanupGuard: async () => {
       const cleanupContext = await currentOperationAuthorityContext();

@@ -86,7 +86,10 @@ export function createPortableClientCore({
               encodePortableBrokerChildFailure({
                 details: {
                   reason: child.reason,
-                  outstandingObligations: child.obligations?.map((name) => ({ name })),
+                  outstandingObligations: (Array.isArray(child.obligations)
+                    ? child.obligations
+                    : []
+                  ).map((name) => ({ name })),
                 },
               })
             );

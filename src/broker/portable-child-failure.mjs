@@ -95,3 +95,32 @@ export function createPortableBrokerFailureChannel() {
     },
   });
 }
+export function projectPortableBrokerChildDiagnostic(error) {
+  const child = error?.details?.childFailure;
+  if (!child || typeof child !== 'object') return null;
+  const closed = decodePortableBrokerChildFailure(
+    encodePortableBrokerChildFailure({
+      details: {
+        reason: child.reason,
+        outstandingObligations: (Array.isArray(child.obligations) ? child.obligations : []).map(
+          (name) => ({ name })
+        ),
+      },
+    })
+  );
+  const exit = error?.details?.childExit;
+  const validExit =
+    exit &&
+    Object.keys(exit).sort().join(',') === 'code,signal' &&
+    (exit.code === null || Number.isSafeInteger(exit.code)) &&
+    (exit.signal === null ||
+      (typeof exit.signal === 'string' && /^SIG[A-Z0-9]{1,16}$/u.test(exit.signal)));
+  return Object.freeze({
+    verified: false,
+    code: 'APR_BROKER_START_FAILED',
+    message: 'Portable broker startup did not complete.',
+    reason: closed.reason,
+    obligations: closed.obligations,
+    ...(validExit ? { child_exit: Object.freeze({ ...exit }) } : {}),
+  });
+}

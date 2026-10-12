@@ -14,11 +14,14 @@ import {
   isPortableBrokerOwner,
 } from './portable-owner-lifecycle.mjs';
 import {
-  observePortableReconciliation,
+  preparePortableReconciliation,
+  assertPortableReconciliation,
+  assertPortableReconciliationPublication,
   isPortableReconciliationObservation,
   readPortableRestorationBaseline,
   acceptPortableRestorationReceipt,
 } from './portable-reconciliation.mjs';
+import { finishPortableRestorationTracking } from './worker-factory.mjs';
 import { verifyRuntimeInventorySync } from '../startup/runtime-inventory.mjs';
 import path from 'node:path';
 import { portableBrokerPaths } from './portable-paths.mjs';
@@ -509,7 +512,10 @@ export async function preparePortableOwner(input = {}) {
     const context = ownerBudget(input);
     if (
       !input ||
-      Object.keys(input).sort().join(',') !== 'deadline,paths,protection,reconcile,signal,worktree'
+      ![
+        'deadline,paths,protection,signal,worktree',
+        'deadline,paths,protection,reconcile,signal,worktree',
+      ].includes(Object.keys(input).sort().join(','))
     )
       throw boundedOwnershipError('owner-options-invalid');
     const runtime = verifyRuntimeInventorySync({ packageRoot: loadedInstallation });
@@ -537,6 +543,17 @@ export async function preparePortableOwner(input = {}) {
     if (identity.status !== 'live' || !isInstalledProcessSourceAssurance(identity.assurance))
       throw boundedOwnershipError('source-class-unavailable');
     record.bound = bound;
+    const assertReconciled = async (current, publication = false) => {
+      if (
+        !isPortableReconciliationObservation(record.reconciliation) ||
+        record.reconciliation.status !== 'clear'
+      )
+        throw boundedOwnershipError('owner-reconciliation-unproved');
+      const assert = publication
+        ? assertPortableReconciliationPublication
+        : assertPortableReconciliation;
+      await assert({ observation: record.reconciliation, paths: bound, ...current });
+    };
     const protocol = await acquirePortableOwnerCore({
       budget: context,
       ports: {
@@ -599,8 +616,14 @@ export async function preparePortableOwner(input = {}) {
             outstandingObligations: observation.outstandingObligations,
           };
         },
-        reconcile: ({ context: current }) =>
-          observePortableReconciliation({ paths: bound, ...current }),
+        async reconcile({ context: current }) {
+          record.reconciliation = await preparePortableReconciliation({
+            paths: bound,
+            lease,
+            ...current,
+          });
+          return record.reconciliation;
+        },
         async quarantine(state, current) {
           const receipts = [];
           for (const [key, guard] of [
@@ -610,6 +633,7 @@ export async function preparePortableOwner(input = {}) {
           ]) {
             const snapshot = state[key];
             if (!snapshot) continue;
+            await assertReconciled(current);
             effectStarted = true;
             const receipt = await quarantinePrivateFile({
               guard,
@@ -632,6 +656,7 @@ export async function preparePortableOwner(input = {}) {
           return { status: 'quarantined', verified: true, receipts };
         },
         async create(current) {
+          await assertReconciled(current);
           effectStarted = true;
           currentRuntime();
           const versions = Object.freeze({
@@ -668,6 +693,7 @@ export async function preparePortableOwner(input = {}) {
           const secret = randomBytes(32);
           try {
             currentRuntime();
+            await assertReconciled(current);
             candidate.credential = await createHeldPrivatePublication({
               guard: view.privateGuard,
               name: 'credential',
@@ -706,6 +732,7 @@ export async function preparePortableOwner(input = {}) {
         },
         async publishEndpoint(value, ready, current) {
           currentRuntime();
+          await assertReconciled(current, true);
           const subject = {
             instanceId: value.facts.instanceId,
             worktree: value.facts.worktree,
@@ -745,7 +772,11 @@ export async function preparePortableOwner(input = {}) {
           });
           return Object.freeze({
             verified: false,
-            publish: () => genuineOwner.publish(),
+            publish: async () => {
+              currentRuntime();
+              await assertReconciled(current, true);
+              return genuineOwner.publish();
+            },
             verify: (options) => genuineOwner.verify(options),
             release: (options) => genuineOwner.release(options),
           });
@@ -851,8 +882,10 @@ export async function preparePortableOwner(input = {}) {
           await protocol.publish();
           if (!isPortableBrokerOwner(genuineOwner))
             throw boundedOwnershipError('genuine-owner-completion-unproved');
+          await record.reconciliation.close();
           preparedRecord.owner = genuineOwner;
           preparedRecord.phase = 'published';
+          finishPortableRestorationTracking(prepared);
           return genuineOwner;
         } catch (error) {
           preparedRecord.fenced = true;
@@ -912,6 +945,7 @@ export async function preparePortableOwner(input = {}) {
   } finally {
     if (bound && !transferred) {
       try {
+        await record.reconciliation?.close();
         await bound.close();
       } catch (cleanup) {
         throw boundedOwnershipError(failure?.details?.reason || 'binding-close-unproved', {

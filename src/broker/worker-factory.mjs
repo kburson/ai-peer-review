@@ -18,6 +18,7 @@ import { inspectProviderResourceLease } from './provider-resources.mjs';
 import {
   observeReconciliationInventory,
   readReconciliationInventory,
+  retainReconciliationTransitionAnchors,
 } from './portable-reconciliation-inventory.mjs';
 import { readPortableRestorationBaseline } from './portable-reconciliation.mjs';
 import { inspectReviewAuthority } from '../protocol/authority-reader.mjs';
@@ -56,6 +57,12 @@ async function finishRestoration(worker, stage, baseline) {
     protocolState: inspectReviewAuthority(record.registration.workspace).state.protocol.state,
   };
   retainedRestorations.add(retained);
+  await retainReconciliationTransitionAnchors({
+    before: baseline.before.inventory,
+    after,
+    paths: baseline.binding.paths,
+    ...context,
+  });
   await readReconciliationInventory({
     observation: after,
     paths: baseline.binding.paths,
@@ -252,4 +259,13 @@ export async function inspectPortableWorkerRestorationResources(input = {}) {
       ...record.context,
     })
   );
+}
+// Successful publication transfers live workers to the service. Failed startup
+// retains these exact handles; completed restoration no longer needs extra roots.
+export function finishPortableRestorationTracking(owner) {
+  publishedPortableBrokerOwner(owner);
+  for (const worker of retainedRestorationWorkers)
+    if (workerMembers.get(worker)?.owner === owner) retainedRestorationWorkers.delete(worker);
+  for (const receipt of retainedRestorations)
+    if (receipt.owner === owner) retainedRestorations.delete(receipt);
 }

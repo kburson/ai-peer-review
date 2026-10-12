@@ -49,8 +49,14 @@ function fakeServer() {
   const ready = new Promise((resolve) => {
     resolveReady = resolve;
   });
+  let resolveLifecycleReady;
+  const lifecycleReady = new Promise((resolve) => {
+    resolveLifecycleReady = resolve;
+  });
   return {
     ready,
+    lifecycleReady,
+    markLifecycleReady: () => resolveLifecycleReady(),
     start(next) {
       handle = next;
       resolveReady();
@@ -118,6 +124,7 @@ function brokerInput({ clock, server, registrations = [], workers = new Map(), i
     },
     clock,
     server,
+    onReady: server.markLifecycleReady,
   };
 }
 
@@ -134,7 +141,7 @@ test('installed recovery-only broker worker refuses launch before provider actio
       workers: new Map([[item.review_id, worker]]),
     })
   );
-  await server.ready;
+  await server.lifecycleReady;
   await assert.rejects(
     server.request({ id: 'launch-1', command: 'launch', workspace: item.workspace }),
     { code: 'APR_TRANSPORT_UNAVAILABLE' }
@@ -191,7 +198,7 @@ test(
     assert.equal(publications, 0);
     assert.equal(serving, false);
     finishRecovery();
-    await server.ready;
+    await server.lifecycleReady;
     await publication;
     try {
       assert.equal(publications, 1);
@@ -259,7 +266,7 @@ test('publication failure closes the started server and releases safe ownership'
     }),
     /publication failed/
   );
-  await server.ready;
+  await server.ready; // The listener started, but failed publication cannot become ready.
   assert.equal(server.closed, true);
   assert.equal(released, true);
 });
@@ -270,7 +277,7 @@ test('broker exits at exactly sixty seconds without runnable work', async () => 
   let exited = false;
   const running = runBroker(brokerInput({ clock, server })).then(() => (exited = true));
 
-  await server.ready;
+  await server.lifecycleReady;
   await clock.advance(59_999);
   assert.equal(exited, false);
   await clock.advance(1);
@@ -295,7 +302,7 @@ test('broker retains endpoint ownership until the stop response is drained', asy
     ...brokerInput({ clock, server }),
     owner: { release: () => events.push('released') },
   });
-  await server.ready;
+  await server.lifecycleReady;
   assert.equal((await server.request({ id: 'stop-response', command: 'stop' })).status, 'stopping');
   await closeCalled;
   try {
@@ -313,7 +320,7 @@ test('status inspection does not postpone an existing idle deadline', async () =
   let exited = false;
   const running = runBroker(brokerInput({ clock, server })).then(() => (exited = true));
 
-  await server.ready;
+  await server.lifecycleReady;
   await clock.advance(30_000);
   await server.request({ id: 'status-idle', command: 'status', workspace: null });
   await clock.advance(29_999);
@@ -338,7 +345,7 @@ test('new work resets the idle deadline after the worker becomes terminal', asyn
     })
   ).then(() => (exited = true));
 
-  await server.ready;
+  await server.lifecycleReady;
   await clock.advance(30_000);
   await server.request({ id: 'reconcile-1', command: 'reconcile', workspace: item.workspace });
   await clock.advance(59_999);
@@ -363,7 +370,7 @@ test('supported automatic wait remains resident until work becomes terminal', as
     })
   ).then(() => (exited = true));
 
-  await server.ready;
+  await server.lifecycleReady;
   await clock.advance(600_000);
   assert.equal(exited, false);
   await server.request({ id: 'reconcile-2', command: 'reconcile', workspace: item.workspace });
@@ -388,7 +395,7 @@ test('serialized broker stop refuses a runnable registration added after a statu
     })
   ).then(() => (exited = true));
 
-  await server.ready;
+  await server.lifecycleReady;
   assert.equal(
     (await server.request({ id: 'status-before-register', command: 'status', workspace: null }))
       .reviews,
@@ -429,7 +436,7 @@ test('serialized broker stop refuses recovery-only registration evidence', async
       workers: new Map([[item.review_id, worker]]),
     })
   );
-  await server.ready;
+  await server.lifecycleReady;
   await assert.rejects(server.request({ id: 'stop-recovery', command: 'stop', workspace: null }), {
     code: 'APR_BROKER_STOP_REFUSED',
   });
@@ -664,7 +671,7 @@ test('rejected registration preserves the broker idle deadline', async () => {
   let exited = false;
   const running = runBroker(brokerInput({ clock, server })).then(() => (exited = true));
 
-  await server.ready;
+  await server.lifecycleReady;
   await clock.advance(30_000);
   await assert.rejects(
     server.request({ id: 'foreign', command: 'register', workspace: '/foreign/review' }),
@@ -706,7 +713,7 @@ test('broker suspension persists recovery before idle shutdown releases active w
     })
   );
 
-  await server.ready;
+  await server.lifecycleReady;
   await server.request({ id: 'suspend-active', command: 'suspend', workspace: item.workspace });
   await clock.advance(60_000);
   await running;
@@ -827,7 +834,7 @@ test('autonomous worker terminal progress starts the broker idle deadline', asyn
       workers: new Map([[item.review_id, worker]]),
     })
   ).then(() => (exited = true));
-  await server.ready;
+  await server.lifecycleReady;
   status = { state: 'accepted', next_action: { action: null } };
   await coordinatorInput.onSettled();
   await new Promise((resolve) => setImmediate(resolve));
@@ -873,7 +880,7 @@ test('recovery snapshot progression does not block broker readiness or launch pr
     release() {},
   };
   const running = runBroker(input);
-  await Promise.race([server.ready, running]);
+  await Promise.race([server.lifecycleReady, running]);
   await Promise.race([publication, running]);
   assert.equal(published, true);
   assert.equal((await server.request({ id: 'status', command: 'status' })).reviews, 0);
@@ -965,7 +972,7 @@ test('not-drained server shutdown retains exact server and owner-release obligat
     );
     return true;
   });
-  await server.ready;
+  await server.lifecycleReady;
   await server.request({ id: 'stop-one', command: 'stop', workspace: null });
   await failed;
   assert.equal(released, 0);
@@ -992,7 +999,7 @@ test('broker startup, later requests and shutdown use independent bounded author
   const clock = fakeClock();
   const server = fakeServer();
   const running = service.runBroker(brokerInput({ clock, server }));
-  await server.ready;
+  await server.lifecycleReady;
   await new Promise((resolve) => setImmediate(resolve));
   const startupActive = active;
   const status = await server.request({ id: 'status-later', command: 'status', workspace: null });
@@ -1043,7 +1050,7 @@ test('unavailable shutdown authority retains server and owner obligations before
     );
     return true;
   });
-  await server.ready;
+  await server.lifecycleReady;
   await server.request({ id: 'stop-source', command: 'stop', workspace: null });
   await failed;
   assert.equal(server.closed, false);
@@ -1102,7 +1109,7 @@ test('service lifetime phases use their owned authority path while request scope
   const clock = fakeClock();
   const server = fakeServer();
   const running = service.runBroker(brokerInput({ clock, server }));
-  await server.ready;
+  await server.lifecycleReady;
   await server.request({ id: 'status-phases', command: 'status', workspace: null });
   await server.request({ id: 'stop-phases', command: 'stop', workspace: null });
   await running;
@@ -1129,7 +1136,7 @@ test('review correction: successful drain reaches the private release without or
     },
   });
   const checked = assert.doesNotReject(running);
-  await server.ready;
+  await server.lifecycleReady;
   await server.request({ id: 'stop-drain', command: 'stop', workspace: null });
   await checked;
   assert.equal(releases, 1);

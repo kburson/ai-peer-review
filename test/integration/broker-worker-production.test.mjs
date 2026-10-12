@@ -1152,3 +1152,25 @@ test('[#209] failed factory unwind retains its exact unresolved lease and never 
   assert.equal(operations.retainedAcquisitions.length, 1);
   assert.equal(operations.retainedAcquisitions[0].outcome, 'release-unproved');
 });
+test('[#209] terminal restoration does not re-observe providers or acquire independent resources', async () => {
+  const f = restartFactoryFixture('launched'),
+    inspect = f.input.inspect;
+  f.input.inspect = (workspace) => {
+    const observed = inspect(workspace);
+    return {
+      state: { ...observed.state, protocol: { ...observed.state.protocol, state: 'accepted' } },
+    };
+  };
+  f.input.inspectStatus = () => ({ state: 'accepted' });
+  f.input.acquireResource = () => {
+    throw new Error('terminal resource acquisition forbidden');
+  };
+  for (const adapter of f.input.adapters.values())
+    adapter.observeCapabilities = () => {
+      throw new Error('terminal provider observation forbidden');
+    };
+  const worker = await createProductionReviewWorker(f.input);
+  assert.equal(await worker.start(), 'terminal');
+  await worker.close();
+  assert.equal(f.stats.providerCalls, 0);
+});

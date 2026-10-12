@@ -25,6 +25,83 @@ export function nextPortableRestorationStageCore(previous, stage) {
       ? stage
       : null;
 }
+// The caller must derive these roots from freshly parsed, genuine foreign
+// associations. This pure normalization is explicitly not an exclusion permit.
+export function normalizePortableForeignScopeCore(input = {}) {
+  if (
+    !exact(input, ['before', 'after', 'foreignRoots']) ||
+    !Array.isArray(input.foreignRoots) ||
+    input.foreignRoots.length > 4096
+  )
+    throw new Error('unproved');
+  const { before, after, foreignRoots } = input;
+  namespaceMap(before);
+  namespaceMap(after);
+  for (const root of foreignRoots) {
+    if (
+      typeof root !== 'string' ||
+      !path.isAbsolute(root) ||
+      root === before.project.physicalRoot ||
+      [...before.namespaces, ...after.namespaces].some(
+        (namespace) =>
+          namespace.root === root &&
+          !['provider-resources', 'manual-resources'].includes(namespace.kind)
+      )
+    )
+      throw new Error('unproved');
+  }
+  const within = (location, root) => location === root || location.startsWith(root + path.sep);
+  const excluded = (location) => foreignRoots.some((root) => within(location, root));
+  const ancestor = (location) => foreignRoots.some((root) => within(root, location));
+  const absentParents = [...before.absent, ...after.absent]
+    .map(({ root }) => root)
+    .filter(ancestor);
+  const keys = (data) => new Set(data.containers.map((item) => item.mechanism + ':' + item.root));
+  const common = new Set([...keys(before)].filter((key) => keys(after).has(key)));
+  const security = (version) => {
+    const fields = version.split(':');
+    return [fields[1], fields[3], fields[4]].join(':');
+  };
+  const normalize = (data) => ({
+    ...data,
+    verified: false,
+    namespaces: data.namespaces.filter(({ root }) => !excluded(root)),
+    absent: data.absent.filter(({ root }) => !absentParents.some((parent) => within(root, parent))),
+    containers: data.containers
+      .filter(
+        (item) =>
+          !excluded(item.root) &&
+          (common.has(item.mechanism + ':' + item.root) || !ancestor(item.root))
+      )
+      .map((item) => ({
+        ...item,
+        version: ancestor(item.root) ? security(item.version) : item.version,
+        entries: item.entries
+          .filter((entry) => !excluded(path.join(item.root, entry.relativePath ?? entry.name)))
+          .map((entry) =>
+            entry.type === 'directory' &&
+            ancestor(path.join(item.root, entry.relativePath ?? entry.name))
+              ? { ...entry, fileVersion: security(entry.fileVersion) }
+              : entry
+          ),
+      })),
+  });
+  return Object.freeze({ verified: false, before: normalize(before), after: normalize(after) });
+}
+export function comparePortableForeignResourceTransitionCore(input = {}) {
+  try {
+    const { before, after } = normalizePortableForeignScopeCore(input),
+      left = namespaceMap(before),
+      right = namespaceMap(after);
+    const unchanged =
+      [...new Set([...left.keys(), ...right.keys()])].every((root) =>
+        sameNamespace(left.get(root), right.get(root))
+      ) && sameContainers(before, after, new Set());
+    return Object.freeze({ verified: false, status: unchanged ? 'transition' : 'unknown' });
+  } catch {
+    return Object.freeze({ verified: false, status: 'unknown' });
+  }
+}
 function files(namespace) {
   const result = new Map();
   if (!Array.isArray(namespace?.files) || namespace.files.length > 4096)
@@ -129,13 +206,141 @@ function sameContainers(before, after, allowed) {
         location = path.join(root, name);
       if (canonicalProjection(x ?? null) === canonicalProjection(y ?? null)) continue;
       if (!covers(location)) return false;
-      if (x && y && (x.type !== y.type || x.identity !== y.identity)) return false;
+      if (
+        x &&
+        y &&
+        (x.type !== y.type ||
+          (x.identity !== y.identity && (x.type === 'directory' || !allowed.has(location))))
+      )
+        return false;
       if (x && y && x.type !== 'directory' && !allowed.has(location)) return false;
     }
     if (a.version !== b.version && !covers(root)) return false;
   }
   const absences = (data) => data.absent.filter(({ root }) => !covers(root));
   return canonicalProjection(absences(before)) === canonicalProjection(absences(after));
+}
+export function comparePortableExistingEffectTransitionCore(input = {}) {
+  const result = (status) => Object.freeze({ verified: false, status });
+  try {
+    if (
+      !exact(input, [
+        'before',
+        'after',
+        'workspace',
+        'kind',
+        'operationId',
+        'selector',
+        'role',
+        'sessionFingerprint',
+      ]) ||
+      !['launch', 'wake'].includes(input.kind) ||
+      !['codex', 'claude', 'grok'].includes(input.selector) ||
+      !['author', 'reviewer'].includes(input.role) ||
+      typeof input.operationId !== 'string' ||
+      !/^sha256:[a-f0-9]{64}$/u.test(input.sessionFingerprint) ||
+      canonicalProjection(input.before.project) !== canonicalProjection(input.after.project)
+    )
+      return result('unknown');
+    const left = namespaceMap(input.before),
+      right = namespaceMap(input.after),
+      before = left.get(input.workspace),
+      after = right.get(input.workspace);
+    if (before?.kind !== 'review' || after?.kind !== 'review') return result('unknown');
+    for (const root of new Set([...left.keys(), ...right.keys()]))
+      if (root !== input.workspace && !sameNamespace(left.get(root), right.get(root)))
+        return result('unknown');
+    const oldFiles = files(before),
+      newFiles = files(after),
+      allowedNames = new Set(),
+      allowed = new Set();
+    if (input.kind === 'launch') {
+      const old = JSON.parse(oldFiles.get('startup-request.json').bytes.toString('utf8')),
+        next = JSON.parse(newFiles.get('startup-request.json').bytes.toString('utf8'));
+      if (
+        !['launch-pending', 'outcome-unknown'].includes(old.stage) ||
+        old.provider_operation?.operation_id !== input.operationId ||
+        !['reserved', 'outcome-unknown'].includes(old.provider_operation.status)
+      )
+        return result('unknown');
+      const expected = {
+        ...old,
+        stage: 'launched',
+        provider_operation: {
+          ...old.provider_operation,
+          status: 'acknowledged',
+          session_fingerprint: input.sessionFingerprint,
+        },
+      };
+      if (canonicalProjection(next) !== canonicalProjection(expected)) return result('unknown');
+      allowedNames.add('startup-request.json');
+    } else {
+      if (!/^sha256:[a-f0-9]{64}$/u.test(input.operationId)) return result('unknown');
+      const prefix = 'wake/outcomes/' + input.operationId.slice(7) + '/';
+      const sequence = [...oldFiles.keys()].filter((name) => name.startsWith(prefix)).length + 1;
+      const name = prefix + String(sequence).padStart(6, '0') + '.json',
+        file = newFiles.get(name);
+      if (!file || oldFiles.has(name)) return result('unknown');
+      const outcome = JSON.parse(file.bytes.toString('utf8'));
+      if (
+        !exact(outcome, [
+          'schema',
+          'operation_id',
+          'sequence',
+          'status',
+          'reason',
+          'recorded_at',
+        ]) ||
+        outcome.schema !== 'ai-peer-review.wake-outcome/v1' ||
+        outcome.operation_id !== input.operationId ||
+        outcome.sequence !== sequence ||
+        !['acknowledged', 'not-submitted', 'refused', 'superseded'].includes(outcome.status) ||
+        typeof outcome.reason !== 'string' ||
+        !outcome.reason ||
+        new Date(outcome.recorded_at).toISOString() !== outcome.recorded_at
+      )
+        return result('unknown');
+      allowedNames.add(name);
+    }
+    for (const name of new Set([...oldFiles.keys(), ...newFiles.keys()])) {
+      const old = oldFiles.get(name),
+        next = newFiles.get(name);
+      if (old && next && old.bytes.equals(next.bytes) && old.mode === next.mode) continue;
+      if (!allowedNames.has(name) || !next || (old && old.mode !== next.mode))
+        return result('unknown');
+      allowed.add(path.join(input.workspace, name));
+    }
+    const oldRows = new Map(before.entries.map((entry) => [entry.relativePath, entry]));
+    for (const row of after.entries) {
+      const old = oldRows.get(row.relativePath),
+        location = path.join(input.workspace, row.relativePath);
+      if (canonicalProjection(old ?? null) === canonicalProjection(row)) {
+        oldRows.delete(row.relativePath);
+        continue;
+      }
+      if (row.type === 'directory') {
+        if (old && old.identity !== row.identity) return result('unknown');
+        if (
+          !['dispatch', 'dispatch/locks', 'dispatch/locks/stale'].includes(row.relativePath) &&
+          ![...allowedNames].some((name) => name.startsWith(row.relativePath + '/'))
+        )
+          return result('unknown');
+        allowed.add(location);
+      } else if (
+        row.type !== 'file' ||
+        !allowedNames.has(row.relativePath) ||
+        !newFiles.has(row.relativePath)
+      )
+        return result('unknown');
+      else allowed.add(location);
+      oldRows.delete(row.relativePath);
+    }
+    if (oldRows.size || !sameContainers(input.before, input.after, allowed))
+      return result('unknown');
+    return result(allowed.size ? 'transition' : 'unchanged');
+  } catch {
+    return result('unknown');
+  }
 }
 function recoveryTransition(before, after, registration, protocolState) {
   const root = path.join(

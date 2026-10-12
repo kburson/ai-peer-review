@@ -2,19 +2,20 @@
 // Pure transition comparison cannot grant ownership or mint a worker receipt.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { describeResourceReconciliationNamespaceCore } from '../../src/broker/portable-reconciliation-inventory.mjs';
 const api = await import('../../src/broker/portable-restoration-transition.mjs').catch((error) => {
   if (error.code === 'ERR_MODULE_NOT_FOUND') return {};
   throw error;
 });
-const project = { physicalRoot: '/project', digest: 'a'.repeat(64) };
+const project = { physicalRoot: path.resolve('/project'), digest: 'a'.repeat(64) };
 const registration = {
   schema: 'ai-peer-review.broker-registration/v1',
   created_at: '2026-10-12T00:00:00.000Z',
-  project_root: '/project',
+  project_root: project.physicalRoot,
   project_digest: project.digest,
   review_id: 'review',
-  workspace: '/project/.scratch/peer-review/review',
+  workspace: path.join(project.physicalRoot, '.scratch', 'peer-review', 'review'),
   request_digest: 'b'.repeat(64),
   runtime: {
     digest: 'sha256:' + 'c'.repeat(64),
@@ -51,9 +52,11 @@ function fixture() {
     ],
     absent: [],
     namespaces: [
-      namespace('registrations', '/project/.scratch/peer-review/broker/registrations', [
-        file('review.json', registration),
-      ]),
+      namespace(
+        'registrations',
+        path.join(project.physicalRoot, '.scratch', 'peer-review', 'broker', 'registrations'),
+        [file('review.json', registration)]
+      ),
       namespace('review', registration.workspace, [file('events.jsonl', { revision: 4 })]),
     ],
   };
@@ -76,17 +79,21 @@ test('unchanged restoration and its one exact recovery record remain unverified'
   assert.equal(compare(input).verified, false);
   input.stage = 'suspend';
   input.after.namespaces.push(
-    namespace('recovery', '/project/.scratch/peer-review/broker/recovery', [
-      file('review.json', {
-        schema: 'ai-peer-review.broker-recovery/v1',
-        review_id: 'review',
-        project_digest: project.digest,
-        workspace: registration.workspace,
-        request_digest: registration.request_digest,
-        runtime_digest: registration.runtime.digest,
-        protocol_state: 'reviewer-turn',
-      }),
-    ])
+    namespace(
+      'recovery',
+      path.join(project.physicalRoot, '.scratch', 'peer-review', 'broker', 'recovery'),
+      [
+        file('review.json', {
+          schema: 'ai-peer-review.broker-recovery/v1',
+          review_id: 'review',
+          project_digest: project.digest,
+          workspace: registration.workspace,
+          request_digest: registration.request_digest,
+          runtime_digest: registration.runtime.digest,
+          protocol_state: 'reviewer-turn',
+        }),
+      ]
+    )
   );
   assert.equal(compare(input).status, 'transition');
   input.stage = 'start';
@@ -119,7 +126,7 @@ test('manual, registration and event mutations cannot be accepted as arbitrary r
 test('only the exact acquired resource publication and its proved release can change', () => {
   const input = fixture();
   input.stage = 'created';
-  const root = '/account/.cache/ai-peer-review/provider-resources/' + 'd'.repeat(64);
+  const root = path.resolve('/account/.cache/ai-peer-review/provider-resources/' + 'd'.repeat(64));
   const record = {
     schema: 'ai-peer-review.provider-resource/v1',
     resource_digest: 'd'.repeat(64),
@@ -176,4 +183,75 @@ test('restoration sequence rejects skipped starts, replacement workers and effec
   assert.equal(api.nextPortableRestorationStageCore('suspend', 'close'), 'close');
   assert.equal(api.nextPortableRestorationStageCore('close', 'start'), null);
   assert.equal(api.nextPortableRestorationStageCore('start', 'created'), null);
+});
+test('existing launch acknowledgement permits only its exact journal transition', () => {
+  assert.equal(typeof api.comparePortableExistingEffectTransitionCore, 'function');
+  const input = fixture(),
+    workspace = registration.workspace;
+  const journal = {
+    schema: 'startup',
+    request_digest: registration.request_digest,
+    stage: 'outcome-unknown',
+    provider_operation: {
+      operation_id: 'launch-existing',
+      intent_digest: 'intent',
+      status: 'outcome-unknown',
+    },
+  };
+  input.before.namespaces[1].files.push(file('startup-request.json', journal));
+  input.before.namespaces[1].entries.push({
+    relativePath: 'startup-request.json',
+    type: 'file',
+    identity: 'journal',
+    fileVersion: 'v1',
+  });
+  input.after = structuredClone(input.before);
+  input.after.namespaces[1].files[1] = file('startup-request.json', {
+    ...journal,
+    stage: 'launched',
+    provider_operation: {
+      ...journal.provider_operation,
+      status: 'acknowledged',
+      session_fingerprint: 'sha256:' + 'd'.repeat(64),
+    },
+  });
+  const compareEffect = () =>
+    api.comparePortableExistingEffectTransitionCore({
+      before: input.before,
+      after: input.after,
+      workspace,
+      kind: 'launch',
+      operationId: 'launch-existing',
+      selector: 'claude',
+      role: 'reviewer',
+      sessionFingerprint: 'sha256:' + 'd'.repeat(64),
+    });
+  assert.equal(compareEffect().status, 'transition');
+  assert.equal(compareEffect().verified, false);
+  input.after.namespaces[1].files[0] = file('events.jsonl', { revision: 5 });
+  assert.equal(compareEffect().status, 'unknown');
+});
+test('foreign scope comparison preserves project and unrelated resource generations', () => {
+  assert.equal(typeof api.comparePortableForeignResourceTransitionCore, 'function');
+  const input = fixture(),
+    root = path.resolve('/account/provider-resources/' + 'f'.repeat(64));
+  input.before.namespaces.push(
+    namespace('provider-resources', root, [file('foreign.json', { foreign: 'one' })])
+  );
+  input.after = structuredClone(input.before);
+  input.after.namespaces[input.after.namespaces.length - 1] = namespace(
+    'provider-resources',
+    root,
+    [file('foreign.json', { foreign: 'two' })]
+  );
+  const compareForeign = () =>
+    api.comparePortableForeignResourceTransitionCore({
+      before: input.before,
+      after: input.after,
+      foreignRoots: [root],
+    });
+  assert.equal(compareForeign().status, 'transition');
+  assert.equal(compareForeign().verified, false);
+  input.after.namespaces[1].files[0] = file('events.jsonl', { revision: 5 });
+  assert.equal(compareForeign().status, 'unknown');
 });
