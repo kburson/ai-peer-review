@@ -1187,3 +1187,122 @@ test('native migration replaces only the known owned legacy compound Codex hook'
     });
   }
 });
+
+test('setup runs repository-owned Node checks against proposed bytes without changing the host', async (t) => {
+  for (const rejectsCandidate of [false, true]) {
+    await t.test(`rejectsCandidate=${rejectsCandidate}`, async (t) => {
+      const f = await setupHostFixture(t);
+      f.write(
+        'package.json',
+        JSON.stringify({
+          name: 'host',
+          private: true,
+          scripts: { 'lint:policy': 'node scripts/policy-check.mjs', lint: 'npm run lint:policy' },
+        }) + '\n'
+      );
+      f.write(
+        'scripts/policy-check.mjs',
+        `import {existsSync,readFileSync} from 'node:fs';\nconst path='.ai-peer-review/config.json';\nif(!existsSync(path))process.exit(2);\nconst d=JSON.parse(readFileSync(path));\nprocess.exit(d.schema==='ai-peer-review.primary-config/v2'?${rejectsCandidate ? 1 : 0}:2);\n`
+      );
+      f.git('add', 'package.json', 'scripts/policy-check.mjs');
+      f.git('commit', '-m', 'repository validation fixture');
+      const head = f.git('rev-parse', 'HEAD');
+      if (rejectsCandidate)
+        await assert.rejects(f.setupApply({ dryRun: true }), { code: 'APR_SETUP_INVALID' });
+      else await f.setupApply({ dryRun: true });
+      assert.equal(f.git('rev-parse', 'HEAD'), head);
+      assert.equal(f.exists('.ai-peer-review/config.json'), false);
+      assert.equal(f.git('status', '--porcelain'), '');
+    });
+  }
+});
+
+test('one host check cannot alter tracked candidate policy to satisfy the next check', async (t) => {
+  const f = await setupHostFixture(t);
+  f.write(
+    'package.json',
+    JSON.stringify({
+      name: 'host',
+      private: true,
+      scripts: { lint: 'node scripts/change.mjs && node scripts/check.mjs' },
+    }) + '\n'
+  );
+  f.write('policy.md', '# Refused\n');
+  f.write(
+    'scripts/change.mjs',
+    "import {writeFileSync} from 'node:fs';writeFileSync('policy.md','# Approved\\n');\n"
+  );
+  f.write(
+    'scripts/check.mjs',
+    "import {readFileSync} from 'node:fs';process.exit(readFileSync('policy.md','utf8').includes('Approved')?0:1);\n"
+  );
+  f.git('add', 'package.json', 'policy.md', 'scripts');
+  f.git('commit', '-m', 'candidate custody fixture');
+  await assert.rejects(f.setupApply({ dryRun: true }), { code: 'APR_SETUP_INVALID' });
+  assert.equal(f.read('policy.md'), '# Refused\n');
+  assert.equal(f.exists('.ai-peer-review/config.json'), false);
+});
+
+test('setup snapshot cannot follow an old committed symlink over a current regular replacement', async (t) => {
+  const f = await setupHostFixture(t);
+  const { symlinkSync, unlinkSync } = await import('node:fs');
+  const outside = path.join(f.parent, 'outside.md');
+  writeFileSync(outside, 'Outside must survive.\n');
+  symlinkSync(outside, path.join(f.root, 'policy.md'));
+  f.git('add', 'policy.md');
+  f.git('commit', '-m', 'old link fixture');
+  unlinkSync(path.join(f.root, 'policy.md'));
+  f.write('policy.md', '# Current regular policy\n');
+  f.write(
+    'package.json',
+    JSON.stringify({ name: 'host', private: true, scripts: { lint: 'node scripts/check.mjs' } }) +
+      '\n'
+  );
+  f.write(
+    'scripts/check.mjs',
+    "import {readFileSync} from 'node:fs';process.exit(readFileSync('policy.md','utf8').includes('Current regular')?0:1);\n"
+  );
+  f.git('add', 'policy.md', 'package.json', 'scripts/check.mjs');
+  await f.setupApply({ dryRun: true });
+  assert.equal(readFileSync(outside, 'utf8'), 'Outside must survive.\n');
+});
+
+test('repeated acyclic lint aliases validate once rather than expanding exponentially', async (t) => {
+  const f = await setupHostFixture(t);
+  const scripts = { lint: 'npm run lint:0' };
+  for (let i = 0; i < 30; i++)
+    scripts['lint:' + i] =
+      i === 29 ? 'node scripts/check.mjs' : `npm run lint:${i + 1} && npm run lint:${i + 1}`;
+  f.write('package.json', JSON.stringify({ name: 'host', private: true, scripts }) + '\n');
+  f.write('scripts/check.mjs', 'process.exit(0);\n');
+  f.git('add', 'package.json', 'scripts/check.mjs');
+  f.git('commit', '-m', 'alias fixture');
+  await f.setupApply({ dryRun: true });
+  assert.equal(f.exists('.ai-peer-review/config.json'), false);
+});
+
+test('candidate custody includes staged additions absent from HEAD', async (t) => {
+  const f = await setupHostFixture(t);
+  f.write(
+    'package.json',
+    JSON.stringify({
+      name: 'host',
+      private: true,
+      scripts: { lint: 'node scripts/change.mjs && node scripts/check.mjs' },
+    }) + '\n'
+  );
+  f.write(
+    'scripts/change.mjs',
+    "import {writeFileSync} from 'node:fs';writeFileSync('policy.md','# Approved\\n');\n"
+  );
+  f.write(
+    'scripts/check.mjs',
+    "import {readFileSync} from 'node:fs';process.exit(readFileSync('policy.md','utf8').includes('Approved')?0:1);\n"
+  );
+  f.git('add', 'package.json', 'scripts');
+  f.git('commit', '-m', 'staged custody fixture');
+  f.write('policy.md', '# Refused\n');
+  f.git('add', 'policy.md');
+  await assert.rejects(f.setupApply({ dryRun: true }), { code: 'APR_SETUP_INVALID' });
+  assert.equal(f.read('policy.md'), '# Refused\n');
+});

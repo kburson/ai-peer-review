@@ -47,3 +47,15 @@ owned group with the current matcher, preserving foreign hook groups. Modified
 or duplicated groups still refuse. A real setup regression failed before the
 repair; the complete amended primary setup suite passed 42 tests with one
 existing skip. Independent re-review found no Critical or Important issue.
+
+Setup previously rejected repository-specific Node lint drivers and npm aliases
+before evaluating proposed destinations. The native validator now resolves a
+closed bounded alias graph and executes tracked Node checks against a disposable
+Git candidate containing exact current source plus proposed formatted setup.
+Unknown commands still refuse. Candidate checks must pass and cannot change
+tracked inputs or proposals. Source and candidate ancestry are checked, aliases
+are memoized/bounded, and custody includes staged additions. All temporary
+validation copies are removed; the physical host HEAD/index/files are preserved.
+Genuine regressions caught candidate-input substitution and historical symlink
+write-through; both now fail safely. Independent review's four findings in this
+amendment were fixed and cleared before installation.
