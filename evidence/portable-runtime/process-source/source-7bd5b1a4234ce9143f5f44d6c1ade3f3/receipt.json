@@ -1,0 +1,71 @@
+{
+  "schema": "ai-peer-review.process-source-conformance/v1",
+  "captureId": "source-7bd5b1a4234ce9143f5f44d6c1ade3f3",
+  "hostId": "sha256:0c0746556166d94f6348a75834277d80cd80958eb6b9fc51942575c24cc2dd3a",
+  "registrationDigest": "sha256:42f3a49e40ff312cdcdef342fac26860ad199766a6d2fbeb4e0e759f3cd6d43b",
+  "registrationRevision": "c2b1bf82e42d8c30c247b0bf05a294de5c083d3e",
+  "registrationIndexDigest": "sha256:bc00b0e2892d403b1539ac02920e042397f71886b7484414d017fdf6eb256fa5",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "07835545b0cd518a9e48667ed6fc4b9d13bdb6bc",
+    "tarballDigest": "sha256:21331c1d1a9804d3d5cd4d7371d56866aeca54ed2d675a0a4c4f5dc325fdcf2f",
+    "inventoryDigest": "sha256:dae2c97624b6a455b88923b2321d15c6d3232ff80201bbf35503e6f5996a51a5",
+    "contractDigest": "sha256:340ece55ae98dcd5a8fb9cdd85b16138b0d0db3bcf44e55c13dc25b357dedb25"
+  },
+  "scope": {
+    "platform": "linux",
+    "build": "6.17.0-1022-azure",
+    "architecture": "x64",
+    "nodeMajor": 24,
+    "probe": {
+      "path": "/proc",
+      "visibility": "full-pid-namespace",
+      "errorContract": "exact-pid-directory-v1",
+      "version": "procfs-v1"
+    }
+  },
+  "kind": "absence",
+  "controls": {
+    "producer": {
+      "kind": "installed-source",
+      "contractDigest": "sha256:340ece55ae98dcd5a8fb9cdd85b16138b0d0db3bcf44e55c13dc25b357dedb25",
+      "inventoryDigest": "sha256:dae2c97624b6a455b88923b2321d15c6d3232ff80201bbf35503e6f5996a51a5"
+    },
+    "live": {
+      "pid": 4109,
+      "nonce": "cf55cc852f322073fa412c7d31ead0b4e864ead5de7fa4896cbd828b6dffeac0",
+      "creation": {
+        "unit": "linux-ticks:3f14b1bc-8142-4909-bcc7-5d9698e5953d",
+        "lower": "164617",
+        "upper": "164618"
+      }
+    },
+    "exit": {
+      "pid": 4109,
+      "exitCode": 0,
+      "signal": null
+    },
+    "absence": {
+      "pid": 4109,
+      "status": "absent"
+    },
+    "error": {
+      "status": "unknown",
+      "reason": "probe-access-error"
+    },
+    "cleanup": {
+      "childExited": true,
+      "restoration": "not-required"
+    }
+  },
+  "transitions": [],
+  "boot": {
+    "before": "3f14b1bc-8142-4909-bcc7-5d9698e5953d",
+    "after": "3f14b1bc-8142-4909-bcc7-5d9698e5953d"
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "keyId": "sha256:68ae99c373b15c863c384fdf97de97b3961d4922b77392a5047da1acdde53df0",
+    "value": "0568ad763aa2e770193260fb1edd88aef580732af63438e2be5d9cd3464da78d10d2ffff942b276ce1960d9781cdab5de39ce3f9fa68d46b4dc9488c0680820d"
+  }
+}
