@@ -94,11 +94,24 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
       } catch {
         unavailable('Hook observation cannot be inspected.', { file });
       }
+      // Former Codex Bash producers emitted these additional nullable fields
+      // under v1. Recognize that closed inventory shape without using it as live
+      // participant identity; unknown tool/code-mode variants remain refused.
+      const extendedBash =
+        provider === 'codex' &&
+        record &&
+        JSON.stringify(Object.keys(record).sort()) ===
+          JSON.stringify(
+            [...keys, 'runtime_session_id', 'tool_name', 'code_mode_commands'].sort()
+          ) &&
+        record.tool_name === 'Bash' &&
+        record.runtime_session_id === null &&
+        record.code_mode_commands === null;
       if (
         !record ||
-        JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(keys) ||
-        Object.values(record).some(
-          (value) => typeof value !== 'string' || !value || value.includes('\0')
+        (!extendedBash && JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(keys)) ||
+        keys.some(
+          (key) => typeof record[key] !== 'string' || !record[key] || record[key].includes('\0')
         ) ||
         record.schema !== 'ai-peer-review.' + provider + '-hook/v1' ||
         record.source !== 'official-exact-session' ||
@@ -109,7 +122,7 @@ export function inspectPrimaryReviewInventory(commonDir, primaryRoot) {
         !Number.isFinite(Date.parse(record.observed_at)) ||
         (provider === 'claude' &&
           !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(record.session_id)) ||
-        !/^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) (?:start|join)(?:\s|$)/.test(
+        !/^(?:(?:npx (?:--no-install )?)?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) (?:start|join)(?:\s|$)/.test(
           record.command
         )
       )

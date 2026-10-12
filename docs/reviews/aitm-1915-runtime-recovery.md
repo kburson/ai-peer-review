@@ -1,0 +1,42 @@
+# Existing AITM 1915 review runtime recovery
+
+The existing formatted-design XPR had joined its exact Claude Opus 5.5 HIGH
+reviewer, but the provider stopped normally without a decision. The manual
+launch ledger kept the outcome unknown and could not reconcile that terminal
+session for an authorized same-session resume. No new story or defect was filed.
+
+The launcher now reconciles only one unknown operation in a complete history
+through its sealed intent, original reviewer identity/model/effort, owned launch
+state, exact join observation and native terminal transcript. Later attempts
+require their own unique operation prompt marker; the first original legacy
+launch alone can use its existing join anchor. Reserved, ambiguous, active,
+changed and unrelated evidence remains fenced. A durable settlement retains the
+original unknown status and transcript digest. Completed sessions never become
+review acceptance or proof permitting abandonment. Native stale-claim recovery
+still requires reclaim by the same actual Claude session.
+
+Primary inventory also recognizes the former producer's closed extended Bash
+hook shape, retaining and hashing its bytes without granting live identity.
+Unknown fields, code-mode variants, malformed values and unsafe files still fail.
+
+## Verification
+
+Meaningful RED to GREEN: existing joined terminal could not reserve its resume;
+legacy producer hook output failed inventory; contradictory settlement receipt
+was initially accepted and now fails closed. Code review identified terminal
+anchor reuse and stale-intervention refusal; both were repaired and covered.
+
+- Unit: 623 passed, no failures.
+- Golden: 23 passed, one pre-existing native-broker pause, no failures.
+- Primary authority/setup integration: 66 passed, one existing skip, no failures.
+- Focused Claude launch/identity/permission checks: 107 passed before final
+  operation-marker amendments; the full unit suite then passed the amendments.
+- Changed-file Prettier, ESLint and Git diff checks passed.
+- Read-only observer verified the actual preserved Claude terminal session;
+  no review state, participant identity, AITM HEAD/index or artifact was changed.
+- Independent code review found no remaining Critical or Important issue after
+  its two findings were corrected. Installation/migration/live continuation are
+  separate operational checks and will be recorded in the owning AITM review.
+
+The runtime was packed locally with the package-owned runtime packer. This
+repair does not publish a package release or authorize design implementation.

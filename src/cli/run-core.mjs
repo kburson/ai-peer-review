@@ -30,6 +30,7 @@ import {
   reserveManualLaunch,
   settleManualLaunch,
 } from '../provider/manual-launch-ledger.mjs';
+import { observeClaudeManualCompletion } from '../provider/claude-manual-recovery.mjs';
 import { allWakeOperations } from '../coordinator/ledger.mjs';
 import {
   openParticipantSession,
@@ -5453,6 +5454,19 @@ export function createReviewOperations({
           evidence &&
           (await reserveManualLaunch(values.workspace, launchDetails, {
             effect: performCurrentOperationEffect,
+            ...(parsed.options.resume
+              ? {
+                  reconcile(operation) {
+                    return observeClaudeManualCompletion({
+                      contract,
+                      operation,
+                      details: launchDetails,
+                      state: inspectReviewAuthority(values.workspace).state,
+                      now: io.now ?? new Date(),
+                    });
+                  },
+                }
+              : {}),
             verifyAuthority() {
               const fresh = inspectReviewAuthority(values.workspace).state;
               const observed = startupEvidence(values.workspace, fresh);
@@ -5483,6 +5497,7 @@ export function createReviewOperations({
           response = await runClaudeReviewerLaunch({
             contract,
             resume: parsed.options.resume,
+            manualOperation: operation,
             execFile:
               io.execFile ??
               ((file, args, options) =>

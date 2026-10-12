@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
@@ -27,6 +27,65 @@ function exact(value, fields) {
     !Array.isArray(value) &&
     Object.keys(value).sort().join('\n') === fields.sort().join('\n')
   );
+}
+
+function validProof(proof) {
+  return (
+    exact(proof, [
+      'schema',
+      'session_fingerprint',
+      'transcript_digest',
+      'last_turn_at',
+      'protocol_revision',
+    ]) &&
+    proof.schema === 'ai-peer-review.manual-completion-proof/v1' &&
+    SHA.test(proof.session_fingerprint) &&
+    SHA.test(proof.transcript_digest) &&
+    Number.isFinite(Date.parse(proof.last_turn_at)) &&
+    Number.isSafeInteger(proof.protocol_revision) &&
+    proof.protocol_revision >= 0
+  );
+}
+function settlementFor(workspace, operation) {
+  return path.join(workspace, 'manual-launch-settlements', operation.id.slice(7) + '.json');
+}
+function readSettlement(workspace, details, operation) {
+  try {
+    const file = settlementFor(workspace, operation),
+      stat = lstatSync(file);
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      stat.size > 1024 * 1024 ||
+      (process.platform !== 'win32' && (stat.uid !== process.getuid() || stat.mode & 0o077))
+    )
+      throw failure('Unsafe manual settlement.');
+    const value = JSON.parse(readFileSync(file, 'utf8'));
+    if (
+      !exact(value, [
+        'schema',
+        'review_id',
+        'request_digest',
+        'operation_id',
+        'intent_digest',
+        'prior_status',
+        'status',
+        'proof',
+      ]) ||
+      value.schema !== 'ai-peer-review.manual-launch-settlement/v1' ||
+      value.review_id !== details.reviewId ||
+      value.request_digest !== details.requestDigest ||
+      value.operation_id !== operation.id ||
+      value.intent_digest !== operation.intent_digest ||
+      value.prior_status !== 'outcome-unknown' ||
+      value.status !== 'session-completed' ||
+      !validProof(value.proof)
+    )
+      throw failure('Contradictory manual settlement.');
+    return value;
+  } catch {
+    throw failure('Manual completion settlement cannot be verified.');
+  }
 }
 
 export function readManualLaunchHistory(workspace, { reviewId, requestDigest } = {}) {
@@ -58,11 +117,16 @@ export function readManualLaunchHistory(workspace, { reviewId, requestDigest } =
         exact(entry, ['id', 'intent_digest', 'status']) &&
         /^manual:[a-f0-9-]{36}$/.test(entry.id) &&
         SHA.test(entry.intent_digest) &&
-        ['reserved', 'not-submitted', 'submitted', 'outcome-unknown'].includes(entry.status)
+        ['reserved', 'not-submitted', 'submitted', 'outcome-unknown', 'session-completed'].includes(
+          entry.status
+        )
     ) ||
     new Set(value.operations.map((entry) => entry.id)).size !== value.operations.length
   )
     throw failure('Manual launch history contradicts the sealed review request.');
+  for (const operation of value.operations)
+    if (operation.status === 'session-completed')
+      readSettlement(workspace, { reviewId, requestDigest }, operation);
   return value;
 }
 
@@ -106,7 +170,7 @@ export function initializeManualLaunchHistory(workspace, { reviewId, requestDige
 export async function reserveManualLaunch(
   workspace,
   details,
-  { verifyAuthority, effect = (operation) => operation() } = {}
+  { verifyAuthority, reconcile, effect = (operation) => operation() } = {}
 ) {
   if (
     !SHA.test(details?.intentDigest ?? '') ||
@@ -129,10 +193,42 @@ export async function reserveManualLaunch(
         };
         effect(() => atomicCreate(fileFor(workspace), `${JSON.stringify(history)}\n`));
       }
-      if (
-        history.operations.some((entry) => ['reserved', 'outcome-unknown'].includes(entry.status))
-      )
-        throw failure('An earlier manual launch outcome is unresolved.');
+      const unresolved = history.operations.filter((entry) =>
+        ['reserved', 'outcome-unknown'].includes(entry.status)
+      );
+      if (unresolved.length) {
+        if (
+          history.coverage !== 'complete' ||
+          unresolved.length !== 1 ||
+          unresolved[0].status !== 'outcome-unknown' ||
+          typeof reconcile !== 'function'
+        )
+          throw failure('An earlier manual launch outcome is unresolved.');
+        const prior = unresolved[0];
+        const proof = reconcile(Object.freeze({ ...prior }));
+        if (!validProof(proof))
+          throw failure('Exact native manual completion proof is unavailable.');
+        verifyAuthority?.();
+        const directory = path.join(workspace, 'manual-launch-settlements');
+        effect(() => mkdirSync(directory, { recursive: true, mode: 0o700 }));
+        const receipt = {
+          schema: 'ai-peer-review.manual-launch-settlement/v1',
+          review_id: details.reviewId,
+          request_digest: details.requestDigest,
+          operation_id: prior.id,
+          intent_digest: prior.intent_digest,
+          prior_status: prior.status,
+          status: 'session-completed',
+          proof,
+        };
+        const receiptFile = settlementFor(workspace, prior);
+        if (existsSync(receiptFile)) {
+          const retained = readSettlement(workspace, details, prior);
+          if (JSON.stringify(retained.proof) !== JSON.stringify(proof))
+            throw failure('Manual settlement proof changed before durable reservation.');
+        } else effect(() => atomicCreate(receiptFile, `${JSON.stringify(receipt)}\n`));
+        prior.status = 'session-completed';
+      }
       const operation = {
         id: `manual:${randomUUID()}`,
         intent_digest: details.intentDigest,
