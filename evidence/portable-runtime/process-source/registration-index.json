@@ -2,9 +2,9 @@
   "schema": "ai-peer-review.process-source-registration-index/v1",
   "captures": [
     {
-      "captureId": "source-2ee00e1c52f7a510fa0acde71e41d314",
-      "path": "evidence/portable-runtime/process-source/registrations/source-2ee00e1c52f7a510fa0acde71e41d314.json",
-      "digest": "sha256:231eaef4337f6251f649d8482f6d42b709b037997260846ce4f4ea31a5294f09"
+      "captureId": "source-eaef9345d29286b4bea8444329e3e931",
+      "path": "evidence/portable-runtime/process-source/registrations/source-eaef9345d29286b4bea8444329e3e931.json",
+      "digest": "sha256:bf2955bdbfac8979614c51f867d834840f3f15dfd0a0f1d3fe795903f212cb01"
     }
   ]
 }
