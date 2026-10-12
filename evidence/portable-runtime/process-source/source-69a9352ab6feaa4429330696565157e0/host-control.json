@@ -1,0 +1,15 @@
+{
+  "schema": "ai-peer-review.process-source-ci-control/v1",
+  "verified": false,
+  "runId": "38224061596",
+  "runAttempt": "1",
+  "codeCommit": "2a6adf5b057084ada54ca0708e0a0f02482ce85a",
+  "captureProducerCommit": "8b874df0b543b86552b4d0dfe47601cae6050c32",
+  "captureId": "source-69a9352ab6feaa4429330696565157e0",
+  "kind": "absence",
+  "control": {
+    "verified": false,
+    "clockChanges": "none",
+    "restoration": "not-required"
+  }
+}
