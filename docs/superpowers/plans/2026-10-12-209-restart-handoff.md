@@ -1,6 +1,6 @@
 # #209 current continuation
 
-#209 is active in Develop in `/Users/kpburson/.codex/worktrees/209-portable-reconciliation/ai-peer-review`, branch `codex/209-portable-reconciliation`. #190 remains paused. Root continues under explicit approval to finish this prerequisite inline, preserving security checks and original budgets.
+Issue #209 is active in Develop in `/Users/kpburson/.codex/worktrees/209-portable-reconciliation/ai-peer-review`, branch `codex/209-portable-reconciliation`. #190 remains paused. Root continues under explicit approval to finish this prerequisite inline, preserving security checks and original budgets.
 
 Read [the current implementation checkpoint](2026-10-12-209-implementation-checkpoint.md) and live issue authority. The earlier generic-observer-only checkpoint is superseded: production reconciliation and the receipt/publication composition are now wired. No whole-child review, passing final hosted receipt, delivery or closure is claimed yet.
 
