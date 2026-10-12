@@ -19,7 +19,7 @@ provisioning, mutation, election and cleanup interfaces stay intact.
 
 Each phase freshly checks the complete common ancestry, canonical root and file,
 actual effective POSIX identity, exact owner/mode, single file link, access and
-independently opened descriptor identities. Linux retains both existing stock
+independently opened descriptor identities. Linux retains both existing `statfs` and `access`
 filesystem checks and the supported filesystem policy. macOS queries the entire
 ancestor/root/file set with one stock command, applying the existing ancestor
 and private-leaf ACL policies. The deferred ancestry flag is true, suppressing
@@ -39,11 +39,22 @@ and type before the stock query so missing-file handling keeps ENOENT.
 
 Construct the same root fingerprint and file generation observation as the
 existing independent inspections. The file ancestry includes the root with its
-actual identity, mode, owner and ACL. A mismatching root fingerprint or retained
+actual identity, mode and owner, plus ACL on macOS only. Linux ancestry entries,
+including this root entry, keep no ACL key. A mismatching root fingerprint or retained
 directory descriptor refuses. The existing real file descriptor, bounded read,
 identity/version comparisons and after-read checks remain. Missing file handling
-still freshly verifies the root before preserving ENOENT. Failure retains the
-existing descriptor cleanup obligation; no automatic retry is introduced.
+in either phase, including after the bounded read, freshly runs guard `verify`
+before preserving ENOENT. If the root or an ancestor vanished, verification
+refuses with a non-ENOENT error; only a still-verified namespace can report a
+missing leaf. Retain the guard's `closed` refusal immediately before and after
+each pair call. A concurrent close must refuse, never return successful data.
+Apply these two preservation checks to both POSIX and Windows read-pair phases;
+Windows receives the same correction instead of retaining the asymmetry. Failure retains the
+existing descriptor cleanup obligation; no automatic retry is introduced. Add genuine
+root/ancestor removal or rename after the bounded read but before the after
+pair, and a concurrent close control on macOS and hosted Linux/Windows. Require
+non-ENOENT refusal for namespace loss and no successful return after close,
+with all retained descriptor obligations discharged or truthfully retained.
 
 The adoption check includes actual affected C1 tests on the local macOS host
 and the hosted Linux Node24/26 runners, including
@@ -88,7 +99,10 @@ start manifest digest. Preserve the exact replay binding by allowing the
 private final `installation` call to use
 `previousObservation: processInventory ?? previousObservation?.inventory`.
 The fallback must reach the same authenticated inventory replay check even in a
-second store whose process inventory is still null. The discarded intermediate
+second store whose process inventory is still null. In that case it uses the
+existing identity-replay path instead of rehashing unchanged file bytes, just
+like subsequent in-store calls. It freshly checks file/directory/link
+generations, dependency metadata and closure, and refuses a changed digest. The discarded intermediate
 observation is never returned or read by any consumer. The existing final
 protected-snapshot integrity check,
 process selection generation, scope witness and completion checks remain.
@@ -104,8 +118,8 @@ selection authority. Both snapshots, principal checks and original contexts rema
 
 Keep the Windows read-pair helper name unchanged, add a separate private POSIX
 helper, and extend the closed diagnostic name sets. Re-run precise coverage and
-the real register/activate comparison: exact16 matching admissions,32 fresh
-snapshots,16→1 acquisitions and unchanged15/30 deltas remain binding.
+the real register/activate comparison: exact 16 matching admissions, 32 fresh
+snapshots, 16→1 acquisitions and unchanged 15/30 deltas remain binding.
 
 Measure and adopt the two changes separately on the unmerged diagnostic branch,
 using distinct before/after command and inventory-scan counts. If either misses
