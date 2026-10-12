@@ -45,15 +45,7 @@ export async function activateStartup(input, ...args) {
     return runtime.activateStartup(input, ...args);
   });
 }
-export function validateRuntimeDescriptor(...args) {
-  runtime ??= createStartupRuntime({
-    startReview: (...args) => startReview(...args),
-    ensureBroker,
-    productionProviderAdapters,
-    performCurrentOperationEffect,
-  });
-  return runtime.validateRuntimeDescriptor(...args);
-}
+export { validateRuntimeDescriptor } from './runtime-descriptor.mjs';
 export function assertRequestedReviewer(...args) {
   runtime ??= createStartupRuntime({
     startReview: (...args) => startReview(...args),

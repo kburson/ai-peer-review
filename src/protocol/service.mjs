@@ -36,14 +36,7 @@ export function repairReview(...args) {
   service ??= createProtocolService(authority);
   return service.repairReview(...args);
 }
-export function inspectReview(...args) {
-  service ??= createProtocolService(authority);
-  return service.inspectReview(...args);
-}
-export function inspectReviewAuthority(...args) {
-  service ??= createProtocolService(authority);
-  return service.inspectReviewAuthority(...args);
-}
+export { inspectReview, inspectReviewAuthority } from './authority-reader.mjs';
 export function inspectReviewerExecutionAuthority(...args) {
   service ??= createProtocolService(authority);
   return service.inspectReviewerExecutionAuthority(...args);

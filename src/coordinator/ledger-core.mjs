@@ -12,11 +12,11 @@ import path from 'node:path';
 
 import { resolveContainedPath } from '../collateral/paths.mjs';
 
-import { canonicalWakeCapsule, wakeOperationKey } from './decision.mjs';
+import { canonicalWakeCapsule, wakeOperationKey } from './wake-capsule.mjs';
 
 import { AprError } from '../errors.mjs';
 
-import { canonicalProjection } from '../protocol/service.mjs';
+import { canonicalProjection } from '../protocol/canonical-projection.mjs';
 
 import { atomicCreate as rawAtomicCreate } from '../protocol/store.mjs';
 

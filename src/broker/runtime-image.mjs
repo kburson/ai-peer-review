@@ -1,7 +1,7 @@
 import {
   assertCollateralCompatible,
   readRuntimeCompatibility,
-} from '../protocol/compatibility.mjs';
+} from '../protocol/compatibility-read.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,

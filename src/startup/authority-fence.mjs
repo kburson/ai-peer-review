@@ -16,11 +16,11 @@ import {
 import { createHash } from 'node:crypto';
 import { userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { inspectReviewAuthority } from '../protocol/service.mjs';
+import { inspectReviewAuthority } from '../protocol/authority-reader.mjs';
 import {
   assertCollateralCompatible,
   readRuntimeCompatibility,
-} from '../protocol/compatibility.mjs';
+} from '../protocol/compatibility-read.mjs';
 import { AprError } from '../errors.mjs';
 import {
   assertSelectedRuntime,

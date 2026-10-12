@@ -15,7 +15,7 @@ import path from 'node:path';
 import {
   assertCollateralCompatible,
   readRuntimeCompatibility,
-} from '../protocol/compatibility.mjs';
+} from '../protocol/compatibility-read.mjs';
 import { AprError } from '../errors.mjs';
 import { atomicWrite } from '../protocol/store.mjs';
 import { hydrateTemplate } from '../templates/index.mjs';

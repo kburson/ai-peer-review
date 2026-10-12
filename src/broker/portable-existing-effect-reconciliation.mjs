@@ -2,15 +2,16 @@
 // Fixed pre-creation producer. It never constructs a worker, reserves an operation or acquires resources.
 import path from 'node:path';
 import { AprError } from '../errors.mjs';
-import cliResultSchema from '../../schemas/cli-result-v1.json' with { type: 'json' };
+import { PROTOCOL_STATES } from '../protocol/format-authority.mjs';
 import { inspectOwnerElectionLease } from './ownership-election.mjs';
 import {
   readReconciliationInventory,
   assertReconciliationExistingEffectScope,
 } from './portable-reconciliation-inventory.mjs';
 import { validBrokerRegistrationRecordCore } from './registration-record.mjs';
-import { readStartupJournal, inspectStartupAuthority } from './registry.mjs';
-import { inspectReviewAuthority } from '../protocol/service.mjs';
+import { readPortableReconciliationProjection } from './portable-reconciliation-projection.mjs';
+import { readStartupJournal, inspectStartupAuthority } from './startup-evidence-reader.mjs';
+import { inspectReviewAuthority } from '../protocol/authority-reader.mjs';
 import { verifyRuntimeImage } from './runtime-image.mjs';
 import { readManualLaunchHistory } from '../provider/manual-launch-ledger.mjs';
 import { allWakeOperations, readWakeOperation, appendWakeOutcome } from '../coordinator/ledger.mjs';
@@ -75,16 +76,7 @@ function candidates(data) {
     else if (namespace.kind === 'review') reviews.set(namespace.root, namespace);
     else if (namespace.kind === 'recovery')
       for (const file of namespace.files) recovery.push({ file, record: parse(file.bytes) });
-    else if (namespace.kind === 'provider-resources' || namespace.kind === 'manual-resources') {
-      // Association and genuine settlement must be proved before this producer may cross any write.
-      // Until the guarded policy projection supplies that proof, retain all independent records/elections.
-      if (namespace.files.length)
-        return retained(
-          namespace.kind === 'provider-resources'
-            ? 'provider-resource-retained'
-            : 'manual-resource-retained'
-        );
-    }
+    else if (namespace.kind === 'owner-legacy') return retained('owner-reconciliation-unproved');
   }
   for (const { file, record } of recovery) {
     const registration = registrations.get(record?.review_id);
@@ -98,8 +90,7 @@ function candidates(data) {
       record.workspace !== registration.workspace ||
       record.request_digest !== registration.request_digest ||
       record.runtime_digest !== registration.runtime.digest ||
-      (record.protocol_state !== null &&
-        !cliResultSchema.$defs.state.enum.includes(record.protocol_state))
+      (record.protocol_state !== null && !PROTOCOL_STATES.includes(record.protocol_state))
     )
       refuse('review-authority-unproved');
   }
@@ -150,11 +141,8 @@ function candidates(data) {
       state.protocol.startup?.runtime?.project_root_digest !== data.project.digest
     )
       return retained('review-authority-unproved');
-    if (
-      namespace.files.some(
-        ({ name }) => name === 'manual-fence.json' || name === 'manual-suspension.json'
-      )
-    )
+    if (namespace.files.some(({ name }) => name === 'manual-fence.json')) continue;
+    if (namespace.files.some(({ name }) => name === 'manual-suspension.json'))
       return retained('manual-suspension-unproved');
     const wake = allWakeOperations(workspace);
     if (wake.some((operation) => operation.status === 'outcome-unknown'))
@@ -177,6 +165,15 @@ export async function reconcilePortableExistingEffects(input = {}) {
   };
   await assert();
   const data = await readReconciliationInventory({ observation: inventory, paths, ...context });
+  const projection = await readPortableReconciliationProjection({ inventory, paths, ...context });
+  const resourceObligation = projection.classification.outstandingObligations.find(({ name }) =>
+    [
+      'provider-resource-retained',
+      'manual-resource-retained',
+      'resource-association-unproved',
+    ].includes(name)
+  );
+  if (resourceObligation) return retained(resourceObligation.name);
   const selected = candidates(data);
   if (selected.status === 'unknown') return selected;
   await assert();

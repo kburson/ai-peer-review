@@ -1,3 +1,4 @@
+import { validateRuntimeDescriptor } from './runtime-descriptor.mjs';
 import { assertSelectedRuntime } from '../config/runtime-selection.mjs';
 import { AprError } from '../errors.mjs';
 import { PROVIDERS } from '../providers/registry.mjs';
@@ -478,14 +479,6 @@ export function createStartupRuntime({
 
   const TRANSPORTS = new Set(['manual', 'resume-only', 'automatic-required']);
   const IDENTITY_SOURCES = new Set(['runtime', 'declared']);
-  const CLASSIFICATIONS = new Set(['SPR', 'XPR']);
-  const OWNERSHIPS = new Set(['native', 'broker']);
-  const SELECTOR_IDENTITY = Object.freeze({
-    codex: Object.freeze({ provider: 'openai', host: 'codex' }),
-    claude: Object.freeze({ provider: 'anthropic', host: 'claude-code' }),
-    grok: Object.freeze({ provider: 'xai', host: 'grok' }),
-  });
-
   function unavailable(reason, details = {}) {
     throw new AprError(
       'APR_TRANSPORT_UNAVAILABLE',
@@ -523,52 +516,6 @@ export function createStartupRuntime({
     if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
       usage(`${label} must use the closed descriptor fields.`, { fields: actual });
     }
-  }
-
-  function validateRuntimeDescriptor(value) {
-    exactKeys(
-      value,
-      [
-        'schema',
-        'classification',
-        'ownership',
-        'transport_mode',
-        'reviewer',
-        'adapter_version',
-        'project_root_digest',
-      ],
-      'Runtime descriptor'
-    );
-    if (value.schema !== 'ai-peer-review.runtime/v1')
-      usage('Runtime descriptor schema is invalid.');
-    if (!CLASSIFICATIONS.has(value.classification))
-      usage('Runtime descriptor classification is invalid.');
-    if (!OWNERSHIPS.has(value.ownership)) usage('Runtime descriptor ownership is invalid.');
-    if (!TRANSPORTS.has(value.transport_mode))
-      usage('Runtime descriptor transport mode is invalid.');
-    exactKeys(
-      value.reviewer,
-      ['selector', 'provider', 'host', 'model_id', 'model_display', 'effort'],
-      'Runtime descriptor reviewer'
-    );
-    const selected = SELECTOR_IDENTITY[value.reviewer.selector];
-    if (
-      !selected ||
-      selected.provider !== value.reviewer.provider ||
-      selected.host !== value.reviewer.host
-    ) {
-      usage('Runtime descriptor reviewer selector, provider, and host disagree.');
-    }
-    if (!text(value.reviewer.model_id) || !text(value.reviewer.model_display))
-      usage('Runtime descriptor reviewer model is invalid.');
-    if (!text(value.reviewer.effort)) usage('Runtime descriptor reviewer effort is invalid.');
-    if (!text(value.adapter_version)) usage('Runtime descriptor adapter version is invalid.');
-    if (
-      typeof value.project_root_digest !== 'string' ||
-      !/^[0-9a-f]{64}$/.test(value.project_root_digest)
-    )
-      usage('Runtime descriptor project root digest is invalid.');
-    return value;
   }
 
   function assertRequestedReviewer(runtime, identity, observation) {

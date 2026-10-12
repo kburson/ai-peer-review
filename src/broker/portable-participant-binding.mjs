@@ -8,10 +8,10 @@ import {
   assertCurrentOperationAuthority,
   currentOperationAuthorityContext,
 } from '../startup/authority-fence.mjs';
-import { inspectReviewAuthority } from '../protocol/service.mjs';
+import { inspectReviewAuthority } from '../protocol/authority-reader.mjs';
 import { canonicalProjection } from '../protocol/canonical-projection.mjs';
 import { validBrokerRegistrationRecordCore } from './registration-record.mjs';
-import { startupEvidence } from './registry.mjs';
+import { startupEvidence } from './startup-evidence-reader.mjs';
 import { productionProviderAdapters } from '../providers/registry.mjs';
 import { openParticipantBinding } from './participant-binding.mjs';
 // @story #209

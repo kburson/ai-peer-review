@@ -1,4 +1,6 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { fingerprintSession } from './fingerprint.mjs';
+export { fingerprintSession };
+import { randomUUID } from 'node:crypto';
 
 import { AprError } from '../errors.mjs';
 import { EVENT_V2_SCHEMA } from '../protocol/compatibility.mjs';
@@ -139,25 +141,6 @@ function liveChallenge(protocol, at) {
       !challenge.consumed_at &&
       Date.parse(challenge.expires_at) > timestamp
   );
-}
-
-export function fingerprintSession(provider, rawSessionId) {
-  if (!PROVIDERS.has(provider)) {
-    fail(
-      'APR_IDENTITY_INVALID',
-      'Identity provider is invalid.',
-      'Use a documented provider name.'
-    );
-  }
-  const normalizedProvider = text(provider, 'provider');
-  const normalizedSession = text(rawSessionId, 'session');
-  const digest = createHash('sha256')
-    .update('ai-peer-review.session/v1\n', 'utf8')
-    .update(normalizedProvider, 'utf8')
-    .update('\n', 'utf8')
-    .update(normalizedSession, 'utf8')
-    .digest('hex');
-  return `sha256:${digest}`;
 }
 
 export function participantIdentity({

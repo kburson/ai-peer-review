@@ -443,3 +443,97 @@ test('existing-effect resource assertion refuses copied inventory membership', a
     { code: 'APR_BROKER_STALE' }
   );
 });
+
+test('fixed project discovery retains the stock provider operation namespace as evidence', async (t) => {
+  // The actual provider adapter persists digest-named operation records here.
+  const input = await ordinaryDirectory(t);
+  const root = path.join(input.root, '.scratch', 'peer-review');
+  const file = path.join(
+    root,
+    'review-one',
+    'provider',
+    'claude',
+    'operations',
+    'a'.repeat(64) + '.json'
+  );
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, '{}\n');
+  const observed = await ordinary.observeProjectReconciliationInventoryCore({ ...input, root });
+  t.after(() => observed.close());
+  assert.equal(observed.verified, false);
+  assert.deepEqual(
+    observed.namespaces.map(({ kind }) => kind),
+    ['review']
+  );
+  await observed.assertUnchanged();
+});
+
+test('owner namespace policy preserves legacy obligations and refuses unknown private children', () => {
+  // An ignored private child cannot substitute for complete reconciliation of old generations.
+  assert.equal(typeof ordinary.describeOwnerReconciliationNamespaceCore, 'function');
+  const key = 'a'.repeat(64);
+  const result = ordinary.describeOwnerReconciliationNamespaceCore({
+    resourceKey: key,
+    privateEntries: [
+      { name: 'owner.json', type: 'file' },
+      { name: 'registry.json', type: 'file' },
+      { name: 'apr-election-' + key + '-contender.json', type: 'file' },
+    ],
+    runtimeEntries: [{ name: 'endpoint.json', type: 'file' }],
+  });
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.legacyNames, ['registry.json']);
+  assert.throws(
+    () =>
+      ordinary.describeOwnerReconciliationNamespaceCore({
+        resourceKey: key,
+        privateEntries: [{ name: 'unknown', type: 'directory' }],
+        runtimeEntries: [],
+      }),
+    (error) => error.details.reason === 'reconciliation-namespace-unproved'
+  );
+});
+
+test('resource namespace binds C3 filenames to the exact root and independent resource ID', async () => {
+  const api = await import('../../src/broker/portable-reconciliation-inventory.mjs');
+  const root = path.join(
+    path.parse(process.cwd()).root,
+    'account',
+    'provider-resources',
+    'a'.repeat(64)
+  );
+  const empty = api.describeResourceReconciliationNamespaceCore({ root, entries: [] });
+  assert.equal(empty.verified, false);
+  const name = 'apr-resource-' + empty.resourceKey + '.json';
+  assert.deepEqual(
+    api.describeResourceReconciliationNamespaceCore({ root, entries: [{ name, type: 'file' }] }),
+    empty
+  );
+  assert.throws(
+    () =>
+      api.describeResourceReconciliationNamespaceCore({
+        root,
+        entries: [{ name: 'apr-resource-' + 'a'.repeat(64) + '.json', type: 'file' }],
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+  assert.throws(
+    () =>
+      api.describeResourceReconciliationNamespaceCore({
+        root: root + '-moved',
+        entries: [{ name, type: 'file' }],
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+  assert.throws(
+    () =>
+      api.describeResourceReconciliationNamespaceCore({
+        root,
+        entries: [
+          { name, type: 'file' },
+          { name, type: 'file' },
+        ],
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+});

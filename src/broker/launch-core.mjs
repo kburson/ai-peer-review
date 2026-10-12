@@ -2,12 +2,12 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
-import { inspectReview } from '../protocol/service.mjs';
+import { inspectReview } from '../protocol/authority-reader.mjs';
 import {
   atomicWrite as rawAtomicWrite,
   withReviewLock as rawWithReviewLock,
 } from '../protocol/store.mjs';
-import { readStartupJournal, startupEvidence } from './registry.mjs';
+import { readStartupJournal, startupEvidence } from './startup-evidence-reader.mjs';
 
 // @story #136
 export function createBrokerLaunchOperations({ performCurrentOperationEffect }) {

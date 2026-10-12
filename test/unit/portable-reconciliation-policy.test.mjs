@@ -288,3 +288,62 @@ test('all ordinary manual settlement fields matching cannot substitute for C1 pr
     'clear'
   );
 });
+
+test('fixed projection reader refuses copied inventory before parsing caller records', async () => {
+  const projection = await import('../../src/broker/portable-reconciliation-projection.mjs').catch(
+    (error) => {
+      if (
+        error.code === 'ERR_MODULE_NOT_FOUND' &&
+        error.url?.endsWith('/portable-reconciliation-projection.mjs')
+      )
+        return {};
+      throw error;
+    }
+  );
+  assert.equal(typeof projection.readPortableReconciliationProjection, 'function');
+  await assert.rejects(
+    () =>
+      projection.readPortableReconciliationProjection({
+        inventory: { verified: true },
+        paths: {},
+        signal: new AbortController().signal,
+        deadline: performance.now() + 30000,
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+});
+
+test('private preparation rejects copied clearance and caller reconciliation ports', async () => {
+  const preparation = await import('../../src/broker/portable-reconciliation.mjs');
+  assert.equal(typeof preparation.preparePortableReconciliation, 'function');
+  assert.equal(preparation.isPortableReconciliationObservation(classify()), false);
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  await assert.rejects(
+    () =>
+      preparation.assertPortableReconciliation({
+        observation: { status: 'clear', verified: true, outstandingObligations: [] },
+        paths: {},
+        ...context,
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+  await assert.rejects(
+    () =>
+      preparation.preparePortableReconciliation({
+        paths: {},
+        lease: { verified: true },
+        ...context,
+        reconcile: () => ({ status: 'clear' }),
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+  await assert.rejects(
+    () =>
+      preparation.preparePortableReconciliation({
+        paths: {},
+        lease: { verified: true },
+        ...context,
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+});

@@ -1,7 +1,7 @@
 import { AprError } from '../errors.mjs';
 import { digestChallenge, digestGrantParameters } from '../authority/canonicalize.mjs';
 import { identityEvidence } from '../identity/evidence.mjs';
-import { assertReaderCompatibility, EVENT_V2_SCHEMA } from './compatibility.mjs';
+import { assertReaderCompatibility, EVENT_V2_SCHEMA } from './compatibility-read.mjs';
 import { eventAdvancesRevision, validateVersionedEvent } from './events.mjs';
 
 export const LIFECYCLE_EVENT_TYPES = Object.freeze([

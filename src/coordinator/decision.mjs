@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 import { renderCommand } from '../cli/help-data.mjs';
 import { AprError } from '../errors.mjs';
-import { canonicalProjection } from '../protocol/service.mjs';
+import { canonicalProjection } from '../protocol/canonical-projection.mjs';
 import { validateAutomaticParticipant } from '../transport/registry.mjs';
 
 const PARTICIPANT_ROLES = new Set(['author', 'reviewer']);
@@ -183,34 +182,4 @@ export function decideWake({
   });
 }
 
-export function canonicalWakeCapsule(decision) {
-  if (!record(decision?.capsule)) {
-    fail(
-      'APR_WAKE_CAPSULE_INVALID',
-      'Wake decision does not contain a pointer capsule.',
-      'Recompute the wake decision from validated protocol authority.'
-    );
-  }
-  return Buffer.from(`${canonicalProjection(decision.capsule)}\n`, 'utf8');
-}
-
-export function wakeOperationKey(decision) {
-  if (
-    !record(decision) ||
-    !['wake', 'terminal', 'intervention'].includes(decision.kind) ||
-    !fingerprint(decision.participant_fingerprint)
-  ) {
-    fail(
-      'APR_WAKE_CAPSULE_INVALID',
-      'Wake decision cannot form an operation key.',
-      'Recompute the wake decision from validated protocol authority.'
-    );
-  }
-  const input = {
-    review_id: decision.capsule.review_id,
-    protocol_revision: decision.capsule.expected_revision,
-    target_role: decision.capsule.target_role,
-    session_fingerprint: decision.participant_fingerprint,
-  };
-  return `sha256:${createHash('sha256').update(canonicalProjection(input)).digest('hex')}`;
-}
+export { canonicalWakeCapsule, wakeOperationKey } from './wake-capsule.mjs';

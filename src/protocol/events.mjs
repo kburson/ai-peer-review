@@ -1,12 +1,12 @@
 import path from 'node:path';
 import { AprError } from '../errors.mjs';
-import { validateRuntimeDescriptor } from '../startup/runtime.mjs';
+import { validateRuntimeDescriptor } from '../startup/runtime-descriptor.mjs';
 import {
   canonicalGrantParameters,
   digestChallenge,
   digestGrantParameters,
 } from '../authority/canonicalize.mjs';
-import { EVENT_V1_SCHEMA, EVENT_V2_SCHEMA, validateCompatibility } from './compatibility.mjs';
+import { EVENT_V1_SCHEMA, EVENT_V2_SCHEMA, validateCompatibility } from './compatibility-read.mjs';
 
 const definitions = {
   'review-created': {

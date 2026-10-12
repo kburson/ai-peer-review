@@ -7,6 +7,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, cpSync, rmSync } f
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { encodeRequestCanonical } from '../../src/api/canonical-json.mjs';
 
 const api = await import('../../src/protocol/process-source-assurance.mjs').catch(() => ({}));
@@ -458,6 +459,10 @@ test('recomputed fixture ledger cannot acquire operational authority from a copi
   cpSync(path.join(ROOT, 'src'), path.join(root, 'src'), { recursive: true });
   cpSync(path.join(ROOT, 'schemas'), path.join(root, 'schemas'), { recursive: true });
   cpSync(path.join(ROOT, 'package.json'), path.join(root, 'package.json'));
+  // The fixed #102 effect fence now belongs to this source closure. Its actual
+  // installed formatter must be loadable in the copy; no fixture gains admission.
+  const formatter = path.dirname(createRequire(import.meta.url).resolve('prettier/package.json'));
+  cpSync(formatter, path.join(root, 'node_modules', 'prettier'), { recursive: true });
   const copied = await import(
     new URL('src/protocol/process-source-assurance.mjs', new URL('file://' + root + '/'))
   );

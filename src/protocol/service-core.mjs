@@ -1,3 +1,4 @@
+import { readAuthority, inspectReview, inspectReviewAuthority } from './authority-reader.mjs';
 import { canonicalProjection, orderedProjectionCore as ordered } from './canonical-projection.mjs';
 import {
   closeSync,
@@ -21,9 +22,6 @@ import { AprError } from '../errors.mjs';
 import { startupEvidence } from '../broker/registry.mjs';
 import {
   assertReaderWriterCompatibility,
-  assertCollateralCompatible,
-  readRuntimeCompatibility,
-  inspectUnsupportedReview,
   compatibilityDeclared,
   currentCompatibility,
   EVENT_V2_SCHEMA,
@@ -118,87 +116,6 @@ export function createProtocolService(authority) {
     const error = new AprError(code, message, { recovery, details });
     if (cause) error.cause = cause;
     return error;
-  }
-
-  function readAuthority(workspace) {
-    const file = path.join(workspace, 'events.jsonl');
-    let bytes;
-    try {
-      bytes = readFileSync(file, 'utf8');
-    } catch (cause) {
-      throw authorityError(
-        'APR_EVENT_LOG_MISSING',
-        'The authoritative event log cannot be read.',
-        'Restore the review workspace events.jsonl file and retry recovery.',
-        { file },
-        cause
-      );
-    }
-    if (!bytes || !bytes.endsWith('\n')) {
-      throw authorityError(
-        'APR_EVENT_LOG_CORRUPT',
-        'The authoritative event log is empty or ends with a torn record.',
-        'Restore events.jsonl from its last complete newline-terminated record.',
-        { file }
-      );
-    }
-    const records = bytes.slice(0, -1).split('\n');
-    if (records.some((record) => !record)) {
-      throw authorityError(
-        'APR_EVENT_LOG_CORRUPT',
-        'The authoritative event log contains a blank record.',
-        'Remove only the invalid blank record after preserving and inspecting the original bytes.',
-        { file }
-      );
-    }
-    let events;
-    try {
-      events = records.map((record) => JSON.parse(record));
-    } catch (cause) {
-      throw authorityError(
-        'APR_EVENT_LOG_CORRUPT',
-        'The authoritative event log contains invalid JSON.',
-        'Restore events.jsonl from its last complete valid record.',
-        { file },
-        cause
-      );
-    }
-    try {
-      assertCollateralCompatible({
-        manifest: readRuntimeCompatibility(),
-        operation: 'read',
-        metadata: events.flatMap((event) => [
-          { contract: 'event', schema: event?.schema },
-          ...(event?.payload?.startup?.context
-            ? [{ contract: 'context', schema: event.payload.startup.context.schema }]
-            : []),
-          ...(event?.payload?.startup?.runtime
-            ? [{ contract: 'runtime', schema: event.payload.startup.runtime.schema }]
-            : []),
-        ]),
-      });
-      return { events, state: reduceEvents(events), file, bytes };
-    } catch (cause) {
-      if (cause?.code === 'APR_REVIEW_RUNTIME_UNSUPPORTED') {
-        const diagnostic = inspectUnsupportedReview({ workspace });
-        throw new AprError(cause.code, cause.message, {
-          recovery: cause.recovery,
-          details: {
-            ...cause.details,
-            workspace: diagnostic.workspace,
-            schemas: diagnostic.schemas,
-          },
-        });
-      }
-      if (cause instanceof AprError) throw cause;
-      throw authorityError(
-        'APR_EVENT_LOG_CORRUPT',
-        'The authoritative event log cannot be reduced.',
-        'Inspect the event sequence and restore the last valid authority.',
-        { file },
-        cause
-      );
-    }
   }
 
   function ensureProjection(file, value) {
@@ -421,15 +338,6 @@ export function createProtocolService(authority) {
       },
       { effect: async (operation) => await performOperationEffect(fence, operation) }
     );
-  }
-
-  function inspectReview(workspace) {
-    return readAuthority(workspace).state;
-  }
-
-  function inspectReviewAuthority(workspace) {
-    const { events, state } = readAuthority(workspace);
-    return Object.freeze({ events: Object.freeze([...events]), state });
   }
 
   function inspectReviewerExecutionAuthority(workspace) {

@@ -8,6 +8,9 @@ import { AprError } from '../errors.mjs';
 import { inspectOwnerElectionPaths } from './ownership-election.mjs';
 import { initializePortableOperations } from './portable-platform.mjs';
 import { canonicalPortableProjectIdentity } from './identity.mjs';
+import { encodeRequestCanonical } from '../api/canonical-json.mjs';
+import { readStartupJournal, startupEvidence } from './startup-evidence-reader.mjs';
+import { inspectReviewAuthority } from '../protocol/authority-reader.mjs';
 
 const observations = new WeakMap();
 const retainedDescriptors = new Set();
@@ -356,6 +359,7 @@ function newInventoryRecord(context) {
     closing: false,
     closed: false,
     count: 0,
+    associations: [],
   };
 }
 function countInventory(record, amount) {
@@ -400,7 +404,7 @@ function assertReviewNamespace(entries) {
     'lineage-receipt.json',
   ]);
   const directories =
-    /^(coordinator|deliveries|dispatch|dispatch\/locks|dispatch\/locks\/stale|locks|locks\/stale|responses|startup|startup\/locks|startup\/locks\/stale|provider|provider\/bindings|provider\/(codex|claude|grok)|provider\/(codex|claude|grok)\/observations|wake|wake\/operations|wake\/outcomes|wake\/outcomes\/[a-f0-9]{64}|artifacts|supplements|handoffs)$/u;
+    /^(coordinator|deliveries|dispatch|dispatch\/locks|dispatch\/locks\/stale|locks|locks\/stale|responses|startup|startup\/locks|startup\/locks\/stale|provider|provider\/bindings|provider\/(codex|claude|grok)|provider\/(codex|claude|grok)\/observations|provider\/(codex|claude|grok)\/operations|wake|wake\/operations|wake\/outcomes|wake\/outcomes\/[a-f0-9]{64}|artifacts|supplements|handoffs)$/u;
   const files = [
     /^coordinator\/(coordinator\.lock|coordinator-lease\.json|stop-request\.json)$/u,
     /^deliveries\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$/u,
@@ -409,6 +413,7 @@ function assertReviewNamespace(entries) {
     /^responses\/(author|reviewer)-[1-9][0-9]*\.json$/u,
     /^provider\/bindings\/(author|reviewer)\.json$/u,
     /^provider\/(codex|claude|grok)\/launch-state\.json$/u,
+    /^provider\/(codex|claude|grok)\/operations\/[a-f0-9]{64}\.json$/u,
     /^provider\/(codex|claude|grok)\/observations\/([a-f0-9]{64}|join:[A-Za-z0-9][A-Za-z0-9._-]{0,127})\.json$/u,
     /^wake\/operations\/[a-f0-9]{64}\.json$/u,
     /^wake\/outcomes\/[a-f0-9]{64}\/[0-9]{6}\.json$/u,
@@ -521,7 +526,7 @@ export async function observeReconciliationInventory(input = {}) {
   if (project.physicalRoot !== worktree) refuse('reconciliation-project-unproved');
   const record = newInventoryRecord(context);
   Object.assign(record, { paths, project });
-  const { absentRoot } = ordinaryInventoryAccess(record);
+  const { absentRoot, ordinaryRoot } = ordinaryInventoryAccess(record);
   async function protectedRoot(root, borrowed) {
     let guard = borrowed;
     if (!guard) {
@@ -545,21 +550,39 @@ export async function observeReconciliationInventory(input = {}) {
   try {
     await observeProjectNamespaces(record, base);
     // C4 owns these exact owner generations; this layer retains their actual C1 substrate.
-    await protectedRoot(owner.privateRoot, owner.privateGuard);
-    await protectedRoot(owner.runtimeRoot, owner.runtimeGuard);
+    const privateStore = await protectedRoot(owner.privateRoot, owner.privateGuard);
+    const runtimeStore = await protectedRoot(owner.runtimeRoot, owner.runtimeGuard);
+    const ownerNames = describeOwnerReconciliationNamespaceCore({
+      resourceKey: owner.resourceKey,
+      privateEntries: privateStore.entries,
+      runtimeEntries: runtimeStore.entries,
+    });
+    if (ownerNames.legacyNames.length)
+      record.namespaces.push({
+        kind: 'owner-legacy',
+        root: owner.privateRoot,
+        protected: privateStore,
+        snapshotNames: ownerNames.legacyNames,
+      });
     const home = await operations.accountHome();
     const account = path.join(home, '.cache', 'ai-peer-review');
     record.accountRoot = account;
     if (!(await exists(account, context))) await absentRoot(account);
     else {
-      const parent = await protectedRoot(account);
+      const parent = await ordinaryRoot(account, 'membership');
       for (const kind of ['manual-resources', 'provider-resources']) {
         const root = path.join(account, kind);
         if (!(await exists(root, context))) {
           await absentRoot(root);
           continue;
         }
-        const group = await protectedRoot(root);
+        // Manual provisioning protects only the leaf. Provider acquisition protects
+        // its complete account/group/leaf chain; preserve each actual mechanism.
+        if (kind === 'provider-resources') await protectedRoot(account);
+        const group =
+          kind === 'provider-resources'
+            ? await protectedRoot(root)
+            : { entries: shallowEntries(await ordinaryRoot(root, 'membership')) };
         if (group.entries.some(({ name, type }) => type !== 'directory' || !KEY.test(name)))
           refuse('reconciliation-namespace-unproved');
         for (const entry of group.entries) {
@@ -574,11 +597,117 @@ export async function observeReconciliationInventory(input = {}) {
             )
           )
             refuse('reconciliation-namespace-unproved');
+          describeResourceReconciliationNamespaceCore({
+            root: resource.root,
+            entries: resource.entries,
+          });
           record.namespaces.push({ kind, root: resource.root, protected: resource });
         }
       }
       // Other account stores are independent; preserve the complete parent membership for rechecks.
-      await parent.guard.verify();
+      await assertOrdinaryReconciliationTreeUnchanged(parent);
+    }
+    for (const namespace of record.namespaces.filter(
+      (entry) => entry.kind === 'manual-resources'
+    )) {
+      const snapshot = namespace.protected.snapshots.find(({ name }) =>
+        name.startsWith('apr-resource-')
+      );
+      if (!snapshot) continue;
+      let manual;
+      try {
+        manual = JSON.parse(snapshot.snapshot.bytes.toString('utf8'));
+      } catch {
+        refuse('resource-association-unproved');
+      }
+      const workspace = manual.workspace;
+      if (
+        typeof workspace !== 'string' ||
+        !path.isAbsolute(workspace) ||
+        path.normalize(workspace) !== workspace
+      )
+        refuse('resource-association-unproved');
+      const marker = path.sep + '.scratch' + path.sep + 'peer-review' + path.sep;
+      const at = workspace.lastIndexOf(marker);
+      if (at < 1) refuse('resource-association-unproved');
+      const associated = await canonicalPortableProjectIdentity({
+        cwd: workspace.slice(0, at),
+        operations,
+        ...context,
+      });
+      const relative = path.relative(
+        path.join(associated.physicalRoot, '.scratch', 'peer-review'),
+        workspace
+      );
+      if (
+        !REVIEW_ID.test(path.basename(workspace)) ||
+        ![path.basename(workspace), path.join('reviews', path.basename(workspace))].includes(
+          relative
+        )
+      )
+        refuse('resource-association-unproved');
+      let review = record.namespaces.find(
+        (entry) => entry.kind === 'review' && entry.root === workspace
+      )?.observation;
+      if (!review) {
+        review = await ordinaryRoot(workspace, 'tree');
+        assertReviewNamespace(review.entries);
+      }
+      const journal = readStartupJournal(workspace);
+      const authority = inspectReviewAuthority(workspace);
+      startupEvidence(workspace, authority.state);
+      if (
+        !journal ||
+        journal.review_id !== manual.review_id ||
+        journal.request_digest !== manual.request_digest ||
+        journal.descriptor.project_root_digest !== associated.digest ||
+        authority.state.protocol.startup?.runtime?.project_root_digest !== associated.digest
+      )
+        refuse('resource-association-unproved');
+      const key = createHash('sha256')
+        .update(
+          JSON.stringify([
+            'ai-peer-review.manual-resource/v1',
+            await operations.userId(),
+            workspace,
+            manual.review_id,
+            manual.request_digest,
+          ])
+        )
+        .digest('hex');
+      if (key !== path.basename(namespace.root)) refuse('resource-association-unproved');
+      record.associations.push(associated);
+      namespace.association = Object.freeze({ project_digest: associated.digest, workspace });
+      if (associated.digest === project.digest && Object.hasOwn(manual, 'durable_fence_digest')) {
+        const receipt = await operations.observeProtection({ root: workspace });
+        if (receipt.verified) {
+          const guarded = await protectedRoot(workspace);
+          const fence = guarded.snapshots.find(({ name }) => name === 'manual-fence.json');
+          let value;
+          try {
+            value = fence && JSON.parse(fence.snapshot.bytes.toString('utf8'));
+          } catch {
+            refuse('manual-resource-retained');
+          }
+          if (
+            !value ||
+            Object.keys(value).sort().join(',') !==
+              'event_revision,request_digest,review_id,schema' ||
+            value.schema !== 'ai-peer-review.manual-fence/v1' ||
+            value.review_id !== manual.review_id ||
+            value.request_digest !== manual.request_digest ||
+            value.event_revision !== authority.state.protocol.revision
+          )
+            refuse('manual-resource-retained');
+          namespace.settlement = Object.freeze({
+            fenceDigest: createHash('sha256').update(fence.snapshot.bytes).digest('hex'),
+            reviewProtection: 'C1',
+            electionWithdrawn: !namespace.protected.entries.some(({ name }) =>
+              name.startsWith('apr-election-')
+            ),
+          });
+        }
+      }
     }
     await inspectOwnerElectionPaths({ paths, ...context });
     budget(context);
@@ -604,6 +733,17 @@ export async function observeReconciliationInventory(input = {}) {
 }
 
 async function assertProtectedInventory(record) {
+  if (record.associations.length) {
+    const operations = await initializePortableOperations(record.context);
+    for (const associated of record.associations) {
+      const fresh = await canonicalPortableProjectIdentity({
+        cwd: associated.physicalRoot,
+        operations,
+        ...record.context,
+      });
+      if (fresh.digest !== associated.digest) refuse('resource-association-unproved');
+    }
+  }
   for (const retained of record.protected) {
     await retained.guard.verify();
     // Owner/election generations are independently guarded at each C4 effect.
@@ -681,12 +821,18 @@ export async function readReconciliationInventory(input = {}) {
           ? [...ordinaryRecord.recorded.files].map(([name, file]) =>
               Object.freeze({ name, bytes: Buffer.from(file.bytes) })
             )
-          : namespace.protected.snapshots.map(({ name, snapshot }) =>
-              Object.freeze({ name, bytes: Buffer.from(snapshot.bytes) })
-            );
+          : namespace.protected.snapshots
+              .filter(
+                ({ name }) => !namespace.snapshotNames || namespace.snapshotNames.includes(name)
+              )
+              .map(({ name, snapshot }) =>
+                Object.freeze({ name, bytes: Buffer.from(snapshot.bytes) })
+              );
         return Object.freeze({
           kind: namespace.kind,
           root: namespace.root,
+          association: namespace.association,
+          settlement: namespace.settlement,
           entries: namespace.observation?.entries ?? namespace.protected.entries,
           files: Object.freeze(files),
         });
@@ -698,4 +844,78 @@ export async function readReconciliationInventory(input = {}) {
 export async function retryReconciliationInventoryCleanup() {
   for (const record of [...pendingInventories]) await closeInventory(record);
   await retryOrdinaryReconciliationCleanup();
+}
+
+// Exact C3 filenames, not the account resource digest, identify its election publication.
+export function describeResourceReconciliationNamespaceCore({ root, entries } = {}) {
+  if (typeof root !== 'string' || !KEY.test(path.basename(root)) || !Array.isArray(entries))
+    refuse('resource-association-unproved');
+  const key = createHash('sha256')
+    .update(
+      encodeRequestCanonical({
+        root,
+        resource: { kind: 'provider-resource', id: 'sha256:' + path.basename(root) },
+      })
+    )
+    .digest('hex');
+  const prefix = 'apr-election-' + key + '-';
+  const names = new Set();
+  for (const { name, type } of entries) {
+    if (
+      type !== 'file' ||
+      names.has(name) ||
+      !(
+        name === 'apr-resource-' + key + '.json' ||
+        ['resource.json', 'resource.lock'].includes(name) ||
+        (name.startsWith(prefix) &&
+          /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}\.json$/u.test(name.slice(prefix.length)))
+      )
+    )
+      refuse('resource-association-unproved');
+    names.add(name);
+  }
+  return Object.freeze({ verified: false, resourceKey: key });
+}
+
+// Explicit namespace policy only. No owner, election or legacy-effect discharge is granted.
+export function describeOwnerReconciliationNamespaceCore({
+  resourceKey,
+  privateEntries,
+  runtimeEntries,
+} = {}) {
+  if (!KEY.test(resourceKey ?? '') || ![privateEntries, runtimeEntries].every(Array.isArray))
+    refuse('reconciliation-namespace-unproved');
+  const legacyNames = [];
+  const quarantine = new RegExp(
+    '^apr-owner-quarantine-' + resourceKey + '-[a-f0-9-]{36}\\.json$',
+    'u'
+  );
+  const election = new RegExp(
+    '^apr-election-' + resourceKey + '-[A-Za-z0-9][A-Za-z0-9_-]{0,63}\\.json$',
+    'u'
+  );
+  for (const [entries, ordinary] of [
+    [privateEntries, ['owner.json', 'credential', 'registry.json', 'manual-suspension.json']],
+    [runtimeEntries, ['endpoint.json']],
+  ]) {
+    if (entries.length > MAX_ENTRIES) refuse('reconciliation-inventory-overflow');
+    const seen = new Set();
+    for (const entry of entries) {
+      if (
+        !entry ||
+        entry.type !== 'file' ||
+        seen.has(entry.name) ||
+        !(
+          ordinary.includes(entry.name) ||
+          quarantine.test(entry.name) ||
+          (entries === privateEntries && election.test(entry.name))
+        )
+      )
+        refuse('reconciliation-namespace-unproved');
+      seen.add(entry.name);
+      if (['registry.json', 'manual-suspension.json'].includes(entry.name))
+        legacyNames.push(entry.name);
+    }
+  }
+  return Object.freeze({ verified: false, legacyNames: Object.freeze(legacyNames.sort()) });
 }

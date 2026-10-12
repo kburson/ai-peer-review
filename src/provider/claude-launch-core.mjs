@@ -6,8 +6,8 @@ import { renderCommand } from '../cli/help-data.mjs';
 import { verifyRuntimeImage as defaultVerifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { resolveContainedPath } from '../collateral/paths.mjs';
 import { AprError } from '../errors.mjs';
-import { fingerprintSession as defaultFingerprintSession } from '../identity/registry.mjs';
-import { inspectReviewAuthority as defaultInspectAuthority } from '../protocol/service.mjs';
+import { fingerprintSession as defaultFingerprintSession } from '../identity/fingerprint.mjs';
+import { inspectReviewAuthority as defaultInspectAuthority } from '../protocol/authority-reader.mjs';
 import { atomicWrite as rawAtomicWrite } from '../protocol/store.mjs';
 import { safeSelectionIdentifier } from '../providers/registry.mjs';
 import {
