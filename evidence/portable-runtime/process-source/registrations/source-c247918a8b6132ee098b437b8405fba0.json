@@ -23,13 +23,6 @@
       "version": "procfs-v1"
     }
   },
-  "kinds": [
-    "creation"
-  ],
-  "transitions": [
-    "clock-forward",
-    "clock-backward",
-    "timezone",
-    "dst"
-  ]
+  "kinds": ["creation"],
+  "transitions": ["clock-forward", "clock-backward", "timezone", "dst"]
 }

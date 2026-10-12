@@ -23,8 +23,6 @@
       "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
     }
   },
-  "kinds": [
-    "absence"
-  ],
+  "kinds": ["absence"],
   "transitions": []
 }

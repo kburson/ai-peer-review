@@ -23,8 +23,6 @@
       "version": "procfs-v1"
     }
   },
-  "kinds": [
-    "absence"
-  ],
+  "kinds": ["absence"],
   "transitions": []
 }
