@@ -72,6 +72,7 @@ $prior=[IO.Directory]::GetAccessControl([string]$p.directory,$sections)
 $bytes=$prior.GetSecurityDescriptorBinaryForm()
 $restored=$false
 $restoreParts=$null
+$changeFailure=$null
 function AclBytesEqual($first,$second) {
   if ($null -eq $first -or $null -eq $second) { return $null -eq $first -and $null -eq $second }
   $a=[byte[]]::new($first.BinaryLength); $first.GetBinaryForm($a,0)
@@ -81,15 +82,24 @@ function AclBytesEqual($first,$second) {
 try {
   $failureStage='acl-change'
   $rule=[Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new('S-1-1-0'),[Security.AccessControl.FileSystemRights]::ReadAndExecute,[Security.AccessControl.InheritanceFlags]::None,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
+  $failureStage='acl-change-add'
   $prior.AddAccessRule($rule)
+  $failureStage='acl-change-persist'
   Set-Acl -LiteralPath ([string]$p.directory) -AclObject $prior
+  $failureStage='acl-change-observe'
   $changed=Observe ([string]$p.query)
   [Console]::Out.WriteLine((@{kind='changed';record=$changed} | ConvertTo-Json -Compress))
+} catch {
+  $changeFailure=@{stage=$failureStage;exceptionType=$_.Exception.GetType().Name}
+  throw
 } finally {
-  $failureStage='acl-restore'
+  $failureStage='acl-restore-remove'
   $prior.RemoveAccessRuleSpecific($rule)
+  $failureStage='acl-restore-persist'
   [IO.Directory]::SetAccessControl([string]$p.directory,$prior)
+  $failureStage='acl-restore-read'
   $after=[IO.Directory]::GetAccessControl([string]$p.directory,$sections).GetSecurityDescriptorBinaryForm()
+  $failureStage='acl-restore-compare'
   $restored=[Convert]::ToBase64String($after) -ceq [Convert]::ToBase64String($bytes)
   $beforeRaw=[Security.AccessControl.RawSecurityDescriptor]::new($bytes,0)
   $afterRaw=[Security.AccessControl.RawSecurityDescriptor]::new($after,0)
@@ -109,7 +119,7 @@ try {
   foreach($name in @('SeSecurityPrivilege','SeRestorePrivilege','SeTakeOwnershipPrivilege')) {
     if($_.Exception.ToString().Contains($name)) { $privilege=$name }
   }
-  [Console]::Out.WriteLine((@{kind='failure';stage=$failureStage;types=$types;privilege=$privilege} | ConvertTo-Json -Compress))
+  [Console]::Out.WriteLine((@{kind='failure';stage=$failureStage;changeFailure=$changeFailure;types=$types;privilege=$privilege} | ConvertTo-Json -Compress))
   exit 1
 }
 `;
@@ -274,7 +284,17 @@ try {
     const failure = rows.find((row) => row.kind === 'failure');
     if (
       failure &&
-      ['batch-query', 'acl-change', 'acl-restore'].includes(failure.stage) &&
+      [
+        'batch-query',
+        'acl-change',
+        'acl-change-add',
+        'acl-change-persist',
+        'acl-change-observe',
+        'acl-restore-remove',
+        'acl-restore-persist',
+        'acl-restore-read',
+        'acl-restore-compare',
+      ].includes(failure.stage) &&
       Array.isArray(failure.types) &&
       failure.types.length <= 3 &&
       failure.types.every((value) => typeof value === 'string' && /^[A-Za-z]{1,80}$/.test(value)) &&
@@ -284,6 +304,18 @@ try {
     )
       scriptFailure = {
         stage: failure.stage,
+        changeFailure:
+          failure.changeFailure &&
+          ['acl-change', 'acl-change-add', 'acl-change-persist', 'acl-change-observe'].includes(
+            failure.changeFailure.stage
+          ) &&
+          typeof failure.changeFailure.exceptionType === 'string' &&
+          /^[A-Za-z]{1,80}$/.test(failure.changeFailure.exceptionType)
+            ? {
+                stage: failure.changeFailure.stage,
+                exceptionType: failure.changeFailure.exceptionType,
+              }
+            : null,
         exceptionTypes: failure.types,
         privilege: failure.privilege,
       };
