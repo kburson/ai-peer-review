@@ -838,7 +838,7 @@ export async function reconcileRegistrations({
           file !== path.join(root, registration.review_id + '.json')
         )
           authorityFailure('Historical registration has an invalid closed identity.', { file });
-        registrations.set(registration.review_id, registration);
+        registrations.set(registration.review_id, { ...registration, registration_file: file });
         continue;
       }
       const claimsProject =
