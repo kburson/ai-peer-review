@@ -59,7 +59,13 @@ function identity(role, session) {
   });
 }
 
-function finalizeWithCli(root, workspace, session, command = ['finalize', workspace]) {
+function finalizeWithCli(
+  root,
+  workspace,
+  session,
+  command = ['finalize', workspace],
+  { withoutModel = false, otherProviderSession, secondaryCodexSession } = {}
+) {
   const env = { ...process.env };
   for (const key of [
     'CLAUDE_CODE_SESSION_ID',
@@ -71,8 +77,14 @@ function finalizeWithCli(root, workspace, session, command = ['finalize', worksp
     delete env[key];
   }
   env.CODEX_THREAD_ID = session;
+  if (otherProviderSession) env.CLAUDE_SESSION_ID = otherProviderSession;
+  if (secondaryCodexSession) env.CODEX_SESSION_ID = secondaryCodexSession;
   env.CODEX_MODEL_ID = 'gpt-test';
   env.CODEX_MODEL_DISPLAY = 'GPT Test';
+  if (withoutModel) {
+    delete env.CODEX_MODEL_ID;
+    delete env.CODEX_MODEL_DISPLAY;
+  }
   return spawnSync(process.execPath, [CLI, ...command], {
     cwd: root,
     encoding: 'utf8',
@@ -610,4 +622,37 @@ test('no-commit human override seals retained decision without Git mutation', as
   });
   assert.equal(retry.state, finalized.state);
   assert.deepEqual(readFileSync(review.started.paths.events), eventBytes);
+});
+
+test('registered author finalizes using its native session handle without refreshing recorded model provenance', async (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const review = await acceptedReview(fx.root, 'handle-finalize');
+  const workspace = review.started.paths.workspace;
+  const before = readFileSync(path.join(workspace, 'events.jsonl'));
+  const wrong = finalizeWithCli(fx.root, workspace, 'wrong-author', undefined, {
+    withoutModel: true,
+  });
+  assert.notEqual(wrong.status, 0);
+  assert.deepEqual(readFileSync(path.join(workspace, 'events.jsonl')), before);
+  const mixed = finalizeWithCli(fx.root, workspace, 'handle-finalize-author', undefined, {
+    withoutModel: true,
+    otherProviderSession: 'inherited-claude-session',
+  });
+  assert.notEqual(mixed.status, 0);
+  assert.deepEqual(readFileSync(path.join(workspace, 'events.jsonl')), before);
+  const wrongCanonical = finalizeWithCli(fx.root, workspace, 'wrong-author', undefined, {
+    withoutModel: true,
+    secondaryCodexSession: 'handle-finalize-author',
+  });
+  assert.notEqual(wrongCanonical.status, 0);
+  assert.deepEqual(readFileSync(path.join(workspace, 'events.jsonl')), before);
+  const finalized = finalizeWithCli(fx.root, workspace, 'handle-finalize-author', undefined, {
+    withoutModel: true,
+    secondaryCodexSession: 'different-native-coordinate',
+  });
+  assert.equal(finalized.status, 0, finalized.stderr + finalized.stdout);
+  const state = inspectReviewAuthority(workspace).state;
+  assert.equal(state.protocol.state, 'accepted');
+  assert.deepEqual(state.participants.author, review.author);
 });

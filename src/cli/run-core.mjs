@@ -30,6 +30,7 @@ import {
   reserveManualLaunch,
   settleManualLaunch,
 } from '../provider/manual-launch-ledger.mjs';
+import { observeClaudeManualCompletion } from '../provider/claude-manual-recovery.mjs';
 import { allWakeOperations } from '../coordinator/ledger.mjs';
 import {
   openParticipantSession,
@@ -100,6 +101,7 @@ import {
   participantIdentityFromProviderObservation,
   reclaimRole,
   resolveIdentity,
+  registeredSessionIdentity,
   v1Participant,
 } from '../identity/registry.mjs';
 import {
@@ -4883,11 +4885,39 @@ export function createReviewOperations({
   function commandIdentity(io, state, role = null, { allowReplacement = false, config = {} } = {}) {
     const roles = role ? [role] : ['author', 'reviewer'];
     for (const candidateRole of roles) {
-      const identity = resolveIdentity({
-        role: candidateRole,
-        env: io.env,
-        ...configuredIdentityContext(io, config),
-      });
+      const registered = state?.participants?.[candidateRole];
+      let identity;
+      try {
+        try {
+          identity = resolveIdentity({
+            role: candidateRole,
+            env: io.env,
+            ...configuredIdentityContext(io, config),
+          });
+        } catch (cause) {
+          if (
+            !(cause instanceof AprError) ||
+            cause.code !== 'APR_IDENTITY_REQUIRED' ||
+            allowReplacement ||
+            !registered ||
+            registered.host === 'other' ||
+            { codex: 'codex', claude: 'claude-code', grok: 'grok' }[cause.details?.adapter] !==
+              registered.host ||
+            io.identityContext?.runtime?.sessionId ||
+            io.identityContext?.declared
+          )
+            throw cause;
+          identity = registeredSessionIdentity(registered, io.env);
+        }
+      } catch (cause) {
+        if (
+          !role &&
+          cause instanceof AprError &&
+          ['APR_IDENTITY_CONFLICT', 'APR_IDENTITY_REQUIRED'].includes(cause.code)
+        )
+          continue;
+        throw cause;
+      }
       if (
         allowReplacement ||
         !state?.participants?.[candidateRole] ||
@@ -5453,6 +5483,19 @@ export function createReviewOperations({
           evidence &&
           (await reserveManualLaunch(values.workspace, launchDetails, {
             effect: performCurrentOperationEffect,
+            ...(parsed.options.resume
+              ? {
+                  reconcile(operation) {
+                    return observeClaudeManualCompletion({
+                      contract,
+                      operation,
+                      details: launchDetails,
+                      state: inspectReviewAuthority(values.workspace).state,
+                      now: io.now ?? new Date(),
+                    });
+                  },
+                }
+              : {}),
             verifyAuthority() {
               const fresh = inspectReviewAuthority(values.workspace).state;
               const observed = startupEvidence(values.workspace, fresh);
@@ -5483,6 +5526,7 @@ export function createReviewOperations({
           response = await runClaudeReviewerLaunch({
             contract,
             resume: parsed.options.resume,
+            manualOperation: operation,
             execFile:
               io.execFile ??
               ((file, args, options) =>

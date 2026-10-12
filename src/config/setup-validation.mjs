@@ -1,8 +1,10 @@
 // @story #134
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   realpathSync,
+  mkdtempSync,
+  symlinkSync,
   lstatSync,
   existsSync,
   readFileSync,
@@ -113,7 +115,11 @@ function configSnapshot(writes, root) {
       }
     }
   const stat = lstatSync(root);
-  return JSON.stringify({ root: [stat.dev, stat.ino, stat.mode], configs: observed });
+  return JSON.stringify({
+    root: [stat.dev, stat.ino, stat.mode],
+    configs: observed,
+    source: assertKnownHostChecks(root).length ? repositoryInputs(root).digest : null,
+  });
 }
 export function isValidatedWriteSet(value) {
   return validated.has(value);
@@ -150,7 +156,7 @@ function markdownConfigRoot(file) {
 }
 function assertKnownHostChecks(root) {
   const file = path.join(root, 'package.json');
-  if (!existsSync(file)) return;
+  if (!existsSync(file)) return [];
   if (lstatSync(file).size > 1024 * 1024)
     invalid('Host check configuration exceeds its bound.', { file });
   let value;
@@ -159,24 +165,195 @@ function assertKnownHostChecks(root) {
   } catch {
     invalid('Host check configuration is unreadable.', { file });
   }
-  for (const [name, command] of Object.entries(value.scripts ?? {}))
-    if (/^(?:lint|format|spell)(?::|$)/.test(name)) {
+  const scripts = value.scripts ?? {},
+    commands = new Map(),
+    completed = new Set();
+  let parts = 0;
+  function visit(name, visiting = new Set()) {
+    if (visiting.has(name) || visiting.size > 64)
+      invalid('Host check script aliases are cyclic or excessive.', { file });
+    if (completed.has(name)) return;
+    const command = scripts[name];
+    if (typeof command !== 'string')
+      invalid('Host check script is unavailable.', { file, command });
+    const next = new Set([...visiting, name]);
+    for (const part of command.split(/&&/).map((entry) => entry.trim())) {
+      if (++parts > 4096) invalid('Host check expansion exceeds its bound.', { file });
       if (
-        typeof command !== 'string' ||
-        command
-          .split(/&&/)
-          .some(
-            (part) =>
-              !/^\s*(?:eslint|markdownlint-cli2|cspell|prettier)(?:\s+(?:["'][^"']+["']|[.\w*/{}?,:-]+))*\s*$/.test(
-                part
-              )
-          )
+        /^(?:eslint|markdownlint-cli2|cspell|prettier)(?:\s+(?:["'][^"']+["']|[.\w*/{}?,:-]+))*$/.test(
+          part
+        )
+      )
+        continue;
+      const alias = /^npm run ((?:lint|format|spell)(?::[\w:-]+)?)$/.exec(part);
+      if (alias) {
+        visit(alias[1], next);
+        continue;
+      }
+      const node = /^node\s+(--test\s+)?([\w./-]+\.mjs)((?:\s+--[\w-]+)*)$/.exec(part);
+      if (
+        !node ||
+        path.isAbsolute(node[2]) ||
+        path.normalize(node[2]) !== node[2] ||
+        node[2].startsWith('../')
       )
         invalid(
           'An unrecognized configured host check cannot run reliably for only proposed destinations.',
           { file, command }
         );
+      commands.set(part, {
+        command: part,
+        script: node[2],
+        args: [
+          ...(node[1] ? ['--test'] : []),
+          node[2],
+          ...node[3].trim().split(/\s+/).filter(Boolean),
+        ],
+      });
     }
+    completed.add(name);
+  }
+  for (const name of Object.keys(scripts))
+    if (/^(?:lint|format|spell)(?::|$)/.test(name)) visit(name);
+  return [...commands.values()];
+}
+function ordinaryAncestry(root, relative) {
+  let current = root;
+  for (const segment of relative.split(path.sep)) {
+    current = path.join(current, segment);
+    try {
+      const stat = lstatSync(current);
+      if (stat.isSymbolicLink() || (current !== path.join(root, relative) && !stat.isDirectory()))
+        invalid('Host check path has unsafe physical ancestry.', { file: current });
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+}
+function repositoryInputs(root, files = null) {
+  if (files === null) {
+    let listed;
+    try {
+      listed = execFileSync('git', ['ls-files', '-z'], {
+        cwd: root,
+        encoding: 'utf8',
+        maxBuffer: 2 * 1024 * 1024,
+      });
+    } catch {
+      invalid('Repository-owned checks require an inspectable Git checkout.');
+    }
+    files = listed.split('\0').filter(Boolean);
+  }
+  if (files.length > 16384) invalid('Host check source inventory exceeds its bound.');
+  const hash = createHash('sha256');
+  let total = 0;
+  for (const relative of files) {
+    if (path.isAbsolute(relative) || relative.split('/').some((part) => part === '..' || !part))
+      invalid('Host check source path is invalid.');
+    ordinaryAncestry(root, relative);
+    const file = path.join(root, relative);
+    if (!existsSync(file)) {
+      hash.update(relative).update('missing');
+      continue;
+    }
+    const stat = lstatSync(file);
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      stat.size > 16 * 1024 * 1024 ||
+      (total += stat.size) > 256 * 1024 * 1024
+    )
+      invalid('Host check source is not a bounded ordinary file.', { file });
+    hash.update(relative).update(String(stat.mode)).update(readFileSync(file));
+  }
+  return { files, digest: hash.digest('hex') };
+}
+function repositoryChecks(root, writes, commands) {
+  if (!commands.length) return;
+  const inputs = repositoryInputs(root);
+  if (commands.some((entry) => !inputs.files.includes(entry.script)))
+    invalid('Custom host checks must be tracked repository-owned scripts.');
+  const common = path.resolve(
+    root,
+    execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd: root, encoding: 'utf8' }).trim()
+  );
+  const parent = mkdtempSync(path.join(common, 'setup-validation-'));
+  const snapshot = path.join(parent, 'host');
+  try {
+    execFileSync('git', ['clone', '--shared', '--no-checkout', '--quiet', '--', root, snapshot], {
+      stdio: 'pipe',
+      timeout: 15000,
+    });
+    execFileSync('git', ['-c', 'core.hooksPath=/dev/null', 'reset', '--mixed', '--quiet', 'HEAD'], {
+      cwd: snapshot,
+      stdio: 'pipe',
+      timeout: 15000,
+    });
+    for (const relative of inputs.files) {
+      ordinaryAncestry(snapshot, relative);
+      const source = path.join(root, relative),
+        target = path.join(snapshot, relative);
+      if (!existsSync(source)) {
+        rmSync(target, { force: true });
+        continue;
+      }
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, readFileSync(source), { mode: lstatSync(source).mode & 0o777 });
+    }
+    const dependencies = path.join(root, 'node_modules');
+    if (existsSync(dependencies))
+      symlinkSync(
+        dependencies,
+        path.join(snapshot, 'node_modules'),
+        process.platform === 'win32' ? 'junction' : 'dir'
+      );
+    for (const entry of writes) {
+      ordinaryAncestry(snapshot, path.relative(root, entry.file));
+      const target = path.join(snapshot, path.relative(root, entry.file));
+      if (entry.after === null) rmSync(target, { force: true });
+      else {
+        mkdirSync(path.dirname(target), { recursive: true });
+        writeFileSync(target, entry.after);
+      }
+    }
+    const candidateInputs = repositoryInputs(snapshot, inputs.files).digest;
+    for (const entry of commands) {
+      try {
+        execFileSync(process.execPath, entry.args, {
+          cwd: snapshot,
+          timeout: 60000,
+          maxBuffer: 2 * 1024 * 1024,
+          stdio: 'pipe',
+        });
+      } catch (error) {
+        invalid('Repository-owned host check rejected proposed setup or could not run.', {
+          command: entry.command,
+          reason: String(error.stdout ?? '') + String(error.stderr ?? error.message),
+        });
+      }
+      if (repositoryInputs(snapshot, inputs.files).digest !== candidateInputs)
+        invalid('Host check changed tracked candidate inputs.', { command: entry.command });
+      for (const proposed of writes) {
+        ordinaryAncestry(snapshot, path.relative(root, proposed.file));
+        const target = path.join(snapshot, path.relative(root, proposed.file));
+        if ((existsSync(target) ? readFileSync(target, 'utf8') : null) !== proposed.after)
+          invalid('Host check changed proposed setup bytes.', {
+            command: entry.command,
+            file: proposed.file,
+          });
+      }
+    }
+    for (const entry of writes) {
+      ordinaryAncestry(snapshot, path.relative(root, entry.file));
+      const target = path.join(snapshot, path.relative(root, entry.file));
+      if ((existsSync(target) ? readFileSync(target, 'utf8') : null) !== entry.after)
+        invalid('Host check changed the proposed setup bytes.', { file: entry.file });
+    }
+    if (repositoryInputs(root).digest !== inputs.digest)
+      invalid('Host check source changed during validation.');
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
+  }
 }
 function hostLint(kind, moduleName, hostRoot, root, entry, after) {
   const input = { kind, moduleName, resolutionRoot: root, root: hostRoot, file: entry.file };
@@ -229,7 +406,7 @@ function introduced(after, before) {
 }
 export async function validateSetupWriteSet({ writes, destinationRoot }) {
   const root = realpathSync(destinationRoot);
-  assertKnownHostChecks(root);
+  const customChecks = assertKnownHostChecks(root);
   if (!Array.isArray(writes) || writes.length > 128) invalid('Setup write set is invalid.');
   const inputs = configSnapshot(writes, root);
   const checked = [],
@@ -375,6 +552,7 @@ export async function validateSetupWriteSet({ writes, destinationRoot }) {
       invalid('Setup output requires a final newline.', { file: entry.file });
     checked.push(Object.freeze({ ...entry, after }));
   }
+  repositoryChecks(root, checked, customChecks);
   const result = Object.freeze({ writes: Object.freeze(checked), destinationRoot: root });
   if (configSnapshot(writes, root) !== inputs)
     invalid('Host check configuration changed during validation.');

@@ -284,9 +284,22 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
         const owned = groups.filter((group) =>
           group?.hooks?.some((entry) => entry.command === hooks[host])
         );
+        const legacyHook = {
+          matcher: '^(?:Bash|functions\\.exec|exec)$',
+          hooks: [{ type: 'command', command: hooks[host] }],
+        };
+        const migrateLegacyHook =
+          !options.remove &&
+          host === 'codex' &&
+          legacy?.setup?.owner === 'ai-peer-review' &&
+          legacy.setup.version === 2 &&
+          legacy.setup.agents.includes('codex') &&
+          owned.length === 1 &&
+          JSON.stringify(owned[0]) === JSON.stringify(legacyHook);
         if (
           owned.length > 1 ||
-          owned.some((group) => JSON.stringify(group) !== JSON.stringify(hook))
+          (!migrateLegacyHook &&
+            owned.some((group) => JSON.stringify(group) !== JSON.stringify(hook)))
         )
           conflict('Owned host hook is ambiguous or modified.', { file });
         if (options.remove) {
@@ -298,6 +311,17 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
             );
             add(file, bytes, host + '-hook', true);
           }
+        } else if (migrateLegacyHook) {
+          const bytes = applyEdits(
+            before,
+            modify(
+              before,
+              ['hooks', 'PreToolUse', groups.indexOf(owned[0]), 'matcher'],
+              hook.matcher,
+              {}
+            )
+          );
+          add(file, bytes, host + '-hook', true);
         } else if (!owned.length) {
           const bytes =
             before === null

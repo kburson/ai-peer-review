@@ -890,6 +890,7 @@ export function createClaudeLaunchOperations({
   async function runClaudeReviewerLaunch({
     contract,
     resume = false,
+    manualOperation = null,
     execFile,
     inspectAuthority = defaultInspectAuthority,
     fingerprintSession = defaultFingerprintSession,
@@ -983,9 +984,21 @@ export function createClaudeLaunchOperations({
         'Do not change the shell working directory; use absolute paths with Read, Glob, and Grep.',
       ].join(' ');
     }
+    if (manualOperation) {
+      if (
+        !/^manual:[a-f0-9-]{36}$/.test(manualOperation.id ?? '') ||
+        !/^sha256:[a-f0-9]{64}$/.test(manualOperation.intent_digest ?? '') ||
+        manualOperation.status !== 'reserved'
+      )
+        throw resultError('Manual operation binding is invalid.');
+      const promptIndex = commandArgs.indexOf('-p');
+      if (promptIndex < 0) throw resultError('Manual operation prompt is missing.');
+      commandArgs[promptIndex + 1] +=
+        `\nAPR_MANUAL_OPERATION ${manualOperation.id} ${manualOperation.intent_digest}`;
+    }
     const args = resume
       ? Object.freeze(['--resume', priorState.session_handle, ...commandArgs])
-      : contract.command.args;
+      : Object.freeze(commandArgs);
     const hasEnvironment = Object.hasOwn(contract, 'environment');
     if (
       hasEnvironment &&

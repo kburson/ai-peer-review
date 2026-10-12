@@ -78,3 +78,92 @@ test('refused launch bookkeeping leaves the complete workspace unchanged before 
   );
   assert.deepEqual(snapshotReviewHistory(workspace), before);
 });
+
+test('completed joined launch can resume with exact native proof but never becomes abandonment evidence', async (t) => {
+  const workspace = mkdtempSync(path.join(os.tmpdir(), 'apr-manual-completed-'));
+  t.after(() => rmSync(workspace, { recursive: true, force: true }));
+  const details = {
+    reviewId: 'review-one',
+    requestDigest: 'a'.repeat(64),
+    intentDigest: 'sha256:' + 'b'.repeat(64),
+  };
+  initializeManualLaunchHistory(workspace, details);
+  const first = await reserveManualLaunch(workspace, details);
+  await settleManualLaunch(workspace, details, first.id, 'outcome-unknown');
+  const proof = {
+    schema: 'ai-peer-review.manual-completion-proof/v1',
+    session_fingerprint: 'sha256:' + 'c'.repeat(64),
+    transcript_digest: 'sha256:' + 'd'.repeat(64),
+    last_turn_at: '2026-10-11T19:38:11.383Z',
+    protocol_revision: 2,
+  };
+  const next = await reserveManualLaunch(workspace, details, { reconcile: () => proof });
+  assert.notEqual(next.id, first.id);
+  assert.equal(
+    readManualLaunchHistory(workspace, details).operations[0].status,
+    'session-completed'
+  );
+  assert.equal(manualLaunchProvesNonSubmission(workspace, details), false);
+  const receipt = JSON.parse(
+    readFileSync(
+      path.join(workspace, 'manual-launch-settlements', first.id.slice(7) + '.json'),
+      'utf8'
+    )
+  );
+  assert.equal(receipt.prior_status, 'outcome-unknown');
+  assert.equal(receipt.operation_id, first.id);
+  assert.deepEqual(receipt.proof, proof);
+  const receiptFile = path.join(
+    workspace,
+    'manual-launch-settlements',
+    first.id.slice(7) + '.json'
+  );
+  writeFileSync(
+    receiptFile,
+    JSON.stringify({ ...receipt, intent_digest: 'sha256:' + 'e'.repeat(64) })
+  );
+  assert.throws(() => readManualLaunchHistory(workspace, details), {
+    code: 'APR_WAKE_OUTCOME_UNKNOWN',
+  });
+});
+
+test('reserved, legacy, multiple, or invalid completion evidence keeps launches fenced and bytes unchanged', async (t) => {
+  for (const scenario of ['reserved', 'legacy', 'multiple', 'invalid', 'refused-authority']) {
+    await t.test(scenario, async (t) => {
+      const workspace = mkdtempSync(path.join(os.tmpdir(), 'apr-manual-fenced-'));
+      t.after(() => rmSync(workspace, { recursive: true, force: true }));
+      const details = {
+        reviewId: 'review-one',
+        requestDigest: 'a'.repeat(64),
+        intentDigest: 'sha256:' + 'b'.repeat(64),
+      };
+      initializeManualLaunchHistory(workspace, details);
+      const op = await reserveManualLaunch(workspace, details);
+      if (scenario !== 'reserved')
+        await settleManualLaunch(workspace, details, op.id, 'outcome-unknown');
+      const file = path.join(workspace, 'manual-launch-history.json');
+      const history = JSON.parse(readFileSync(file));
+      if (scenario === 'legacy') history.coverage = 'legacy-unknown';
+      if (scenario === 'multiple')
+        history.operations.push({
+          ...history.operations[0],
+          id: 'manual:11111111-1111-1111-1111-111111111111',
+        });
+      writeFileSync(file, JSON.stringify(history));
+      const before = readFileSync(file);
+      await assert.rejects(
+        reserveManualLaunch(workspace, details, {
+          verifyAuthority() {
+            if (scenario === 'refused-authority')
+              throw new AprError('APR_WAKE_OUTCOME_UNKNOWN', 'fenced', {
+                recovery: 'Keep evidence.',
+              });
+          },
+          reconcile: () => ({ schema: 'untrusted', status: 'complete' }),
+        }),
+        { code: 'APR_WAKE_OUTCOME_UNKNOWN' }
+      );
+      assert.deepEqual(readFileSync(file), before);
+    });
+  }
+});
