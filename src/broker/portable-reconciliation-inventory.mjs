@@ -5,6 +5,9 @@ import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { AprError } from '../errors.mjs';
+import { inspectOwnerElectionPaths } from './ownership-election.mjs';
+import { initializePortableOperations } from './portable-platform.mjs';
+import { canonicalPortableProjectIdentity } from './identity.mjs';
 
 const observations = new WeakMap();
 const retainedDescriptors = new Set();
@@ -75,7 +78,7 @@ async function closeDirectories(records) {
 function descriptorObligations(records) {
   return records.map((record) =>
     Object.freeze({
-      name: 'ordinary-root-descriptor',
+      name: record.kind === 'file' ? 'ordinary-file-descriptor' : 'ordinary-root-descriptor',
       root: record.directory,
       identity: record.identity,
       outcome: 'descriptor-close-pending',
@@ -85,7 +88,7 @@ function descriptorObligations(records) {
 export async function retryOrdinaryReconciliationCleanup() {
   await closeDirectories([...retainedDescriptors]);
 }
-async function capture(root, context) {
+async function capture(root, context, mode = 'tree') {
   const chain = await physicalChain(root, context);
   const directories = [];
   const entries = [];
@@ -95,7 +98,7 @@ async function capture(root, context) {
     if (depth > MAX_DEPTH) refuse('reconciliation-inventory-overflow');
     const before = await directoryFacts(directory, context);
     const handle = await opendir(directory);
-    directories.push({ handle, directory, ...before });
+    directories.push({ handle, directory, kind: 'directory', ...before });
     const names = [];
     for (;;) {
       budget(context);
@@ -122,10 +125,17 @@ async function capture(root, context) {
         fileVersion: version(s),
       });
       entries.push(row);
-      if (s.isDirectory()) await visit(location, relativePath, depth + 1);
-      else {
+      if (s.isDirectory()) {
+        if (mode === 'tree') await visit(location, relativePath, depth + 1);
+      } else if (mode !== 'membership') {
         if (s.size > BigInt(MAX_BYTES)) refuse('reconciliation-inventory-overflow');
         const file = await open(location, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+        const descriptor = {
+          handle: file,
+          directory: location,
+          identity: row.identity,
+          kind: 'file',
+        };
         try {
           const opened = await file.stat({ bigint: true });
           if (
@@ -161,7 +171,7 @@ async function capture(root, context) {
             digest: createHash('sha256').update(bytes).digest('hex'),
           });
         } finally {
-          await file.close();
+          await closeDirectories([descriptor]);
         }
       }
     }
@@ -200,7 +210,10 @@ export async function observeOrdinaryReconciliationTree(input = {}) {
     refuse('reconciliation-context-unproved');
   const context = Object.freeze({ signal: input.signal, deadline: input.deadline });
   const root = input.root;
-  const recorded = await capture(root, context);
+  return observeOrdinary(root, context);
+}
+async function observeOrdinary(root, context, mode = 'tree') {
+  const recorded = await capture(root, context, mode);
   let closed = false,
     closing = false;
   const observed = Object.freeze({
@@ -218,13 +231,13 @@ export async function observeOrdinaryReconciliationTree(input = {}) {
       closed = true;
     },
   });
-  observations.set(observed, { root, context, recorded, isClosed: () => closed || closing });
+  observations.set(observed, { root, context, recorded, mode, isClosed: () => closed || closing });
   return observed;
 }
 export async function assertOrdinaryReconciliationTreeUnchanged(observed) {
   const record = observations.get(observed);
   if (!record || record.isClosed()) refuse('reconciliation-observation-unproved');
-  const current = await capture(record.root, record.context);
+  const current = await capture(record.root, record.context, record.mode);
   try {
     const chain = (value) => value.chain.map(([directory, facts]) => [directory, facts.identity]);
     const directories = (value) =>
@@ -246,4 +259,407 @@ export async function assertOrdinaryReconciliationTreeUnchanged(observed) {
   } finally {
     await closeDirectories(current.directories);
   }
+}
+
+const inventories = new WeakMap();
+const pendingInventories = new Set();
+const REVIEW_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
+const KEY = /^[a-f0-9]{64}$/u;
+const RESERVED = new Set(['private', 'runtime', 'runtimes', 'broker', 'reviews']);
+
+// Explicit unverified namespace policy. This cannot authenticate paths or authorize effects.
+export function describeReconciliationNamespacesCore({
+  projectEntries,
+  brokerEntries,
+  reviewEntries,
+} = {}) {
+  if (![projectEntries, brokerEntries, reviewEntries].every(Array.isArray))
+    refuse('reconciliation-namespace-unproved');
+  const reviewPaths = [],
+    brokerPaths = [];
+  const unique = (entries) => {
+    if (entries.length > MAX_ENTRIES) refuse('reconciliation-inventory-overflow');
+    const names = new Set();
+    for (const entry of entries) {
+      if (!entry || typeof entry.name !== 'string' || names.has(entry.name))
+        refuse('reconciliation-namespace-unproved');
+      names.add(entry.name);
+    }
+  };
+  for (const entries of [projectEntries, brokerEntries, reviewEntries]) unique(entries);
+  for (const { name, type } of projectEntries) {
+    if (type !== 'directory' || !REVIEW_ID.test(name)) refuse('reconciliation-namespace-unproved');
+    if (!RESERVED.has(name)) reviewPaths.push(name);
+  }
+  for (const { name, type } of brokerEntries) {
+    if (['registrations', 'recovery'].includes(name) && type === 'directory')
+      brokerPaths.push('broker/' + name);
+    else if (!(type === 'file' && /^bootstrap-[a-f0-9-]+\.json$/u.test(name)))
+      refuse('reconciliation-namespace-unproved');
+  }
+  for (const { name, type } of reviewEntries) {
+    if (type !== 'directory' || !REVIEW_ID.test(name)) refuse('reconciliation-namespace-unproved');
+    reviewPaths.push('reviews/' + name);
+  }
+  return Object.freeze({
+    verified: false,
+    reviewPaths: Object.freeze(reviewPaths.sort()),
+    brokerPaths: Object.freeze(brokerPaths.sort()),
+  });
+}
+
+function shallowEntries(observation) {
+  return observation.entries.map(({ relativePath, type }) => ({ name: relativePath, type }));
+}
+async function exists(location, context) {
+  budget(context);
+  try {
+    return await lstat(location, { bigint: true });
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    return null;
+  }
+}
+async function closeInventory(record) {
+  record.closing = true;
+  const results = await Promise.allSettled([
+    ...record.ordinary.map((entry) => entry.close()),
+    ...record.protected.filter((entry) => entry.owned).map((entry) => entry.guard.close()),
+  ]);
+  if (results.some((entry) => entry.status === 'rejected')) {
+    pendingInventories.add(record);
+    throw new AprError('APR_BROKER_STALE', 'Inventory cleanup is unproved.', {
+      details: {
+        reason: 'reconciliation-close-unproved',
+        outstandingObligations: results.flatMap((entry) =>
+          entry.status === 'rejected'
+            ? (entry.reason?.details?.outstandingObligations ?? [
+                { name: 'inventory-descriptor', outcome: 'descriptor-close-pending' },
+              ])
+            : []
+        ),
+      },
+      recovery: 'Retain and close the original inventory descriptors.',
+    });
+  }
+  record.closed = true;
+  pendingInventories.delete(record);
+}
+
+function newInventoryRecord(context) {
+  return {
+    context,
+    ordinary: [],
+    protected: [],
+    absent: [],
+    namespaces: [],
+    closing: false,
+    closed: false,
+    count: 0,
+  };
+}
+function countInventory(record, amount) {
+  record.count += amount;
+  if (record.count > MAX_ENTRIES) refuse('reconciliation-inventory-overflow');
+}
+function ordinaryInventoryAccess(record) {
+  const context = record.context;
+  async function ordinaryRoot(root, mode) {
+    const observed = await observeOrdinary(root, context, mode);
+    record.ordinary.push(observed);
+    countInventory(record, observed.entries.length);
+    return observed;
+  }
+  async function absentRoot(root) {
+    let parent = path.dirname(root);
+    while (!(await exists(parent, context))) parent = path.dirname(parent);
+    const observed = await ordinaryRoot(parent, 'membership');
+    record.absent.push({ root, observed });
+    if (await exists(root, context)) refuse('reconciliation-generation-changed');
+  }
+  async function optionalOrdinary(root, mode) {
+    if (!(await exists(root, context))) {
+      await absentRoot(root);
+      return null;
+    }
+    return ordinaryRoot(root, mode);
+  }
+  return { ordinaryRoot, optionalOrdinary, absentRoot };
+}
+function assertReviewNamespace(entries) {
+  const topFiles = new Set([
+    'startup-request.json',
+    'review-context.json',
+    'events.jsonl',
+    'protocol.json',
+    'participants.json',
+    'collateral-reservation.json',
+    'manual-launch-history.json',
+    'manual-fence.json',
+    'manual-suspension.json',
+    'lineage-receipt.json',
+  ]);
+  const directories =
+    /^(coordinator|deliveries|dispatch|dispatch\/locks|dispatch\/locks\/stale|locks|locks\/stale|responses|startup|startup\/locks|startup\/locks\/stale|provider|provider\/bindings|provider\/(codex|claude|grok)|provider\/(codex|claude|grok)\/observations|wake|wake\/operations|wake\/outcomes|wake\/outcomes\/[a-f0-9]{64}|artifacts|supplements|handoffs)$/u;
+  const files = [
+    /^coordinator\/(coordinator\.lock|coordinator-lease\.json|stop-request\.json)$/u,
+    /^deliveries\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$/u,
+    /^(dispatch\/locks|startup\/locks|locks)\/review\.lock$/u,
+    /^(dispatch\/locks|startup\/locks|locks)\/stale\/review-lock-[a-f0-9]{64}-[a-f0-9-]{36}\.json(\.receipt\.json)?$/u,
+    /^responses\/(author|reviewer)-[1-9][0-9]*\.json$/u,
+    /^provider\/bindings\/(author|reviewer)\.json$/u,
+    /^provider\/(codex|claude|grok)\/launch-state\.json$/u,
+    /^provider\/(codex|claude|grok)\/observations\/([a-f0-9]{64}|join:[A-Za-z0-9][A-Za-z0-9._-]{0,127})\.json$/u,
+    /^wake\/operations\/[a-f0-9]{64}\.json$/u,
+    /^wake\/outcomes\/[a-f0-9]{64}\/[0-9]{6}\.json$/u,
+    /^artifacts\/turn-[1-9][0-9]*\.md$/u,
+    /^supplements\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$/u,
+    /^handoffs\/(author|reviewer)-resume\.json$/u,
+  ];
+  for (const entry of entries) {
+    const valid =
+      entry.type === 'directory'
+        ? directories.test(entry.relativePath)
+        : topFiles.has(entry.relativePath) ||
+          files.some((pattern) => pattern.test(entry.relativePath));
+    if (!valid) refuse('reconciliation-namespace-unproved');
+  }
+}
+
+async function observeProjectNamespaces(record, base) {
+  const { ordinaryRoot, optionalOrdinary } = ordinaryInventoryAccess(record);
+  const projectRoot = await ordinaryRoot(base, 'membership');
+  const broker = await optionalOrdinary(path.join(base, 'broker'), 'membership');
+  const reviews = await optionalOrdinary(path.join(base, 'reviews'), 'membership');
+  const names = describeReconciliationNamespacesCore({
+    projectEntries: shallowEntries(projectRoot),
+    brokerEntries: broker ? shallowEntries(broker) : [],
+    reviewEntries: reviews ? shallowEntries(reviews) : [],
+  });
+  for (const relative of [...names.brokerPaths, ...names.reviewPaths]) {
+    const root = path.join(base, relative);
+    const observation = await ordinaryRoot(root, 'tree');
+    if (!relative.startsWith('broker/')) assertReviewNamespace(observation.entries);
+    else if (
+      observation.entries.some(
+        ({ relativePath, type }) =>
+          type !== 'file' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$/u.test(relativePath)
+      )
+    )
+      refuse('reconciliation-namespace-unproved');
+    record.namespaces.push({
+      kind: relative.startsWith('broker/') ? relative.split('/')[1] : 'review',
+      root,
+      observation,
+    });
+  }
+  const images = await optionalOrdinary(path.join(base, 'runtimes'), 'membership');
+  if (
+    images &&
+    shallowEntries(images).some(({ name, type }) => type !== 'directory' || !KEY.test(name))
+  )
+    refuse('reconciliation-namespace-unproved');
+}
+async function assertOrdinaryInventory(record) {
+  if (record.closing || record.closed) refuse('reconciliation-observation-unproved');
+  budget(record.context);
+  for (const observed of record.ordinary) await assertOrdinaryReconciliationTreeUnchanged(observed);
+  for (const absent of record.absent)
+    if (await exists(absent.root, record.context)) refuse('reconciliation-generation-changed');
+}
+// Explicit read-only core, used by the fixed producer. A caller root never authenticates a project.
+export async function observeProjectReconciliationInventoryCore(input = {}) {
+  if (
+    Object.keys(input).sort().join(',') !== 'deadline,root,signal' ||
+    typeof input.root !== 'string' ||
+    !path.isAbsolute(input.root) ||
+    path.resolve(input.root) !== input.root
+  )
+    refuse('reconciliation-context-unproved');
+  const context = Object.freeze({ signal: input.signal, deadline: input.deadline });
+  const root = input.root;
+  budget(context);
+  const record = newInventoryRecord(context);
+  try {
+    await observeProjectNamespaces(record, root);
+    return Object.freeze({
+      verified: false,
+      entryCount: record.count,
+      namespaces: Object.freeze(
+        record.namespaces.map(({ kind, root }) => Object.freeze({ kind, root }))
+      ),
+      assertUnchanged: () => assertOrdinaryInventory(record),
+      close: () => closeInventory(record),
+    });
+  } catch (error) {
+    try {
+      await closeInventory(record);
+    } catch (cleanup) {
+      cleanup.cause = error;
+      throw cleanup;
+    }
+    throw error;
+  }
+}
+
+// Fixed production discovery: genuine owner binding determines the project and account stores.
+// The observation itself remains unverified and grants no owner/write capability.
+export async function observeReconciliationInventory(input = {}) {
+  if (Object.keys(input).sort().join(',') !== 'deadline,paths,signal')
+    refuse('reconciliation-context-unproved');
+  const { paths, signal, deadline } = input;
+  const context = Object.freeze({ signal, deadline });
+  budget(context);
+  const owner = await inspectOwnerElectionPaths({ paths, ...context });
+  const base = path.dirname(owner.privateRoot);
+  const worktree = path.dirname(path.dirname(base));
+  if (base !== path.join(worktree, '.scratch', 'peer-review'))
+    refuse('reconciliation-project-unproved');
+  const operations = await initializePortableOperations(context);
+  const project = await canonicalPortableProjectIdentity({ cwd: worktree, operations, ...context });
+  if (project.physicalRoot !== worktree) refuse('reconciliation-project-unproved');
+  const record = newInventoryRecord(context);
+  Object.assign(record, { paths, project });
+  const { absentRoot } = ordinaryInventoryAccess(record);
+  async function protectedRoot(root, borrowed) {
+    let guard = borrowed;
+    if (!guard) {
+      const receipt = await operations.observeProtection({ root });
+      if (!receipt.verified) refuse('reconciliation-namespace-unproved');
+      guard = await operations.openProtectedRoot({ receipt });
+    }
+    const retained = { root, guard, owned: !borrowed, entries: null, snapshots: [] };
+    record.protected.push(retained);
+    const entries = await guard.listOrdinaryEntries();
+    retained.entries = entries;
+    countInventory(record, entries.length);
+    for (const entry of entries)
+      if (entry.type === 'file')
+        retained.snapshots.push({
+          name: entry.name,
+          snapshot: await guard.readSnapshot(entry.name, MAX_BYTES),
+        });
+    return retained;
+  }
+  try {
+    await observeProjectNamespaces(record, base);
+    // C4 owns these exact owner generations; this layer retains their actual C1 substrate.
+    await protectedRoot(owner.privateRoot, owner.privateGuard);
+    await protectedRoot(owner.runtimeRoot, owner.runtimeGuard);
+    const home = await operations.accountHome();
+    const account = path.join(home, '.cache', 'ai-peer-review');
+    if (!(await exists(account, context))) await absentRoot(account);
+    else {
+      const parent = await protectedRoot(account);
+      for (const kind of ['manual-resources', 'provider-resources']) {
+        const root = path.join(account, kind);
+        if (!(await exists(root, context))) {
+          await absentRoot(root);
+          continue;
+        }
+        const group = await protectedRoot(root);
+        if (group.entries.some(({ name, type }) => type !== 'directory' || !KEY.test(name)))
+          refuse('reconciliation-namespace-unproved');
+        for (const entry of group.entries) {
+          const resource = await protectedRoot(path.join(root, entry.name));
+          if (
+            resource.entries.some(
+              ({ name, type }) =>
+                type !== 'file' ||
+                !/^(apr-resource-[a-f0-9]{64}\.json|apr-election-[a-f0-9]{64}-[A-Za-z0-9_-]+\.json|resource\.json|resource\.lock)$/u.test(
+                  name
+                )
+            )
+          )
+            refuse('reconciliation-namespace-unproved');
+          record.namespaces.push({ kind, root: resource.root, protected: resource });
+        }
+      }
+      // Other account stores are independent; preserve the complete parent membership for rechecks.
+      await parent.guard.verify();
+    }
+    await inspectOwnerElectionPaths({ paths, ...context });
+    budget(context);
+    const observed = Object.freeze({
+      verified: false,
+      entryCount: record.count,
+      namespaces: Object.freeze(
+        record.namespaces.map(({ kind, root }) => Object.freeze({ kind, root }))
+      ),
+      close: () => closeInventory(record),
+    });
+    inventories.set(observed, record);
+    return observed;
+  } catch (error) {
+    try {
+      await closeInventory(record);
+    } catch (cleanup) {
+      cleanup.cause = error;
+      throw cleanup;
+    }
+    throw error;
+  }
+}
+
+export async function assertReconciliationInventory(input = {}) {
+  if (Object.keys(input).sort().join(',') !== 'deadline,observation,paths,signal')
+    refuse('reconciliation-context-unproved');
+  const record = inventories.get(input.observation);
+  if (!record || record.closing || record.closed) refuse('reconciliation-observation-unproved');
+  if (
+    input.paths !== record.paths ||
+    input.signal !== record.context.signal ||
+    input.deadline !== record.context.deadline
+  )
+    refuse('reconciliation-context-unproved');
+  budget(record.context);
+  await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
+  await assertOrdinaryInventory(record);
+  for (const retained of record.protected) {
+    await retained.guard.verify();
+    // Owner/election generations are independently guarded at each C4 effect.
+    if (!retained.owned) continue;
+    const entries = await retained.guard.listOrdinaryEntries();
+    if (JSON.stringify(entries) !== JSON.stringify(retained.entries))
+      refuse('reconciliation-generation-changed');
+    for (const { name, snapshot } of retained.snapshots) {
+      const fresh = await retained.guard.readSnapshot(name, MAX_BYTES);
+      if (
+        fresh.identity !== snapshot.identity ||
+        fresh.fileVersion !== snapshot.fileVersion ||
+        !fresh.bytes.equals(snapshot.bytes)
+      )
+        refuse('reconciliation-generation-changed');
+    }
+  }
+  await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
+  budget(record.context);
+}
+
+// Private membership is required even to obtain parsing input; returned data grants no authority.
+export async function readReconciliationInventory(input = {}) {
+  await assertReconciliationInventory(input);
+  const record = inventories.get(input.observation);
+  return Object.freeze({
+    verified: false,
+    project: record.project,
+    namespaces: Object.freeze(
+      record.namespaces.map((namespace) => {
+        const ordinaryRecord = namespace.observation && observations.get(namespace.observation);
+        const files = ordinaryRecord
+          ? [...ordinaryRecord.recorded.files].map(([name, file]) =>
+              Object.freeze({ name, bytes: Buffer.from(file.bytes) })
+            )
+          : namespace.protected.snapshots.map(({ name, snapshot }) =>
+              Object.freeze({ name, bytes: Buffer.from(snapshot.bytes) })
+            );
+        return Object.freeze({
+          kind: namespace.kind,
+          root: namespace.root,
+          entries: namespace.observation?.entries ?? namespace.protected.entries,
+          files: Object.freeze(files),
+        });
+      })
+    ),
+  });
 }

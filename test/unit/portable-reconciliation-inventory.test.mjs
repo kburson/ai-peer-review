@@ -233,3 +233,193 @@ test('ordinary reconciliation cleanup retries only unresolved original descripto
   await observed.close();
   assert.deepEqual(observed.outstandingObligations, []);
 });
+
+test('ordinary reconciliation retains a file descriptor whose close fails during capture', async (t) => {
+  // Losing a failed file close would let a later capture falsely report clean resources.
+  const input = await ordinaryDirectory(t);
+  const target = path.join(input.root, 'events.jsonl');
+  await writeFile(target, '{}\n');
+  const original = fsPromises.open;
+  let retained;
+  let fail = true;
+  fsPromises.open = async (...args) => {
+    const handle = await original(...args);
+    if (args[0] === target) {
+      retained = handle;
+      const close = handle.close.bind(handle);
+      handle.close = async () => {
+        if (fail) throw Object.assign(new Error('injected file close failure'), { code: 'EIO' });
+        return close();
+      };
+    }
+    return handle;
+  };
+  syncBuiltinESMExports();
+  t.after(async () => {
+    fsPromises.open = original;
+    syncBuiltinESMExports();
+    fail = false;
+    if (retained?.fd >= 0) await retained.close();
+  });
+  await assert.rejects(
+    () => ordinary.observeOrdinaryReconciliationTree(input),
+    (error) =>
+      error.code === 'APR_BROKER_STALE' &&
+      error.details.reason === 'reconciliation-close-unproved' &&
+      error.details.outstandingObligations.some((item) => item.name === 'ordinary-file-descriptor')
+  );
+  assert.ok(retained.fd >= 0);
+  fail = false;
+  await ordinary.retryOrdinaryReconciliationCleanup();
+  assert.equal(retained.fd, -1);
+});
+
+test('namespace discovery includes orphan direct and nested review transactions', () => {
+  // Enumerating only registrations would omit these durable review stores.
+  assert.equal(typeof ordinary.describeReconciliationNamespacesCore, 'function');
+  const result = ordinary.describeReconciliationNamespacesCore({
+    projectEntries: [
+      { name: 'private', type: 'directory' },
+      { name: 'runtime', type: 'directory' },
+      { name: 'runtimes', type: 'directory' },
+      { name: 'broker', type: 'directory' },
+      { name: 'reviews', type: 'directory' },
+      { name: 'review-orphan', type: 'directory' },
+    ],
+    brokerEntries: [
+      { name: 'registrations', type: 'directory' },
+      { name: 'recovery', type: 'directory' },
+    ],
+    reviewEntries: [{ name: 'review-nested-orphan', type: 'directory' }],
+  });
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.reviewPaths, ['review-orphan', 'reviews/review-nested-orphan']);
+  assert.deepEqual(result.brokerPaths, ['broker/recovery', 'broker/registrations']);
+});
+
+test('namespace discovery refuses unknown broker children and malformed review names', () => {
+  // Ignoring unknown authority-bearing names would produce false empty inventory.
+  assert.equal(typeof ordinary.describeReconciliationNamespacesCore, 'function');
+  for (const input of [
+    {
+      projectEntries: [],
+      brokerEntries: [{ name: 'unknown.json', type: 'file' }],
+      reviewEntries: [],
+    },
+    {
+      projectEntries: [{ name: 'unknown.json', type: 'file' }],
+      brokerEntries: [],
+      reviewEntries: [],
+    },
+    {
+      projectEntries: [],
+      brokerEntries: [],
+      reviewEntries: [{ name: '../outside', type: 'directory' }],
+    },
+    {
+      projectEntries: [],
+      brokerEntries: [{ name: 'registrations', type: 'file' }],
+      reviewEntries: [],
+    },
+  ])
+    assert.throws(
+      () => ordinary.describeReconciliationNamespacesCore(input),
+      (error) => error.details.reason === 'reconciliation-namespace-unproved'
+    );
+});
+
+test('production reconciliation inventory refuses caller-shaped owner paths', async () => {
+  // An arbitrary private/runtime pair cannot mint a real project binding.
+  assert.equal(typeof ordinary.observeReconciliationInventory, 'function');
+  await assert.rejects(
+    () =>
+      ordinary.observeReconciliationInventory({
+        paths: { privateRoot: '/tmp/private', runtimeRoot: '/tmp/runtime' },
+        signal: new AbortController().signal,
+        deadline: performance.now() + 30000,
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+});
+
+test('production inventory assertion rejects copied observations and changed original context', async () => {
+  // Public discovery-shaped objects cannot replace private retained inventory membership.
+  assert.equal(typeof ordinary.assertReconciliationInventory, 'function');
+  await assert.rejects(
+    () =>
+      ordinary.assertReconciliationInventory({
+        observation: { verified: false, entryCount: 0, namespaces: [] },
+        paths: {},
+        signal: new AbortController().signal,
+        deadline: performance.now() + 30000,
+      }),
+    (error) => error.details.reason === 'reconciliation-observation-unproved'
+  );
+});
+
+test('ordinary inventory refuses a directory deeper than the original bound', async (t) => {
+  // An arbitrarily deep orphan store must not evade the total inventory bound.
+  const input = await ordinaryDirectory(t);
+  let root = input.root;
+  for (let i = 0; i < 17; i++) {
+    root = path.join(root, 'child');
+    await mkdir(root);
+  }
+  await assert.rejects(
+    () => ordinary.observeOrdinaryReconciliationTree(input),
+    (error) => error.details.reason === 'reconciliation-inventory-overflow'
+  );
+});
+
+test('ordinary inventory refuses entry overflow rather than truncating enumeration', async (t) => {
+  const input = await ordinaryDirectory(t);
+  for (let i = 0; i < 4097; i++) await writeFile(path.join(input.root, 'entry-' + i), '');
+  await assert.rejects(
+    () => ordinary.observeOrdinaryReconciliationTree(input),
+    (error) => error.details.reason === 'reconciliation-inventory-overflow'
+  );
+});
+
+test('fixed project producer discovers orphan stores and retains missing-store parent membership', async (t) => {
+  // This is the real read-only project producer used by fixed production discovery, without an owner grant.
+  const input = await ordinaryDirectory(t);
+  const root = path.join(input.root, '.scratch', 'peer-review');
+  await mkdir(path.join(root, 'reviews', 'review-nested'), { recursive: true });
+  await mkdir(path.join(root, 'review-direct'));
+  await writeFile(path.join(root, 'review-direct', 'startup-request.json'), '{}\n');
+  assert.equal(typeof ordinary.observeProjectReconciliationInventoryCore, 'function');
+  const observed = await ordinary.observeProjectReconciliationInventoryCore({ ...input, root });
+  t.after(() => observed.close());
+  assert.equal(observed.verified, false);
+  assert.deepEqual(
+    observed.namespaces.map(({ kind, root: location }) => [kind, path.relative(root, location)]),
+    [
+      ['review', 'review-direct'],
+      ['review', path.join('reviews', 'review-nested')],
+    ]
+  );
+  await observed.assertUnchanged();
+  await mkdir(path.join(root, 'broker'));
+  await assert.rejects(
+    () => observed.assertUnchanged(),
+    (error) => error.details.reason === 'reconciliation-generation-changed'
+  );
+});
+
+for (const child of [
+  'unknown-authority.json',
+  'provider/unknown-host/launch-state.json',
+  'wake/operations/unknown.json',
+]) {
+  test('fixed project producer refuses unknown authority child ' + child, async (t) => {
+    const input = await ordinaryDirectory(t);
+    const root = path.join(input.root, '.scratch', 'peer-review');
+    const file = path.join(root, 'review-orphan', child);
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, '{}\n');
+    await assert.rejects(
+      () => ordinary.observeProjectReconciliationInventoryCore({ ...input, root }),
+      (error) => error.details.reason === 'reconciliation-namespace-unproved'
+    );
+  });
+}
