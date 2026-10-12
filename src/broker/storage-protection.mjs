@@ -1293,6 +1293,39 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     return Object.freeze(names);
   }
 
+  async function listOrdinaryEntries() {
+    await verify();
+    const before = lstatSync(r.root, { bigint: true });
+    const result = [];
+    const directory = await opendir(r.root);
+    for await (const entry of directory) {
+      budget.check();
+      if (result.length >= 4096)
+        throw failure('APR_BROKER_STALE', 'reconciliation-inventory-overflow');
+      resourceName(entry.name);
+      const observed = lstatSync(path.join(r.root, entry.name), { bigint: true });
+      if (
+        observed.isSymbolicLink() ||
+        (!observed.isFile() && !observed.isDirectory()) ||
+        (observed.isFile() && observed.nlink !== 1n)
+      )
+        throw failure('APR_BROKER_STALE', 'reconciliation-namespace-unproved');
+      result.push(
+        Object.freeze({
+          name: entry.name,
+          type: observed.isDirectory() ? 'directory' : 'file',
+          identity: identity(observed),
+        })
+      );
+    }
+    await verify();
+    const after = lstatSync(r.root, { bigint: true });
+    if (identity(before) !== identity(after) || version(before) !== version(after))
+      throw failure('APR_BROKER_STALE', 'reconciliation-generation-changed');
+    result.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    return Object.freeze(result);
+  }
+
   // The election and ordinary/private wrappers share this retained-generation engine.
   async function retainedPublication(
     name,
@@ -1834,6 +1867,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     read,
     readSnapshot,
     listOwnedPublications,
+    listOrdinaryEntries,
     createOwnedPublication,
     createRetainedPublication,
     quarantine,
