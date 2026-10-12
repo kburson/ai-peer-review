@@ -68,6 +68,13 @@ $sections=[Security.AccessControl.AccessControlSections]'Access,Owner,Group'
 $prior=[IO.Directory]::GetAccessControl([string]$p.directory,$sections)
 $bytes=$prior.GetSecurityDescriptorBinaryForm()
 $restored=$false
+$restoreParts=$null
+function AclBytesEqual($first,$second) {
+  if ($null -eq $first -or $null -eq $second) { return $null -eq $first -and $null -eq $second }
+  $a=[byte[]]::new($first.BinaryLength); $first.GetBinaryForm($a,0)
+  $b=[byte[]]::new($second.BinaryLength); $second.GetBinaryForm($b,0)
+  return [Convert]::ToBase64String($a) -ceq [Convert]::ToBase64String($b)
+}
 try {
   $rule=[Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new('S-1-1-0'),[Security.AccessControl.FileSystemRights]::ReadAndExecute,[Security.AccessControl.InheritanceFlags]::None,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
   $prior.AddAccessRule($rule)
@@ -78,9 +85,19 @@ try {
   $restore=[Security.AccessControl.DirectorySecurity]::new()
   $restore.SetSecurityDescriptorBinaryForm($bytes)
   Set-Acl -LiteralPath ([string]$p.directory) -AclObject $restore
-  $restored=[Convert]::ToBase64String([IO.Directory]::GetAccessControl([string]$p.directory,$sections).GetSecurityDescriptorBinaryForm()) -ceq [Convert]::ToBase64String($bytes)
+  $after=[IO.Directory]::GetAccessControl([string]$p.directory,$sections).GetSecurityDescriptorBinaryForm()
+  $restored=[Convert]::ToBase64String($after) -ceq [Convert]::ToBase64String($bytes)
+  $beforeRaw=[Security.AccessControl.RawSecurityDescriptor]::new($bytes,0)
+  $afterRaw=[Security.AccessControl.RawSecurityDescriptor]::new($after,0)
+  $restoreParts=@{
+    ownerEqual=$beforeRaw.Owner.Value -ceq $afterRaw.Owner.Value
+    groupEqual=$beforeRaw.Group.Value -ceq $afterRaw.Group.Value
+    controlFlagsEqual=$beforeRaw.ControlFlags -eq $afterRaw.ControlFlags
+    daclEqual=(AclBytesEqual $beforeRaw.DiscretionaryAcl $afterRaw.DiscretionaryAcl)
+    saclEqual=(AclBytesEqual $beforeRaw.SystemAcl $afterRaw.SystemAcl)
+  }
 }
-[Console]::Out.WriteLine((@{kind='restored';aclRestored=[bool]$restored;record=(Observe ([string]$p.query))} | ConvertTo-Json -Compress))
+[Console]::Out.WriteLine((@{kind='restored';aclRestored=[bool]$restored;restoreParts=$restoreParts;record=(Observe ([string]$p.query))} | ConvertTo-Json -Compress))
 `;
 const executable = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const args = (script) => [
@@ -122,14 +139,14 @@ let childExitObserved = false,
   cleanupProved = false,
   stage = 'setup',
   rows = null;
+const baseline = [];
 try {
   const directory = path.join(base, 'directory'),
     file = path.join(base, 'record.json');
   await mkdir(directory);
   await writeFile(file, '{}\n', { flag: 'wx' });
   const query = JSON.stringify({ mode: 'observe', paths: [directory, file] });
-  const oneShotMs = [],
-    baseline = [];
+  const oneShotMs = [];
   stage = 'one-shot';
   for (let i = 0; i < 10; i++) {
     const started = performance.now();
@@ -217,6 +234,13 @@ try {
     flag: 'wx',
   });
 } catch (error) {
+  let restoredRecordsEqual = null;
+  try {
+    if (typeof rows?.[11]?.record === 'string' && baseline.length === 10)
+      restoredRecordsEqual = parseRecord(rows[11].record) === baseline[9];
+  } catch {
+    /* Malformed private record details remain unavailable. */
+  }
   const out = path.join(process.cwd(), '.scratch/190-feasibility-public');
   await mkdir(out, { recursive: true });
   await writeFile(
@@ -237,6 +261,18 @@ try {
           rows
             ?.slice(0, 10)
             .map((row) => (Array.isArray(row.record) ? 'array' : typeof row.record)) ?? null,
+        restoredRecordsEqual,
+        restorationParts:
+          rows?.[11]?.restoreParts &&
+          ['ownerEqual', 'groupEqual', 'controlFlagsEqual', 'daclEqual', 'saclEqual'].every(
+            (key) => typeof rows[11].restoreParts[key] === 'boolean'
+          )
+            ? Object.fromEntries(
+                ['ownerEqual', 'groupEqual', 'controlFlagsEqual', 'daclEqual', 'saclEqual'].map(
+                  (key) => [key, rows[11].restoreParts[key]]
+                )
+              )
+            : null,
         aclRestoreReported:
           typeof rows?.[11]?.aclRestored === 'boolean' ? rows[11].aclRestored : null,
       },
