@@ -1,4 +1,5 @@
 // @story #190
+// cspell:words SACL
 // Independent unverified stock-script batch, never imported by production.
 // Complete ACL/principal/path records stay in memory; only a closed report is written.
 import { execFileSync, execFile } from 'node:child_process';
