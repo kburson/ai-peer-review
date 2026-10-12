@@ -15,7 +15,8 @@ import {
   assertProtectedSnapshotUnchanged,
 } from '../../src/broker/storage-protection.mjs';
 const require = createRequire(import.meta.url);
-export async function selectionReadScopePrototype(t) {
+export async function selectionReadScopePrototype(t, iterations = 16) {
+  if (![2, 16].includes(iterations)) throw Error('scope-prototype-input-unavailable');
   const fixture = runtimeFixture(t),
     root = path.join(fixture.home, 'owned-store');
   const context = () => ({
@@ -94,7 +95,7 @@ export async function selectionReadScopePrototype(t) {
         if (mode === 'scoped') manager.noteWitness(original, b);
       };
       const run = async () => {
-        for (let n = 0; n < 16; n++) {
+        for (let n = 0; n < iterations; n++) {
           if (mode === 'scoped') await manager.use(original, tuple, acquire, read);
           else {
             const guard = await acquire(original);

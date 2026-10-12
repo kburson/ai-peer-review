@@ -8,6 +8,31 @@ const outcomes = new WeakMap();
 export function selectionScopeOutcome(error) {
   return outcomes.get(error)?.public ?? null;
 }
+// CLI projection only; the actual callback exception and private receipt remain
+// untouched. These bounded categories cannot establish operational membership.
+export function renderSelectionScopeFailure(error) {
+  const outcome = selectionScopeOutcome(error);
+  if (!outcome) return null;
+  const effect =
+    outcome.effect === 'committed'
+      ? 'Primary effect committed'
+      : outcome.effect === 'unknown'
+        ? 'Primary effect status unknown'
+        : 'No primary effect committed';
+  return Object.freeze({
+    schema: 'ai-peer-review.error/v1',
+    code: error instanceof AprError ? error.code : 'APR_INTERNAL',
+    message:
+      effect +
+      '; selection scope completion uncertain.' +
+      (outcome.infrastructure ? ' Infrastructure may exist.' : ''),
+    recovery:
+      'Inspect the actual primary record and retained cleanup before explicit recovery; do not automatically retry.',
+    details: Object.freeze({ selection_scope: outcome }),
+    mutation_occurred: outcome.effect !== 'none' || Boolean(outcome.infrastructure),
+    retry_safe: false,
+  });
+}
 function refusal(reason) {
   return new AprError(
     'APR_SELECTION_SCOPE_UNAVAILABLE',

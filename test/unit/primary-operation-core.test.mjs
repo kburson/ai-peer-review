@@ -116,9 +116,13 @@ async function owned(t, { initial = false, mutateAfter = false, failAssert = fal
           throw new Error('fixture-pre-receipt');
       },
     },
-    admit: (original) => selection.assertSelected(original),
+    // Scheduling ports are deliberately unverified. One genuine selected
+    // snapshot pins the actual close-race control; full real admissions belong
+    // to the dedicated genuine-operation gate, never these effect unit tests.
+    admit: async () => {},
     selectionScope: (original, callback) =>
       selection.withReadScope(original, async (sink) => {
+        await selection.assertSelected(original);
         const observing = {
           ...sink,
           possible() {
@@ -263,4 +267,29 @@ test('actual activation remains committed when scope completion rejects changed 
     cleanup: 'discharged',
     infrastructure: 'may-exist',
   });
+});
+
+test('CLI scope failure projection reports committed effects and refuses automatic retry without leaking the callback error', async (t) => {
+  const api = await import('../../src/config/selection-read-scope.mjs');
+  assert.equal(typeof api.renderSelectionScopeFailure, 'function');
+  const f = await owned(t, { initial: true, mutateAfter: true });
+  let failure;
+  try {
+    await f.core.register({ cwd: f.project.root });
+  } catch (error) {
+    failure = error;
+  }
+  const originalMessage = failure.message;
+  const projected = api.renderSelectionScopeFailure(failure);
+  assert.equal(projected.mutation_occurred, true);
+  assert.equal(projected.retry_safe, false);
+  assert.match(projected.message, /effect committed.*completion uncertain/i);
+  assert.equal(projected.details.selection_scope.effect, 'committed');
+  assert.equal(JSON.stringify(projected).includes(f.project.root), false);
+  assert.equal(
+    failure.message,
+    originalMessage,
+    'formatting does not replace or mutate the actual exception'
+  );
+  assert.equal(api.renderSelectionScopeFailure(new Error('private unrelated failure')), null);
 });

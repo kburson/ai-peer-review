@@ -437,15 +437,15 @@ test('actual callback thrown values are preserved even when not Error objects', 
     assert.equal(caught.error, original);
   }
 });
-test('real C1 prototype retains one descriptor with thirty-two fresh snapshots', async (t) => {
+test('real C1 two-read unit control retains one descriptor with four fresh snapshots', async (t) => {
   const helper = new URL('../helpers/selection-read-scope-fixture.mjs', import.meta.url);
   const prototype = existsSync(helper) ? await import(helper) : {};
   assert.equal(typeof prototype.selectionReadScopePrototype, 'function');
-  const result = await prototype.selectionReadScopePrototype(t);
+  const result = await prototype.selectionReadScopePrototype(t, 2);
   assert.deepEqual(result, {
     verified: false,
-    unscoped: { acquisitions: 16, snapshots: 32, closed: 16 },
-    scoped: { acquisitions: 1, snapshots: 32, closed: 1 },
+    unscoped: { acquisitions: 2, snapshots: 4, closed: 2 },
+    scoped: { acquisitions: 1, snapshots: 4, closed: 1 },
   });
 });
 

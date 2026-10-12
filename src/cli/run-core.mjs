@@ -1,3 +1,4 @@
+import { renderSelectionScopeFailure } from '../config/selection-read-scope.mjs';
 import { registerRuntimeSelection, inspectRuntimeSelection } from '../config/runtime-selection.mjs';
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
 import { execFile as execFileCallback } from 'node:child_process';
@@ -5896,7 +5897,7 @@ export function createReviewOperations({
               recovery: 'Re-run with the same arguments and report the failure if it persists.',
               details: { cause: String(error?.message ?? error) },
             });
-      writeJson(io.stderr, rendered.toJSON());
+      writeJson(io.stderr, renderSelectionScopeFailure(error) ?? rendered.toJSON());
       return rendered.exitCode;
     }
   }

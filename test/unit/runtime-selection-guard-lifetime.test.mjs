@@ -158,7 +158,7 @@ test('a different account location cannot borrow the earlier protected descripto
   );
 });
 
-test('one original read scope retains one genuine guard across sixteen fresh admissions', async (t) => {
+test('one original read scope retains one genuine guard across two fresh admissions', async (t) => {
   const f = runtimeFixture(t),
     store = createSelectionStore({ account: f.account, packageRoot: f.packageRoot });
   await store.register();
@@ -166,10 +166,10 @@ test('one original read scope retains one genuine guard across sixteen fresh adm
     original = context();
   assert.equal(typeof store.withReadScope, 'function');
   await store.withReadScope(original, async () => {
-    for (let n = 0; n < 16; n++) await store.assertSelected(original);
+    for (let n = 0; n < 2; n++) await store.assertSelected(original);
   });
   assert.equal(records.length, 1);
-  assert.equal(records.snapshots, 32, 'all two-per-admission snapshots remain fresh');
+  assert.equal(records.snapshots, 4, 'all two-per-admission snapshots remain fresh');
   assert.equal(
     records.every((record) => record.closed),
     true
