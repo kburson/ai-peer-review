@@ -38,7 +38,7 @@ jobs:
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - name: Verify CI privilege/restoration and prepare exact public registrations
-        run: node test/helpers/process-source-ci-capture.mjs prepare
+        run: node --import ./test/helpers/windows-stock-timing.mjs test/helpers/process-source-ci-capture.mjs prepare > source-prepare-diagnostic.log 2>&1
       - name: Publish public pre-capture registrations
         uses: actions/upload-artifact@v4
         with:
@@ -54,7 +54,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: source-controls-${{ runner.os }}-${{ matrix.node }}-${{ github.run_attempt }}
-          path: .scratch/peer-review/ci-source-*/public/
+          path: |
+            .scratch/peer-review/ci-source-*/public/
+            source-prepare-diagnostic.log
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
