@@ -108,6 +108,15 @@ export function createSelectionReadScope({ finalize }) {
       check(entry.context);
     };
     return Object.freeze({
+      infrastructurePossible() {
+        writable();
+        entry.infrastructurePossible = true;
+      },
+      infrastructureObserved(observation) {
+        writable();
+        entry.infrastructurePossible = true;
+        (entry.infrastructure ??= []).push(observation);
+      },
       possible() {
         writable();
         if (entry.effect === 'committed') throw refusal('effect-backward');
@@ -167,6 +176,7 @@ export function createSelectionReadScope({ finalize }) {
               effect: entry.effect,
               completion: 'uncertain',
               cleanup: retained ? 'retained' : 'discharged',
+              ...(entry.infrastructurePossible ? { infrastructure: 'may-exist' } : {}),
             }),
           })
         );

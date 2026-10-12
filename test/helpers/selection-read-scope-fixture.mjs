@@ -76,6 +76,7 @@ export async function selectionReadScopePrototype(t) {
     const result = { verified: false };
     for (const mode of ['unscoped', 'scoped']) {
       const original = context(),
+        started = performance.now(),
         before = records.length;
       let snapshots = 0;
       const manager = createSelectionReadScope({
@@ -105,8 +106,25 @@ export async function selectionReadScopePrototype(t) {
           }
         }
       };
-      if (mode === 'scoped') await manager.run(original, run);
-      else await run();
+      try {
+        if (mode === 'scoped') await manager.run(original, run);
+        else await run();
+      } catch (error) {
+        const handles = records.slice(before);
+        process.stderr.write(
+          JSON.stringify({
+            diagnostic: 'selection-read-scope-prototype-refused',
+            verified: false,
+            mode,
+            elapsedMs: Math.round(performance.now() - started),
+            originalBudgetExceeded: performance.now() >= original.deadline,
+            acquisitions: handles.length,
+            snapshots,
+            descriptorsClosed: handles.filter((record) => record.closed).length,
+          }) + '\n'
+        );
+        throw error;
+      }
       const handles = records.slice(before);
       result[mode] = {
         acquisitions: handles.length,

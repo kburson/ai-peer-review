@@ -116,7 +116,7 @@ export async function retryPrimaryMaintenanceCleanup() {
     retainedRegistrationGuards.delete(guard);
   }
 }
-async function withRegistrationStore(location, context, create, operation) {
+async function withRegistrationStore(location, context, create, operation, effects) {
   const system = await initializePortableSystem(context);
   const root = path.dirname(primaryRegistrationPath(location.commonDir));
   let receipt = await system.observeProtection({ root });
@@ -128,7 +128,9 @@ async function withRegistrationStore(location, context, create, operation) {
       if (error.code !== 'ENOENT') throw error;
     }
     const { provisionProtectedRoot } = await import('../broker/storage-protection.mjs');
+    effects?.infrastructurePossible();
     receipt = await provisionProtectedRoot({ root, ...context });
+    effects?.infrastructureObserved(Object.freeze({ kind: 'registration-root', root, receipt }));
   }
   if (!receipt.verified) unavailable('Primary registration protection is unavailable.');
   const guard = await system.openProtectedRoot({ receipt });
@@ -143,7 +145,16 @@ async function withRegistrationStore(location, context, create, operation) {
     }
   }
 }
-async function writeRecord(location, before, after, operation, fence, context, assertAdmission) {
+async function writeRecord(
+  location,
+  before,
+  after,
+  operation,
+  fence,
+  context,
+  assertAdmission,
+  effects
+) {
   await assertAdmission(fence, context);
   const receipt = Object.freeze({
     schema: 'ai-peer-review.primary-maintenance-receipt/v1',
@@ -153,34 +164,44 @@ async function writeRecord(location, before, after, operation, fence, context, a
     after,
     created_at: new Date().toISOString(),
   });
-  await withRegistrationStore(location, context, true, async (guard) => {
-    await assertAdmission(fence, context);
-    await guard.writeExclusive('receipt-' + randomUUID() + '.json', Buffer.from(stable(receipt)));
-    await assertAdmission(fence, context);
-    const name = 'primary-activation.json';
-    let observed = null;
-    try {
-      observed = await guard.read(name);
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-    }
-    if (
-      (before === null && observed !== null) ||
-      (before !== null && !observed?.equals(before.bytes))
-    )
-      unavailable('Primary registration changed before maintenance write.');
-    await assertAdmission(fence, context);
-    const bytes = Buffer.from(stable(after));
-    if (before === null) await guard.writeExclusive(name, bytes);
-    else await guard.replace(name, before.bytes, bytes);
-    await assertAdmission(fence, context);
-    const actual = await guard.read(name);
-    if (!actual.equals(bytes)) unavailable('Primary registration read-back disagrees.');
-    await guard.verify();
-  });
+  await withRegistrationStore(
+    location,
+    context,
+    true,
+    async (guard) => {
+      await assertAdmission(fence, context);
+      effects?.possible();
+      await guard.writeExclusive('receipt-' + randomUUID() + '.json', Buffer.from(stable(receipt)));
+      await assertAdmission(fence, context);
+      const name = 'primary-activation.json';
+      let observed = null;
+      try {
+        observed = await guard.read(name);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
+      if (
+        (before === null && observed !== null) ||
+        (before !== null && !observed?.equals(before.bytes))
+      )
+        unavailable('Primary registration changed before maintenance write.');
+      await assertAdmission(fence, context);
+      const bytes = Buffer.from(stable(after));
+      if (before === null) await guard.writeExclusive(name, bytes);
+      else await guard.replace(name, before.bytes, bytes);
+      await assertAdmission(fence, context);
+      const actual = await guard.read(name);
+      if (!actual.equals(bytes)) unavailable('Primary registration read-back disagrees.');
+      effects?.committed(receipt, Object.freeze(JSON.parse(actual)));
+      await guard.verify();
+    },
+    effects
+  );
   return receipt;
 }
 export function createPrimaryMaintenance(options) {
+  if (typeof options?.selectionScope !== 'function')
+    throw new TypeError('Explicit selection scope port required.');
   return createPrimaryMaintenanceCore({
     ...options,
     admission: {
@@ -196,12 +217,14 @@ export function createPrimaryMaintenanceCore({
   admit,
   integrationContract,
   admission,
+  selectionScope,
 }) {
   if (typeof admission?.run !== 'function' || typeof admission?.assert !== 'function')
     throw new TypeError('Explicit primary admission ports required.');
   async function activate(
     { cwd = process.cwd(), dryRun = false, expectedOwnedBlobs, inventory, signal, deadline } = {},
-    fence
+    fence,
+    effects
   ) {
     const context = { signal, deadline };
     await admit(context);
@@ -255,12 +278,22 @@ export function createPrimaryMaintenanceCore({
       unavailable('Primary policy changed during activation.');
     checker.check(prospective, { primaryOnly: true });
     if (dryRun) return Object.freeze({ before: before.record, after, inventory: observed });
-    await writeRecord(location, before, after, 'activate', fence, context, admission.assert);
+    await writeRecord(
+      location,
+      before,
+      after,
+      'activate',
+      fence,
+      context,
+      admission.assert,
+      effects
+    );
     return await resolvePrimaryAuthoritySync({ cwd, ...context });
   }
   async function register(
     { cwd = process.cwd(), dryRun = false, update = false, signal, deadline } = {},
-    fence
+    fence,
+    effects
   ) {
     const context = { signal, deadline };
     await admit(context);
@@ -319,7 +352,16 @@ export function createPrimaryMaintenanceCore({
         inventory,
       });
     if (before?.record && stable(before.record) === stable(after)) return before.record;
-    await writeRecord(location, before, after, 'register', fence, context, admission.assert);
+    await writeRecord(
+      location,
+      before,
+      after,
+      'register',
+      fence,
+      context,
+      admission.assert,
+      effects
+    );
     return (await readPrimaryRegistration(location, context)).record;
   }
   const guarded =
@@ -329,12 +371,16 @@ export function createPrimaryMaintenanceCore({
         signal: options.signal ?? new AbortController().signal,
         deadline: options.deadline ?? performance.now() + 30000,
       });
-      await admit(original);
-      const location = await primaryLocation(options.cwd ?? process.cwd(), original);
-      return admission.run(
-        { commonDir: location.commonDir, dryRun: options.dryRun, ...original },
-        (fence, context) => operation({ ...options, ...context }, fence)
-      );
+      const execute = async (effects) => {
+        await admit(original);
+        const location = await primaryLocation(options.cwd ?? process.cwd(), original);
+        effects?.infrastructurePossible();
+        return admission.run(
+          { commonDir: location.commonDir, dryRun: options.dryRun, ...original },
+          (fence, context) => operation({ ...options, ...context }, fence, effects)
+        );
+      };
+      return selectionScope ? selectionScope(original, execute) : execute();
     };
   return Object.freeze({
     verified: false,

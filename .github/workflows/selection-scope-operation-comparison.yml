@@ -1,0 +1,37 @@
+name: Selection scope operation comparison
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    name: Genuine operation comparison / Linux / Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        node: ['24', '26']
+    env:
+      APR_SKIP_NATIVE_BROKER_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node test/helpers/warm-packed-cache.mjs
+      - run: node test/helpers/selection-scope-operation-ci.mjs
+      - name: Retain finite comparisons and inconclusive outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selection-scope-linux-${{ matrix.node }}-${{ github.run_attempt }}
+          path: .scratch/190-scope-comparison-public/
+          if-no-files-found: error
+          retention-days: 30
