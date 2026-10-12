@@ -146,6 +146,15 @@ try {
     file = path.join(base, 'record.json');
   await mkdir(directory);
   await writeFile(file, '{}\n', { flag: 'wx' });
+  // Independent fixture preparation uses the unchanged fixed stock provision
+  // body. Measure protected ACLs like the real guard rather than inherited ACL
+  // normalization; every timed observation below still freshly executes.
+  for (const target of [directory, file]) {
+    execFileSync(executable, args(original), {
+      ...options,
+      input: JSON.stringify({ mode: 'provision', paths: [target] }),
+    });
+  }
   const query = JSON.stringify({ mode: 'observe', paths: [directory, file] });
   const oneShotMs = [];
   stage = 'one-shot';
