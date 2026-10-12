@@ -1306,3 +1306,47 @@ test('candidate custody includes staged additions absent from HEAD', async (t) =
   await assert.rejects(f.setupApply({ dryRun: true }), { code: 'APR_SETUP_INVALID' });
   assert.equal(f.read('policy.md'), '# Refused\n');
 });
+
+test('legacy matcher migration preserves host formatting by replacing only its owned string', async (t) => {
+  const f = await setupHostFixture(t);
+  const { installedPackageIdentity } = await import('../../src/config/installation-identity.mjs');
+  f.write(
+    '.ai-peer-review.json',
+    JSON.stringify({
+      schema: 'ai-peer-review.config/v1',
+      setup: {
+        owner: 'ai-peer-review',
+        version: 2,
+        agents: ['codex'],
+        config_created: true,
+        scratch_exclude_added: false,
+        resume_commands_added: [],
+        automatic_adapters_added: [],
+        ...installedPackageIdentity(),
+      },
+    }) + '\n'
+  );
+  f.write('.prettierrc.json', '{"tabWidth":2}\n');
+  const original =
+    JSON.stringify(
+      {
+        hooks: {
+          PreToolUse: [
+            { matcher: 'Bash', hooks: [{ type: 'command', command: 'foreign' }] },
+            {
+              matcher: '^(?:Bash|functions\\.exec|exec)$',
+              hooks: [{ type: 'command', command: 'peer-review-codex-hook' }],
+            },
+          ],
+        },
+      },
+      null,
+      2
+    ) + '\n';
+  f.write('.codex/hooks.json', original);
+  await f.setupApply({ update: true, migrate: true });
+  assert.equal(
+    f.read('.codex/hooks.json'),
+    original.replace('^(?:Bash|functions\\\\.exec|exec)$', 'Bash')
+  );
+});

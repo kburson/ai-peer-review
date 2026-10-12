@@ -314,7 +314,12 @@ export function createSetupMaintenanceCore({ packageRoot, userFile, home, admit 
         } else if (migrateLegacyHook) {
           const bytes = applyEdits(
             before,
-            modify(before, ['hooks', 'PreToolUse', groups.indexOf(owned[0])], hook, {})
+            modify(
+              before,
+              ['hooks', 'PreToolUse', groups.indexOf(owned[0]), 'matcher'],
+              hook.matcher,
+              {}
+            )
           );
           add(file, bytes, host + '-hook', true);
         } else if (!owned.length) {

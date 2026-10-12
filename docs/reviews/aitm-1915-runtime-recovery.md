@@ -59,3 +59,7 @@ validation copies are removed; the physical host HEAD/index/files are preserved.
 Genuine regressions caught candidate-input substitution and historical symlink
 write-through; both now fail safely. Independent review's four findings in this
 amendment were fixed and cleared before installation.
+
+A real host formatter also caught the legacy hook group replacement disturbing
+foreign formatting. Migration now edits only its owned matcher string. A
+formatted-host RED to GREEN regression verifies every other byte is preserved.
