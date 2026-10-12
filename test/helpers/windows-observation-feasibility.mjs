@@ -85,7 +85,7 @@ try {
   $failureStage='acl-change-add'
   $prior.AddAccessRule($rule)
   $failureStage='acl-change-persist'
-  Set-Acl -LiteralPath ([string]$p.directory) -AclObject $prior
+  [IO.Directory]::SetAccessControl([string]$p.directory,$prior)
   $failureStage='acl-change-observe'
   $changed=Observe ([string]$p.query)
   [Console]::Out.WriteLine((@{kind='changed';record=$changed} | ConvertTo-Json -Compress))
