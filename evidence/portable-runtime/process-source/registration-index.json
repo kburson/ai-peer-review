@@ -2,14 +2,29 @@
   "schema": "ai-peer-review.process-source-registration-index/v1",
   "captures": [
     {
-      "captureId": "source-4658749c30dfb5f201f6da0a4c927106",
-      "path": "evidence/portable-runtime/process-source/registrations/source-4658749c30dfb5f201f6da0a4c927106.json",
-      "digest": "sha256:28fa7df7ba002128af684085580cc0c218c89d187c4721843bd58fccb7f3a46b"
+      "captureId": "source-32a383ae93be438850d29b005c867191",
+      "path": "evidence/portable-runtime/process-source/registrations/source-32a383ae93be438850d29b005c867191.json",
+      "digest": "sha256:f802303bf20cf6e0b8c15177357f283e768e8ed09691da820844f02abb1f422b"
     },
     {
-      "captureId": "source-d1a6dd1eac1d1c38caa62b36e3adbd59",
-      "path": "evidence/portable-runtime/process-source/registrations/source-d1a6dd1eac1d1c38caa62b36e3adbd59.json",
-      "digest": "sha256:5da05cfdb5a0173aef466ebc115f972578e750ef4fa95f7ee4478d74656c54c7"
+      "captureId": "source-75eb2d467dffb361be0afa060e479aaf",
+      "path": "evidence/portable-runtime/process-source/registrations/source-75eb2d467dffb361be0afa060e479aaf.json",
+      "digest": "sha256:9f78862c6b8f05e672246140c47b01650130f0d0cfd07c8e4c1029b6ec0455ad"
+    },
+    {
+      "captureId": "source-7bd5b1a4234ce9143f5f44d6c1ade3f3",
+      "path": "evidence/portable-runtime/process-source/registrations/source-7bd5b1a4234ce9143f5f44d6c1ade3f3.json",
+      "digest": "sha256:42f3a49e40ff312cdcdef342fac26860ad199766a6d2fbeb4e0e759f3cd6d43b"
+    },
+    {
+      "captureId": "source-7fd35237c5fb5de52f1dd5e57fb3094e",
+      "path": "evidence/portable-runtime/process-source/registrations/source-7fd35237c5fb5de52f1dd5e57fb3094e.json",
+      "digest": "sha256:8e1a98bdccb7e30f252c78c904f728070a2a60028da41f4ee76a368f81fc8951"
+    },
+    {
+      "captureId": "source-8069f61003f0af28e6b5d742e26bb613",
+      "path": "evidence/portable-runtime/process-source/registrations/source-8069f61003f0af28e6b5d742e26bb613.json",
+      "digest": "sha256:cefe6e60834de2f5ecaa3ff0d5ee2f84711baacac0d3c506afab17b7cc39a1c7"
     }
   ]
 }
