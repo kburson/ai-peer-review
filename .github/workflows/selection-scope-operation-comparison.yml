@@ -1,5 +1,10 @@
 name: Selection scope operation comparison
 on:
+  push:
+    branches: [codex/190-installed-journeys]
+    paths:
+      # Normal class acceptance must precede this genuine operation comparison.
+      - src/protocol/process-source-contracts.json
   workflow_dispatch:
 permissions:
   contents: read

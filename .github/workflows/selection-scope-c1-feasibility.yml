@@ -1,5 +1,11 @@
 name: Selection scope C1 feasibility
 on:
+  push:
+    branches: [codex/190-installed-journeys]
+    paths:
+      - .github/workflows/selection-scope-c1-feasibility.yml
+      - test/live/selection-scope-c1-prototype.mjs
+      - test/helpers/selection-read-scope-fixture.mjs
   workflow_dispatch:
 permissions:
   contents: read
