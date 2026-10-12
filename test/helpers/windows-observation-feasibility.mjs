@@ -149,12 +149,14 @@ const canonical = (value) =>
         )
       : entry
   );
+let queryPaths;
 const parseRecord = (raw) => {
   const record = JSON.parse(raw.replace(/^\uFEFF/, '').trim());
   if (
     record.schema !== 'ai-peer-review.windows-protection-observation/v1' ||
     !Array.isArray(record.records) ||
-    record.records.length !== 2
+    record.records.length !== queryPaths.length ||
+    record.records.some((entry, index) => entry.path !== queryPaths[index])
   )
     throw Error('observation-feasibility-record-unavailable');
   return canonical(record);
@@ -181,7 +183,16 @@ try {
       input: JSON.stringify({ mode: 'provision', paths: [target] }),
     });
   }
-  const query = JSON.stringify({ mode: 'observe', paths: [directory, file] });
+  const common = [];
+  let ancestor = path.dirname(directory);
+  while (true) {
+    common.unshift(ancestor);
+    const parent = path.dirname(ancestor);
+    if (parent === ancestor) break;
+    ancestor = parent;
+  }
+  queryPaths = [...common, directory, file];
+  const query = JSON.stringify({ mode: 'observe', paths: queryPaths });
   const oneShotMs = [];
   stage = 'one-shot';
   for (let i = 0; i < 10; i++) {
@@ -243,7 +254,8 @@ try {
     throw Error('observation-feasibility-output-shape');
   stage = 'validate';
   const report = validateObservationFeasibilityReport({
-    schema: 'ai-peer-review.windows-observation-feasibility/v1',
+    schema: 'ai-peer-review.windows-observation-feasibility/v2',
+    queryPathCount: queryPaths.length,
     verified: false,
     operationalAuthority: 'unavailable',
     producer,
@@ -299,7 +311,8 @@ try {
     batches.push(next);
   }
   const sequence = validateColdStartSequenceReport({
-    schema: 'ai-peer-review.windows-cold-start-sequence/v1',
+    schema: 'ai-peer-review.windows-cold-start-sequence/v2',
+    queryPathCount: queryPaths.length,
     verified: false,
     operationalAuthority: 'unavailable',
     producer,

@@ -161,3 +161,44 @@ test('cold start sequence is bounded diagnostic data with complete equivalence a
     assert.throws(() => api.validateColdStartSequenceReport(candidate));
   }
 });
+
+test('complete-ancestry timing reports declare their workload and preserve legacy records', () => {
+  const extended = {
+    ...report(),
+    schema: 'ai-peer-review.windows-observation-feasibility/v2',
+    queryPathCount: 10,
+  };
+  assert.doesNotThrow(() => api.validateObservationFeasibilityReport(extended));
+  assert.doesNotThrow(() => api.validateObservationFeasibilityReport(report()));
+  for (const count of [0, 2, 65, '10'])
+    assert.throws(() =>
+      api.validateObservationFeasibilityReport({ ...extended, queryPathCount: count })
+    );
+  assert.throws(() =>
+    api.validateObservationFeasibilityReport({
+      ...extended,
+      schema: 'ai-peer-review.windows-observation-feasibility/v1',
+    })
+  );
+});
+
+test('complete-ancestry cold sequences cannot hide target count or publish authority', () => {
+  const value = {
+    ...report(),
+    schema: 'ai-peer-review.windows-cold-start-sequence/v2',
+    queryPathCount: 10,
+    samples: 5,
+    coldFirstQueryMs: Array(5).fill(420),
+    batchElapsedMs: Array(5).fill(500),
+  };
+  for (const key of ['oneShotMs', 'batchQueryMs', 'aclChangeObserved']) delete value[key];
+  assert.doesNotThrow(() => api.validateColdStartSequenceReport(value));
+  for (const update of [
+    { queryPathCount: 2 },
+    { queryPathCount: 65 },
+    { queryPathCount: 3.5 },
+    { schema: 'ai-peer-review.windows-cold-start-sequence/v1' },
+    { verified: true },
+  ])
+    assert.throws(() => api.validateColdStartSequenceReport({ ...value, ...update }));
+});

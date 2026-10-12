@@ -9,7 +9,6 @@ import { createSelectionReadScope } from './selection-read-scope.mjs';
 import { initializePortableSystem } from '../broker/portable-system.mjs';
 import { assertProtectedSnapshotUnchanged } from '../broker/storage-protection.mjs';
 import {
-  verifyRuntimeInventory,
   verifyRuntimeInventorySync,
   readBoundedOrdinaryFile,
 } from '../startup/runtime-inventory.mjs';
@@ -344,12 +343,12 @@ export function createSelectionStore({
         'Registration requires an installed global runtime and Node >=24, not a source checkout.'
       );
   }
-  async function installation(op) {
+  async function installation(op, previousInventory) {
     await requireInstalledRunner(op);
     await initialize(op.system, op.context);
     const inventory = verifyRuntimeInventorySync({
       packageRoot: actualRoot,
-      previousObservation: processInventory,
+      previousObservation: processInventory ?? previousInventory,
     });
     if (
       manifestAtStart === null ||
@@ -531,10 +530,6 @@ export function createSelectionStore({
           );
         if (previousObservation && previousObservation.selection_id !== selected.selection_id)
           refuse('APR_RUNTIME_CHANGED', 'Account runtime selection changed after observation.');
-        await verifyRuntimeInventory({
-          packageRoot: actualRoot,
-          previousObservation: processInventory ?? previousObservation?.inventory,
-        });
         // Re-observe the account and path components before the second independent
         // snapshot. Only the descriptor is retained; no current observation is reused.
         const freshContext = await accountContext(op);
@@ -567,7 +562,7 @@ export function createSelectionStore({
     if (admission.scoped) return admission.result;
     return finish(admission.selected, admission.reselectedRead, false);
     async function finish(selected, reselectedRead, scoped) {
-      const finalInventory = await installation(op);
+      const finalInventory = await installation(op, previousObservation?.inventory);
       try {
         assertProtectedSnapshotUnchanged(reselectedRead.snapshot);
       } catch {

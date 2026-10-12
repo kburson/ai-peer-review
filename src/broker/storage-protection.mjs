@@ -852,6 +852,109 @@ async function inspectWindowsReadPair(root, target, budget) {
     file: { observation: fileObservation },
   };
 }
+// Pure target declarations only. External data cannot mint an OS observation.
+export function posixReadPairTargetsCore({ ancestors: chain, root, file } = {}) {
+  if (
+    !Array.isArray(chain) ||
+    chain.length > 64 ||
+    [...chain, root, file].some((value) => typeof value !== 'string' || !path.isAbsolute(value)) ||
+    new Set([...chain, root, file]).size !== chain.length + 2
+  )
+    throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+  return Object.freeze({
+    verified: false,
+    targets: Object.freeze([
+      ...chain.map((entry) => Object.freeze({ path: entry, ancestor: true })),
+      Object.freeze({ path: root, ancestor: false }),
+      Object.freeze({ path: file, ancestor: false }),
+    ]),
+  });
+}
+// Fresh common ancestry, root and leaf, independently repeated for each phase.
+async function inspectPosixReadPair(root, target, budget) {
+  budget.check();
+  const { uid, stats, chain } = await inspectAncestors(root, false, budget, true);
+  const rootStat = await sameCanonical(root),
+    fileStat = await sameCanonical(target);
+  if (!rootStat.isDirectory() || !fileStat.isFile())
+    throw failure('APR_BROKER_START_FAILED', 'storage-type-unproved');
+  if (fileStat.nlink !== 1n) throw failure('APR_BROKER_START_FAILED', 'storage-hardlink');
+  if (
+    rootStat.uid !== BigInt(uid) ||
+    mode(rootStat) !== 0o700 ||
+    fileStat.uid !== BigInt(uid) ||
+    mode(fileStat) !== 0o600
+  )
+    throw failure('APR_BROKER_START_FAILED', 'owner-or-mode-unproved');
+  let rootAcl = [],
+    fileAcl = [];
+  if (process.platform === 'linux') {
+    const supported = [0xef53n, 0x58465342n, 0x9123683en, 0x01021994n, 0x794c7630n];
+    for (const value of [root, target]) {
+      const filesystem = await statfs(value, { bigint: true });
+      if (!supported.includes(filesystem.type))
+        throw failure('APR_BROKER_START_FAILED', 'filesystem-protection-unproved');
+    }
+  } else if (process.platform === 'darwin') {
+    const records = await macAclBatch(
+      posixReadPairTargetsCore({ ancestors: chain, root, file: target }).targets,
+      budget
+    );
+    for (const entry of stats) entry.acl = records.get(entry.path);
+    rootAcl = records.get(root);
+    fileAcl = records.get(target);
+  } else throw failure('APR_BROKER_START_FAILED', 'os-protection-unsupported');
+  await access(root, constants.R_OK | constants.W_OK | constants.X_OK);
+  await access(target, constants.R_OK | constants.W_OK);
+  for (const [value, stat] of [
+    [root, rootStat],
+    [target, fileStat],
+  ]) {
+    const handle = await open(value, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    try {
+      if (identity(await handle.stat({ bigint: true })) !== identity(stat))
+        throw failure('APR_BROKER_START_FAILED', 'descriptor-substitution');
+    } finally {
+      await handle.close();
+    }
+  }
+  const rootObservation = {
+    root,
+    kind: process.platform,
+    type: 'directory',
+    principal: String(uid),
+    identity: identity(rootStat),
+    ancestry: stats,
+    acl: rootAcl,
+    trustedAllowances: [],
+  };
+  const rootAncestor = {
+    path: root,
+    identity: identity(rootStat),
+    mode: mode(rootStat),
+    uid: String(rootStat.uid),
+    ...(process.platform === 'darwin' ? { acl: rootAcl } : {}),
+  };
+  const fileObservation = {
+    root: target,
+    kind: process.platform,
+    type: 'file',
+    fileVersion: [fileStat.size, fileStat.mtimeNs, fileStat.ctimeNs].map(String).join(':'),
+    principal: String(uid),
+    identity: identity(fileStat),
+    ancestry: [...stats, rootAncestor],
+    acl: fileAcl,
+    trustedAllowances: [],
+  };
+  budget.check();
+  return {
+    root: {
+      observation: rootObservation,
+      fingerprint: createHash('sha256').update(JSON.stringify(rootObservation)).digest('hex'),
+    },
+    file: { observation: fileObservation },
+  };
+}
 function receipt(value, reasons, verified = false) {
   return freeze({
     schema: 'ai-peer-review.storage-protection/v1',
@@ -1055,6 +1158,21 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     )
       throw failure('APR_BROKER_STALE', 'private-file-changed');
   }
+  async function readPairPhase(target) {
+    budget.check();
+    if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
+    try {
+      const pair = await (
+        process.platform === 'win32' ? inspectWindowsReadPair : inspectPosixReadPair
+      )(r.root, target, budget);
+      if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
+      budget.check();
+      return pair;
+    } catch (error) {
+      if (error.code === 'ENOENT') await verify();
+      throw error;
+    }
+  }
   async function readObserved(name, writable = false, maxBytes = MAX_BYTES) {
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_BYTES)
       throw failure('APR_BROKER_PATH_INVALID', 'private-read-bound-invalid');
@@ -1063,25 +1181,13 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
     let file;
     try {
-      let before;
-      if (process.platform === 'win32') {
-        let pair;
-        try {
-          pair = await inspectWindowsReadPair(r.root, target, budget);
-        } catch (error) {
-          if (error.code === 'ENOENT') await verify();
-          throw error;
-        }
-        if (
-          pair.root.fingerprint !== binding.fingerprint ||
-          identity(await directory.stat({ bigint: true })) !== r.identity
-        )
-          throw failure('APR_BROKER_STALE', 'root-protection-changed');
-        before = pair.file;
-      } else {
-        await verify();
-        before = await inspect(target, 'file', budget);
-      }
+      const pair = await readPairPhase(target);
+      if (
+        pair.root.fingerprint !== binding.fingerprint ||
+        identity(await directory.stat({ bigint: true })) !== r.identity
+      )
+        throw failure('APR_BROKER_STALE', 'root-protection-changed');
+      const before = pair.file;
       file = await open(
         target,
         (writable ? constants.O_RDWR : constants.O_RDONLY) | (constants.O_NOFOLLOW || 0)
@@ -1111,25 +1217,21 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       if (offset !== Number(stat.size) || offset > maxBytes)
         throw failure('APR_BROKER_STALE', 'private-read-bound-changed');
       const bytes = buffer.subarray(0, offset);
-      if (process.platform === 'win32') {
-        const pair = await inspectWindowsReadPair(r.root, target, budget);
-        if (
-          pair.root.fingerprint !== binding.fingerprint ||
-          identity(await directory.stat({ bigint: true })) !== r.identity
-        )
-          throw failure('APR_BROKER_STALE', 'root-protection-changed');
-        const fresh = await file.stat({ bigint: true });
-        if (
-          pair.file.observation.identity !== entry.identity ||
-          pair.file.observation.fileVersion !== entry.fileVersion ||
-          identity(fresh) !== entry.identity ||
-          version(fresh) !== entry.fileVersion
-        )
-          throw failure('APR_BROKER_STALE', 'private-file-changed');
-      } else {
-        await verify();
-        await matchFile(entry, file);
-      }
+      const after = await readPairPhase(target);
+      if (
+        after.root.fingerprint !== binding.fingerprint ||
+        identity(await directory.stat({ bigint: true })) !== r.identity
+      )
+        throw failure('APR_BROKER_STALE', 'root-protection-changed');
+      const fresh = await file.stat({ bigint: true });
+      if (
+        after.file.observation.identity !== entry.identity ||
+        after.file.observation.fileVersion !== entry.fileVersion ||
+        identity(fresh) !== entry.identity ||
+        version(fresh) !== entry.fileVersion
+      )
+        throw failure('APR_BROKER_STALE', 'private-file-changed');
+      if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
       return { ...entry, bytes };
     } catch (error) {
       if (file) {

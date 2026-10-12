@@ -6,6 +6,7 @@ const names = new Set([
   'inspect',
   'inspectAncestors',
   'inspectWindowsReadPair',
+  'inspectPosixReadPair',
   'windowsProbe',
   'observeStorageProtection',
   'provisionProtectedRoot',

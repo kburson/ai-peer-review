@@ -99,6 +99,7 @@ export function compareScopeOperationReports(unscoped, scoped) {
     'inspect',
     'inspectAncestors',
     'inspectWindowsReadPair',
+    'inspectPosixReadPair',
     'windowsProbe',
     'observeStorageProtection',
     'provisionProtectedRoot',

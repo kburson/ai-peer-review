@@ -6,6 +6,10 @@ on:
       - .github/workflows/selection-scope-c1-feasibility.yml
       - test/live/selection-scope-c1-prototype.mjs
       - test/helpers/selection-read-scope-fixture.mjs
+      - src/broker/storage-protection.mjs
+      - src/config/runtime-selection-core.mjs
+      - test/unit/selection-final-inventory.test.mjs
+      - test/unit/storage-protection.test.mjs
   workflow_dispatch:
 permissions:
   contents: read
@@ -31,6 +35,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify affected fresh read and inventory controls
+        run: node --test test/unit/storage-protection.test.mjs test/unit/selection-final-inventory.test.mjs
       - name: Retain genuine feasibility and original-budget refusals
         run: |
           node --test test/live/selection-scope-c1-prototype.mjs > scope-c1-feasibility.log 2>&1

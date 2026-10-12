@@ -26,13 +26,19 @@ const fields = [
   'guaranteedStartupSavingMs',
 ].sort();
 export function validateObservationFeasibilityReport(value) {
+  const extended = value?.schema === 'ai-peer-review.windows-observation-feasibility/v2';
+  const expectedFields = extended ? [...fields, 'queryPathCount'].sort() : fields;
   const timing = (n) => Number.isFinite(n) && n >= 0 && n <= 15000;
   if (
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
-    Object.keys(value).sort().join('|') !== fields.join('|') ||
-    value.schema !== 'ai-peer-review.windows-observation-feasibility/v1' ||
+    Object.keys(value).sort().join('|') !== expectedFields.join('|') ||
+    (!extended && value.schema !== 'ai-peer-review.windows-observation-feasibility/v1') ||
+    (extended &&
+      (!Number.isSafeInteger(value.queryPathCount) ||
+        value.queryPathCount < 3 ||
+        value.queryPathCount > 64)) ||
     value.verified !== false ||
     value.operationalAuthority !== 'unavailable' ||
     !/^[a-f0-9]{40}$/.test(value.producer ?? '') ||
@@ -84,6 +90,7 @@ const failureReasons = new Set([
   'observation-feasibility-record-unavailable',
   'observation-feasibility-report-invalid',
   'observation-feasibility-restoration-unproved',
+  'cold-start-sequence-report-invalid',
 ]);
 export function observationFeasibilityFailure(error, stage) {
   return {
@@ -118,6 +125,8 @@ export function validateColdStartSequenceReport(value) {
     'completeRegistrationObserved',
     'guaranteedStartupSavingMs',
   ];
+  const extended = value?.schema === 'ai-peer-review.windows-cold-start-sequence/v2';
+  if (extended) fields.push('queryPathCount');
   const times = (rows) =>
     Array.isArray(rows) &&
     rows.length === 5 &&
@@ -128,7 +137,11 @@ export function validateColdStartSequenceReport(value) {
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.keys(value).sort().join('|') !== fields.sort().join('|') ||
-    value.schema !== 'ai-peer-review.windows-cold-start-sequence/v1' ||
+    (!extended && value.schema !== 'ai-peer-review.windows-cold-start-sequence/v1') ||
+    (extended &&
+      (!Number.isSafeInteger(value.queryPathCount) ||
+        value.queryPathCount < 3 ||
+        value.queryPathCount > 64)) ||
     value.verified !== false ||
     value.operationalAuthority !== 'unavailable' ||
     !/^[a-f0-9]{40}$/.test(value.producer ?? '') ||

@@ -494,3 +494,90 @@ test('[#190] macOS ACL batches require every exact path and apply leaf and ances
       code: 'APR_BROKER_START_FAILED',
     });
 });
+
+// @story #190
+// Pure target data cannot mint a receipt, guard or operational permission.
+test('POSIX pair targets retain private-leaf root policy in the actual batch parser', () => {
+  assert.equal(typeof storage.posixReadPairTargetsCore, 'function');
+  const value = storage.posixReadPairTargetsCore({
+    ancestors: ['/actual parent'],
+    root: '/actual parent/private',
+    file: '/actual parent/private/record.json',
+  });
+  assert.equal(value.verified, false);
+  assert.deepEqual(value.targets, [
+    { path: '/actual parent', ancestor: true },
+    { path: '/actual parent/private', ancestor: false },
+    { path: '/actual parent/private/record.json', ancestor: false },
+  ]);
+  const output =
+    'drwxr-xr-x  2 501 20 64 Oct 9 12:00 /actual parent\n' +
+    'drwx------+  2 501 20 64 Oct 9 12:00 /actual parent/private\n' +
+    ' 0: group:everyone allow read,list,search\n' +
+    '-rw-------  1 501 20 2 Oct 9 12:00 /actual parent/private/record.json\n';
+  assert.throws(
+    () => storage.parseMacAclBatchCore(output, value.targets),
+    (error) => error.details?.reason === 'acl-positive-grant-unproved'
+  );
+});
+
+test('namespace loss after bounded read cannot become missing-leaf ENOENT', async (t) => {
+  const root = await temporary(t),
+    displaced = root + '-displaced';
+  t.after(() => rm(displaced, { recursive: true, force: true }));
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  const receipt = await storage.provisionProtectedRoot({ root, ...context });
+  const guard = await storage.openProtectedRoot({ receipt, ...context });
+  t.after(() => guard.close());
+  await guard.writeExclusive('phase.json', Buffer.from('one'));
+  let changed = false,
+    retained;
+  await interceptOwnedFilesystem(t, 'open', async (original, value, ...args) => {
+    const file = await original(value, ...args);
+    if (value === path.join(root, 'phase.json')) {
+      const read = file.read.bind(file);
+      file.read = async (...input) => {
+        const result = await read(...input);
+        if (result.bytesRead && !changed) {
+          changed = true;
+          retained = file;
+          const { rename } = await import('node:fs/promises');
+          await rename(root, displaced);
+        }
+        return result;
+      };
+    }
+    return file;
+  });
+  await assert.rejects(guard.readSnapshot('phase.json'), (error) => error.code !== 'ENOENT');
+  assert.equal(changed, true);
+  assert.equal(retained.fd, -1);
+});
+
+test('concurrent close refuses the read and closes its not-yet-tracked descriptor', async (t) => {
+  const root = await temporary(t);
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  const receipt = await storage.provisionProtectedRoot({ root, ...context });
+  const guard = await storage.openProtectedRoot({ receipt, ...context });
+  t.after(() => guard.close());
+  await guard.writeExclusive('phase.json', Buffer.from('one'));
+  let retained,
+    closed = false;
+  await interceptOwnedFilesystem(t, 'open', async (original, value, ...args) => {
+    const file = await original(value, ...args);
+    if (value === path.join(root, 'phase.json') && !closed) {
+      // First helper opens are independent identity checks; the actual read
+      // descriptor opens writable/read-only only after the phase observation.
+      const stack = new Error().stack;
+      if (/\bat (?:async )?readObserved \(/.test(stack) && !/\bat (?:async )?inspect/.test(stack)) {
+        closed = true;
+        retained = file;
+        await guard.close();
+      }
+    }
+    return file;
+  });
+  await assert.rejects(guard.readSnapshot('phase.json'));
+  assert.equal(closed, true);
+  assert.equal(retained.fd, -1);
+});
