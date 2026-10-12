@@ -52,6 +52,7 @@ export function createReviewWorker({
   inspectStatus = statusReview,
   reconcile = reconcileWake,
   coordinator = runCoordinator,
+  deferCoordination = false,
 } = {}) {
   if (!registration || typeof registration.workspace !== 'string') {
     throw new TypeError('broker-worker: registration workspace is required');
@@ -59,6 +60,7 @@ export function createReviewWorker({
   let status = null;
   let state = 'runnable';
   let started = false;
+  let activated = !deferCoordination;
   let suspended = false;
   let closed = false;
   let closeOperation = null;
@@ -75,6 +77,7 @@ export function createReviewWorker({
       });
       const evidence = fresh.review?.recovery;
       if (
+        !activated ||
         suspended ||
         closed ||
         evidence?.fenced ||
@@ -96,6 +99,7 @@ export function createReviewWorker({
   const reconcileLaunch = async () => {
     if (
       state === 'bootstrap' &&
+      activated &&
       ['launch-pending', 'outcome-unknown'].includes(status?.review?.recovery?.stage) &&
       typeof adapter?.reconcileLaunch === 'function'
     ) {
@@ -116,7 +120,7 @@ export function createReviewWorker({
   };
   const startCoordinator = () => {
     const input = adapter?.coordinatorInput;
-    if (!input || coordinatorRun) return;
+    if (!activated || !input || coordinatorRun) return;
     let stop;
     const stopped = new Promise((resolve) => {
       stop = resolve;
@@ -157,6 +161,15 @@ export function createReviewWorker({
   };
 
   const worker = {
+    async activate() {
+      if (!started || suspended || closed) throw new Error('broker-worker: activation refused');
+      if (activated) return state;
+      activated = true;
+      observe();
+      await reconcileLaunch();
+      if (!suspended && !closed && WAKE_STATES.has(state)) startCoordinator();
+      return state;
+    },
     async start() {
       if (closed) throw new Error('broker-worker: closed');
       if (!started) {
@@ -172,6 +185,7 @@ export function createReviewWorker({
       if (!started) await this.start();
       if (suspended || closed) return state;
       observe();
+      if (!activated) return state;
       await reconcileLaunch();
       if (suspended || closed) return state;
       if (WAKE_STATES.has(state) && adapter?.coordinatorInput && !coordinatorRun)
@@ -241,6 +255,7 @@ export function createReviewWorker({
         now: new Date(clock?.now?.() ?? Date.now()),
       });
       if (
+        !activated ||
         suspended ||
         closed ||
         fresh.review?.recovery?.fenced ||

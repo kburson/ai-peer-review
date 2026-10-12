@@ -3,6 +3,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AprError } from '../src/errors.mjs';
+import { encodePortableBrokerChildFailure } from '../src/broker/portable-child-failure.mjs';
 import { assertBrokerTransport } from '../src/broker/broker-protocol.mjs';
 import {
   readPortableBrokerBootstrap,
@@ -60,9 +61,7 @@ async function main(argv = process.argv.slice(2)) {
 }
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   main().catch((error) => {
-    process.stderr.write(
-      `${error.code ?? 'APR_BROKER_START_FAILED'}: Portable broker startup or cleanup failed.\n`
-    );
+    process.stderr.write(encodePortableBrokerChildFailure(error));
     process.exitCode = 1;
   });
 }

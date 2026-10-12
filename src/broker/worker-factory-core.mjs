@@ -13,7 +13,7 @@ import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
 
-import cliResultSchema from '../../schemas/cli-result-v1.json' with { type: 'json' };
+import { PROTOCOL_STATES } from '../protocol/format-authority.mjs';
 
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 
@@ -44,6 +44,7 @@ import { reconcileReviewerLaunch } from './launch.mjs';
 export function createProductionWorkerOperations({
   performCurrentOperationEffect,
   ownerContext = async () => undefined,
+  restorationOwner = () => false,
 }) {
   const mkdirSync = async (...args) =>
     await performCurrentOperationEffect(() => rawMkdirSync(...args));
@@ -122,8 +123,7 @@ export function createProductionWorkerOperations({
             Array.isArray(prior) ||
             `${JSON.stringify(prior)}\n` !== bytes ||
             Object.keys(prior).sort().join('\n') !== Object.keys(observation).sort().join('\n') ||
-            (prior.protocol_state !== null &&
-              !cliResultSchema.$defs.state.enum.includes(prior.protocol_state)) ||
+            (prior.protocol_state !== null && !PROTOCOL_STATES.includes(prior.protocol_state)) ||
             Object.entries(observation).some(
               ([key, value]) => key !== 'protocol_state' && prior[key] !== value
             )
@@ -223,6 +223,7 @@ export function createProductionWorkerOperations({
 
     const makeRecoveryWorker = () =>
       createReviewWorker({
+        deferCoordination: restorationOwner(owner),
         registration,
         adapter: recoveryAdapter(registration),
         clock,
@@ -439,6 +440,7 @@ export function createProductionWorkerOperations({
         reviewerAdapter.observeLaunchResource({ workspace, operationId: input.operationId }),
     });
     return createReviewWorker({
+      deferCoordination: restorationOwner(owner),
       registration,
       adapter: bridge,
       resourceLease: {

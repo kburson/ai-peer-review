@@ -3,6 +3,10 @@
 import { randomUUID } from 'node:crypto';
 import { AprError } from '../errors.mjs';
 import { validateCommand } from './broker-protocol.mjs';
+import {
+  decodePortableBrokerChildFailure,
+  encodePortableBrokerChildFailure,
+} from './portable-child-failure.mjs';
 export function createPortableClientCore({
   observe,
   launch,
@@ -12,13 +16,13 @@ export function createPortableClientCore({
   clock = performance,
 }) {
   const retained = new Set();
-  const failure = (reason, cause) => {
+  const failure = (reason, cause, details = {}) => {
     const error = new AprError(
       'APR_BROKER_START_FAILED',
       'Portable broker readiness is unproved.',
       {
         recovery: 'Retain exact startup and owner obligations; reconcile before retrying.',
-        details: { reason },
+        details: { ...details, reason },
       }
     );
     if (cause) error.cause = cause;
@@ -74,11 +78,38 @@ export function createPortableClientCore({
         }
         if (!['missing', 'pending', 'dead'].includes(state.status))
           throw failure('owner-observation-unproved', state.error);
-        if (process.exited()) throw failure('broker-process-exited-before-readiness');
+        if (process.exited()) {
+          const child = process.failure?.();
+          const projected =
+            child &&
+            decodePortableBrokerChildFailure(
+              encodePortableBrokerChildFailure({
+                details: {
+                  reason: child.reason,
+                  outstandingObligations: child.obligations?.map((name) => ({ name })),
+                },
+              })
+            );
+          const exit = process.exitStatus?.();
+          throw failure(projected?.reason ?? 'broker-process-exited-before-readiness', undefined, {
+            ...(projected ? { childFailure: projected } : {}),
+            ...(exit &&
+            (exit.code === null || Number.isSafeInteger(exit.code)) &&
+            (exit.signal === null || /^SIG[A-Z0-9]{1,16}$/u.test(exit.signal))
+              ? { childExit: { code: exit.code, signal: exit.signal } }
+              : {}),
+          });
+        }
         await delay(Math.min(25, Math.max(1, context.deadline - clock.now())), context);
       }
     } catch (error) {
-      throw failure('broker-startup-incomplete', error);
+      throw failure(
+        error?.details?.childFailure?.reason ?? 'broker-startup-incomplete',
+        error,
+        error?.details?.childFailure
+          ? { childFailure: error.details.childFailure, childExit: error.details.childExit }
+          : {}
+      );
     }
   }
   async function request(input, command, workspace, context) {

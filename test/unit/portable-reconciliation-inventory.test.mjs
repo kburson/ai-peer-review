@@ -537,3 +537,54 @@ test('resource namespace binds C3 filenames to the exact root and independent re
     { code: 'APR_BROKER_STALE' }
   );
 });
+
+test('fixed genuine-path inventory observes ordinary project stores and rejects an added orphan', async (t) => {
+  const api = await import('../../src/broker/portable-reconciliation-inventory.mjs');
+  const election = await import('../../src/broker/ownership-election.mjs');
+  const project = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-fixed-inventory-209-')));
+  const base = path.join(project, '.scratch', 'peer-review');
+  await mkdir(base, { recursive: true, mode: 0o755 });
+  await mkdir(path.join(base, 'retained-review'), { mode: 0o755 });
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  const held = { paths: null, observed: null };
+  t.after(async () => {
+    await held.observed?.close();
+    await held.paths?.close();
+    await rm(project, { recursive: true, force: true });
+  });
+  const privateReceipt = await provisionProtectedRoot({
+    root: path.join(base, 'private'),
+    ...context,
+  });
+  const runtimeReceipt = await provisionProtectedRoot({
+    root: path.join(base, 'runtime'),
+    ...context,
+  });
+  const paths = await election.bindOwnerElectionPaths({
+    receipt: privateReceipt,
+    effectReceipts: [runtimeReceipt],
+    resource: { kind: 'broker-owner' },
+    ...context,
+  });
+  held.paths = paths;
+  const observed = await api.observeReconciliationInventory({ paths, ...context });
+  held.observed = observed;
+  assert.equal(observed.verified, false);
+  await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+  const data = await api.readReconciliationInventory({ observation: observed, paths, ...context });
+  assert.equal(data.project.physicalRoot, project);
+  await assert.rejects(
+    () => api.readReconciliationInventory({ observation: { ...observed }, paths, ...context }),
+    { code: 'APR_BROKER_STALE' }
+  );
+  await writeFile(path.join(base, 'retained-review', 'manual-fence.json'), '{}\n');
+  await assert.rejects(
+    () => api.assertReconciliationExistingEffectScope({ observation: observed, paths, ...context }),
+    (error) => error.details?.reason === 'reconciliation-generation-changed'
+  );
+  await mkdir(path.join(base, 'new-orphan'), { mode: 0o755 });
+  await assert.rejects(
+    () => api.assertReconciliationInventory({ observation: observed, paths, ...context }),
+    (error) => error.details?.reason === 'reconciliation-generation-changed'
+  );
+});

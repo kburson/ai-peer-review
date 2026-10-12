@@ -75,6 +75,8 @@ export function createBrokerService({
     const workerSubscriptions = new Map();
     let idleTimer = null;
     let stopped = false;
+    let starting = true;
+    let initialSettlementPending = false;
     let sequence = Promise.resolve();
     let resolveStopped;
     const untilStopped = new Promise((resolve) => {
@@ -109,8 +111,15 @@ export function createBrokerService({
         );
       }
       workers.set(valid.workspace, worker);
+      await input.acceptWorkerRestoration?.(worker, 'created');
       if (typeof worker.onStateChange === 'function') {
         const unsubscribe = worker.onStateChange(() => {
+          // Initial settlement is explicitly awaited below. A startup notification
+          // must not race that sequence or mutate generations before publication.
+          if (starting) {
+            initialSettlementPending = true;
+            return;
+          }
           const operation = sequence.then(() =>
             withLifecycleAuthority(
               { operation: 'broker.reconcile', cwd: identity.physicalRoot },
@@ -124,6 +133,7 @@ export function createBrokerService({
       await assertCurrentOperationAuthority();
       await worker.start();
       await assertCurrentOperationAuthority();
+      await input.acceptWorkerRestoration?.(worker, 'start');
       return worker;
     };
     const settleWorkers = async ({ resetIdle = false } = {}) => {
@@ -134,10 +144,12 @@ export function createBrokerService({
           await assertCurrentOperationAuthority();
           await worker.suspend();
           await assertCurrentOperationAuthority();
+          if (starting) await input.acceptWorkerRestoration?.(worker, 'suspend');
           await input.cleanupGuard?.();
           await assertCurrentOperationAuthority();
           await worker.close();
           await assertCurrentOperationAuthority();
+          if (starting) await input.acceptWorkerRestoration?.(worker, 'close');
           workerSubscriptions.get(workspace)?.();
           workerSubscriptions.delete(workspace);
           workers.delete(workspace);
@@ -146,6 +158,7 @@ export function createBrokerService({
           await assertCurrentOperationAuthority();
           await worker.close();
           await assertCurrentOperationAuthority();
+          if (starting) await input.acceptWorkerRestoration?.(worker, 'close');
           workerSubscriptions.get(workspace)?.();
           workerSubscriptions.delete(workspace);
           workers.delete(workspace);
@@ -297,10 +310,31 @@ export function createBrokerService({
           for (const registration of await registry.list()) await addWorker(registration);
           await settleWorkers({ resetIdle: true });
           await server.start(serializedDispatch);
+          while (initialSettlementPending) {
+            initialSettlementPending = false;
+            await settleWorkers({ resetIdle: true });
+          }
           // Original bounded startup includes restoration and publication.
           await owner.publish?.();
         }
       );
+      starting = false;
+      if (
+        initialSettlementPending ||
+        [...workers.values()].some((worker) => typeof worker.activate === 'function')
+      )
+        await withLifecycleAuthority(
+          { operation: 'broker.reconcile', cwd: identity.physicalRoot },
+          async () => {
+            for (const worker of workers.values())
+              if (typeof worker.activate === 'function') {
+                await assertCurrentOperationAuthority();
+                await worker.activate();
+                await assertCurrentOperationAuthority();
+              }
+            if (initialSettlementPending) await settleWorkers({ resetIdle: true });
+          }
+        );
       input.onReady?.();
       await untilStopped;
       await sequence;

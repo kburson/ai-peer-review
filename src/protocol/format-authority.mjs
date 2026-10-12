@@ -1,5 +1,8 @@
 // @story #209
 // Shared closed format authorities. Public JSON projections are checked against these bytes.
+// This writer provenance annotation changes with a package release. Projection
+// parity is a required unit check; it never selects or admits an executable.
+export const COMPATIBILITY_DECLARATION_VERSION = '0.4.0';
 function freeze(value) {
   if (value && typeof value === 'object') {
     for (const child of Object.values(value)) freeze(child);

@@ -6,7 +6,7 @@ import {
 import { verifyCleanupOwnerCore } from './cleanup-ownership-core.mjs';
 import { isPortableBrokerOwner } from '../broker/portable-owner-lifecycle.mjs';
 import { isAuthenticatedBrokerOwner } from '../broker/ownership.mjs';
-import packageJson from '../../package.json' with { type: 'json' };
+import { COMPATIBILITY_DECLARATION_VERSION } from './format-authority.mjs';
 
 import { AprError } from '../errors.mjs';
 
@@ -33,8 +33,8 @@ export {
 import { inspectUnsupportedReview as inspectUnsupportedReviewRead } from './compatibility-read.mjs';
 export function currentCompatibility() {
   return Object.freeze({
-    minimum_reader_version: packageJson.version,
-    minimum_writer_version: packageJson.version,
+    minimum_reader_version: COMPATIBILITY_DECLARATION_VERSION,
+    minimum_writer_version: COMPATIBILITY_DECLARATION_VERSION,
     accepted_event_schemas: Object.freeze([EVENT_V1_SCHEMA, EVENT_V2_SCHEMA]),
   });
 }
@@ -58,13 +58,13 @@ function unsupported(message, details = {}) {
   return new AprError('APR_REVIEW_RUNTIME_UNSUPPORTED', message, {
     recovery:
       'Preserve this review read-only. Use the current selected global installation with explicitly supported collateral or start an independent review with distinct IDs and paths; never execute retained images.',
-    details: { package_version: packageJson.version, ...details },
+    details: { package_version: COMPATIBILITY_DECLARATION_VERSION, ...details },
   });
 }
 export function inspectUnsupportedReview(input) {
   return Object.freeze({
     ...inspectUnsupportedReviewRead(input),
-    package_version: packageJson.version,
+    package_version: COMPATIBILITY_DECLARATION_VERSION,
   });
 }
 export async function assertCurrentCleanupOwnership({ owner, protocol, runtime, context } = {}) {

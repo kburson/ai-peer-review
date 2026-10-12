@@ -39,3 +39,8 @@ test('published format JSON remains an exact projection of shared format authori
   );
   assert.deepEqual(formats.PROTOCOL_STATES, cli.$defs.state.enum);
 });
+
+test('compatibility declaration version remains an exact published package projection', () => {
+  const metadata = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url)));
+  assert.equal(formats.COMPATIBILITY_DECLARATION_VERSION, metadata.version);
+});

@@ -782,6 +782,55 @@ function boundInventory(input) {
 export async function assertReconciliationExistingEffectScope(input = {}) {
   const record = boundInventory(input);
   await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
+  for (const observed of record.ordinary) {
+    const original = observations.get(observed);
+    if (original.mode !== 'membership') continue;
+    const current = await capture(original.root, original.context, original.mode);
+    try {
+      const entries = (value) =>
+        value.entries.map(({ relativePath, type, identity, fileVersion }) => ({
+          relativePath,
+          type,
+          identity,
+          ...(type === 'file' ? { fileVersion } : {}),
+        }));
+      const chain = (value) => value.chain.map(([directory, facts]) => [directory, facts.identity]);
+      if (
+        JSON.stringify(chain(current)) !== JSON.stringify(chain(original.recorded)) ||
+        JSON.stringify(entries(current)) !== JSON.stringify(entries(original.recorded))
+      )
+        refuse('reconciliation-generation-changed');
+    } finally {
+      await closeDirectories(current.directories);
+    }
+  }
+  for (const namespace of record.namespaces.filter((entry) => entry.kind === 'review')) {
+    const original = observations.get(namespace.observation);
+    const current = await capture(original.root, original.context, original.mode);
+    try {
+      assertReviewNamespace(current.entries);
+      const critical = (value) =>
+        value.entries.filter(({ relativePath }) =>
+          ['manual-fence.json', 'manual-suspension.json', 'manual-launch-history.json'].includes(
+            relativePath
+          )
+        );
+      const chain = (value) => value.chain.map(([directory, facts]) => [directory, facts.identity]);
+      if (
+        JSON.stringify(chain(current)) !== JSON.stringify(chain(original.recorded)) ||
+        JSON.stringify(critical(current)) !== JSON.stringify(critical(original.recorded))
+      )
+        refuse('reconciliation-generation-changed');
+      for (const { relativePath } of critical(original.recorded))
+        if (
+          current.files.get(relativePath)?.digest !==
+          original.recorded.files.get(relativePath)?.digest
+        )
+          refuse('reconciliation-generation-changed');
+    } finally {
+      await closeDirectories(current.directories);
+    }
+  }
   for (const namespace of record.namespaces)
     if (['registrations', 'recovery'].includes(namespace.kind))
       await assertOrdinaryReconciliationTreeUnchanged(namespace.observation);

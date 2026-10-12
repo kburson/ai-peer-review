@@ -8,6 +8,7 @@ import path from 'node:path';
 import { AprError } from '../errors.mjs';
 import { assertBrokerTransport } from './broker-protocol.mjs';
 import { createPortableClientCore } from './client-core.mjs';
+import { createPortableBrokerFailureChannel } from './portable-child-failure.mjs';
 import { createManualRecoveryOperations } from './manual-recovery-core.mjs';
 import { acquireManualRecoveryResource } from './manual-recovery-resource.mjs';
 import { initializePortableOperations } from './portable-platform.mjs';
@@ -187,24 +188,39 @@ async function launch(input) {
   const entry = fileURLToPath(new URL('../../bin/peer-review-broker.mjs', import.meta.url));
   let child,
     exited = false,
+    exitStatus = null,
     ready;
+  const failureChannel = createPortableBrokerFailureChannel();
   await performCurrentOperationEffect(() => {
     child = spawn(executable, [entry, bootstrap.file], {
       shell: false,
       detached: true,
-      stdio: 'ignore',
+      stdio: ['ignore', 'ignore', 'pipe'],
     });
+    child.stderr.on('data', (bytes) => failureChannel.append(bytes));
     ready = new Promise((resolve, reject) => {
       child.once('spawn', resolve);
       child.once('error', reject);
       child.once('exit', (code, signal) => {
-        exited = true;
+        exitStatus = Object.freeze({ code, signal });
         reject(stale('process-exited', { code, signal }));
+      });
+      child.once('close', () => {
+        exited = true;
       });
     });
     ready.catch(() => {});
   });
-  return Object.freeze({ ready, exited: () => exited, unref: () => child.unref() });
+  return Object.freeze({
+    ready,
+    exited: () => exited,
+    failure: () => failureChannel.read(),
+    exitStatus: () => exitStatus,
+    unref: () => {
+      child.stderr.unref();
+      child.unref();
+    },
+  });
 }
 const core = createPortableClientCore({
   observe,

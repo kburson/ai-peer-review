@@ -3,6 +3,7 @@ import {
   resolvePortableWorkerOwner,
   isPreparedPortableOwner,
   preparedPortableOwnerContext,
+  publishedPortableBrokerOwner,
 } from './portable-ownership.mjs';
 // @story #136
 import {
@@ -14,6 +15,7 @@ import { initializePortableOperations } from './portable-platform.mjs';
 import { createProductionWorkerOperations } from './worker-factory-core.mjs';
 const operations = createProductionWorkerOperations({
   performCurrentOperationEffect,
+  restorationOwner: isPreparedPortableOwner,
   ownerContext: async (owner) => {
     resolvePortableWorkerOwner(owner);
     return isPreparedPortableOwner(owner)
@@ -37,6 +39,7 @@ export async function createProductionReviewWorker(input = {}) {
     operation: 'broker.register',
     cwd: input.registration?.project_root,
     reviewWorkspace: input.registration?.workspace,
+    ...(isPreparedPortableOwner(owner) ? preparedPortableOwnerContext(owner) : {}),
   };
   const worker = await withOperationAuthority(authority, async () => {
     const context = await currentOperationAuthorityContext();
@@ -48,7 +51,14 @@ export async function createProductionReviewWorker(input = {}) {
       clock: { now: () => Date.now(), setTimeout, clearTimeout },
     });
   });
-  const mutations = new Set(['start', 'reconcile', 'suspend', 'close', 'launchReviewer']);
+  const mutations = new Set([
+    'start',
+    'activate',
+    'reconcile',
+    'suspend',
+    'close',
+    'launchReviewer',
+  ]);
   return Object.freeze(
     Object.fromEntries(
       Object.entries(worker).map(([name, value]) => [
@@ -56,7 +66,15 @@ export async function createProductionReviewWorker(input = {}) {
         mutations.has(name) && typeof value === 'function'
           ? (...args) => {
               resolvePortableWorkerOwner(owner);
-              return withOperationAuthority(authority, () => value.apply(worker, args));
+              if (name === 'activate') publishedPortableBrokerOwner(owner);
+              const current = isPreparedPortableOwner(owner)
+                ? { ...authority, ...preparedPortableOwnerContext(owner) }
+                : {
+                    operation: authority.operation,
+                    cwd: authority.cwd,
+                    reviewWorkspace: authority.reviewWorkspace,
+                  };
+              return withOperationAuthority(current, () => value.apply(worker, args));
             }
           : value,
       ])
