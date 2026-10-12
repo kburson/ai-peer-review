@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { randomUUID, createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { runNpm, parseNpmPackOutput } from './npm-command.mjs';
+import { summarizeSelectionAttribution } from './selection-attribution.mjs';
 import {
   COST_CANDIDATE,
   projectRegistrationCostCoverage,
@@ -106,7 +107,12 @@ try {
     {
       cwd: project,
       encoding: 'utf8',
-      env: { ...process.env, NODE_V8_COVERAGE: coverageRoot },
+      env: {
+        ...process.env,
+        NODE_V8_COVERAGE: coverageRoot,
+        APR_SELECTION_COST_OBSERVATION: '1',
+        APR_SELECTION_COST_OPERATION: 'register',
+      },
       timeout: 120000,
       maxBuffer: 2097152,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -121,6 +127,34 @@ try {
     { flag: 'wx' }
   );
   if (!childExitObserved || exitCode !== 0) throw Error('registration-cost-primary-refused');
+  const traces = (child.stderr ?? '').split(/\r?\n/).flatMap((line) => {
+    try {
+      const value = JSON.parse(line);
+      return value.diagnostic === 'selection-attribution' ? [value] : [];
+    } catch {
+      return [];
+    }
+  });
+  if (traces.length !== 1) throw Error('selection-attribution-evidence-unavailable');
+  const { diagnostic: ignoredDiagnostic, ...trace } = traces[0];
+  void ignoredDiagnostic;
+  const attributed = summarizeSelectionAttribution(trace);
+  await writeFile(
+    path.join(output, 'attribution-register.json'),
+    JSON.stringify(
+      {
+        schema: 'ai-peer-review.selection-attribution/v1',
+        candidate: COST_CANDIDATE,
+        producer,
+        operation: 'register',
+        node: process.versions.node,
+        ...attributed,
+      },
+      null,
+      2
+    ) + '\n',
+    { flag: 'wx' }
+  );
   const record = JSON.parse(child.stdout);
   if (
     record.schema !== 'ai-peer-review.primary-activation/v1' ||
@@ -169,6 +203,103 @@ try {
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n', {
     flag: 'wx',
   });
+  // A separate actual activation observation. The original failing registration
+  // command, candidate inputs and budgets above remain unchanged.
+  stage = 'activation-setup';
+  execFileSync(
+    process.execPath,
+    [
+      cli,
+      'setup',
+      '--scope',
+      'project',
+      '--agent',
+      'codex',
+      '--agent',
+      'claude',
+      '--confirm-scratch-exclude',
+    ],
+    { cwd: project, stdio: 'pipe', timeout: 120000 }
+  );
+  execFileSync('git', ['add', '.'], { cwd: project, stdio: 'pipe' });
+  execFileSync(
+    'git',
+    [
+      '-c',
+      'user.name=Disposable diagnostic',
+      '-c',
+      'user.email=diagnostic@example.invalid',
+      'commit',
+      '-m',
+      'Owned disposable primary policy',
+    ],
+    { cwd: project, stdio: 'pipe' }
+  );
+  stage = 'activation';
+  const activation = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      pathToFileURL(path.join(root, 'test/helpers/windows-probe-measurement-preload.mjs')).href,
+      cli,
+      'primary',
+      'activate',
+      '--json',
+    ],
+    {
+      cwd: project,
+      encoding: 'utf8',
+      timeout: 120000,
+      maxBuffer: 2097152,
+      env: {
+        ...process.env,
+        APR_SELECTION_COST_OBSERVATION: '1',
+        APR_SELECTION_COST_OPERATION: 'activate',
+      },
+    }
+  );
+  await writeFile(
+    path.join(base, 'activation-private.log'),
+    (activation.stdout ?? '') + '\n' + (activation.stderr ?? ''),
+    { flag: 'wx' }
+  );
+  if (activation.status !== 0 || activation.signal || activation.error)
+    throw Error('registration-cost-primary-refused');
+  const activationTraces = (activation.stderr ?? '').split(/\r?\n/).flatMap((line) => {
+    try {
+      const value = JSON.parse(line);
+      return value.diagnostic === 'selection-attribution' ? [value] : [];
+    } catch {
+      return [];
+    }
+  });
+  if (activationTraces.length !== 1) throw Error('selection-attribution-evidence-unavailable');
+  const { diagnostic: activationDiagnostic, ...activationTrace } = activationTraces[0];
+  void activationDiagnostic;
+  const activationAttribution = summarizeSelectionAttribution(activationTrace);
+  const activated = JSON.parse(activation.stdout);
+  if (
+    activated.root !== project ||
+    activated.commonDir !== path.join(project, '.git') ||
+    !/^sha256:[a-f0-9]{64}$/.test(activated.activationDigest ?? '')
+  )
+    throw Error('registration-cost-record-unavailable');
+  await writeFile(
+    path.join(output, 'attribution-activate.json'),
+    JSON.stringify(
+      {
+        schema: 'ai-peer-review.selection-attribution/v1',
+        candidate: COST_CANDIDATE,
+        producer,
+        operation: 'activate',
+        node: process.versions.node,
+        ...activationAttribution,
+      },
+      null,
+      2
+    ) + '\n',
+    { flag: 'wx' }
+  );
 } catch (error) {
   await writeFile(path.join(base, 'failure-private.log'), String(error.stack ?? error), {
     flag: 'wx',

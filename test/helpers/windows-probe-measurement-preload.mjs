@@ -4,6 +4,12 @@ import { createRequire, syncBuiltinESMExports } from 'node:module';
 import { performance } from 'node:perf_hooks';
 import { promisify } from 'node:util';
 import { createProbeMeasurement } from './windows-probe-measurement-core.mjs';
+// #190's independently enabled metadata observer never changes the candidate
+// body or original #198 stock-script/argument/guard classification.
+const selectionAttribution =
+  process.env.APR_SELECTION_COST_OBSERVATION === '1'
+    ? await import('./selection-attribution-preload.mjs')
+    : null;
 const require = createRequire(import.meta.url);
 const cp = require('node:child_process'),
   fs = require('node:fs/promises');
@@ -106,6 +112,7 @@ fs.open = function (...args) {
   if (retained)
     result.then(
       (handle) => {
+        selectionAttribution?.recordSelectionGuardOpen(args[0], handle);
         measurement.registerGuard(handle);
         const stat = handle.stat,
           close = handle.close;
