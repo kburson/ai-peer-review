@@ -2,6 +2,7 @@
 // Pure transition comparison cannot grant ownership or mint a worker receipt.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { describeResourceReconciliationNamespaceCore } from '../../src/broker/portable-reconciliation-inventory.mjs';
 const api = await import('../../src/broker/portable-restoration-transition.mjs').catch((error) => {
   if (error.code === 'ERR_MODULE_NOT_FOUND') return {};
   throw error;
@@ -38,6 +39,17 @@ function fixture() {
   const data = {
     verified: false,
     project,
+    containers: [
+      {
+        root: registration.workspace,
+        mechanism: 'ordinary',
+        identity: 'workspace',
+        version: 'v1',
+        entries: [],
+        chain: [['/project', 'project']],
+      },
+    ],
+    absent: [],
     namespaces: [
       namespace('registrations', '/project/.scratch/peer-review/broker/registrations', [
         file('review.json', registration),
@@ -80,6 +92,17 @@ test('unchanged restoration and its one exact recovery record remain unverified'
   input.stage = 'start';
   assert.equal(compare(input).status, 'unknown');
 });
+test('restoration refuses physical container replacement and unrelated absence changes', () => {
+  const input = fixture();
+  input.after.containers[0].identity = 'replacement';
+  assert.equal(compare(input).status, 'unknown');
+  const changed = fixture();
+  changed.after.absent.push({ root: '/foreign', parent: '/project' });
+  assert.equal(compare(changed).status, 'unknown');
+  const metadata = fixture();
+  metadata.after.containers[0].version = 'different';
+  assert.equal(compare(metadata).status, 'unknown');
+});
 test('manual, registration and event mutations cannot be accepted as arbitrary refreshed baselines', () => {
   for (const changed of ['manual-fence.json', 'events.jsonl']) {
     const input = fixture();
@@ -91,4 +114,66 @@ test('manual, registration and event mutations cannot be accepted as arbitrary r
     file('another.json', { ...registration, review_id: 'another' })
   );
   assert.equal(compare(input).status, 'unknown');
+});
+
+test('only the exact acquired resource publication and its proved release can change', () => {
+  const input = fixture();
+  input.stage = 'created';
+  const root = '/account/.cache/ai-peer-review/provider-resources/' + 'd'.repeat(64);
+  const record = {
+    schema: 'ai-peer-review.provider-resource/v1',
+    resource_digest: 'd'.repeat(64),
+    owner_project_root_digest: project.digest,
+    instance_id: 'e'.repeat(64),
+    nonce_digest: 'f'.repeat(64),
+    acquired_at: '2026-10-12T00:00:00.000Z',
+    heartbeat_at: '2026-10-12T00:00:00.000Z',
+    diagnostic_at: '2026-10-12T00:00:00.000Z',
+  };
+  const key = describeResourceReconciliationNamespaceCore({ root, entries: [] }).resourceKey;
+  input.resources.push({
+    verified: false,
+    released: false,
+    concurrent: false,
+    resourceDigest: 'd'.repeat(64),
+    record,
+    root,
+  });
+  input.after.namespaces.push(
+    namespace('provider-resources', root, [
+      file('apr-resource-' + key + '.json', record),
+      file('apr-election-' + key + '-contender.json', {
+        schema: 'ai-peer-review.election-slot/v1',
+        resourceKey: key,
+        contenderId: 'contender',
+        choosing: false,
+        ticket: '1',
+        identity: { host: 'host', pid: 123 },
+      }),
+    ])
+  );
+  assert.equal(compare(input).status, 'transition');
+  assert.equal(compare(input).verified, false);
+  const rogue = structuredClone(input);
+  rogue.after.namespaces.at(-1).files.push(file('resource.lock', {}));
+  assert.equal(compare(rogue).status, 'unknown');
+  const release = structuredClone(input);
+  release.before = structuredClone(input.after);
+  release.after.namespaces[2] = namespace('provider-resources', root);
+  release.stage = 'close';
+  release.resources[0].released = true;
+  assert.equal(compare(release).status, 'transition');
+  release.resources[0].released = false;
+  assert.equal(compare(release).status, 'unknown');
+});
+test('restoration sequence rejects skipped starts, replacement workers and effects after close', () => {
+  assert.equal(typeof api.nextPortableRestorationStageCore, 'function');
+  assert.equal(api.nextPortableRestorationStageCore(null, 'created'), 'created');
+  assert.equal(api.nextPortableRestorationStageCore(null, 'start'), null);
+  assert.equal(api.nextPortableRestorationStageCore('created', 'start'), 'start');
+  assert.equal(api.nextPortableRestorationStageCore('created', 'close'), null);
+  assert.equal(api.nextPortableRestorationStageCore('start', 'suspend'), 'suspend');
+  assert.equal(api.nextPortableRestorationStageCore('suspend', 'close'), 'close');
+  assert.equal(api.nextPortableRestorationStageCore('close', 'start'), null);
+  assert.equal(api.nextPortableRestorationStageCore('start', 'created'), null);
 });

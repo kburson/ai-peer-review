@@ -190,3 +190,29 @@ test('restoration resource reader refuses fabricated workers and owner bindings'
     { code: 'APR_BROKER_START_FAILED' }
   );
 });
+
+test('restoration receipts and initial registrations cannot be supplied by copied facades', async () => {
+  const factory = await import('../../src/broker/worker-factory.mjs');
+  const ownership = await import('../../src/broker/portable-ownership.mjs');
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  assert.equal(typeof factory.inspectPortableWorkerRestorationReceipt, 'function');
+  assert.equal(typeof ownership.readPreparedPortableRegistrations, 'function');
+  assert.equal(typeof ownership.acceptPortableWorkerRestoration, 'function');
+  await assert.rejects(
+    () =>
+      factory.inspectPortableWorkerRestorationReceipt({
+        receipt: { verified: true, stage: 'start' },
+        owner: {},
+        ...context,
+      }),
+    { code: 'APR_BROKER_START_FAILED' }
+  );
+  await assert.rejects(
+    () => ownership.readPreparedPortableRegistrations({ owner: {}, ...context }),
+    { code: 'APR_BROKER_STALE' }
+  );
+  await assert.rejects(
+    () => ownership.acceptPortableWorkerRestoration({ owner: {}, receipt: {}, ...context }),
+    { code: 'APR_BROKER_STALE' }
+  );
+});

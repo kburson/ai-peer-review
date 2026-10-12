@@ -608,6 +608,21 @@ export async function observeReconciliationInventory(input = {}) {
     record.protected.push(retained);
     const entries = await guard.listOrdinaryEntries();
     retained.entries = entries;
+    retained.chain = await physicalChain(root, context);
+    retained.physical = await directoryFacts(root, context);
+    retained.physicalEntries = [];
+    for (const entry of entries) {
+      const stat = await lstat(path.join(root, entry.name), { bigint: true });
+      retained.physicalEntries.push(
+        Object.freeze({
+          relativePath: entry.name,
+          type: entry.type,
+          identity: identity(stat),
+          fileVersion: version(stat),
+        })
+      );
+    }
+    await guard.verify();
     countInventory(record, entries.length);
     for (const entry of entries)
       if (entry.type === 'file')
@@ -942,6 +957,49 @@ export async function readReconciliationInventory(input = {}) {
   return Object.freeze({
     verified: false,
     project: record.project,
+    containers: Object.freeze([
+      ...record.ordinary.map((observation) => {
+        const { root, recorded } = observations.get(observation);
+        return Object.freeze({
+          root,
+          mechanism: 'ordinary',
+          identity: recorded.directories[0].identity,
+          version: recorded.directories[0].version,
+          entries:
+            record.paths && root === observations.get(record.baseObservation).root
+              ? recorded.entries.map((entry) =>
+                  ['private', 'runtime'].includes(entry.relativePath) && entry.type === 'directory'
+                    ? {
+                        relativePath: entry.relativePath,
+                        type: entry.type,
+                        identity: entry.identity,
+                      }
+                    : entry
+                )
+              : recorded.entries,
+          chain: recorded.chain.map(([location, facts]) => [location, facts.identity]),
+        });
+      }),
+      ...record.protected
+        .filter(({ owned }) => owned)
+        .map((store) =>
+          Object.freeze({
+            root: store.root,
+            mechanism: 'protected',
+            ...store.physical,
+            entries: Object.freeze(store.physicalEntries),
+            chain: store.chain.map(([location, facts]) => [location, facts.identity]),
+          })
+        ),
+    ]),
+    absent: Object.freeze(
+      record.absent.map(({ root, observed }) =>
+        Object.freeze({
+          root,
+          parent: observations.get(observed).root,
+        })
+      )
+    ),
     namespaces: Object.freeze(
       record.namespaces.map((namespace) => {
         const ordinaryRecord = namespace.observation && observations.get(namespace.observation);

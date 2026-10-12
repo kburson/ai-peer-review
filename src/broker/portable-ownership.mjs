@@ -13,7 +13,12 @@ import {
   createPortableOwnerLifecycle,
   isPortableBrokerOwner,
 } from './portable-owner-lifecycle.mjs';
-import { observePortableReconciliation } from './portable-reconciliation.mjs';
+import {
+  observePortableReconciliation,
+  isPortableReconciliationObservation,
+  readPortableRestorationBaseline,
+  acceptPortableRestorationReceipt,
+} from './portable-reconciliation.mjs';
 import { verifyRuntimeInventorySync } from '../startup/runtime-inventory.mjs';
 import path from 'node:path';
 import { portableBrokerPaths } from './portable-paths.mjs';
@@ -381,6 +386,57 @@ export function preparedPortableOwnerContext(owner) {
   ownerBudget(record.context);
   return record.context;
 }
+// A read-only original-context check may run during publication. It does not
+// broaden the prepared worker mutation phase or renew startup authority.
+export async function inspectPreparedPortableRestorationOwner(input = {}) {
+  const record = preparedOwners.get(input.owner);
+  if (
+    Object.keys(input).sort().join(',') !== 'deadline,owner,signal' ||
+    !record ||
+    record.fenced ||
+    !['prepared', 'publishing'].includes(record.phase) ||
+    input.signal !== record.context.signal ||
+    input.deadline !== record.context.deadline ||
+    !isPortableReconciliationObservation(record.reconciliation)
+  )
+    throw boundedOwnershipError('genuine-prepared-owner-required');
+  await record.verifyOriginal();
+  return Object.freeze({
+    context: record.context,
+    paths: record.bound,
+    observation: record.reconciliation,
+  });
+}
+export async function readPreparedPortableRegistrations(input = {}) {
+  if (!isPreparedPortableOwner(input.owner))
+    throw boundedOwnershipError('genuine-prepared-owner-required');
+  const binding = await inspectPreparedPortableRestorationOwner(input);
+  const baseline = await readPortableRestorationBaseline({
+    ...binding.context,
+    paths: binding.paths,
+    observation: binding.observation,
+  });
+  return Object.freeze(
+    baseline.registrations.map((registration) => Object.freeze(structuredClone(registration)))
+  );
+}
+export async function acceptPortableWorkerRestoration(input = {}) {
+  if (
+    Object.keys(input).sort().join(',') !== 'deadline,owner,receipt,signal' ||
+    !isPreparedPortableOwner(input.owner)
+  )
+    throw boundedOwnershipError('genuine-prepared-owner-required');
+  const binding = await inspectPreparedPortableRestorationOwner({
+    owner: input.owner,
+    signal: input.signal,
+    deadline: input.deadline,
+  });
+  return acceptPortableRestorationReceipt({
+    ...input,
+    paths: binding.paths,
+    observation: binding.observation,
+  });
+}
 const preparedServices = new WeakMap();
 export function resolvePreparedPortableService(server) {
   const record = preparedServices.get(server);
@@ -746,6 +802,21 @@ export async function preparePortableOwner(input = {}) {
       candidate,
       service: null,
       worktree: canonical.worktree,
+      bound,
+      reconciliation: record.reconciliation,
+    };
+    preparedRecord.verifyOriginal = async () => {
+      ownerBudget(context);
+      currentRuntime();
+      await lease.assert(context);
+      if (!(await revalidateInstalledProcessSourceAssurance(source, context)))
+        throw boundedOwnershipError('source-class-unavailable');
+      await candidate.publication.verify(context);
+      await candidate.credential.verify(context);
+      await lease.assert(context);
+      ownerBudget(context);
+      currentRuntime();
+      return true;
     };
     const nonce = randomBytes(32).toString('hex');
     const prepared = Object.freeze({
@@ -765,17 +836,7 @@ export async function preparePortableOwner(input = {}) {
         )
           throw boundedOwnershipError('prepared-owner-budget-mismatch');
         try {
-          ownerBudget(context);
-          currentRuntime();
-          await lease.assert(context);
-          if (!(await revalidateInstalledProcessSourceAssurance(source, context)))
-            throw boundedOwnershipError('source-class-unavailable');
-          await candidate.publication.verify(context);
-          await candidate.credential.verify(context);
-          await lease.assert(context);
-          ownerBudget(context);
-          currentRuntime();
-          return true;
+          return await preparedRecord.verifyOriginal();
         } catch (error) {
           preparedRecord.fenced = true;
           retainedTransactions.add(record);
