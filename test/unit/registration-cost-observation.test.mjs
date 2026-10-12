@@ -260,3 +260,43 @@ test('diagnostic completion requires actual complete unchanged CLI execution', (
     assert.throws(() => api.validateRegistrationCostReport(value));
   }
 });
+
+test('system cost projection binds complete principal calls to exact source without private data', () => {
+  assert.equal(typeof api.projectSystemCostCoverage, 'function');
+  const value = {
+    functions: [
+      {
+        functionName: 'principal',
+        isBlockCoverage: true,
+        ranges: [{ startOffset: 0, endOffset: 10, count: 200 }],
+      },
+      {
+        functionName: 'initializePortableSystem',
+        isBlockCoverage: true,
+        ranges: [{ startOffset: 10, endOffset: 20, count: 20 }],
+      },
+    ],
+  };
+  const text = 'function principal(){} function initializePortableSystem(){}';
+  const digest = createHash('sha256').update(text).digest('hex');
+  const projected = api.projectSystemCostCoverage({
+    coverage: value,
+    source: text,
+    expectedSourceSha256: digest,
+  });
+  assert.deepEqual(projected.counters, [
+    { name: 'principal', count: 200 },
+    { name: 'initializePortableSystem', count: 20 },
+  ]);
+  assert.throws(() =>
+    api.projectSystemCostCoverage({
+      coverage: value,
+      source: text,
+      expectedSourceSha256: '0'.repeat(64),
+    })
+  );
+  value.functions[0].isBlockCoverage = false;
+  assert.throws(() =>
+    api.projectSystemCostCoverage({ coverage: value, source: text, expectedSourceSha256: digest })
+  );
+});

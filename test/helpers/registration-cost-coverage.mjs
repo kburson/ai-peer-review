@@ -140,3 +140,44 @@ export function validateRegistrationCostReport(value) {
   checkCounters(value.counters);
   return value;
 }
+
+// Principal calls on the complete unchanged Linux path bound Windows stock starts.
+// This is a diagnostic count, not a Windows registration or worker approval.
+export function projectSystemCostCoverage({ coverage, source, expectedSourceSha256 }) {
+  if (
+    typeof source !== 'string' ||
+    source.length > 1048576 ||
+    createHash('sha256').update(source).digest('hex') !== expectedSourceSha256 ||
+    !Array.isArray(coverage?.functions)
+  )
+    unavailable();
+  const names = new Set([
+    'principal',
+    'initializePortableSystem',
+    'check',
+    'canonicalPaths',
+    'userId',
+  ]);
+  const counters = [];
+  for (const item of coverage.functions) {
+    if (!names.has(item.functionName)) continue;
+    const first = item.ranges?.[0];
+    if (
+      !first ||
+      !integer(first.count) ||
+      !integer(first.startOffset) ||
+      !integer(first.endOffset) ||
+      first.endOffset > source.length ||
+      (first.count > 0 && item.isBlockCoverage !== true) ||
+      counters.some((row) => row.name === item.functionName)
+    )
+      unavailable();
+    counters.push({ name: item.functionName, count: first.count });
+  }
+  if (
+    !counters.some((row) => row.name === 'principal') ||
+    !counters.some((row) => row.name === 'initializePortableSystem')
+  )
+    unavailable();
+  return { sourceSha256: expectedSourceSha256, counters };
+}

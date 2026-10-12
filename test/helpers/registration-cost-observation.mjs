@@ -12,6 +12,7 @@ import { summarizeSelectionAttribution } from './selection-attribution.mjs';
 import {
   COST_CANDIDATE,
   projectRegistrationCostCoverage,
+  projectSystemCostCoverage,
   validateRegistrationCostReport,
 } from './registration-cost-coverage.mjs';
 const root = await realpath(fileURLToPath(new URL('../../', import.meta.url)));
@@ -176,6 +177,36 @@ try {
     source,
     expectedSourceSha256,
   });
+  const systemFile = path.join(installed, 'src/broker/portable-system.mjs');
+  const systemSource = await readFile(systemFile, 'utf8');
+  const systemEntries = raw.result.filter((item) => item.url === pathToFileURL(systemFile).href);
+  if (systemEntries.length !== 1) throw Error('registration-cost-coverage-unavailable');
+  const systemCounts = projectSystemCostCoverage({
+    coverage: systemEntries[0],
+    source: systemSource,
+    expectedSourceSha256: createHash('sha256').update(systemSource).digest('hex'),
+  });
+  await writeFile(
+    path.join(output, 'system-counters.json'),
+    JSON.stringify(
+      {
+        verified: false,
+        operationalAuthority: 'unavailable',
+        candidate: COST_CANDIDATE,
+        producer,
+        node: process.versions.node,
+        platform: process.platform,
+        originalBudgetMs: 30000,
+        originalBudgetRenewed: false,
+        completeWindowsRegistrationObserved: false,
+        guaranteedStartupSavingMs: 0,
+        ...systemCounts,
+      },
+      null,
+      2
+    ) + '\n',
+    { flag: 'wx' }
+  );
   const report = validateRegistrationCostReport({
     schema: 'ai-peer-review.registration-cost-observation/v1',
     verified: false,
