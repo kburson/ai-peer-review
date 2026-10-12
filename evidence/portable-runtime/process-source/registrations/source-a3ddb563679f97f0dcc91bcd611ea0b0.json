@@ -1,0 +1,28 @@
+{
+  "schema": "ai-peer-review.process-source-registration/v1",
+  "captureId": "source-a3ddb563679f97f0dcc91bcd611ea0b0",
+  "hostId": "sha256:9797a57076ab1279a9e0d37474c665460a3b0d528f91323eb093802960b54ffc",
+  "publicKey": "MCowBQYDK2VwAyEAme2J0m76u8wlwPVzFSZOvq8L+jGwWZL4J/7IXj907oY=",
+  "keyId": "sha256:dbaf36f51bebc713af5c36efccbc7aba4d07d36a591f3b1159fece64a3f3e85b",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "89a2d7dd93b6130b8188d90ed87f06af4e8312ce",
+    "tarballDigest": "sha256:06f2a3d86fb62751e78c728bbc2145d96b2521caa7494e3093b5462a5b406b35",
+    "inventoryDigest": "sha256:0599455245de5bac7190cb16fdf583c55ec30ec952c81d8e021ea32df90d3aa3",
+    "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22"
+  },
+  "scope": {
+    "platform": "darwin",
+    "build": "25.6.0",
+    "architecture": "arm64",
+    "nodeMajor": 26,
+    "probe": {
+      "path": "/bin/ps",
+      "visibility": "same-user-full-selection",
+      "errorContract": "exact-ps-selection-v1",
+      "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+    }
+  },
+  "kinds": ["absence"],
+  "transitions": []
+}
