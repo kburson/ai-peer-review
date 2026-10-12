@@ -87,9 +87,8 @@ try {
   [Console]::Out.WriteLine((@{kind='changed';record=$changed} | ConvertTo-Json -Compress))
 } finally {
   $failureStage='acl-restore'
-  $restore=[Security.AccessControl.DirectorySecurity]::new()
-  $restore.SetSecurityDescriptorBinaryForm($bytes,$sections)
-  [IO.Directory]::SetAccessControl([string]$p.directory,$restore)
+  $prior.RemoveAccessRuleSpecific($rule)
+  [IO.Directory]::SetAccessControl([string]$p.directory,$prior)
   $after=[IO.Directory]::GetAccessControl([string]$p.directory,$sections).GetSecurityDescriptorBinaryForm()
   $restored=[Convert]::ToBase64String($after) -ceq [Convert]::ToBase64String($bytes)
   $beforeRaw=[Security.AccessControl.RawSecurityDescriptor]::new($bytes,0)
