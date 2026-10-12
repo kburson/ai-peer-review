@@ -186,6 +186,26 @@ try {
     source: systemSource,
     expectedSourceSha256: createHash('sha256').update(systemSource).digest('hex'),
   });
+  const inventoryFile = path.join(installed, 'src/startup/runtime-inventory.mjs');
+  const inventorySource = await readFile(inventoryFile, 'utf8');
+  const inventoryEntries = raw.result.filter(
+    (item) => item.url === pathToFileURL(inventoryFile).href
+  );
+  const inventoryCalls = inventoryEntries[0]?.functions.filter(
+    (item) => item.functionName === 'observeRuntimeInventory'
+  );
+  // This exact synchronous function has no async resumption entries.
+  if (
+    inventoryEntries.length !== 1 ||
+    inventoryCalls?.length !== 1 ||
+    !Number.isSafeInteger(inventoryCalls[0].ranges?.[0]?.count) ||
+    inventoryCalls[0].ranges[0].count < 1
+  )
+    throw Error('registration-cost-coverage-unavailable');
+  const inventoryCount = {
+    sourceSha256: createHash('sha256').update(inventorySource).digest('hex'),
+    completeInventoryScans: inventoryCalls[0].ranges[0].count,
+  };
   await writeFile(
     path.join(output, 'system-counters.json'),
     JSON.stringify(
@@ -201,6 +221,7 @@ try {
         completeWindowsRegistrationObserved: false,
         guaranteedStartupSavingMs: 0,
         ...systemCounts,
+        inventory: inventoryCount,
       },
       null,
       2
