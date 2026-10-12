@@ -53,9 +53,14 @@ before/after diagnostics and actual stock command counts; fixtures and timings
 provide no installed authority. A successful read through a genuine guard bound
 by the independent root inspection is the direct fingerprint equality control:
 it must execute the private pair/binding equality check. Also test macOS root-only
-foreign non-mutating allow grants against the leaf parser policy itself, using
-unverified passive exception metadata to distinguish its direct refusal from a
-fingerprint mismatch. No new public receipt or operational test port is added. Full suites remain hosted. Final changed
+foreign non-mutating allow grants at the pure parser/target-list level. Add an
+exported pure, explicitly unverified POSIX target-list builder, following the
+existing `parseMacAclBatchCore` precedent. Its exact flags are common ancestors
+true, root false, file false. Feed its output and a root-only
+`group:everyone allow read,list,search` record to the existing parser and require
+`acl-positive-grant-unproved`. The genuine guard control separately requires
+refusal; it does not claim to distinguish the discarded inner reason. The
+builder supplies data only, never a receipt, guard or operational permission. Full suites remain hosted. Final changed
 process-source bytes require new signed hosted controls, normal registration
 approval and separate finite class approval before actual installed claims.
 
@@ -74,14 +79,25 @@ measurements refuse a completion claim.
 A separate private CPU profile found about 15861 ms inclusive inventory work,
 11418 ms inclusive dependency closure work, and 20471 ms idle in a 41617 ms child.
 These overlapping categories must not be added. Preserve all current checks;
-coalesce the two complete inventory scans in `assertSelected` into its existing
+coalesce the two complete inventory scans in `assertSelected` into one
 final `installation` scan after the second fresh protected snapshot and all
 awaited account/path checks. The earlier scan precedes further awaits and grants
 no externally returned authority. The final scan freshly reads dependency
 metadata, checks every authenticated file/directory/link generation and the
-start manifest digest; the existing final protected-snapshot integrity check,
+start manifest digest. Preserve the exact replay binding by allowing the
+private final `installation` call to use
+`previousObservation: processInventory ?? previousObservation?.inventory`.
+The fallback must reach the same authenticated inventory replay check even in a
+second store whose process inventory is still null. The discarded intermediate
+observation is never returned or read by any consumer. The existing final
+protected-snapshot integrity check,
 process selection generation, scope witness and completion checks remain.
 This retains one final current-source validation, not cached current observation.
+The structural projection is two to one complete inventory scans per
+`assertSelected`. Registration's three installation scans, the scoped witness
+scan and the scope finalizer scan remain unchanged. Record the actual count of
+`assertSelected` calls and so removed scans in the same failing workload before
+adoption. This is a component count prediction, not a readiness forecast.
 Require the existing late metadata/ancestor/link replacement controls and new
 source mutation between the two selection snapshots to refuse before returning
 selection authority. Both snapshots, principal checks and original contexts remain.
@@ -91,6 +107,9 @@ helper, and extend the closed diagnostic name sets. Re-run precise coverage and
 the real register/activate comparison: exact16 matching admissions,32 fresh
 snapshots,16→1 acquisitions and unchanged15/30 deltas remain binding.
 
+Measure and adopt the two changes separately on the unmerged diagnostic branch,
+using distinct before/after command and inventory-scan counts. If either misses
+its count prediction, discard that adoption and retain its failed evidence.
 If the final admitted source still expires, retain the failed receipts and stop
 expanding this pair change. Re-scope the remaining cost under a separate bounded
 design and source-grounded measurement; do not silently extend pairing to other
