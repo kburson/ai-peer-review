@@ -1,3 +1,5 @@
+<!-- cspell:words promisified unadmitted -->
+
 # #190 selection-scope source registration review: wave 1
 
 Review only the exact five public registrations and immutable index references below, prepared in genuine GitHub hosted run 38205882840, attempt 1, workflow Process source conformance capture, event workflow_dispatch, branch codex/190-installed-journeys, repository kburson/ai-peer-review. Executing source is 07835545b0cd518a9e48667ed6fc4b9d13bdb6bc; current contract is sha256:340ece55ae98dcd5a8fb9cdd85b16138b0d0db3bcf44e55c13dc25b357dedb25. Only Linux Node 24/26 and Windows Node 24 workers have published these inputs; queued/missing Windows Node 26 and macOS workers are excluded, never inferred.

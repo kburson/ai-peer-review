@@ -1,3 +1,5 @@
+<!-- cspell:words promisified unadmitted -->
+
 # #190 selection-scope recapture registration review: 190-scope-recapture-wave1
 
 Review only the exact 6 public registrations and immutable index references below. Genuine GitHub hosted run 38211666754, attempt 1, event push, workflow Process source conformance capture, branch codex/190-installed-journeys, repository kburson/ai-peer-review prepared them from executing source 9fe68172d19ce9f217fed42cf466ba5667368464. This wave covers only the four actual published workers: Linux Node 24, Linux Node 26, macOS Node 24 and Windows Node 24. At the author revision, Windows Node 26 and macOS Node 26 remain queued behind max-parallel 4; both are excluded and require a separately reviewed registration wave. Run 38211666754 is not complete or green. Corrected Windows Node 26 preparation remains unexercised and unproved by this wave. Missing and failed workers grant no coverage. Current production contract is sha256:340ece55ae98dcd5a8fb9cdd85b16138b0d0db3bcf44e55c13dc25b357dedb25.

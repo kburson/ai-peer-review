@@ -1,3 +1,5 @@
+<!-- cspell:words promisified unadmitted -->
+
 # #190 selection-scope source registration review: wave 2
 
 Review only this exact macOS Node 24 absence registration and its immutable one-member index. Genuine GitHub hosted run 38205882840, attempt 1, workflow Process source conformance capture, event workflow_dispatch, branch codex/190-installed-journeys, repository kburson/ai-peer-review prepared these public inputs. Executing source remains 07835545b0cd518a9e48667ed6fc4b9d13bdb6bc, contract sha256:340ece55ae98dcd5a8fb9cdd85b16138b0d0db3bcf44e55c13dc25b357dedb25 and inventory sha256:dae2c97624b6a455b88923b2321d15c6d3232ff80201bbf35503e6f5996a51a5. This wave includes only the published macOS Node 24 worker. Windows Node 26 and macOS Node 26 remain excluded while queued/missing, and the five previously approved wave-1 registrations (Linux Node 24/26 creation and absence, Windows Node 24 absence; approved index revision c2b1bf8) remain immutable separately referenced history.
