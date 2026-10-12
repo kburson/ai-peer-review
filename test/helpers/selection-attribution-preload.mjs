@@ -58,6 +58,31 @@ for (const [file, expected, marker, variable, kind] of [
         : text.slice(0, at).split('\n').length,
   });
 }
+const cliFile = path.join(root, 'src/cli/run-core.mjs'),
+  cliSource = readFileSync(cliFile, 'utf8');
+if (
+  createHash('sha256').update(cliSource).digest('hex') !==
+  'd3e57cb966a5170a3711b5e6a922b576d4c8d1a2165e34d998406e8a6d7ce116'
+)
+  throw Error('selection-attribution-source-unavailable');
+const primaryAt = cliSource.indexOf("if (parsed.command === 'primary')"),
+  completedAt = cliSource.indexOf(
+    'if (parsed.options.json) writeJson(io.stdout, response);',
+    primaryAt
+  );
+if (primaryAt < 0 || completedAt < 0) throw Error('selection-attribution-marker-unavailable');
+targets.push({
+  kind: 'complete',
+  url: pathToFileURL(cliFile).href,
+  lineNumber: cliSource.slice(0, completedAt).split('\n').length - 1,
+});
+const failureAt = cliSource.lastIndexOf('const rendered =');
+if (failureAt < 0) throw Error('selection-attribution-marker-unavailable');
+targets.push({
+  kind: 'complete',
+  url: pathToFileURL(cliFile).href,
+  lineNumber: cliSource.slice(0, failureAt).split('\n').length - 1,
+});
 const observer = await startSelectionAttribution(targets);
 observer.unref();
 process.once('beforeExit', async () => {

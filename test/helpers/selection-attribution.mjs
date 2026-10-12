@@ -72,11 +72,11 @@ export async function startSelectionAttribution(targets) {
   if (
     !Array.isArray(targets) ||
     !targets.length ||
-    targets.length > 2 ||
+    targets.length > 4 ||
     targets.some(
       (t) =>
-        !['original', 'selection'].includes(t.kind) ||
-        !['original', 'context'].includes(t.variable) ||
+        !['original', 'selection', 'complete'].includes(t.kind) ||
+        (t.kind !== 'complete' && !['original', 'context'].includes(t.variable)) ||
         typeof t.url !== 'string' ||
         !t.url.startsWith('file:') ||
         !Number.isSafeInteger(t.lineNumber) ||
@@ -88,28 +88,38 @@ export async function startSelectionAttribution(targets) {
     execArgv: [],
     workerData: { targets },
   });
-  const ready = once(worker, 'message');
-  await Promise.race([ready, delay(5000, 'timeout', { ref: false })])
-    .then((value) => {
-      if (!Array.isArray(value) || value[0]?.kind !== 'ready')
-        throw Error('selection-attribution-start-unavailable');
-    })
-    .catch(async (error) => {
-      await worker.terminate();
-      throw error;
-    });
+  let readyResolve, reportResolve, failed;
+  const ready = new Promise((resolve) => {
+    readyResolve = resolve;
+  });
+  const report = new Promise((resolve) => {
+    reportResolve = resolve;
+  });
+  const exit = once(worker, 'exit');
+  worker.on('message', (value) => {
+    if (value?.kind === 'ready') readyResolve(value);
+    if (value?.kind === 'report') reportResolve(value);
+  });
+  worker.on('error', () => {
+    failed = true;
+    readyResolve(null);
+    reportResolve(null);
+  });
+  const started = await Promise.race([ready, delay(5000, null, { ref: false })]);
+  if (!started || failed) {
+    await worker.terminate();
+    throw Error('selection-attribution-start-unavailable');
+  }
   let closed = false;
   return Object.freeze({
     async close() {
       if (closed) throw Error('selection-attribution-already-closed');
       closed = true;
       worker.ref();
-      const reply = once(worker, 'message'),
-        exit = once(worker, 'exit');
-      worker.postMessage('stop');
+      if (!targets.some((target) => target.kind === 'complete')) worker.postMessage('stop');
       try {
-        const value = await Promise.race([reply, delay(5000, null, { ref: false })]);
-        if (!value || value[0]?.kind !== 'report')
+        const value = await Promise.race([report, delay(5000, null, { ref: false })]);
+        if (!value || value.kind !== 'report')
           throw Error('selection-attribution-report-unavailable');
         const ended = await Promise.race([exit, delay(5000, null, { ref: false })]);
         if (!ended || ended[0] !== 0) throw Error('selection-attribution-exit-unavailable');
@@ -117,8 +127,8 @@ export async function startSelectionAttribution(targets) {
           verified: false,
           operationalAuthority: 'unavailable',
           observerExitObserved: true,
-          unavailable: value[0].unavailable,
-          observations: value[0].observations,
+          unavailable: value.unavailable,
+          observations: value.observations,
         };
       } catch (error) {
         await worker.terminate();

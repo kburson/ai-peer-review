@@ -95,3 +95,23 @@ test('engine attribution distinguishes signal identity and exact deadline withou
   assert.equal(JSON.stringify(value).includes('deadline'), false);
   assert.equal(JSON.stringify(value).includes('objectId'), false);
 });
+test('a completion breakpoint disconnects the observer so normal CLI beforeExit can run', (t) => {
+  const base = realpathSync(mkdtempSync(path.join(tmpdir(), 'apr-selection-exit-')));
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  const file = path.join(base, 'fixture.mjs'),
+    out = path.join(base, 'result.json');
+  const helper = new URL('../helpers/selection-attribution.mjs', import.meta.url).href;
+  writeFileSync(
+    file,
+    [
+      `import {startSelectionAttribution} from ${JSON.stringify(helper)};`,
+      'import {writeFileSync} from "node:fs";',
+      `const observer=await startSelectionAttribution([{kind:'complete',url:import.meta.url,lineNumber:5}]);`,
+      'observer.unref();',
+      `process.once('beforeExit',async()=>writeFileSync(${JSON.stringify(out)},JSON.stringify(await observer.close())));`,
+      'console.log("original operation returned");',
+    ].join('\n')
+  );
+  execFileSync(process.execPath, [file], { timeout: 10000, stdio: 'pipe' });
+  assert.equal(JSON.parse(readFileSync(out, 'utf8')).observerExitObserved, true);
+});

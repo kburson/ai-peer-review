@@ -10,6 +10,16 @@ session.connectToMainThread();
 const ids = new Map(),
   breakpoints = new Map(),
   observations = [];
+let finished = false;
+async function finish() {
+  if (finished) return;
+  finished = true;
+  await session.post('Debugger.disable');
+  await session.post('HeapProfiler.stopTrackingHeapObjects');
+  session.disconnect();
+  parentPort.postMessage({ kind: 'report', unavailable, observations });
+  parentPort.close();
+}
 let sequence = 0,
   snapshotTaken = false,
   unavailable = 0;
@@ -52,6 +62,10 @@ async function contextOf(frame, variable) {
 session.on('Debugger.paused', async ({ params }) => {
   try {
     const target = params.hitBreakpoints.map((id) => breakpoints.get(id)).find(Boolean);
+    if (target?.kind === 'complete') {
+      await finish();
+      return;
+    }
     if (!target || observations.length >= 4096)
       throw Error('selection-attribution-frame-unavailable');
     const context = await contextOf(params.callFrames[0], target.variable);
@@ -68,7 +82,7 @@ session.on('Debugger.paused', async ({ params }) => {
   } catch {
     unavailable++;
   } finally {
-    await session.post('Debugger.resume');
+    if (!finished) await session.post('Debugger.resume');
   }
 });
 await session.post('HeapProfiler.enable');
@@ -83,10 +97,6 @@ for (const target of workerData.targets) {
 }
 parentPort.on('message', async (message) => {
   if (message !== 'stop') return;
-  await session.post('Debugger.disable');
-  await session.post('HeapProfiler.stopTrackingHeapObjects');
-  session.disconnect();
-  parentPort.postMessage({ kind: 'report', unavailable, observations });
-  parentPort.close();
+  await finish();
 });
 parentPort.postMessage({ kind: 'ready' });
