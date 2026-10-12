@@ -40,3 +40,11 @@ evidence/portable-runtime/process-source/classes/190-current-wave7-proposals.jso
 
 # Mixed provider hooks retain foreign bytes during owned integration updates.
 /.codex/hooks.json
+
+# Preserve exact normally approved #190 wave6 registration references.
+evidence/portable-runtime/process-source/registrations/source-0f9002ed8fe3a65bf9e0b625e0afef57.json
+evidence/portable-runtime/process-source/registrations/source-496ca510ee051288c0dbf3d0bff299ad.json
+evidence/portable-runtime/process-source/registrations/source-576323d2c187999cfb1baaee3e43eb1e.json
+evidence/portable-runtime/process-source/registrations/source-bcdbc785034d6b5f4d017f803681a10c.json
+evidence/portable-runtime/process-source/registrations/source-c39a8d6d684b3c33140c2abe3b257505.json
+evidence/portable-runtime/process-source/registrations/source-c9490e177bd88730ee8fa178da482e3f.json

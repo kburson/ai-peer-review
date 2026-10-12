@@ -23,6 +23,12 @@ permissions:
   contents: read
   issues: read
 
+# A push and its PR event verify the same branch. Keep the latest run for that
+# source branch; fork repositories have separate groups.
+concurrency:
+  group: ci-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 # Native broker build and verification paused for #102/#107.
 # Source suites report broker exclusions until #107 replaces native transport.
 jobs:
