@@ -247,13 +247,15 @@ function assertEffectIntegrity(seal) {
   verifyRuntimeInventorySync({ packageRoot, previousObservation: seal.runtime.inventory });
   if (seal.reviewWorkspace) assertReviewHistoryExclusionUnchanged(seal.historyObservation);
   assertReviewLocation(seal);
+  if (seal.context.signal.aborted || performance.now() >= seal.context.deadline)
+    refuse('Original operation context was aborted or expired.');
 }
 // Every effect awaits fresh protected authority under the original context.
 // Only tokens minted here carry production authority.
-export async function assertOperationAuthorityNow(fence) {
+async function withFreshOperationAuthority(fence, continuation) {
   const seal = fences.get(fence);
   if (!seal) refuse('Authority fence is not an authenticated observation.');
-  if (seal.kind === 'read') return fence;
+  if (seal.kind === 'read') return continuation();
   if (
     nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true })) !== seal.nodeIdentity
   )
@@ -291,7 +293,12 @@ export async function assertOperationAuthorityNow(fence) {
   // The final synchronous integrity check below freshly verifies the complete
   // inventory after these protected generations; no await separates the checks.
   assertEffectIntegrity(seal);
-  return fence;
+  // Invoke beside the final synchronous checks: no promise continuation may
+  // intervene between current generations and the first effect.
+  return continuation();
+}
+export async function assertOperationAuthorityNow(fence) {
+  return withFreshOperationAuthority(fence, () => fence);
 }
 export async function assertOperationAuthority({
   operation,
@@ -410,9 +417,7 @@ export async function performOperationEffect(fence, operation) {
   if (inherited && admissionLineage.same(inherited.fence, fence)) {
     if (!inherited.active) refuse('An inherited effect outlived its held primary generation.');
     await assertPrimaryAdmissionFence(inherited.admission, seal.context);
-    await assertOperationAuthorityNow(fence);
-    assertEffectIntegrity(seal);
-    return operation();
+    return withFreshOperationAuthority(fence, operation);
   }
   return withPrimaryAdmissionFence(
     { commonDir: seal.primary.commonDir, ...seal.context },
@@ -422,9 +427,7 @@ export async function performOperationEffect(fence, operation) {
       try {
         return await effectContext.run(held, async () => {
           await assertPrimaryAdmissionFence(admission, seal.context);
-          await assertOperationAuthorityNow(fence);
-          assertEffectIntegrity(seal);
-          const result = await operation();
+          const result = await withFreshOperationAuthority(fence, operation);
           await assertOperationAuthorityNow(fence);
           await assertPrimaryAdmissionFence(admission, seal.context);
           return result;

@@ -605,3 +605,28 @@ test('standalone production worker refuses source authority before recovery evid
   );
   assert.equal(existsSync(f.file), false);
 });
+
+// @story #190
+test('installed effect boundary preserves real effects and refuses drift before callback', async (t) => {
+  const f = await authorityInstalledFixture(t, { nativeSecurity: false });
+  const imports =
+    'import {withOperationAuthority,performCurrentOperationEffect} from ' +
+    f.module('src/startup/authority-fence.mjs') +
+    ';';
+  const positive = f.execute(
+    imports +
+      'let effects=0;const value=await withOperationAuthority({operation:"start",cwd:process.cwd()},()=>performCurrentOperationEffect(()=>{effects++;return "observed";}));console.log(JSON.stringify({effects,value}));'
+  );
+  assert.equal(positive.status, 0, positive.stderr);
+  assert.deepEqual(JSON.parse(positive.stdout), { effects: 1, value: 'observed' });
+  const drift = f.execute(
+    imports +
+      'import {readFileSync,writeFileSync} from "node:fs";import path from "node:path";' +
+      'let effects=0,code=null;try{await withOperationAuthority({operation:"start",cwd:process.cwd()},async()=>{await Promise.resolve();const file=path.join(process.cwd(),".ai-peer-review/config.json");writeFileSync(file,readFileSync(file,"utf8")+" ");await performCurrentOperationEffect(()=>{effects++;});});}catch(error){code=error.code;}console.log(JSON.stringify({effects,code}));'
+  );
+  assert.equal(drift.status, 0, drift.stderr);
+  assert.deepEqual(JSON.parse(drift.stdout), {
+    effects: 0,
+    code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+  });
+});
