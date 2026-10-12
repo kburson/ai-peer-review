@@ -423,62 +423,83 @@ export function createSelectionStore({
     } = input;
     const op = await operation(input);
     await requireInstalledRunner(op);
-    const selectedRead = await readSnapshotWithin(op),
-      selected = selectedRead.value;
-    if (
-      processSelectionGeneration &&
-      !sameSelectionGeneration(processSelectionGeneration, selectedRead.snapshot)
-    )
-      refuse(
-        'APR_RUNTIME_CHANGED',
-        'Account selection physical generation changed after observation.'
-      );
-    if (
-      previousObservation &&
-      !sameSelectionGeneration(selectionGenerations.get(previousObservation), selectedRead.snapshot)
-    )
-      refuse(
-        'APR_RUNTIME_CHANGED',
-        'Previous selection observation does not authenticate the current physical generation.'
-      );
-    if (processSelectionId !== null && selected.selection_id !== processSelectionId)
-      refuse(
-        'APR_RUNTIME_CHANGED',
-        'Account selection changed after this invocation sealed its generation.'
-      );
-    const [currentRoot, currentNode] = await op.system.canonicalPaths([
-      executingPackageRoot,
-      executingNode,
-    ]);
-    if (
-      currentRoot !== actualRoot ||
-      currentNode !== actualNode ||
-      selected.package_root !== actualRoot ||
-      selected.node_executable !== actualNode
-    )
-      refuse(
-        'APR_RUNTIME_NOT_SELECTED',
-        'Executing runtime/Node does not match the account selection.'
-      );
-    if (previousObservation && previousObservation.selection_id !== selected.selection_id)
-      refuse('APR_RUNTIME_CHANGED', 'Account runtime selection changed after observation.');
-    await verifyRuntimeInventory({
-      packageRoot: actualRoot,
-      previousObservation: processInventory ?? previousObservation?.inventory,
+    const ctx = await accountContext(op);
+    const { selected, reselectedRead } = await withStore(ctx, op, false, async (guard) => {
+      const firstSnapshot = await guard.readSnapshot('runtime-selection.json', 8192);
+      const selectedRead = { value: decode(firstSnapshot.bytes), snapshot: firstSnapshot },
+        selected = selectedRead.value;
+      await guard.verify();
+      check(op.context);
+      if (
+        processSelectionGeneration &&
+        !sameSelectionGeneration(processSelectionGeneration, selectedRead.snapshot)
+      )
+        refuse(
+          'APR_RUNTIME_CHANGED',
+          'Account selection physical generation changed after observation.'
+        );
+      if (
+        previousObservation &&
+        !sameSelectionGeneration(
+          selectionGenerations.get(previousObservation),
+          selectedRead.snapshot
+        )
+      )
+        refuse(
+          'APR_RUNTIME_CHANGED',
+          'Previous selection observation does not authenticate the current physical generation.'
+        );
+      if (processSelectionId !== null && selected.selection_id !== processSelectionId)
+        refuse(
+          'APR_RUNTIME_CHANGED',
+          'Account selection changed after this invocation sealed its generation.'
+        );
+      const [currentRoot, currentNode] = await op.system.canonicalPaths([
+        executingPackageRoot,
+        executingNode,
+      ]);
+      if (
+        currentRoot !== actualRoot ||
+        currentNode !== actualNode ||
+        selected.package_root !== actualRoot ||
+        selected.node_executable !== actualNode
+      )
+        refuse(
+          'APR_RUNTIME_NOT_SELECTED',
+          'Executing runtime/Node does not match the account selection.'
+        );
+      if (previousObservation && previousObservation.selection_id !== selected.selection_id)
+        refuse('APR_RUNTIME_CHANGED', 'Account runtime selection changed after observation.');
+      await verifyRuntimeInventory({
+        packageRoot: actualRoot,
+        previousObservation: processInventory ?? previousObservation?.inventory,
+      });
+      // Re-observe the account and path components before the second independent
+      // snapshot. Only the descriptor is retained; no current observation is reused.
+      const freshContext = await accountContext(op);
+      if (
+        freshContext.directory !== ctx.directory ||
+        freshContext.home !== ctx.home ||
+        freshContext.user.uid !== ctx.user.uid
+      )
+        refuse('APR_RUNTIME_CHANGED', 'Account selection location changed during admission.');
+      await components(freshContext, false, op.context);
+      const secondSnapshot = await guard.readSnapshot('runtime-selection.json', 8192);
+      const reselectedRead = { value: decode(secondSnapshot.bytes), snapshot: secondSnapshot },
+        reselected = reselectedRead.value;
+      if (!sameSelectionGeneration(selectedRead.snapshot, reselectedRead.snapshot))
+        refuse(
+          'APR_RUNTIME_CHANGED',
+          'Account selection physical generation changed during admission.'
+        );
+      if (
+        reselected.selection_id !== selected.selection_id ||
+        reselected.package_root !== selected.package_root ||
+        reselected.node_executable !== selected.node_executable
+      )
+        refuse('APR_RUNTIME_CHANGED', 'Account selection changed during admission.');
+      return { selected, reselectedRead };
     });
-    const reselectedRead = await readSnapshotWithin(op),
-      reselected = reselectedRead.value;
-    if (!sameSelectionGeneration(selectedRead.snapshot, reselectedRead.snapshot))
-      refuse(
-        'APR_RUNTIME_CHANGED',
-        'Account selection physical generation changed during admission.'
-      );
-    if (
-      reselected.selection_id !== selected.selection_id ||
-      reselected.package_root !== selected.package_root ||
-      reselected.node_executable !== selected.node_executable
-    )
-      refuse('APR_RUNTIME_CHANGED', 'Account selection changed during admission.');
     const finalInventory = await installation(op);
     try {
       assertProtectedSnapshotUnchanged(reselectedRead.snapshot);
