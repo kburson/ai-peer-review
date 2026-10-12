@@ -5,6 +5,7 @@ import { lstat, mkdir } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import { AprError } from '../errors.mjs';
+import { createSelectionReadScope } from './selection-read-scope.mjs';
 import { initializePortableSystem } from '../broker/portable-system.mjs';
 import { assertProtectedSnapshotUnchanged } from '../broker/storage-protection.mjs';
 import {
@@ -70,6 +71,24 @@ export function createSelectionStore({
     processSelectionId = null,
     processSelectionGeneration = null;
   const pendingCleanup = new Set();
+  const scopes = createSelectionReadScope({
+    finalize(context, _tuple, witness) {
+      if (witness) {
+        assertProtectedSnapshotUnchanged(witness.snapshot);
+        verifyRuntimeInventorySync({
+          packageRoot: actualRoot,
+          previousObservation: witness.inventory,
+        });
+        if (
+          createHash('sha256')
+            .update(readBoundedOrdinaryFile(manifestFile, 1048576))
+            .digest('hex') !== manifestAtStart
+        )
+          refuse('APR_RUNTIME_CHANGED', 'Installed source changed during scope closure.');
+      }
+      check(context);
+    },
+  });
   function budget(input = {}) {
     const context = {
       signal: input.signal ?? new AbortController().signal,
@@ -183,8 +202,8 @@ export function createSelectionStore({
         );
     }
   }
-  async function protectedStore(ctx, op, create = false) {
-    await components(ctx, create, op.context);
+  async function protectedStore(ctx, op, create = false, checked = false) {
+    if (!checked) await components(ctx, create, op.context);
     const receipt = await op.system.observeProtection({ root: ctx.directory });
     if (!receipt.verified)
       refuse(
@@ -205,10 +224,27 @@ export function createSelectionStore({
       throw cause;
     }
   }
-  async function withStore(ctx, op, create, callback) {
+  async function withStore(ctx, op, create, callback, participating = false) {
+    if (participating) {
+      await components(ctx, false, op.context);
+      const principal = await op.system.userId();
+      check(op.context);
+      const borrowed = await scopes.use(
+        op.context,
+        { directory: ctx.directory, home: ctx.home, uid: ctx.user.uid, principal },
+        () => protectedStore(ctx, op, false, true),
+        async (guard) => {
+          const result = await callback(guard, true);
+          await guard.verify();
+          check(op.context);
+          return result;
+        }
+      );
+      if (borrowed.borrowed) return borrowed.value;
+    }
     let guard;
     try {
-      guard = await protectedStore(ctx, op, create);
+      guard = await protectedStore(ctx, op, create, participating);
       const result = await callback(guard);
       await guard.verify();
       check(op.context);
@@ -242,16 +278,32 @@ export function createSelectionStore({
   }
   async function readSnapshotWithin(op) {
     const ctx = await accountContext(op);
-    return withStore(ctx, op, false, async (guard) => {
-      const snapshot = await guard.readSnapshot('runtime-selection.json', 8192);
-      return { value: decode(snapshot.bytes), snapshot };
-    });
+    return withStore(
+      ctx,
+      op,
+      false,
+      async (guard, scoped) => {
+        const snapshot = await guard.readSnapshot('runtime-selection.json', 8192);
+        const value = decode(snapshot.bytes);
+        if (scoped)
+          scopes.noteWitness(op.context, {
+            snapshot,
+            inventory: verifyRuntimeInventorySync({
+              packageRoot: actualRoot,
+              previousObservation: processInventory,
+            }),
+          });
+        return { value, snapshot };
+      },
+      true
+    );
   }
   async function readWithin(op) {
     return (await readSnapshotWithin(op)).value;
   }
   async function read(input = {}) {
-    return readWithin(await operation(input));
+    const context = budget(input);
+    return scopes.track(context, async () => readWithin(await operation({ ...input, ...context })));
   }
   async function isProjectDependency(context) {
     const dependencyRoot = path.dirname(path.dirname(actualRoot));
@@ -313,6 +365,7 @@ export function createSelectionStore({
     return inventory;
   }
   async function register(input = {}) {
+    scopes.assertRegistrationAllowed();
     const { dryRun = false, update = false } = input;
     const op = await operation(input);
     await installation(op);
@@ -416,6 +469,10 @@ export function createSelectionStore({
     return publication.observed;
   }
   async function assertSelected(input = {}) {
+    const context = budget(input);
+    return scopes.track(context, () => assertSelectedWithin({ ...input, ...context }));
+  }
+  async function assertSelectedWithin(input) {
     const {
       executingPackageRoot = packageRoot,
       nodeExecutable: executingNode = nodeExecutable,
@@ -424,100 +481,117 @@ export function createSelectionStore({
     const op = await operation(input);
     await requireInstalledRunner(op);
     const ctx = await accountContext(op);
-    const { selected, reselectedRead } = await withStore(ctx, op, false, async (guard) => {
-      const firstSnapshot = await guard.readSnapshot('runtime-selection.json', 8192);
-      const selectedRead = { value: decode(firstSnapshot.bytes), snapshot: firstSnapshot },
-        selected = selectedRead.value;
-      await guard.verify();
-      check(op.context);
-      if (
-        processSelectionGeneration &&
-        !sameSelectionGeneration(processSelectionGeneration, selectedRead.snapshot)
-      )
-        refuse(
-          'APR_RUNTIME_CHANGED',
-          'Account selection physical generation changed after observation.'
-        );
-      if (
-        previousObservation &&
-        !sameSelectionGeneration(
-          selectionGenerations.get(previousObservation),
-          selectedRead.snapshot
+    const admission = await withStore(
+      ctx,
+      op,
+      false,
+      async (guard, scoped) => {
+        const firstSnapshot = await guard.readSnapshot('runtime-selection.json', 8192);
+        const selectedRead = { value: decode(firstSnapshot.bytes), snapshot: firstSnapshot },
+          selected = selectedRead.value;
+        await guard.verify();
+        check(op.context);
+        if (
+          processSelectionGeneration &&
+          !sameSelectionGeneration(processSelectionGeneration, selectedRead.snapshot)
         )
-      )
-        refuse(
-          'APR_RUNTIME_CHANGED',
-          'Previous selection observation does not authenticate the current physical generation.'
-        );
-      if (processSelectionId !== null && selected.selection_id !== processSelectionId)
-        refuse(
-          'APR_RUNTIME_CHANGED',
-          'Account selection changed after this invocation sealed its generation.'
-        );
-      const [currentRoot, currentNode] = await op.system.canonicalPaths([
-        executingPackageRoot,
-        executingNode,
-      ]);
-      if (
-        currentRoot !== actualRoot ||
-        currentNode !== actualNode ||
-        selected.package_root !== actualRoot ||
-        selected.node_executable !== actualNode
-      )
-        refuse(
-          'APR_RUNTIME_NOT_SELECTED',
-          'Executing runtime/Node does not match the account selection.'
-        );
-      if (previousObservation && previousObservation.selection_id !== selected.selection_id)
-        refuse('APR_RUNTIME_CHANGED', 'Account runtime selection changed after observation.');
-      await verifyRuntimeInventory({
-        packageRoot: actualRoot,
-        previousObservation: processInventory ?? previousObservation?.inventory,
+          refuse(
+            'APR_RUNTIME_CHANGED',
+            'Account selection physical generation changed after observation.'
+          );
+        if (
+          previousObservation &&
+          !sameSelectionGeneration(
+            selectionGenerations.get(previousObservation),
+            selectedRead.snapshot
+          )
+        )
+          refuse(
+            'APR_RUNTIME_CHANGED',
+            'Previous selection observation does not authenticate the current physical generation.'
+          );
+        if (processSelectionId !== null && selected.selection_id !== processSelectionId)
+          refuse(
+            'APR_RUNTIME_CHANGED',
+            'Account selection changed after this invocation sealed its generation.'
+          );
+        const [currentRoot, currentNode] = await op.system.canonicalPaths([
+          executingPackageRoot,
+          executingNode,
+        ]);
+        if (
+          currentRoot !== actualRoot ||
+          currentNode !== actualNode ||
+          selected.package_root !== actualRoot ||
+          selected.node_executable !== actualNode
+        )
+          refuse(
+            'APR_RUNTIME_NOT_SELECTED',
+            'Executing runtime/Node does not match the account selection.'
+          );
+        if (previousObservation && previousObservation.selection_id !== selected.selection_id)
+          refuse('APR_RUNTIME_CHANGED', 'Account runtime selection changed after observation.');
+        await verifyRuntimeInventory({
+          packageRoot: actualRoot,
+          previousObservation: processInventory ?? previousObservation?.inventory,
+        });
+        // Re-observe the account and path components before the second independent
+        // snapshot. Only the descriptor is retained; no current observation is reused.
+        const freshContext = await accountContext(op);
+        if (
+          freshContext.directory !== ctx.directory ||
+          freshContext.home !== ctx.home ||
+          freshContext.user.uid !== ctx.user.uid
+        )
+          refuse('APR_RUNTIME_CHANGED', 'Account selection location changed during admission.');
+        await components(freshContext, false, op.context);
+        const secondSnapshot = await guard.readSnapshot('runtime-selection.json', 8192);
+        const reselectedRead = { value: decode(secondSnapshot.bytes), snapshot: secondSnapshot },
+          reselected = reselectedRead.value;
+        if (!sameSelectionGeneration(selectedRead.snapshot, reselectedRead.snapshot))
+          refuse(
+            'APR_RUNTIME_CHANGED',
+            'Account selection physical generation changed during admission.'
+          );
+        if (
+          reselected.selection_id !== selected.selection_id ||
+          reselected.package_root !== selected.package_root ||
+          reselected.node_executable !== selected.node_executable
+        )
+          refuse('APR_RUNTIME_CHANGED', 'Account selection changed during admission.');
+        if (scoped) return { scoped: true, result: await finish(selected, reselectedRead, true) };
+        return { selected, reselectedRead };
+      },
+      true
+    );
+    if (admission.scoped) return admission.result;
+    return finish(admission.selected, admission.reselectedRead, false);
+    async function finish(selected, reselectedRead, scoped) {
+      const finalInventory = await installation(op);
+      try {
+        assertProtectedSnapshotUnchanged(reselectedRead.snapshot);
+      } catch {
+        refuse('APR_RUNTIME_CHANGED', 'Selection changed during final installed observation.');
+      }
+      processSelectionId = selected.selection_id;
+      processSelectionGeneration = reselectedRead.snapshot;
+      const result = Object.freeze({
+        ...finalInventory,
+        selection_id: selected.selection_id,
+        nodeExecutable: actualNode,
+        inventory: finalInventory,
       });
-      // Re-observe the account and path components before the second independent
-      // snapshot. Only the descriptor is retained; no current observation is reused.
-      const freshContext = await accountContext(op);
-      if (
-        freshContext.directory !== ctx.directory ||
-        freshContext.home !== ctx.home ||
-        freshContext.user.uid !== ctx.user.uid
-      )
-        refuse('APR_RUNTIME_CHANGED', 'Account selection location changed during admission.');
-      await components(freshContext, false, op.context);
-      const secondSnapshot = await guard.readSnapshot('runtime-selection.json', 8192);
-      const reselectedRead = { value: decode(secondSnapshot.bytes), snapshot: secondSnapshot },
-        reselected = reselectedRead.value;
-      if (!sameSelectionGeneration(selectedRead.snapshot, reselectedRead.snapshot))
-        refuse(
-          'APR_RUNTIME_CHANGED',
-          'Account selection physical generation changed during admission.'
-        );
-      if (
-        reselected.selection_id !== selected.selection_id ||
-        reselected.package_root !== selected.package_root ||
-        reselected.node_executable !== selected.node_executable
-      )
-        refuse('APR_RUNTIME_CHANGED', 'Account selection changed during admission.');
-      return { selected, reselectedRead };
-    });
-    const finalInventory = await installation(op);
-    try {
-      assertProtectedSnapshotUnchanged(reselectedRead.snapshot);
-    } catch {
-      refuse('APR_RUNTIME_CHANGED', 'Selection changed during final installed observation.');
+      selectionGenerations.set(result, reselectedRead.snapshot);
+      if (scoped)
+        scopes.noteWitness(op.context, {
+          snapshot: reselectedRead.snapshot,
+          inventory: finalInventory,
+        });
+      return result;
     }
-    processSelectionId = selected.selection_id;
-    processSelectionGeneration = reselectedRead.snapshot;
-    const result = Object.freeze({
-      ...finalInventory,
-      selection_id: selected.selection_id,
-      nodeExecutable: actualNode,
-      inventory: finalInventory,
-    });
-    selectionGenerations.set(result, reselectedRead.snapshot);
-    return result;
   }
   return Object.freeze({
+    withReadScope: (context, callback) => scopes.run(context, callback),
     location: async (input = {}) => (await accountContext(await operation(input))).file,
     read,
     register,
@@ -527,6 +601,7 @@ export function createSelectionStore({
         await guard.close();
         pendingCleanup.delete(guard);
       }
+      await scopes.retryCleanup();
     },
   });
 }

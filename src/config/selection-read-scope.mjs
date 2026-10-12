@@ -59,6 +59,7 @@ function bounded(promise, context, observeAbort = true) {
 export function createSelectionReadScope({ finalize }) {
   if (typeof finalize !== 'function') throw refusal('finalizer-unavailable');
   const association = new AsyncLocalStorage(),
+    admissions = new AsyncLocalStorage(),
     registry = new WeakMap(),
     live = new Set();
   function lookup(context) {
@@ -218,12 +219,48 @@ export function createSelectionReadScope({ finalize }) {
         return value;
       });
     },
+    async track(context, operation) {
+      const entry = lookup(context);
+      if (!entry || entry.state === 'closed-clean') return operation();
+      try {
+        check(context);
+        if (entry.state !== 'open') throw refusal('scope-not-open');
+        if ((entry.trackedCount ?? 0) >= 65) throw refusal('admission-overflow');
+      } catch (error) {
+        poison(entry, error);
+        throw error;
+      }
+      const token = { entry, settled: false };
+      entry.trackedCount = (entry.trackedCount ?? 0) + 1;
+      const call = admissions.run(token, async () => {
+        try {
+          return await operation();
+        } catch (error) {
+          poison(entry, error);
+          throw error;
+        } finally {
+          token.settled = true;
+          entry.trackedCount--;
+        }
+      });
+      entry.pending.add(call);
+      void call.then(
+        () => entry.pending.delete(call),
+        () => entry.pending.delete(call)
+      );
+      return call;
+    },
     async use(context, tuple, acquire, operation) {
       const entry = lookup(context);
       if (!entry || entry.state === 'closed-clean') return { borrowed: false };
       try {
         check(context);
-        if (entry.state !== 'open') throw refusal('scope-not-open');
+        const token = admissions.getStore();
+        if (
+          entry.state !== 'open' &&
+          !(entry.state === 'closing' && token?.entry === entry && !token.settled)
+        )
+          throw refusal('scope-not-open');
         const copied = copyTuple(tuple);
         if (entry.tuple && fields.some((key) => entry.tuple[key] !== copied[key]))
           throw refusal('identity-changed');

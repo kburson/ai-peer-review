@@ -23,6 +23,7 @@
     "src/config/primary-admission.mjs",
     "src/config/runtime-selection-core.mjs",
     "src/config/runtime-selection.mjs",
+    "src/config/selection-read-scope.mjs",
     "src/errors.mjs",
     "src/git/authority-membership.mjs",
     "src/installed/dependency-closure.mjs",
