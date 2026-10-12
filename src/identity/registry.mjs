@@ -312,6 +312,43 @@ export function resolveIdentity(context = {}) {
   });
 }
 
+const SESSION_ENV_KEYS = Object.freeze({
+  codex: ['CODEX_THREAD_ID', 'CODEX_SESSION_ID'],
+  'claude-code': ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_SESSION_ID'],
+  grok: ['GROK_SESSION_ID'],
+});
+
+// Existing roles are authorized by their exact native session handle. Keep their
+// recorded model provenance intact; this does not attest a fresh current model.
+export function registeredSessionIdentity(registered, env = {}) {
+  const activeFamilies = Object.entries(SESSION_ENV_KEYS).filter(([, keys]) =>
+    keys.some((key) => env[key])
+  );
+  if (activeFamilies.length > 1)
+    fail(
+      'APR_IDENTITY_AMBIGUOUS',
+      'Multiple runtime provider sessions are active.',
+      'Resume only the registered provider session, then retry.'
+    );
+  const sessionId = SESSION_ENV_KEYS[registered?.host]?.reduce(
+    (selected, key) => selected ?? env[key],
+    undefined
+  );
+  if (typeof sessionId !== 'string' || !sessionId)
+    fail(
+      'APR_IDENTITY_REQUIRED',
+      'The registered participant session handle is unavailable.',
+      'Resume the registered provider session, then retry.'
+    );
+  if (fingerprintSession(registered.provider, sessionId) !== registered.session_fingerprint)
+    fail(
+      'APR_IDENTITY_CONFLICT',
+      'Current session does not match the registered review participant.',
+      'Resume the registered provider session or use governed participant replacement.'
+    );
+  return registered;
+}
+
 export { identityEvidence, mergeObservedIdentity, v1Participant };
 
 export function assertDistinctParticipants(author, reviewer) {

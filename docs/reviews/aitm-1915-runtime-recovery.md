@@ -63,3 +63,14 @@ amendment were fixed and cleared before installation.
 A real host formatter also caught the legacy hook group replacement disturbing
 foreign formatting. Migration now edits only its owned matcher string. A
 formatted-host RED to GREEN regression verifies every other byte is preserved.
+
+Existing-role finalization now accepts the exact registered native session handle
+when current model metadata is unavailable. It preserves the recorded model and
+effort provenance; this path cannot start, join, replace or refresh a participant.
+The selected adapter must match the registered host, other provider families
+refuse, and canonical native handle precedence cannot be overridden by a matching
+secondary alias. Different native coordinates within one family remain valid.
+The real finalization failure supplied the RED; 12 finalization integration tests
+and 22 identity/provider tests pass. Rejected identities leave events unchanged.
+Independent re-review cleared the authentication finding with no remaining
+Critical or Important finding. Normal native finalization remains required.
