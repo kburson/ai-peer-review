@@ -185,6 +185,32 @@
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-4710f30e63cf052b7b9ee46a276c5a00",
+      "capability": "absence",
+      "scope": {
+        "platform": "darwin",
+        "builds": ["25.6.0"],
+        "architectures": ["arm64"],
+        "nodeMajors": [24],
+        "probe": {
+          "path": "/bin/ps",
+          "visibility": "same-user-full-selection",
+          "errorContract": "exact-ps-selection-v1",
+          "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+        }
+      },
+      "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22",
+      "semantics": "darwin-ps-selection-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:9866e966bd88e0e74474d8e644e9cd00ed2f4b22eeb456bb0f95e4ced16559ba",
+        "reviewDigest": "sha256:d639fc98daa78aca5c0da0a4f648cd0ab8c968be308c8b012b785747da77fb37"
+      },
+      "approvalDigest": "sha256:bdaeb638ca648ea08f617522600bbb01fa0b9d44416c91e5cf7f0f3f3b63432a"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
       "classId": "source-4f9c948d2fbea98763ecc7b76ab252e1",
       "capability": "creation",
       "scope": {
@@ -260,6 +286,32 @@
         "reviewDigest": "sha256:1a20a85fa83fa2cc9e97b420244f2c7a08ce870b43d8496da4365910df92b7b2"
       },
       "approvalDigest": "sha256:060919222643cf75ae20aefd8fd21f3ef43db8fcc5bc53e51e3638d21ed0f06d"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-5aa09067594522ea3294c573a92ca7b5",
+      "capability": "absence",
+      "scope": {
+        "platform": "linux",
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [24, 26],
+        "probe": {
+          "path": "/proc",
+          "visibility": "full-pid-namespace",
+          "errorContract": "exact-pid-directory-v1",
+          "version": "procfs-v1"
+        }
+      },
+      "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22",
+      "semantics": "linux-pid-directory-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:f956d2c7eb6088ce2e8af22bdb44cec76b866b42b4f1292958c071e5d2da4b80",
+        "reviewDigest": "sha256:d639fc98daa78aca5c0da0a4f648cd0ab8c968be308c8b012b785747da77fb37"
+      },
+      "approvalDigest": "sha256:d41ed5816d385dcd44548a55809ddf9d53cdfa7da7863df5dc278caa01dfd24a"
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
@@ -367,6 +419,32 @@
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-87643afb25c7e1e356c0220b701b7f85",
+      "capability": "absence",
+      "scope": {
+        "platform": "win32",
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [24],
+        "probe": {
+          "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "visibility": "local-cim-query",
+          "errorContract": "completed-cim-query-v1",
+          "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+        }
+      },
+      "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22",
+      "semantics": "windows-cim-completed-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:f759ad682b11f83d0724d229a5f4258f127b628e35a9cc8b3eae56aea3c396ed",
+        "reviewDigest": "sha256:d639fc98daa78aca5c0da0a4f648cd0ab8c968be308c8b012b785747da77fb37"
+      },
+      "approvalDigest": "sha256:049a23555d185bfde20c07b7ac646884dd477e0e8b0aaea32eae109232b1567c"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
       "classId": "source-8cf5e9d7743ba2bfce5327ec14fce4d2",
       "capability": "absence",
       "scope": {
@@ -442,6 +520,32 @@
         "reviewDigest": "sha256:b7be9f2ce299a8a60dedcf57c64c199ed565a77c2613cf823e36f146e39cbcd3"
       },
       "approvalDigest": "sha256:61272133dc7fb076659b3217c6e956e4099e83396bca58e58275dffb7ea6679f"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-9e13379abf95f7a2e94fb2add4e03f7c",
+      "capability": "absence",
+      "scope": {
+        "platform": "darwin",
+        "builds": ["25.6.0"],
+        "architectures": ["arm64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "/bin/ps",
+          "visibility": "same-user-full-selection",
+          "errorContract": "exact-ps-selection-v1",
+          "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+        }
+      },
+      "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22",
+      "semantics": "darwin-ps-selection-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:d8d21b3a297ff9b95bbe46533d54b7ff7db1ab035de0b697e7c7330281e3a40c",
+        "reviewDigest": "sha256:2edb36758bd0f5e57c5c8c2c77eeb7bc0520b827f3012486ba9f193459083650"
+      },
+      "approvalDigest": "sha256:91c57db56ce362b0b69ad5ef0c00fdff1a03aa54df37a96087e87dc4e6fb3dc1"
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
@@ -627,6 +731,32 @@
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-d7276f0d133c96167275eca7886d5f36",
+      "capability": "creation",
+      "scope": {
+        "platform": "linux",
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [24, 26],
+        "probe": {
+          "path": "/proc",
+          "visibility": "full-pid-namespace",
+          "errorContract": "exact-pid-directory-v1",
+          "version": "procfs-v1"
+        }
+      },
+      "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22",
+      "semantics": "linux-start-ticks-v1",
+      "precision": "one-tick",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:401b082418f8646a68ac1284d5ed98da4344a9a9a1ca33704d231aa4a10b2398",
+        "reviewDigest": "sha256:d639fc98daa78aca5c0da0a4f648cd0ab8c968be308c8b012b785747da77fb37"
+      },
+      "approvalDigest": "sha256:2bbbf18dcf2b4ff5cbb48615aade966ef6f948b97b9d7cf374af1045ed56085e"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
       "classId": "source-e70fc2c68d373f60e400ef7057a3f161",
       "capability": "absence",
       "scope": {
@@ -676,6 +806,32 @@
         "reviewDigest": "sha256:b7be9f2ce299a8a60dedcf57c64c199ed565a77c2613cf823e36f146e39cbcd3"
       },
       "approvalDigest": "sha256:fc8dda00b15e6bc595a7c3609be15180dcf0058101c021f7ed2c88af77801b24"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-f72360e82bcce8a3be29b5e883a927ad",
+      "capability": "absence",
+      "scope": {
+        "platform": "win32",
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "visibility": "local-cim-query",
+          "errorContract": "completed-cim-query-v1",
+          "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+        }
+      },
+      "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22",
+      "semantics": "windows-cim-completed-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:a76243ddab558cbf10eda8d331da732484bb82ab764e7bd06ec773e0afbcc9bb",
+        "reviewDigest": "sha256:2edb36758bd0f5e57c5c8c2c77eeb7bc0520b827f3012486ba9f193459083650"
+      },
+      "approvalDigest": "sha256:225a1b75ef6853d759a91a0a53708489669edc5fe74173a38d9af2aeeb1de1b9"
     }
   ]
 }
