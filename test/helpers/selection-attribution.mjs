@@ -68,8 +68,9 @@ export function summarizeSelectionAttribution(trace) {
     observerExitObserved: true,
   };
 }
-export async function startSelectionAttribution(targets) {
+export async function startSelectionAttribution(targets, { preciseCoverage = false } = {}) {
   if (
+    typeof preciseCoverage !== 'boolean' ||
     !Array.isArray(targets) ||
     !targets.length ||
     targets.length > 4 ||
@@ -86,9 +87,9 @@ export async function startSelectionAttribution(targets) {
     throw Error('selection-attribution-target-unavailable');
   const worker = new Worker(new URL('./selection-attribution-worker.mjs', import.meta.url), {
     execArgv: [],
-    workerData: { targets },
+    workerData: { targets, preciseCoverage },
   });
-  let readyResolve, reportResolve, failed;
+  let readyResolve, reportResolve, failed, coverageResult;
   const ready = new Promise((resolve) => {
     readyResolve = resolve;
   });
@@ -99,6 +100,7 @@ export async function startSelectionAttribution(targets) {
   worker.on('message', (value) => {
     if (value?.kind === 'ready') readyResolve(value);
     if (value?.kind === 'report') reportResolve(value);
+    if (value?.kind === 'coverage' && preciseCoverage) coverageResult = { result: value.result };
   });
   worker.on('error', () => {
     failed = true;
@@ -134,6 +136,10 @@ export async function startSelectionAttribution(targets) {
         await worker.terminate();
         throw error;
       }
+    },
+    coverage() {
+      if (!closed || !coverageResult) throw Error('selection-coverage-unavailable');
+      return coverageResult;
     },
     unref() {
       worker.unref();

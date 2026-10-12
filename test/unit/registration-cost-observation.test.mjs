@@ -109,6 +109,44 @@ debuggerSession.disconnect();
   }
 });
 
+test('worker completion captures precise calls before disabling its debugger', () => {
+  const helper = new URL('../helpers/selection-attribution.mjs', import.meta.url).href;
+  const base = realpathSync(mkdtempSync(path.join(tmpdir(), 'apr-worker-coverage-')));
+  try {
+    const file = path.join(base, 'fixture.mjs');
+    const output = path.join(base, 'observed.json');
+    const text = `import {writeFileSync} from 'node:fs';
+import {startSelectionAttribution} from ${JSON.stringify(helper)};
+const observer=await startSelectionAttribution([{kind:'complete',url:import.meta.url,lineNumber:6}],{preciseCoverage:true});
+async function inspect(){await Promise.resolve();await Promise.resolve();await Promise.resolve();}
+async function openProtectedRoot(){await Promise.resolve();await Promise.resolve();}
+await inspect();await inspect();await inspect();await openProtectedRoot();
+const completed=true;
+await observer.close();
+writeFileSync(${JSON.stringify(output)},JSON.stringify(observer.coverage()));
+`;
+    writeFileSync(file, text);
+    execFileSync(process.execPath, [file], { timeout: 15000 });
+    const raw = JSON.parse(readFileSync(output, 'utf8'));
+    const observed = raw.result.filter((item) => item.url === pathToFileURL(file).href);
+    assert.equal(observed.length, 1);
+    const projected = api.projectRegistrationCostCoverage({
+      coverage: observed[0],
+      source: text,
+      expectedSourceSha256: createHash('sha256').update(text).digest('hex'),
+    });
+    assert.deepEqual(
+      projected.counters.map(({ name, count }) => ({ name, count })),
+      [
+        { name: 'inspect', count: 3 },
+        { name: 'openProtectedRoot', count: 1 },
+      ]
+    );
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test('coverage projection exposes only finite storage counters bound to exact source', () => {
   assert.equal(typeof api.projectRegistrationCostCoverage, 'function');
   const project = (value, expected = sourceSha256) =>

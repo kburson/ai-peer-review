@@ -1,0 +1,36 @@
+{
+  "schema": "ai-peer-review.selection-scope-provenance/v1",
+  "verified": false,
+  "operationalAuthority": "unavailable",
+  "sourceCommit": "482105877b5aafff96bf5d3d3e63a1d69f9f9e2e",
+  "nodeVersion": "26.11.1",
+  "tarballSha256": "de08762195c7ed80d4e21553dc3e22d69fd1068e2b7efc18dfecc309eae36da4",
+  "frontendSha256": "09a8ae20ed58fd0a7bf03511f564d3842d86d187198550b39e18d48e51724cec",
+  "stockInputBudgetsUnchanged": true,
+  "reports": [
+    {
+      "file": "register-unscoped.json",
+      "sha256": "b0b42b2d3af2186310f291fbfe8d494fecbdfbd7be0e8b70eaab1fec7c47056a",
+      "childExitObserved": true,
+      "exitCode": 0
+    },
+    {
+      "file": "register-scoped.json",
+      "sha256": "2e53f508f299c8641cd817414539c2d9b1055f050d0ac326c3f5abe813e46049",
+      "childExitObserved": true,
+      "exitCode": 0
+    },
+    {
+      "file": "activate-unscoped.json",
+      "sha256": "4fc97f365bff315ae8e1efd86669b9c2209b43f14c0ff56d6d837b5d02a2dcd7",
+      "childExitObserved": true,
+      "exitCode": 0
+    },
+    {
+      "file": "activate-scoped.json",
+      "sha256": "92dd34a5d0483f0bf6a2e2f793a3332d1ab0366aca003431e6881e7958236f7a",
+      "childExitObserved": true,
+      "exitCode": 0
+    }
+  ]
+}

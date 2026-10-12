@@ -14,6 +14,15 @@ let finished = false;
 async function finish() {
   if (finished) return;
   finished = true;
+  if (workerData.preciseCoverage) {
+    try {
+      const observed = await session.post('Profiler.takePreciseCoverage');
+      parentPort.postMessage({ kind: 'coverage', result: observed.result });
+      await session.post('Profiler.stopPreciseCoverage');
+    } catch {
+      unavailable++;
+    }
+  }
   await session.post('Debugger.disable');
   await session.post('HeapProfiler.stopTrackingHeapObjects');
   session.disconnect();
@@ -88,6 +97,10 @@ session.on('Debugger.paused', async ({ params }) => {
 await session.post('HeapProfiler.enable');
 await session.post('HeapProfiler.startTrackingHeapObjects', { trackAllocations: false });
 await session.post('Debugger.enable');
+if (workerData.preciseCoverage) {
+  await session.post('Profiler.enable');
+  await session.post('Profiler.startPreciseCoverage', { callCount: true, detailed: true });
+}
 for (const target of workerData.targets) {
   const { breakpointId } = await session.post('Debugger.setBreakpointByUrl', {
     url: target.url,

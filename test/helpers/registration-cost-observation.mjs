@@ -1,7 +1,7 @@
 // @story #190
 // Original installed candidate, original commands/budgets; passive V8 metadata only.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdir, realpath, readFile, writeFile, readdir, stat } from 'node:fs/promises';
+import { mkdir, realpath, readFile, writeFile, stat } from 'node:fs/promises';
 import { userInfo } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -166,11 +166,7 @@ try {
   )
     throw Error('registration-cost-record-unavailable');
   stage = 'coverage';
-  const files = (await readdir(coverageRoot)).filter((name) =>
-    new RegExp('^coverage-' + child.pid + '-[0-9]+-0[.]json$').test(name)
-  );
-  if (files.length !== 1) throw Error('registration-cost-coverage-unavailable');
-  const file = path.join(coverageRoot, files[0]);
+  const file = path.join(coverageRoot, 'precise-coverage.json');
   if ((await stat(file)).size > 33554432) throw Error('registration-cost-coverage-unavailable');
   const raw = JSON.parse(await readFile(file, 'utf8'));
   const entries = raw.result.filter((item) => item.url === pathToFileURL(moduleFile).href);

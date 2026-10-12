@@ -1,7 +1,7 @@
 // @story #190
 // Independent metadata observer of the immutable failing candidate. Fixed
 // scripts, arguments, signals and deadlines remain untouched.
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -83,11 +83,22 @@ targets.push({
   url: pathToFileURL(cliFile).href,
   lineNumber: cliSource.slice(0, failureAt).split('\n').length - 1,
 });
-const observer = await startSelectionAttribution(targets);
+const preciseCoverage = Boolean(process.env.NODE_V8_COVERAGE);
+const observer = await startSelectionAttribution(targets, { preciseCoverage });
 observer.unref();
 process.once('beforeExit', async () => {
   try {
     const value = await observer.close();
+    if (preciseCoverage) {
+      const directory = process.env.NODE_V8_COVERAGE;
+      if (!path.isAbsolute(directory) || realpathSync(directory) !== directory)
+        throw Error('selection-coverage-location-unavailable');
+      writeFileSync(
+        path.join(directory, 'precise-coverage.json'),
+        JSON.stringify(observer.coverage()),
+        { flag: 'wx', mode: 0o600 }
+      );
+    }
     process.stderr.write(
       JSON.stringify({ diagnostic: 'selection-attribution', ...value, selectionGuardOpens }) + '\n'
     );
