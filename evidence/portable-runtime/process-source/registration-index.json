@@ -2,9 +2,34 @@
   "schema": "ai-peer-review.process-source-registration-index/v1",
   "captures": [
     {
-      "captureId": "source-eaef9345d29286b4bea8444329e3e931",
-      "path": "evidence/portable-runtime/process-source/registrations/source-eaef9345d29286b4bea8444329e3e931.json",
-      "digest": "sha256:bf2955bdbfac8979614c51f867d834840f3f15dfd0a0f1d3fe795903f212cb01"
+      "captureId": "source-2311c91f64a1977da398fcb461a32cb2",
+      "path": "evidence/portable-runtime/process-source/registrations/source-2311c91f64a1977da398fcb461a32cb2.json",
+      "digest": "sha256:7db785ef872aba06b988ac7dbf0fda747800a24aeb40758bd1ad272288cb7d91"
+    },
+    {
+      "captureId": "source-498739cb681d708abc15314735a271df",
+      "path": "evidence/portable-runtime/process-source/registrations/source-498739cb681d708abc15314735a271df.json",
+      "digest": "sha256:c89b3ec2cc38325856f143f6444273565b064eb770ff9fa4195f7198adb2792b"
+    },
+    {
+      "captureId": "source-73fd05fabb50d27935a6b547a235df7e",
+      "path": "evidence/portable-runtime/process-source/registrations/source-73fd05fabb50d27935a6b547a235df7e.json",
+      "digest": "sha256:c53d3512148c2b757ca8c7780def823f745ec424c0a3d2aa7b4e6f3bceed4845"
+    },
+    {
+      "captureId": "source-a78ad4024879e71f3e3ecf3697a95cc4",
+      "path": "evidence/portable-runtime/process-source/registrations/source-a78ad4024879e71f3e3ecf3697a95cc4.json",
+      "digest": "sha256:eff309a6f922c85da43faa992563e466774bbe4cf98887d5dc7223b86ba419d2"
+    },
+    {
+      "captureId": "source-c247918a8b6132ee098b437b8405fba0",
+      "path": "evidence/portable-runtime/process-source/registrations/source-c247918a8b6132ee098b437b8405fba0.json",
+      "digest": "sha256:6220af8e6275d360557b7191c34c17a319ec4ada87a207e277546e17110aca38"
+    },
+    {
+      "captureId": "source-f102f7e837376ffe70b5b845b69ca0ba",
+      "path": "evidence/portable-runtime/process-source/registrations/source-f102f7e837376ffe70b5b845b69ca0ba.json",
+      "digest": "sha256:277fb31ffa4aaa27ea7852b5d541da7b60df4707d9e3024abe9278cc73cbca35"
     }
   ]
 }
