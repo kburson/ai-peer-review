@@ -280,7 +280,7 @@ function repositoryChecks(root, writes, commands) {
   const parent = mkdtempSync(path.join(common, 'setup-validation-'));
   const snapshot = path.join(parent, 'host');
   try {
-    execFileSync('git', ['clone', '--shared', '--no-checkout', '--quiet', root, snapshot], {
+    execFileSync('git', ['clone', '--shared', '--no-checkout', '--quiet', '--', root, snapshot], {
       stdio: 'pipe',
       timeout: 15000,
     });
