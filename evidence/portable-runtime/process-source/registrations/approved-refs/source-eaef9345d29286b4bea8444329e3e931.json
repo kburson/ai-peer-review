@@ -1,0 +1,31 @@
+{
+  "schema": "ai-peer-review.process-source-approved-ref/v1",
+  "revision": "a921dd4830ac8b02a4e5ced828abd5267a973156",
+  "indexDigest": "sha256:c4236892c7efff01c756f2bfd5d664791a501d20f2fd821c35688eb4fb10e41f",
+  "producerVersion": "0.4.0",
+  "review": {
+    "reviewId": "review-e2975c6950d7023807d95982cec76555",
+    "subject": {
+      "revision": "61f71ab06cedec25d13988094af9f0a7a0970ffb",
+      "path": "evidence/portable-runtime/process-source/registration-reviews/2026-10-12-190-selection-scope-wave3.md",
+      "blob": "176cb75c5bb21d863fcc74d91d0885527cb6017d",
+      "sha256": "40348eae3cf2f9f8845f1a62074724febf6b05b401d0c87fc37f507b7c0e15ac"
+    },
+    "manifest": {
+      "revision": "6476aa41b0abf8e74f00c6f2d331f80a8520b272",
+      "path": "docs/superpowers/peer-reviews/190-selection-scope-registration-wave3/spec/2026-10-12-2026-10-12-190-selection-scope-wave3-review-e2975c6950d7023807d95982cec76555/review-e2975c6950d7023807d95982cec76555-review-manifest.md",
+      "blob": "729e92050c439bf95fef187fdfa60a132d4e4f65",
+      "sha256": "5f9500bc3c2a00f7d2655597a27a74de237bf7cd7d20f60033ac6388d34ef260"
+    },
+    "finalResponse": {
+      "revision": "6476aa41b0abf8e74f00c6f2d331f80a8520b272",
+      "path": "docs/superpowers/peer-reviews/190-selection-scope-registration-wave3/spec/2026-10-12-2026-10-12-190-selection-scope-wave3-review-e2975c6950d7023807d95982cec76555/review-e2975c6950d7023807d95982cec76555-reviewer-response-2.md",
+      "blob": "2ed17008f630e96dd82ec8561ad7ed90ab952be9",
+      "sha256": "57672b05addbb5afd5f89347f70ff8f5314bb5d2e9f321593fe3d31f47328857"
+    },
+    "finalization": {
+      "revision": "6476aa41b0abf8e74f00c6f2d331f80a8520b272",
+      "sha256": "677c663e5dad2ae25a604dfd5aa9f960a84444571e3158fd869c6a267912a6cd"
+    }
+  }
+}
