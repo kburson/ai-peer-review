@@ -58,6 +58,8 @@ function Observe([string]$requestText) {
   observation +
   String.raw`
 }
+try {
+$failureStage='batch-query'
 for($i=0;$i -lt 10;$i++) {
   $watch=[Diagnostics.Stopwatch]::StartNew()
   $record=Observe ([string]$p.query)
@@ -77,12 +79,14 @@ function AclBytesEqual($first,$second) {
   return [Convert]::ToBase64String($a) -ceq [Convert]::ToBase64String($b)
 }
 try {
+  $failureStage='acl-change'
   $rule=[Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new('S-1-1-0'),[Security.AccessControl.FileSystemRights]::ReadAndExecute,[Security.AccessControl.InheritanceFlags]::None,[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow)
   $prior.AddAccessRule($rule)
   Set-Acl -LiteralPath ([string]$p.directory) -AclObject $prior
   $changed=Observe ([string]$p.query)
   [Console]::Out.WriteLine((@{kind='changed';record=$changed} | ConvertTo-Json -Compress))
 } finally {
+  $failureStage='acl-restore'
   $restore=[Security.AccessControl.DirectorySecurity]::new()
   $restore.SetSecurityDescriptorBinaryForm($bytes)
   Set-Acl -LiteralPath ([string]$p.directory) -AclObject $restore
@@ -99,6 +103,16 @@ try {
   }
 }
 [Console]::Out.WriteLine((@{kind='restored';aclRestored=[bool]$restored;restoreParts=$restoreParts;record=(Observe ([string]$p.query))} | ConvertTo-Json -Compress))
+} catch {
+  $types=@(); $current=$_.Exception
+  for($depth=0;$null -ne $current -and $depth -lt 3;$depth++) { $types+= $current.GetType().Name; $current=$current.InnerException }
+  $privilege=$null
+  foreach($name in @('SeSecurityPrivilege','SeRestorePrivilege','SeTakeOwnershipPrivilege')) {
+    if($_.Exception.ToString().Contains($name)) { $privilege=$name }
+  }
+  [Console]::Out.WriteLine((@{kind='failure';stage=$failureStage;types=$types;privilege=$privilege} | ConvertTo-Json -Compress))
+  exit 1
+}
 `;
 const executable = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const args = (script) => [
@@ -141,6 +155,8 @@ let childExitObserved = false,
   stage = 'setup',
   rows = null;
 const baseline = [];
+let privatePartialOutput = '';
+let scriptFailure = null;
 try {
   const directory = path.join(base, 'directory'),
     file = path.join(base, 'record.json');
@@ -172,6 +188,7 @@ try {
     let result,
       completed = false;
     const child = execFile(executable, args(batch), options, (error, stdout, stderr) => {
+      privatePartialOutput = stdout;
       if (error || stderr.trim()) {
         reject(Error('observation-feasibility-batch-refused'));
         return;
@@ -180,8 +197,8 @@ try {
       completed = true;
     });
     child.once('close', (code, signal) => {
-      childExitObserved = code === 0 && signal === null;
-      if (completed && childExitObserved) resolve(result);
+      childExitObserved = Number.isInteger(code) && signal === null;
+      if (completed && childExitObserved && code === 0) resolve(result);
       else reject(Error('observation-feasibility-exit-unproved'));
     });
     child.stdout.on('data', (chunk) => {
@@ -244,6 +261,34 @@ try {
     flag: 'wx',
   });
 } catch (error) {
+  if (!rows && privatePartialOutput) {
+    rows = privatePartialOutput
+      .trim()
+      .split(/\r?\n/)
+      .flatMap((line) => {
+        try {
+          return [JSON.parse(line)];
+        } catch {
+          return [];
+        }
+      });
+    const failure = rows.find((row) => row.kind === 'failure');
+    if (
+      failure &&
+      ['batch-query', 'acl-change', 'acl-restore'].includes(failure.stage) &&
+      Array.isArray(failure.types) &&
+      failure.types.length <= 3 &&
+      failure.types.every((value) => typeof value === 'string' && /^[A-Za-z]{1,80}$/.test(value)) &&
+      [null, 'SeSecurityPrivilege', 'SeRestorePrivilege', 'SeTakeOwnershipPrivilege'].includes(
+        failure.privilege
+      )
+    )
+      scriptFailure = {
+        stage: failure.stage,
+        exceptionTypes: failure.types,
+        privilege: failure.privilege,
+      };
+  }
   let restoredRecordsEqual = null;
   try {
     if (typeof rows?.[11]?.record === 'string' && baseline.length === 10)
@@ -267,6 +312,7 @@ try {
         cleanup: cleanupProved ? 'proved' : 'unproved',
         ...observationFeasibilityFailure(error, stage),
         frameCount: rows?.length ?? null,
+        scriptFailure,
         recordTypes:
           rows
             ?.slice(0, 10)
