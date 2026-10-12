@@ -2,14 +2,9 @@
   "schema": "ai-peer-review.process-source-registration-index/v1",
   "captures": [
     {
-      "captureId": "source-184fd40e6bc8db76fae3519729641a78",
-      "path": "evidence/portable-runtime/process-source/registrations/source-184fd40e6bc8db76fae3519729641a78.json",
-      "digest": "sha256:973edb8d5d3472d2bc513a749bec1c92fa0d35714c6e9792c00446889fea93cf"
-    },
-    {
-      "captureId": "source-c9b4d0b5fe0e313cdb309b78c32ab5d3",
-      "path": "evidence/portable-runtime/process-source/registrations/source-c9b4d0b5fe0e313cdb309b78c32ab5d3.json",
-      "digest": "sha256:e6e262e61a332d1abaadf6b81a5f86d70171a7e3d4bbc3c6f686fcc456f78ef2"
+      "captureId": "source-69a9352ab6feaa4429330696565157e0",
+      "path": "evidence/portable-runtime/process-source/registrations/source-69a9352ab6feaa4429330696565157e0.json",
+      "digest": "sha256:b6eccd18422e3ad71e1754ccb02c1c62d3237e7eefd44e292bebc0b3cf441383"
     }
   ]
 }
