@@ -2,29 +2,14 @@
   "schema": "ai-peer-review.process-source-registration-index/v1",
   "captures": [
     {
-      "captureId": "source-16bc77b6a1b08536cfe078b86e24f2eb",
-      "path": "evidence/portable-runtime/process-source/registrations/source-16bc77b6a1b08536cfe078b86e24f2eb.json",
-      "digest": "sha256:36f3f17dd471d0cf2c8f12a9fd166dd5b3a1095282c257925a2402e699e36057"
+      "captureId": "source-48343037d80c01b6c72e6d54be29a3ab",
+      "path": "evidence/portable-runtime/process-source/registrations/source-48343037d80c01b6c72e6d54be29a3ab.json",
+      "digest": "sha256:3ac005c16509be8d1f77e008e22fb7ba073dcc70a1ef045459810683e921a9ca"
     },
     {
-      "captureId": "source-3628b7593de5ba8cb83452e629ec05fa",
-      "path": "evidence/portable-runtime/process-source/registrations/source-3628b7593de5ba8cb83452e629ec05fa.json",
-      "digest": "sha256:adbc6bbd5ab957f92cfbc52a7cee6e75204e439fa8e254f7ef82e06fa2b300f8"
-    },
-    {
-      "captureId": "source-3b3170e1a5f9f3cf12e8a22bf070da8c",
-      "path": "evidence/portable-runtime/process-source/registrations/source-3b3170e1a5f9f3cf12e8a22bf070da8c.json",
-      "digest": "sha256:c437ab68582946ff25ad69cb4ada30e21d128066fd270832ea19b63cd43eeedc"
-    },
-    {
-      "captureId": "source-55832d071d18967b0cb1a7f921e00dfe",
-      "path": "evidence/portable-runtime/process-source/registrations/source-55832d071d18967b0cb1a7f921e00dfe.json",
-      "digest": "sha256:f611e07c708fac25438bed91bf9bad65ab9ca90f84f2d72917cf22a4de31b3df"
-    },
-    {
-      "captureId": "source-fc9482e6672e57c90d34396b063a115c",
-      "path": "evidence/portable-runtime/process-source/registrations/source-fc9482e6672e57c90d34396b063a115c.json",
-      "digest": "sha256:98b0ab999cd7ad582a8221a2d01e66d1020039367a041b1cd828574d83b6a97e"
+      "captureId": "source-d9411c4a10e179d8f0ba6c9aae0c8751",
+      "path": "evidence/portable-runtime/process-source/registrations/source-d9411c4a10e179d8f0ba6c9aae0c8751.json",
+      "digest": "sha256:245553efda3fb817d962b023e6dc630cddc8bb326f282c327e465a27f3ae4d87"
     }
   ]
 }
