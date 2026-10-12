@@ -268,12 +268,9 @@ async function withFreshOperationAuthority(fence, continuation) {
     )
   )
     refuse('Selected runtime physical generation changed during the operation.');
-  const inventory = verifyRuntimeInventorySync({
-    packageRoot,
-    previousObservation: seal.runtime.inventory,
-  });
-  if (inventory.inventoryDigest !== seal.runtime.inventoryDigest)
-    refuse('Runtime changed during the operation.');
+  // The final synchronous integrity check below freshly verifies this same
+  // authenticated inventory after the awaited primary observations and before
+  // returning authority or invoking any effect.
   const observed = await observePrimary(seal.cwd, seal.context);
   await assertPrimaryAuthorityGeneration(seal.primary, observed.primary);
   if (

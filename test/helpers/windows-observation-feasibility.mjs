@@ -11,6 +11,7 @@ import { performance } from 'node:perf_hooks';
 import { createHash } from 'node:crypto';
 import {
   validateObservationFeasibilityReport,
+  validateColdStartSequenceReport,
   observationFeasibilityFailure,
 } from './windows-observation-feasibility-report.mjs';
 const token = process.argv[2];
@@ -190,38 +191,44 @@ try {
     baseline.push(parseRecord(raw));
   }
   stage = 'batch';
-  const started = performance.now();
-  let coldFirstQueryMs = null,
-    seen = '';
-  const output = await new Promise((resolve, reject) => {
-    let result,
-      completed = false;
-    const child = execFile(executable, args(batch), options, (error, stdout, stderr) => {
-      privatePartialOutput = stdout;
-      if (error || stderr.trim()) {
-        reject(Error('observation-feasibility-batch-refused'));
-        return;
-      }
-      result = stdout;
-      completed = true;
+  async function runBatch() {
+    const started = performance.now();
+    let coldFirstQueryMs = null,
+      seen = '';
+    const output = await new Promise((resolve, reject) => {
+      let result,
+        completed = false;
+      const child = execFile(executable, args(batch), options, (error, stdout, stderr) => {
+        privatePartialOutput = stdout;
+        if (error || stderr.trim()) {
+          reject(Error('observation-feasibility-batch-refused'));
+          return;
+        }
+        result = stdout;
+        completed = true;
+      });
+      child.once('close', (code, signal) => {
+        childExitObserved = Number.isInteger(code) && signal === null;
+        if (completed && childExitObserved && code === 0) resolve(result);
+        else reject(Error('observation-feasibility-exit-unproved'));
+      });
+      child.stdout.on('data', (chunk) => {
+        seen += chunk;
+        if (Buffer.byteLength(seen) > 1048576) {
+          child.kill();
+          reject(Error('observation-feasibility-output-bound'));
+        }
+        if (coldFirstQueryMs === null && seen.includes('\n'))
+          coldFirstQueryMs = Math.round(performance.now() - started);
+      });
+      child.stdin.on('error', () => reject(Error('observation-feasibility-input-refused')));
+      child.stdin.end(JSON.stringify({ query, directory }));
     });
-    child.once('close', (code, signal) => {
-      childExitObserved = Number.isInteger(code) && signal === null;
-      if (completed && childExitObserved && code === 0) resolve(result);
-      else reject(Error('observation-feasibility-exit-unproved'));
-    });
-    child.stdout.on('data', (chunk) => {
-      seen += chunk;
-      if (Buffer.byteLength(seen) > 1048576) {
-        child.kill();
-        reject(Error('observation-feasibility-output-bound'));
-      }
-      if (coldFirstQueryMs === null && seen.includes('\n'))
-        coldFirstQueryMs = Math.round(performance.now() - started);
-    });
-    child.stdin.on('error', () => reject(Error('observation-feasibility-input-refused')));
-    child.stdin.end(JSON.stringify({ query, directory }));
-  });
+    return { output, coldFirstQueryMs, batchElapsedMs: Math.ceil(performance.now() - started) };
+  }
+  const firstBatch = await runBatch();
+  const { output, coldFirstQueryMs } = firstBatch;
+  const batches = [firstBatch];
   stage = 'decode';
   rows = output
     .trim()
@@ -260,6 +267,60 @@ try {
     parentLossProved: false,
     guaranteedStartupSavingMs: 0,
   });
+  if (!report.completeRecordsEqual || !report.aclChangeObserved || !report.aclRestored)
+    throw Error('observation-feasibility-restoration-unproved');
+  // Re-run the exact independent fixed batch four times. No production source,
+  // CLI, signal, deadline or OS observation is substituted or reused.
+  stage = 'batch';
+  for (let i = 1; i < 5; i++) {
+    const next = await runBatch();
+    rows = next.output
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => JSON.parse(line));
+    if (
+      rows.length !== 12 ||
+      rows
+        .slice(0, 10)
+        .some(
+          (row, index) =>
+            row.kind !== 'query' ||
+            row.index !== index ||
+            parseRecord(row.record) !== baseline[index]
+        ) ||
+      rows[10].kind !== 'changed' ||
+      parseRecord(rows[10].record) === baseline[9] ||
+      rows[11].kind !== 'restored' ||
+      rows[11].aclRestored !== true ||
+      parseRecord(rows[11].record) !== baseline[9] ||
+      !childExitObserved
+    )
+      throw Error('observation-feasibility-output-shape');
+    batches.push(next);
+  }
+  const sequence = validateColdStartSequenceReport({
+    schema: 'ai-peer-review.windows-cold-start-sequence/v1',
+    verified: false,
+    operationalAuthority: 'unavailable',
+    producer,
+    sourceScriptSha256: report.sourceScriptSha256,
+    node: report.node,
+    platform: report.platform,
+    arch: report.arch,
+    osRelease: report.osRelease,
+    token: report.token,
+    administratorMember: report.administratorMember,
+    administratorEffective: report.administratorEffective,
+    samples: 5,
+    coldFirstQueryMs: batches.map((batch) => batch.coldFirstQueryMs),
+    batchElapsedMs: batches.map((batch) => batch.batchElapsedMs),
+    completeRecordsEqual: true,
+    aclRestored: true,
+    childExitObserved: true,
+    parentLossProved: false,
+    completeRegistrationObserved: false,
+    guaranteedStartupSavingMs: 0,
+  });
   stage = 'restore';
   if (!report.aclRestored) throw Error('observation-feasibility-restoration-unproved');
   cleanupProved = report.aclRestored && report.childExitObserved;
@@ -267,6 +328,9 @@ try {
   const out = path.join(process.cwd(), '.scratch/190-feasibility-public');
   await mkdir(out, { recursive: true });
   await writeFile(path.join(out, 'report.json'), JSON.stringify(report, null, 2) + '\n', {
+    flag: 'wx',
+  });
+  await writeFile(path.join(out, 'cold-sequence.json'), JSON.stringify(sequence, null, 2) + '\n', {
     flag: 'wx',
   });
 } catch (error) {

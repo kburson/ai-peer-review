@@ -94,3 +94,70 @@ test('probe failure diagnostics retain known stage and code without private exce
     }
   );
 });
+
+test('cold start sequence is bounded diagnostic data with complete equivalence and exit', () => {
+  assert.equal(typeof api.validateColdStartSequenceReport, 'function');
+  const value = {
+    schema: 'ai-peer-review.windows-cold-start-sequence/v1',
+    verified: false,
+    operationalAuthority: 'unavailable',
+    producer: 'a'.repeat(40),
+    sourceScriptSha256: 'b'.repeat(64),
+    node: '26.11.1',
+    platform: 'win32',
+    arch: 'x64',
+    osRelease: '10.0.26100',
+    token: 'limited',
+    administratorMember: false,
+    administratorEffective: false,
+    samples: 5,
+    coldFirstQueryMs: [400, 350, 420, 390, 375],
+    batchElapsedMs: [450, 400, 480, 450, 425],
+    completeRecordsEqual: true,
+    aclRestored: true,
+    childExitObserved: true,
+    parentLossProved: false,
+    completeRegistrationObserved: false,
+    guaranteedStartupSavingMs: 0,
+  };
+  assert.doesNotThrow(() => api.validateColdStartSequenceReport(value));
+  for (const mutation of [
+    (v) => {
+      v.records = ['private'];
+    },
+    (v) => {
+      v.coldFirstQueryMs.pop();
+    },
+    (v) => {
+      v.batchElapsedMs[0] = 15001;
+    },
+    (v) => {
+      v.batchElapsedMs[0] = 399;
+    },
+    (v) => {
+      v.administratorEffective = true;
+    },
+    (v) => {
+      v.completeRecordsEqual = false;
+    },
+    (v) => {
+      v.aclRestored = false;
+    },
+    (v) => {
+      v.childExitObserved = false;
+    },
+    (v) => {
+      v.parentLossProved = true;
+    },
+    (v) => {
+      v.completeRegistrationObserved = true;
+    },
+    (v) => {
+      v.guaranteedStartupSavingMs = 1;
+    },
+  ]) {
+    const candidate = structuredClone(value);
+    mutation(candidate);
+    assert.throws(() => api.validateColdStartSequenceReport(candidate));
+  }
+});

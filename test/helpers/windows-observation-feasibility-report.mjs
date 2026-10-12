@@ -92,3 +92,68 @@ export function observationFeasibilityFailure(error, stage) {
     errorKind: ['Error', 'SyntaxError', 'TypeError'].includes(error?.name) ? error.name : 'Error',
   };
 }
+
+// Five independent stock batches; neither complete registration nor parent-loss proof.
+export function validateColdStartSequenceReport(value) {
+  const fields = [
+    'schema',
+    'verified',
+    'operationalAuthority',
+    'producer',
+    'sourceScriptSha256',
+    'node',
+    'platform',
+    'arch',
+    'osRelease',
+    'token',
+    'administratorMember',
+    'administratorEffective',
+    'samples',
+    'coldFirstQueryMs',
+    'batchElapsedMs',
+    'completeRecordsEqual',
+    'aclRestored',
+    'childExitObserved',
+    'parentLossProved',
+    'completeRegistrationObserved',
+    'guaranteedStartupSavingMs',
+  ];
+  const times = (rows) =>
+    Array.isArray(rows) &&
+    rows.length === 5 &&
+    Object.keys(rows).join(',') === '0,1,2,3,4' &&
+    rows.every((n) => Number.isFinite(n) && n >= 0 && n <= 15000);
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).sort().join('|') !== fields.sort().join('|') ||
+    value.schema !== 'ai-peer-review.windows-cold-start-sequence/v1' ||
+    value.verified !== false ||
+    value.operationalAuthority !== 'unavailable' ||
+    !/^[a-f0-9]{40}$/.test(value.producer ?? '') ||
+    !/^[a-f0-9]{64}$/.test(value.sourceScriptSha256 ?? '') ||
+    !/^(?:24|26)\.[0-9]+\.[0-9]+$/.test(value.node ?? '') ||
+    value.platform !== 'win32' ||
+    value.arch !== 'x64' ||
+    !/^[0-9]+\.[0-9]+\.[0-9]+$/.test(value.osRelease ?? '') ||
+    typeof value.osRelease !== 'string' ||
+    value.osRelease.length > 32 ||
+    !['ordinary', 'limited'].includes(value.token) ||
+    typeof value.administratorMember !== 'boolean' ||
+    typeof value.administratorEffective !== 'boolean' ||
+    (value.token === 'limited' && (value.administratorMember || value.administratorEffective)) ||
+    value.samples !== 5 ||
+    !times(value.coldFirstQueryMs) ||
+    !times(value.batchElapsedMs) ||
+    value.coldFirstQueryMs.some((n, i) => n > value.batchElapsedMs[i]) ||
+    value.completeRecordsEqual !== true ||
+    value.aclRestored !== true ||
+    value.childExitObserved !== true ||
+    value.parentLossProved !== false ||
+    value.completeRegistrationObserved !== false ||
+    value.guaranteedStartupSavingMs !== 0
+  )
+    throw Error('cold-start-sequence-report-invalid');
+  return value;
+}
