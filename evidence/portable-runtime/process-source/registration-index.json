@@ -2,14 +2,34 @@
   "schema": "ai-peer-review.process-source-registration-index/v1",
   "captures": [
     {
-      "captureId": "source-48343037d80c01b6c72e6d54be29a3ab",
-      "path": "evidence/portable-runtime/process-source/registrations/source-48343037d80c01b6c72e6d54be29a3ab.json",
-      "digest": "sha256:3ac005c16509be8d1f77e008e22fb7ba073dcc70a1ef045459810683e921a9ca"
+      "captureId": "source-0f9002ed8fe3a65bf9e0b625e0afef57",
+      "path": "evidence/portable-runtime/process-source/registrations/source-0f9002ed8fe3a65bf9e0b625e0afef57.json",
+      "digest": "sha256:c55abff537dd856329b61af8727ebf9970ccd98aa10eae7d8c90b386442b900a"
     },
     {
-      "captureId": "source-d9411c4a10e179d8f0ba6c9aae0c8751",
-      "path": "evidence/portable-runtime/process-source/registrations/source-d9411c4a10e179d8f0ba6c9aae0c8751.json",
-      "digest": "sha256:245553efda3fb817d962b023e6dc630cddc8bb326f282c327e465a27f3ae4d87"
+      "captureId": "source-496ca510ee051288c0dbf3d0bff299ad",
+      "path": "evidence/portable-runtime/process-source/registrations/source-496ca510ee051288c0dbf3d0bff299ad.json",
+      "digest": "sha256:1ecab1d9772340e533b4fee87d8293187149d1d7ef0e5194c570dc4c247686d5"
+    },
+    {
+      "captureId": "source-576323d2c187999cfb1baaee3e43eb1e",
+      "path": "evidence/portable-runtime/process-source/registrations/source-576323d2c187999cfb1baaee3e43eb1e.json",
+      "digest": "sha256:14a5201d78b88985aee2a0ed4cd7c2b8f9c25cc4b0d920cb56aa101fc3c7abb8"
+    },
+    {
+      "captureId": "source-bcdbc785034d6b5f4d017f803681a10c",
+      "path": "evidence/portable-runtime/process-source/registrations/source-bcdbc785034d6b5f4d017f803681a10c.json",
+      "digest": "sha256:f3f55e0b10f8680b07f9b93e9f56b8a5012d34f1000f675525febb6759fe73dd"
+    },
+    {
+      "captureId": "source-c39a8d6d684b3c33140c2abe3b257505",
+      "path": "evidence/portable-runtime/process-source/registrations/source-c39a8d6d684b3c33140c2abe3b257505.json",
+      "digest": "sha256:1199acd83c05be642ddb88052a60728141f5cb8981e772d4a15f2ee6d543b732"
+    },
+    {
+      "captureId": "source-c9490e177bd88730ee8fa178da482e3f",
+      "path": "evidence/portable-runtime/process-source/registrations/source-c9490e177bd88730ee8fa178da482e3f.json",
+      "digest": "sha256:9e302f6ae79a9546b67725d2dc15294fa9f36ba47a4839f924a5360b3ac64705"
     }
   ]
 }
