@@ -89,7 +89,7 @@ try {
   $failureStage='acl-restore'
   $restore=[Security.AccessControl.DirectorySecurity]::new()
   $restore.SetSecurityDescriptorBinaryForm($bytes,$sections)
-  Set-Acl -LiteralPath ([string]$p.directory) -AclObject $restore
+  [IO.Directory]::SetAccessControl([string]$p.directory,$restore)
   $after=[IO.Directory]::GetAccessControl([string]$p.directory,$sections).GetSecurityDescriptorBinaryForm()
   $restored=[Convert]::ToBase64String($after) -ceq [Convert]::ToBase64String($bytes)
   $beforeRaw=[Security.AccessControl.RawSecurityDescriptor]::new($bytes,0)
