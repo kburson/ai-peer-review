@@ -57,6 +57,29 @@ test('broker child diagnostics publish bounded codes without requiring one exact
   ])
     assert.equal(subject.brokerChildFailureCode(value), null);
 });
+test('startup diagnostics retain known owner and snapshot refusals while excluding private reasons', async () => {
+  const subject = await driver();
+  const { brokerStartupDiagnostic } = await import('../../bin/peer-review-broker.mjs');
+  for (const reason of [
+    'owner-operation-not-admitted',
+    'owner-guard-budget-mismatch',
+    'operation-budget-unproved',
+    'protected-snapshot-changed',
+    'snapshot-ancestor-changed',
+    'genuine-protected-snapshot-required',
+  ]) {
+    const observed = brokerStartupDiagnostic({ code: 'APR_BROKER_STALE', details: { reason } });
+    assert.deepEqual(observed.reasons, [reason]);
+    assert.deepEqual(subject.brokerChildRefusalReasons(JSON.stringify(observed)), [reason]);
+    assert.equal(observed.verified, false);
+  }
+  const rejected = brokerStartupDiagnostic({
+    code: 'APR_BROKER_STALE',
+    details: { reason: '/private/credential-DO-NOT-PUBLISH' },
+  });
+  assert.deepEqual(rejected.reasons, []);
+  assert.equal(JSON.stringify(rejected).includes('DO-NOT-PUBLISH'), false);
+});
 test('installed journey refuses ports, class overrides and missing actual inputs before effects', async () => {
   const subject = await driver();
   assert.equal(

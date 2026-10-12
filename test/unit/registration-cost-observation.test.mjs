@@ -67,6 +67,48 @@ test('real engine coverage retains function counts without executing a substitut
     rmSync(base, { recursive: true, force: true });
   }
 });
+test('precise diagnostic coverage counts calls rather than debugger async resumptions', async () => {
+  const helper = new URL('../helpers/precise-function-coverage.mjs', import.meta.url).href;
+  const precise = await import(helper).catch(() => ({}));
+  assert.equal(typeof precise.startPreciseFunctionCoverage, 'function');
+  const base = realpathSync(mkdtempSync(path.join(tmpdir(), 'apr-precise-coverage-')));
+  try {
+    const file = path.join(base, 'fixture.mjs');
+    const output = path.join(base, 'observed.json');
+    const text = `import inspector from 'node:inspector';
+import {writeFileSync} from 'node:fs';
+import {startPreciseFunctionCoverage} from ${JSON.stringify(helper)};
+const debuggerSession=new inspector.Session();debuggerSession.connect();
+await new Promise((resolve,reject)=>debuggerSession.post('Debugger.enable',{},error=>error?reject(error):resolve()));
+const collector=await startPreciseFunctionCoverage();
+async function inspect(){await Promise.resolve();await Promise.resolve();await Promise.resolve();}
+async function openProtectedRoot(){await Promise.resolve();await Promise.resolve();}
+await inspect();await inspect();await inspect();await openProtectedRoot();
+writeFileSync(${JSON.stringify(output)},JSON.stringify(await collector.finish()));
+debuggerSession.disconnect();
+`;
+    writeFileSync(file, text);
+    execFileSync(process.execPath, [file], { timeout: 10000 });
+    const raw = JSON.parse(readFileSync(output, 'utf8'));
+    const observed = raw.result.filter((item) => item.url === pathToFileURL(file).href);
+    assert.equal(observed.length, 1);
+    const projected = api.projectRegistrationCostCoverage({
+      coverage: observed[0],
+      source: text,
+      expectedSourceSha256: createHash('sha256').update(text).digest('hex'),
+    });
+    assert.deepEqual(
+      projected.counters.map(({ name, count }) => ({ name, count })),
+      [
+        { name: 'inspect', count: 3 },
+        { name: 'openProtectedRoot', count: 1 },
+      ]
+    );
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test('coverage projection exposes only finite storage counters bound to exact source', () => {
   assert.equal(typeof api.projectRegistrationCostCoverage, 'function');
   const project = (value, expected = sourceSha256) =>
@@ -83,6 +125,9 @@ test('coverage projection exposes only finite storage counters bound to exact so
     ],
   });
   for (const change of [
+    (v) => {
+      v.functions[0].isBlockCoverage = false;
+    },
     (v) => {
       v.functions[0].ranges[0].count = -1;
     },

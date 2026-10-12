@@ -77,6 +77,10 @@ export function projectRegistrationCostCoverage({ coverage, source, expectedSour
       )
         unavailable();
       const first = item.ranges[0];
+      // Debugger function-only coverage includes async resumptions. A positive
+      // entry count needs precise block coverage; an unexecuted lazy function
+      // may legitimately have one coarse range with a zero count.
+      if (!item.isBlockCoverage && (item.ranges.length !== 1 || first.count !== 0)) unavailable();
       return {
         name: item.functionName,
         startOffset: first.startOffset,

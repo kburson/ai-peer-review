@@ -32,6 +32,12 @@ const diagnosticReasons = new Set([
   'service-project-changed',
   'another-owner-already-live',
   'prepared-cleanup-owner-unproved',
+  'owner-operation-not-admitted',
+  'owner-guard-budget-mismatch',
+  'operation-budget-unproved',
+  'protected-snapshot-changed',
+  'snapshot-ancestor-changed',
+  'genuine-protected-snapshot-required',
 ]);
 export function brokerStartupDiagnostic(error) {
   const reasons = [],

@@ -27,6 +27,12 @@ const childRefusalReasons = new Set([
   'service-project-changed',
   'another-owner-already-live',
   'prepared-cleanup-owner-unproved',
+  'owner-operation-not-admitted',
+  'owner-guard-budget-mismatch',
+  'operation-budget-unproved',
+  'protected-snapshot-changed',
+  'snapshot-ancestor-changed',
+  'genuine-protected-snapshot-required',
 ]);
 export function brokerChildRefusalReasons(text) {
   if (typeof text !== 'string' || text.length > 65536) return [];
@@ -330,13 +336,15 @@ export async function runInstalledPortableJourney(options = {}) {
             [path.join(installed, 'bin/peer-review-broker.mjs'), bootstrap.file],
             { cwd: root, shell: false, stdio: ['ignore', 'ignore', 'pipe'] }
           );
-          let diagnosticBytes = 0;
+          let diagnosticBytes = 0,
+            diagnosticText = '';
           child.stderr.on('data', (bytes) => {
             diagnosticBytes += bytes.length;
             if (diagnosticBytes > 65536) return;
-            const code = brokerChildFailureCode(bytes.toString('utf8'));
+            diagnosticText += bytes.toString('utf8');
+            const code = brokerChildFailureCode(diagnosticText);
             if (code) report.brokerChildFailureCode = code;
-            const reasons = brokerChildRefusalReasons(bytes.toString('utf8'));
+            const reasons = brokerChildRefusalReasons(diagnosticText);
             if (reasons.length) report.brokerChildRefusalReasons = reasons;
           });
           childExited = new Promise((resolve, reject) => {

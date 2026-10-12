@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { startSelectionAttribution } from './selection-attribution.mjs';
 import { summarizeScopeOperation } from './selection-scope-operation-report.mjs';
+import { startPreciseFunctionCoverage } from './precise-function-coverage.mjs';
 const mode = process.env.APR_SCOPE_MODE,
   operation = process.env.APR_SCOPE_OPERATION;
 if (
@@ -62,6 +63,7 @@ for (const [relative, marker, variable, kind] of [
   });
 }
 const observer = await startSelectionAttribution(targets),
+  coverage = await startPreciseFunctionCoverage(),
   opened = [],
   originalOpen = fs.open;
 let freshSnapshots = 0,
@@ -111,7 +113,17 @@ try {
   fs.open = originalOpen;
   syncBuiltinESMExports();
 }
-let trace;
+let trace,
+  coverageFailed = false;
+try {
+  writeFileSync(
+    path.join(process.env.APR_SCOPE_PRIVATE_COVERAGE, 'precise-coverage.json'),
+    JSON.stringify(await coverage.finish()),
+    { flag: 'wx', mode: 0o600 }
+  );
+} catch {
+  coverageFailed = true;
+}
 try {
   trace = await observer.close();
 } catch {
@@ -123,6 +135,7 @@ try {
     observations: [],
   };
 }
+if (coverageFailed) trace = { ...trace, unavailable: trace.unavailable + 1 };
 const report = summarizeScopeOperation(
   {
     ...trace,

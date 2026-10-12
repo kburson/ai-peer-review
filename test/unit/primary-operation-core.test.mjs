@@ -9,9 +9,13 @@ import { readFileSync, writeFileSync, readdirSync, rmSync, existsSync } from 'no
 import {
   createPrimaryMaintenance,
   createPrimaryMaintenanceCore,
+  retryPrimaryMaintenanceCleanup,
 } from '../../src/config/primary-maintenance.mjs';
 import { createSelectionStore } from '../../src/config/runtime-selection-core.mjs';
-import { selectionScopeOutcome } from '../../src/config/selection-read-scope.mjs';
+import {
+  createSelectionReadScope,
+  selectionScopeOutcome,
+} from '../../src/config/selection-read-scope.mjs';
 import { runtimeFixture } from '../helpers/runtime-selection-fixture.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -92,13 +96,37 @@ test('omitted fixture scope remains unscoped and history operations never enter 
   }
 });
 async function owned(t, { initial = false, mutateAfter = false, failAssert = false } = {}) {
+  const cleanup = { selection: null, scope: null };
+  // Discharge real retained resources before fixture directories are removed,
+  // including when an assertion or the original operation deadline fails.
+  t.after(async () => {
+    await cleanup.selection?.retryCleanup();
+    await cleanup.scope?.retryCleanup();
+    await retryPrimaryMaintenanceCleanup();
+  });
   const project = await setupHostFixture(t),
     runtime = runtimeFixture(t);
   const selection = createSelectionStore({
     packageRoot: runtime.packageRoot,
     account: runtime.account,
   });
+  cleanup.selection = selection;
   await selection.register();
+  await selection.assertSelected();
+  const selectionFile = await selection.location();
+  const selectedBytes = readFileSync(selectionFile);
+  // This is an explicitly unverified unit finalizer on actual owned bytes.
+  // Genuine retained C1 guard races and complete original-budget admissions
+  // have their own controls; this fixture proves primary effect ordering.
+  const scope = createSelectionReadScope({
+    finalize() {
+      assert.ok(
+        readFileSync(selectionFile).equals(selectedBytes),
+        'unverified fixture selection changed at scope completion'
+      );
+    },
+  });
+  cleanup.scope = scope;
   if (initial) rmSync(path.dirname(project.registrationPath), { recursive: true, force: true });
   let asserts = 0,
     effect = 'none',
@@ -116,13 +144,12 @@ async function owned(t, { initial = false, mutateAfter = false, failAssert = fal
           throw new Error('fixture-pre-receipt');
       },
     },
-    // Scheduling ports are deliberately unverified. One genuine selected
-    // snapshot pins the actual close-race control; full real admissions belong
-    // to the dedicated genuine-operation gate, never these effect unit tests.
+    // Scheduling ports are deliberately unverified. The genuine selected
+    // snapshot belongs to fixture preparation, outside the original primary
+    // operation. No fixture result supplies installed admission authority.
     admit: async () => {},
     selectionScope: (original, callback) =>
-      selection.withReadScope(original, async (sink) => {
-        await selection.assertSelected(original);
+      scope.run(original, async (sink) => {
         const observing = {
           ...sink,
           possible() {
@@ -138,10 +165,9 @@ async function owned(t, { initial = false, mutateAfter = false, failAssert = fal
         };
         const value = await callback(observing);
         if (mutateAfter) {
-          const file = await selection.location(original),
-            value = JSON.parse(readFileSync(file));
+          const value = JSON.parse(readFileSync(selectionFile));
           value.selection_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-          writeFileSync(file, JSON.stringify(value));
+          writeFileSync(selectionFile, JSON.stringify(value));
         }
         return value;
       }),

@@ -1,7 +1,7 @@
 // @story #190
 // Hosted comparison of one immutable diagnostic candidate. No installed claims.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, realpathSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { mkdirSync, realpathSync, readFileSync, writeFileSync } from 'node:fs';
 import { userInfo } from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
 import path from 'node:path';
@@ -98,7 +98,7 @@ try {
           'setup',
           '--scope',
           'project',
-          '--agents',
+          '--agent',
           'codex',
           '--confirm-scratch-exclude',
           '--json',
@@ -147,13 +147,9 @@ try {
         const storage = path.join(installed, 'src/broker/storage-protection.mjs');
         if (digest(storage) !== digest(path.join(root, 'src/broker/storage-protection.mjs')))
           throw Error('scope-comparison-storage-source-mismatch');
-        const rows = readdirSync(privateCoverage)
-          .filter((file) => file.endsWith('.json'))
-          .flatMap((file) =>
-            JSON.parse(readFileSync(path.join(privateCoverage, file))).result.filter(
-              (row) => row.url === pathToFileURL(storage).href
-            )
-          );
+        const rows = JSON.parse(
+          readFileSync(path.join(privateCoverage, 'precise-coverage.json'))
+        ).result.filter((row) => row.url === pathToFileURL(storage).href);
         if (rows.length !== 1) throw Error('scope-comparison-engine-metadata-unavailable');
         const coverage = projectRegistrationCostCoverage({
           coverage: rows[0],
