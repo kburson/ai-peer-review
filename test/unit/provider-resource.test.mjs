@@ -588,3 +588,37 @@ test('beforeDelivery refuses a provider observation that expires during awaited 
   );
   assert.equal(f.locks.size, 1);
 });
+
+test('[#209] retained lease inspection verifies its exact record without a provider action', async () => {
+  const f = fixture();
+  let probes = 0;
+  const reconcile = f.platform.reconcileProviderResource;
+  f.platform.reconcileProviderResource = (input) => {
+    probes++;
+    return reconcile(input);
+  };
+  const lease = await acquireProviderResource(
+    { identity, descriptor, instanceId, nonce },
+    f.platform
+  );
+  assert.equal(typeof lease.verify, 'function');
+  await lease.verify();
+  assert.equal(probes, 1);
+  const root = f.opened.at(-1);
+  f.files(root).set('resource.json', Buffer.from('{}'));
+  await assert.rejects(() => lease.verify(), { code: 'APR_PROVIDER_RESOURCE_STALE' });
+  assert.equal(probes, 1);
+});
+
+test('[#209] restoration resource inspector rejects copied protocol leases', async () => {
+  assert.equal(typeof providerResourceModule.inspectProviderResourceLease, 'function');
+  await assert.rejects(
+    () =>
+      providerResourceModule.inspectProviderResourceLease({
+        lease: { verified: true, concurrent: true },
+        signal: new AbortController().signal,
+        deadline: performance.now() + 30000,
+      }),
+    { code: 'APR_PROVIDER_RESOURCE_INTEGRITY' }
+  );
+});

@@ -70,6 +70,19 @@ async function ordinaryDirectory(t) {
   return { root, signal: controller.signal, deadline: performance.now() + 30000 };
 }
 
+test('absence anchors retain unrelated links without following them and refuse target creation', async (t) => {
+  const input = await ordinaryDirectory(t);
+  await symlink(input.root, path.join(input.root, 'unrelated-link'));
+  const root = path.join(input.root, 'missing-store', 'resources');
+  assert.equal(typeof ordinary.observeOrdinaryReconciliationAbsenceCore, 'function');
+  const observation = await ordinary.observeOrdinaryReconciliationAbsenceCore({ ...input, root });
+  t.after(() => observation.close());
+  assert.equal(observation.verified, false);
+  await observation.assertUnchanged();
+  await mkdir(path.dirname(root));
+  await assert.rejects(() => observation.assertUnchanged(), { code: 'APR_BROKER_STALE' });
+});
+
 test('ordinary reconciliation inventory observes physical files without granting protected authority', async (t) => {
   // Omitting a nested authority file would hide an orphan transaction.
   const input = await ordinaryDirectory(t);
@@ -573,6 +586,16 @@ test('fixed genuine-path inventory observes ordinary project stores and rejects 
   await api.assertReconciliationInventory({ observation: observed, paths, ...context });
   const data = await api.readReconciliationInventory({ observation: observed, paths, ...context });
   assert.equal(data.project.physicalRoot, project);
+  // This read-only observer delegates C4-owned bytes to the genuine owner layer;
+  // these fixture bytes never mint an owner or source/election capability.
+  await writeFile(path.join(base, 'private', 'owner.json'), '{}\n', { mode: 0o600 });
+  await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+  await writeFile(path.join(base, 'private', 'alien.json'), '{}\n', { mode: 0o600 });
+  await assert.rejects(
+    () => api.assertReconciliationInventory({ observation: observed, paths, ...context }),
+    (error) => error.details?.reason === 'reconciliation-namespace-unproved'
+  );
+  await rm(path.join(base, 'private', 'alien.json'));
   await assert.rejects(
     () => api.readReconciliationInventory({ observation: { ...observed }, paths, ...context }),
     { code: 'APR_BROKER_STALE' }

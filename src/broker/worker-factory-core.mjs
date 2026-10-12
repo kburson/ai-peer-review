@@ -46,6 +46,9 @@ export function createProductionWorkerOperations({
   ownerContext = async () => undefined,
   restorationOwner = () => false,
 }) {
+  const workerResources = new WeakMap();
+  const operationalResources = new WeakMap();
+  const retainedAcquisitions = new Set();
   const mkdirSync = async (...args) =>
     await performCurrentOperationEffect(() => rawMkdirSync(...args));
   const writeFileSync = async (...args) =>
@@ -54,9 +57,13 @@ export function createProductionWorkerOperations({
     // Concurrent leases only validate identity and update in-memory session state.
     // Repository write admission here would age fresh provider observations before
     // validation; provider actions retain their independent effect fences.
-    if (args[0]?.descriptor?.concurrent === true) return rawAcquireProviderResource(...args);
+    if (args[0]?.descriptor?.concurrent === true) {
+      const lease = await rawAcquireProviderResource(...args);
+      operationalResources.set(lease, lease);
+      return lease;
+    }
     const lease = await performCurrentOperationEffect(() => rawAcquireProviderResource(...args));
-    return Object.freeze(
+    const wrapped = Object.freeze(
       Object.defineProperties(
         {},
         Object.fromEntries(
@@ -78,6 +85,8 @@ export function createProductionWorkerOperations({
         )
       )
     );
+    operationalResources.set(wrapped, lease);
+    return wrapped;
   };
 
   function failure(message) {
@@ -221,14 +230,21 @@ export function createProductionWorkerOperations({
     )
       throw failure('Production worker startup authority differs from registration.');
 
+    const retainWorker = (worker, resources) => {
+      workerResources.set(worker, resources);
+      return worker;
+    };
     const makeRecoveryWorker = () =>
-      createReviewWorker({
-        deferCoordination: restorationOwner(owner),
-        registration,
-        adapter: recoveryAdapter(registration),
-        clock,
-        inspectStatus,
-      });
+      retainWorker(
+        createReviewWorker({
+          deferCoordination: restorationOwner(owner),
+          registration,
+          adapter: recoveryAdapter(registration),
+          clock,
+          inspectStatus,
+        }),
+        []
+      );
     // Historical image equality is provenance, not executable selection.
     // The supported authority parser and exact journal/registration checks above
     // remain mandatory before current adapters may continue the review.
@@ -255,6 +271,7 @@ export function createProductionWorkerOperations({
     const { authorAdapter, reviewerAdapter, authorCapability, reviewerCapability } = selected;
 
     const leases = new Map();
+    const issuedResources = new Set();
     const entries = await orderedResources({
       participants: [
         { role: 'author', adapter: authorAdapter },
@@ -292,11 +309,36 @@ export function createProductionWorkerOperations({
             entry.platform
           ));
         leases.set(entry.key, { entry, lease: acquired, prior: null });
+        issuedResources.add(operationalResources.get(acquired) ?? acquired);
       }
     } catch (error) {
       // No provider action has occurred. Each lease verifies the provider is
       // available before releasing an exclusive OS lock and owned record.
-      for (const { lease } of [...leases.values()].reverse()) await lease.releaseUnused();
+      let cleanupFailure;
+      for (const [key, { lease }] of [...leases].reverse()) {
+        try {
+          await lease.releaseUnused();
+          leases.delete(key);
+        } catch (cleanup) {
+          cleanupFailure ??= cleanup;
+        }
+      }
+      if (leases.size) {
+        retainedAcquisitions.add(leases);
+        error.cause = cleanupFailure;
+        error.details = {
+          ...error.details,
+          reason: 'provider-resource-retained',
+          outstandingObligations: [
+            ...(error.details?.outstandingObligations ?? []),
+            ...[...leases.keys()].map((resourceKey) => ({
+              name: 'provider-resource-retained',
+              resourceKey,
+              outcome: 'release-unproved',
+            })),
+          ],
+        };
+      }
       throw error;
     }
     const lease = {
@@ -439,20 +481,39 @@ export function createProductionWorkerOperations({
       resourceObservation: (input) =>
         reviewerAdapter.observeLaunchResource({ workspace, operationId: input.operationId }),
     });
-    return createReviewWorker({
-      deferCoordination: restorationOwner(owner),
-      registration,
-      adapter: bridge,
-      resourceLease: {
-        beforeDelivery: (observation) => lease.beforeDelivery('reviewer-launch', observation),
-        assertDeliveryFresh: () => lease.assertDeliveryFresh('reviewer-launch'),
-        release: () => lease.release(),
-      },
-      clock,
-      inspectStatus,
-      ...(coordinator ? { coordinator } : {}),
-    });
+    return retainWorker(
+      createReviewWorker({
+        deferCoordination: restorationOwner(owner),
+        registration,
+        adapter: bridge,
+        resourceLease: {
+          beforeDelivery: (observation) => lease.beforeDelivery('reviewer-launch', observation),
+          assertDeliveryFresh: () => lease.assertDeliveryFresh('reviewer-launch'),
+          release: () => lease.release(),
+        },
+        clock,
+        inspectStatus,
+        ...(coordinator ? { coordinator } : {}),
+      }),
+      issuedResources
+    );
   }
 
-  return Object.freeze({ createProductionReviewWorker });
+  return Object.freeze({
+    createProductionReviewWorker,
+    get retainedAcquisitions() {
+      return Object.freeze(
+        [...retainedAcquisitions].flatMap((leases) =>
+          [...leases.keys()].map((resourceKey) =>
+            Object.freeze({ resourceKey, outcome: 'release-unproved' })
+          )
+        )
+      );
+    },
+    inspectWorkerResources(worker) {
+      const resources = workerResources.get(worker);
+      if (!resources) throw failure('Genuine worker resource binding is required.');
+      return Object.freeze({ verified: false, leases: Object.freeze([...resources]) });
+    },
+  });
 }

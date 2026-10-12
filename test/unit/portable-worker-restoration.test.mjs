@@ -175,3 +175,18 @@ test('broker publishes before activating retained automatic workers', async () =
   await dispatch({ command: 'stop', workspace: null });
   await running.untilStopped;
 });
+
+test('restoration resource reader refuses fabricated workers and owner bindings', async () => {
+  const factory = await import('../../src/broker/worker-factory.mjs');
+  assert.equal(typeof factory.inspectPortableWorkerResources, 'function');
+  await assert.rejects(
+    () =>
+      factory.inspectPortableWorkerResources({
+        worker: { workState: () => 'automatic-wait' },
+        owner: {},
+        signal: new AbortController().signal,
+        deadline: performance.now() + 30000,
+      }),
+    { code: 'APR_BROKER_START_FAILED' }
+  );
+});

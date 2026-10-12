@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { decodePortableBrokerChildFailure } from '../../src/broker/portable-child-failure.mjs';
 const execute = promisify(execFile);
 test('actual fixed Node broker process refuses unaccepted checkout startup and preserves bootstrap evidence', async (t) => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), 'portable-broker-entry-')));
@@ -25,7 +26,11 @@ test('actual fixed Node broker process refuses unaccepted checkout startup and p
     (error) => {
       assert.equal(error.code, 1);
       assert.equal(error.killed, false);
-      assert.match(error.stderr, /APR_[A-Z_]+: Portable broker startup or cleanup failed/);
+      assert.deepEqual(decodePortableBrokerChildFailure(error.stderr), {
+        schema: 'ai-peer-review.broker-child-failure/v1',
+        reason: 'broker-startup-incomplete',
+        obligations: [],
+      });
       assert.equal(error.stdout, '');
       return true;
     }

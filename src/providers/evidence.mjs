@@ -21,6 +21,23 @@ function text(value) {
 function digest(value) {
   return `sha256:${createHash('sha256').update(value, 'utf8').digest('hex')}`;
 }
+// Historical digest calculation only; this does not apply freshness or attest a provider.
+export function providerEvidenceDigestCore({ observed, sessionFingerprint, adapterVersion }) {
+  return digest(
+    JSON.stringify({
+      source: observed.source,
+      source_version: observed.source_version,
+      observed_at: observed.observed_at,
+      operation_id: observed.operation_id,
+      tool_use_id: observed.tool_use_id,
+      provider: observed.provider,
+      host: observed.host,
+      model_id: observed.model_id,
+      session_fingerprint: sessionFingerprint,
+      adapter_version: adapterVersion,
+    })
+  );
+}
 
 export function verifyProviderEvidence({
   expected,
@@ -61,20 +78,11 @@ export function verifyProviderEvidence({
     `ai-peer-review.session/v1\n${observed.provider}\n${observed.session_id}`
   );
   if (authorFingerprint && authorFingerprint === sessionFingerprint) conflict();
-  const evidenceDigest = digest(
-    JSON.stringify({
-      source: observed.source,
-      source_version: observed.source_version,
-      observed_at: observed.observed_at,
-      operation_id: observed.operation_id,
-      tool_use_id: observed.tool_use_id,
-      provider: observed.provider,
-      host: observed.host,
-      model_id: observed.model_id,
-      session_fingerprint: sessionFingerprint,
-      adapter_version: attested.adapter_version,
-    })
-  );
+  const evidenceDigest = providerEvidenceDigestCore({
+    observed,
+    sessionFingerprint,
+    adapterVersion: attested.adapter_version,
+  });
   return Object.freeze({
     provider: observed.provider,
     host: observed.host,

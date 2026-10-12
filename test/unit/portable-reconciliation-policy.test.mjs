@@ -347,3 +347,19 @@ test('private preparation rejects copied clearance and caller reconciliation por
     { code: 'APR_BROKER_STALE' }
   );
 });
+
+test('exact terminal history remains preserved after its registration is retired', () => {
+  const history = review('launched');
+  const fingerprint = 'sha256:' + 'e'.repeat(64);
+  history.participants.reviewer = { session_fingerprint: fingerprint };
+  history.startup.provider_operation = { status: 'acknowledged', session_fingerprint: fingerprint };
+  history.startup.runtime = registration().runtime;
+  history.startup.descriptor = { project_root_digest: project.digest };
+  history.authority.status = 'terminal';
+  const result = classify({ reviews: [history] });
+  assert.equal(result.status, 'clear');
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.dispositions, [{ review_id: reviewId, disposition: 'preserved' }]);
+  history.wake = [{ status: 'outcome-unknown' }];
+  assert.equal(classify({ reviews: [history] }).status, 'unknown');
+});

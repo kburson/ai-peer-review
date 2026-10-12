@@ -1123,3 +1123,32 @@ test('partial multi-resource close retries only unresolved provider leases', asy
   await worker.close();
   assert.deepEqual(calls, { openai: 1, anthropic: 2 });
 });
+
+test('[#209] failed factory unwind retains its exact unresolved lease and never issues a worker', async () => {
+  const f = restartFactoryFixture('launched');
+  let acquired = 0,
+    released = 0;
+  const operations = createProductionWorkerOperations({
+    performCurrentOperationEffect: (operation) => operation(),
+  });
+  f.input.acquireResource = async () => {
+    if (acquired++ === 1) throw new Error('second-resource-refused');
+    return {
+      async releaseUnused() {
+        released++;
+        throw new Error('release-unproved');
+      },
+    };
+  };
+  await assert.rejects(
+    () => operations.createProductionReviewWorker(f.input),
+    (error) => {
+      assert.equal(error.message, 'second-resource-refused');
+      assert.equal(error.details.reason, 'provider-resource-retained');
+      return true;
+    }
+  );
+  assert.equal(released, 1);
+  assert.equal(operations.retainedAcquisitions.length, 1);
+  assert.equal(operations.retainedAcquisitions[0].outcome, 'release-unproved');
+});

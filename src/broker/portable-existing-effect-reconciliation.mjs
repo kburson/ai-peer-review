@@ -52,7 +52,7 @@ function parse(bytes) {
     throw refuse('reconciliation-namespace-unproved');
   }
 }
-function candidates(data) {
+function candidates(data, projection) {
   const registrations = new Map(),
     reviews = new Map(),
     recovery = [];
@@ -97,6 +97,14 @@ function candidates(data) {
   const result = [];
   for (const [workspace, namespace] of reviews) {
     const registration = registrations.get(path.basename(workspace));
+    if (
+      !registration &&
+      projection.classification.dispositions.some(
+        (entry) => entry.review_id === path.basename(workspace) && entry.disposition === 'preserved'
+      ) &&
+      inspectStartupAuthority({ workspace, project: data.project }).status === 'terminal'
+    )
+      continue;
     if (!registration || registration.workspace !== workspace)
       return retained('review-authority-unproved');
     if (
@@ -174,7 +182,7 @@ export async function reconcilePortableExistingEffects(input = {}) {
     ].includes(name)
   );
   if (resourceObligation) return retained(resourceObligation.name);
-  const selected = candidates(data);
+  const selected = candidates(data, projection);
   if (selected.status === 'unknown') return selected;
   await assert();
 

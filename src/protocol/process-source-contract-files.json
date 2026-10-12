@@ -29,6 +29,7 @@
     "src/broker/portable-participant-binding.mjs",
     "src/broker/portable-paths.mjs",
     "src/broker/portable-platform.mjs",
+    "src/broker/portable-provider-records.mjs",
     "src/broker/portable-reconciliation-inventory.mjs",
     "src/broker/portable-reconciliation-policy.mjs",
     "src/broker/portable-reconciliation-projection.mjs",

@@ -6,7 +6,7 @@ import {
   inspectPackageInventory,
   verifyRuntimeInventorySync,
 } from '../startup/runtime-inventory.mjs';
-import { validateRuntimeCompatibility } from '../protocol/compatibility.mjs';
+import { validateRuntimeCompatibility } from '../protocol/compatibility-read.mjs';
 import { AprError } from '../errors.mjs';
 
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));

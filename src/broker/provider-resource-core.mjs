@@ -316,6 +316,11 @@ function concurrentLease(platform) {
       concurrent: true,
       resourceDigest: null,
       record: null,
+      async verify() {
+        if (released)
+          throw failure('APR_PROVIDER_RESOURCE_STALE', 'Provider session lease is released.');
+        return true;
+      },
       assertDeliveryFresh() {
         if (!lastObservation)
           throw failure(
@@ -554,6 +559,10 @@ async function exclusiveLease({ identity, descriptor, instanceId, nonce }, platf
       verified: false,
       concurrent: false,
       resourceDigest: digest,
+      async verify() {
+        await verifyOwned();
+        return true;
+      },
       get record() {
         return record;
       },

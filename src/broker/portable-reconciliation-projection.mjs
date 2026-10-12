@@ -19,6 +19,7 @@ import { verifyRuntimeImage } from './runtime-image.mjs';
 import { readManualLaunchHistory } from '../provider/manual-launch-ledger.mjs';
 import { allWakeOperations } from '../coordinator/ledger.mjs';
 import { classifyPortableReconciliationCore } from './portable-reconciliation-policy.mjs';
+import { validatePortableProviderRecordsCore } from './portable-provider-records.mjs';
 
 function refuse(reason) {
   throw new AprError('APR_BROKER_STALE', 'Reconciliation parsing is unproved.', {
@@ -64,6 +65,12 @@ export async function readPortableReconciliationProjection(input = {}) {
       const initialized = namespace.files.some(({ name }) => name === 'events.jsonl');
       const state = initialized ? inspectReviewAuthority(workspace).state : null;
       if (state) startupEvidence(workspace, state);
+      const provider = validatePortableProviderRecordsCore({
+        files: namespace.files.filter(({ name }) => name.startsWith('provider/')),
+        state,
+        journal,
+      });
+      if (provider.status !== 'valid') refuse('review-authority-unproved');
       const file = (name) => namespace.files.find((entry) => entry.name === name);
       const record = (name) => (file(name) ? parse(file(name).bytes) : null);
       if (journal && !verifyRuntimeImage(journal.runtime)) refuse('review-authority-unproved');
@@ -78,9 +85,7 @@ export async function readPortableReconciliationProjection(input = {}) {
           requestDigest: journal?.request_digest,
         }),
         wake: allWakeOperations(workspace),
-        providerObservations: namespace.files
-          .filter(({ name }) => name.startsWith('provider/'))
-          .map(({ bytes }) => parse(bytes)),
+        providerObservations: provider.records,
         locks: namespace.entries
           .filter(
             ({ relativePath }) =>

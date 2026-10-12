@@ -178,6 +178,34 @@ export function classifyPortableReconciliationCore(input = {}) {
       dispositions.push({ review_id: review.review_id, disposition: 'preserved' });
       continue;
     }
+    // Retiring a terminal registration does not erase the independently parsed
+    // event/journal authority. Unknown effect evidence still prevents preservation.
+    if (
+      !registration &&
+      authority?.status === 'terminal' &&
+      authority.review_id === review.review_id &&
+      authority.workspace === review.workspace &&
+      authority.event_authority === 'exact' &&
+      authority.output_reservation === 'exact' &&
+      authority.request_digest === journal.request_digest &&
+      authority.runtime_digest === journal.runtime?.digest &&
+      journal.descriptor?.project_root_digest === project.digest &&
+      validManualHistory(review.manualHistory, review) &&
+      acknowledgedLaunch(review) &&
+      !review.suspension &&
+      !review.fence &&
+      !review.locks.length &&
+      review.wake.every(
+        (operation) =>
+          ['acknowledged', 'not-submitted', 'refused', 'superseded'].includes(operation?.status) &&
+          (operation.status !== 'acknowledged' ||
+            operation.session_fingerprint ===
+              review.participants?.[operation.target_role]?.session_fingerprint)
+      )
+    ) {
+      dispositions.push({ review_id: review.review_id, disposition: 'preserved' });
+      continue;
+    }
     if (
       !registration ||
       registration.workspace !== review.workspace ||

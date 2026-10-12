@@ -119,18 +119,27 @@ async function capture(root, context, mode = 'tree') {
       const location = path.join(directory, name);
       const relativePath = relative ? relative + '/' + name : name;
       const s = await lstat(location, { bigint: true });
-      if (s.isSymbolicLink() || (!s.isFile() && !s.isDirectory()) || (s.isFile() && s.nlink !== 1n))
+      if (
+        mode !== 'absence-anchor' &&
+        (s.isSymbolicLink() || (!s.isFile() && !s.isDirectory()) || (s.isFile() && s.nlink !== 1n))
+      )
         refuse('reconciliation-namespace-unproved');
       const row = Object.freeze({
         relativePath,
-        type: s.isDirectory() ? 'directory' : 'file',
+        type: s.isDirectory()
+          ? 'directory'
+          : s.isFile()
+            ? 'file'
+            : s.isSymbolicLink()
+              ? 'link'
+              : 'other',
         identity: identity(s),
         fileVersion: version(s),
       });
       entries.push(row);
       if (s.isDirectory()) {
         if (mode === 'tree') await visit(location, relativePath, depth + 1);
-      } else if (mode !== 'membership') {
+      } else if (!['membership', 'absence-anchor'].includes(mode)) {
         if (s.size > BigInt(MAX_BYTES)) refuse('reconciliation-inventory-overflow');
         const file = await open(location, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
         const descriptor = {
@@ -171,6 +180,7 @@ async function capture(root, context, mode = 'tree') {
           const bytes = Buffer.concat(chunks);
           files.set(relativePath, {
             bytes,
+            mode: Number(opened.mode),
             digest: createHash('sha256').update(bytes).digest('hex'),
           });
         } finally {
@@ -377,7 +387,9 @@ function ordinaryInventoryAccess(record) {
   async function absentRoot(root) {
     let parent = path.dirname(root);
     while (!(await exists(parent, context))) parent = path.dirname(parent);
-    const observed = await ordinaryRoot(parent, 'membership');
+    // Siblings of a missing store are membership facts only. They are never followed,
+    // read as authority or admitted as store contents; the physical ancestor stays strict.
+    const observed = await ordinaryRoot(parent, 'absence-anchor');
     record.absent.push({ root, observed });
     if (await exists(root, context)) refuse('reconciliation-generation-changed');
   }
@@ -389,6 +401,35 @@ function ordinaryInventoryAccess(record) {
     return ordinaryRoot(root, mode);
   }
   return { ordinaryRoot, optionalOrdinary, absentRoot };
+}
+export async function observeOrdinaryReconciliationAbsenceCore(input = {}) {
+  if (
+    Object.keys(input).sort().join(',') !== 'deadline,root,signal' ||
+    typeof input.root !== 'string' ||
+    !path.isAbsolute(input.root) ||
+    path.resolve(input.root) !== input.root
+  )
+    refuse('reconciliation-context-unproved');
+  const record = newInventoryRecord(
+    Object.freeze({ signal: input.signal, deadline: input.deadline })
+  );
+  try {
+    if (await exists(input.root, record.context)) refuse('reconciliation-generation-changed');
+    await ordinaryInventoryAccess(record).absentRoot(input.root);
+    return Object.freeze({
+      verified: false,
+      assertUnchanged: () => assertOrdinaryInventory(record),
+      close: () => closeInventory(record),
+    });
+  } catch (error) {
+    try {
+      await closeInventory(record);
+    } catch (cleanup) {
+      cleanup.cause = error;
+      throw cleanup;
+    }
+    throw error;
+  }
 }
 function assertReviewNamespace(entries) {
   const topFiles = new Set([
@@ -434,6 +475,7 @@ function assertReviewNamespace(entries) {
 async function observeProjectNamespaces(record, base) {
   const { ordinaryRoot, optionalOrdinary } = ordinaryInventoryAccess(record);
   const projectRoot = await ordinaryRoot(base, 'membership');
+  record.baseObservation = projectRoot;
   const broker = await optionalOrdinary(path.join(base, 'broker'), 'membership');
   const reviews = await optionalOrdinary(path.join(base, 'reviews'), 'membership');
   const names = describeReconciliationNamespacesCore({
@@ -468,9 +510,37 @@ async function observeProjectNamespaces(record, base) {
 async function assertOrdinaryInventory(record) {
   if (record.closing || record.closed) refuse('reconciliation-observation-unproved');
   budget(record.context);
-  for (const observed of record.ordinary) await assertOrdinaryReconciliationTreeUnchanged(observed);
+  for (const observed of record.ordinary)
+    if (
+      record.paths &&
+      observations.get(observed).root === observations.get(record.baseObservation).root
+    )
+      await assertOwnerProjectMembership(observed);
+    else await assertOrdinaryReconciliationTreeUnchanged(observed);
   for (const absent of record.absent)
     if (await exists(absent.root, record.context)) refuse('reconciliation-generation-changed');
+}
+async function assertOwnerProjectMembership(observed) {
+  const original = observations.get(observed);
+  const current = await capture(original.root, original.context, original.mode);
+  try {
+    const rows = (value) =>
+      value.entries.map(({ fileVersion, ...entry }) =>
+        ['private', 'runtime'].includes(entry.relativePath) && entry.type === 'directory'
+          ? entry
+          : { ...entry, fileVersion }
+      );
+    const chain = (value) => value.chain.map(([directory, facts]) => [directory, facts.identity]);
+    if (
+      JSON.stringify(chain(current)) !== JSON.stringify(chain(original.recorded)) ||
+      current.directories[0].identity !== original.recorded.directories[0].identity ||
+      current.directories[0].version !== original.recorded.directories[0].version ||
+      JSON.stringify(rows(current)) !== JSON.stringify(rows(original.recorded))
+    )
+      refuse('reconciliation-generation-changed');
+  } finally {
+    await closeDirectories(current.directories);
+  }
 }
 // Explicit read-only core, used by the fixed producer. A caller root never authenticates a project.
 export async function observeProjectReconciliationInventoryCore(input = {}) {
@@ -552,6 +622,7 @@ export async function observeReconciliationInventory(input = {}) {
     // C4 owns these exact owner generations; this layer retains their actual C1 substrate.
     const privateStore = await protectedRoot(owner.privateRoot, owner.privateGuard);
     const runtimeStore = await protectedRoot(owner.runtimeRoot, owner.runtimeGuard);
+    record.ownerStores = { privateStore, runtimeStore, resourceKey: owner.resourceKey };
     const ownerNames = describeOwnerReconciliationNamespaceCore({
       resourceKey: owner.resourceKey,
       privateEntries: privateStore.entries,
@@ -733,6 +804,14 @@ export async function observeReconciliationInventory(input = {}) {
 }
 
 async function assertProtectedInventory(record) {
+  if (record.ownerStores) {
+    const { privateStore, runtimeStore, resourceKey } = record.ownerStores;
+    describeOwnerReconciliationNamespaceCore({
+      resourceKey,
+      privateEntries: await privateStore.guard.listOrdinaryEntries(),
+      runtimeEntries: await runtimeStore.guard.listOrdinaryEntries(),
+    });
+  }
   if (record.associations.length) {
     const operations = await initializePortableOperations(record.context);
     for (const associated of record.associations) {
@@ -868,7 +947,7 @@ export async function readReconciliationInventory(input = {}) {
         const ordinaryRecord = namespace.observation && observations.get(namespace.observation);
         const files = ordinaryRecord
           ? [...ordinaryRecord.recorded.files].map(([name, file]) =>
-              Object.freeze({ name, bytes: Buffer.from(file.bytes) })
+              Object.freeze({ name, bytes: Buffer.from(file.bytes), mode: file.mode })
             )
           : namespace.protected.snapshots
               .filter(
