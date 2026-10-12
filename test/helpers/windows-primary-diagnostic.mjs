@@ -99,7 +99,7 @@ const timings = stderr.split(/\r?\n/u).flatMap((line) => {
       v.diagnostic !== 'stock-exec-timing' ||
       !Number.isSafeInteger(v.id) ||
       !Number.isSafeInteger(v.elapsedMs) ||
-      !['principal', 'acl-or-path', 'other'].includes(v.kind) ||
+      !['principal', 'acl-or-path', 'host-identity', 'other'].includes(v.kind) ||
       !['completed', 'refused'].includes(v.outcome)
     )
       return [];
