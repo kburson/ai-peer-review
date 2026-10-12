@@ -1,4 +1,8 @@
 import {
+  existingWakeOutcomeCore as outcome,
+  reconcileExistingWakeOperationCore,
+} from './existing-effect-core.mjs';
+import {
   lstatSync,
   mkdirSync as rawMkdirSync,
   readFileSync,
@@ -104,22 +108,6 @@ export function createCoordinatorOperations({
     });
   }
 
-  function outcome(value, fallback = 'outcome-unknown') {
-    const status = value?.status === 'delivered' ? 'acknowledged' : value?.status;
-    if (!['acknowledged', 'not-submitted', 'outcome-unknown', 'refused'].includes(status)) {
-      return { status: fallback, reason: 'adapter-result-invalid' };
-    }
-    return {
-      status,
-      reason:
-        typeof value.reason === 'string' && value.reason.trim()
-          ? value.reason.trim().slice(0, 160)
-          : status === 'acknowledged'
-            ? 'adapter-acknowledged'
-            : 'adapter-result',
-    };
-  }
-
   function deliveryInput(operation) {
     return Object.freeze({
       operation_id: operation.operation_id,
@@ -132,22 +120,15 @@ export function createCoordinatorOperations({
     });
   }
 
-  async function reconcileReserved(workspace, operation, adapter, now) {
-    if (typeof adapter?.reconcile !== 'function') {
-      return await appendWakeOutcome(
-        workspace,
-        operation.operation_id,
-        { status: 'outcome-unknown', reason: 'adapter-reconciliation-unavailable' },
-        new Date(now)
-      );
-    }
-    let result;
-    try {
-      result = outcome(await dispatch(() => adapter.reconcile(deliveryInput(operation))));
-    } catch {
-      result = { status: 'outcome-unknown', reason: 'adapter-reconciliation-failed' };
-    }
-    return await appendWakeOutcome(workspace, operation.operation_id, result, new Date(now));
+  function reconcileReserved(workspace, operation, adapter, now) {
+    return reconcileExistingWakeOperationCore({
+      workspace,
+      operation,
+      adapter,
+      now,
+      appendWakeOutcome,
+      dispatch,
+    });
   }
 
   async function deliverReserved(workspace, operation, adapter, now) {

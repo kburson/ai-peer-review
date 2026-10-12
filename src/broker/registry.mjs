@@ -1,3 +1,4 @@
+import { validBrokerRegistrationRecordCore as validRegistrationShape } from './registration-record.mjs';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
@@ -15,18 +16,6 @@ import { verifyRuntimeImage } from './runtime-image.mjs';
 
 const REGISTRATION_SCHEMA = 'ai-peer-review.broker-registration/v1';
 const DIGEST_RE = /^[a-f0-9]{64}$/;
-const REGISTRATION_FIELDS = [
-  'created_at',
-  'project_digest',
-  'project_root',
-  'request_digest',
-  'review_id',
-  'runtime',
-  'schema',
-  'workspace',
-];
-const RUNTIME_FIELDS = ['digest', 'entrypoint', 'nodeExecutable', 'root'];
-
 export function readStartupJournal(workspace) {
   const file = path.join(workspace, 'startup-request.json');
   if (!lstatExists(file)) return null;
@@ -477,25 +466,6 @@ function exactFields(value, fields) {
     !Array.isArray(value) &&
     Object.keys(value).sort().join('\n') === fields.join('\n')
   );
-}
-
-function validRegistrationShape(registration) {
-  if (
-    !exactFields(registration, REGISTRATION_FIELDS) ||
-    !exactFields(registration.runtime, RUNTIME_FIELDS) ||
-    registration.schema !== REGISTRATION_SCHEMA ||
-    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(registration.review_id ?? '') ||
-    !DIGEST_RE.test(registration.project_digest ?? '') ||
-    !DIGEST_RE.test(registration.request_digest ?? '') ||
-    !/^sha256:[a-f0-9]{64}$/.test(registration.runtime.digest ?? '')
-  ) {
-    return false;
-  }
-  try {
-    return new Date(registration.created_at).toISOString() === registration.created_at;
-  } catch {
-    return false;
-  }
 }
 
 function readRegistration(file) {

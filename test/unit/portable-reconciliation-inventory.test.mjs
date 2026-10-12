@@ -269,6 +269,12 @@ test('ordinary reconciliation retains a file descriptor whose close fails during
       error.details.outstandingObligations.some((item) => item.name === 'ordinary-file-descriptor')
   );
   assert.ok(retained.fd >= 0);
+  fsPromises.open = original;
+  syncBuiltinESMExports();
+  await assert.rejects(
+    () => ordinary.observeOrdinaryReconciliationTree(input),
+    (error) => error.details.reason === 'reconciliation-close-unproved'
+  );
   fail = false;
   await ordinary.retryOrdinaryReconciliationCleanup();
   assert.equal(retained.fd, -1);
@@ -423,3 +429,17 @@ for (const child of [
     );
   });
 }
+
+test('existing-effect resource assertion refuses copied inventory membership', async () => {
+  assert.equal(typeof ordinary.assertReconciliationExistingEffectScope, 'function');
+  await assert.rejects(
+    () =>
+      ordinary.assertReconciliationExistingEffectScope({
+        observation: { verified: true },
+        paths: {},
+        signal: new AbortController().signal,
+        deadline: performance.now() + 30000,
+      }),
+    { code: 'APR_BROKER_STALE' }
+  );
+});

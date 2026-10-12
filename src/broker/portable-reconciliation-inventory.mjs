@@ -60,20 +60,18 @@ async function closeDirectories(records) {
     } else retainedDescriptors.add(pending[i]);
   }
   if (results.some((result) => result.status === 'rejected')) {
-    const error = new AprError(
-      'APR_BROKER_STALE',
-      'Ordinary inventory descriptor cleanup is unproved.',
-      {
-        details: {
-          reason: 'reconciliation-close-unproved',
-          retrySafe: false,
-          outstandingObligations: descriptorObligations(pending.filter((record) => !record.closed)),
-        },
-        recovery: 'Retain and close the exact original descriptors before retrying.',
-      }
-    );
-    throw error;
+    throw pendingDescriptorError(pending.filter((record) => !record.closed));
   }
+}
+function pendingDescriptorError(records) {
+  return new AprError('APR_BROKER_STALE', 'Ordinary inventory descriptor cleanup is unproved.', {
+    details: {
+      reason: 'reconciliation-close-unproved',
+      retrySafe: false,
+      outstandingObligations: descriptorObligations(records),
+    },
+    recovery: 'Retain and close the exact original descriptors before retrying.',
+  });
 }
 function descriptorObligations(records) {
   return records.map((record) =>
@@ -89,6 +87,8 @@ export async function retryOrdinaryReconciliationCleanup() {
   await closeDirectories([...retainedDescriptors]);
 }
 async function capture(root, context, mode = 'tree') {
+  budget(context);
+  if (retainedDescriptors.size) throw pendingDescriptorError([...retainedDescriptors]);
   const chain = await physicalChain(root, context);
   const directories = [];
   const entries = [];
@@ -505,6 +505,7 @@ export async function observeProjectReconciliationInventoryCore(input = {}) {
 // Fixed production discovery: genuine owner binding determines the project and account stores.
 // The observation itself remains unverified and grants no owner/write capability.
 export async function observeReconciliationInventory(input = {}) {
+  if (pendingInventories.size) refuse('reconciliation-close-unproved');
   if (Object.keys(input).sort().join(',') !== 'deadline,paths,signal')
     refuse('reconciliation-context-unproved');
   const { paths, signal, deadline } = input;
@@ -548,6 +549,7 @@ export async function observeReconciliationInventory(input = {}) {
     await protectedRoot(owner.runtimeRoot, owner.runtimeGuard);
     const home = await operations.accountHome();
     const account = path.join(home, '.cache', 'ai-peer-review');
+    record.accountRoot = account;
     if (!(await exists(account, context))) await absentRoot(account);
     else {
       const parent = await protectedRoot(account);
@@ -601,20 +603,7 @@ export async function observeReconciliationInventory(input = {}) {
   }
 }
 
-export async function assertReconciliationInventory(input = {}) {
-  if (Object.keys(input).sort().join(',') !== 'deadline,observation,paths,signal')
-    refuse('reconciliation-context-unproved');
-  const record = inventories.get(input.observation);
-  if (!record || record.closing || record.closed) refuse('reconciliation-observation-unproved');
-  if (
-    input.paths !== record.paths ||
-    input.signal !== record.context.signal ||
-    input.deadline !== record.context.deadline
-  )
-    refuse('reconciliation-context-unproved');
-  budget(record.context);
-  await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
-  await assertOrdinaryInventory(record);
+async function assertProtectedInventory(record) {
   for (const retained of record.protected) {
     await retained.guard.verify();
     // Owner/election generations are independently guarded at each C4 effect.
@@ -632,6 +621,48 @@ export async function assertReconciliationInventory(input = {}) {
         refuse('reconciliation-generation-changed');
     }
   }
+}
+function boundInventory(input) {
+  if (retainedDescriptors.size) throw pendingDescriptorError([...retainedDescriptors]);
+  if (pendingInventories.size) refuse('reconciliation-close-unproved');
+  if (Object.keys(input).sort().join(',') !== 'deadline,observation,paths,signal')
+    refuse('reconciliation-context-unproved');
+  const record = inventories.get(input.observation);
+  if (!record || record.closing || record.closed) refuse('reconciliation-observation-unproved');
+  if (
+    input.paths !== record.paths ||
+    input.signal !== record.context.signal ||
+    input.deadline !== record.context.deadline
+  )
+    refuse('reconciliation-context-unproved');
+  budget(record.context);
+  return record;
+}
+// Read-only proof of the stores an existing-effect producer does not own. This is no write permit.
+export async function assertReconciliationExistingEffectScope(input = {}) {
+  const record = boundInventory(input);
+  await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
+  for (const namespace of record.namespaces)
+    if (['registrations', 'recovery'].includes(namespace.kind))
+      await assertOrdinaryReconciliationTreeUnchanged(namespace.observation);
+  for (const absent of record.absent)
+    if (
+      absent.root === record.accountRoot ||
+      absent.root.startsWith(record.accountRoot + path.sep)
+    ) {
+      await assertOrdinaryReconciliationTreeUnchanged(absent.observed);
+      if (await exists(absent.root, record.context)) refuse('reconciliation-generation-changed');
+    }
+  await assertProtectedInventory(record);
+  await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
+  budget(record.context);
+}
+
+export async function assertReconciliationInventory(input = {}) {
+  const record = boundInventory(input);
+  await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
+  await assertOrdinaryInventory(record);
+  await assertProtectedInventory(record);
   await inspectOwnerElectionPaths({ paths: record.paths, ...record.context });
   budget(record.context);
 }
@@ -662,4 +693,9 @@ export async function readReconciliationInventory(input = {}) {
       })
     ),
   });
+}
+
+export async function retryReconciliationInventoryCleanup() {
+  for (const record of [...pendingInventories]) await closeInventory(record);
+  await retryOrdinaryReconciliationCleanup();
 }

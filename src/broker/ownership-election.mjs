@@ -546,9 +546,13 @@ export async function inspectOwnerElectionLease(input = {}) {
   if (
     !record ||
     record.binding.resourceKind !== 'broker-owner' ||
-    Object.keys(input).sort().join(',') !== 'deadline,lease,signal'
+    !['deadline,lease,signal', 'deadline,lease,paths,signal'].includes(
+      Object.keys(input).sort().join(',')
+    )
   )
     throw stale('genuine-election-lease-required');
+  if (Object.hasOwn(input, 'paths') && record.binding !== pathBindings.get(input.paths))
+    throw stale('owner-lease-paths-mismatch');
   const current = portableOwnerOperation(input.lease) || record.budget;
   if (
     !(input.signal instanceof AbortSignal) ||

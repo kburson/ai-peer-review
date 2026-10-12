@@ -1,13 +1,12 @@
-import { createHash } from 'node:crypto';
+import { assertPortableWakeBindingCore as checkWake } from './portable-participant-binding.mjs';
 
 import { AprError } from '../errors.mjs';
-import { inspectReviewAuthority, statusReview, canonicalProjection } from '../protocol/service.mjs';
+import { inspectReviewAuthority, statusReview } from '../protocol/service.mjs';
 import { validateAutomaticParticipant } from '../transport/registry.mjs';
 import { openParticipantSession } from './participant-binding.mjs';
 
 const ROLE = new Set(['author', 'reviewer']);
 const SELECTOR = Object.freeze({ codex: 'codex', 'claude-code': 'claude', grok: 'grok' });
-const HASH = /^sha256:[0-9a-f]{64}$/;
 
 function conflict(message) {
   throw new AprError('APR_IDENTITY_CONFLICT', message, {
@@ -19,10 +18,6 @@ function unavailable(message) {
   throw new AprError('APR_TRANSPORT_UNAVAILABLE', message, {
     recovery: 'Use governed manual recovery or restore both verified resident provider sessions.',
   });
-}
-
-function digest(value) {
-  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
 }
 
 function defaultRoleAuthority(role, inspected) {
@@ -40,34 +35,6 @@ function defaultRoleAuthority(role, inspected) {
     adapter_version: runtime.adapter_version,
     operation_id: `${role === 'author' ? 'start' : 'join'}:${state.protocol.review_id}`,
   });
-}
-
-function checkWake(input, inspected) {
-  const protocol = inspected?.state?.protocol;
-  const participant = inspected?.state?.participants?.[input?.target_role];
-  if (
-    !ROLE.has(input?.target_role) ||
-    !participant ||
-    protocol?.current_actor !== input.target_role ||
-    protocol.revision !== input.expected_revision ||
-    protocol.review_id !== input.capsule?.review_id ||
-    input.capsule?.target_role !== input.target_role ||
-    input.capsule?.expected_revision !== input.expected_revision ||
-    !HASH.test(input.target_session_fingerprint ?? '') ||
-    participant.session_fingerprint !== input.target_session_fingerprint ||
-    !HASH.test(input.capsule_digest ?? '') ||
-    input.capsule_digest !== digest(`${canonicalProjection(input.capsule)}\n`) ||
-    input.operation_id !==
-      digest(
-        canonicalProjection({
-          review_id: protocol.review_id,
-          protocol_revision: protocol.revision,
-          target_role: input.target_role,
-          session_fingerprint: participant.session_fingerprint,
-        })
-      )
-  )
-    conflict('Wake operation differs from sealed role, revision, capsule, or session.');
 }
 
 function adapterFor(adapters, binding) {

@@ -1,4 +1,8 @@
 import {
+  selectPortableParticipantBindingsCore,
+  joinedPortableLaunchMatchesCore,
+} from './portable-participant-binding.mjs';
+import {
   existsSync,
   mkdirSync as rawMkdirSync,
   readFileSync,
@@ -81,21 +85,6 @@ export function createProductionWorkerOperations({
     });
   }
 
-  function joinedLaunchMatches(journal, reviewer) {
-    const operation = journal?.provider_operation;
-    return (
-      (journal?.stage === 'launch-pending' &&
-        operation?.status === 'reserved' &&
-        operation.session_fingerprint === null) ||
-      (journal?.stage === 'outcome-unknown' &&
-        operation?.status === 'outcome-unknown' &&
-        operation.session_fingerprint === null) ||
-      (journal?.stage === 'launched' &&
-        operation?.status === 'acknowledged' &&
-        operation.session_fingerprint === reviewer.session_fingerprint)
-    );
-  }
-
   function recoveryAdapter(registration) {
     return Object.freeze({
       automatic: false,
@@ -150,24 +139,6 @@ export function createProductionWorkerOperations({
     });
   }
 
-  function selectorFor(host) {
-    return { codex: 'codex', 'claude-code': 'claude', grok: 'grok' }[host];
-  }
-
-  function sealedAuthority(role, state) {
-    const participant = state.participants[role];
-    const runtime = state.protocol.startup.runtime;
-    return {
-      review_id: state.protocol.review_id,
-      selector: selectorFor(participant.host),
-      provider: participant.provider,
-      host: participant.host,
-      model_id: participant.model_id,
-      adapter_version: runtime.adapter_version,
-      operation_id: `${role === 'author' ? 'start' : 'join'}:${state.protocol.review_id}`,
-    };
-  }
-
   function invitationFor(state) {
     const context = state.protocol.startup.context;
     return resolveReviewPaths({
@@ -181,24 +152,6 @@ export function createProductionWorkerOperations({
       reviewId: context.review_id,
       recordId: context.record_id ?? context.review_id,
     }).reviewerInvitation.absolute;
-  }
-
-  function eligible(adapter, capability, { launch = false } = {}) {
-    return (
-      capability?.available === true &&
-      capability.automatic === true &&
-      typeof adapter?.observeBoundSession === 'function' &&
-      typeof adapter?.attestVersion === 'function' &&
-      typeof adapter?.observeTransport === 'function' &&
-      typeof adapter?.deliverToSession === 'function' &&
-      typeof adapter?.reconcileDelivery === 'function' &&
-      typeof adapter?.observeResource === 'function' &&
-      typeof adapter?.observeResourceRelease === 'function' &&
-      (!launch ||
-        (capability.reviewerLaunchable === true &&
-          typeof adapter.launchReviewer === 'function' &&
-          typeof adapter.observeLaunchResource === 'function'))
-    );
   }
 
   async function orderedResources({ participants, capabilities, project, platform }) {
@@ -287,51 +240,18 @@ export function createProductionWorkerOperations({
       return makeRecoveryWorker();
 
     const author = state.participants.author;
-    const reviewerSelector = runtime.reviewer?.selector;
-    const authorSelector = selectorFor(author?.host);
-    const authorAdapter =
-      adapters instanceof Map ? adapters.get(authorSelector) : adapters?.[authorSelector];
-    const reviewerAdapter =
-      adapters instanceof Map ? adapters.get(reviewerSelector) : adapters?.[reviewerSelector];
-    const authorCapability = await authorAdapter?.observeCapabilities?.();
-    const reviewerCapability = await reviewerAdapter?.observeCapabilities?.();
-    if (
-      !eligible(authorAdapter, authorCapability) ||
-      !eligible(reviewerAdapter, reviewerCapability, { launch: true }) ||
-      authorAdapter.adapter_version !== runtime.adapter_version ||
-      reviewerAdapter.adapter_version !== runtime.adapter_version
-    )
-      return makeRecoveryWorker();
-
-    const bySelector = new Map([
-      [authorSelector, authorAdapter],
-      [reviewerSelector, reviewerAdapter],
-    ]);
-    const now = new Date(clock?.now?.() ?? Date.now());
-    const authorBinding = await openBinding({
+    const selected = await selectPortableParticipantBindingsCore({
       workspace,
-      role: 'author',
-      authority: sealedAuthority('author', state),
-      adapters: bySelector,
-      projectRoot: project.physicalRoot,
-      now,
+      project,
+      state,
+      journal,
+      recovery: evidence.recovery,
+      adapters,
+      now: new Date(clock?.now?.() ?? Date.now()),
+      openBinding,
     });
-    if (authorBinding.session_fingerprint !== author.session_fingerprint)
-      throw failure('Author binding differs from sealed startup participant.');
-    if (state.participants.reviewer) {
-      if (!joinedLaunchMatches(journal, state.participants.reviewer))
-        throw failure('Reviewer join differs from acknowledged launch session.');
-      const reviewerBinding = await openBinding({
-        workspace,
-        role: 'reviewer',
-        authority: sealedAuthority('reviewer', state),
-        adapters: bySelector,
-        projectRoot: project.physicalRoot,
-        now,
-      });
-      if (reviewerBinding.session_fingerprint !== state.participants.reviewer.session_fingerprint)
-        throw failure('Reviewer binding differs from sealed join participant.');
-    }
+    if (selected.status !== 'automatic') return makeRecoveryWorker();
+    const { authorAdapter, reviewerAdapter, authorCapability, reviewerCapability } = selected;
 
     const leases = new Map();
     const entries = await orderedResources({
@@ -467,7 +387,7 @@ export function createProductionWorkerOperations({
       const current = inspect(root);
       const currentEvidence = startup(root, current.state);
       const reviewer = current.state.participants.reviewer;
-      if (reviewer && !joinedLaunchMatches(currentEvidence?.journal, reviewer))
+      if (reviewer && !joinedPortableLaunchMatchesCore(currentEvidence?.journal, reviewer))
         throw failure('Current reviewer differs from exact launch acknowledgment.');
       return current;
     };

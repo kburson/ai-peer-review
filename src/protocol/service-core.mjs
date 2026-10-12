@@ -1,3 +1,4 @@
+import { canonicalProjection, orderedProjectionCore as ordered } from './canonical-projection.mjs';
 import {
   closeSync,
   existsSync,
@@ -47,22 +48,6 @@ export function createProtocolService(authority) {
     assertOperationAuthorityNow,
     performOperationEffect,
   } = authority;
-  function ordered(value) {
-    if (Array.isArray(value)) return value.map(ordered);
-    if (value && typeof value === 'object') {
-      return Object.fromEntries(
-        Object.keys(value)
-          .sort()
-          .map((key) => [key, ordered(value[key])])
-      );
-    }
-    return value;
-  }
-
-  function canonicalProjection(value) {
-    return `${JSON.stringify(ordered(value), null, 2)}\n`;
-  }
-
   function sha256(bytes) {
     return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
   }
