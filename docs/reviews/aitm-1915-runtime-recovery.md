@@ -40,3 +40,10 @@ anchor reuse and stale-intervention refusal; both were repaired and covered.
 
 The runtime was packed locally with the package-owned runtime packer. This
 repair does not publish a package release or authorize design implementation.
+
+Native policy migration additionally exposed the former version-2 Codex hook's
+exact compound matcher. Explicit migration now replaces only that recorded
+owned group with the current matcher, preserving foreign hook groups. Modified
+or duplicated groups still refuse. A real setup regression failed before the
+repair; the complete amended primary setup suite passed 42 tests with one
+existing skip. Independent re-review found no Critical or Important issue.

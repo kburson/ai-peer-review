@@ -1135,3 +1135,55 @@ test(
     assert.equal(f.read('.codex/config.json'), '{}\n');
   }
 );
+
+test('native migration replaces only the known owned legacy compound Codex hook', async (t) => {
+  for (const modified of [false, true]) {
+    await t.test(`modified=${modified}`, async (t) => {
+      const f = await setupHostFixture(t);
+      const { installedPackageIdentity } =
+        await import('../../src/config/installation-identity.mjs');
+      f.write(
+        '.ai-peer-review.json',
+        JSON.stringify({
+          schema: 'ai-peer-review.config/v1',
+          setup: {
+            owner: 'ai-peer-review',
+            version: 2,
+            agents: ['codex'],
+            config_created: true,
+            scratch_exclude_added: false,
+            resume_commands_added: [],
+            automatic_adapters_added: [],
+            ...installedPackageIdentity(),
+          },
+        }) + '\n'
+      );
+      const foreign = {
+        matcher: 'Bash',
+        hooks: [{ type: 'command', command: 'aitm-foreign-guard' }],
+      };
+      const hook = {
+        matcher: '^(?:Bash|functions\\.exec|exec)$',
+        hooks: [{ type: 'command', command: 'peer-review-codex-hook' }],
+      };
+      if (modified) hook.timeout = 900;
+      const original = JSON.stringify({ hooks: { PreToolUse: [foreign, hook] } }) + '\n';
+      f.write('.codex/hooks.json', original);
+      if (modified) {
+        await assert.rejects(f.setupApply({ update: true, migrate: true }), {
+          code: 'APR_SETUP_CONFLICT',
+        });
+        assert.equal(f.read('.codex/hooks.json'), original);
+      } else {
+        const dry = await f.setupApply({ update: true, migrate: true, dryRun: true });
+        assert.ok(dry.writes.some((entry) => entry.file.endsWith('.codex/hooks.json')));
+        assert.equal(f.read('.codex/hooks.json'), original);
+        await f.setupApply({ update: true, migrate: true });
+        assert.deepEqual(JSON.parse(f.read('.codex/hooks.json')).hooks.PreToolUse, [
+          foreign,
+          { matcher: 'Bash', hooks: [{ type: 'command', command: 'peer-review-codex-hook' }] },
+        ]);
+      }
+    });
+  }
+});
