@@ -363,3 +363,135 @@ test('exact terminal history remains preserved after its registration is retired
   history.wake = [{ status: 'outcome-unknown' }];
   assert.equal(classify({ reviews: [history] }).status, 'unknown');
 });
+
+test('parsed stock author binding permits prelaunch restoration while reviewer effect records remain obligations', async () => {
+  const { validatePortableProviderRecordsCore } =
+    await import('../../src/broker/portable-provider-records.mjs');
+  const { createHash } = await import('node:crypto');
+  const r = review();
+  const author = {
+    provider: 'openai',
+    host: 'codex',
+    model_id: 'author-model',
+    session_fingerprint:
+      'sha256:' +
+      createHash('sha256')
+        .update('ai-peer-review.session/v1\nopenai\nauthor-session')
+        .digest('hex'),
+  };
+  r.participants.author = author;
+  const state = {
+    protocol: {
+      review_id: reviewId,
+      startup: {
+        runtime: {
+          adapter_version: '1.0.0',
+          reviewer: { selector: 'claude', model_id: 'reviewer-model' },
+        },
+      },
+    },
+    participants: r.participants,
+  };
+  const binding = {
+    schema: 'ai-peer-review.participant-binding/v1',
+    review_id: reviewId,
+    role: 'author',
+    selector: 'codex',
+    ...author,
+    adapter_version: '1.0.0',
+    operation_id: 'start:' + reviewId,
+    evidence_digest: 'sha256:' + 'f'.repeat(64),
+    tool_use_id: 'author-tool',
+    handle_locator: 'author-session',
+  };
+  const file = (name, record) => ({
+    name,
+    bytes: Buffer.from(JSON.stringify(record)),
+    mode: 0o100600,
+  });
+  const parsed = validatePortableProviderRecordsCore({
+    files: [file('provider/bindings/author.json', binding)],
+    state,
+    journal: r.startup,
+  });
+  assert.equal(parsed.status, 'valid');
+  r.providerObservations = parsed.records;
+  const result = classify({ registrations: [registration()], reviews: [r] });
+  assert.equal(result.status, 'clear');
+  assert.equal(result.verified, false);
+  assert.deepEqual(result.dispositions, [{ review_id: reviewId, disposition: 'restorable' }]);
+  assert.equal(
+    validatePortableProviderRecordsCore({
+      files: [
+        file('provider/bindings/author.json', { ...binding, handle_locator: 'another-author' }),
+      ],
+      state,
+      journal: r.startup,
+    }).status,
+    'unknown'
+  );
+  assert.equal(
+    classify({
+      registrations: [registration()],
+      reviews: [r],
+      resources: [providerResource(project.digest)],
+    }).status,
+    'unknown'
+  );
+  const reviewerObservation = {
+    source: 'official-exact-session',
+    source_version: '2.1.278',
+    observed_at: '2026-10-12T00:00:00.000Z',
+    operation_id: 'join:' + reviewId,
+    provider: 'anthropic',
+    host: 'claude-code',
+    model_id: 'reviewer-model',
+    session_id: 'reviewer-session',
+    phase: 'tool-use',
+    tool_use_id: 'reviewer-tool',
+  };
+  const observed = validatePortableProviderRecordsCore({
+    files: [
+      file('provider/bindings/author.json', binding),
+      file(
+        'provider/claude/observations/' +
+          createHash('sha256').update(reviewerObservation.operation_id).digest('hex') +
+          '.json',
+        reviewerObservation
+      ),
+    ],
+    state,
+    journal: r.startup,
+  });
+  assert.equal(observed.status, 'valid');
+  r.providerObservations = observed.records;
+  assert.equal(classify({ registrations: [registration()], reviews: [r] }).status, 'unknown');
+  const op = 'launch:' + '1'.repeat(64),
+    reviewerHandle = 'reviewer-session';
+  r.startup.provider_operation = { status: 'not-submitted', operation_id: op };
+  const operation = {
+    schema: 'ai-peer-review.provider-operation/v1',
+    selector: 'claude',
+    operation_id: op,
+    handle: reviewerHandle,
+    session_fingerprint:
+      'sha256:' +
+      createHash('sha256')
+        .update('ai-peer-review.session/v1\nanthropic\n' + reviewerHandle)
+        .digest('hex'),
+  };
+  const effects = validatePortableProviderRecordsCore({
+    files: [
+      file('provider/bindings/author.json', binding),
+      file(
+        'provider/claude/operations/' + createHash('sha256').update(op).digest('hex') + '.json',
+        operation
+      ),
+    ],
+    state,
+    journal: r.startup,
+  });
+  assert.equal(effects.status, 'valid');
+  r.providerObservations = effects.records;
+  assert.equal(classify({ registrations: [registration()], reviews: [r] }).status, 'unknown');
+});

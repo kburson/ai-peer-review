@@ -135,3 +135,90 @@ test('existing wake binding validates the original operation against current rol
     code: 'APR_IDENTITY_CONFLICT',
   });
 });
+
+test('production-used candidate selection preserves exact reserved-only startup and refuses unknown orphan evidence', async (t) => {
+  const production = await import('../../src/broker/portable-existing-effect-reconciliation.mjs');
+  const { classifyPortableReconciliationCore } =
+    await import('../../src/broker/portable-reconciliation-policy.mjs');
+  const { readStartupJournal, inspectStartupAuthority } =
+    await import('../../src/broker/startup-evidence-reader.mjs');
+  const { fixtureStartupDeps } = await import('../helpers/internal-api.mjs');
+  const { canonicalProjection } = await import('../../src/protocol/canonical-projection.mjs');
+  const { createHash } = await import('node:crypto');
+  const { writeFile } = await import('node:fs/promises');
+  assert.equal(typeof production.selectPortableExistingEffectCandidatesCore, 'function');
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-reserved-candidates-209-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const workspace = path.join(root, 'review-reserved');
+  await mkdir(workspace);
+  const runtime = fixtureStartupDeps.pinRuntimeImage({ destination: path.join(root, 'runtime') });
+  const descriptor = { project_root_digest: 'a'.repeat(64) };
+  const request = { startup: { runtime: descriptor } };
+  const journal = {
+    schema: 'ai-peer-review.startup-request/v1',
+    request_digest: createHash('sha256').update(canonicalProjection(request)).digest('hex'),
+    request,
+    workspace,
+    review_id: 'review-reserved',
+    runtime,
+    versions: {},
+    descriptor,
+    stage: 'reserved',
+  };
+  const journalFile = path.join(workspace, 'startup-request.json');
+  await writeFile(journalFile, JSON.stringify(journal) + '\n');
+  const project = { digest: 'a'.repeat(64), physicalRoot: root };
+  const review = () => ({
+    review_id: journal.review_id,
+    workspace,
+    authority: inspectStartupAuthority({ workspace, project }),
+    startup: readStartupJournal(workspace),
+    manualHistory: null,
+    wake: [],
+    providerObservations: [],
+    locks: [],
+    fence: null,
+    suspension: null,
+  });
+  const namespace = {
+    kind: 'review',
+    root: workspace,
+    entries: [{ relativePath: 'startup-request.json' }],
+    files: [{ name: 'startup-request.json', bytes: Buffer.from(JSON.stringify(journal)) }],
+  };
+  const data = { project, namespaces: [namespace] };
+  const select = (r) =>
+    production.selectPortableExistingEffectCandidatesCore(data, {
+      classification: classifyPortableReconciliationCore({
+        project,
+        registrations: [],
+        reviews: [r],
+        resources: [],
+      }),
+    });
+  const exact = review();
+  assert.equal(
+    classifyPortableReconciliationCore({
+      project,
+      registrations: [],
+      reviews: [exact],
+      resources: [],
+    }).status,
+    'clear'
+  );
+  const selected = select(exact);
+  assert.equal(selected.verified, false);
+  assert.deepEqual(selected.reviews, []);
+  assert.equal(select({ ...exact, startup: null }).status, 'unknown');
+  assert.equal(
+    select({ ...exact, providerObservations: [{ schema: 'unknown-effect' }] }).status,
+    'unknown'
+  );
+  await writeFile(journalFile, JSON.stringify({ ...journal, request_digest: 'b'.repeat(64) }));
+  assert.throws(() => select(exact), { code: 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED' });
+  await writeFile(journalFile, JSON.stringify(journal));
+  await rm(runtime.root, { recursive: true });
+  assert.equal(select(exact).status, 'unknown');
+  await rm(journalFile);
+  assert.equal(select({ ...exact, startup: null }).status, 'unknown');
+});

@@ -85,7 +85,8 @@ function parse(bytes) {
     throw refuse('reconciliation-namespace-unproved');
   }
 }
-function candidates(data, projection) {
+// Read-only selection over already parsed data; this core result grants no effect authority.
+export function selectPortableExistingEffectCandidatesCore(data, projection) {
   const registrations = new Map(),
     reviews = new Map(),
     recovery = [];
@@ -132,12 +133,23 @@ function candidates(data, projection) {
     const registration = registrations.get(path.basename(workspace));
     if (
       !registration &&
+      projection.classification.status === 'clear' &&
       projection.classification.dispositions.some(
         (entry) => entry.review_id === path.basename(workspace) && entry.disposition === 'preserved'
-      ) &&
-      inspectStartupAuthority({ workspace, project: data.project }).status === 'terminal'
-    )
-      continue;
+      )
+    ) {
+      const preservedAuthority = inspectStartupAuthority({ workspace, project: data.project });
+      if (preservedAuthority.status === 'terminal') continue;
+      const reservation = readStartupJournal(workspace);
+      if (
+        preservedAuthority.status === 'absent' &&
+        reservation?.stage === 'reserved' &&
+        !reservation.provider_operation &&
+        reservation.descriptor?.project_root_digest === data.project.digest &&
+        verifyRuntimeImage(reservation.runtime)
+      )
+        continue;
+    }
     if (!registration || registration.workspace !== workspace)
       return retained('review-authority-unproved');
     if (
@@ -192,7 +204,7 @@ function candidates(data, projection) {
   }
   for (const registration of registrations.values())
     if (!reviews.has(registration.workspace)) return retained('registry-reconciliation-unproved');
-  return { project: data.project, reviews: result };
+  return { verified: false, project: data.project, reviews: result };
 }
 
 export async function reconcilePortableExistingEffects(input = {}) {
@@ -221,7 +233,7 @@ export async function reconcilePortableExistingEffects(input = {}) {
     ].includes(name)
   );
   if (resourceObligation) return retained(resourceObligation.name);
-  const selected = candidates(data, projection);
+  const selected = selectPortableExistingEffectCandidatesCore(data, projection);
   if (selected.status === 'unknown') return selected;
   await assert();
 

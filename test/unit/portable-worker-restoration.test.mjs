@@ -254,3 +254,134 @@ test('startup service refuses commands before its owner publication completes', 
   await dispatch({ command: 'stop', workspace: null });
   await run.untilStopped;
 });
+
+for (const restored of [false, true]) {
+  test(`published broker registers a new worker with ${restored ? 'an active restored worker' : 'an empty initial registry'}`, async () => {
+    const { createBrokerService } = await import('../../src/broker/service-core.mjs');
+    const service = createBrokerService({
+      withOperationAuthority: (_scope, operation) => operation(),
+      assertCurrentOperationAuthority: async () => {},
+    });
+    const initial = {
+      project_digest: 'a'.repeat(64),
+      review_id: 'initial',
+      workspace: '/project/initial',
+    };
+    const added = { ...initial, review_id: 'added', workspace: '/project/added' };
+    const registrations = restored ? [initial] : [];
+    const workers = new Map();
+    let dispatch,
+      published = false;
+    const running = service.startBroker({
+      identity: { digest: initial.project_digest, physicalRoot: '/project' },
+      versions: {},
+      owner: {
+        publish: async () => {
+          published = true;
+        },
+        release: async () => {},
+      },
+      registry: {
+        list: () => registrations,
+        get: (workspace) => registrations.find((item) => item.workspace === workspace),
+      },
+      workerFactory: async (item) => {
+        const worker = createReviewWorker({
+          registration: item,
+          inspectStatus: () => ({
+            state: 'reviewer-turn',
+            next_action: 'reviewer-submit',
+            review: {},
+          }),
+          adapter: { automatic: true },
+        });
+        workers.set(item.workspace, worker);
+        return worker;
+      },
+      acceptWorkerRestoration: async () => {
+        if (published) throw Error('No restoration receipt exists after publication');
+      },
+      clock: { now: Date.now, setTimeout: () => 1, clearTimeout() {} },
+      server: {
+        start: async (value) => {
+          dispatch = value;
+        },
+        close: async () => {},
+      },
+    });
+    await running.ready;
+    registrations.push(added);
+    try {
+      await dispatch({ command: 'register', workspace: added.workspace });
+      assert.equal(workers.get(added.workspace).workState(), 'automatic-wait');
+      assert.equal((await dispatch({ command: 'status' })).reviews, restored ? 2 : 1);
+    } finally {
+      registrations.length = 0;
+      for (const worker of workers.values()) await worker.suspend();
+      await dispatch({ command: 'stop', workspace: null });
+      await running.untilStopped;
+    }
+  });
+}
+
+test('a failed new worker initialization cannot be reused by a published broker', async () => {
+  const { createBrokerService } = await import('../../src/broker/service-core.mjs');
+  const service = createBrokerService({
+    withOperationAuthority: (_scope, operation) => operation(),
+    assertCurrentOperationAuthority: async () => {},
+  });
+  const item = { project_digest: 'a'.repeat(64), review_id: 'added', workspace: '/project/added' };
+  const registrations = [];
+  let dispatch,
+    starts = 0,
+    unavailable = true;
+  const worker = createReviewWorker({
+    registration: item,
+    inspectStatus: () => {
+      if (unavailable) throw Error('authority unavailable');
+      return { state: 'accepted', review: {} };
+    },
+    adapter: {},
+  });
+  const realStart = worker.start;
+  const run = service.startBroker({
+    identity: { digest: item.project_digest, physicalRoot: '/project' },
+    versions: {},
+    owner: { publish: async () => {}, release: async () => {} },
+    registry: { list: () => registrations, get: () => item },
+    workerFactory: async () => ({
+      ...worker,
+      start: async () => {
+        starts++;
+        return realStart();
+      },
+    }),
+    clock: { now: Date.now, setTimeout: () => 1, clearTimeout() {} },
+    server: {
+      start: async (value) => {
+        dispatch = value;
+      },
+      close: async () => {},
+    },
+  });
+  await run.ready;
+  registrations.push(item);
+  await assert.rejects(
+    () => dispatch({ command: 'register', workspace: item.workspace }),
+    /authority unavailable/u
+  );
+  try {
+    await assert.rejects(() => dispatch({ command: 'register', workspace: item.workspace }), {
+      code: 'APR_BROKER_STALE',
+    });
+    assert.equal(starts, 1);
+  } finally {
+    registrations.length = 0;
+    unavailable = false;
+    await worker.suspend();
+    try {
+      await dispatch({ command: 'stop' });
+    } catch {}
+    await run.untilStopped;
+  }
+});

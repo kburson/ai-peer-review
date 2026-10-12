@@ -240,7 +240,28 @@ export function classifyPortableReconciliationCore(input = {}) {
       review.fence?.review_id === review.review_id &&
       review.fence?.request_digest === journal.request_digest;
     if (!launched && !prelaunch && !fenced) add('existing-effect-reconciliation-unproved');
-    if (review.providerObservations.length && !launched && !fenced)
+    const authorIdentityOnly = review.providerObservations.every((record) => {
+      const author = review.participants?.author;
+      return (
+        record?.operation_id === 'start:' + review.review_id &&
+        record.provider === author?.provider &&
+        record.host === author?.host &&
+        record.model_id === author?.model_id &&
+        ((record.schema === 'ai-peer-review.participant-binding/v1' &&
+          record.role === 'author' &&
+          record.review_id === review.review_id &&
+          record.session_fingerprint === author?.session_fingerprint) ||
+          record.source === 'official-exact-session')
+      );
+    });
+    // The fixed projection has already validated each closed record and its
+    // participant/session joins. Author identity is not a reviewer effect.
+    if (
+      review.providerObservations.length &&
+      !launched &&
+      !fenced &&
+      !(prelaunch && authorIdentityOnly)
+    )
       add('existing-effect-reconciliation-unproved');
     dispositions.push({
       review_id: review.review_id,

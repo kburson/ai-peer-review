@@ -57283,7 +57283,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 89,
+        "line": 90,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -57293,28 +57293,8 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 89,
+        "line": 90,
         "column": 24,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "Map",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 90,
-        "column": 4,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "reviews",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 90,
-        "column": 14,
         "kind": "call",
         "targetKind": "origin",
         "target": "Map",
@@ -57327,13 +57307,33 @@
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
+        "target": "reviews",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 91,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "Map",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 92,
+        "column": 4,
+        "kind": "alias",
+        "targetKind": "origin",
         "target": "recovery",
         "origins": [],
         "owner": 209
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 92,
+        "line": 93,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -57343,7 +57343,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 94,
+        "line": 95,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -57353,7 +57353,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 95,
+        "line": 96,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -57363,7 +57363,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 95,
+        "line": 96,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -57373,7 +57373,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 97,
+        "line": 98,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -57383,7 +57383,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 101,
+        "line": 102,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -57393,7 +57393,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 103,
+        "line": 104,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -57403,7 +57403,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 104,
+        "line": 105,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -57413,7 +57413,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 106,
+        "line": 107,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -57423,7 +57423,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 106,
+        "line": 107,
         "column": 46,
         "kind": "call",
         "targetKind": "origin",
@@ -57433,7 +57433,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 109,
+        "line": 110,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -57443,7 +57443,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 111,
+        "line": 112,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -57453,7 +57453,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 111,
+        "line": 112,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -57463,7 +57463,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 111,
+        "line": 112,
         "column": 72,
         "kind": "call",
         "targetKind": "origin",
@@ -57473,7 +57473,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 112,
+        "line": 113,
         "column": 55,
         "kind": "call",
         "targetKind": "origin",
@@ -57483,7 +57483,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 114,
+        "line": 115,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -57493,7 +57493,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 115,
+        "line": 116,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -57503,7 +57503,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 115,
+        "line": 116,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -57513,7 +57513,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 118,
+        "line": 119,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57523,7 +57523,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 118,
+        "line": 119,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57533,7 +57533,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 118,
+        "line": 119,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57543,7 +57543,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 126,
+        "line": 127,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -57553,7 +57553,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 128,
+        "line": 129,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57563,7 +57563,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 130,
+        "line": 131,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -57573,7 +57573,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 131,
+        "line": 132,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -57583,7 +57583,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 132,
+        "line": 133,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -57593,7 +57593,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 132,
+        "line": 133,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -57603,7 +57603,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 132,
+        "line": 133,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -57613,7 +57613,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 135,
+        "line": 137,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57623,7 +57623,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 136,
+        "line": 138,
         "column": 39,
         "kind": "call",
         "targetKind": "origin",
@@ -57633,8 +57633,18 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 138,
-        "column": 6,
+        "line": 141,
+        "column": 12,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "preservedAuthority",
+        "origins": ["data", "function", "literal", "stock", "target", "unknown", "unknown-target"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 141,
+        "column": 33,
         "kind": "call",
         "targetKind": "origin",
         "target": "inspectStartupAuthority",
@@ -57643,62 +57653,32 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 142,
-        "column": 13,
+        "line": 143,
+        "column": 12,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "reservation",
+        "origins": ["data", "unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 143,
+        "column": 26,
         "kind": "call",
         "targetKind": "origin",
-        "target": "retained",
+        "target": "readStartupJournal",
         "origins": ["function"],
         "owner": 209
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 144,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "some",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 145,
+        "line": 149,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
-        "target": "includes",
-        "origins": ["literal"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 150,
-        "column": 13,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "retained",
+        "target": "verifyRuntimeImage",
         "origins": ["function"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 152,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "some",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 152,
-        "column": 51,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "test",
-        "origins": ["data"],
         "owner": 209
       },
       {
@@ -57713,7 +57693,67 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 155,
+        "line": 156,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "some",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 157,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "includes",
+        "origins": ["literal"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 162,
+        "column": 13,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "retained",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 164,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "some",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 164,
+        "column": 51,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "test",
+        "origins": ["data"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 166,
+        "column": 13,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "retained",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 167,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -57723,7 +57763,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 155,
+        "line": 167,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -57733,7 +57773,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 156,
+        "line": 168,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -57743,7 +57783,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 156,
+        "line": 168,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -57753,7 +57793,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 163,
+        "line": 175,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -57763,7 +57803,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 165,
+        "line": 177,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -57773,7 +57813,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 167,
+        "line": 179,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -57783,7 +57823,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 167,
+        "line": 179,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -57793,7 +57833,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 174,
+        "line": 186,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57803,7 +57843,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 176,
+        "line": 188,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -57813,7 +57853,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 177,
+        "line": 189,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -57823,7 +57863,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 177,
+        "line": 189,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -57833,7 +57873,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 184,
+        "line": 196,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -57843,7 +57883,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 185,
+        "line": 197,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -57853,7 +57893,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 186,
+        "line": 198,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -57863,7 +57903,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 187,
+        "line": 199,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -57873,7 +57913,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 188,
+        "line": 200,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -57883,7 +57923,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 188,
+        "line": 200,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -57893,7 +57933,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 189,
+        "line": 201,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -57903,7 +57943,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 190,
+        "line": 202,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -57913,7 +57953,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 191,
+        "line": 203,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -57923,7 +57963,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 193,
+        "line": 205,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -57933,7 +57973,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 193,
+        "line": 205,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -57943,7 +57983,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 194,
+        "line": 206,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -57953,7 +57993,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 194,
+        "line": 206,
         "column": 53,
         "kind": "call",
         "targetKind": "origin",
@@ -57963,7 +58003,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 199,
+        "line": 211,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57973,7 +58013,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 199,
+        "line": 211,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57983,7 +58023,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 199,
+        "line": 211,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -57993,7 +58033,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 200,
+        "line": 212,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -58003,7 +58043,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 201,
+        "line": 213,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58013,7 +58053,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 202,
+        "line": 214,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58023,7 +58063,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 202,
+        "line": 214,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -58033,7 +58073,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 203,
+        "line": 215,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -58043,7 +58083,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 204,
+        "line": 216,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58053,7 +58093,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 205,
+        "line": 217,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -58063,7 +58103,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 206,
+        "line": 218,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -58073,7 +58113,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 213,
+        "line": 225,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -58083,7 +58123,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 214,
+        "line": 226,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58093,7 +58133,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 214,
+        "line": 226,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -58103,7 +58143,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 215,
+        "line": 227,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58113,7 +58153,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 215,
+        "line": 227,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -58123,7 +58163,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 216,
+        "line": 228,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58133,7 +58173,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 216,
+        "line": 228,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -58143,7 +58183,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 217,
+        "line": 229,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -58153,7 +58193,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 223,
+        "line": 235,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -58163,27 +58203,27 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 224,
+        "line": 236,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
         "target": "selected",
-        "origins": ["unknown"],
+        "origins": ["data", "unknown"],
         "owner": 209
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 224,
+        "line": 236,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
-        "target": "candidates",
+        "target": "selectPortableExistingEffectCandidatesCore",
         "origins": ["function"],
         "owner": 209
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 226,
+        "line": 238,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -58193,7 +58233,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 228,
+        "line": 240,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -58203,7 +58243,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 229,
+        "line": 241,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58213,7 +58253,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 231,
+        "line": 243,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -58223,7 +58263,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 232,
+        "line": 244,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -58233,7 +58273,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 235,
+        "line": 247,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -58243,7 +58283,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 236,
+        "line": 248,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58253,7 +58293,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 236,
+        "line": 248,
         "column": 20,
         "kind": "alias",
         "targetKind": "origin",
@@ -58263,7 +58303,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 236,
+        "line": 248,
         "column": 28,
         "kind": "alias",
         "targetKind": "origin",
@@ -58273,7 +58313,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 238,
+        "line": 250,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -58283,7 +58323,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 238,
+        "line": 250,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -58293,7 +58333,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 246,
+        "line": 258,
         "column": 16,
         "kind": "alias",
         "targetKind": "origin",
@@ -58303,7 +58343,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 246,
+        "line": 258,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -58313,7 +58353,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 253,
+        "line": 265,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -58323,7 +58363,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 254,
+        "line": 266,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58333,7 +58373,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 254,
+        "line": 266,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -58343,7 +58383,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 255,
+        "line": 267,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58353,7 +58393,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 257,
+        "line": 269,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -58363,7 +58403,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 258,
+        "line": 270,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -58373,7 +58413,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 259,
+        "line": 271,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58383,7 +58423,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 259,
+        "line": 271,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -58393,7 +58433,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 263,
+        "line": 275,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -58403,7 +58443,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 263,
+        "line": 275,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -58413,7 +58453,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 264,
+        "line": 276,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -58423,7 +58463,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 265,
+        "line": 277,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -58433,7 +58473,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 265,
+        "line": 277,
         "column": 37,
         "kind": "call",
         "targetKind": "origin",
@@ -58443,7 +58483,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 275,
+        "line": 287,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -58453,7 +58493,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 279,
+        "line": 291,
         "column": 47,
         "kind": "alias",
         "targetKind": "origin",
@@ -58463,7 +58503,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 280,
+        "line": 292,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -58473,7 +58513,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 281,
+        "line": 293,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -58483,7 +58523,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 287,
+        "line": 299,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -58493,7 +58533,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 292,
+        "line": 304,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -58503,7 +58543,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 294,
+        "line": 306,
         "column": 21,
         "kind": "alias",
         "targetKind": "origin",
@@ -58513,7 +58553,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 294,
+        "line": 306,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -58523,7 +58563,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 295,
+        "line": 307,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58533,7 +58573,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 295,
+        "line": 307,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -58543,7 +58583,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 296,
+        "line": 308,
         "column": 56,
         "kind": "call",
         "targetKind": "origin",
@@ -58553,7 +58593,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 297,
+        "line": 309,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58563,7 +58603,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 297,
+        "line": 309,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -58573,7 +58613,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 298,
+        "line": 310,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58583,7 +58623,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 298,
+        "line": 310,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -58593,7 +58633,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 299,
+        "line": 311,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -58603,7 +58643,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 300,
+        "line": 312,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58613,7 +58653,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 301,
+        "line": 313,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58623,7 +58663,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 308,
+        "line": 320,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -58633,7 +58673,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 309,
+        "line": 321,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58643,7 +58683,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 309,
+        "line": 321,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -58653,7 +58693,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 317,
+        "line": 329,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58663,7 +58703,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 317,
+        "line": 329,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -58673,7 +58713,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 318,
+        "line": 330,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -58683,7 +58723,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 322,
+        "line": 334,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58693,7 +58733,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 322,
+        "line": 334,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -58703,7 +58743,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 328,
+        "line": 340,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -58713,7 +58753,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 330,
+        "line": 342,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58723,7 +58763,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 332,
+        "line": 344,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -58733,7 +58773,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 332,
+        "line": 344,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -58743,7 +58783,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 335,
+        "line": 347,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -58753,7 +58793,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 337,
+        "line": 349,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -58763,7 +58803,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 338,
+        "line": 350,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -58773,7 +58813,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 338,
+        "line": 350,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -58783,7 +58823,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 339,
+        "line": 351,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -58793,7 +58833,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 340,
+        "line": 352,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -58803,7 +58843,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 340,
+        "line": 352,
         "column": 37,
         "kind": "call",
         "targetKind": "origin",
@@ -58813,7 +58853,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 341,
+        "line": 353,
         "column": 16,
         "kind": "alias",
         "targetKind": "origin",
@@ -58823,7 +58863,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 343,
+        "line": 355,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -58833,7 +58873,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 345,
+        "line": 357,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -58843,7 +58883,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 345,
+        "line": 357,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -58853,7 +58893,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 351,
+        "line": 363,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -58863,7 +58903,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 352,
+        "line": 364,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -58873,7 +58913,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 352,
+        "line": 364,
         "column": 37,
         "kind": "call",
         "targetKind": "origin",
@@ -58883,7 +58923,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 353,
+        "line": 365,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -58893,7 +58933,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 358,
+        "line": 370,
         "column": 24,
         "kind": "alias",
         "targetKind": "origin",
@@ -58903,7 +58943,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 358,
+        "line": 370,
         "column": 38,
         "kind": "call",
         "targetKind": "origin",
@@ -58913,7 +58953,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 359,
+        "line": 371,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -58923,7 +58963,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 360,
+        "line": 372,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -58933,7 +58973,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 361,
+        "line": 373,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -58943,7 +58983,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 372,
+        "line": 384,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -58953,7 +58993,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 374,
+        "line": 386,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -58963,7 +59003,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 375,
+        "line": 387,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -58973,7 +59013,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 388,
+        "line": 400,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -58983,7 +59023,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 389,
+        "line": 401,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -58993,7 +59033,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 389,
+        "line": 401,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -59003,7 +59043,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 390,
+        "line": 402,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -59013,7 +59053,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 391,
+        "line": 403,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -59023,7 +59063,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 391,
+        "line": 403,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -59033,7 +59073,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 396,
+        "line": 408,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -59043,7 +59083,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 398,
+        "line": 410,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -59053,7 +59093,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 399,
+        "line": 411,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -59063,7 +59103,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 402,
+        "line": 414,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -59073,7 +59113,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 402,
+        "line": 414,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -59083,7 +59123,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 407,
+        "line": 419,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -59093,7 +59133,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 408,
+        "line": 420,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -59103,7 +59143,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 409,
+        "line": 421,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -59113,7 +59153,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 409,
+        "line": 421,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -59123,7 +59163,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 412,
+        "line": 424,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -59133,7 +59173,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 414,
+        "line": 426,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -59143,91 +59183,11 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 422,
+        "line": 434,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
         "target": "set",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 423,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "add",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 428,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "currentData",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 428,
-        "column": 23,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "observationError",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 430,
-        "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "after",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 430,
-        "column": 24,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "observeReconciliationInventory",
-        "origins": ["function"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 431,
-        "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "currentData",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 431,
-        "column": 28,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "readReconciliationInventory",
-        "origins": ["function"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 433,
-        "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "observationError",
         "origins": ["unknown"],
         "owner": 209
       },
@@ -59243,7 +59203,87 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 440,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "currentData",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 440,
+        "column": 23,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "observationError",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
         "line": 442,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "after",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 442,
+        "column": 24,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "observeReconciliationInventory",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 443,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "currentData",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 443,
+        "column": 28,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "readReconciliationInventory",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 445,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "observationError",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 447,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 454,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -59253,7 +59293,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 446,
+        "line": 458,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -59263,7 +59303,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 447,
+        "line": 459,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -59273,7 +59313,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 450,
+        "line": 462,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -81903,7 +81943,37 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
+        "line": 243,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "authorIdentityOnly",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-policy.mjs",
+        "line": 243,
+        "column": 31,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "every",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-policy.mjs",
         "line": 244,
+        "column": 12,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "author",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-policy.mjs",
+        "line": 265,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -81913,7 +81983,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 245,
+        "line": 266,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -81923,7 +81993,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 250,
+        "line": 271,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -81933,7 +82003,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 250,
+        "line": 271,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -81943,7 +82013,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 251,
+        "line": 272,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -81953,7 +82023,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 251,
+        "line": 272,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -81963,7 +82033,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 252,
+        "line": 273,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -81973,7 +82043,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 253,
+        "line": 274,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -81983,7 +82053,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 254,
+        "line": 275,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -81993,7 +82063,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 258,
+        "line": 279,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -82003,7 +82073,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 258,
+        "line": 279,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -82013,7 +82083,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 260,
+        "line": 281,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -82023,7 +82093,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 264,
+        "line": 285,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -82033,7 +82103,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 265,
+        "line": 286,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -82043,7 +82113,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 268,
+        "line": 289,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -82053,7 +82123,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 272,
+        "line": 293,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -82063,7 +82133,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 272,
+        "line": 293,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -82073,7 +82143,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 273,
+        "line": 294,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -82083,7 +82153,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 280,
+        "line": 301,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -82093,7 +82163,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 286,
+        "line": 307,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -82103,7 +82173,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 287,
+        "line": 308,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -82113,7 +82183,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 289,
+        "line": 310,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -84848,7 +84918,7 @@
         "kind": "alias",
         "targetKind": "origin",
         "target": "effects",
-        "origins": ["unknown"],
+        "origins": ["data", "unknown"],
         "owner": 169
       },
       {
@@ -84908,7 +84978,7 @@
         "kind": "alias",
         "targetKind": "origin",
         "target": "classification",
-        "origins": ["unknown"],
+        "origins": ["data", "unknown"],
         "owner": 169
       },
       {
@@ -107497,17 +107567,17 @@
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "launchRuns",
+        "target": "failedInitializations",
         "origins": ["unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
         "line": 74,
-        "column": 23,
+        "column": 34,
         "kind": "call",
         "targetKind": "origin",
-        "target": "Map",
+        "target": "Set",
         "origins": ["unknown"],
         "owner": 189
       },
@@ -107517,14 +107587,14 @@
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "workerSubscriptions",
+        "target": "launchRuns",
         "origins": ["unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
         "line": 75,
-        "column": 32,
+        "column": 23,
         "kind": "call",
         "targetKind": "origin",
         "target": "Map",
@@ -107534,11 +107604,21 @@
       {
         "path": "src/broker/service-core.mjs",
         "line": 76,
-        "column": 8,
+        "column": 10,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "idleTimer",
-        "origins": ["data"],
+        "target": "workerSubscriptions",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 76,
+        "column": 32,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "Map",
+        "origins": ["unknown"],
         "owner": 189
       },
       {
@@ -107547,7 +107627,7 @@
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "stopped",
+        "target": "idleTimer",
         "origins": ["data"],
         "owner": 189
       },
@@ -107557,7 +107637,7 @@
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "starting",
+        "target": "stopped",
         "origins": ["data"],
         "owner": 189
       },
@@ -107567,7 +107647,7 @@
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
-        "target": "initialSettlementPending",
+        "target": "starting",
         "origins": ["data"],
         "owner": 189
       },
@@ -107577,13 +107657,23 @@
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
+        "target": "initialSettlementPending",
+        "origins": ["data"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 81,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
         "target": "sequence",
         "origins": ["unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 80,
+        "line": 81,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -107593,7 +107683,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 81,
+        "line": 82,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -107603,7 +107693,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 82,
+        "line": 83,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -107613,7 +107703,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 82,
+        "line": 83,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -107623,7 +107713,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 83,
+        "line": 84,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -107633,7 +107723,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 86,
+        "line": 87,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -107643,7 +107733,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 87,
+        "line": 88,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -107653,7 +107743,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 88,
+        "line": 89,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -107663,7 +107753,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 90,
+        "line": 91,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -107673,7 +107763,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 92,
+        "line": 93,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -107683,7 +107773,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 93,
+        "line": 94,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -107693,7 +107783,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 94,
+        "line": 95,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -107703,7 +107793,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 96,
+        "line": 97,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -107713,7 +107803,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 97,
+        "line": 98,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -107723,7 +107813,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 98,
+        "line": 99,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -107733,7 +107823,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 98,
+        "line": 99,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -107743,7 +107833,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 100,
+        "line": 101,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -107753,7 +107843,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 101,
+        "line": 102,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -107763,7 +107853,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 101,
+        "line": 102,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -107773,7 +107863,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 102,
+        "line": 103,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -107783,7 +107873,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 102,
+        "line": 103,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -107793,7 +107883,27 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 104,
+        "line": 105,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "has",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 106,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "fail",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 114,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -107803,7 +107913,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 104,
+        "line": 114,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -107813,7 +107923,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 106,
+        "line": 116,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -107823,7 +107933,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 113,
+        "line": 123,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -107833,8 +107943,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 114,
-        "column": 12,
+        "line": 125,
+        "column": 28,
         "kind": "call",
         "targetKind": "origin",
         "target": "acceptWorkerRestoration",
@@ -107843,8 +107953,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 116,
-        "column": 14,
+        "line": 127,
+        "column": 16,
         "kind": "alias",
         "targetKind": "origin",
         "target": "unsubscribe",
@@ -107853,8 +107963,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 116,
-        "column": 28,
+        "line": 127,
+        "column": 30,
         "kind": "call",
         "targetKind": "origin",
         "target": "onStateChange",
@@ -107863,8 +107973,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 120,
-        "column": 12,
+        "line": 131,
+        "column": 14,
         "kind": "alias",
         "targetKind": "origin",
         "target": "initialSettlementPending",
@@ -107873,8 +107983,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 123,
-        "column": 16,
+        "line": 134,
+        "column": 18,
         "kind": "alias",
         "targetKind": "origin",
         "target": "operation",
@@ -107883,8 +107993,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 123,
-        "column": 28,
+        "line": 134,
+        "column": 30,
         "kind": "call",
         "targetKind": "origin",
         "target": "then",
@@ -107893,8 +108003,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 124,
-        "column": 12,
+        "line": 135,
+        "column": 14,
         "kind": "call",
         "targetKind": "origin",
         "target": "withLifecycleAuthority",
@@ -107903,99 +108013,9 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 126,
-        "column": 20,
+        "line": 137,
+        "column": 22,
         "kind": "call",
-        "targetKind": "origin",
-        "target": "settleWorkers",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 129,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "sequence",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 129,
-        "column": 21,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "catch",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 129,
-        "column": 43,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "stop",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 131,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "set",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 133,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 134,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "start",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 135,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 136,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "acceptWorkerRestoration",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 139,
-        "column": 10,
-        "kind": "alias",
         "targetKind": "origin",
         "target": "settleWorkers",
         "origins": ["function"],
@@ -108004,817 +108024,7 @@
       {
         "path": "src/broker/service-core.mjs",
         "line": 140,
-        "column": 17,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "workspace,worker",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 141,
-        "column": 14,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "state",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 141,
-        "column": 22,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "workState",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 143,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "cleanupGuard",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 144,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 145,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "suspend",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 146,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 147,
-        "column": 30,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "acceptWorkerRestoration",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 148,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "cleanupGuard",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 149,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 150,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "close",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 151,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 152,
-        "column": 30,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "acceptWorkerRestoration",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 153,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "<unresolved>",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 153,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "get",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 154,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "delete",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 155,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "delete",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 157,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "cleanupGuard",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 158,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 159,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "close",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 160,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 161,
-        "column": 30,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "acceptWorkerRestoration",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 162,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "<unresolved>",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 162,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "get",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 163,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "delete",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 164,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "delete",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 165,
-        "column": 20,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "has",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 166,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "fail",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 174,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "some",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 174,
-        "column": 14,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "values",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 174,
-        "column": 49,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "has",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 174,
-        "column": 67,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "workState",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 175,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "clearIdle",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 177,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "scheduleIdle",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 180,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "dispatch",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 182,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "fail",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 188,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "fail",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 195,
-        "column": 15,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "freeze",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 205,
-        "column": 14,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "unreconciled",
-        "origins": [],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 207,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "cleanupGuard",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 208,
-        "column": 21,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "registration",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 208,
-        "column": 43,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "list",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 209,
-        "column": 18,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "worker",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 209,
-        "column": 33,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "addWorker",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 210,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "workState",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 210,
-        "column": 56,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "push",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 212,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "settleWorkers",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 214,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "fail",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 222,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "fail",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 226,
-        "column": 37,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "keys",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 229,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "stop",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 230,
-        "column": 15,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "freeze",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 232,
         "column": 12,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "registration",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 232,
-        "column": 27,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertRegistration",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 232,
-        "column": 62,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "get",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 233,
-        "column": 12,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "worker",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 233,
-        "column": 27,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "addWorker",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 234,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "clearIdle",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 236,
-        "column": 14,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 237,
-        "column": 14,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "reconcile",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 238,
-        "column": 14,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 240,
-        "column": 12,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "operation",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 242,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 243,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "operation",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 243,
-        "column": 28,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "reserveReviewerLaunch",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 244,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 246,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "settleWorkers",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 250,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 251,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "reconcile",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 252,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 254,
-        "column": 16,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "running",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 254,
-        "column": 26,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "finally",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 254,
-        "column": 26,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "then",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 254,
-        "column": 26,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "catch",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 254,
-        "column": 26,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "settleReservedReviewerLaunch",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 256,
-        "column": 24,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "reconcile",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 258,
-        "column": 14,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "delete",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 259,
-        "column": 20,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "cleanup",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 259,
-        "column": 30,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "then",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 260,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "withLifecycleAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 262,
-        "column": 24,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "settleWorkers",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 265,
-        "column": 14,
         "kind": "alias",
         "targetKind": "origin",
         "target": "sequence",
@@ -108823,8 +108033,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 265,
-        "column": 25,
+        "line": 140,
+        "column": 23,
         "kind": "call",
         "targetKind": "origin",
         "target": "catch",
@@ -108833,7 +108043,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 265,
+        "line": 140,
         "column": 45,
         "kind": "call",
         "targetKind": "origin",
@@ -108843,7 +108053,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 267,
+        "line": 142,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -108853,28 +108063,98 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 270,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "has",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 271,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "AprError",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 275,
+        "line": 144,
         "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 145,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "start",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 146,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 147,
+        "column": 28,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "acceptWorkerRestoration",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 149,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 154,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "settleWorkers",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 155,
+        "column": 17,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "workspace,worker",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 156,
+        "column": 14,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "state",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 156,
+        "column": 22,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "workState",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 158,
+        "column": 16,
         "kind": "call",
         "targetKind": "origin",
         "target": "cleanupGuard",
@@ -108883,8 +108163,8 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 276,
-        "column": 14,
+        "line": 159,
+        "column": 16,
         "kind": "call",
         "targetKind": "origin",
         "target": "assertCurrentOperationAuthority",
@@ -108893,18 +108173,18 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 277,
-        "column": 14,
+        "line": 160,
+        "column": 16,
         "kind": "call",
         "targetKind": "origin",
         "target": "suspend",
-        "origins": ["data", "unknown"],
+        "origins": ["unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 278,
-        "column": 14,
+        "line": 161,
+        "column": 16,
         "kind": "call",
         "targetKind": "origin",
         "target": "assertCurrentOperationAuthority",
@@ -108913,7 +108193,307 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 280,
+        "line": 162,
+        "column": 30,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "acceptWorkerRestoration",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 163,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "cleanupGuard",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 164,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 165,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "close",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 166,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 167,
+        "column": 30,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "acceptWorkerRestoration",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 168,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "<unresolved>",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 168,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "get",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 169,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "delete",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 170,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "delete",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 171,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "delete",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 173,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "cleanupGuard",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 174,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 175,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "close",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 176,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 177,
+        "column": 30,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "acceptWorkerRestoration",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 178,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "<unresolved>",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 178,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "get",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 179,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "delete",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 180,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "delete",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 181,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "delete",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 182,
+        "column": 20,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "has",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 183,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "fail",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 191,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "some",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 191,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "values",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 191,
+        "column": 49,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "has",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 191,
+        "column": 67,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "workState",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 192,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "clearIdle",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 194,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "scheduleIdle",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 197,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "dispatch",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 199,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -108923,18 +108503,18 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 287,
-        "column": 12,
+        "line": 205,
+        "column": 8,
         "kind": "call",
         "targetKind": "origin",
-        "target": "settleWorkers",
+        "target": "fail",
         "origins": ["function"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 288,
-        "column": 13,
+        "line": 212,
+        "column": 15,
         "kind": "call",
         "targetKind": "origin",
         "target": "freeze",
@@ -108943,117 +108523,27 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 289,
+        "line": 222,
+        "column": 14,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "unreconciled",
+        "origins": [],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 224,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
-        "target": "workState",
-        "origins": ["data", "unknown"],
+        "target": "cleanupGuard",
+        "origins": ["function", "unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 290,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "has",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 295,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "serializedDispatch",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 296,
-        "column": 12,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "operation",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 296,
-        "column": 24,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "then",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 297,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "withOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 301,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "includes",
-        "origins": ["literal"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 305,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "dispatch",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 308,
-        "column": 6,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "sequence",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 308,
-        "column": 17,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "catch",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 313,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "withLifecycleAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 316,
+        "line": 225,
         "column": 21,
         "kind": "alias",
         "targetKind": "origin",
@@ -109063,7 +108553,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 316,
+        "line": 225,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -109073,8 +108563,18 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 316,
-        "column": 66,
+        "line": 226,
+        "column": 18,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "worker",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 226,
+        "column": 33,
         "kind": "call",
         "targetKind": "origin",
         "target": "addWorker",
@@ -109083,11 +108583,561 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 317,
+        "line": 227,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "workState",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 227,
+        "column": 56,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "push",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 229,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
         "target": "settleWorkers",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 231,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "fail",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 239,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "fail",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 243,
+        "column": 37,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "keys",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 246,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "stop",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 247,
+        "column": 15,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "freeze",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 249,
+        "column": 12,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "registration",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 249,
+        "column": 27,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertRegistration",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 249,
+        "column": 62,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "get",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 250,
+        "column": 12,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "worker",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 250,
+        "column": 27,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "addWorker",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 251,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "clearIdle",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 253,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 254,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "reconcile",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 255,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 257,
+        "column": 12,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "operation",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 259,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 260,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "operation",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 260,
+        "column": 28,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "reserveReviewerLaunch",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 261,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 263,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "settleWorkers",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 267,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 268,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "reconcile",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 269,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 271,
+        "column": 16,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "running",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 271,
+        "column": 26,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "finally",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 271,
+        "column": 26,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "then",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 271,
+        "column": 26,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "catch",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 271,
+        "column": 26,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "settleReservedReviewerLaunch",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 273,
+        "column": 24,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "reconcile",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 275,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "delete",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 276,
+        "column": 20,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "cleanup",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 276,
+        "column": 30,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "then",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 277,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "withLifecycleAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 279,
+        "column": 24,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "settleWorkers",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 282,
+        "column": 14,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "sequence",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 282,
+        "column": 25,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "catch",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 282,
+        "column": 45,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "stop",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 284,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "set",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 287,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "has",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 288,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "AprError",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 292,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "cleanupGuard",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 293,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 294,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "suspend",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 295,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 297,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "fail",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 304,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "settleWorkers",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 305,
+        "column": 13,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "freeze",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 306,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "workState",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 307,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "has",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 312,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "serializedDispatch",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 313,
+        "column": 12,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "operation",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 313,
+        "column": 24,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "then",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 314,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "withOperationAuthority",
         "origins": ["function"],
         "owner": 189
       },
@@ -109097,13 +109147,103 @@
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
+        "target": "includes",
+        "origins": ["literal"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 322,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "dispatch",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 325,
+        "column": 6,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "sequence",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 325,
+        "column": 17,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "catch",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 330,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "withLifecycleAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 333,
+        "column": 21,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "registration",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 333,
+        "column": 43,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "list",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 333,
+        "column": 66,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "addWorker",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 334,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "settleWorkers",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 335,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
         "target": "start",
         "origins": ["function", "unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 320,
+        "line": 337,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -109113,7 +109253,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 321,
+        "line": 338,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -109123,7 +109263,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 324,
+        "line": 341,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -109133,7 +109273,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 327,
+        "line": 344,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -109143,7 +109283,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 330,
+        "line": 347,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -109153,7 +109293,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 330,
+        "line": 347,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -109163,7 +109303,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 332,
+        "line": 349,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -109173,7 +109313,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 335,
+        "line": 352,
         "column": 23,
         "kind": "alias",
         "targetKind": "origin",
@@ -109183,7 +109323,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 335,
+        "line": 352,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -109193,7 +109333,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 337,
+        "line": 354,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -109203,7 +109343,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 338,
+        "line": 355,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -109213,7 +109353,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 339,
+        "line": 356,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -109223,7 +109363,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 341,
+        "line": 358,
         "column": 48,
         "kind": "call",
         "targetKind": "origin",
@@ -109233,7 +109373,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 344,
+        "line": 361,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -109243,7 +109383,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 348,
+        "line": 365,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -109253,7 +109393,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 349,
+        "line": 366,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -109263,7 +109403,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 350,
+        "line": 367,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -109273,7 +109413,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 363,
+        "line": 380,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -109283,7 +109423,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 365,
+        "line": 382,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -109293,7 +109433,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 368,
+        "line": 385,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -109303,7 +109443,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 369,
+        "line": 386,
         "column": 16,
         "kind": "alias",
         "targetKind": "origin",
@@ -109313,7 +109453,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 370,
+        "line": 387,
         "column": 23,
         "kind": "alias",
         "targetKind": "origin",
@@ -109323,7 +109463,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 372,
+        "line": 389,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -109333,7 +109473,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 373,
+        "line": 390,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -109343,7 +109483,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 374,
+        "line": 391,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -109353,7 +109493,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 375,
+        "line": 392,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -109363,7 +109503,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 376,
+        "line": 393,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -109373,7 +109513,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 378,
+        "line": 395,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -109383,7 +109523,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 379,
+        "line": 396,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -109393,7 +109533,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 380,
+        "line": 397,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -109403,7 +109543,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 381,
+        "line": 398,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -109413,7 +109553,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 382,
+        "line": 399,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -109423,7 +109563,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 382,
+        "line": 399,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -109433,88 +109573,38 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 383,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "delete",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 384,
-        "column": 16,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "delete",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 386,
-        "column": 16,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "cleanupError",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 391,
-        "column": 22,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "cleanupGuard",
-        "origins": ["function", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 392,
-        "column": 22,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 394,
-        "column": 16,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "cleanupError",
-        "origins": ["unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
         "line": 400,
-        "column": 20,
+        "column": 16,
         "kind": "call",
         "targetKind": "origin",
-        "target": "close",
-        "origins": ["function", "unknown"],
+        "target": "delete",
+        "origins": ["unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
         "line": 401,
-        "column": 14,
-        "kind": "alias",
+        "column": 16,
+        "kind": "call",
         "targetKind": "origin",
-        "target": "serverClosed",
-        "origins": ["data"],
+        "target": "delete",
+        "origins": ["unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 403,
-        "column": 14,
+        "line": 402,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "delete",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 404,
+        "column": 16,
         "kind": "alias",
         "targetKind": "origin",
         "target": "cleanupError",
@@ -109527,43 +109617,23 @@
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
-        "target": "assertCurrentOperationAuthority",
-        "origins": ["function"],
+        "target": "cleanupGuard",
+        "origins": ["function", "unknown"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
         "line": 410,
         "column": 22,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "release",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 410,
-        "column": 38,
         "kind": "call",
         "targetKind": "origin",
-        "target": "release",
-        "origins": ["function", "unknown"],
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
         "owner": 189
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 411,
-        "column": 16,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "ownerReleased",
-        "origins": ["data", "unknown"],
-        "owner": 189
-      },
-      {
-        "path": "src/broker/service-core.mjs",
-        "line": 413,
+        "line": 412,
         "column": 16,
         "kind": "alias",
         "targetKind": "origin",
@@ -109573,7 +109643,87 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 417,
+        "line": 418,
+        "column": 20,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "close",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 419,
+        "column": 14,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "serverClosed",
+        "origins": ["data"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 421,
+        "column": 14,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "cleanupError",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 427,
+        "column": 22,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertCurrentOperationAuthority",
+        "origins": ["function"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 428,
+        "column": 22,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "release",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 428,
+        "column": 38,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "release",
+        "origins": ["function", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 429,
+        "column": 16,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "ownerReleased",
+        "origins": ["data", "unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 431,
+        "column": 16,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "cleanupError",
+        "origins": ["unknown"],
+        "owner": 189
+      },
+      {
+        "path": "src/broker/service-core.mjs",
+        "line": 435,
         "column": 20,
         "kind": "alias",
         "targetKind": "origin",
@@ -109583,7 +109733,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 417,
+        "line": 435,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -109593,7 +109743,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 428,
+        "line": 446,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -109603,7 +109753,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 428,
+        "line": 446,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -109613,7 +109763,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 451,
+        "line": 469,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -109623,7 +109773,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 456,
+        "line": 474,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -109633,7 +109783,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 458,
+        "line": 476,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -109643,7 +109793,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 460,
+        "line": 478,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -109653,7 +109803,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 460,
+        "line": 478,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -109663,7 +109813,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 469,
+        "line": 487,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -109673,7 +109823,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 469,
+        "line": 487,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -109683,7 +109833,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 496,
+        "line": 514,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -109693,7 +109843,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 503,
+        "line": 521,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -109703,7 +109853,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 503,
+        "line": 521,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -109713,7 +109863,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 504,
+        "line": 522,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -109723,7 +109873,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 504,
+        "line": 522,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -109733,7 +109883,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 505,
+        "line": 523,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -109743,7 +109893,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 506,
+        "line": 524,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -109753,7 +109903,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 508,
+        "line": 526,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -109763,7 +109913,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 508,
+        "line": 526,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -109773,7 +109923,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 509,
+        "line": 527,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -109783,7 +109933,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 510,
+        "line": 528,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -109793,7 +109943,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 512,
+        "line": 530,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -109803,7 +109953,7 @@
       },
       {
         "path": "src/broker/service-core.mjs",
-        "line": 514,
+        "line": 532,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -277687,7 +277837,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 101,
+        "line": 102,
         "column": 10,
         "name": "has",
         "owner": 209
@@ -277695,7 +277845,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 104,
+        "line": 105,
         "column": 8,
         "name": "set",
         "owner": 209
@@ -277703,7 +277853,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 106,
+        "line": 107,
         "column": 10,
         "name": "freeze",
         "owner": 209
@@ -277711,7 +277861,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 106,
+        "line": 107,
         "column": 46,
         "name": "freeze",
         "owner": 209
@@ -277719,7 +277869,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 109,
+        "line": 110,
         "column": 42,
         "name": "set",
         "owner": 209
@@ -277727,7 +277877,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 111,
+        "line": 112,
         "column": 42,
         "name": "push",
         "owner": 209
@@ -277735,7 +277885,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 115,
+        "line": 116,
         "column": 25,
         "name": "get",
         "owner": 209
@@ -277743,7 +277893,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 118,
+        "line": 119,
         "column": 6,
         "name": "join",
         "owner": 209
@@ -277751,7 +277901,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 118,
+        "line": 119,
         "column": 6,
         "name": "sort",
         "owner": 209
@@ -277759,7 +277909,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 118,
+        "line": 119,
         "column": 6,
         "name": "keys",
         "owner": 209
@@ -277767,7 +277917,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 126,
+        "line": 127,
         "column": 42,
         "name": "includes",
         "owner": 209
@@ -277775,7 +277925,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 132,
+        "line": 133,
         "column": 25,
         "name": "get",
         "owner": 209
@@ -277783,7 +277933,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 135,
+        "line": 137,
         "column": 6,
         "name": "some",
         "owner": 209
@@ -277791,7 +277941,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 144,
+        "line": 156,
         "column": 6,
         "name": "some",
         "owner": 209
@@ -277799,24 +277949,8 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 152,
+        "line": 164,
         "column": 6,
-        "name": "some",
-        "owner": 209
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 174,
-        "column": 6,
-        "name": "some",
-        "owner": 209
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 185,
-        "column": 8,
         "name": "some",
         "owner": 209
       },
@@ -277824,6 +277958,14 @@
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
         "line": 186,
+        "column": 6,
+        "name": "some",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 197,
         "column": 8,
         "name": "some",
         "owner": 209
@@ -277831,7 +277973,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 189,
+        "line": 198,
         "column": 8,
         "name": "some",
         "owner": 209
@@ -277839,7 +277981,15 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 191,
+        "line": 201,
+        "column": 8,
+        "name": "some",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 203,
         "column": 4,
         "name": "push",
         "owner": 209
@@ -277847,7 +277997,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 193,
+        "line": 205,
         "column": 29,
         "name": "values",
         "owner": 209
@@ -277855,7 +278005,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 194,
+        "line": 206,
         "column": 9,
         "name": "has",
         "owner": 209
@@ -277863,7 +278013,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 199,
+        "line": 211,
         "column": 6,
         "name": "join",
         "owner": 209
@@ -277871,7 +278021,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 199,
+        "line": 211,
         "column": 6,
         "name": "sort",
         "owner": 209
@@ -277879,7 +278029,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 199,
+        "line": 211,
         "column": 6,
         "name": "keys",
         "owner": 209
@@ -277887,7 +278037,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 202,
+        "line": 214,
         "column": 18,
         "name": "freeze",
         "owner": 209
@@ -277895,7 +278045,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 216,
+        "line": 228,
         "column": 29,
         "name": "find",
         "owner": 209
@@ -277903,7 +278053,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 232,
+        "line": 244,
         "column": 7,
         "name": "some",
         "owner": 209
@@ -277911,7 +278061,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 265,
+        "line": 277,
         "column": 37,
         "name": "reconcileReviewerLaunch",
         "owner": 209
@@ -277919,7 +278069,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 294,
+        "line": 306,
         "column": 33,
         "name": "filter",
         "owner": 209
@@ -277927,7 +278077,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 318,
+        "line": 330,
         "column": 12,
         "name": "set",
         "owner": 209
@@ -277935,7 +278085,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 335,
+        "line": 347,
         "column": 19,
         "name": "now",
         "owner": 209
@@ -277943,7 +278093,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 343,
+        "line": 355,
         "column": 20,
         "name": "slice",
         "owner": 209
@@ -277951,7 +278101,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 345,
+        "line": 357,
         "column": 20,
         "name": "padStart",
         "owner": 209
@@ -277959,7 +278109,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 361,
+        "line": 373,
         "column": 25,
         "name": "reconcileDelivery",
         "owner": 209
@@ -277967,7 +278117,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 398,
+        "line": 410,
         "column": 8,
         "name": "add",
         "owner": 209
@@ -277975,7 +278125,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 399,
+        "line": 411,
         "column": 14,
         "name": "close",
         "owner": 209
@@ -277983,7 +278133,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 409,
+        "line": 421,
         "column": 24,
         "name": "freeze",
         "owner": 209
@@ -277991,7 +278141,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 412,
+        "line": 424,
         "column": 32,
         "name": "freeze",
         "owner": 209
@@ -277999,17 +278149,9 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 422,
+        "line": 434,
         "column": 6,
         "name": "set",
-        "owner": 209
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 423,
-        "column": 6,
-        "name": "add",
         "owner": 209
       },
       {
@@ -278023,7 +278165,15 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 442,
+        "line": 447,
+        "column": 6,
+        "name": "add",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 454,
         "column": 23,
         "name": "close",
         "owner": 209
@@ -278031,7 +278181,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 447,
+        "line": 459,
         "column": 9,
         "name": "freeze",
         "owner": 209
@@ -278039,7 +278189,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 450,
+        "line": 462,
         "column": 28,
         "name": "freeze",
         "owner": 209
@@ -283415,7 +283565,15 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 245,
+        "line": 243,
+        "column": 31,
+        "name": "every",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-policy.mjs",
+        "line": 266,
         "column": 4,
         "name": "push",
         "owner": 209
@@ -283423,7 +283581,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 250,
+        "line": 271,
         "column": 25,
         "name": "keys",
         "owner": 209
@@ -283431,7 +283589,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 251,
+        "line": 272,
         "column": 9,
         "name": "has",
         "owner": 209
@@ -283439,7 +283597,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 253,
+        "line": 274,
         "column": 22,
         "name": "isArray",
         "owner": 209
@@ -283447,7 +283605,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-policy.mjs",
-        "line": 272,
+        "line": 293,
         "column": 21,
         "name": "get",
         "owner": 209
@@ -289031,7 +289189,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 80,
+        "line": 81,
         "column": 19,
         "name": "resolve",
         "owner": 189
@@ -289039,7 +289197,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 87,
+        "line": 88,
         "column": 30,
         "name": "clearTimeout",
         "owner": 189
@@ -289047,7 +289205,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 98,
+        "line": 99,
         "column": 18,
         "name": "setTimeout",
         "owner": 189
@@ -289055,7 +289213,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 102,
+        "line": 103,
         "column": 23,
         "name": "get",
         "owner": 189
@@ -289063,7 +289221,15 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 113,
+        "line": 105,
+        "column": 12,
+        "name": "has",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 123,
         "column": 6,
         "name": "set",
         "owner": 189
@@ -289071,63 +289237,71 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 114,
-        "column": 12,
+        "line": 125,
+        "column": 28,
         "name": "acceptWorkerRestoration",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 116,
-        "column": 28,
+        "line": 127,
+        "column": 30,
         "name": "onStateChange",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 123,
-        "column": 28,
+        "line": 134,
+        "column": 30,
         "name": "then",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 129,
-        "column": 21,
+        "line": 140,
+        "column": 23,
         "name": "catch",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 131,
-        "column": 8,
+        "line": 142,
+        "column": 10,
         "name": "set",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 134,
-        "column": 12,
+        "line": 145,
+        "column": 14,
         "name": "start",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 136,
-        "column": 12,
+        "line": 147,
+        "column": 28,
         "name": "acceptWorkerRestoration",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 141,
+        "line": 149,
+        "column": 8,
+        "name": "add",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 156,
         "column": 22,
         "name": "workState",
         "owner": 189
@@ -289135,7 +289309,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 143,
+        "line": 158,
         "column": 16,
         "name": "cleanupGuard",
         "owner": 189
@@ -289143,7 +289317,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 145,
+        "line": 160,
         "column": 16,
         "name": "suspend",
         "owner": 189
@@ -289151,111 +289325,127 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 147,
-        "column": 30,
-        "name": "acceptWorkerRestoration",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 148,
-        "column": 16,
-        "name": "cleanupGuard",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 150,
-        "column": 16,
-        "name": "close",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 152,
-        "column": 30,
-        "name": "acceptWorkerRestoration",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 153,
-        "column": 10,
-        "name": "get",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 154,
-        "column": 10,
-        "name": "delete",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 155,
-        "column": 10,
-        "name": "delete",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 157,
-        "column": 16,
-        "name": "cleanupGuard",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 159,
-        "column": 16,
-        "name": "close",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 161,
-        "column": 30,
-        "name": "acceptWorkerRestoration",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
         "line": 162,
-        "column": 10,
-        "name": "get",
+        "column": 30,
+        "name": "acceptWorkerRestoration",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
         "line": 163,
-        "column": 10,
-        "name": "delete",
-        "owner": 189
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/service-core.mjs",
-        "line": 164,
-        "column": 10,
-        "name": "delete",
+        "column": 16,
+        "name": "cleanupGuard",
         "owner": 189
       },
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
         "line": 165,
+        "column": 16,
+        "name": "close",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 167,
+        "column": 30,
+        "name": "acceptWorkerRestoration",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 168,
+        "column": 10,
+        "name": "get",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 169,
+        "column": 10,
+        "name": "delete",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 170,
+        "column": 10,
+        "name": "delete",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 171,
+        "column": 10,
+        "name": "delete",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 173,
+        "column": 16,
+        "name": "cleanupGuard",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 175,
+        "column": 16,
+        "name": "close",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 177,
+        "column": 30,
+        "name": "acceptWorkerRestoration",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 178,
+        "column": 10,
+        "name": "get",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 179,
+        "column": 10,
+        "name": "delete",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 180,
+        "column": 10,
+        "name": "delete",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 181,
+        "column": 10,
+        "name": "delete",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 182,
         "column": 20,
         "name": "has",
         "owner": 189
@@ -289263,7 +289453,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 174,
+        "line": 191,
         "column": 10,
         "name": "some",
         "owner": 189
@@ -289271,7 +289461,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 174,
+        "line": 191,
         "column": 14,
         "name": "values",
         "owner": 189
@@ -289279,7 +289469,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 174,
+        "line": 191,
         "column": 49,
         "name": "has",
         "owner": 189
@@ -289287,7 +289477,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 174,
+        "line": 191,
         "column": 67,
         "name": "workState",
         "owner": 189
@@ -289295,7 +289485,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 195,
+        "line": 212,
         "column": 15,
         "name": "freeze",
         "owner": 189
@@ -289303,7 +289493,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 207,
+        "line": 224,
         "column": 16,
         "name": "cleanupGuard",
         "owner": 189
@@ -289311,7 +289501,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 208,
+        "line": 225,
         "column": 43,
         "name": "list",
         "owner": 189
@@ -289319,7 +289509,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 210,
+        "line": 227,
         "column": 16,
         "name": "workState",
         "owner": 189
@@ -289327,7 +289517,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 210,
+        "line": 227,
         "column": 56,
         "name": "push",
         "owner": 189
@@ -289335,7 +289525,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 226,
+        "line": 243,
         "column": 37,
         "name": "keys",
         "owner": 189
@@ -289343,7 +289533,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 230,
+        "line": 247,
         "column": 15,
         "name": "freeze",
         "owner": 189
@@ -289351,7 +289541,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 232,
+        "line": 249,
         "column": 62,
         "name": "get",
         "owner": 189
@@ -289359,7 +289549,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 237,
+        "line": 254,
         "column": 14,
         "name": "reconcile",
         "owner": 189
@@ -289367,7 +289557,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 251,
+        "line": 268,
         "column": 16,
         "name": "reconcile",
         "owner": 189
@@ -289375,7 +289565,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 254,
+        "line": 271,
         "column": 26,
         "name": "finally",
         "owner": 189
@@ -289383,7 +289573,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 254,
+        "line": 271,
         "column": 26,
         "name": "then",
         "owner": 189
@@ -289391,7 +289581,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 254,
+        "line": 271,
         "column": 26,
         "name": "catch",
         "owner": 189
@@ -289399,7 +289589,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 256,
+        "line": 273,
         "column": 24,
         "name": "reconcile",
         "owner": 189
@@ -289407,7 +289597,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 258,
+        "line": 275,
         "column": 14,
         "name": "delete",
         "owner": 189
@@ -289415,7 +289605,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 259,
+        "line": 276,
         "column": 30,
         "name": "then",
         "owner": 189
@@ -289423,7 +289613,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 265,
+        "line": 282,
         "column": 25,
         "name": "catch",
         "owner": 189
@@ -289431,7 +289621,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 267,
+        "line": 284,
         "column": 10,
         "name": "set",
         "owner": 189
@@ -289439,7 +289629,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 270,
+        "line": 287,
         "column": 12,
         "name": "has",
         "owner": 189
@@ -289447,7 +289637,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 275,
+        "line": 292,
         "column": 14,
         "name": "cleanupGuard",
         "owner": 189
@@ -289455,7 +289645,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 277,
+        "line": 294,
         "column": 14,
         "name": "suspend",
         "owner": 189
@@ -289463,7 +289653,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 288,
+        "line": 305,
         "column": 13,
         "name": "freeze",
         "owner": 189
@@ -289471,7 +289661,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 289,
+        "line": 306,
         "column": 16,
         "name": "workState",
         "owner": 189
@@ -289479,7 +289669,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 290,
+        "line": 307,
         "column": 12,
         "name": "has",
         "owner": 189
@@ -289487,7 +289677,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 296,
+        "line": 313,
         "column": 24,
         "name": "then",
         "owner": 189
@@ -289495,7 +289685,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 308,
+        "line": 325,
         "column": 17,
         "name": "catch",
         "owner": 189
@@ -289503,7 +289693,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 316,
+        "line": 333,
         "column": 43,
         "name": "list",
         "owner": 189
@@ -289511,7 +289701,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 318,
+        "line": 335,
         "column": 16,
         "name": "start",
         "owner": 189
@@ -289519,7 +289709,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 324,
+        "line": 341,
         "column": 16,
         "name": "publish",
         "owner": 189
@@ -289527,7 +289717,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 330,
+        "line": 347,
         "column": 8,
         "name": "some",
         "owner": 189
@@ -289535,7 +289725,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 330,
+        "line": 347,
         "column": 12,
         "name": "values",
         "owner": 189
@@ -289543,7 +289733,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 335,
+        "line": 352,
         "column": 33,
         "name": "values",
         "owner": 189
@@ -289551,7 +289741,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 338,
+        "line": 355,
         "column": 22,
         "name": "activate",
         "owner": 189
@@ -289559,7 +289749,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 344,
+        "line": 361,
         "column": 6,
         "name": "onReady",
         "owner": 189
@@ -289567,7 +289757,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 363,
+        "line": 380,
         "column": 6,
         "name": "add",
         "owner": 189
@@ -289575,7 +289765,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 372,
+        "line": 389,
         "column": 20,
         "name": "workState",
         "owner": 189
@@ -289583,7 +289773,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 373,
+        "line": 390,
         "column": 24,
         "name": "cleanupGuard",
         "owner": 189
@@ -289591,7 +289781,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 375,
+        "line": 392,
         "column": 24,
         "name": "suspend",
         "owner": 189
@@ -289599,7 +289789,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 378,
+        "line": 395,
         "column": 22,
         "name": "cleanupGuard",
         "owner": 189
@@ -289607,7 +289797,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 380,
+        "line": 397,
         "column": 22,
         "name": "close",
         "owner": 189
@@ -289615,7 +289805,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 382,
+        "line": 399,
         "column": 16,
         "name": "get",
         "owner": 189
@@ -289623,7 +289813,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 383,
+        "line": 400,
         "column": 16,
         "name": "delete",
         "owner": 189
@@ -289631,7 +289821,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 384,
+        "line": 401,
         "column": 16,
         "name": "delete",
         "owner": 189
@@ -289639,7 +289829,15 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 391,
+        "line": 402,
+        "column": 16,
+        "name": "delete",
+        "owner": 189
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/service-core.mjs",
+        "line": 409,
         "column": 22,
         "name": "cleanupGuard",
         "owner": 189
@@ -289647,7 +289845,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 400,
+        "line": 418,
         "column": 20,
         "name": "close",
         "owner": 189
@@ -289655,7 +289853,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 428,
+        "line": 446,
         "column": 25,
         "name": "map",
         "owner": 189
@@ -289663,7 +289861,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 428,
+        "line": 446,
         "column": 29,
         "name": "keys",
         "owner": 189
@@ -289671,7 +289869,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 456,
+        "line": 474,
         "column": 8,
         "name": "delete",
         "owner": 189
@@ -289679,7 +289877,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 458,
+        "line": 476,
         "column": 12,
         "name": "some",
         "owner": 189
@@ -289687,7 +289885,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 469,
+        "line": 487,
         "column": 19,
         "name": "map",
         "owner": 189
@@ -289695,7 +289893,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 469,
+        "line": 487,
         "column": 23,
         "name": "keys",
         "owner": 189
@@ -289703,7 +289901,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 509,
+        "line": 527,
         "column": 4,
         "name": "catch",
         "owner": 189
@@ -289711,7 +289909,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 510,
+        "line": 528,
         "column": 4,
         "name": "catch",
         "owner": 189
@@ -289719,7 +289917,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 512,
+        "line": 530,
         "column": 11,
         "name": "freeze",
         "owner": 189
@@ -289727,7 +289925,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/service-core.mjs",
-        "line": 514,
+        "line": 532,
         "column": 9,
         "name": "freeze",
         "owner": 189

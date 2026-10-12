@@ -71,6 +71,7 @@ export function createBrokerService({
     assertInput(input);
     const { identity, owner, versions, registry, workerFactory, clock, server } = input;
     const workers = new Map();
+    const failedInitializations = new Set();
     const launchRuns = new Map();
     const workerSubscriptions = new Map();
     let idleTimer = null;
@@ -100,7 +101,16 @@ export function createBrokerService({
     const addWorker = async (registration) => {
       const valid = assertRegistration(identity, registration);
       const existing = workers.get(valid.workspace);
-      if (existing) return existing;
+      if (existing) {
+        if (failedInitializations.has(valid.workspace))
+          fail(
+            'APR_BROKER_STALE',
+            'Review worker initialization remains unresolved.',
+            'Preserve the retained worker and reconcile its initialization before retrying.',
+            { workspace: valid.workspace }
+          );
+        return existing;
+      }
       const worker = await workerFactory(valid);
       if (!worker || typeof worker.workState !== 'function') {
         fail(
@@ -111,29 +121,34 @@ export function createBrokerService({
         );
       }
       workers.set(valid.workspace, worker);
-      await input.acceptWorkerRestoration?.(worker, 'created');
-      if (typeof worker.onStateChange === 'function') {
-        const unsubscribe = worker.onStateChange(() => {
-          // Initial settlement is explicitly awaited below. A startup notification
-          // must not race that sequence or mutate generations before publication.
-          if (starting) {
-            initialSettlementPending = true;
-            return;
-          }
-          const operation = sequence.then(() =>
-            withLifecycleAuthority(
-              { operation: 'broker.reconcile', cwd: identity.physicalRoot },
-              () => settleWorkers({ resetIdle: true })
-            )
-          );
-          sequence = operation.catch(() => stop());
-        });
-        workerSubscriptions.set(valid.workspace, unsubscribe);
+      try {
+        if (starting) await input.acceptWorkerRestoration?.(worker, 'created');
+        if (typeof worker.onStateChange === 'function') {
+          const unsubscribe = worker.onStateChange(() => {
+            // Initial settlement is explicitly awaited below. A startup notification
+            // must not race that sequence or mutate generations before publication.
+            if (starting) {
+              initialSettlementPending = true;
+              return;
+            }
+            const operation = sequence.then(() =>
+              withLifecycleAuthority(
+                { operation: 'broker.reconcile', cwd: identity.physicalRoot },
+                () => settleWorkers({ resetIdle: true })
+              )
+            );
+            sequence = operation.catch(() => stop());
+          });
+          workerSubscriptions.set(valid.workspace, unsubscribe);
+        }
+        await assertCurrentOperationAuthority();
+        await worker.start();
+        await assertCurrentOperationAuthority();
+        if (starting) await input.acceptWorkerRestoration?.(worker, 'start');
+      } catch (error) {
+        failedInitializations.add(valid.workspace);
+        throw error;
       }
-      await assertCurrentOperationAuthority();
-      await worker.start();
-      await assertCurrentOperationAuthority();
-      await input.acceptWorkerRestoration?.(worker, 'start');
       return worker;
     };
     const settleWorkers = async ({ resetIdle = false } = {}) => {
@@ -153,6 +168,7 @@ export function createBrokerService({
           workerSubscriptions.get(workspace)?.();
           workerSubscriptions.delete(workspace);
           workers.delete(workspace);
+          failedInitializations.delete(workspace);
         } else if (state === 'terminal') {
           await input.cleanupGuard?.();
           await assertCurrentOperationAuthority();
@@ -162,6 +178,7 @@ export function createBrokerService({
           workerSubscriptions.get(workspace)?.();
           workerSubscriptions.delete(workspace);
           workers.delete(workspace);
+          failedInitializations.delete(workspace);
         } else if (!ACTIVE_STATES.has(state)) {
           fail(
             'APR_BROKER_START_FAILED',
@@ -382,6 +399,7 @@ export function createBrokerService({
                 workerSubscriptions.get(workspace)?.();
                 workerSubscriptions.delete(workspace);
                 workers.delete(workspace);
+                failedInitializations.delete(workspace);
               } catch (error) {
                 cleanupError ??= error;
               }
