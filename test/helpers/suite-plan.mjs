@@ -12,7 +12,13 @@ export function runtimeSelectionCaseFile(group) {
   return 'test/unit/runtime-selection-cases/' + group + '.mjs';
 }
 function portableUnitGroup(file) {
-  if (file === 'test/unit/portable-authority-fences.test.mjs') return 'authority';
+  if (
+    [
+      'test/unit/portable-authority-fences.test.mjs',
+      'test/unit/primary-operation-core.test.mjs',
+    ].includes(file)
+  )
+    return 'authority';
   if (file === 'test/unit/provider-resource-ports.test.mjs') return 'storage';
   if (
     /[\/](?:storage-protection|ownership-election|portable-(?:storage|election)[^\/]*)\.test\.mjs$/.test(
@@ -30,6 +36,7 @@ export function classifySuiteFiles(discovered) {
     (file) =>
       file === 'test/unit/ci-native-build-policy.test.mjs' ||
       file === 'test/unit/provider-resource-ports.test.mjs' ||
+      file === 'test/unit/primary-operation-core.test.mjs' ||
       file === 'test/unit/runtime-selection.test.mjs' ||
       /[\/]broker-http(?:-concurrency)?\.test\.mjs$/.test(file) ||
       /[\/](?:portable-[^\/]+|windows-portable-bootstrap|storage-protection|ownership-election|process-source-[^\/]+)\.test\.mjs$/.test(

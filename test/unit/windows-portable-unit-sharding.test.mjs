@@ -492,3 +492,21 @@ test('[#188] actual C1 provider-port controls execute once in a serial portable 
   const shard = plan.windowsPortableShards.find((group) => group.files.includes(file));
   assert.equal(shard.name, 'storage');
 });
+
+// @story #209
+// Real primary C1 I/O must not compete with the ordinary multi-file Windows pool.
+test('primary operation controls execute once in the serial portable authority lane', () => {
+  const file = 'test/unit/primary-operation-core.test.mjs';
+  const plan = classifySuiteFiles([file]);
+  assert.deepEqual(plan.excluded, []);
+  assert.equal(
+    plan.groups
+      .filter(({ filtered }) => filtered)
+      .flatMap(({ files }) => files)
+      .includes(file),
+    false
+  );
+  const lanes = plan.windowsPortableShards.filter(({ files }) => files.includes(file));
+  assert.equal(lanes.length, 1);
+  assert.equal(lanes[0].name, 'authority');
+});

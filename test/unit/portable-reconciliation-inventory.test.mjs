@@ -588,9 +588,11 @@ test('fixed genuine-path inventory observes ordinary project stores and rejects 
   assert.equal(data.project.physicalRoot, project);
   // This read-only observer delegates C4-owned bytes to the genuine owner layer;
   // these fixture bytes never mint an owner or source/election capability.
-  await writeFile(path.join(base, 'private', 'owner.json'), '{}\n', { mode: 0o600 });
+  const privateGuard = await openProtectedRoot({ receipt: privateReceipt, ...context });
+  t.after(() => privateGuard.close());
+  await privateGuard.writeExclusive('owner.json', Buffer.from('{}\n'));
   await api.assertReconciliationInventory({ observation: observed, paths, ...context });
-  await writeFile(path.join(base, 'private', 'alien.json'), '{}\n', { mode: 0o600 });
+  await privateGuard.writeExclusive('alien.json', Buffer.from('{}\n'));
   await assert.rejects(
     () => api.assertReconciliationInventory({ observation: observed, paths, ...context }),
     (error) => error.details?.reason === 'reconciliation-namespace-unproved'
