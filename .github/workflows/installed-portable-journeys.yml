@@ -8,6 +8,7 @@ on:
       - src/broker/bootstrap-core.mjs
       - src/broker/portable-bootstrap.mjs
       - test/helpers/installed-portable-journey.mjs
+      - test/helpers/installed-effect-acceptance.mjs
       - test/helpers/installed-portable-ci.mjs
       - test/helpers/windows-primary-diagnostic.mjs
       - test/helpers/windows-stock-timing.mjs
