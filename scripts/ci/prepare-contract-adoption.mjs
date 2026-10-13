@@ -45,7 +45,13 @@ export function prepareContractAdoption({ cwd = process.cwd() } = {}) {
     mode: 'adoption-only',
   });
   if (!report.contractAdopted || report.activationAuthorized || report.publicationAllowed)
-    throw Error('approved-reference-adoption-refused');
+    throw Error(
+      'approved-reference-adoption-refused:' +
+        (report.contractBlockers ?? [])
+          .filter((code) => typeof code === 'string' && /^[a-z][a-z0-9-]{0,127}$/u.test(code))
+          .slice(0, 32)
+          .join(',')
+    );
   if (!bytes.equals(fs.readFileSync(source))) throw Error('approved-reference-source-changed');
   const existing = observedPath(cwd, OUTPUT, true);
   if (existing) {
