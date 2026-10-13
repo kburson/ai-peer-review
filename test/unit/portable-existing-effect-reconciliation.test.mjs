@@ -189,6 +189,7 @@ test('production-used candidate selection preserves exact reserved-only startup 
   const data = { project, namespaces: [namespace] };
   const select = (r) =>
     production.selectPortableExistingEffectCandidatesCore(data, {
+      reviews: [r],
       classification: classifyPortableReconciliationCore({
         project,
         registrations: [],
@@ -209,6 +210,66 @@ test('production-used candidate selection preserves exact reserved-only startup 
   const selected = select(exact);
   assert.equal(selected.verified, false);
   assert.deepEqual(selected.reviews, []);
+  const activeWorkspace = path.join(root, 'review-active');
+  const activeRegistration = {
+    schema: 'ai-peer-review.broker-registration/v1',
+    created_at: '2026-10-12T00:00:00.000Z',
+    project_digest: project.digest,
+    project_root: root,
+    review_id: 'review-active',
+    workspace: activeWorkspace,
+    request_digest: journal.request_digest,
+    runtime,
+  };
+  const activeReview = {
+    ...exact,
+    review_id: 'review-active',
+    workspace: activeWorkspace,
+    startup: {
+      ...journal,
+      review_id: 'review-active',
+      workspace: activeWorkspace,
+      stage: 'launch-pending',
+    },
+    authority: {
+      status: 'active',
+      review_id: 'review-active',
+      workspace: activeWorkspace,
+      event_authority: 'exact',
+      output_reservation: 'exact',
+      request_digest: journal.request_digest,
+      runtime_digest: runtime.digest,
+    },
+    participants: { author: { session_fingerprint: 'sha256:' + 'c'.repeat(64) } },
+    manualHistory: {
+      schema: 'ai-peer-review.manual-launch-history/v1',
+      review_id: 'review-active',
+      request_digest: journal.request_digest,
+      coverage: 'complete',
+      operations: [],
+    },
+  };
+  const mixedClassification = classifyPortableReconciliationCore({
+    project,
+    registrations: [activeRegistration],
+    reviews: [exact, activeReview],
+    resources: [],
+  });
+  assert.equal(mixedClassification.status, 'unknown');
+  assert.ok(
+    mixedClassification.outstandingObligations.some(
+      ({ name }) => name === 'existing-effect-reconciliation-unproved'
+    )
+  );
+  // Selection of this physically proved preserved namespace must not depend on
+  // another review's not-yet-reconciled effect. The whole classification stays unknown.
+  const mixedSelection = production.selectPortableExistingEffectCandidatesCore(data, {
+    reviews: [exact, activeReview],
+    classification: mixedClassification,
+  });
+  assert.deepEqual(mixedSelection.reviews, []);
+  assert.equal(mixedSelection.verified, false);
+
   assert.equal(select({ ...exact, startup: null }).status, 'unknown');
   assert.equal(
     select({ ...exact, providerObservations: [{ schema: 'unknown-effect' }] }).status,

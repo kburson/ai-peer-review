@@ -14,6 +14,7 @@ import {
 import { comparePortableExistingEffectTransitionCore } from './portable-restoration-transition.mjs';
 import { validBrokerRegistrationRecordCore } from './registration-record.mjs';
 import { readPortableReconciliationProjection } from './portable-reconciliation-projection.mjs';
+import { classifyPortableReconciliationCore } from './portable-reconciliation-policy.mjs';
 import { readStartupJournal, inspectStartupAuthority } from './startup-evidence-reader.mjs';
 import { inspectReviewAuthority } from '../protocol/authority-reader.mjs';
 import { verifyRuntimeImage } from './runtime-image.mjs';
@@ -131,10 +132,19 @@ export function selectPortableExistingEffectCandidatesCore(data, projection) {
   const result = [];
   for (const [workspace, namespace] of reviews) {
     const registration = registrations.get(path.basename(workspace));
-    if (
+    const preservedReview = projection.reviews?.find((review) => review.workspace === workspace);
+    const localPreservation =
       !registration &&
-      projection.classification.status === 'clear' &&
-      projection.classification.dispositions.some(
+      preservedReview &&
+      classifyPortableReconciliationCore({
+        project: data.project,
+        registrations: [],
+        reviews: [preservedReview],
+        resources: [],
+      });
+    if (
+      localPreservation?.status === 'clear' &&
+      localPreservation.dispositions.some(
         (entry) => entry.review_id === path.basename(workspace) && entry.disposition === 'preserved'
       )
     ) {

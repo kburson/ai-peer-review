@@ -1955,3 +1955,111 @@ test('review correction: new broker startup awaits an asynchronous runtime pin b
   assert.equal(pinned, true);
   assert.equal(prepared.runtime.ownership, 'broker');
 });
+
+// @story #209
+// Actual startup/launch producers and physical readers, through unverified test ports.
+test('mixed reserved history does not block selecting another exact existing launch candidate', async (t) => {
+  const { selectPortableExistingEffectCandidatesCore } =
+    await import('../../src/broker/portable-existing-effect-reconciliation.mjs');
+  const { classifyPortableReconciliationCore } =
+    await import('../../src/broker/portable-reconciliation-policy.mjs');
+  const { readManualLaunchHistory } = await import('../../src/provider/manual-launch-ledger.mjs');
+  const { reserveReviewerLaunch } = await import('../helpers/broker-launch-api.mjs');
+  const fx = fixture();
+  t.after(fx.cleanup);
+  await assert.rejects(
+    () =>
+      startReview(
+        { ...request(fx.root), reviewId: 'review-reserved' },
+        {
+          ...fixtureStartupDeps,
+          afterStartupStage: async (stage) => {
+            if (stage === 'reservation') throw Error('reserved interruption');
+          },
+        }
+      ),
+    /reserved interruption/u
+  );
+  const reservedWorkspace = path.join(fx.root, '.scratch/peer-review/review-reserved');
+  // Represents the earlier interruption between journal creation and manual-ledger initialization.
+  unlinkSync(path.join(reservedWorkspace, 'manual-launch-history.json'));
+  await assert.rejects(
+    () =>
+      startReview(
+        { ...request(fx.root), reviewId: 'review-active' },
+        {
+          ...fixtureStartupDeps,
+          afterStartupStage: async (stage) => {
+            if (stage === 'registration') throw Error('registered interruption');
+          },
+        }
+      ),
+    /registered interruption/u
+  );
+  const activeWorkspace = path.join(fx.root, '.scratch/peer-review/review-active');
+  const activeJournal = registry.readStartupJournal(activeWorkspace);
+  const registration = JSON.parse(readFileSync(activeJournal.registration_file));
+  await reserveReviewerLaunch({
+    registration,
+    worker: {
+      workState: () => 'bootstrap',
+      launchReviewer: async () => {
+        throw Error('selection must not submit');
+      },
+    },
+  });
+  const project = { digest: activeJournal.descriptor.project_root_digest, physicalRoot: fx.root };
+  const workspaces = [reservedWorkspace, activeWorkspace];
+  const reviews = workspaces.map((workspace) => {
+    const startup = registry.readStartupJournal(workspace);
+    const authority = registry.inspectStartupAuthority({ workspace, project });
+    const state = authority.status === 'active' ? inspectReviewAuthority(workspace).state : null;
+    return {
+      review_id: path.basename(workspace),
+      workspace,
+      startup,
+      authority,
+      participants: state?.participants ?? null,
+      manualHistory: readManualLaunchHistory(workspace, {
+        reviewId: path.basename(workspace),
+        requestDigest: startup.request_digest,
+      }),
+      wake: [],
+      providerObservations: [],
+      locks: [],
+      fence: null,
+      suspension: null,
+    };
+  });
+  const classification = classifyPortableReconciliationCore({
+    project,
+    registrations: [registration],
+    reviews,
+    resources: [],
+  });
+  assert.equal(classification.status, 'unknown');
+  assert.ok(
+    classification.outstandingObligations.some(
+      ({ name }) => name === 'existing-effect-reconciliation-unproved'
+    )
+  );
+  const data = {
+    project,
+    namespaces: [
+      {
+        kind: 'registrations',
+        files: [{ name: 'review-active.json', bytes: Buffer.from(JSON.stringify(registration)) }],
+      },
+      ...workspaces.map((root) => ({ kind: 'review', root, entries: [], files: [] })),
+    ],
+  };
+  const selected = selectPortableExistingEffectCandidatesCore(data, { reviews, classification });
+  assert.equal(selected.verified, false);
+  assert.deepEqual(
+    selected.reviews.map(({ registration }) => registration.review_id),
+    ['review-active']
+  );
+  assert.equal(selected.reviews[0].journal.stage, 'launch-pending');
+  // The selected exact existing operation is not submitted by selection.
+  assert.equal(registry.readStartupJournal(activeWorkspace).provider_operation.status, 'reserved');
+});
