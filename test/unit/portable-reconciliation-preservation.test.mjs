@@ -174,14 +174,15 @@ for (const [entry, expected] of [
           signal: new AbortController().signal,
           deadline: performance.now() + 30000,
         };
-        await preserveReviewHistory({
-          commonDir: f.commonDir,
-          worktreeRoot: f.root,
-          target: workspace,
-          kind: 'hold',
-          reason: 'independent generation remains retained',
-          ...context,
-        });
+        if (!registrationFallback)
+          await preserveReviewHistory({
+            commonDir: f.commonDir,
+            worktreeRoot: f.root,
+            target: workspace,
+            kind: 'hold',
+            reason: 'independent generation remains retained',
+            ...context,
+          });
         const { observeOrdinaryReconciliationTree, assertOrdinaryReconciliationTreeUnchanged } =
           await import('../../src/broker/portable-reconciliation-inventory.mjs');
         const inventory = await observeOrdinaryReconciliationTree({ root: workspace, ...context });
@@ -204,7 +205,16 @@ for (const [entry, expected] of [
           const bytes = Buffer.from(
             JSON.stringify({ workspace, schema: 'historical-obsolete-format' }) + '\n'
           );
-          await writeFile(path.join(root, 'review-held.json'), bytes);
+          const registrationFile = path.join(root, 'review-held.json');
+          await writeFile(registrationFile, bytes);
+          await preserveReviewHistory({
+            commonDir: f.commonDir,
+            worktreeRoot: f.root,
+            target: registrationFile,
+            kind: 'history',
+            reason: 'historical registration excludes worker but does not settle effects',
+            ...context,
+          });
           data.namespaces.unshift({
             kind: 'registrations',
             root,

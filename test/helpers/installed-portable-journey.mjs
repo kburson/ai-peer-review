@@ -1,6 +1,7 @@
 // @story #190
 // Actual hosted installed operations. Public reports are data, never capabilities.
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { assertInstalledEffectAcceptance } from './installed-effect-acceptance.mjs';
 import { mkdir, writeFile, realpath, lstat } from 'node:fs/promises';
 import { userInfo, release, arch } from 'node:os';
 import path from 'node:path';
@@ -183,6 +184,7 @@ export function installedJourneyComplete(value) {
       (value.platform === 'linux' && value.manual === 'excluded-by-user-linux')) &&
     value.protection === 'complete' &&
     value.cleanup === 'complete' &&
+    value.effectAcceptance === 'complete' &&
     ['elevated', 'non-elevated'].includes(value.privilege)
   );
 }
@@ -325,6 +327,7 @@ export async function runInstalledPortableJourney(options = {}) {
     broker: 'incomplete',
     manual: process.platform === 'linux' ? 'excluded-by-user-linux' : 'incomplete',
     protection: 'incomplete',
+    effectAcceptance: 'incomplete',
     cleanup: 'uncertain',
     originalPidAbsent: false,
     originalBudgetRenewed: false,
@@ -529,6 +532,22 @@ export async function runInstalledPortableJourney(options = {}) {
       await delay(25);
     }
     report.cleanup = 'complete';
+    await step('installed-effect-and-drift-acceptance', () =>
+      assertInstalledEffectAcceptance({
+        root,
+        installed,
+        module: (name) => JSON.stringify(pathToFileURL(path.join(installed, name)).href),
+        execute: (code) =>
+          spawnSync(process.execPath, ['--input-type=module', '-e', code], {
+            cwd: root,
+            env: process.env,
+            encoding: 'utf8',
+            timeout: 30000,
+            maxBuffer: 4 * 1024 * 1024,
+          }),
+      })
+    );
+    report.effectAcceptance = 'complete';
     // Provider identity/journal input must come from a normal review, never a seeded fixture.
     if (process.platform !== 'linux') obligations.push('actual-manual-review-input-required');
   } catch (error) {

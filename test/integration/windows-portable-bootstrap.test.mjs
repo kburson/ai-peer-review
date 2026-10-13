@@ -112,6 +112,7 @@ test('reporting never promotes missing manual or privilege evidence to complete'
     originalBudgetRenewed: false,
     manual: 'incomplete',
     protection: 'complete',
+    effectAcceptance: 'complete',
     cleanup: 'complete',
     privilege: 'non-elevated',
   };
@@ -145,6 +146,7 @@ test('Linux manual exclusion is explicit and cannot waive another OS or broker c
     originalBudgetRenewed: false,
     manual: 'excluded-by-user-linux',
     protection: 'complete',
+    effectAcceptance: 'complete',
     cleanup: 'complete',
     privilege: 'non-elevated',
   };
@@ -197,5 +199,29 @@ test('failed stock CLI observations retain exact cleanup obligations without pub
       },
     }).obligations,
     [{ reason: 'descriptor-close-pending' }]
+  );
+});
+
+// @story #209
+test('installed completion retains the required positive effect and drift gate', async () => {
+  const { installedJourneyComplete } = await import('../helpers/installed-portable-journey.mjs');
+  const otherwiseComplete = {
+    platform: 'linux',
+    broker: 'complete',
+    originalPidAbsent: true,
+    originalBudgetRenewed: false,
+    manual: 'excluded-by-user-linux',
+    protection: 'complete',
+    cleanup: 'complete',
+    privilege: 'non-elevated',
+  };
+  assert.equal(installedJourneyComplete(otherwiseComplete), false);
+  assert.equal(
+    installedJourneyComplete({ ...otherwiseComplete, effectAcceptance: 'incomplete' }),
+    false
+  );
+  assert.equal(
+    installedJourneyComplete({ ...otherwiseComplete, effectAcceptance: 'complete' }),
+    true
   );
 });

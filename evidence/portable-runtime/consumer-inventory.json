@@ -58036,7 +58036,17 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 91,
+        "line": 92,
+        "column": 11,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "retained",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 93,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58046,7 +58056,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 91,
+        "line": 93,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -58056,7 +58066,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 92,
+        "line": 94,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -58066,7 +58076,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 92,
+        "line": 94,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -58076,7 +58086,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 93,
+        "line": 95,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -58086,7 +58096,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 94,
+        "line": 96,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -58096,7 +58106,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 96,
+        "line": 98,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -58106,7 +58116,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 98,
+        "line": 100,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -58116,7 +58126,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 99,
+        "line": 101,
         "column": 38,
         "kind": "call",
         "targetKind": "origin",
@@ -58126,7 +58136,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 103,
+        "line": 105,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -58136,7 +58146,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 103,
+        "line": 105,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -58146,7 +58156,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 105,
+        "line": 107,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -58156,7 +58166,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 109,
+        "line": 111,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -58166,7 +58176,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 111,
+        "line": 113,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -58176,7 +58186,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 112,
+        "line": 114,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -58186,7 +58196,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 114,
+        "line": 116,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -58196,7 +58206,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 114,
+        "line": 116,
         "column": 46,
         "kind": "call",
         "targetKind": "origin",
@@ -58206,7 +58216,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 119,
+        "line": 121,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -58216,7 +58226,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 121,
+        "line": 123,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58226,7 +58236,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 123,
+        "line": 125,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -58236,7 +58246,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 123,
+        "line": 125,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -58246,7 +58256,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 123,
+        "line": 125,
         "column": 72,
         "kind": "call",
         "targetKind": "origin",
@@ -58256,7 +58266,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 124,
+        "line": 126,
         "column": 55,
         "kind": "call",
         "targetKind": "origin",
@@ -58266,7 +58276,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 126,
+        "line": 128,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -58276,7 +58286,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 127,
+        "line": 129,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58286,7 +58296,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 127,
+        "line": 129,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -58296,7 +58306,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 129,
+        "line": 131,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -58306,7 +58316,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 129,
+        "line": 131,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -58316,7 +58326,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 130,
+        "line": 132,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -58326,7 +58336,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 132,
+        "line": 134,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -58336,7 +58346,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 134,
+        "line": 136,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -58346,7 +58356,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 134,
+        "line": 136,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -58356,7 +58366,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 136,
+        "line": 138,
         "column": 72,
         "kind": "call",
         "targetKind": "origin",
@@ -58366,7 +58376,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 138,
+        "line": 140,
         "column": 49,
         "kind": "call",
         "targetKind": "origin",
@@ -58376,7 +58386,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 140,
+        "line": 142,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -58386,7 +58396,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 140,
+        "line": 142,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -58396,7 +58406,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 141,
+        "line": 143,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -58406,7 +58416,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 141,
+        "line": 143,
         "column": 59,
         "kind": "alias",
         "targetKind": "origin",
@@ -58416,7 +58426,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 146,
+        "line": 148,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58426,7 +58436,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 146,
+        "line": 148,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58436,7 +58446,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 146,
+        "line": 148,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58446,7 +58456,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 154,
+        "line": 156,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -58456,7 +58466,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 156,
+        "line": 158,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58466,7 +58476,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 158,
+        "line": 160,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58476,7 +58486,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 159,
+        "line": 161,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -58486,7 +58496,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 160,
+        "line": 162,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58496,7 +58506,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 160,
+        "line": 162,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -58506,7 +58516,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 160,
+        "line": 162,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -58516,7 +58526,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 161,
+        "line": 163,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58526,7 +58536,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 161,
+        "line": 163,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -58536,7 +58546,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 162,
+        "line": 164,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58546,7 +58556,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 165,
+        "line": 167,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58556,7 +58566,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 173,
+        "line": 175,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58566,7 +58576,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 174,
+        "line": 176,
         "column": 39,
         "kind": "call",
         "targetKind": "origin",
@@ -58576,7 +58586,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 177,
+        "line": 179,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -58586,7 +58596,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 177,
+        "line": 179,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -58596,7 +58606,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 179,
+        "line": 181,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -58606,7 +58616,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 179,
+        "line": 181,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -58616,7 +58626,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 185,
+        "line": 187,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -58626,7 +58636,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 190,
+        "line": 192,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -58636,7 +58646,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 192,
+        "line": 194,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58646,7 +58656,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 193,
+        "line": 195,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -58656,7 +58666,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 198,
+        "line": 200,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -58666,7 +58676,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 200,
+        "line": 202,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58676,7 +58686,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 200,
+        "line": 202,
         "column": 51,
         "kind": "call",
         "targetKind": "origin",
@@ -58686,7 +58696,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 202,
+        "line": 204,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -58696,7 +58706,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 203,
+        "line": 205,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58706,7 +58716,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 203,
+        "line": 205,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -58716,7 +58726,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 204,
+        "line": 206,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58726,7 +58736,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 204,
+        "line": 206,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -58736,7 +58746,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 211,
+        "line": 213,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -58746,7 +58756,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 213,
+        "line": 215,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -58756,7 +58766,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 215,
+        "line": 217,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58766,7 +58776,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 215,
+        "line": 217,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -58776,7 +58786,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 222,
+        "line": 224,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58786,7 +58796,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 224,
+        "line": 226,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -58796,7 +58806,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 225,
+        "line": 227,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58806,7 +58816,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 225,
+        "line": 227,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -58816,37 +58826,37 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 232,
+        "line": 234,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
         "target": "retained",
         "origins": ["function"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 233,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "some",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 234,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "some",
-        "origins": ["unknown"],
         "owner": 209
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
         "line": 235,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "some",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 236,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "some",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 237,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -58856,7 +58866,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 236,
+        "line": 238,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -58866,7 +58876,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 236,
+        "line": 238,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -58876,7 +58886,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 237,
+        "line": 239,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -58886,7 +58896,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 238,
+        "line": 240,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -58896,7 +58906,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 239,
+        "line": 241,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -58906,7 +58916,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 241,
+        "line": 243,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -58916,7 +58926,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 241,
+        "line": 243,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -58926,7 +58936,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 242,
+        "line": 244,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -58936,7 +58946,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 242,
+        "line": 244,
         "column": 53,
         "kind": "call",
         "targetKind": "origin",
@@ -58946,7 +58956,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 247,
+        "line": 249,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58956,7 +58966,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 247,
+        "line": 249,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58966,7 +58976,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 247,
+        "line": 249,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -58976,7 +58986,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 248,
+        "line": 250,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -58986,7 +58996,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 249,
+        "line": 251,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -58996,7 +59006,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 250,
+        "line": 252,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -59006,7 +59016,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 250,
+        "line": 252,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -59016,7 +59026,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 251,
+        "line": 253,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -59026,7 +59036,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 252,
+        "line": 254,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -59036,7 +59046,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 253,
+        "line": 255,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -59046,7 +59056,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 254,
+        "line": 256,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -59056,7 +59066,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 261,
+        "line": 263,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -59066,7 +59076,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 262,
+        "line": 264,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -59076,7 +59086,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 262,
+        "line": 264,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -59086,7 +59096,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 263,
+        "line": 265,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -59096,7 +59106,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 263,
+        "line": 265,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -59106,7 +59116,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 264,
+        "line": 266,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -59116,7 +59126,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 264,
+        "line": 266,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -59126,7 +59136,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 265,
+        "line": 267,
         "column": 4,
         "kind": "call",
         "targetKind": "origin",
@@ -59136,7 +59146,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 271,
+        "line": 273,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -59146,7 +59156,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 272,
+        "line": 274,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -59156,7 +59166,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 272,
+        "line": 274,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -59166,7 +59176,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 274,
+        "line": 276,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -59176,7 +59186,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 276,
+        "line": 278,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -59186,7 +59196,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 277,
+        "line": 279,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -59196,7 +59206,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 279,
+        "line": 281,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -59206,7 +59216,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 280,
+        "line": 282,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -59216,7 +59226,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 283,
+        "line": 285,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -59226,7 +59236,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 284,
+        "line": 286,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -59236,7 +59246,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 284,
+        "line": 286,
         "column": 20,
         "kind": "alias",
         "targetKind": "origin",
@@ -59246,7 +59256,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 284,
+        "line": 286,
         "column": 28,
         "kind": "alias",
         "targetKind": "origin",
@@ -59256,7 +59266,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 286,
+        "line": 288,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -59266,7 +59276,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 286,
+        "line": 288,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -59276,7 +59286,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 294,
+        "line": 296,
         "column": 16,
         "kind": "alias",
         "targetKind": "origin",
@@ -59286,7 +59296,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 294,
+        "line": 296,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -59296,7 +59306,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 301,
+        "line": 303,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -59306,7 +59316,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 302,
+        "line": 304,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59316,7 +59326,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 302,
+        "line": 304,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -59326,7 +59336,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 303,
+        "line": 305,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59336,7 +59346,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 305,
+        "line": 307,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -59346,7 +59356,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 306,
+        "line": 308,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -59356,7 +59366,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 307,
+        "line": 309,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59366,7 +59376,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 307,
+        "line": 309,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -59376,7 +59386,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 311,
+        "line": 313,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -59386,7 +59396,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 311,
+        "line": 313,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -59396,7 +59406,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 312,
+        "line": 314,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -59406,7 +59416,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 313,
+        "line": 315,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -59416,7 +59426,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 313,
+        "line": 315,
         "column": 37,
         "kind": "call",
         "targetKind": "origin",
@@ -59426,28 +59436,8 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 323,
+        "line": 325,
         "column": 22,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assert",
-        "origins": ["function"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 327,
-        "column": 47,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "",
-        "origins": ["literal"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 328,
-        "column": 18,
         "kind": "call",
         "targetKind": "origin",
         "target": "assert",
@@ -59457,6 +59447,26 @@
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
         "line": 329,
+        "column": 47,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "",
+        "origins": ["literal"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 330,
+        "column": 18,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assert",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 331,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -59466,7 +59476,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 335,
+        "line": 337,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -59476,7 +59486,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 340,
+        "line": 342,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -59486,7 +59496,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 342,
+        "line": 344,
         "column": 21,
         "kind": "alias",
         "targetKind": "origin",
@@ -59496,7 +59506,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 342,
+        "line": 344,
         "column": 33,
         "kind": "call",
         "targetKind": "origin",
@@ -59506,7 +59516,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 343,
+        "line": 345,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59516,7 +59526,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 343,
+        "line": 345,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -59526,7 +59536,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 344,
+        "line": 346,
         "column": 56,
         "kind": "call",
         "targetKind": "origin",
@@ -59536,7 +59546,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 345,
+        "line": 347,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59546,41 +59556,11 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 345,
+        "line": 347,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
         "target": "readPortableParticipantBinding",
-        "origins": ["function"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 346,
-        "column": 18,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "wakeInput",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 346,
-        "column": 30,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "existingWakeDeliveryInputCore",
-        "origins": ["function"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 347,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertPortableWakeBindingCore",
         "origins": ["function"],
         "owner": 209
       },
@@ -59590,13 +59570,43 @@
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
+        "target": "wakeInput",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 348,
+        "column": 30,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "existingWakeDeliveryInputCore",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 349,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertPortableWakeBindingCore",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 350,
+        "column": 18,
+        "kind": "alias",
+        "targetKind": "origin",
         "target": "role",
         "origins": ["unknown"],
         "owner": 209
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 349,
+        "line": 351,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59606,7 +59616,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 356,
+        "line": 358,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -59616,7 +59626,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 357,
+        "line": 359,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59626,7 +59636,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 357,
+        "line": 359,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -59636,7 +59646,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 365,
+        "line": 367,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59646,7 +59656,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 365,
+        "line": 367,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -59656,7 +59666,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 366,
+        "line": 368,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -59666,7 +59676,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 370,
+        "line": 372,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59676,7 +59686,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 370,
+        "line": 372,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -59686,7 +59696,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 376,
+        "line": 378,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -59696,7 +59706,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 378,
+        "line": 380,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59706,7 +59716,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 380,
+        "line": 382,
         "column": 18,
         "kind": "alias",
         "targetKind": "origin",
@@ -59716,7 +59726,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 380,
+        "line": 382,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -59726,7 +59736,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 383,
+        "line": 385,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -59736,7 +59746,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 385,
+        "line": 387,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -59746,7 +59756,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 386,
+        "line": 388,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -59756,7 +59766,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 386,
+        "line": 388,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -59766,7 +59776,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 387,
+        "line": 389,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -59776,7 +59786,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 388,
+        "line": 390,
         "column": 22,
         "kind": "alias",
         "targetKind": "origin",
@@ -59786,7 +59796,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 388,
+        "line": 390,
         "column": 37,
         "kind": "call",
         "targetKind": "origin",
@@ -59796,7 +59806,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 389,
+        "line": 391,
         "column": 16,
         "kind": "alias",
         "targetKind": "origin",
@@ -59806,7 +59816,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 391,
+        "line": 393,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -59816,7 +59826,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 393,
+        "line": 395,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -59826,42 +59836,12 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 393,
+        "line": 395,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
         "target": "String",
         "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 399,
-        "column": 22,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assert",
-        "origins": ["function"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 400,
-        "column": 22,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "result",
-        "origins": ["data", "function", "literal", "stock", "unknown", "unknown-target"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 400,
-        "column": 37,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "performCurrentOperationEffect",
-        "origins": ["function"],
         "owner": 209
       },
       {
@@ -59876,7 +59856,37 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 406,
+        "line": 402,
+        "column": 22,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "result",
+        "origins": ["data", "function", "literal", "stock", "unknown", "unknown-target"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 402,
+        "column": 37,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "performCurrentOperationEffect",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 403,
+        "column": 22,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assert",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 408,
         "column": 24,
         "kind": "alias",
         "targetKind": "origin",
@@ -59886,7 +59896,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 406,
+        "line": 408,
         "column": 38,
         "kind": "call",
         "targetKind": "origin",
@@ -59896,7 +59906,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 407,
+        "line": 409,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -59906,7 +59916,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 408,
+        "line": 410,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -59916,7 +59926,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 409,
+        "line": 411,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -59926,7 +59936,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 420,
+        "line": 422,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -59936,7 +59946,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 422,
+        "line": 424,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -59946,7 +59956,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 423,
+        "line": 425,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -59956,7 +59966,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 436,
+        "line": 438,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -59966,7 +59976,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 437,
+        "line": 439,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -59976,7 +59986,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 437,
+        "line": 439,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -59986,7 +59996,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 438,
+        "line": 440,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -59996,7 +60006,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 439,
+        "line": 441,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -60006,7 +60016,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 439,
+        "line": 441,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -60016,7 +60026,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 444,
+        "line": 446,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -60026,7 +60036,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 446,
+        "line": 448,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -60036,7 +60046,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 447,
+        "line": 449,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -60046,7 +60056,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 450,
+        "line": 452,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -60056,7 +60066,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 450,
+        "line": 452,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -60066,7 +60076,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 455,
+        "line": 457,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -60076,7 +60086,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 456,
+        "line": 458,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -60086,7 +60096,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 457,
+        "line": 459,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -60096,18 +60106,8 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 457,
+        "line": 459,
         "column": 24,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "freeze",
-        "origins": ["unknown"],
-        "owner": 209
-      },
-      {
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 460,
-        "column": 32,
         "kind": "call",
         "targetKind": "origin",
         "target": "freeze",
@@ -60117,6 +60117,16 @@
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
         "line": 462,
+        "column": 32,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "freeze",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 464,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -60126,7 +60136,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 470,
+        "line": 472,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -60136,7 +60146,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 471,
+        "line": 473,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -60146,7 +60156,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 476,
+        "line": 478,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -60156,7 +60166,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 476,
+        "line": 478,
         "column": 23,
         "kind": "alias",
         "targetKind": "origin",
@@ -60166,7 +60176,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 478,
+        "line": 480,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -60176,7 +60186,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 478,
+        "line": 480,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -60186,7 +60196,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 479,
+        "line": 481,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -60196,7 +60206,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 479,
+        "line": 481,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -60206,7 +60216,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 481,
+        "line": 483,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -60216,7 +60226,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 483,
+        "line": 485,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -60226,7 +60236,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 490,
+        "line": 492,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -60236,7 +60246,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 494,
+        "line": 496,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -60246,7 +60256,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 495,
+        "line": 497,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -60256,7 +60266,7 @@
       },
       {
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 498,
+        "line": 500,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -84617,6 +84627,26 @@
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
         "line": 80,
+        "column": 4,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "preservationObligations",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 80,
+        "column": 30,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "Set",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 81,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -84626,7 +84656,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 81,
+        "line": 82,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -84636,7 +84666,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 82,
+        "line": 83,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -84646,7 +84676,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 83,
+        "line": 84,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -84656,7 +84686,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 84,
+        "line": 85,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -84666,7 +84696,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 85,
+        "line": 86,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -84676,7 +84706,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 87,
+        "line": 88,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -84686,7 +84716,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 88,
+        "line": 89,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -84696,7 +84726,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 89,
+        "line": 90,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -84706,7 +84736,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 89,
+        "line": 90,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -84716,7 +84746,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 90,
+        "line": 91,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -84726,7 +84756,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 91,
+        "line": 92,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -84736,7 +84766,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 91,
+        "line": 92,
         "column": 38,
         "kind": "call",
         "targetKind": "origin",
@@ -84746,7 +84776,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 94,
+        "line": 95,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -84756,7 +84786,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 94,
+        "line": 95,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -84766,7 +84796,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 98,
+        "line": 99,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -84776,7 +84806,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 99,
+        "line": 100,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -84786,7 +84816,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 100,
+        "line": 101,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -84796,7 +84826,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 102,
+        "line": 103,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -84806,7 +84836,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 103,
+        "line": 104,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -84816,7 +84846,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 107,
+        "line": 108,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -84826,7 +84856,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 108,
+        "line": 109,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -84836,7 +84866,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 109,
+        "line": 110,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -84846,7 +84876,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 112,
+        "line": 113,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -84856,7 +84886,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 112,
+        "line": 113,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -84866,7 +84896,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 112,
+        "line": 113,
         "column": 70,
         "kind": "call",
         "targetKind": "origin",
@@ -84876,7 +84906,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 114,
+        "line": 115,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -84886,7 +84916,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 115,
+        "line": 116,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -84896,7 +84926,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 116,
+        "line": 117,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -84906,7 +84936,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 117,
+        "line": 118,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -84916,7 +84946,177 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 120,
+        "line": 121,
+        "column": 19,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "relativePath",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 123,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "includes",
+        "origins": ["literal"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 127,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 128,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "test",
+        "origins": ["data"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 129,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 131,
+        "column": 19,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "name",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 133,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 135,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 136,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "startsWith",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 136,
+        "column": 40,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 137,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "startsWith",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 138,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 140,
+        "column": 18,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "journal",
+        "origins": ["data", "unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 140,
+        "column": 28,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "readStartupJournal",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 142,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "includes",
+        "origins": ["literal"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 143,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "includes",
+        "origins": ["literal"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 145,
+        "column": 14,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "add",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 150,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -84926,7 +85126,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 120,
+        "line": 150,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -84936,7 +85136,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 121,
+        "line": 151,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -84946,7 +85146,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 121,
+        "line": 151,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -84956,7 +85156,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 122,
+        "line": 152,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -84966,7 +85166,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 122,
+        "line": 152,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -84976,7 +85176,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 123,
+        "line": 153,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -84986,7 +85186,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 123,
+        "line": 153,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -84996,7 +85196,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 124,
+        "line": 154,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85006,7 +85206,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 125,
+        "line": 155,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -85016,7 +85216,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 126,
+        "line": 156,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85026,7 +85226,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 126,
+        "line": 156,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -85036,7 +85236,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 127,
+        "line": 157,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -85046,7 +85246,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 127,
+        "line": 157,
         "column": 52,
         "kind": "call",
         "targetKind": "origin",
@@ -85056,7 +85256,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 132,
+        "line": 162,
         "column": 39,
         "kind": "call",
         "targetKind": "origin",
@@ -85066,7 +85266,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 133,
+        "line": 163,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85076,7 +85276,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 133,
+        "line": 163,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -85086,7 +85286,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 134,
+        "line": 164,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85096,7 +85296,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 134,
+        "line": 164,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -85106,7 +85306,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 134,
+        "line": 164,
         "column": 45,
         "kind": "call",
         "targetKind": "origin",
@@ -85116,7 +85316,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 134,
+        "line": 164,
         "column": 51,
         "kind": "call",
         "targetKind": "origin",
@@ -85126,7 +85326,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 135,
+        "line": 165,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -85136,7 +85336,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 135,
+        "line": 165,
         "column": 59,
         "kind": "call",
         "targetKind": "origin",
@@ -85146,7 +85346,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 136,
+        "line": 166,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -85156,7 +85356,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 137,
+        "line": 167,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -85166,7 +85366,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 142,
+        "line": 172,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -85176,7 +85376,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 143,
+        "line": 173,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -85186,7 +85386,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 146,
+        "line": 176,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -85196,7 +85396,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 148,
+        "line": 178,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -85206,7 +85406,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 148,
+        "line": 178,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -85216,7 +85416,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 153,
+        "line": 183,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -85226,7 +85426,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 156,
+        "line": 186,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -85236,7 +85436,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 158,
+        "line": 188,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -85246,7 +85446,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 159,
+        "line": 189,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -85256,7 +85456,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 161,
+        "line": 191,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -85266,7 +85466,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 163,
+        "line": 193,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85276,7 +85476,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 163,
+        "line": 193,
         "column": 18,
         "kind": "call",
         "targetKind": "origin",
@@ -85286,7 +85486,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 164,
+        "line": 194,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85296,7 +85496,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 164,
+        "line": 194,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -85306,7 +85506,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 168,
+        "line": 198,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85316,7 +85516,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 168,
+        "line": 198,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -85326,7 +85526,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 168,
+        "line": 198,
         "column": 59,
         "kind": "call",
         "targetKind": "origin",
@@ -85336,7 +85536,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 170,
+        "line": 200,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -85346,7 +85546,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 170,
+        "line": 200,
         "column": 43,
         "kind": "call",
         "targetKind": "origin",
@@ -85356,7 +85556,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 173,
+        "line": 203,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -85366,7 +85566,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 174,
+        "line": 204,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85376,7 +85576,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 177,
+        "line": 207,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -85386,7 +85586,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 178,
+        "line": 208,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -85396,7 +85596,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 178,
+        "line": 208,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -85406,7 +85606,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 179,
+        "line": 209,
         "column": 32,
         "kind": "call",
         "targetKind": "origin",
@@ -85416,7 +85616,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 180,
+        "line": 210,
         "column": 30,
         "kind": "call",
         "targetKind": "origin",
@@ -85426,7 +85626,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 184,
+        "line": 214,
         "column": 17,
         "kind": "alias",
         "targetKind": "origin",
@@ -85436,7 +85636,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 184,
+        "line": 214,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -85446,7 +85646,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 184,
+        "line": 214,
         "column": 62,
         "kind": "call",
         "targetKind": "origin",
@@ -85456,7 +85656,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 185,
+        "line": 215,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -85466,7 +85666,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 185,
+        "line": 215,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -85476,7 +85676,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 187,
+        "line": 217,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -85486,7 +85686,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 187,
+        "line": 217,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -85496,7 +85696,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 187,
+        "line": 217,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -85506,7 +85706,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 193,
+        "line": 223,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -85516,7 +85716,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 197,
+        "line": 227,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -85526,7 +85726,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 202,
+        "line": 232,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -85536,7 +85736,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 204,
+        "line": 234,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -85546,7 +85746,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 209,
+        "line": 239,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -85556,7 +85756,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 209,
+        "line": 239,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -85566,7 +85766,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 211,
+        "line": 241,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -85576,7 +85776,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 216,
+        "line": 246,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -85586,7 +85786,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 219,
+        "line": 249,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -85596,7 +85796,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 220,
+        "line": 250,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -85606,7 +85806,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 220,
+        "line": 250,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -85616,7 +85816,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 222,
+        "line": 252,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85626,7 +85826,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 222,
+        "line": 252,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -85636,7 +85836,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 223,
+        "line": 253,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -85646,7 +85846,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 225,
+        "line": 255,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -85656,7 +85856,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 227,
+        "line": 257,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -85666,7 +85866,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 227,
+        "line": 257,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -85676,7 +85876,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 229,
+        "line": 259,
         "column": 72,
         "kind": "call",
         "targetKind": "origin",
@@ -85686,7 +85886,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 231,
+        "line": 261,
         "column": 47,
         "kind": "call",
         "targetKind": "origin",
@@ -85696,7 +85896,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 233,
+        "line": 263,
         "column": 14,
         "kind": "alias",
         "targetKind": "origin",
@@ -85706,7 +85906,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 233,
+        "line": 263,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -85716,7 +85916,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 234,
+        "line": 264,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -85726,7 +85926,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 234,
+        "line": 264,
         "column": 59,
         "kind": "alias",
         "targetKind": "origin",
@@ -85736,7 +85936,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 240,
+        "line": 270,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -85746,7 +85946,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 240,
+        "line": 270,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -85756,7 +85956,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 240,
+        "line": 270,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -85766,7 +85966,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 247,
+        "line": 277,
         "column": 42,
         "kind": "call",
         "targetKind": "origin",
@@ -85776,7 +85976,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 249,
+        "line": 279,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -85786,7 +85986,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 251,
+        "line": 281,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -85796,7 +85996,67 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 252,
+        "line": 282,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "disposition",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 282,
+        "column": 22,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "classifyPortableReconciliationCore",
+        "origins": ["function"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 288,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "retainedObligations",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 288,
+        "column": 30,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "freeze",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 289,
+        "column": 4,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "map",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 290,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "freeze",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 293,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -85806,17 +86066,57 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 252,
-        "column": 25,
+        "line": 294,
+        "column": 6,
         "kind": "call",
         "targetKind": "origin",
-        "target": "classifyPortableReconciliationCore",
-        "origins": ["function"],
+        "target": "freeze",
+        "origins": ["unknown"],
         "owner": 209
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 258,
+        "line": 298,
+        "column": 32,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "freeze",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 299,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "slice",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 299,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "filter",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 302,
+        "column": 16,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "findIndex",
+        "origins": ["unknown"],
+        "owner": 209
+      },
+      {
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 308,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -85826,7 +86126,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 261,
+        "line": 311,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -85836,7 +86136,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 262,
+        "line": 312,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -85846,7 +86146,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 263,
+        "line": 313,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -85856,7 +86156,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 264,
+        "line": 314,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -85866,7 +86166,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 265,
+        "line": 315,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -86176,7 +86476,17 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 101,
+        "line": 102,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "boundedOwnershipError",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 103,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -86186,7 +86496,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 101,
+        "line": 103,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -86196,7 +86506,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 105,
+        "line": 107,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -86206,7 +86516,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 105,
+        "line": 107,
         "column": 51,
         "kind": "call",
         "targetKind": "origin",
@@ -86216,7 +86526,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 108,
+        "line": 110,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -86226,7 +86536,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 109,
+        "line": 111,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -86236,7 +86546,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 109,
+        "line": 111,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -86246,7 +86556,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 113,
+        "line": 115,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -86256,7 +86566,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 114,
+        "line": 116,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -86266,7 +86576,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 115,
+        "line": 117,
         "column": 13,
         "kind": "call",
         "targetKind": "origin",
@@ -86276,7 +86586,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 120,
+        "line": 122,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -86286,7 +86596,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 121,
+        "line": 123,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -86296,31 +86606,11 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 127,
+        "line": 129,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
         "target": "close",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 128,
-        "column": 4,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 129,
-        "column": 4,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "",
         "origins": ["unknown"],
         "owner": 169
       },
@@ -86340,13 +86630,33 @@
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
+        "target": "",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 132,
+        "column": 4,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 133,
+        "column": 4,
+        "kind": "alias",
+        "targetKind": "origin",
         "target": "transferred",
         "origins": ["data"],
         "owner": 169
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 133,
+        "line": 135,
         "column": 36,
         "kind": "call",
         "targetKind": "origin",
@@ -86356,7 +86666,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 137,
+        "line": 139,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86366,7 +86676,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 137,
+        "line": 139,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -86376,7 +86686,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 138,
+        "line": 140,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -86386,7 +86696,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 139,
+        "line": 141,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86396,7 +86706,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 139,
+        "line": 141,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -86406,7 +86716,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 140,
+        "line": 142,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -86416,7 +86726,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 143,
+        "line": 145,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -86426,7 +86736,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 147,
+        "line": 149,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -86436,7 +86746,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 147,
+        "line": 149,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -86446,7 +86756,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 147,
+        "line": 149,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -86456,7 +86766,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 148,
+        "line": 150,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -86466,7 +86776,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 149,
+        "line": 151,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86476,7 +86786,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 149,
+        "line": 151,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -86486,7 +86796,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 155,
+        "line": 157,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86496,7 +86806,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 155,
+        "line": 157,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -86506,7 +86816,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 163,
+        "line": 165,
         "column": 5,
         "kind": "call",
         "targetKind": "origin",
@@ -86516,7 +86826,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 165,
+        "line": 167,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -86526,7 +86836,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 165,
+        "line": 167,
         "column": 46,
         "kind": "call",
         "targetKind": "origin",
@@ -86536,7 +86846,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 168,
+        "line": 170,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -86546,7 +86856,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 169,
+        "line": 171,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86556,7 +86866,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 169,
+        "line": 171,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -86566,7 +86876,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 171,
+        "line": 173,
         "column": 5,
         "kind": "call",
         "targetKind": "origin",
@@ -86576,7 +86886,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 174,
+        "line": 176,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -86586,7 +86896,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 175,
+        "line": 177,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -86596,7 +86906,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 181,
+        "line": 183,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86606,7 +86916,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 181,
+        "line": 183,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -86616,7 +86926,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 187,
+        "line": 189,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86626,7 +86936,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 187,
+        "line": 189,
         "column": 27,
         "kind": "call",
         "targetKind": "origin",
@@ -86636,7 +86946,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 193,
+        "line": 195,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86646,7 +86956,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 193,
+        "line": 195,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -86656,7 +86966,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 197,
+        "line": 199,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -86666,7 +86976,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 198,
+        "line": 200,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -86676,7 +86986,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 199,
+        "line": 201,
         "column": 11,
         "kind": "call",
         "targetKind": "origin",
@@ -86686,7 +86996,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 203,
+        "line": 205,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86696,7 +87006,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 203,
+        "line": 205,
         "column": 19,
         "kind": "call",
         "targetKind": "origin",
@@ -86706,7 +87016,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 211,
+        "line": 213,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -86716,7 +87026,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 212,
+        "line": 214,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -86726,7 +87036,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 213,
+        "line": 215,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86736,7 +87046,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 213,
+        "line": 215,
         "column": 15,
         "kind": "call",
         "targetKind": "origin",
@@ -86746,7 +87056,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 213,
+        "line": 215,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -86756,7 +87066,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 216,
+        "line": 218,
         "column": 2,
         "kind": "call",
         "targetKind": "origin",
@@ -86766,7 +87076,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 217,
+        "line": 219,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86776,7 +87086,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 217,
+        "line": 219,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -86786,7 +87096,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 217,
+        "line": 219,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -86796,7 +87106,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 220,
+        "line": 222,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86806,7 +87116,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 220,
+        "line": 222,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -86816,7 +87126,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 222,
+        "line": 224,
         "column": 7,
         "kind": "call",
         "targetKind": "origin",
@@ -86826,7 +87136,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 226,
+        "line": 228,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -86836,7 +87146,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 226,
+        "line": 228,
         "column": 51,
         "kind": "call",
         "targetKind": "origin",
@@ -86846,7 +87156,17 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 230,
+        "line": 233,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "boundedOwnershipError",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 234,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -86856,7 +87176,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 230,
+        "line": 234,
         "column": 22,
         "kind": "call",
         "targetKind": "origin",
@@ -86866,7 +87186,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 237,
+        "line": 241,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -86876,7 +87196,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 238,
+        "line": 242,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -86886,7 +87206,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 239,
+        "line": 243,
         "column": 2,
         "kind": "alias",
         "targetKind": "origin",
@@ -86896,7 +87216,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 239,
+        "line": 243,
         "column": 34,
         "kind": "call",
         "targetKind": "origin",
@@ -86906,7 +87226,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 240,
+        "line": 244,
         "column": 2,
         "kind": "alias",
         "targetKind": "origin",
@@ -86916,7 +87236,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 241,
+        "line": 245,
         "column": 2,
         "kind": "alias",
         "targetKind": "origin",
@@ -86926,7 +87246,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 242,
+        "line": 246,
         "column": 2,
         "kind": "alias",
         "targetKind": "origin",
@@ -86936,7 +87256,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 243,
+        "line": 247,
         "column": 2,
         "kind": "alias",
         "targetKind": "origin",
@@ -86946,7 +87266,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 243,
+        "line": 247,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -86956,7 +87276,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 244,
+        "line": 248,
         "column": 2,
         "kind": "call",
         "targetKind": "origin",
@@ -86966,7 +87286,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 245,
+        "line": 249,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -86976,7 +87296,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 254,
+        "line": 258,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -86986,7 +87306,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 254,
+        "line": 258,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -86996,7 +87316,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 254,
+        "line": 258,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -87006,7 +87326,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 255,
+        "line": 259,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -87016,7 +87336,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 256,
+        "line": 260,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -87026,7 +87346,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 256,
+        "line": 260,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -87036,17 +87356,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 258,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "boundedOwnershipError",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 264,
+        "line": 262,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -87057,21 +87367,11 @@
       {
         "path": "src/broker/portable-reconciliation.mjs",
         "line": 268,
-        "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "record",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 268,
-        "column": 17,
+        "column": 10,
         "kind": "call",
         "targetKind": "origin",
-        "target": "get",
-        "origins": ["unknown"],
+        "target": "boundedOwnershipError",
+        "origins": ["function"],
         "owner": 169
       },
       {
@@ -87088,46 +87388,6 @@
         "path": "src/broker/portable-reconciliation.mjs",
         "line": 272,
         "column": 17,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "observationRecord",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 273,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertPortableReconciliation",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 274,
-        "column": 13,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "registration",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 275,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "worker",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 275,
-        "column": 19,
         "kind": "call",
         "targetKind": "origin",
         "target": "get",
@@ -87137,76 +87397,6 @@
       {
         "path": "src/broker/portable-reconciliation.mjs",
         "line": 276,
-        "column": 20,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "includes",
-        "origins": ["literal"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 277,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "boundedOwnershipError",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 278,
-        "column": 10,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "fresh",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 278,
-        "column": 24,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "inspectPortableWorkerRestorationResources",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 284,
-        "column": 36,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "includes",
-        "origins": ["literal"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 285,
-        "column": 12,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "boundedOwnershipError",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 287,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "assertPortableReconciliation",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 291,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -87216,7 +87406,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 291,
+        "line": 276,
         "column": 17,
         "kind": "call",
         "targetKind": "origin",
@@ -87226,7 +87416,137 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 292,
+        "line": 277,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertPortableReconciliation",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 278,
+        "column": 13,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "registration",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 279,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "worker",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 279,
+        "column": 19,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "get",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 280,
+        "column": 20,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "includes",
+        "origins": ["literal"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 281,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "boundedOwnershipError",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 282,
+        "column": 10,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "fresh",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 282,
+        "column": 24,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "inspectPortableWorkerRestorationResources",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 288,
+        "column": 36,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "includes",
+        "origins": ["literal"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 289,
+        "column": 12,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "boundedOwnershipError",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 291,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "assertPortableReconciliation",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 295,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "record",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 295,
+        "column": 17,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "observationRecord",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 296,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -87236,7 +87556,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 293,
+        "line": 297,
         "column": 15,
         "kind": "alias",
         "targetKind": "origin",
@@ -87246,7 +87566,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 293,
+        "line": 297,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -87256,7 +87576,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 294,
+        "line": 298,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -87266,7 +87586,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 294,
+        "line": 298,
         "column": 26,
         "kind": "call",
         "targetKind": "origin",
@@ -87276,7 +87596,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 300,
+        "line": 304,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -87286,7 +87606,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 300,
+        "line": 304,
         "column": 51,
         "kind": "call",
         "targetKind": "origin",
@@ -87296,7 +87616,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 301,
+        "line": 305,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -87306,7 +87626,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 304,
+        "line": 308,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -87316,7 +87636,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 310,
+        "line": 314,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -87326,7 +87646,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 312,
+        "line": 316,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -87336,7 +87656,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 319,
+        "line": 323,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -87346,7 +87666,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 321,
+        "line": 325,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -87356,67 +87676,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 322,
-        "column": 8,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "inspectOwnerElectionLease",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 331,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "join",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 331,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "sort",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 331,
-        "column": 6,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "keys",
-        "origins": ["unknown"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 332,
-        "column": 10,
-        "kind": "call",
-        "targetKind": "origin",
-        "target": "boundedOwnershipError",
-        "origins": ["function"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 333,
-        "column": 8,
-        "kind": "alias",
-        "targetKind": "origin",
-        "target": "paths,lease,signal,deadline",
-        "origins": ["data", "function", "literal", "stock", "unknown", "unknown-target"],
-        "owner": 169
-      },
-      {
-        "path": "src/broker/portable-reconciliation.mjs",
-        "line": 334,
+        "line": 326,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -87428,6 +87688,66 @@
         "path": "src/broker/portable-reconciliation.mjs",
         "line": 335,
         "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "join",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 335,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "sort",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 335,
+        "column": 6,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "keys",
+        "origins": ["unknown"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 336,
+        "column": 10,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "boundedOwnershipError",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 337,
+        "column": 8,
+        "kind": "alias",
+        "targetKind": "origin",
+        "target": "paths,lease,signal,deadline",
+        "origins": ["data", "function", "literal", "stock", "unknown", "unknown-target"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 338,
+        "column": 8,
+        "kind": "call",
+        "targetKind": "origin",
+        "target": "inspectOwnerElectionLease",
+        "origins": ["function"],
+        "owner": 169
+      },
+      {
+        "path": "src/broker/portable-reconciliation.mjs",
+        "line": 339,
+        "column": 6,
         "kind": "alias",
         "targetKind": "origin",
         "target": "adopted",
@@ -87436,7 +87756,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 337,
+        "line": 341,
         "column": 11,
         "kind": "alias",
         "targetKind": "origin",
@@ -87446,7 +87766,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 338,
+        "line": 342,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -87456,7 +87776,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 339,
+        "line": 343,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -87466,7 +87786,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 340,
+        "line": 344,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -87476,7 +87796,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 341,
+        "line": 345,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -87486,7 +87806,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 342,
+        "line": 346,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -87496,7 +87816,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 344,
+        "line": 348,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -87506,7 +87826,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 344,
+        "line": 348,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -87516,7 +87836,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 352,
+        "line": 356,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -87526,7 +87846,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 352,
+        "line": 356,
         "column": 24,
         "kind": "call",
         "targetKind": "origin",
@@ -87536,7 +87856,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 362,
+        "line": 366,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -87546,7 +87866,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 362,
+        "line": 366,
         "column": 31,
         "kind": "call",
         "targetKind": "origin",
@@ -87556,7 +87876,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 368,
+        "line": 372,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -87566,7 +87886,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 369,
+        "line": 373,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -87576,7 +87896,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 376,
+        "line": 380,
         "column": 20,
         "kind": "call",
         "targetKind": "origin",
@@ -87586,7 +87906,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 385,
+        "line": 389,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -87596,7 +87916,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 386,
+        "line": 390,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -87606,7 +87926,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 386,
+        "line": 390,
         "column": 23,
         "kind": "call",
         "targetKind": "origin",
@@ -87616,7 +87936,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 392,
+        "line": 396,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -87626,7 +87946,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 393,
+        "line": 397,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -87636,7 +87956,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 394,
+        "line": 398,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -87646,7 +87966,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 395,
+        "line": 399,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -87656,7 +87976,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 398,
+        "line": 402,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -87666,7 +87986,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 399,
+        "line": 403,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -87676,7 +87996,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 400,
+        "line": 404,
         "column": 12,
         "kind": "call",
         "targetKind": "origin",
@@ -87686,7 +88006,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 401,
+        "line": 405,
         "column": 6,
         "kind": "alias",
         "targetKind": "origin",
@@ -87696,7 +88016,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 405,
+        "line": 409,
         "column": 14,
         "kind": "call",
         "targetKind": "origin",
@@ -87706,7 +88026,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 407,
+        "line": 411,
         "column": 10,
         "kind": "alias",
         "targetKind": "origin",
@@ -87716,7 +88036,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 408,
+        "line": 412,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -87726,7 +88046,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 413,
+        "line": 417,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -87736,7 +88056,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 418,
+        "line": 422,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -87746,7 +88066,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 418,
+        "line": 422,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -87756,7 +88076,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 418,
+        "line": 422,
         "column": 16,
         "kind": "call",
         "targetKind": "origin",
@@ -87766,7 +88086,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 419,
+        "line": 423,
         "column": 10,
         "kind": "call",
         "targetKind": "origin",
@@ -87776,7 +88096,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 420,
+        "line": 424,
         "column": 8,
         "kind": "alias",
         "targetKind": "origin",
@@ -87786,7 +88106,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 420,
+        "line": 424,
         "column": 21,
         "kind": "call",
         "targetKind": "origin",
@@ -87796,7 +88116,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 421,
+        "line": 425,
         "column": 4,
         "kind": "alias",
         "targetKind": "origin",
@@ -87806,7 +88126,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 422,
+        "line": 426,
         "column": 13,
         "kind": "alias",
         "targetKind": "origin",
@@ -87816,7 +88136,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 424,
+        "line": 428,
         "column": 12,
         "kind": "alias",
         "targetKind": "origin",
@@ -87826,7 +88146,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 424,
+        "line": 428,
         "column": 29,
         "kind": "call",
         "targetKind": "origin",
@@ -87836,7 +88156,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 425,
+        "line": 429,
         "column": 6,
         "kind": "call",
         "targetKind": "origin",
@@ -87846,7 +88166,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 428,
+        "line": 432,
         "column": 25,
         "kind": "call",
         "targetKind": "origin",
@@ -87856,7 +88176,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 439,
+        "line": 443,
         "column": 2,
         "kind": "call",
         "targetKind": "origin",
@@ -87866,7 +88186,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 443,
+        "line": 447,
         "column": 8,
         "kind": "call",
         "targetKind": "origin",
@@ -87876,7 +88196,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 444,
+        "line": 448,
         "column": 9,
         "kind": "call",
         "targetKind": "origin",
@@ -87886,7 +88206,7 @@
       },
       {
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 448,
+        "line": 452,
         "column": 28,
         "kind": "call",
         "targetKind": "origin",
@@ -293060,7 +293380,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 98,
+        "line": 100,
         "column": 10,
         "name": "some",
         "owner": 209
@@ -293068,7 +293388,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 109,
+        "line": 111,
         "column": 10,
         "name": "has",
         "owner": 209
@@ -293076,7 +293396,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 112,
+        "line": 114,
         "column": 8,
         "name": "set",
         "owner": 209
@@ -293084,7 +293404,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 114,
+        "line": 116,
         "column": 10,
         "name": "freeze",
         "owner": 209
@@ -293092,7 +293412,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 114,
+        "line": 116,
         "column": 46,
         "name": "freeze",
         "owner": 209
@@ -293100,7 +293420,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 119,
+        "line": 121,
         "column": 7,
         "name": "includes",
         "owner": 209
@@ -293108,7 +293428,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 121,
+        "line": 123,
         "column": 6,
         "name": "set",
         "owner": 209
@@ -293116,7 +293436,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 123,
+        "line": 125,
         "column": 42,
         "name": "push",
         "owner": 209
@@ -293124,7 +293444,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 127,
+        "line": 129,
         "column": 23,
         "name": "get",
         "owner": 209
@@ -293132,7 +293452,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 129,
+        "line": 131,
         "column": 24,
         "name": "find",
         "owner": 209
@@ -293140,7 +293460,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 134,
+        "line": 136,
         "column": 8,
         "name": "find",
         "owner": 209
@@ -293148,7 +293468,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 134,
+        "line": 136,
         "column": 8,
         "name": "find",
         "owner": 209
@@ -293156,7 +293476,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 146,
+        "line": 148,
         "column": 6,
         "name": "join",
         "owner": 209
@@ -293164,7 +293484,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 146,
+        "line": 148,
         "column": 6,
         "name": "sort",
         "owner": 209
@@ -293172,7 +293492,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 146,
+        "line": 148,
         "column": 6,
         "name": "keys",
         "owner": 209
@@ -293180,7 +293500,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 154,
+        "line": 156,
         "column": 42,
         "name": "includes",
         "owner": 209
@@ -293188,7 +293508,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 160,
+        "line": 162,
         "column": 25,
         "name": "get",
         "owner": 209
@@ -293196,7 +293516,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 161,
+        "line": 163,
         "column": 28,
         "name": "find",
         "owner": 209
@@ -293204,7 +293524,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 173,
+        "line": 175,
         "column": 6,
         "name": "some",
         "owner": 209
@@ -293212,7 +293532,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 192,
+        "line": 194,
         "column": 6,
         "name": "some",
         "owner": 209
@@ -293220,7 +293540,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 200,
+        "line": 202,
         "column": 6,
         "name": "some",
         "owner": 209
@@ -293228,7 +293548,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 222,
+        "line": 224,
         "column": 6,
         "name": "some",
         "owner": 209
@@ -293236,7 +293556,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 233,
+        "line": 235,
         "column": 8,
         "name": "some",
         "owner": 209
@@ -293244,15 +293564,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 234,
-        "column": 8,
-        "name": "some",
-        "owner": 209
-      },
-      {
-        "code": "unknown-handle-origin",
-        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 237,
+        "line": 236,
         "column": 8,
         "name": "some",
         "owner": 209
@@ -293261,6 +293573,14 @@
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
         "line": 239,
+        "column": 8,
+        "name": "some",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-existing-effect-reconciliation.mjs",
+        "line": 241,
         "column": 4,
         "name": "push",
         "owner": 209
@@ -293268,7 +293588,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 241,
+        "line": 243,
         "column": 29,
         "name": "values",
         "owner": 209
@@ -293276,7 +293596,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 242,
+        "line": 244,
         "column": 9,
         "name": "has",
         "owner": 209
@@ -293284,7 +293604,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 247,
+        "line": 249,
         "column": 6,
         "name": "join",
         "owner": 209
@@ -293292,7 +293612,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 247,
+        "line": 249,
         "column": 6,
         "name": "sort",
         "owner": 209
@@ -293300,7 +293620,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 247,
+        "line": 249,
         "column": 6,
         "name": "keys",
         "owner": 209
@@ -293308,7 +293628,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 250,
+        "line": 252,
         "column": 18,
         "name": "freeze",
         "owner": 209
@@ -293316,7 +293636,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 264,
+        "line": 266,
         "column": 29,
         "name": "find",
         "owner": 209
@@ -293324,7 +293644,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 280,
+        "line": 282,
         "column": 7,
         "name": "some",
         "owner": 209
@@ -293332,7 +293652,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 313,
+        "line": 315,
         "column": 37,
         "name": "reconcileReviewerLaunch",
         "owner": 209
@@ -293340,7 +293660,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 342,
+        "line": 344,
         "column": 33,
         "name": "filter",
         "owner": 209
@@ -293348,7 +293668,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 366,
+        "line": 368,
         "column": 12,
         "name": "set",
         "owner": 209
@@ -293356,7 +293676,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 383,
+        "line": 385,
         "column": 19,
         "name": "now",
         "owner": 209
@@ -293364,7 +293684,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 391,
+        "line": 393,
         "column": 20,
         "name": "slice",
         "owner": 209
@@ -293372,7 +293692,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 393,
+        "line": 395,
         "column": 20,
         "name": "padStart",
         "owner": 209
@@ -293380,7 +293700,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 409,
+        "line": 411,
         "column": 25,
         "name": "reconcileDelivery",
         "owner": 209
@@ -293388,7 +293708,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 446,
+        "line": 448,
         "column": 8,
         "name": "add",
         "owner": 209
@@ -293396,7 +293716,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 447,
+        "line": 449,
         "column": 14,
         "name": "close",
         "owner": 209
@@ -293404,7 +293724,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 457,
+        "line": 459,
         "column": 24,
         "name": "freeze",
         "owner": 209
@@ -293412,7 +293732,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 460,
+        "line": 462,
         "column": 32,
         "name": "freeze",
         "owner": 209
@@ -293420,7 +293740,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 470,
+        "line": 472,
         "column": 6,
         "name": "set",
         "owner": 209
@@ -293428,7 +293748,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 471,
+        "line": 473,
         "column": 6,
         "name": "add",
         "owner": 209
@@ -293436,7 +293756,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 483,
+        "line": 485,
         "column": 6,
         "name": "add",
         "owner": 209
@@ -293444,7 +293764,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 490,
+        "line": 492,
         "column": 23,
         "name": "close",
         "owner": 209
@@ -293452,7 +293772,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 495,
+        "line": 497,
         "column": 9,
         "name": "freeze",
         "owner": 209
@@ -293460,7 +293780,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-existing-effect-reconciliation.mjs",
-        "line": 498,
+        "line": 500,
         "column": 28,
         "name": "freeze",
         "owner": 209
@@ -299340,7 +299660,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 90,
+        "line": 91,
         "column": 29,
         "name": "registration",
         "owner": 209
@@ -299348,7 +299668,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 91,
+        "line": 92,
         "column": 10,
         "name": "push",
         "owner": 209
@@ -299356,7 +299676,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 91,
+        "line": 92,
         "column": 38,
         "name": "freeze",
         "owner": 209
@@ -299364,7 +299684,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 100,
+        "line": 101,
         "column": 17,
         "name": "workspace",
         "owner": 209
@@ -299372,7 +299692,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 102,
+        "line": 103,
         "column": 10,
         "name": "push",
         "owner": 209
@@ -299380,7 +299700,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 103,
+        "line": 104,
         "column": 12,
         "name": "freeze",
         "owner": 209
@@ -299388,7 +299708,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 109,
+        "line": 110,
         "column": 8,
         "name": "push",
         "owner": 209
@@ -299396,7 +299716,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 112,
+        "line": 113,
         "column": 6,
         "name": "push",
         "owner": 209
@@ -299404,7 +299724,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 112,
+        "line": 113,
         "column": 23,
         "name": "map",
         "owner": 209
@@ -299412,7 +299732,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 116,
+        "line": 117,
         "column": 27,
         "name": "workspace",
         "owner": 209
@@ -299420,7 +299740,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 117,
+        "line": 118,
         "column": 8,
         "name": "push",
         "owner": 209
@@ -299428,7 +299748,79 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 122,
+        "line": 127,
+        "column": 12,
+        "name": "add",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 129,
+        "column": 12,
+        "name": "add",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 133,
+        "column": 12,
+        "name": "add",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 135,
+        "column": 12,
+        "name": "add",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 136,
+        "column": 14,
+        "name": "startsWith",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 136,
+        "column": 40,
+        "name": "add",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 137,
+        "column": 14,
+        "name": "startsWith",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 138,
+        "column": 12,
+        "name": "add",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 145,
+        "column": 14,
+        "name": "add",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 152,
         "column": 26,
         "name": "some",
         "owner": 209
@@ -299436,7 +299828,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 127,
+        "line": 157,
         "column": 15,
         "name": "filter",
         "owner": 209
@@ -299444,7 +299836,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 127,
+        "line": 157,
         "column": 52,
         "name": "startsWith",
         "owner": 209
@@ -299452,7 +299844,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 133,
+        "line": 163,
         "column": 29,
         "name": "find",
         "owner": 209
@@ -299460,7 +299852,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 136,
+        "line": 166,
         "column": 6,
         "name": "push",
         "owner": 209
@@ -299468,7 +299860,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 148,
+        "line": 178,
         "column": 15,
         "name": "map",
         "owner": 209
@@ -299476,7 +299868,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 148,
+        "line": 178,
         "column": 15,
         "name": "filter",
         "owner": 209
@@ -299484,7 +299876,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 156,
+        "line": 186,
         "column": 18,
         "name": "startsWith",
         "owner": 209
@@ -299492,7 +299884,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 168,
+        "line": 198,
         "column": 22,
         "name": "filter",
         "owner": 209
@@ -299500,7 +299892,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 168,
+        "line": 198,
         "column": 59,
         "name": "startsWith",
         "owner": 209
@@ -299508,7 +299900,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 170,
+        "line": 200,
         "column": 8,
         "name": "some",
         "owner": 209
@@ -299516,7 +299908,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 178,
+        "line": 208,
         "column": 19,
         "name": "map",
         "owner": 209
@@ -299524,7 +299916,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 178,
+        "line": 208,
         "column": 19,
         "name": "filter",
         "owner": 209
@@ -299532,7 +299924,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 179,
+        "line": 209,
         "column": 32,
         "name": "startsWith",
         "owner": 209
@@ -299540,7 +299932,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 184,
+        "line": 214,
         "column": 25,
         "name": "filter",
         "owner": 209
@@ -299548,7 +299940,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 184,
+        "line": 214,
         "column": 62,
         "name": "startsWith",
         "owner": 209
@@ -299556,7 +299948,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 187,
+        "line": 217,
         "column": 10,
         "name": "join",
         "owner": 209
@@ -299564,7 +299956,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 187,
+        "line": 217,
         "column": 10,
         "name": "sort",
         "owner": 209
@@ -299572,7 +299964,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 187,
+        "line": 217,
         "column": 10,
         "name": "keys",
         "owner": 209
@@ -299580,7 +299972,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 197,
+        "line": 227,
         "column": 11,
         "name": "isSafeInteger",
         "owner": 209
@@ -299588,7 +299980,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 209,
+        "line": 239,
         "column": 23,
         "name": "find",
         "owner": 209
@@ -299596,7 +299988,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 216,
+        "line": 246,
         "column": 6,
         "name": "push",
         "owner": 209
@@ -299604,7 +299996,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 220,
+        "line": 250,
         "column": 23,
         "name": "find",
         "owner": 209
@@ -299612,7 +300004,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 222,
+        "line": 252,
         "column": 24,
         "name": "find",
         "owner": 209
@@ -299620,7 +300012,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 227,
+        "line": 257,
         "column": 8,
         "name": "find",
         "owner": 209
@@ -299628,7 +300020,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 227,
+        "line": 257,
         "column": 8,
         "name": "find",
         "owner": 209
@@ -299636,7 +300028,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 240,
+        "line": 270,
         "column": 6,
         "name": "join",
         "owner": 209
@@ -299644,7 +300036,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 240,
+        "line": 270,
         "column": 6,
         "name": "sort",
         "owner": 209
@@ -299652,7 +300044,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 240,
+        "line": 270,
         "column": 6,
         "name": "keys",
         "owner": 209
@@ -299660,7 +300052,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 247,
+        "line": 277,
         "column": 42,
         "name": "includes",
         "owner": 209
@@ -299668,7 +300060,71 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 258,
+        "line": 288,
+        "column": 30,
+        "name": "freeze",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 289,
+        "column": 4,
+        "name": "map",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 290,
+        "column": 6,
+        "name": "freeze",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 294,
+        "column": 6,
+        "name": "freeze",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 298,
+        "column": 32,
+        "name": "freeze",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 299,
+        "column": 10,
+        "name": "slice",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 299,
+        "column": 10,
+        "name": "filter",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 302,
+        "column": 16,
+        "name": "findIndex",
+        "owner": 209
+      },
+      {
+        "code": "unknown-handle-origin",
+        "path": "src/broker/portable-reconciliation-projection.mjs",
+        "line": 308,
         "column": 9,
         "name": "freeze",
         "owner": 209
@@ -299676,7 +300132,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 261,
+        "line": 311,
         "column": 19,
         "name": "freeze",
         "owner": 209
@@ -299684,7 +300140,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 262,
+        "line": 312,
         "column": 13,
         "name": "freeze",
         "owner": 209
@@ -299692,7 +300148,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 263,
+        "line": 313,
         "column": 15,
         "name": "freeze",
         "owner": 209
@@ -299700,7 +300156,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 264,
+        "line": 314,
         "column": 28,
         "name": "freeze",
         "owner": 209
@@ -299708,7 +300164,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation-projection.mjs",
-        "line": 265,
+        "line": 315,
         "column": 25,
         "name": "freeze",
         "owner": 209
@@ -299772,7 +300228,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 105,
+        "line": 107,
         "column": 51,
         "name": "values",
         "owner": 169
@@ -299780,7 +300236,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 127,
+        "line": 129,
         "column": 10,
         "name": "close",
         "owner": 169
@@ -299788,7 +300244,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 133,
+        "line": 135,
         "column": 36,
         "name": "close",
         "owner": 169
@@ -299796,7 +300252,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 140,
+        "line": 142,
         "column": 9,
         "name": "freeze",
         "owner": 169
@@ -299804,7 +300260,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 147,
+        "line": 149,
         "column": 6,
         "name": "join",
         "owner": 169
@@ -299812,7 +300268,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 147,
+        "line": 149,
         "column": 6,
         "name": "sort",
         "owner": 169
@@ -299820,7 +300276,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 147,
+        "line": 149,
         "column": 6,
         "name": "keys",
         "owner": 169
@@ -299828,7 +300284,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 163,
+        "line": 165,
         "column": 5,
         "name": "some",
         "owner": 169
@@ -299836,7 +300292,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 169,
+        "line": 171,
         "column": 19,
         "name": "get",
         "owner": 169
@@ -299844,7 +300300,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 213,
+        "line": 215,
         "column": 15,
         "name": "filter",
         "owner": 169
@@ -299852,7 +300308,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 213,
+        "line": 215,
         "column": 20,
         "name": "values",
         "owner": 169
@@ -299860,7 +300316,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 216,
+        "line": 218,
         "column": 2,
         "name": "push",
         "owner": 169
@@ -299868,7 +300324,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 217,
+        "line": 219,
         "column": 16,
         "name": "filter",
         "owner": 169
@@ -299876,7 +300332,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 217,
+        "line": 219,
         "column": 16,
         "name": "flatMap",
         "owner": 169
@@ -299884,7 +300340,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 220,
+        "line": 222,
         "column": 20,
         "name": "filter",
         "owner": 169
@@ -299892,7 +300348,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 222,
+        "line": 224,
         "column": 7,
         "name": "some",
         "owner": 169
@@ -299900,7 +300356,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 238,
+        "line": 242,
         "column": 8,
         "name": "close",
         "owner": 169
@@ -299908,7 +300364,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 244,
+        "line": 248,
         "column": 2,
         "name": "set",
         "owner": 169
@@ -299916,7 +300372,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 254,
+        "line": 258,
         "column": 6,
         "name": "join",
         "owner": 169
@@ -299924,7 +300380,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 254,
+        "line": 258,
         "column": 6,
         "name": "sort",
         "owner": 169
@@ -299932,7 +300388,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 254,
+        "line": 258,
         "column": 6,
         "name": "keys",
         "owner": 169
@@ -299940,7 +300396,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 256,
+        "line": 260,
         "column": 17,
         "name": "get",
         "owner": 169
@@ -299948,7 +300404,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 268,
+        "line": 272,
         "column": 17,
         "name": "get",
         "owner": 169
@@ -299956,7 +300412,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 275,
+        "line": 279,
         "column": 19,
         "name": "get",
         "owner": 169
@@ -299964,7 +300420,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 293,
+        "line": 297,
         "column": 25,
         "name": "values",
         "owner": 169
@@ -299972,7 +300428,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 331,
+        "line": 335,
         "column": 6,
         "name": "join",
         "owner": 169
@@ -299980,7 +300436,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 331,
+        "line": 335,
         "column": 6,
         "name": "sort",
         "owner": 169
@@ -299988,7 +300444,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 331,
+        "line": 335,
         "column": 6,
         "name": "keys",
         "owner": 169
@@ -299996,7 +300452,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 386,
+        "line": 390,
         "column": 23,
         "name": "freeze",
         "owner": 169
@@ -300004,7 +300460,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 393,
+        "line": 397,
         "column": 16,
         "name": "close",
         "owner": 169
@@ -300012,7 +300468,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 395,
+        "line": 399,
         "column": 10,
         "name": "delete",
         "owner": 169
@@ -300020,7 +300476,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 398,
+        "line": 402,
         "column": 6,
         "name": "set",
         "owner": 169
@@ -300028,7 +300484,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 399,
+        "line": 403,
         "column": 6,
         "name": "add",
         "owner": 169
@@ -300036,7 +300492,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 405,
+        "line": 409,
         "column": 14,
         "name": "close",
         "owner": 169
@@ -300044,7 +300500,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 408,
+        "line": 412,
         "column": 10,
         "name": "delete",
         "owner": 169
@@ -300052,7 +300508,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 418,
+        "line": 422,
         "column": 16,
         "name": "join",
         "owner": 169
@@ -300060,7 +300516,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 418,
+        "line": 422,
         "column": 16,
         "name": "sort",
         "owner": 169
@@ -300068,7 +300524,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 418,
+        "line": 422,
         "column": 16,
         "name": "keys",
         "owner": 169
@@ -300076,7 +300532,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 424,
+        "line": 428,
         "column": 29,
         "name": "readSnapshot",
         "owner": 169
@@ -300084,7 +300540,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 425,
+        "line": 429,
         "column": 6,
         "name": "push",
         "owner": 169
@@ -300092,7 +300548,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 439,
+        "line": 443,
         "column": 2,
         "name": "push",
         "owner": 169
@@ -300100,7 +300556,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 444,
+        "line": 448,
         "column": 9,
         "name": "freeze",
         "owner": 169
@@ -300108,7 +300564,7 @@
       {
         "code": "unknown-handle-origin",
         "path": "src/broker/portable-reconciliation.mjs",
-        "line": 448,
+        "line": 452,
         "column": 28,
         "name": "freeze",
         "owner": 169

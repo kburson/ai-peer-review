@@ -7,12 +7,17 @@ import { packRuntime } from './runtime-package.mjs';
 import { readdirSync, lstatSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { runNpm } from './npm-command.mjs';
-export async function authorityInstalledFixture(t, { nativeSecurity = true } = {}) {
+export async function authorityInstalledFixture(
+  t,
+  { nativeSecurity = true, activatePrimary = true } = {}
+) {
   const f = await setupHostFixture(t);
-  await f.setupApply({ agents: nativeSecurity ? ['codex'] : ['grok'] });
-  f.git('add', '.');
-  f.git('commit', '-m', 'activate fixture policy');
-  await f.core.activate({ cwd: f.root });
+  if (activatePrimary) {
+    await f.setupApply({ agents: nativeSecurity ? ['codex'] : ['grok'] });
+    f.git('add', '.');
+    f.git('commit', '-m', 'activate fixture policy');
+    await f.core.activate({ cwd: f.root });
+  }
   // Use the genuine installed artifact and nested global dependency closure.
   // Ancestor source dependency links cannot stand in for selected runtime bytes.
   const { tarball } = packRuntime(t);
