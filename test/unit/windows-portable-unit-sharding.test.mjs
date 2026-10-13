@@ -510,3 +510,14 @@ test('primary operation controls execute once in the serial portable authority l
   assert.equal(lanes.length, 1);
   assert.equal(lanes[0].name, 'authority');
 });
+
+// @story #209
+// Preserve every slow stock C1 control while avoiding the overloaded identity lane.
+test('preservation controls execute once in the lighter serial selection lane', () => {
+  const file = 'test/unit/portable-reconciliation-preservation.test.mjs';
+  const plan = classifySuiteFiles([file]);
+  const lanes = plan.windowsPortableShards.filter(({ files }) => files.includes(file));
+  assert.equal(lanes.length, 1);
+  assert.equal(lanes[0].name, 'selection');
+  assert.equal(plan.excluded.includes(file), false);
+});

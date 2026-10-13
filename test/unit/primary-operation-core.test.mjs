@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
+import { setImmediate as drainCallbackContinuation } from 'node:timers/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
@@ -95,11 +96,23 @@ test('omitted fixture scope remains unscoped and history operations never enter 
     assert.equal(trace.includes('scope'), false);
   }
 });
-async function owned(t, { initial = false, mutateAfter = false, failAssert = false } = {}) {
+async function owned(
+  t,
+  { initial = false, mutateAfter = false, failAssert = false, afterCallback, onCommitted } = {}
+) {
   const cleanup = { selection: null, scope: null };
+  const trace = {
+    context: null,
+    callbackSettled: false,
+    finalizerReached: false,
+    mutationApplied: false,
+  };
+  let callbackSettlement = Promise.resolve();
   // Discharge real retained resources before fixture directories are removed,
   // including when an assertion or the original operation deadline fails.
   t.after(async () => {
+    await callbackSettlement;
+    await drainCallbackContinuation();
     await cleanup.selection?.retryCleanup();
     await cleanup.scope?.retryCleanup();
     await retryPrimaryMaintenanceCleanup();
@@ -120,6 +133,7 @@ async function owned(t, { initial = false, mutateAfter = false, failAssert = fal
   // have their own controls; this fixture proves primary effect ordering.
   const scope = createSelectionReadScope({
     finalize() {
+      trace.finalizerReached = true;
       assert.ok(
         readFileSync(selectionFile).equals(selectedBytes),
         'unverified fixture selection changed at scope completion'
@@ -149,30 +163,56 @@ async function owned(t, { initial = false, mutateAfter = false, failAssert = fal
     // operation. No fixture result supplies installed admission authority.
     admit: async () => {},
     selectionScope: (original, callback) =>
-      scope.run(original, async (sink) => {
-        const observing = {
-          ...sink,
-          possible() {
-            effect = 'unknown';
-            sink.possible();
-          },
-          committed(actualReceipt, actualResult) {
-            sink.committed(actualReceipt, actualResult);
-            effect = 'committed';
-            receipt = actualReceipt;
-            result = actualResult;
-          },
-        };
-        const value = await callback(observing);
-        if (mutateAfter) {
-          const value = JSON.parse(readFileSync(selectionFile));
-          value.selection_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-          writeFileSync(selectionFile, JSON.stringify(value));
-        }
-        return value;
+      scope.run(original, (sink) => {
+        trace.context = original;
+        const actual = (async () => {
+          try {
+            const observing = {
+              ...sink,
+              possible() {
+                effect = 'unknown';
+                sink.possible();
+              },
+              committed(actualReceipt, actualResult) {
+                sink.committed(actualReceipt, actualResult);
+                effect = 'committed';
+                receipt = actualReceipt;
+                result = actualResult;
+                onCommitted?.(original);
+              },
+            };
+            const value = await callback(observing);
+            if (mutateAfter) {
+              trace.mutationApplied = true;
+              const value = JSON.parse(readFileSync(selectionFile));
+              value.selection_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+              writeFileSync(selectionFile, JSON.stringify(value));
+            }
+            return value;
+          } finally {
+            if (afterCallback) await afterCallback(original);
+            trace.callbackSettled = true;
+          }
+        })();
+        callbackSettlement = actual.then(
+          () => {},
+          () => {}
+        );
+        return actual;
       }),
   });
-  return { project, core, effect: () => effect, retained: () => ({ receipt, result }) };
+  return {
+    project,
+    core,
+    scope,
+    trace,
+    waitCallback: async () => {
+      await callbackSettlement;
+      await drainCallbackContinuation();
+    },
+    effect: () => effect,
+    retained: () => ({ receipt, result }),
+  };
 }
 test('actual primary commit persists when final selection closure becomes uncertain', async (t) => {
   const f = await owned(t, { initial: true, mutateAfter: true });
@@ -265,7 +305,7 @@ test('actual receipt write followed by failed activation read-back remains unkno
     infrastructure: 'may-exist',
   });
 });
-test('actual activation remains committed when scope completion rejects changed selection', async (t) => {
+test('actual activation preserves commitment through finalizer refusal or original-budget quiescence refusal', async (t) => {
   const f = await owned(t, { mutateAfter: true });
   await f.project.setupApply();
   f.project.git('add', '.');
@@ -287,12 +327,37 @@ test('actual activation remains committed when scope completion rejects changed 
     ).length,
     1
   );
-  assert.deepEqual(selectionScopeOutcome(failure), {
-    effect: 'committed',
-    completion: 'uncertain',
-    cleanup: 'discharged',
-    infrastructure: 'may-exist',
-  });
+  const outcome = selectionScopeOutcome(failure);
+  if (outcome.cleanup === 'discharged') {
+    assert.equal(f.trace.callbackSettled, true);
+    assert.equal(f.trace.mutationApplied, true);
+    assert.equal(f.trace.finalizerReached, true);
+    assert.deepEqual(outcome, {
+      effect: 'committed',
+      completion: 'uncertain',
+      cleanup: 'discharged',
+      infrastructure: 'may-exist',
+    });
+  } else {
+    // Windows can commit before the original clock refuses a still-pending callback.
+    // Do not claim that changed-selection finalization or resource discharge occurred.
+    assert.equal(failure.details?.reason, 'quiescence-unproved');
+    assert.ok(performance.now() >= f.trace.context.deadline);
+    assert.equal(f.trace.finalizerReached, false);
+    assert.deepEqual(outcome, {
+      effect: 'committed',
+      completion: 'uncertain',
+      cleanup: 'retained',
+      infrastructure: 'may-exist',
+    });
+    assert.throws(() => f.scope.assertRegistrationAllowed(), {
+      code: 'APR_SELECTION_SCOPE_UNAVAILABLE',
+    });
+    await f.waitCallback();
+    assert.equal(f.trace.callbackSettled, true);
+    await f.scope.retryCleanup();
+    f.scope.assertRegistrationAllowed();
+  }
 });
 
 test('CLI scope failure projection reports committed effects and refuses automatic retry without leaking the callback error', async (t) => {
@@ -318,4 +383,53 @@ test('CLI scope failure projection reports committed effects and refuses automat
     'formatting does not replace or mutate the actual exception'
   );
   assert.equal(api.renderSelectionScopeFailure(new Error('private unrelated failure')), null);
+});
+
+// @story #209
+// Controlled pending callback proves the retained branch without a slower CI host.
+test('committed activation retains an aborted original callback until actual settlement', async (t) => {
+  const controller = new AbortController();
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  t.after(() => release());
+  const f = await owned(t, {
+    mutateAfter: true,
+    onCommitted: () => controller.abort(),
+    afterCallback: () => gate,
+  });
+  await f.project.setupApply();
+  f.project.git('add', '.');
+  f.project.git('commit', '-m', 'fixture controlled primary policy');
+  const original = { signal: controller.signal, deadline: performance.now() + 30000 };
+  let failure;
+  try {
+    await f.core.activate({ cwd: f.project.root, ...original });
+  } catch (error) {
+    failure = error;
+  }
+  assert.ok(failure);
+  assert.equal(f.effect(), 'committed');
+  assert.equal(JSON.parse(readFileSync(f.project.registrationPath)).primary_initialized, true);
+  assert.equal(f.trace.context.signal, original.signal);
+  assert.equal(f.trace.context.deadline, original.deadline);
+  assert.equal(f.trace.callbackSettled, false);
+  assert.equal(f.trace.mutationApplied, false);
+  assert.equal(f.trace.finalizerReached, false);
+  assert.deepEqual(selectionScopeOutcome(failure), {
+    effect: 'committed',
+    completion: 'uncertain',
+    cleanup: 'retained',
+    infrastructure: 'may-exist',
+  });
+  assert.throws(() => f.scope.assertRegistrationAllowed(), {
+    code: 'APR_SELECTION_SCOPE_UNAVAILABLE',
+  });
+  release();
+  await f.waitCallback();
+  assert.equal(f.trace.callbackSettled, true);
+  await f.scope.retryCleanup();
+  f.scope.assertRegistrationAllowed();
+  assert.equal(f.trace.context.deadline, original.deadline);
 });

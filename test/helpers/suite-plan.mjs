@@ -20,6 +20,7 @@ function portableUnitGroup(file) {
   )
     return 'authority';
   if (file === 'test/unit/provider-resource-ports.test.mjs') return 'storage';
+  if (file === 'test/unit/portable-reconciliation-preservation.test.mjs') return 'selection';
   if (
     /[\/](?:storage-protection|ownership-election|portable-(?:storage|election)[^\/]*)\.test\.mjs$/.test(
       file
