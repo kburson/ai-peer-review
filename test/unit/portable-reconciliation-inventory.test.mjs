@@ -551,28 +551,38 @@ test('resource namespace binds C3 filenames to the exact root and independent re
   );
 });
 
-test('fixed genuine-path inventory observes ordinary project stores and rejects an added orphan', async (t) => {
+// Explicit maintenance prepares C1 stores before each independent startup observation.
+// No bound paths, inventory, signal or deadline are renewed within a control.
+async function genuineInventoryFixture(t, { initialOwner = true } = {}) {
   const api = await import('../../src/broker/portable-reconciliation-inventory.mjs');
   const election = await import('../../src/broker/ownership-election.mjs');
   const project = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-fixed-inventory-209-')));
   const base = path.join(project, '.scratch', 'peer-review');
   await mkdir(base, { recursive: true, mode: 0o755 });
   await mkdir(path.join(base, 'retained-review'), { mode: 0o755 });
-  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
-  const held = { paths: null, observed: null };
+  const held = { paths: null, observed: null, guards: [] };
   t.after(async () => {
+    for (const guard of held.guards ?? []) await guard.close();
     await held.observed?.close();
     await held.paths?.close();
     await rm(project, { recursive: true, force: true });
   });
+  const maintenance = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
   const privateReceipt = await provisionProtectedRoot({
     root: path.join(base, 'private'),
-    ...context,
+    ...maintenance,
   });
   const runtimeReceipt = await provisionProtectedRoot({
     root: path.join(base, 'runtime'),
-    ...context,
+    ...maintenance,
   });
+  const privateGuard = await openProtectedRoot({ receipt: privateReceipt, ...maintenance });
+  try {
+    if (initialOwner) await privateGuard.writeExclusive('owner.json', Buffer.from('{}\n'));
+  } finally {
+    await privateGuard.close();
+  }
+  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
   const paths = await election.bindOwnerElectionPaths({
     receipt: privateReceipt,
     effectReceipts: [runtimeReceipt],
@@ -582,40 +592,63 @@ test('fixed genuine-path inventory observes ordinary project stores and rejects 
   held.paths = paths;
   const observed = await api.observeReconciliationInventory({ paths, ...context });
   held.observed = observed;
-  assert.equal(observed.verified, false);
-  await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+  return { api, base, project, context, paths, observed, privateReceipt, held };
+}
+
+test('fixed genuine-path inventory observes ordinary stores and delegates C4-owned bytes', async (t) => {
+  const { api, base, project, context, paths, observed } = await genuineInventoryFixture(t);
   const data = await api.readReconciliationInventory({ observation: observed, paths, ...context });
+  assert.equal(observed.verified, false);
   assert.equal(data.project.physicalRoot, project);
-  // This read-only observer delegates C4-owned bytes to the genuine owner layer;
-  // these fixture bytes never mint an owner or source/election capability.
-  const privateGuard = await openProtectedRoot({ receipt: privateReceipt, ...context });
-  t.after(() => privateGuard.close());
-  await privateGuard.writeExclusive('owner.json', Buffer.from('{}\n'));
+  // In-place fixture content change preserves the genuine C1 file ACL; these bytes never
+  // mint a C4 owner, election or source capability. C4 independently owns their generation.
+  await writeFile(path.join(base, 'private', 'owner.json'), '{"changed":true}\n');
   await api.assertReconciliationInventory({ observation: observed, paths, ...context });
-  await privateGuard.writeExclusive('alien.json', Buffer.from('{}\n'));
+});
+
+test('fixed genuine-path inventory delegates a newly created C4-owned file within its original context', async (t) => {
+  const { api, context, paths, observed, privateReceipt, held } = await genuineInventoryFixture(t, {
+    initialOwner: false,
+  });
+  const writer = await openProtectedRoot({ receipt: privateReceipt, ...context });
+  held.guards.push(writer);
+  await writer.writeExclusive('owner.json', Buffer.from('{}\n'));
+  await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+  assert.equal(observed.verified, false);
+});
+
+test('fixed genuine-path inventory refuses an unknown private child before reconciliation', async (t) => {
+  const { api, base, context, paths, observed } = await genuineInventoryFixture(t);
+  // An unprotected unknown entry is deliberately not an authorized C1 writer result.
+  await writeFile(path.join(base, 'private', 'alien.json'), '{}\n');
   await assert.rejects(
     () => api.assertReconciliationInventory({ observation: observed, paths, ...context }),
     (error) => error.details?.reason === 'reconciliation-namespace-unproved'
   );
-  await rm(path.join(base, 'private', 'alien.json'));
+});
+
+test('fixed genuine-path inventory refuses copied observations', async (t) => {
+  const { api, context, paths, observed } = await genuineInventoryFixture(t);
   await assert.rejects(
     () => api.readReconciliationInventory({ observation: { ...observed }, paths, ...context }),
     { code: 'APR_BROKER_STALE' }
   );
-  await writeFile(path.join(base, 'retained-review', 'manual-fence.json'), '{}\n');
-  await assert.rejects(
-    () => api.assertReconciliationExistingEffectScope({ observation: observed, paths, ...context }),
-    (error) => error.details?.reason === 'reconciliation-generation-changed'
-  );
-  await rm(path.join(base, 'retained-review', 'manual-fence.json'));
-  const forEvents = await api.observeReconciliationInventory({ paths, ...context });
-  t.after(() => forEvents.close());
-  await writeFile(path.join(base, 'retained-review', 'events.jsonl'), '{}\n');
-  await assert.rejects(
-    () =>
-      api.assertReconciliationExistingEffectScope({ observation: forEvents, paths, ...context }),
-    (error) => error.details?.reason === 'reconciliation-generation-changed'
-  );
+});
+
+for (const name of ['manual-fence.json', 'events.jsonl']) {
+  test('fixed genuine-path inventory retains changed ' + name, async (t) => {
+    const { api, base, context, paths, observed } = await genuineInventoryFixture(t);
+    await writeFile(path.join(base, 'retained-review', name), '{}\n');
+    await assert.rejects(
+      () =>
+        api.assertReconciliationExistingEffectScope({ observation: observed, paths, ...context }),
+      (error) => error.details?.reason === 'reconciliation-generation-changed'
+    );
+  });
+}
+
+test('fixed genuine-path inventory refuses an added orphan', async (t) => {
+  const { api, base, context, paths, observed } = await genuineInventoryFixture(t);
   await mkdir(path.join(base, 'new-orphan'), { mode: 0o755 });
   await assert.rejects(
     () => api.assertReconciliationInventory({ observation: observed, paths, ...context }),

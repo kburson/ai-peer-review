@@ -183,3 +183,18 @@ test('[#187] actual suite runner executes each active disposable fixture once', 
     'runtime-selection',
   ]);
 });
+
+// @story #209
+// The engine observer must run in its own process, without ordinary suite fan-out.
+test('inspector attribution keeps every control in an isolated unit process', async () => {
+  const { classifySuiteFiles } = await import('../helpers/suite-plan.mjs');
+  const inspector = 'test/unit/selection-attribution.test.mjs';
+  const ordinary = 'test/unit/format.test.mjs';
+  const plan = classifySuiteFiles([inspector, ordinary]);
+  const groups = plan.groups.filter(({ files }) => files.includes(inspector));
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].files, [inspector]);
+  assert.equal(plan.excluded.includes(inspector), false);
+  const lanes = plan.windowsPortableShards.filter(({ files }) => files.includes(inspector));
+  assert.equal(lanes.length, 1);
+});

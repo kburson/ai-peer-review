@@ -6,6 +6,7 @@ export const WINDOWS_PORTABLE_UNIT_GROUPS = Object.freeze([
   'storage',
   'identity',
 ]);
+const INSPECTOR_ATTRIBUTION = 'test/unit/selection-attribution.test.mjs';
 export const RUNTIME_SELECTION_AGGREGATE = 'test/unit/runtime-selection.test.mjs';
 export function runtimeSelectionCaseFile(group) {
   if (!WINDOWS_PORTABLE_UNIT_GROUPS.includes(group)) throw new Error('Unknown portable unit group');
@@ -20,7 +21,11 @@ function portableUnitGroup(file) {
   )
     return 'authority';
   if (file === 'test/unit/provider-resource-ports.test.mjs') return 'storage';
-  if (file === 'test/unit/portable-reconciliation-preservation.test.mjs') return 'selection';
+  if (
+    file === 'test/unit/portable-reconciliation-preservation.test.mjs' ||
+    file === INSPECTOR_ATTRIBUTION
+  )
+    return 'selection';
   if (
     /[\/](?:storage-protection|ownership-election|portable-(?:storage|election)[^\/]*)\.test\.mjs$/.test(
       file
@@ -36,6 +41,7 @@ export function classifySuiteFiles(discovered) {
   const portable = discovered.filter(
     (file) =>
       file === 'test/unit/ci-native-build-policy.test.mjs' ||
+      file === INSPECTOR_ATTRIBUTION ||
       file === 'test/unit/provider-resource-ports.test.mjs' ||
       file === 'test/unit/primary-operation-core.test.mjs' ||
       file === 'test/unit/runtime-selection.test.mjs' ||
@@ -56,7 +62,8 @@ export function classifySuiteFiles(discovered) {
   );
   const groups = [
     { files: ordinary, filtered: true },
-    { files: portable, filtered: false },
+    { files: portable.filter((file) => file !== INSPECTOR_ATTRIBUTION), filtered: false },
+    { files: portable.filter((file) => file === INSPECTOR_ATTRIBUTION), filtered: false },
   ].filter((group) => group.files.length);
   const windowsPortableShards = WINDOWS_PORTABLE_UNIT_GROUPS.map((name) => ({
     name,
