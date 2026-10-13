@@ -1,7 +1,7 @@
 // @story #134
 import { userInfo } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { assertSelectedRuntime } from './runtime-selection.mjs';
+import { assertSelectedRuntime, withSelectionReadScope } from './runtime-selection.mjs';
 import { createPrimaryMaintenance } from './primary-maintenance.mjs';
 import { resolvePrimaryAuthoritySync } from './primary-authority.mjs';
 import { assertIntegrationCurrent } from './integration-contract.mjs';
@@ -12,6 +12,7 @@ function maintenance() {
     packageRoot,
     home: userInfo().homedir,
     admit: assertSelectedRuntime,
+    selectionScope: withSelectionReadScope,
     integrationContract: INTEGRATION_CONTRACT,
   });
 }
@@ -20,6 +21,15 @@ export async function registerPrimary(options = {}) {
 }
 export async function activatePrimaryPolicy(options = {}) {
   return maintenance().activate(options);
+}
+export async function preserveHistory(options = {}) {
+  return maintenance().preserveHistory(options);
+}
+export async function holdReview(options = {}) {
+  return maintenance().holdReview(options);
+}
+export async function releaseReview(options = {}) {
+  return maintenance().releaseReview(options);
 }
 export async function inspectPrimary({ cwd = process.cwd() } = {}) {
   const runtime = await assertSelectedRuntime();

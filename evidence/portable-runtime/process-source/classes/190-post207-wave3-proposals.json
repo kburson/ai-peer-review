@@ -1,0 +1,39 @@
+{
+  "schema": "ai-peer-review.process-source-class-proposals/v1",
+  "proposals": [
+    {
+      "schema": "ai-peer-review.process-source-class-proposal/v1",
+      "capability": "absence",
+      "scope": {
+        "platform": "win32",
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [24],
+        "probe": {
+          "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "visibility": "local-cim-query",
+          "errorContract": "completed-cim-query-v1",
+          "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+        }
+      },
+      "contractDigest": "sha256:340ece55ae98dcd5a8fb9cdd85b16138b0d0db3bcf44e55c13dc25b357dedb25",
+      "semantics": "windows-cim-completed-v1",
+      "precision": "not-applicable",
+      "evidenceDigests": [
+        "sha256:bc6fbc0bce53de2c6986072d7f8f25afaa149ed3eb08dd1e43c3d3263e254bd4"
+      ],
+      "registrationRevision": "6f736f944b520733f1a0faa1ad935ea0b208b4fd",
+      "registrationIndexDigest": "sha256:a8c400d2c36ec2ad55217734ad52a03ba85153337808727033b673866ca56911",
+      "packageProvenance": [
+        {
+          "schema": "ai-peer-review.process-source-package/v1",
+          "sourceCommit": "2a6adf5b057084ada54ca0708e0a0f02482ce85a",
+          "tarballDigest": "sha256:5d96830e4748ef8327a1ab6e5f7462e2350b4281f605bae191179d104259c9a9",
+          "inventoryDigest": "sha256:4cf3ce9016236a00eda5cd31c86d1ac98b87768ec35e3e7c51f7961205d4a0f2",
+          "contractDigest": "sha256:340ece55ae98dcd5a8fb9cdd85b16138b0d0db3bcf44e55c13dc25b357dedb25"
+        }
+      ],
+      "classId": "source-e70fc2c68d373f60e400ef7057a3f161"
+    }
+  ]
+}

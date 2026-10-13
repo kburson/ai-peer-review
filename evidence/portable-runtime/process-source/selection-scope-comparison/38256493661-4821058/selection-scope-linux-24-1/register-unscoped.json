@@ -1,0 +1,214 @@
+{
+  "schema": "ai-peer-review.selection-scope-comparison/v1",
+  "verified": false,
+  "operationalAuthority": "unavailable",
+  "mode": "unscoped",
+  "matchingAdmissions": 16,
+  "otherCalls": 0,
+  "originalContexts": 1,
+  "acquisitions": 16,
+  "freshSnapshots": 32,
+  "descriptorsClosed": 16,
+  "unavailable": 0,
+  "observerExitObserved": true,
+  "operationExitObserved": true,
+  "comparisonMatched": true,
+  "guaranteedStartupSavingMs": 0,
+  "operation": "register",
+  "sources": {
+    "src/config/runtime-selection-core.mjs": "3bc39b54d866e6dbebfefb7bdeaef742f56b73e9c139f35c9865a0abdf67c98d",
+    "src/config/primary-maintenance.mjs": "fa730fa87533a5adeac28f9825c656b88e92922aeeea655afd73b1c1b2fec717"
+  },
+  "operationError": null,
+  "classification": "matched",
+  "currentSourceAdmissionObserved": true,
+  "fixtureCleanup": "unproved",
+  "observations": [
+    {
+      "kind": "original",
+      "context": 1,
+      "caller": "original"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    },
+    {
+      "kind": "selection",
+      "context": 1,
+      "caller": "assertSelected"
+    }
+  ],
+  "coverage": {
+    "sourceSha256": "ae318643b6d5d27a72eeb653d55f6737bc035a683dd3b7c08fb7409c88992c0d",
+    "counters": [
+      {
+        "name": "inspectAncestors",
+        "startOffset": 24721,
+        "endOffset": 26990,
+        "count": 396
+      },
+      {
+        "name": "inspect",
+        "startOffset": 26992,
+        "endOffset": 29919,
+        "count": 392
+      },
+      {
+        "name": "observeStorageProtection",
+        "startOffset": 32975,
+        "endOffset": 33582,
+        "count": 22
+      },
+      {
+        "name": "prepareParent",
+        "startOffset": 33583,
+        "endOffset": 34256,
+        "count": 2
+      },
+      {
+        "name": "provisionProtectedRoot",
+        "startOffset": 34264,
+        "endOffset": 35510,
+        "count": 2
+      },
+      {
+        "name": "openProtectedRoot",
+        "startOffset": 36163,
+        "endOffset": 76387,
+        "count": 20
+      },
+      {
+        "name": "verify",
+        "startOffset": 37356,
+        "endOffset": 37857,
+        "count": 208
+      },
+      {
+        "name": "matchFile",
+        "startOffset": 39258,
+        "endOffset": 39751,
+        "count": 77
+      },
+      {
+        "name": "readObserved",
+        "startOffset": 39754,
+        "endOffset": 43085,
+        "count": 59
+      },
+      {
+        "name": "createFile",
+        "startOffset": 43794,
+        "endOffset": 45451,
+        "count": 6
+      },
+      {
+        "name": "writeExclusive",
+        "startOffset": 47306,
+        "endOffset": 47801,
+        "count": 2
+      },
+      {
+        "name": "replace",
+        "startOffset": 49693,
+        "endOffset": 52374,
+        "count": 0
+      },
+      {
+        "name": "readSnapshot",
+        "startOffset": 52378,
+        "endOffset": 53816,
+        "count": 56
+      },
+      {
+        "name": "listOwnedPublications",
+        "startOffset": 54293,
+        "endOffset": 54952,
+        "count": 2
+      },
+      {
+        "name": "createOwnedPublication",
+        "startOffset": 64528,
+        "endOffset": 64650,
+        "count": 1
+      },
+      {
+        "name": "withElectionLease",
+        "startOffset": 71532,
+        "endOffset": 72389,
+        "count": 0
+      }
+    ]
+  }
+}

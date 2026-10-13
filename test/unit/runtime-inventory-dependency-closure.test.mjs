@@ -1,6 +1,6 @@
 // @story #137
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { runtimeFixture } from '../helpers/runtime-selection-fixture.mjs';
@@ -139,6 +139,51 @@ test('carried observation refuses a newly available external optional dependency
     { code: 'APR_RUNTIME_INVENTORY_INVALID' }
   );
   assert.notEqual(observation.inventoryDigest, fresh.inventoryDigest);
+});
+
+test('dependency metadata changed after decoding cannot renew a carried inventory', (t) => {
+  const f = transitiveFixture(t);
+  const observation = verifyRuntimeInventorySync({ packageRoot: f.packageRoot });
+  const file = path.join(f.transitive, 'package.json');
+  const parse = JSON.parse;
+  let changed = false;
+  t.mock.method(JSON, 'parse', (bytes, ...rest) => {
+    const value = parse(bytes, ...rest);
+    if (!changed && value?.name === 'transitive-runtime') {
+      changed = true;
+      writeFileSync(file, readFileSync(file, 'utf8') + ' ');
+    }
+    return value;
+  });
+  assert.throws(
+    () =>
+      verifyRuntimeInventorySync({ packageRoot: f.packageRoot, previousObservation: observation }),
+    { code: 'APR_RUNTIME_INVENTORY_INVALID' }
+  );
+  assert.equal(changed, true);
+});
+
+test('dependency ancestor changed to a link after decoding cannot renew a carried inventory', (t) => {
+  const f = transitiveFixture(t);
+  const observation = verifyRuntimeInventorySync({ packageRoot: f.packageRoot });
+  const parse = JSON.parse;
+  let changed = false;
+  t.mock.method(JSON, 'parse', (bytes, ...rest) => {
+    const value = parse(bytes, ...rest);
+    if (!changed && value?.name === 'transitive-runtime') {
+      changed = true;
+      const moved = path.join(f.root, 'displaced-dependency');
+      renameSync(f.transitive, moved);
+      symlinkSync(moved, f.transitive, process.platform === 'win32' ? 'junction' : 'dir');
+    }
+    return value;
+  });
+  assert.throws(
+    () =>
+      verifyRuntimeInventorySync({ packageRoot: f.packageRoot, previousObservation: observation }),
+    { code: 'APR_RUNTIME_INVENTORY_INVALID' }
+  );
+  assert.equal(changed, true);
 });
 
 // @story #137

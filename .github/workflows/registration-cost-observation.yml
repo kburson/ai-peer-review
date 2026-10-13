@@ -1,0 +1,47 @@
+name: Registration cost observations
+on:
+  push:
+    branches: [codex/190-installed-journeys]
+    paths:
+      - test/helpers/registration-cost-*.mjs
+      - .github/workflows/registration-cost-observation.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cost:
+    name: Original registration counters / Linux / Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: 40a3e279d551719416eb750974fe30d011d6a37a
+          path: .scratch/190-cost-candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: .scratch/190-cost-candidate
+      - run: node test/helpers/warm-packed-cache.mjs
+        working-directory: .scratch/190-cost-candidate
+      - run: node test/helpers/registration-cost-observation.mjs
+      - name: Retain closed observations and incomplete outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registration-cost-linux-${{ matrix.node }}-${{ github.run_attempt }}
+          path: .scratch/190-registration-cost-public/
+          if-no-files-found: error
+          retention-days: 30

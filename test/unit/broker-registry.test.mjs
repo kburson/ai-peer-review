@@ -16,6 +16,7 @@ import { Worker } from 'node:worker_threads';
 
 import { reconcileRegistrations, registerReview } from '../../src/broker/registry.mjs';
 import { pinRuntimeImage, verifyRuntimeImage } from '../../src/broker/runtime-image.mjs';
+import { bootstrapRecord, parseBrokerBootstrapCore } from '../../src/broker/bootstrap-core.mjs';
 import { runNpm } from '../helpers/npm-command.mjs';
 
 const DIGEST_A = 'a'.repeat(64);
@@ -707,3 +708,172 @@ test('reconcileRegistrations refuses a symlinked registration store', async (t) 
     (error) => error.code === 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED'
   );
 });
+
+// #190: actual filesystem image producer, explicitly unverified protocol identity.
+test('actual pinned image serializes only the closed broker descriptor without weakening parsing', (t) => {
+  const value = fixture(t);
+  const project = {
+    ...value.project,
+    tuple: [
+      'ai-peer-review.broker-root/v1',
+      value.project.physicalRoot,
+      null,
+      'unverified-protocol-fixture',
+    ],
+  };
+  const record = bootstrapRecord({
+    project,
+    runtimeImage: value.image,
+    versions: {
+      package_version: '0.4.0',
+      broker_protocol_version: 1,
+      node_major: Number(process.versions.node.split('.')[0]),
+    },
+  });
+  assert.deepEqual(Object.keys(record.runtimeImage).sort(), ['digest', 'nodeExecutable', 'root']);
+  assert.equal(record.runtimeImage.root, value.image.root);
+  assert.equal(record.runtimeImage.nodeExecutable, value.image.nodeExecutable);
+  assert.equal(record.runtimeImage.digest, value.image.digest);
+  assert.equal(verifyRuntimeImage(value.image), true);
+  assert.ok(value.image.files.length > 0);
+  assert.throws(
+    () => parseBrokerBootstrapCore(JSON.stringify({ ...record, runtimeImage: value.image })),
+    (error) => error.code === 'APR_BROKER_START_FAILED'
+  );
+  assert.throws(
+    () =>
+      parseBrokerBootstrapCore(
+        JSON.stringify({ ...record, runtimeImage: { ...record.runtimeImage, injected: true } })
+      ),
+    (error) => error.code === 'APR_BROKER_START_FAILED'
+  );
+});
+
+// @story #207
+// Derived provenance is consumed by the broker ownership snapshot, not historical authority.
+test('historical registration retains exact file provenance for ownership snapshots', async (t) => {
+  const value = fixture(t);
+  const workspace = path.join(
+    value.project.physicalRoot,
+    '.scratch',
+    'peer-review',
+    'reviews',
+    'historical'
+  );
+  mkdirSync(workspace, { recursive: true });
+  const registered = registerReview(
+    { project: value.project, requestDigest: DIGEST_A, workspace, runtime: value.image },
+    value.store
+  );
+  const original = readFileSync(registered.registration_file, 'utf8');
+  rmSync(workspace, { recursive: true });
+  rmSync(value.image.root, { recursive: true });
+  const result = await reconcileRegistrations({
+    project: value.project,
+    store: value.store,
+    isPreservedRegistration: (file) => file === registered.registration_file,
+    isPreserved: (target) => target === workspace,
+    inspectAuthority: async () => {
+      throw Error('Historical authority inspection attempted');
+    },
+  });
+  assert.equal(result.length, 1);
+  assert.equal(
+    path.basename(result[0].registration_file),
+    path.basename(registered.registration_file)
+  );
+  const { registration_file, ...record } = result[0];
+  assert.equal(registration_file, registered.registration_file);
+  assert.equal(JSON.stringify(record) + '\n', original);
+  assert.equal(readFileSync(registered.registration_file, 'utf8'), original);
+});
+
+// @story #207
+test('mixed current and historical registrations keep provenance without inspecting history', async (t) => {
+  const value = fixture(t);
+  const reviewRoot = path.join(value.project.physicalRoot, '.scratch', 'peer-review', 'reviews');
+  const historical = path.join(reviewRoot, 'historical');
+  const current = path.join(reviewRoot, 'current');
+  mkdirSync(historical, { recursive: true });
+  mkdirSync(current, { recursive: true });
+  const old = registerReview(
+    {
+      project: value.project,
+      requestDigest: DIGEST_A,
+      workspace: historical,
+      runtime: value.image,
+    },
+    value.store
+  );
+  const active = registerReview(
+    { project: value.project, requestDigest: DIGEST_B, workspace: current, runtime: value.image },
+    value.store
+  );
+  const originals = new Map(
+    [old, active].map((r) => [r.registration_file, readFileSync(r.registration_file, 'utf8')])
+  );
+  rmSync(historical, { recursive: true });
+  const inspected = new Set();
+  const result = await reconcileRegistrations({
+    project: value.project,
+    store: value.store,
+    isPreservedRegistration: (file) => file === old.registration_file,
+    isPreserved: (target) => target === historical,
+    inspectAuthority: async ({ workspace }) => {
+      assert.equal(workspace, current);
+      inspected.add(workspace);
+      return {
+        status: 'active',
+        workspace,
+        request_digest: DIGEST_B,
+        runtime_digest: value.image.digest,
+        event_authority: 'exact',
+        output_reservation: 'exact',
+      };
+    },
+  });
+  assert.equal(result.length, 2);
+  assert.deepEqual([...inspected], [current]);
+  for (const entry of result) {
+    const expected = entry.workspace === historical ? old : active;
+    assert.equal(path.basename(entry.registration_file), path.basename(expected.registration_file));
+    const { registration_file, ...record } = entry;
+    assert.equal(JSON.stringify(record) + '\n', originals.get(registration_file));
+    assert.equal(readFileSync(registration_file, 'utf8'), originals.get(registration_file));
+  }
+});
+for (const mutation of ['unknown-key', 'mismatched-file-id']) {
+  test('historical registration still refuses invalid closed identity: ' + mutation, async (t) => {
+    const value = fixture(t);
+    const workspace = path.join(
+      value.project.physicalRoot,
+      '.scratch',
+      'peer-review',
+      'reviews',
+      'historical'
+    );
+    mkdirSync(workspace, { recursive: true });
+    const registered = registerReview(
+      { project: value.project, requestDigest: DIGEST_A, workspace, runtime: value.image },
+      value.store
+    );
+    const record = JSON.parse(readFileSync(registered.registration_file, 'utf8'));
+    if (mutation === 'unknown-key') record.foreign = true;
+    else record.review_id = 'different-history-id';
+    const bytes = JSON.stringify(record) + '\n';
+    writeFileSync(registered.registration_file, bytes);
+    await assert.rejects(
+      reconcileRegistrations({
+        project: value.project,
+        store: value.store,
+        isPreservedRegistration: (file) => file === registered.registration_file,
+        isPreserved: (target) => target === workspace,
+        inspectAuthority: async () => {
+          throw Error('Historical authority inspection attempted');
+        },
+      }),
+      (error) => error.code === 'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED'
+    );
+    assert.equal(readFileSync(registered.registration_file, 'utf8'), bytes);
+  });
+}

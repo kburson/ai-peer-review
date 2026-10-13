@@ -1,0 +1,73 @@
+{
+  "schema": "ai-peer-review.process-source-class-proposals/v1",
+  "proposals": [
+    {
+      "schema": "ai-peer-review.process-source-class-proposal/v1",
+      "capability": "absence",
+      "scope": {
+        "platform": "darwin",
+        "builds": ["25.6.0"],
+        "architectures": ["arm64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "/bin/ps",
+          "visibility": "same-user-full-selection",
+          "errorContract": "exact-ps-selection-v1",
+          "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+        }
+      },
+      "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22",
+      "semantics": "darwin-ps-selection-v1",
+      "precision": "not-applicable",
+      "evidenceDigests": [
+        "sha256:a37398bee3a8a5490da2debaeeb4023986543bb401ec5eab7cd8e43f533e863f"
+      ],
+      "registrationRevision": "b074e1cfcfc0f373b33ca3d309cca6049d68de4a",
+      "registrationIndexDigest": "sha256:c65732bb9f19cc1fde54c3a8ec3db0e4a5315a044e46576e18f8e7b790e790eb",
+      "packageProvenance": [
+        {
+          "schema": "ai-peer-review.process-source-package/v1",
+          "sourceCommit": "89a2d7dd93b6130b8188d90ed87f06af4e8312ce",
+          "tarballDigest": "sha256:06f2a3d86fb62751e78c728bbc2145d96b2521caa7494e3093b5462a5b406b35",
+          "inventoryDigest": "sha256:0599455245de5bac7190cb16fdf583c55ec30ec952c81d8e021ea32df90d3aa3",
+          "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22"
+        }
+      ],
+      "classId": "source-9e13379abf95f7a2e94fb2add4e03f7c"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class-proposal/v1",
+      "capability": "absence",
+      "scope": {
+        "platform": "win32",
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "visibility": "local-cim-query",
+          "errorContract": "completed-cim-query-v1",
+          "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+        }
+      },
+      "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22",
+      "semantics": "windows-cim-completed-v1",
+      "precision": "not-applicable",
+      "evidenceDigests": [
+        "sha256:0267832243afdb464a831682f834b5892a1b49d5bb141618ad1f37f6bee4109d"
+      ],
+      "registrationRevision": "b074e1cfcfc0f373b33ca3d309cca6049d68de4a",
+      "registrationIndexDigest": "sha256:c65732bb9f19cc1fde54c3a8ec3db0e4a5315a044e46576e18f8e7b790e790eb",
+      "packageProvenance": [
+        {
+          "schema": "ai-peer-review.process-source-package/v1",
+          "sourceCommit": "89a2d7dd93b6130b8188d90ed87f06af4e8312ce",
+          "tarballDigest": "sha256:a06c5e57c252f690349d48abecd4eed28cde07e855d0cf4116c047ddee1a332f",
+          "inventoryDigest": "sha256:0599455245de5bac7190cb16fdf583c55ec30ec952c81d8e021ea32df90d3aa3",
+          "contractDigest": "sha256:a3c54de6bcdfad324577850e29c2f2ab4b809a74ea6f5c9a0de4e9afa6d38f22"
+        }
+      ],
+      "classId": "source-f72360e82bcce8a3be29b5e883a927ad"
+    }
+  ]
+}

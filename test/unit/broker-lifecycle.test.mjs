@@ -128,6 +128,46 @@ function brokerInput({ clock, server, registrations = [], workers = new Map(), i
   };
 }
 
+test('preserved obsolete registrations do not restore workers or prevent broker stop', async () => {
+  const clock = fakeClock();
+  const server = fakeServer();
+  const item = registration('obsolete');
+  const input = brokerInput({ clock, server, registrations: [item] });
+  input.isPreserved = (workspace) => workspace === item.workspace;
+  input.workerFactory = () => {
+    throw new Error('Historical provider execution attempted');
+  };
+  const running = runBroker(input);
+  await Promise.race([server.lifecycleReady, running]);
+  assert.equal((await server.request({ id: 'status', command: 'status' })).reviews, 0);
+  assert.equal((await server.request({ id: 'stop', command: 'stop' })).status, 'stopping');
+  await running;
+  assert.equal(input.registry.list().length, 1, 'historical registration remains preserved');
+});
+
+test('awaited history lookup restores current workers and excludes only preserved attempts', async () => {
+  const server = fakeServer();
+  const current = registration('current');
+  const obsolete = registration('obsolete');
+  const worker = fakeWorker();
+  const input = brokerInput({
+    clock: fakeClock(),
+    server,
+    registrations: [current, obsolete],
+    workers: new Map([[current.review_id, worker]]),
+  });
+  input.isPreserved = async (workspace) => workspace === obsolete.workspace;
+  const running = runBroker(input);
+  await Promise.race([server.lifecycleReady, running]);
+  const status = await server.request({ id: 'status', command: 'status' });
+  await server.request({ id: 'stop', command: 'stop' });
+  await running;
+  assert.equal(status.reviews, 0, 'terminal current worker settles before status');
+  assert.ok(worker.calls.includes('start'));
+  assert.ok(worker.calls.includes('close'));
+  assert.equal(input.registry.list().length, 2);
+});
+
 test('installed recovery-only broker worker refuses launch before provider action', async () => {
   const clock = fakeClock();
   const server = fakeServer();

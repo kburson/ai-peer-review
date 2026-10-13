@@ -9,7 +9,7 @@ function frozenList(values) {
 }
 
 export const COMMAND_FLAGS = Object.freeze({
-  primary: frozenList(['--dry-run', '--update', '--json']),
+  primary: frozenList(['--dry-run', '--update', '--json', '--reason']),
   'register-runtime': frozenList(['--dry-run', '--update', '--json']),
   setup: frozenList([
     '--agent',
@@ -94,7 +94,8 @@ export const COMMAND_FLAGS = Object.freeze({
 export const COMMANDS = frozenList(Object.keys(COMMAND_FLAGS));
 
 export const COMMAND_USAGE = Object.freeze({
-  primary: 'peer-review primary <register|activate|inspect> [--dry-run] [--update] [--json]',
+  primary:
+    'peer-review primary <register|activate|inspect|preserve-history|hold-review|release-review> [absolute-target] [--reason <text>] [--dry-run] [--update] [--json]',
   'register-runtime': 'peer-review register-runtime [--dry-run] [--update] [--json]',
   setup:
     'peer-review setup [--agent <codex|claude|grok|generic> --scope <user|project> | --update [--scope <user|project>]] [--dry-run] [--remove] [--confirm-scratch-exclude] [--migrate] [--migrate-user] [--json]',
@@ -134,7 +135,7 @@ function grammar(min, max = min) {
 }
 
 export const POSITIONAL_GRAMMAR = Object.freeze({
-  primary: grammar(1),
+  primary: grammar(1, 2),
   'register-runtime': grammar(0),
   setup: grammar(0),
   doctor: grammar(0),
@@ -250,8 +251,25 @@ function validateEnum(options, key, flag, values) {
 
 function validateConstraints(command, args, options) {
   if (command === 'primary') {
-    if (!['register', 'activate', 'inspect'].includes(args[0]))
-      usage('primary requires register, activate, or inspect');
+    if (
+      ![
+        'register',
+        'activate',
+        'inspect',
+        'preserve-history',
+        'hold-review',
+        'release-review',
+      ].includes(args[0])
+    )
+      usage('primary requires a registered maintenance or inspection verb');
+    const targetRequired = ['preserve-history', 'hold-review', 'release-review'].includes(args[0]);
+    if (args.length !== (targetRequired ? 2 : 1))
+      usage('primary verb has an invalid target argument');
+    if (['preserve-history', 'hold-review'].includes(args[0])) {
+      if (typeof options.reason !== 'string' || !options.reason.trim())
+        usage('primary preservation requires a non-empty --reason');
+    } else if (options.reason !== undefined)
+      usage('--reason requires primary preserve-history or hold-review');
     if (options.update && args[0] !== 'register') usage('--update requires primary register');
     if (options.dryRun && args[0] === 'inspect') usage('primary inspect is already read-only');
   }

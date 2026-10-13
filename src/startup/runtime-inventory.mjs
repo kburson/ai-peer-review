@@ -147,17 +147,36 @@ function observeRuntimeInventory({
         previousObservation.manifestIdentity &&
       matchesObservedPaths(previousObservation.directories) &&
       matchesObservedPaths(previousObservation.links) &&
-      matchesObservedPaths(previousObservation.entries) &&
-      matchesObservedPaths(previousObservation.links) &&
-      matchesObservedPaths(previousObservation.directories) &&
-      identity(ordinary(root, 'runtime-inventory.json').stat) ===
-        previousObservation.manifestIdentity
+      matchesObservedPaths(previousObservation.entries)
     ) {
+      // This index contains only authenticated declarations, never cached reads.
+      // Each metadata read checks its leaf generation. The complete ancestor/link
+      // generations are freshly checked around the entire dependency observation.
+      const declaredEntries = new Map(
+        previousObservation.entries.map((entry) => [entry.path, entry])
+      );
+      const metadataEntries = new Map();
       assertRuntimeDependencyClosure(root, {
-        readMetadata: (relative) => JSON.parse(stableBytes(root, relative, 1048576).bytes),
-        isDeclared: (relative) =>
-          previousObservation.entries.some((entry) => entry.path === relative),
+        readMetadata(relative) {
+          const entry = declaredEntries.get(relative);
+          if (!entry) invalid('Runtime dependency metadata is outside the declared inventory.');
+          const file = path.join(root, relative);
+          const bytes = readBoundedOrdinaryFile(file, 1048576);
+          if (identity(lstatSync(file, { bigint: true })) !== entry.identity)
+            invalid('Runtime dependency metadata changed during observation.');
+          metadataEntries.set(relative, entry);
+          return JSON.parse(bytes);
+        },
+        isDeclared: (relative) => declaredEntries.has(relative),
       });
+      if (
+        !matchesObservedPaths([...metadataEntries.values()]) ||
+        !matchesObservedPaths(previousObservation.links) ||
+        !matchesObservedPaths(previousObservation.directories) ||
+        identity(ordinary(root, 'runtime-inventory.json').stat) !==
+          previousObservation.manifestIdentity
+      )
+        invalid('Runtime dependency generations changed during verification.');
       const renewed = Object.freeze({
         ...previousObservation,
         observedAt: new Date().toISOString(),
@@ -217,11 +236,13 @@ function observeRuntimeInventory({
           invalid('Runtime dependency disagrees with its installed metadata.');
       }
     }
-    if (!diagnosticOnly)
+    if (!diagnosticOnly) {
+      const declaredPaths = new Set(entries.map((entry) => entry.path));
       assertRuntimeDependencyClosure(root, {
         readMetadata: (relative) => JSON.parse(stableBytes(root, relative, 1048576).bytes),
-        isDeclared: (relative) => entries.some((entry) => entry.path === relative),
+        isDeclared: (relative) => declaredPaths.has(relative),
       });
+    }
     // Recheck every identity after the whole observation, rejecting mixed replacement.
     for (const entry of entries)
       if (identity(ordinary(root, entry.path).stat) !== entry.identity)

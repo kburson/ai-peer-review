@@ -1,0 +1,31 @@
+{
+  "schema": "ai-peer-review.process-source-approved-ref/v1",
+  "revision": "137c39a97ba20250c3066d1bf5deb85a49a2eae5",
+  "indexDigest": "sha256:35d9e2e2e8b35bae9d688496a92169d15e9de9fab92ff7a806ac9c41d3db2020",
+  "producerVersion": "0.4.1",
+  "review": {
+    "reviewId": "review-37eea1d1f663f58279419be323e11a11",
+    "subject": {
+      "revision": "c6b6485dc17cfc5f632a658bdb50c627a4384c66",
+      "path": "evidence/portable-runtime/process-source/registration-reviews/190-current-wave4.md",
+      "blob": "3942f67518474c6884049faa7340fd57432e1301",
+      "sha256": "803b017f9907ebdc889a635ae4af6e2c8adf212702707c040438c5d110121029"
+    },
+    "manifest": {
+      "revision": "5879d23e38b70f59c71a9ba62bddff7489376018",
+      "path": "docs/superpowers/peer-reviews/190-registration-refresh-wave4/spec/2026-10-11-190-current-wave4-review-37eea1d1f663f58279419be323e11a11/review-37eea1d1f663f58279419be323e11a11-review-manifest.md",
+      "blob": "01a57aed46ebcfcd28e3ae86d772cf4468ea92a5",
+      "sha256": "eae61aa7fbcdd4fcd879b9d01a4dbd047f35d4e705b8b790cbea855d27855641"
+    },
+    "finalResponse": {
+      "revision": "5879d23e38b70f59c71a9ba62bddff7489376018",
+      "path": "docs/superpowers/peer-reviews/190-registration-refresh-wave4/spec/2026-10-11-190-current-wave4-review-37eea1d1f663f58279419be323e11a11/review-37eea1d1f663f58279419be323e11a11-reviewer-response-1.md",
+      "blob": "ad19b73e8105f212caaf31e669398706745133a3",
+      "sha256": "2d538e4a05428b54c4b157583726ce6b9faf7c76dcf078dc64a5c62c199f2b32"
+    },
+    "finalization": {
+      "revision": "5879d23e38b70f59c71a9ba62bddff7489376018",
+      "sha256": "d8a60fbc5b720f29ba357547199793bb6f743964e4ac8ee62403f36d08f5e87f"
+    }
+  }
+}

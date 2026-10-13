@@ -183,3 +183,15 @@ test('public bootstrapRecord remains immutable unverified schema data without gr
   const production = await import('../../src/broker/portable-bootstrap.mjs');
   assert.equal(production.isPortableBrokerBootstrap(value), false);
 });
+
+// @story #190
+test('bootstrap encoding produces bounded UTF-8 bytes accepted by protected storage', () => {
+  assert.equal(typeof api.encodeBrokerBootstrapCore, 'function');
+  const bytes = api.encodeBrokerBootstrapCore(valid());
+  assert.equal(Buffer.isBuffer(bytes), true);
+  assert.deepEqual(JSON.parse(bytes.toString('utf8')), valid());
+  assert.equal(bytes.at(-1), 10);
+  assert.throws(() => api.encodeBrokerBootstrapCore({ ...valid(), credential: 'private' }), {
+    code: 'APR_BROKER_START_FAILED',
+  });
+});

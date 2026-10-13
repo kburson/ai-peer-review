@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { acceptancePendingEvents, v2Event } from '../helpers/review-fixture.mjs';
-import { reduceEvents as historicalReduce } from '../../src/protocol/reducer.mjs';
+import { reduceEvents as currentReduce } from '../../src/protocol/reducer.mjs';
 const api = await import('../../scripts/lib/runtime-review-grammar-v0.4.1.mjs').catch(() => ({}));
 const runtime = () => ({
   schema: 'ai-peer-review.runtime/v1',
@@ -32,13 +32,10 @@ function events() {
   list[0].payload.startup.runtime = runtime();
   return list;
 }
-test('[#144] strict fixed producer grammar replays 0.4.1 author selection without removing fields', () => {
+test('[#144] fixed producer and current compatible reader retain author selection without removing fields', () => {
   const list = events(),
     original = JSON.stringify(list);
-  assert.throws(
-    () => historicalReduce(list),
-    (error) => error.code === 'APR_EVENT_INVALID'
-  );
+  assert.deepEqual(currentReduce(list).protocol.startup.runtime.author, runtime().author);
   const result = api.reduceRuntimeReviewEvents(list, '0.4.1');
   assert.equal(result.protocol.state, 'acceptance-pending');
   assert.deepEqual(result.protocol.startup.runtime.author, runtime().author);

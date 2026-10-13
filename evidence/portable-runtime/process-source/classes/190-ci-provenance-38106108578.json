@@ -1,0 +1,56 @@
+{
+  "schema": "ai-peer-review.process-source-ci-provenance/v1",
+  "verified": false,
+  "repository": "kburson/ai-peer-review",
+  "runId": "38106108578",
+  "runAttempt": "1",
+  "sourceCommit": "7d4223faf123716406c78b4fa9d0ffa553f4c73c",
+  "workflowPath": ".github/workflows/process-source-capture.yml",
+  "event": "workflow_dispatch",
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": "114371881430",
+      "runnerOS": "macOS",
+      "nodeMajor": 24,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": "114371881522",
+      "runnerOS": "Linux",
+      "nodeMajor": 26,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": "114371881544",
+      "runnerOS": "macOS",
+      "nodeMajor": 26,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": "114371881574",
+      "runnerOS": "Windows",
+      "nodeMajor": 24,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": "114371881599",
+      "runnerOS": "Windows",
+      "nodeMajor": 26,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": "114371881608",
+      "runnerOS": "Linux",
+      "nodeMajor": 24,
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ]
+}

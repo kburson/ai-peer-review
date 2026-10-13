@@ -1,0 +1,73 @@
+{
+  "schema": "ai-peer-review.process-source-class-proposals/v1",
+  "proposals": [
+    {
+      "schema": "ai-peer-review.process-source-class-proposal/v1",
+      "capability": "absence",
+      "scope": {
+        "platform": "linux",
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "/proc",
+          "visibility": "full-pid-namespace",
+          "errorContract": "exact-pid-directory-v1",
+          "version": "procfs-v1"
+        }
+      },
+      "contractDigest": "sha256:505bc7fed2cd1b35874ab5bcb30a891f5d96a699fc08fedd932060b3d4601b0e",
+      "semantics": "linux-pid-directory-v1",
+      "precision": "not-applicable",
+      "evidenceDigests": [
+        "sha256:a79b60788a3fee858055f1f005b4409aa4028f8258365027e14ebd16cb75b27a"
+      ],
+      "registrationRevision": "3f8a1176939a3a8cc37e383463ee445892b714a6",
+      "registrationIndexDigest": "sha256:c917fc176d33d2e2d95f2935b0ae22b5e154ee1e6bc00fb5cb5c269ed9f4afa7",
+      "packageProvenance": [
+        {
+          "schema": "ai-peer-review.process-source-package/v1",
+          "sourceCommit": "11c83fa0c1b01448719bbbb336d41296fd17ec91",
+          "tarballDigest": "sha256:7a5417fbd5a0ed142e2550d349f34e370a8b982caf50279bd1aaef95d1c5908a",
+          "inventoryDigest": "sha256:e3c4c6c16b3b74e0a955a913f840f10dbb228be515d1bde2b4ee7a5cd2fb62c3",
+          "contractDigest": "sha256:505bc7fed2cd1b35874ab5bcb30a891f5d96a699fc08fedd932060b3d4601b0e"
+        }
+      ],
+      "classId": "source-8cf5e9d7743ba2bfce5327ec14fce4d2"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class-proposal/v1",
+      "capability": "creation",
+      "scope": {
+        "platform": "linux",
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "/proc",
+          "visibility": "full-pid-namespace",
+          "errorContract": "exact-pid-directory-v1",
+          "version": "procfs-v1"
+        }
+      },
+      "contractDigest": "sha256:505bc7fed2cd1b35874ab5bcb30a891f5d96a699fc08fedd932060b3d4601b0e",
+      "semantics": "linux-start-ticks-v1",
+      "precision": "one-tick",
+      "evidenceDigests": [
+        "sha256:b09a2a9677a33bec4e180c1247279a46a137614f4238a040822d81e470523a87"
+      ],
+      "registrationRevision": "3f8a1176939a3a8cc37e383463ee445892b714a6",
+      "registrationIndexDigest": "sha256:c917fc176d33d2e2d95f2935b0ae22b5e154ee1e6bc00fb5cb5c269ed9f4afa7",
+      "packageProvenance": [
+        {
+          "schema": "ai-peer-review.process-source-package/v1",
+          "sourceCommit": "11c83fa0c1b01448719bbbb336d41296fd17ec91",
+          "tarballDigest": "sha256:7a5417fbd5a0ed142e2550d349f34e370a8b982caf50279bd1aaef95d1c5908a",
+          "inventoryDigest": "sha256:e3c4c6c16b3b74e0a955a913f840f10dbb228be515d1bde2b4ee7a5cd2fb62c3",
+          "contractDigest": "sha256:505bc7fed2cd1b35874ab5bcb30a891f5d96a699fc08fedd932060b3d4601b0e"
+        }
+      ],
+      "classId": "source-a9133fcfc3a3ee8010e49306696e3dc1"
+    }
+  ]
+}

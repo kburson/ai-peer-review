@@ -9,7 +9,9 @@ const text = readFileSync(new URL(relative, import.meta.url), 'utf8');
 const original = JSON.parse(text.match(/^```json\r?\n([\s\S]*?)^```\s*$/m)[1]);
 test('[#144] complete retained normal0.4.1 manifest validates against its exact producer grammar', () => {
   assert.equal(api.validateRuntimeReviewManifest(original, '0.4.1'), true);
-  assert.equal(api.validateRuntimeReviewManifest(original, '0.4.0'), false);
+  assert.equal(api.validateRuntimeReviewManifest(original, '0.4.0'), true);
+  // The current 0.4.0 reader includes #200's closed legacy-author compatibility.
+  // The fixed 0.4.1 evidence profile above still checks immutable producer bytes.
 });
 test('[#144] unknown producer cannot choose a permissive retained manifest profile', () => {
   assert.equal(api.validateRuntimeReviewManifest(original, '0.4.2'), false);

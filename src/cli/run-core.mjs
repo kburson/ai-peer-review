@@ -1,3 +1,4 @@
+import { renderSelectionScopeFailure } from '../config/selection-read-scope.mjs';
 import { registerRuntimeSelection, inspectRuntimeSelection } from '../config/runtime-selection.mjs';
 import { projectPortableBrokerChildDiagnostic } from '../broker/portable-child-failure.mjs';
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
@@ -48,6 +49,9 @@ import {
   registerPrimary,
   activatePrimaryPolicy,
   inspectPrimary,
+  preserveHistory,
+  holdReview,
+  releaseReview,
 } from '../config/primary-operations.mjs';
 import { setup, updateSetup } from '../config/setup.mjs';
 import { assertProjectSetupCompatible } from '../config/installation-identity.mjs';
@@ -58,6 +62,7 @@ import {
   sealResponse as rawSealResponse,
 } from '../collateral/responses.mjs';
 import { AprError } from '../errors.mjs';
+import { currentActor } from '../protocol/reducer.mjs';
 import '../providers/codex.mjs';
 import '../providers/claude.mjs';
 import '../providers/grok.mjs';
@@ -154,6 +159,7 @@ export function createReviewOperations({
   createClaudeStreamingExec,
   createClaudeStreamRecorder = rawCreateClaudeStreamRecorder,
   performCurrentOperationEffect,
+  withReviewOperationAuthority,
   requestGrant,
   runClaudeReviewerLaunch,
   applyReviewRecord,
@@ -164,6 +170,7 @@ export function createReviewOperations({
     !startup ||
     !productionProviderAdapters ||
     typeof createClaudeStreamingExec !== 'function' ||
+    typeof withReviewOperationAuthority !== 'function' ||
     typeof performCurrentOperationEffect !== 'function'
   )
     throw new TypeError('Explicit operation dependencies required');
@@ -2449,11 +2456,8 @@ export function createReviewOperations({
     const absolute = path.resolve(input.workspace);
     const authority = inspectReviewAuthority(absolute);
     let state = authority.state;
-    const role = state.protocol.intervention?.interrupted_state?.startsWith('author')
-      ? 'author'
-      : state.protocol.intervention?.interrupted_state?.startsWith('reviewer')
-        ? 'reviewer'
-        : state.protocol.current_actor;
+    const role =
+      currentActor(state.protocol.intervention?.interrupted_state) ?? state.protocol.current_actor;
     if (!input.reclaim && !input.replaceParticipant) {
       const observed = ['author', 'reviewer'].includes(role)
         ? deriveClaimStatus(state, role, input.now ?? new Date())
@@ -2484,7 +2488,9 @@ export function createReviewOperations({
       if (
         previous &&
         state.protocol.claims[role]?.claim_id === previous.payload.new_claim.claim_id &&
-        previous.payload.new_claim.session_fingerprint === input.identity.session_fingerprint
+        previous.payload.new_claim.session_fingerprint === input.identity.session_fingerprint &&
+        deriveClaimStatus(state, role, input.now ?? new Date()).status === 'active' &&
+        state.protocol.state !== 'intervention-required'
       ) {
         return recoveryResult(state, absolute, {
           mutation: true,
@@ -5175,6 +5181,23 @@ export function createReviewOperations({
     }
   }
 
+  // Bind the exact review before legacy checks or any manual-launch bookkeeping.
+  async function runWithReviewAuthority(argv, io) {
+    try {
+      const parsed = parseCommand(argv);
+      if (parsed.command !== 'launch-reviewer') return run(argv, io);
+      const values = invitationValues(path.resolve(io.cwd, parsed.args[0]));
+      return await withReviewOperationAuthority(
+        { operation: 'launch-reviewer', cwd: io.cwd, reviewWorkspace: values.workspace },
+        () => run(argv, io)
+      );
+    } catch (error) {
+      if (!(error instanceof AprError)) throw error;
+      writeJson(io.stderr, error.toJSON());
+      return error.exitCode;
+    }
+  }
+
   async function run(argv, io) {
     try {
       const parsed = parseCommand(argv);
@@ -5206,13 +5229,21 @@ export function createReviewOperations({
       }
       if (parsed.command === 'primary') {
         const verb = parsed.args[0];
-        const response = await (
-          verb === 'register'
-            ? registerPrimary
-            : verb === 'activate'
-              ? activatePrimaryPolicy
-              : inspectPrimary
-        )({ cwd: io.cwd, dryRun: parsed.options.dryRun, update: parsed.options.update });
+        const operation = {
+          register: registerPrimary,
+          activate: activatePrimaryPolicy,
+          inspect: inspectPrimary,
+          'preserve-history': preserveHistory,
+          'hold-review': holdReview,
+          'release-review': releaseReview,
+        }[verb];
+        const response = await operation({
+          cwd: io.cwd,
+          dryRun: parsed.options.dryRun,
+          update: parsed.options.update,
+          target: parsed.args[1],
+          reason: parsed.options.reason,
+        });
         if (parsed.options.json) writeJson(io.stdout, response);
         else io.stdout.write(JSON.stringify(response, null, 2) + '\n');
         return 0;
@@ -5329,10 +5360,25 @@ export function createReviewOperations({
         };
         if (parsed.options.resume) {
           const current = statusReview(values.workspace, { now: io.now ?? new Date() });
+          const authority = inspectReviewAuthority(values.workspace).state;
+          const staleIntervention =
+            authority.protocol.state === 'intervention-required' &&
+            authority.protocol.intervention?.reason === 'stale-claim' &&
+            authority.protocol.intervention?.interrupted_state === 'reviewer-turn' &&
+            deriveClaimStatus(authority, 'reviewer', io.now ?? new Date()).status === 'stale';
+          const reclaimReviewer =
+            staleIntervention ||
+            (current.state === 'intervention-required' &&
+              current.claim?.role === 'reviewer' &&
+              current.claim?.status === 'stale');
+          const response = staleIntervention
+            ? sealedPaths(authority).paths.reviewerResponse(authority.protocol.turns_used + 1)
+                .absolute
+            : current.paths.response;
           if (
-            current.state !== 'reviewer-turn' ||
+            (current.state !== 'reviewer-turn' && !reclaimReviewer) ||
             current.paths.invitation !== invitation ||
-            typeof current.paths.response !== 'string'
+            typeof response !== 'string'
           ) {
             throw new AprError(
               'APR_CLAUDE_SESSION_INVALID',
@@ -5340,7 +5386,7 @@ export function createReviewOperations({
               { recovery: 'Read peer-review status and resume only its pending reviewer turn.' }
             );
           }
-          routing.response = current.paths.response;
+          routing.response = response;
         }
         const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
         const current = inspectReviewAuthority(values.workspace).state;
@@ -5381,11 +5427,6 @@ export function createReviewOperations({
               : {}),
           }),
         });
-        const recorder = createClaudeStreamRecorder({
-          workspace: values.workspace,
-          operationId: `join:${values.reviewId}`,
-          expectedCommand: claudeJoinCommand(contract),
-        });
         const launchDetails = evidence && {
           reviewId: values.reviewId,
           requestDigest: evidence.journal.request_digest,
@@ -5402,6 +5443,7 @@ export function createReviewOperations({
         const operation =
           evidence &&
           (await reserveManualLaunch(values.workspace, launchDetails, {
+            effect: performCurrentOperationEffect,
             verifyAuthority() {
               const fresh = inspectReviewAuthority(values.workspace).state;
               const observed = startupEvidence(values.workspace, fresh);
@@ -5410,7 +5452,14 @@ export function createReviewOperations({
                 observed.journal.request_digest !== launchDetails.requestDigest ||
                 observed.recovery.fenced ||
                 observed.recovery.suspending ||
-                !['awaiting-reviewer', 'reviewer-turn'].includes(fresh.protocol.state)
+                (!['awaiting-reviewer', 'reviewer-turn'].includes(fresh.protocol.state) &&
+                  !(
+                    parsed.options.resume &&
+                    fresh.protocol.state === 'intervention-required' &&
+                    fresh.protocol.intervention?.reason === 'stale-claim' &&
+                    fresh.protocol.intervention?.interrupted_state === 'reviewer-turn' &&
+                    deriveClaimStatus(fresh, 'reviewer', io.now ?? new Date()).status === 'stale'
+                  ))
               ) {
                 fail(
                   'APR_WAKE_OUTCOME_UNKNOWN',
@@ -5426,9 +5475,19 @@ export function createReviewOperations({
             contract,
             resume: parsed.options.resume,
             execFile:
-              io.execFile ?? createClaudeStreamingExec({ recorder, spawnProcess: io.spawnProcess }),
+              io.execFile ??
+              ((file, args, options) =>
+                createClaudeStreamingExec({
+                  recorder: createClaudeStreamRecorder({
+                    workspace: values.workspace,
+                    operationId: `join:${values.reviewId}`,
+                    expectedCommand: options.reviewerRecoveryCommand ?? claudeJoinCommand(contract),
+                  }),
+                  spawnProcess: io.spawnProcess,
+                })(file, args, options)),
             inspectAuthority: io.inspectAuthority,
             fingerprintSession: io.fingerprintSession,
+            now: io.now ?? new Date(),
           });
           if (operation)
             await settleManualLaunch(
@@ -5437,7 +5496,8 @@ export function createReviewOperations({
               operation.id,
               ['submitted', 'permission-blocked'].includes(response.status)
                 ? 'submitted'
-                : 'outcome-unknown'
+                : 'outcome-unknown',
+              { effect: performCurrentOperationEffect }
             );
         } catch (error) {
           if (operation && error?.code === 'APR_REVIEWER_SELECTION_REFUSED') {
@@ -5459,7 +5519,8 @@ export function createReviewOperations({
                 values.workspace,
                 launchDetails,
                 operation.id,
-                'not-submitted'
+                'not-submitted',
+                { effect: performCurrentOperationEffect }
               );
           }
           throw error;
@@ -5757,11 +5818,8 @@ export function createReviewOperations({
         const loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         const role =
           parsed.options.replaceParticipant ??
-          (state.protocol.intervention?.interrupted_state?.startsWith('author')
-            ? 'author'
-            : state.protocol.intervention?.interrupted_state?.startsWith('reviewer')
-              ? 'reviewer'
-              : state.protocol.current_actor);
+          currentActor(state.protocol.intervention?.interrupted_state) ??
+          state.protocol.current_actor;
         response = await recoverReview(
           {
             cwd: io.cwd,
@@ -5843,7 +5901,7 @@ export function createReviewOperations({
               recovery: 'Re-run with the same arguments and report the failure if it persists.',
               details: { cause: String(error?.message ?? error) },
             });
-      writeJson(io.stderr, rendered.toJSON());
+      writeJson(io.stderr, renderSelectionScopeFailure(error) ?? rendered.toJSON());
       return rendered.exitCode;
     }
   }
@@ -5868,7 +5926,7 @@ export function createReviewOperations({
     submitReviewTurn,
     submitAuthorTurn,
     finalizeReview,
-    run,
+    run: runWithReviewAuthority,
     runHandoffMcpStdio,
   });
 }

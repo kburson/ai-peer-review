@@ -1,0 +1,38 @@
+name: Windows host observation diagnostic
+on:
+  push:
+    branches: [codex/190-installed-journeys]
+    paths:
+      - .github/workflows/windows-host-observation-diagnostic.yml
+      - test/helpers/windows-host-observation-diagnostic.mjs
+      - test/helpers/windows-stock-diagnostic-core.mjs
+      - test/helpers/windows-stock-timing.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    name: Stock host observation / Node ${{ matrix.node }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24', '26']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Observe unchanged stock calls and retain bounded failure categories
+        run: node --import ./test/helpers/windows-stock-timing.mjs test/helpers/windows-host-observation-diagnostic.mjs > host-observation.log 2>&1
+      - name: Preserve diagnostic output on every outcome
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-observation-${{ matrix.node }}-${{ github.run_attempt }}
+          path: host-observation.log
+          if-no-files-found: error
+          retention-days: 30

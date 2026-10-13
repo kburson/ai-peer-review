@@ -4,7 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { setupHostFixture } from './setup-host-fixture.mjs';
 import { packRuntime } from './runtime-package.mjs';
-import { readdirSync, lstatSync, readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, lstatSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { runNpm } from './npm-command.mjs';
 export async function authorityInstalledFixture(t, { nativeSecurity = true } = {}) {
@@ -32,10 +32,12 @@ export async function authorityInstalledFixture(t, { nativeSecurity = true } = {
     ],
     { encoding: 'utf8' }
   );
-  const installed = path.join(
-    prefix,
-    ...(process.platform === 'win32' ? [] : ['lib']),
-    'node_modules/@kburson/ai-peer-review'
+  const installed = realpathSync.native(
+    path.join(
+      prefix,
+      ...(process.platform === 'win32' ? [] : ['lib']),
+      'node_modules/@kburson/ai-peer-review'
+    )
   );
   if (nativeSecurity)
     execFileSync(

@@ -1,0 +1,29 @@
+{
+  "schema": "ai-peer-review.process-source-class-approved-ref/v1",
+  "producerVersion": "0.4.0",
+  "review": {
+    "reviewId": "review-38b3401cf458bc98a92b6b06e8736706",
+    "subject": {
+      "revision": "fa5f0c8f2d43f53f4dfaa69336b6bad2d2597f0b",
+      "path": "evidence/portable-runtime/process-source/class-reviews/2026-10-12-190-post207-wave5.md",
+      "blob": "8238a8e1dae96d38e1f5586094511edd65d1f469",
+      "sha256": "de5f787d92608825120f4c9fae4670a400fac14febf34c5125ff194059b400dc"
+    },
+    "manifest": {
+      "revision": "c70b867c2fc8261946ba72abc1ab156e63455f93",
+      "path": "docs/superpowers/peer-reviews/190-post207-class-wave5/spec/2026-10-12-2026-10-12-190-post207-wave5-review-38b3401cf458bc98a92b6b06e8736706/review-38b3401cf458bc98a92b6b06e8736706-review-manifest.md",
+      "blob": "cbafb987392fe3dfdd52b1e33882bd9b0eeaf240",
+      "sha256": "077cc27766cf0aea80bab70736119b3e56aaead9526e7bbf852cb22b10e00e13"
+    },
+    "finalResponse": {
+      "revision": "c70b867c2fc8261946ba72abc1ab156e63455f93",
+      "path": "docs/superpowers/peer-reviews/190-post207-class-wave5/spec/2026-10-12-2026-10-12-190-post207-wave5-review-38b3401cf458bc98a92b6b06e8736706/review-38b3401cf458bc98a92b6b06e8736706-reviewer-response-1.md",
+      "blob": "6e4b2c613ee5745b704d19b0ddff2fd799a8109f",
+      "sha256": "d4386109e581e4ce1d6608d4900088a442cecaa52520de573ca3b54ba2fbee32"
+    },
+    "finalization": {
+      "revision": "c70b867c2fc8261946ba72abc1ab156e63455f93",
+      "sha256": "0f29837a83b16af709db49cc0f199fa4fc9b3176db93e4f6221312c8b16b8d57"
+    }
+  }
+}

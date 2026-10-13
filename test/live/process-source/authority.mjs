@@ -17,6 +17,7 @@ import {
 } from './records.mjs';
 import { proposeProcessSourceClassCore } from './classes.mjs';
 import { verifyProcessSourceClass } from '../../../src/protocol/process-source-assurance.mjs';
+import { inspectProcessSourceProducerFreeze } from './producer-freeze.mjs';
 
 const ROOT = realpathSync(fileURLToPath(new URL('../../../', import.meta.url)));
 const INDEX = 'evidence/portable-runtime/process-source/registration-index.json';
@@ -305,16 +306,11 @@ export async function readReviewedProcessSourceClasses({ approvedClassRef } = {}
         ancestor(control.codeCommit, control.captureProducerCommit);
         ancestor(control.captureProducerCommit, p.subject.revision);
         try {
-          git([
-            'diff',
-            '--exit-code',
-            control.codeCommit,
-            control.captureProducerCommit,
-            '--',
-            '.',
-            ':!evidence/portable-runtime/process-source',
-            ':!docs/superpowers/peer-reviews',
-          ]);
+          inspectProcessSourceProducerFreeze({
+            root: ROOT,
+            before: control.codeCommit,
+            after: control.captureProducerCommit,
+          });
         } catch {
           fail('class-review-transitive-producer-changed');
         }

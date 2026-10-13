@@ -4,7 +4,8 @@ import { COMMAND_FLAGS, COMMAND_USAGE, COMMANDS, POSITIONAL_GRAMMAR } from './pa
 import { CONCEPT_HELP, CONCEPT_HELP_TOPICS } from './help-topics.mjs';
 
 const PURPOSE = Object.freeze({
-  primary: 'Inspect or explicitly register and activate the physical primary integration.',
+  primary:
+    'Inspect, register or activate primary integration; explicitly preserve history or hold a current review during migration.',
   'register-runtime':
     'Register the executing global runtime and Node once for the verified OS account.',
   setup: 'Install, upgrade, or remove reversible peer-review agent integration.',
@@ -96,7 +97,13 @@ const STATES = Object.freeze({
   supplement: ['intervention-required'],
   continue: ['intervention-required'],
   finalize: ['acceptance-pending', 'author-finalization', 'intervention-required'],
-  recover: ['reviewer-turn', 'author-revision', 'intervention-required'],
+  recover: [
+    'reviewer-turn',
+    'author-revision',
+    'acceptance-pending',
+    'author-finalization',
+    'intervention-required',
+  ],
   abandon: ['intervention-required', 'awaiting-reviewer after proven non-submission and fence'],
   supersede: [
     'awaiting-reviewer',
@@ -170,6 +177,7 @@ const PRECONDITIONS = Object.freeze({
 const EFFECTS = Object.freeze({
   primary: [
     'register and activate write private clone receipts only; inspect is read-only; no commits or provider launch.',
+    'preserve-history pins exact obsolete evidence and permanently fences its execution without rewriting review state. hold-review creates a distinct temporary migration hold; release-review requires current activated primary policy and retains its audit record.',
   ],
   'register-runtime': [
     'Dry-run inspects without writes; apply records private account-wide locators atomically with read back.',

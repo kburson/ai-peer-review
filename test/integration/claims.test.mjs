@@ -381,4 +381,15 @@ test('recover inspection is read-only and same-session reclaim is idempotent', a
     now: '2026-09-09T03:01:00.000Z',
   });
   assert.deepEqual(readFileSync(started.paths.events), exact);
+
+  const expiredAgain = await api.recoverReview({
+    workspace: started.paths.workspace,
+    identity: reviewer,
+    reclaim: true,
+    now: '2026-09-09T04:02:00.000Z',
+  });
+  assert.equal(expiredAgain.state, 'reviewer-turn');
+  assert.notEqual(expiredAgain.review.claim.claim_id, recovered.review.claim.claim_id);
+  assert.equal(expiredAgain.review.claim.expires_at, '2026-09-09T05:02:00.000Z');
+  assert.equal(readFileSync(started.paths.events).subarray(0, exact.length).equals(exact), true);
 });

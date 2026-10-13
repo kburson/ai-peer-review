@@ -157,6 +157,13 @@ exact response permission. An absolute Claude Edit rule requires a double
 leading slash; a single leading slash is project-relative. Do not construct
 Edit or Write rules by hand. Do not construct Bash rules by hand either.
 
+For an expired registered reviewer claim, use the same `launch-reviewer
+--resume` path. The package first resumes that recorded session with only the
+exact `recover --reclaim` permission. It enables the normal pending-response
+permissions only after fresh protocol events prove successful same-session
+reclaim. Recovery failure preserves private diagnostics and leaves the review
+pending; never reclaim the reviewer's role from the author shell.
+
 Surface a `permission-blocked` result immediately with its exact response and
 printed next action. Run that `--resume` command unchanged so the same recorded
 Claude session, model, effort, and prior analysis continue. A provider exit is

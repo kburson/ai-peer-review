@@ -412,6 +412,7 @@ export function resolveConfigFields({ primary, user = null, explicitIdentity = {
       const value = (owner === 'primary' ? primary : user)?.hosts?.[name]?.[group]?.[key];
       if (value !== undefined) (host[group] ??= {})[key] = structuredClone(value);
     }
+    if (host.automatic && !primary.hosts?.[name]?.automatic) delete host.automatic;
     const identity = explicitIdentity[name] ?? user?.hosts?.[name]?.identity;
     if (identity !== undefined) host.identity = structuredClone(identity);
     // Missing guard policy uses the documented existing permissive default.
@@ -578,6 +579,9 @@ export async function loadConfig(options = {}) {
         explicitIdentity: options.explicitIdentity,
       })
     : (merge(legacyUser, project) ?? { schema: 'ai-peer-review.config/v1' });
+  if (legacyProject && user?.schema === 'ai-peer-review.user-config/v2')
+    for (const [name, host] of Object.entries(config.hosts ?? {}))
+      if (host.automatic && !project.hosts?.[name]?.automatic) delete host.automatic;
   validateConfig(config);
   const diagnostics = [];
   if (

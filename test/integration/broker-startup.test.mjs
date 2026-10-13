@@ -429,7 +429,6 @@ test('broker launch command acknowledges reservation while the provider is still
   const server = {
     start(handler) {
       dispatch = handler;
-      ready();
     },
     close() {},
   };
@@ -467,6 +466,7 @@ test('broker launch command acknowledges reservation while the provider is still
       }),
     clock,
     server,
+    onReady: ready,
   });
   await serverReady;
   const accepted = await dispatch({ id: 'launch-one', command: 'launch', workspace });

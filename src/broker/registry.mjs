@@ -5,6 +5,7 @@ import {
 } from './startup-evidence-reader.mjs';
 export { readStartupJournal, startupEvidence, inspectStartupAuthority };
 import { validBrokerRegistrationRecordCore as validRegistrationShape } from './registration-record.mjs';
+export { validRegistrationShape };
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 
@@ -556,7 +557,13 @@ async function inspectWorkspaceAuthority(inspectAuthority, project, workspace, r
   }
 }
 
-export async function reconcileRegistrations({ project, store, inspectAuthority } = {}) {
+export async function reconcileRegistrations({
+  project,
+  store,
+  inspectAuthority,
+  isPreserved = () => false,
+  isPreservedRegistration = () => false,
+} = {}) {
   const identity = canonicalProject(project);
   const root = registrationRoot(identity, store, { recovery: true });
   if (typeof inspectAuthority !== 'function') {
@@ -584,6 +591,15 @@ export async function reconcileRegistrations({ project, store, inspectAuthority 
       const file = path.join(root, name);
       const registration = readRegistration(file);
       if (!registration) continue;
+      if (await isPreservedRegistration(file)) {
+        if (
+          !validRegistrationShape(registration) ||
+          file !== path.join(root, registration.review_id + '.json')
+        )
+          authorityFailure('Historical registration has an invalid closed identity.', { file });
+        registrations.set(registration.review_id, { ...registration, registration_file: file });
+        continue;
+      }
       const claimsProject =
         registration.project_digest === identity.digest ||
         registration.project_root === identity.physicalRoot;
@@ -608,7 +624,7 @@ export async function reconcileRegistrations({ project, store, inspectAuthority 
         'APR_BROKER_REGISTRATION_RECOVERY_REQUIRED',
         'Registered review workspace'
       );
-      runtimeRecord(registration.runtime);
+      if (!(await isPreserved(registration.workspace))) runtimeRecord(registration.runtime);
       registrations.set(registration.review_id, result(registration, file));
     }
   }
@@ -630,7 +646,12 @@ export async function reconcileRegistrations({ project, store, inspectAuthority 
   const reconciled = [];
   for (const workspace of [...workspaces].sort()) {
     const reviewId = path.basename(workspace);
-    const registration = registrations.get(reviewId) ?? null;
+    const candidate = registrations.get(reviewId);
+    const registration = candidate?.workspace === workspace ? candidate : null;
+    if (await isPreserved(workspace)) {
+      if (registration) reconciled.push(registration);
+      continue;
+    }
     const authority = await inspectWorkspaceAuthority(
       inspectAuthority,
       identity,

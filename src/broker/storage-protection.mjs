@@ -209,13 +209,16 @@ $stage='input'
 [Console]::InputEncoding=[System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 $OutputEncoding=[Console]::OutputEncoding
-$inputRecord = [Console]::In.ReadToEnd() | ConvertFrom-Json
+[Reflection.Assembly]::Load('System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35') | Out-Null
+$json = [System.Web.Script.Serialization.JavaScriptSerializer]::new()
+$inputRecord = $json.DeserializeObject([Console]::In.ReadToEnd())
 $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
 $user = $identity.User.Value
 $adminSid = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
 $member = @($identity.Groups | ForEach-Object { $_.Value }) -contains $adminSid.Value
 $effective = [System.Security.Principal.WindowsPrincipal]::new($identity).IsInRole($adminSid)
 $paths = @($inputRecord.paths)
+$sections = [System.Security.AccessControl.AccessControlSections]'Access,Owner,Group'
 foreach($candidate in $paths) {
   $drive=[System.IO.DriveInfo]::new([System.IO.Path]::GetPathRoot($candidate))
   if($drive.DriveType -ne [System.IO.DriveType]::Fixed -or $drive.DriveFormat -notin @('NTFS','ReFS')) {
@@ -224,17 +227,20 @@ foreach($candidate in $paths) {
 }
 if ($inputRecord.mode -eq 'provision') {
   if ($paths.Count -ne 1) { throw 'Invalid provision inventory' }
-  $target = Get-Item -LiteralPath $paths[0] -Force -ErrorAction Stop
-  if (($target.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Reparse refused' }
-  $prior = Get-Acl -LiteralPath $paths[0] -ErrorAction Stop
+  $attributes = [System.IO.File]::GetAttributes([string]$paths[0])
+  if (($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Reparse refused' }
+  $isDirectory = ($attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+  $prior = if($isDirectory) {
+    [System.IO.Directory]::GetAccessControl([string]$paths[0],$sections)
+  } else { [System.IO.File]::GetAccessControl([string]$paths[0],$sections) }
   $owner = $prior.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
   if ($owner -ne $user -and -not ($owner -eq $adminSid.Value -and $member)) { throw 'Foreign owner refused' }
-  $descriptor = if ($target.PSIsContainer) {
+  $descriptor = if ($isDirectory) {
     [System.Security.AccessControl.DirectorySecurity]::new()
   } else { [System.Security.AccessControl.FileSecurity]::new() }
   $descriptor.SetOwner($identity.User)
   $descriptor.SetAccessRuleProtection($true, $false)
-  $inherit = if ($target.PSIsContainer) {
+  $inherit = if ($isDirectory) {
     [System.Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit'
   } else { [System.Security.AccessControl.InheritanceFlags]::None }
   foreach ($sid in @($user,'S-1-5-18')) {
@@ -248,8 +254,10 @@ if ($inputRecord.mode -eq 'provision') {
   Set-Acl -LiteralPath $paths[0] -AclObject $descriptor -ErrorAction Stop
 }
 $records = foreach ($entry in $paths) {
-  $item = Get-Item -LiteralPath $entry -Force -ErrorAction Stop
-  $acl = Get-Acl -LiteralPath $entry -ErrorAction Stop
+  $attributes = [System.IO.File]::GetAttributes([string]$entry)
+  $acl = if (($attributes -band [System.IO.FileAttributes]::Directory) -ne 0) {
+    [System.IO.Directory]::GetAccessControl([string]$entry,$sections)
+  } else { [System.IO.File]::GetAccessControl([string]$entry,$sections) }
   $raw = [System.Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
   $aces = @()
   foreach ($ace in $raw.DiscretionaryAcl) {
@@ -278,13 +286,13 @@ $records = foreach ($entry in $paths) {
     administratorMember = [bool]$member; administratorEffective = [bool]$effective
     inheritanceProtected = [bool]$acl.AreAccessRulesProtected
     canonical = [bool]$acl.AreAccessRulesCanonical
-    reparsePoint = ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    reparsePoint = ($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
     aces = @($aces)
   }
 }
-[ordered]@{schema='ai-peer-review.windows-protection-observation/v1'; records=@($records)} | ConvertTo-Json -Depth 8 -Compress
+[Console]::Out.Write($json.Serialize([ordered]@{schema='ai-peer-review.windows-protection-observation/v1'; records=@($records)}))
 } catch {
-  [ordered]@{schema='ai-peer-review.windows-protection-error/v1'; exception=$_.Exception.GetType().Name; line=$_.InvocationInfo.ScriptLineNumber; stage=$stage} | ConvertTo-Json -Compress
+  [Console]::Out.Write($json.Serialize([ordered]@{schema='ai-peer-review.windows-protection-error/v1'; exception=$_.Exception.GetType().Name; line=$_.InvocationInfo.ScriptLineNumber; stage=$stage}))
   exit 1
 }
 `;
@@ -450,19 +458,55 @@ async function windowsProbe(targets, provision = false, budget = operationBudget
     throw failure('APR_BROKER_START_FAILED', 'stock-acl-probe-malformed');
   return data.records;
 }
-async function macAcl(value, ancestor = false, budget = operationBudget()) {
-  budget.check();
-  const { stdout, stderr } = await execute('/bin/ls', ['-ldne', value], {
-    encoding: 'utf8',
-    maxBuffer: 65536,
-    ...budget.options(5000),
-    env: { ...process.env, LC_ALL: 'C' },
-  });
-  budget.check();
-  if (stderr.trim()) throw failure('APR_BROKER_START_FAILED', 'acl-query-failed');
-  const rows = stdout.trimEnd().split('\n');
-  if (!/^[d-][rwxstST-]{9}[@+]?\s/.test(rows.shift() || ''))
+// Parsing is unverified data. Only the fixed stock-probe path mints receipts.
+export function parseMacAclBatchCore(stdout, targets) {
+  if (
+    typeof stdout !== 'string' ||
+    Buffer.byteLength(stdout) > 65536 ||
+    !Array.isArray(targets) ||
+    targets.length < 1 ||
+    targets.length > 128 ||
+    targets.some(
+      (value) =>
+        !value ||
+        Object.keys(value).sort().join(',') !== 'ancestor,path' ||
+        typeof value.path !== 'string' ||
+        !path.posix.isAbsolute(value.path) ||
+        /[\u0000-\u001f\u007f]/u.test(value.path) ||
+        typeof value.ancestor !== 'boolean'
+    ) ||
+    new Set(targets.map((value) => value.path)).size !== targets.length
+  )
     throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+  const sections = new Map();
+  let section;
+  for (const row of stdout.trimEnd().split('\n')) {
+    const header =
+      /^[d-][rwxstST-]{9}[@+]?\s+\d+\s+\d+\s+\d+\s+\d+\s+[A-Za-z]{3}\s+\d+\s+(?:\d{2}:\d{2}|\d{4})\s+(\/.*)$/u.exec(
+        row
+      );
+    if (header) {
+      const target = targets.find((value) => value.path === header[1]);
+      if (!target || sections.has(target.path))
+        throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+      section = [];
+      sections.set(target.path, section);
+    } else {
+      if (!section) throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+      section.push(row);
+    }
+  }
+  if (sections.size !== targets.length)
+    throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+  return {
+    verified: false,
+    records: targets.map((target) => ({
+      path: target.path,
+      rules: parseMacRules(sections.get(target.path), target.ancestor),
+    })),
+  };
+}
+function parseMacRules(rows, ancestor) {
   const rules = [];
   const allRights = new Set([
     'read',
@@ -517,6 +561,24 @@ async function macAcl(value, ancestor = false, budget = operationBudget()) {
     rules.push({ subject: match[1], kind: match[2], rights });
   }
   return rules;
+}
+async function macAclBatch(targets, budget) {
+  budget.check();
+  const { stdout, stderr } = await execute(
+    '/bin/ls',
+    ['-ldne', ...targets.map((value) => value.path)],
+    {
+      encoding: 'utf8',
+      maxBuffer: 65536,
+      ...budget.options(5000),
+      env: { ...process.env, LC_ALL: 'C' },
+    }
+  );
+  budget.check();
+  if (stderr.trim()) throw failure('APR_BROKER_START_FAILED', 'acl-query-failed');
+  return new Map(
+    parseMacAclBatchCore(stdout, targets).records.map((value) => [value.path, value.rules])
+  );
 }
 
 /** Closed readonly ancestry policy; caller data cannot mint an operational receipt. */
@@ -633,8 +695,12 @@ async function inspectAncestors(
     records.forEach((x, i) => {
       stats[i].acl = windowsAncestor(x, stats[i].path === path.parse(stats[i].path).root);
     });
-  } else if (process.platform === 'darwin') {
-    for (const item of stats) item.acl = await macAcl(item.path, true, budget);
+  } else if (process.platform === 'darwin' && !deferWindowsAcl) {
+    const records = await macAclBatch(
+      stats.map((item) => ({ path: item.path, ancestor: true })),
+      budget
+    );
+    for (const item of stats) item.acl = records.get(item.path);
   }
   return { uid, stats, chain: stats.map((x) => x.path) };
 }
@@ -672,7 +738,15 @@ async function inspect(value, type = 'directory', budget = operationBudget()) {
       throw failure('APR_BROKER_START_FAILED', 'owner-or-mode-unproved');
     principal = String(uid);
     if (process.platform === 'darwin') {
-      acl = await macAcl(value, false, budget);
+      const records = await macAclBatch(
+        [
+          ...chain.map((entry) => ({ path: entry, ancestor: true })),
+          { path: value, ancestor: false },
+        ],
+        budget
+      );
+      for (const entry of stats) entry.acl = records.get(entry.path);
+      acl = records.get(value);
     } else if (process.platform === 'linux') acl = [];
     else throw failure('APR_BROKER_START_FAILED', 'os-protection-unsupported');
     await access(
@@ -704,6 +778,182 @@ async function inspect(value, type = 'directory', budget = operationBudget()) {
   };
   const fingerprint = createHash('sha256').update(JSON.stringify(observation)).digest('hex');
   return { observation, fingerprint };
+}
+// A single new stock query observes the root, file and complete ancestry together.
+// This private helper returns no receipt and retains no observation between calls.
+async function inspectWindowsReadPair(root, target, budget) {
+  budget.check();
+  const { stats, chain } = await inspectAncestors(root, false, budget, true);
+  const rootStat = await sameCanonical(root),
+    fileStat = await sameCanonical(target);
+  if (!rootStat.isDirectory() || !fileStat.isFile())
+    throw failure('APR_BROKER_START_FAILED', 'storage-type-unproved');
+  if (fileStat.nlink !== 1n) throw failure('APR_BROKER_START_FAILED', 'storage-hardlink');
+  const records = await windowsProbe([...chain, root, target], false, budget);
+  records.slice(0, chain.length).forEach((record, index) => {
+    stats[index].acl = windowsAncestor(record, chain[index] === path.parse(chain[index]).root);
+  });
+  const rootRecord = records.at(-2),
+    fileRecord = records.at(-1);
+  const rootPolicy = assessWindowsProtection(rootRecord),
+    filePolicy = assessWindowsProtection(fileRecord);
+  if (!rootPolicy.verified || !filePolicy.verified)
+    throw failure('APR_BROKER_START_FAILED', [...rootPolicy.reasons, ...filePolicy.reasons][0]);
+  if (records.some((record) => record.principalSid !== rootRecord.principalSid))
+    throw failure('APR_BROKER_START_FAILED', 'effective-principal-unproved');
+  for (const [value, stat] of [
+    [root, rootStat],
+    [target, fileStat],
+  ]) {
+    const handle = await open(value, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    try {
+      if (identity(await handle.stat({ bigint: true })) !== identity(stat))
+        throw failure('APR_BROKER_START_FAILED', 'descriptor-substitution');
+    } finally {
+      await handle.close();
+    }
+  }
+  const rootObservation = {
+    root,
+    kind: process.platform,
+    type: 'directory',
+    principal: rootRecord.principalSid,
+    identity: identity(rootStat),
+    ancestry: stats,
+    acl: rootRecord,
+    trustedAllowances: rootPolicy.trustedAllowances,
+  };
+  const fileObservation = {
+    root: target,
+    kind: process.platform,
+    type: 'file',
+    fileVersion: [fileStat.size, fileStat.mtimeNs, fileStat.ctimeNs].map(String).join(':'),
+    principal: fileRecord.principalSid,
+    identity: identity(fileStat),
+    ancestry: [
+      ...stats,
+      {
+        path: root,
+        identity: identity(rootStat),
+        mode: mode(rootStat),
+        uid: String(rootStat.uid),
+        acl: windowsAncestor(rootRecord, false),
+      },
+    ],
+    acl: fileRecord,
+    trustedAllowances: filePolicy.trustedAllowances,
+  };
+  budget.check();
+  return {
+    root: {
+      observation: rootObservation,
+      fingerprint: createHash('sha256').update(JSON.stringify(rootObservation)).digest('hex'),
+    },
+    file: { observation: fileObservation },
+  };
+}
+// Pure target declarations only. External data cannot mint an OS observation.
+export function posixReadPairTargetsCore({ ancestors: chain, root, file } = {}) {
+  if (
+    !Array.isArray(chain) ||
+    chain.length > 64 ||
+    [...chain, root, file].some((value) => typeof value !== 'string' || !path.isAbsolute(value)) ||
+    new Set([...chain, root, file]).size !== chain.length + 2
+  )
+    throw failure('APR_BROKER_START_FAILED', 'acl-output-unproved');
+  return Object.freeze({
+    verified: false,
+    targets: Object.freeze([
+      ...chain.map((entry) => Object.freeze({ path: entry, ancestor: true })),
+      Object.freeze({ path: root, ancestor: false }),
+      Object.freeze({ path: file, ancestor: false }),
+    ]),
+  });
+}
+// Fresh common ancestry, root and leaf, independently repeated for each phase.
+async function inspectPosixReadPair(root, target, budget) {
+  budget.check();
+  const { uid, stats, chain } = await inspectAncestors(root, false, budget, true);
+  const rootStat = await sameCanonical(root),
+    fileStat = await sameCanonical(target);
+  if (!rootStat.isDirectory() || !fileStat.isFile())
+    throw failure('APR_BROKER_START_FAILED', 'storage-type-unproved');
+  if (fileStat.nlink !== 1n) throw failure('APR_BROKER_START_FAILED', 'storage-hardlink');
+  if (
+    rootStat.uid !== BigInt(uid) ||
+    mode(rootStat) !== 0o700 ||
+    fileStat.uid !== BigInt(uid) ||
+    mode(fileStat) !== 0o600
+  )
+    throw failure('APR_BROKER_START_FAILED', 'owner-or-mode-unproved');
+  let rootAcl = [],
+    fileAcl = [];
+  if (process.platform === 'linux') {
+    const supported = [0xef53n, 0x58465342n, 0x9123683en, 0x01021994n, 0x794c7630n];
+    for (const value of [root, target]) {
+      const filesystem = await statfs(value, { bigint: true });
+      if (!supported.includes(filesystem.type))
+        throw failure('APR_BROKER_START_FAILED', 'filesystem-protection-unproved');
+    }
+  } else if (process.platform === 'darwin') {
+    const records = await macAclBatch(
+      posixReadPairTargetsCore({ ancestors: chain, root, file: target }).targets,
+      budget
+    );
+    for (const entry of stats) entry.acl = records.get(entry.path);
+    rootAcl = records.get(root);
+    fileAcl = records.get(target);
+  } else throw failure('APR_BROKER_START_FAILED', 'os-protection-unsupported');
+  await access(root, constants.R_OK | constants.W_OK | constants.X_OK);
+  await access(target, constants.R_OK | constants.W_OK);
+  for (const [value, stat] of [
+    [root, rootStat],
+    [target, fileStat],
+  ]) {
+    const handle = await open(value, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    try {
+      if (identity(await handle.stat({ bigint: true })) !== identity(stat))
+        throw failure('APR_BROKER_START_FAILED', 'descriptor-substitution');
+    } finally {
+      await handle.close();
+    }
+  }
+  const rootObservation = {
+    root,
+    kind: process.platform,
+    type: 'directory',
+    principal: String(uid),
+    identity: identity(rootStat),
+    ancestry: stats,
+    acl: rootAcl,
+    trustedAllowances: [],
+  };
+  const rootAncestor = {
+    path: root,
+    identity: identity(rootStat),
+    mode: mode(rootStat),
+    uid: String(rootStat.uid),
+    ...(process.platform === 'darwin' ? { acl: rootAcl } : {}),
+  };
+  const fileObservation = {
+    root: target,
+    kind: process.platform,
+    type: 'file',
+    fileVersion: [fileStat.size, fileStat.mtimeNs, fileStat.ctimeNs].map(String).join(':'),
+    principal: String(uid),
+    identity: identity(fileStat),
+    ancestry: [...stats, rootAncestor],
+    acl: fileAcl,
+    trustedAllowances: [],
+  };
+  budget.check();
+  return {
+    root: {
+      observation: rootObservation,
+      fingerprint: createHash('sha256').update(JSON.stringify(rootObservation)).digest('hex'),
+    },
+    file: { observation: fileObservation },
+  };
 }
 function receipt(value, reasons, verified = false) {
   return freeze({
@@ -908,14 +1158,36 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
     )
       throw failure('APR_BROKER_STALE', 'private-file-changed');
   }
+  async function readPairPhase(target) {
+    budget.check();
+    if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
+    try {
+      const pair = await (
+        process.platform === 'win32' ? inspectWindowsReadPair : inspectPosixReadPair
+      )(r.root, target, budget);
+      if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
+      budget.check();
+      return pair;
+    } catch (error) {
+      if (error.code === 'ENOENT') await verify();
+      throw error;
+    }
+  }
   async function readObserved(name, writable = false, maxBytes = MAX_BYTES) {
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_BYTES)
       throw failure('APR_BROKER_PATH_INVALID', 'private-read-bound-invalid');
     const target = path.join(r.root, resourceName(name));
-    await verify();
+    budget.check();
+    if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
     let file;
     try {
-      const before = await inspect(target, 'file', budget);
+      const pair = await readPairPhase(target);
+      if (
+        pair.root.fingerprint !== binding.fingerprint ||
+        identity(await directory.stat({ bigint: true })) !== r.identity
+      )
+        throw failure('APR_BROKER_STALE', 'root-protection-changed');
+      const before = pair.file;
       file = await open(
         target,
         (writable ? constants.O_RDWR : constants.O_RDONLY) | (constants.O_NOFOLLOW || 0)
@@ -945,8 +1217,21 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       if (offset !== Number(stat.size) || offset > maxBytes)
         throw failure('APR_BROKER_STALE', 'private-read-bound-changed');
       const bytes = buffer.subarray(0, offset);
-      await verify();
-      await matchFile(entry, file);
+      const after = await readPairPhase(target);
+      if (
+        after.root.fingerprint !== binding.fingerprint ||
+        identity(await directory.stat({ bigint: true })) !== r.identity
+      )
+        throw failure('APR_BROKER_STALE', 'root-protection-changed');
+      const fresh = await file.stat({ bigint: true });
+      if (
+        after.file.observation.identity !== entry.identity ||
+        after.file.observation.fileVersion !== entry.fileVersion ||
+        identity(fresh) !== entry.identity ||
+        version(fresh) !== entry.fileVersion
+      )
+        throw failure('APR_BROKER_STALE', 'private-file-changed');
+      if (closed) throw failure('APR_BROKER_STALE', 'protected-root-closed');
       return { ...entry, bytes };
     } catch (error) {
       if (file) {

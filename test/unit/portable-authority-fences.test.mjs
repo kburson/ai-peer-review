@@ -716,3 +716,35 @@ test('copied primary admission fields cannot provide a provider operation contex
     { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
   );
 });
+
+test('[#190] unverified Windows SID tuple changes refuse despite a stable path and uid minus one', async () => {
+  const { createSelectionReadScope } = await import('../../src/config/selection-read-scope.mjs');
+  const { performance } = await import('node:perf_hooks');
+  const manager = createSelectionReadScope({ finalize() {} });
+  const original = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
+  const identity = {
+    directory: 'fixture-only',
+    home: 'fixture-only',
+    uid: -1,
+    principal: 'S-1-5-21-100',
+  };
+  let opens = 0,
+    closes = 0;
+  const acquire = async () => {
+    opens++;
+    return {
+      close: async () => {
+        closes++;
+      },
+    };
+  };
+  await assert.rejects(
+    manager.run(original, async () => {
+      await manager.use(original, identity, acquire, () => {});
+      await manager.use(original, { ...identity, principal: 'S-1-5-21-101' }, acquire, () => {});
+    })
+  );
+  assert.equal(opens, 1);
+  assert.equal(closes, 1);
+  await assert.rejects(manager.run(original, async () => {}));
+});

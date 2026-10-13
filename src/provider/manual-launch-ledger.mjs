@@ -103,53 +103,73 @@ export function initializeManualLaunchHistory(workspace, { reviewId, requestDige
   return value;
 }
 
-export async function reserveManualLaunch(workspace, details, { verifyAuthority } = {}) {
+export async function reserveManualLaunch(
+  workspace,
+  details,
+  { verifyAuthority, effect = (operation) => operation() } = {}
+) {
   if (
     !SHA.test(details?.intentDigest ?? '') ||
     !DIGEST.test(details?.requestDigest ?? '') ||
     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(details?.reviewId ?? '')
   )
     throw failure('Manual launch intent is invalid.');
-  return withReviewLock(path.join(workspace, 'dispatch'), () => {
-    verifyAuthority?.();
-    let history = readManualLaunchHistory(workspace, details);
-    if (!history) {
-      history = {
-        schema: SCHEMA,
-        review_id: details.reviewId,
-        request_digest: details.requestDigest,
-        coverage: 'legacy-unknown',
-        operations: [],
+  return withReviewLock(
+    path.join(workspace, 'dispatch'),
+    () => {
+      verifyAuthority?.();
+      let history = readManualLaunchHistory(workspace, details);
+      if (!history) {
+        history = {
+          schema: SCHEMA,
+          review_id: details.reviewId,
+          request_digest: details.requestDigest,
+          coverage: 'legacy-unknown',
+          operations: [],
+        };
+        effect(() => atomicCreate(fileFor(workspace), `${JSON.stringify(history)}\n`));
+      }
+      if (
+        history.operations.some((entry) => ['reserved', 'outcome-unknown'].includes(entry.status))
+      )
+        throw failure('An earlier manual launch outcome is unresolved.');
+      const operation = {
+        id: `manual:${randomUUID()}`,
+        intent_digest: details.intentDigest,
+        status: 'reserved',
       };
-      atomicCreate(fileFor(workspace), `${JSON.stringify(history)}\n`);
-    }
-    if (history.operations.some((entry) => ['reserved', 'outcome-unknown'].includes(entry.status)))
-      throw failure('An earlier manual launch outcome is unresolved.');
-    const operation = {
-      id: `manual:${randomUUID()}`,
-      intent_digest: details.intentDigest,
-      status: 'reserved',
-    };
-    history.operations.push(operation);
-    atomicWrite(fileFor(workspace), `${JSON.stringify(history)}\n`);
-    return operation;
-  });
+      history.operations.push(operation);
+      effect(() => atomicWrite(fileFor(workspace), `${JSON.stringify(history)}\n`));
+      return operation;
+    },
+    { effect }
+  );
 }
 
-export async function settleManualLaunch(workspace, details, operationId, status) {
+export async function settleManualLaunch(
+  workspace,
+  details,
+  operationId,
+  status,
+  { effect = (operation) => operation() } = {}
+) {
   if (!['not-submitted', 'submitted', 'outcome-unknown'].includes(status))
     throw failure('Manual launch settlement is invalid.');
-  return withReviewLock(path.join(workspace, 'dispatch'), () => {
-    const history = readManualLaunchHistory(workspace, details);
-    const operation = history?.operations.find((entry) => entry.id === operationId);
-    if (
-      !operation ||
-      operation.intent_digest !== details.intentDigest ||
-      operation.status !== 'reserved'
-    )
-      throw failure('Manual launch operation changed before settlement.');
-    operation.status = status;
-    atomicWrite(fileFor(workspace), `${JSON.stringify(history)}\n`);
-    return operation;
-  });
+  return withReviewLock(
+    path.join(workspace, 'dispatch'),
+    () => {
+      const history = readManualLaunchHistory(workspace, details);
+      const operation = history?.operations.find((entry) => entry.id === operationId);
+      if (
+        !operation ||
+        operation.intent_digest !== details.intentDigest ||
+        operation.status !== 'reserved'
+      )
+        throw failure('Manual launch operation changed before settlement.');
+      operation.status = status;
+      effect(() => atomicWrite(fileFor(workspace), `${JSON.stringify(history)}\n`));
+      return operation;
+    },
+    { effect }
+  );
 }

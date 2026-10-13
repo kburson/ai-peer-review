@@ -1,0 +1,28 @@
+{
+  "verified": false,
+  "operationalAuthority": "unavailable",
+  "stockAcl": {
+    "count": 3209,
+    "elapsedMs": 10978
+  },
+  "readObservedAcl": {
+    "count": 2136,
+    "elapsedMs": 7415
+  },
+  "wholeChildMs": 40844,
+  "sourceCommit": "c46a980c5d6a4514cd99f2a788cf53e50e1e6f2f",
+  "platform": "darwin",
+  "node": "26.8.1",
+  "workload": "affected-installed-submission-fixture",
+  "fixtureAccountSubstitution": true,
+  "result": "original-deadline-refusal",
+  "wholeChildIncludesPriorSelectionAndSourceObservation": true,
+  "cpuSampleSeparateRun": {
+    "wholeChildMs": 41617,
+    "inventoryInclusiveMs": 15861,
+    "dependencyClosureInclusiveMs": 11418,
+    "storageInspectInclusiveMs": 1672,
+    "idleMs": 20471,
+    "categoriesOverlap": true
+  }
+}

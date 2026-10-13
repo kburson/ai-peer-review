@@ -89,6 +89,8 @@ function validManifest(overrides = {}) {
       ],
       exact: [
         '.ai-peer-review.json',
+        '.ai-peer-review/config.json',
+        '.ai-peer-review/skills/peer-review/SKILL.md',
         '.claude/commands/task.md',
         '.claude/settings.json',
         '.github/CODEOWNERS',
@@ -141,7 +143,11 @@ function validManifest(overrides = {}) {
         'scripts/lib/review-grammar-v0.4.1/reducer.mjs',
         'scripts/lib/review-grammar-v0.4.1/runtime-descriptor.mjs',
         'scripts/lib/review-grammar-v0.4.1/runtime-v1.json',
+        'scripts/ci/receipt-core.mjs',
+        'scripts/ci/run-receipt.mjs',
+        'scripts/ci/verify-windows-probe-measurement.mjs',
         'scripts/build-broker-security.mjs',
+        'scripts/bootstrap-portable-runtime.mjs',
         'scripts/prepare-source-tests.mjs',
         'scripts/run-secret-scan.mjs',
         'scripts/task-tracker/verify-epic-trail.mjs',
@@ -800,4 +806,19 @@ test('[#187] admits the declared source-contract generator while refusing neighb
     await assert.rejects(verifyExtraction({ root: '/repo', manifest: validManifest(),
       runGit: fakeGit({ current: ['LICENSE', exact, foreign].join('\n') }) }), /foreign standalone paths/);
   }
+});
+
+test('allows the four exact hosted evidence scripts while refusing neighboring script paths',async()=>{
+  const manifest=validManifest();
+  for(const file of ['scripts/ci/receipt-core.mjs','scripts/ci/run-receipt.mjs','scripts/ci/verify-receipts.mjs','scripts/ci/verify-windows-probe-measurement.mjs']){
+    await verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n'+file})});
+  }
+  await assert.rejects(verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\nscripts/ci/undeclared.mjs'})}),/foreign standalone paths/);
+});
+
+// Exact primary policy paths cannot broaden the standalone boundary to private state.
+test('primary policy paths are admitted while neighboring private state remains foreign', async () => {
+ const manifest=validManifest();
+ await verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n.ai-peer-review/config.json\n.ai-peer-review/skills/peer-review/SKILL.md'})});
+ for(const file of ['.ai-peer-review/credentials.json','.ai-peer-review/review-history/entry.json','.ai-peer-review/skills/other/SKILL.md']) await assert.rejects(verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n'+file})}),/foreign standalone paths/);
 });
