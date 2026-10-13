@@ -24,7 +24,7 @@ import { runBroker } from '../helpers/broker-service-api.mjs';
 
 // Execute the exact shipped registry and history closures against real history;
 // fixture context is not a production operation grant or bootstrap capability.
-function shippedRestorationPorts(identity, context) {
+async function shippedRestorationPorts(identity, context) {
   const source = readFileSync(
     new URL('../../src/broker/portable-service.mjs', import.meta.url),
     'utf8'
@@ -47,6 +47,8 @@ function shippedRestorationPorts(identity, context) {
     '\nreturn {' +
     properties.map((node) => source.slice(...node.range)).join(',') +
     '};';
+  const { isPreparedPortableOwner, readPreparedPortableRegistrations } =
+    await import('../../src/broker/portable-ownership.mjs');
   return import('../../src/config/review-history.mjs').then(({ createReviewPreservationLookup }) =>
     compileFunction(code, [
       'identity',
@@ -55,13 +57,21 @@ function shippedRestorationPorts(identity, context) {
       'currentOperationAuthorityContext',
       'reconcileRegistrations',
       'inspectStartupAuthority',
+      'isPreparedPortableOwner',
+      'readPreparedPortableRegistrations',
+      'owner',
+      'context',
     ])(
       identity,
       path,
       createReviewPreservationLookup,
       async () => context,
       reconcileRegistrations,
-      inspectStartupAuthority
+      inspectStartupAuthority,
+      isPreparedPortableOwner,
+      readPreparedPortableRegistrations,
+      {},
+      context
     )
   );
 }
@@ -606,10 +616,10 @@ test(
         throw Error('Historical provider execution attempted');
       },
       clock: { now: () => 0, setTimeout: () => 1, clearTimeout() {} },
+      onReady: () => ready.resolve(),
       server: {
         start(handler) {
           dispatch = handler;
-          ready.resolve();
         },
         close() {},
       },

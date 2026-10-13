@@ -546,6 +546,7 @@ export async function exerciseClaudeLaunchCli(
     fingerprintSession('anthropic', REVIEWER_SESSION)
   );
   assert.doesNotMatch(JSON.stringify(initialResult), /fixture-claude-session/);
+  return { workspace };
 }
 
 export async function exerciseMissingChildModelCli(t, { configured = false } = {}) {

@@ -11,6 +11,8 @@ import { canonicalPortableProjectIdentity } from './identity.mjs';
 import { encodeRequestCanonical } from '../api/canonical-json.mjs';
 import { readStartupJournal, startupEvidence } from './startup-evidence-reader.mjs';
 import { inspectReviewAuthority } from '../protocol/authority-reader.mjs';
+import { validatePortableHookRecordsCore } from './portable-provider-records.mjs';
+import { readReviewPreservation } from '../config/review-history.mjs';
 
 const observations = new WeakMap();
 const retainedDescriptors = new Set();
@@ -278,7 +280,15 @@ const inventories = new WeakMap();
 const pendingInventories = new Set();
 const REVIEW_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u;
 const KEY = /^[a-f0-9]{64}$/u;
-const RESERVED = new Set(['private', 'runtime', 'runtimes', 'broker', 'reviews']);
+const RESERVED = new Set([
+  'private',
+  'runtime',
+  'runtimes',
+  'broker',
+  'reviews',
+  'codex-hooks',
+  'claude-hooks',
+]);
 
 // Explicit unverified namespace policy. This cannot authenticate paths or authorize effects.
 export function describeReconciliationNamespacesCore({
@@ -289,7 +299,8 @@ export function describeReconciliationNamespacesCore({
   if (![projectEntries, brokerEntries, reviewEntries].every(Array.isArray))
     refuse('reconciliation-namespace-unproved');
   const reviewPaths = [],
-    brokerPaths = [];
+    brokerPaths = [],
+    hookPaths = [];
   const unique = (entries) => {
     if (entries.length > MAX_ENTRIES) refuse('reconciliation-inventory-overflow');
     const names = new Set();
@@ -302,7 +313,8 @@ export function describeReconciliationNamespacesCore({
   for (const entries of [projectEntries, brokerEntries, reviewEntries]) unique(entries);
   for (const { name, type } of projectEntries) {
     if (type !== 'directory' || !REVIEW_ID.test(name)) refuse('reconciliation-namespace-unproved');
-    if (!RESERVED.has(name)) reviewPaths.push(name);
+    if (['codex-hooks', 'claude-hooks'].includes(name)) hookPaths.push(name);
+    else if (!RESERVED.has(name)) reviewPaths.push(name);
   }
   for (const { name, type } of brokerEntries) {
     if (['registrations', 'recovery'].includes(name) && type === 'directory')
@@ -318,6 +330,7 @@ export function describeReconciliationNamespacesCore({
     verified: false,
     reviewPaths: Object.freeze(reviewPaths.sort()),
     brokerPaths: Object.freeze(brokerPaths.sort()),
+    hookPaths: Object.freeze(hookPaths.sort()),
   });
 }
 
@@ -454,6 +467,7 @@ function assertReviewNamespace(entries) {
     /^responses\/(author|reviewer)-[1-9][0-9]*\.json$/u,
     /^provider\/bindings\/(author|reviewer)\.json$/u,
     /^provider\/(codex|claude|grok)\/launch-state\.json$/u,
+    /^provider\/claude\/recovery-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.json$/u,
     /^provider\/(codex|claude|grok)\/operations\/[a-f0-9]{64}\.json$/u,
     /^provider\/(codex|claude|grok)\/observations\/([a-f0-9]{64}|join:[A-Za-z0-9][A-Za-z0-9._-]{0,127})\.json$/u,
     /^wake\/operations\/[a-f0-9]{64}\.json$/u,
@@ -483,6 +497,24 @@ async function observeProjectNamespaces(record, base) {
     brokerEntries: broker ? shallowEntries(broker) : [],
     reviewEntries: reviews ? shallowEntries(reviews) : [],
   });
+  for (const relative of names.hookPaths) {
+    const root = path.join(base, relative);
+    const observation = await ordinaryRoot(root, 'tree');
+    const captured = observations.get(observation).recorded;
+    if (
+      captured.entries.some((entry) => entry.type !== 'file') ||
+      validatePortableHookRecordsCore({
+        kind: relative,
+        files: [...captured.files].map(([name, file]) => ({
+          name,
+          bytes: file.bytes,
+          mode: file.mode,
+        })),
+      }).status !== 'valid'
+    )
+      refuse('reconciliation-namespace-unproved');
+    record.namespaces.push({ kind: relative, root, observation });
+  }
   for (const relative of [...names.brokerPaths, ...names.reviewPaths]) {
     const root = path.join(base, relative);
     const observation = await ordinaryRoot(root, 'tree');
@@ -634,6 +666,57 @@ export async function observeReconciliationInventory(input = {}) {
   }
   try {
     await observeProjectNamespaces(record, base);
+    if (project.commonDirectory !== null) {
+      const historyRoot = path.join(project.commonDirectory, 'ai-peer-review', 'review-history');
+      if (!(await exists(historyRoot, context))) await absentRoot(historyRoot);
+      else {
+        const catalog = await protectedRoot(historyRoot);
+        if (
+          catalog.entries.some(
+            ({ name, type }) =>
+              type !== 'file' ||
+              !/^[a-f0-9]{64}(?:\.[1-9][0-9]{0,2})?\.json(?:\.released)?$/u.test(name)
+          )
+        )
+          refuse('reconciliation-namespace-unproved');
+        const catalogNames = new Set(catalog.entries.map(({ name }) => name));
+        if (
+          catalog.entries.some(
+            ({ name }) => name.endsWith('.released') && !catalogNames.has(name.slice(0, -9))
+          )
+        )
+          refuse('review-authority-unproved');
+        record.historyTargets = [];
+        for (const { name, snapshot } of catalog.snapshots) {
+          if (name.endsWith('.released')) continue;
+          let historical;
+          try {
+            historical = JSON.parse(snapshot.bytes.toString('utf8'));
+          } catch {
+            refuse('review-authority-unproved');
+          }
+          if (
+            typeof historical.target !== 'string' ||
+            !path.isAbsolute(historical.target) ||
+            path.normalize(historical.target) !== historical.target ||
+            name !==
+              createHash('sha256').update(historical.target).digest('hex') +
+                (historical.generation === 1 ? '' : '.' + historical.generation) +
+                '.json'
+          )
+            refuse('review-authority-unproved');
+          if (!record.historyTargets.includes(historical.target)) {
+            record.historyTargets.push(historical.target);
+            // One stock read validates every generation/release for this target.
+            await readReviewPreservation(project.commonDirectory, historical.target, {
+              ...context,
+              verifySnapshot: false,
+            });
+          }
+        }
+        record.namespaces.push({ kind: 'review-history', root: historyRoot, protected: catalog });
+      }
+    }
     // C4 owns these exact owner generations; this layer retains their actual C1 substrate.
     const privateStore = await protectedRoot(owner.privateRoot, owner.privateGuard);
     const runtimeStore = await protectedRoot(owner.runtimeRoot, owner.runtimeGuard);
@@ -819,6 +902,14 @@ export async function observeReconciliationInventory(input = {}) {
 }
 
 async function assertProtectedInventory(record) {
+  for (const target of record.historyTargets ?? []) {
+    const relative = path.relative(record.project.physicalRoot, target);
+    await readReviewPreservation(record.project.commonDirectory, target, {
+      ...record.context,
+      verifySnapshot:
+        relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative),
+    });
+  }
   if (record.ownerStores) {
     const { privateStore, runtimeStore, resourceKey } = record.ownerStores;
     describeOwnerReconciliationNamespaceCore({

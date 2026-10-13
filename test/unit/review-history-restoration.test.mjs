@@ -29,10 +29,10 @@ test('historical attempts cannot restore automation or obstruct service shutdown
       throw new Error('Historical provider execution attempted');
     },
     clock: { now: () => 0, setTimeout: () => 1, clearTimeout() {} },
+    onReady: () => ready.resolve(),
     server: {
       start(handler) {
         dispatch = handler;
-        ready.resolve();
       },
       close() {
         closed = true;

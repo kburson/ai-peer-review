@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { fingerprintSession } from '../identity/fingerprint.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 import { providerEvidenceDigestCore } from '../providers/evidence.mjs';
+import { reduceEvents } from '../protocol/reducer.mjs';
 const exact = (value, keys) =>
   value &&
   typeof value === 'object' &&
@@ -160,6 +161,87 @@ function observation(value, name, state) {
         name === 'provider/claude/observations/' + value.operation_id + '.json'))
   );
 }
+function recoveryDiagnostic(value, state, events) {
+  if (
+    !exact(value, [
+      'schema',
+      'review_id',
+      'claim_id',
+      'before_sequence',
+      'after_sequence',
+      'observation',
+    ]) ||
+    value.schema !== 'ai-peer-review.claude-recovery-diagnostic/v1' ||
+    value.review_id !== state.protocol.review_id ||
+    !/^claim-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u.test(
+      value.claim_id ?? ''
+    ) ||
+    !Number.isSafeInteger(value.before_sequence) ||
+    value.before_sequence < 1 ||
+    !Number.isSafeInteger(value.after_sequence) ||
+    value.after_sequence <= value.before_sequence ||
+    value.after_sequence > state.protocol.sequence ||
+    !Array.isArray(events)
+  )
+    return false;
+  const observed = value.observation;
+  if (
+    !exact(observed, [
+      'exit_code',
+      'spawn_code',
+      'interrupted',
+      'output_valid',
+      'output_issue',
+      'session_id_present',
+      'session_id',
+      'permission_denials',
+      'provider_failed',
+      'join_code',
+      'selection_refusal',
+      'selection_refusal_code',
+    ]) ||
+    observed.exit_code !== 0 ||
+    observed.spawn_code !== null ||
+    observed.interrupted !== false ||
+    observed.output_valid !== true ||
+    observed.output_issue !== 'none' ||
+    observed.session_id_present !== true ||
+    !text(observed.session_id) ||
+    !Array.isArray(observed.permission_denials) ||
+    observed.permission_denials.length ||
+    observed.provider_failed !== false ||
+    observed.join_code !== null ||
+    observed.selection_refusal !== null ||
+    observed.selection_refusal_code !== null
+  )
+    return false;
+  const participant = state.participants?.reviewer;
+  if (
+    participant?.provider !== 'anthropic' ||
+    participant.host !== 'claude-code' ||
+    fingerprintSession('anthropic', observed.session_id) !== participant.session_fingerprint
+  )
+    return false;
+  const before = reduceEvents(events.filter((event) => event.sequence <= value.before_sequence));
+  const oldClaim = before.protocol.claims?.reviewer;
+  if (
+    oldClaim?.claim_id !== value.claim_id ||
+    oldClaim.session_fingerprint !== participant.session_fingerprint ||
+    oldClaim.role !== 'reviewer'
+  )
+    return false;
+  const reclaim = events.filter(
+    (event) =>
+      event.sequence > value.before_sequence &&
+      event.sequence <= value.after_sequence &&
+      event.type === 'same-session-reclaim' &&
+      event.actor === participant.session_fingerprint &&
+      event.payload.old_claim.claim_id === value.claim_id &&
+      event.payload.new_claim.role === 'reviewer' &&
+      event.payload.new_claim.session_fingerprint === participant.session_fingerprint
+  );
+  return reclaim.length === 1;
+}
 export function validatePortableProviderRecordsCore(input = {}) {
   const records = [];
   const result = (status) =>
@@ -174,7 +256,12 @@ export function validatePortableProviderRecordsCore(input = {}) {
       ),
     });
   if (
-    !exact(input, ['files', 'state', 'journal']) ||
+    !exact(input, [
+      'files',
+      'state',
+      'journal',
+      ...(Object.hasOwn(input, 'events') ? ['events'] : []),
+    ]) ||
     !Array.isArray(input.files) ||
     input.files.length > 4096
   )
@@ -226,6 +313,12 @@ export function validatePortableProviderRecordsCore(input = {}) {
             value.session_fingerprint === state.participants.reviewer.session_fingerprint);
       } else if (file.name.startsWith('provider/claude/observations/'))
         valid = ownerOnly && observation(value, file.name, state);
+      else if (
+        /^provider\/claude\/recovery-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.json$/u.test(
+          file.name
+        )
+      )
+        valid = ownerOnly && recoveryDiagnostic(value, state, input.events);
       else if (file.name === 'provider/claude/launch-state.json') valid = launchState(value, state);
       if (!valid) return result('unknown');
       records.push(Object.freeze(value));
@@ -253,4 +346,74 @@ export function validatePortableProviderRecordsCore(input = {}) {
   } catch {
     return result('unknown');
   }
+}
+
+// Historical hook metadata never substitutes for a current exact-session observation.
+export function validatePortableHookRecordsCore({ kind, files } = {}) {
+  const selector = kind === 'codex-hooks' ? 'codex' : kind === 'claude-hooks' ? 'claude' : null;
+  const names = new Set();
+  const unknown = () => Object.freeze({ verified: false, status: 'unknown' });
+  if (!selector || !Array.isArray(files) || files.length > 4096) return unknown();
+  for (const file of files) {
+    try {
+      if (
+        !file ||
+        !/^[a-f0-9]{32}\.json$/u.test(file.name) ||
+        names.has(file.name) ||
+        !Buffer.isBuffer(file.bytes) ||
+        file.bytes.length > 1048576 ||
+        (process.platform !== 'win32' && (!Number.isSafeInteger(file.mode) || file.mode & 0o077))
+      )
+        return unknown();
+      names.add(file.name);
+      const value = JSON.parse(file.bytes.toString('utf8'));
+      const encoded = file.bytes.toString('utf8').trim();
+      if (encoded !== JSON.stringify(value) && encoded !== JSON.stringify(value, null, 2))
+        return unknown();
+      if (
+        !exact(value, [
+          'schema',
+          'source',
+          'source_version',
+          'observed_at',
+          'provider',
+          'host',
+          'model_id',
+          'session_id',
+          'phase',
+          'tool_use_id',
+          'command',
+          ...(selector === 'codex' ? ['turn_id'] : []),
+        ]) ||
+        value.schema !== 'ai-peer-review.' + selector + '-hook/v1' ||
+        value.source !== 'official-exact-session' ||
+        value.provider !== selectors[selector][0] ||
+        value.host !== selectors[selector][1] ||
+        value.phase !== 'tool-use' ||
+        ![
+          value.source_version,
+          value.model_id,
+          value.session_id,
+          value.tool_use_id,
+          value.command,
+        ].every(text) ||
+        (selector === 'codex' && !text(value.turn_id)) ||
+        (selector === 'claude' &&
+          !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(
+            value.session_id
+          )) ||
+        !/^[A-Za-z0-9._:-]+$/u.test(value.model_id) ||
+        !/^(?:(?:npx )?(?:ai-)?peer-review|node (?:\.\/)?bin\/peer-review\.mjs) (?:start|join)(?:\s|$)/u.test(
+          value.command
+        ) ||
+        typeof value.observed_at !== 'string' ||
+        !Number.isFinite(Date.parse(value.observed_at)) ||
+        new Date(value.observed_at).toISOString() !== value.observed_at
+      )
+        return unknown();
+    } catch {
+      return unknown();
+    }
+  }
+  return Object.freeze({ verified: false, status: 'valid' });
 }

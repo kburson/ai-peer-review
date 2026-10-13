@@ -94,6 +94,12 @@ export function selectPortableExistingEffectCandidatesCore(data, projection) {
   for (const namespace of data.namespaces) {
     if (namespace.kind === 'registrations')
       for (const file of namespace.files) {
+        if (
+          projection.preservedRegistrations?.some(
+            (entry) => entry.file === path.join(namespace.root, file.name)
+          )
+        )
+          continue;
         const record = parse(file.bytes);
         if (
           !validBrokerRegistrationRecordCore(record) ||
@@ -108,13 +114,33 @@ export function selectPortableExistingEffectCandidatesCore(data, projection) {
           Object.freeze({ ...record, runtime: Object.freeze({ ...record.runtime }) })
         );
       }
-    else if (namespace.kind === 'review') reviews.set(namespace.root, namespace);
+    else if (
+      namespace.kind === 'review' &&
+      !projection.preservedWorkspaces?.includes(namespace.root)
+    )
+      reviews.set(namespace.root, namespace);
     else if (namespace.kind === 'recovery')
       for (const file of namespace.files) recovery.push({ file, record: parse(file.bytes) });
     else if (namespace.kind === 'owner-legacy') return retained('owner-reconciliation-unproved');
   }
   for (const { file, record } of recovery) {
-    const registration = registrations.get(record?.review_id);
+    let registration = registrations.get(record?.review_id);
+    if (!registration) {
+      const preserved = projection.preservedRegistrations?.find(
+        (entry) => path.basename(entry.file) === record?.review_id + '.json'
+      );
+      const file =
+        preserved &&
+        data.namespaces
+          .find(
+            (entry) => entry.kind === 'registrations' && entry.root === path.dirname(preserved.file)
+          )
+          ?.files.find((entry) => entry.name === path.basename(preserved.file));
+      if (file) {
+        const historical = parse(file.bytes);
+        if (validBrokerRegistrationRecordCore(historical)) registration = historical;
+      }
+    }
     if (
       !registration ||
       Object.keys(record).sort().join(',') !==

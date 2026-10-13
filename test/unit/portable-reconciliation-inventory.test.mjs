@@ -620,3 +620,70 @@ test('fixed genuine-path inventory observes ordinary project stores and rejects 
     (error) => error.details?.reason === 'reconciliation-generation-changed'
   );
 });
+
+test('stock start hooks remain bounded metadata namespaces rather than review transactions', async (t) => {
+  const input = await ordinaryDirectory(t);
+  const root = path.join(input.root, '.scratch', 'peer-review');
+  const { captureCodexStartHook } = await import('../helpers/codex-hook-api.mjs');
+  const { captureClaudeStartHook } = await import('../helpers/claude-hook-api.mjs');
+  const command = 'peer-review start docs/artifact.md --issue 209';
+  await captureCodexStartHook({
+    token: 'a'.repeat(32),
+    sourceVersion: '1.0.0',
+    observedAt: '2026-10-12T00:00:00.000Z',
+    event: {
+      cwd: input.root,
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command },
+      model: 'model',
+      session_id: 'author-session',
+      tool_use_id: 'author-tool',
+      turn_id: 'turn-one',
+    },
+  });
+  const session = '11111111-1111-4111-8111-111111111111',
+    transcript = path.join(input.root, session + '.jsonl');
+  await writeFile(
+    transcript,
+    JSON.stringify({
+      type: 'assistant',
+      sessionId: session,
+      version: '1.0.0',
+      timestamp: '2026-10-12T00:00:00.000Z',
+      message: {
+        model: 'claude-model',
+        content: [{ type: 'tool_use', id: 'claude-tool', name: 'Bash', input: { command } }],
+      },
+    }) + '\n',
+    { mode: 0o600 }
+  );
+  await captureClaudeStartHook({
+    token: 'b'.repeat(32),
+    sourceVersion: '1.0.0',
+    observedAt: '2026-10-12T00:00:00.000Z',
+    event: {
+      cwd: input.root,
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command },
+      session_id: session,
+      tool_use_id: 'claude-tool',
+      transcript_path: transcript,
+    },
+  });
+  const observed = await ordinary.observeProjectReconciliationInventoryCore({ ...input, root });
+  t.after(() => observed.close());
+  assert.equal(observed.verified, false);
+  assert.deepEqual(
+    observed.namespaces.map(({ kind }) => kind),
+    ['claude-hooks', 'codex-hooks']
+  );
+  await observed.assertUnchanged();
+  await writeFile(path.join(root, 'codex-hooks', 'a'.repeat(32) + '.json'), '{}\n');
+  await assert.rejects(() => observed.assertUnchanged(), { code: 'APR_BROKER_STALE' });
+  await assert.rejects(
+    () => ordinary.observeProjectReconciliationInventoryCore({ ...input, root }),
+    { code: 'APR_BROKER_STALE' }
+  );
+});

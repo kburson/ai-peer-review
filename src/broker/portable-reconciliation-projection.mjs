@@ -20,6 +20,7 @@ import { readManualLaunchHistory } from '../provider/manual-launch-ledger.mjs';
 import { allWakeOperations } from '../coordinator/ledger.mjs';
 import { classifyPortableReconciliationCore } from './portable-reconciliation-policy.mjs';
 import { validatePortableProviderRecordsCore } from './portable-provider-records.mjs';
+import { createReviewPreservationLookup } from '../config/review-history.mjs';
 
 function refuse(reason) {
   throw new AprError('APR_BROKER_STALE', 'Reconciliation parsing is unproved.', {
@@ -42,6 +43,40 @@ export async function readPortableReconciliationProjection(input = {}) {
   const binding = { observation, paths, signal, deadline };
   // Membership and the original context are checked before even reading caller data.
   const data = await readReconciliationInventory(binding);
+  const projected = await projectRecords(data, { signal, deadline }, () =>
+    assertReconciliationInventory(binding)
+  );
+  await assertReconciliationInventory(binding);
+  return projected;
+}
+// Explicit read-only parser core. Caller data can never create an inventory/owner capability.
+export async function readPortableReconciliationRecordsCore(input = {}) {
+  if (Object.keys(input).sort().join(',') !== 'data,deadline,signal')
+    refuse('reconciliation-context-unproved');
+  const { data, signal, deadline } = input;
+  const assertContext = () => {
+    if (
+      !(signal instanceof AbortSignal) ||
+      signal.aborted ||
+      !Number.isFinite(deadline) ||
+      performance.now() >= deadline ||
+      deadline - performance.now() > 30000
+    )
+      refuse('reconciliation-context-unproved');
+  };
+  assertContext();
+  return projectRecords(data, { signal, deadline }, assertContext);
+}
+async function projectRecords(data, context, assertCurrent) {
+  const lookup =
+    data.project.commonDirectory === null || data.project.commonDirectory === undefined
+      ? null
+      : createReviewPreservationLookup(
+          data.project.commonDirectory,
+          path.join(data.project.physicalRoot, '.scratch', 'peer-review', 'broker', 'registrations')
+        );
+  const preservedRegistrations = [],
+    preservedWorkspaces = [];
   const registrations = [],
     reviews = [],
     resources = [];
@@ -50,7 +85,25 @@ export async function readPortableReconciliationProjection(input = {}) {
     if (namespace.kind === 'owner-legacy') refuse('owner-reconciliation-unproved');
     if (namespace.kind === 'registrations') {
       for (const file of namespace.files) {
+        await assertCurrent();
+        const filePath = path.join(namespace.root, file.name);
+        if (lookup && (await lookup.registration(filePath, context))) {
+          preservedRegistrations.push(Object.freeze({ file: filePath }));
+          continue;
+        }
         const record = parse(file.bytes);
+        if (
+          lookup &&
+          typeof record?.workspace === 'string' &&
+          path.isAbsolute(record.workspace) &&
+          path.normalize(record.workspace) === record.workspace &&
+          (await lookup.workspace(record.workspace, context))
+        ) {
+          preservedRegistrations.push(
+            Object.freeze({ file: filePath, workspace: record.workspace })
+          );
+          continue;
+        }
         if (!validBrokerRegistrationRecordCore(record) || file.name !== record.review_id + '.json')
           refuse('registry-reconciliation-unproved');
         registrations.push(record);
@@ -58,17 +111,23 @@ export async function readPortableReconciliationProjection(input = {}) {
     } else if (namespace.kind === 'recovery') {
       recovery.push(...namespace.files.map((file) => ({ file, record: parse(file.bytes) })));
     } else if (namespace.kind === 'review') {
-      await assertReconciliationInventory(binding);
+      await assertCurrent();
       const workspace = namespace.root;
+      if (lookup && (await lookup.workspace(workspace, context))) {
+        preservedWorkspaces.push(workspace);
+        continue;
+      }
       const journal = readStartupJournal(workspace);
       const authority = inspectStartupAuthority({ workspace, project: data.project });
       const initialized = namespace.files.some(({ name }) => name === 'events.jsonl');
-      const state = initialized ? inspectReviewAuthority(workspace).state : null;
+      const eventAuthority = initialized ? inspectReviewAuthority(workspace) : null;
+      const state = eventAuthority?.state ?? null;
       if (state) startupEvidence(workspace, state);
       const provider = validatePortableProviderRecordsCore({
         files: namespace.files.filter(({ name }) => name.startsWith('provider/')),
         state,
         journal,
+        ...(eventAuthority ? { events: eventAuthority.events } : {}),
       });
       if (provider.status !== 'valid') refuse('review-authority-unproved');
       const file = (name) => namespace.files.find((entry) => entry.name === name);
@@ -158,7 +217,23 @@ export async function readPortableReconciliationProjection(input = {}) {
     }
   }
   for (const { file, record } of recovery) {
-    const registration = registrations.find((entry) => entry.review_id === record?.review_id);
+    let registration = registrations.find((entry) => entry.review_id === record?.review_id);
+    if (!registration) {
+      const preserved = preservedRegistrations.find(
+        (entry) => path.basename(entry.file) === record?.review_id + '.json'
+      );
+      const retainedFile =
+        preserved &&
+        data.namespaces
+          .find(
+            (entry) => entry.kind === 'registrations' && entry.root === path.dirname(preserved.file)
+          )
+          ?.files.find((file) => file.name === path.basename(preserved.file));
+      if (retainedFile) {
+        const historical = parse(retainedFile.bytes);
+        if (validBrokerRegistrationRecordCore(historical)) registration = historical;
+      }
+    }
     if (
       !registration ||
       file.name !== registration.review_id + '.json' ||
@@ -173,7 +248,7 @@ export async function readPortableReconciliationProjection(input = {}) {
     )
       refuse('review-authority-unproved');
   }
-  await assertReconciliationInventory(binding);
+  await assertCurrent();
   const classification = classifyPortableReconciliationCore({
     project: data.project,
     registrations,
@@ -186,6 +261,8 @@ export async function readPortableReconciliationProjection(input = {}) {
     registrations: Object.freeze(registrations),
     reviews: Object.freeze(reviews),
     resources: Object.freeze(resources),
+    preservedRegistrations: Object.freeze(preservedRegistrations),
+    preservedWorkspaces: Object.freeze(preservedWorkspaces),
     classification,
   });
 }
