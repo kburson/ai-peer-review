@@ -76,7 +76,8 @@ async function projectRecords(data, context, assertCurrent) {
           path.join(data.project.physicalRoot, '.scratch', 'peer-review', 'broker', 'registrations')
         );
   const preservedRegistrations = [],
-    preservedWorkspaces = [];
+    preservedWorkspaces = [],
+    preservationObligations = new Set();
   const registrations = [],
     reviews = [],
     resources = [];
@@ -115,6 +116,35 @@ async function projectRecords(data, context, assertCurrent) {
       const workspace = namespace.root;
       if (lookup && (await lookup.workspace(workspace, context))) {
         preservedWorkspaces.push(workspace);
+        // A stock history/hold proves retention, never release of physical generations or
+        // settlement of effects. Inspect the complete namespace before excluding its worker.
+        for (const { relativePath } of namespace.entries) {
+          if (
+            ['coordinator/coordinator.lock', 'coordinator/coordinator-lease.json'].includes(
+              relativePath
+            )
+          )
+            preservationObligations.add('coordinator-generation-retained');
+          if (/(^|\/)locks\/review\.lock$/u.test(relativePath))
+            preservationObligations.add('review-lock-retained');
+        }
+        for (const { name } of namespace.files) {
+          if (name === 'manual-launch-history.json' || name === 'manual-fence.json')
+            preservationObligations.add('manual-launch-unproved');
+          if (name === 'manual-suspension.json')
+            preservationObligations.add('manual-suspension-unproved');
+          if (name.startsWith('wake/')) preservationObligations.add('wake-outcome-unproved');
+          if (name.startsWith('provider/'))
+            preservationObligations.add('review-authority-unproved');
+          if (name === 'startup-request.json') {
+            const journal = readStartupJournal(workspace);
+            if (
+              ['launch-pending', 'outcome-unknown'].includes(journal.stage) ||
+              ['reserved', 'outcome-unknown'].includes(journal.provider_operation?.status)
+            )
+              preservationObligations.add('review-authority-unproved');
+          }
+        }
         continue;
       }
       const journal = readStartupJournal(workspace);
@@ -249,12 +279,32 @@ async function projectRecords(data, context, assertCurrent) {
       refuse('review-authority-unproved');
   }
   await assertCurrent();
-  const classification = classifyPortableReconciliationCore({
+  const disposition = classifyPortableReconciliationCore({
     project: data.project,
     registrations,
     reviews,
     resources,
   });
+  const retainedObligations = Object.freeze(
+    [...preservationObligations].map((name) =>
+      Object.freeze({ name, outcome: 'retained-unproved' })
+    )
+  );
+  const classification = retainedObligations.length
+    ? Object.freeze({
+        ...disposition,
+        status: 'unknown',
+        reason: retainedObligations[0].name,
+        outstandingObligations: Object.freeze(
+          [...retainedObligations, ...disposition.outstandingObligations]
+            .filter(
+              (entry, index, entries) =>
+                entries.findIndex(({ name }) => name === entry.name) === index
+            )
+            .slice(0, 64)
+        ),
+      })
+    : disposition;
   return Object.freeze({
     verified: false,
     project: data.project,
@@ -263,6 +313,7 @@ async function projectRecords(data, context, assertCurrent) {
     resources: Object.freeze(resources),
     preservedRegistrations: Object.freeze(preservedRegistrations),
     preservedWorkspaces: Object.freeze(preservedWorkspaces),
+    preservationObligations: retainedObligations,
     classification,
   });
 }

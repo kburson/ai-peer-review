@@ -88,6 +88,8 @@ function parse(bytes) {
 }
 // Read-only selection over already parsed data; this core result grants no effect authority.
 export function selectPortableExistingEffectCandidatesCore(data, projection) {
+  if (projection.preservationObligations?.length)
+    return retained(projection.preservationObligations[0].name);
   const registrations = new Map(),
     reviews = new Map(),
     recovery = [];

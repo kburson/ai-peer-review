@@ -147,3 +147,90 @@ test('released genuine hold cannot remain a preservation disposition during star
     projection.readPortableReconciliationRecordsCore({ data, ...context })
   );
 });
+
+// The missing-preservation branch must never erase physically retained effects.
+for (const [entry, expected] of [
+  ['coordinator/coordinator.lock', 'coordinator-generation-retained'],
+  ['coordinator/coordinator-lease.json', 'coordinator-generation-retained'],
+  ['locks/review.lock', 'review-lock-retained'],
+  ['dispatch/locks/review.lock', 'review-lock-retained'],
+  ['startup/locks/review.lock', 'review-lock-retained'],
+  ['manual-launch-history.json', 'manual-launch-unproved'],
+  ['manual-suspension.json', 'manual-suspension-unproved'],
+  ['wake/operations/' + 'b'.repeat(64) + '.json', 'wake-outcome-unproved'],
+  ['provider/claude/operations/' + 'c'.repeat(64) + '.json', 'review-authority-unproved'],
+]) {
+  for (const registrationFallback of [false, true]) {
+    test(
+      'genuine hold retains ' +
+        entry +
+        (registrationFallback ? ' through registration lookup' : ''),
+      async (t) => {
+        const f = await setupHostFixture(t);
+        const workspace = path.join(f.root, '.scratch', 'peer-review', 'review-held');
+        await mkdir(path.dirname(path.join(workspace, entry)), { recursive: true });
+        await writeFile(path.join(workspace, entry), '{}\n');
+        const context = {
+          signal: new AbortController().signal,
+          deadline: performance.now() + 30000,
+        };
+        await preserveReviewHistory({
+          commonDir: f.commonDir,
+          worktreeRoot: f.root,
+          target: workspace,
+          kind: 'hold',
+          reason: 'independent generation remains retained',
+          ...context,
+        });
+        const { observeOrdinaryReconciliationTree, assertOrdinaryReconciliationTreeUnchanged } =
+          await import('../../src/broker/portable-reconciliation-inventory.mjs');
+        const inventory = await observeOrdinaryReconciliationTree({ root: workspace, ...context });
+        t.after(() => inventory.close());
+        assert.ok(inventory.entries.some(({ relativePath }) => relativePath === entry));
+        const data = {
+          project: { digest: 'a'.repeat(64), physicalRoot: f.root, commonDirectory: f.commonDir },
+          namespaces: [
+            {
+              kind: 'review',
+              root: workspace,
+              entries: inventory.entries,
+              files: [{ name: entry, bytes: await readFile(path.join(workspace, entry)) }],
+            },
+          ],
+        };
+        if (registrationFallback) {
+          const root = path.join(f.root, '.scratch', 'peer-review', 'broker', 'registrations');
+          await mkdir(root, { recursive: true });
+          const bytes = Buffer.from(
+            JSON.stringify({ workspace, schema: 'historical-obsolete-format' }) + '\n'
+          );
+          await writeFile(path.join(root, 'review-held.json'), bytes);
+          data.namespaces.unshift({
+            kind: 'registrations',
+            root,
+            entries: [],
+            files: [{ name: 'review-held.json', bytes }],
+          });
+        }
+        const result = await projection.readPortableReconciliationRecordsCore({ data, ...context });
+        assert.equal(result.classification.status, 'unknown');
+        assert.ok(
+          result.classification.outstandingObligations.some(({ name }) => name === expected)
+        );
+        assert.ok(result.classification.outstandingObligations.length <= 64);
+        assert.equal(result.verified, false);
+        assert.deepEqual(result.registrations, []);
+        assert.deepEqual(result.reviews, []);
+        if (registrationFallback) assert.equal(result.preservedRegistrations.length, 1);
+        const { selectPortableExistingEffectCandidatesCore } =
+          await import('../../src/broker/portable-existing-effect-reconciliation.mjs');
+        const selected = selectPortableExistingEffectCandidatesCore(data, result);
+        assert.equal(selected.status, 'unknown');
+        assert.equal(selected.reason, expected);
+        assert.equal(selected.verified, false);
+        await assertOrdinaryReconciliationTreeUnchanged(inventory);
+        assert.deepEqual(await readFile(path.join(workspace, entry)), Buffer.from('{}\n'));
+      }
+    );
+  }
+}

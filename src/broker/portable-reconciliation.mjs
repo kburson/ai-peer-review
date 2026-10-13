@@ -98,6 +98,8 @@ async function observeFreshForeignChanges(record) {
       signal: record.signal,
       deadline: record.deadline,
     });
+    if (projection.preservationObligations.length)
+      throw boundedOwnershipError('owner-reconciliation-unproved', projection.classification);
     const disposition = classifyPortableReconciliationCore({
       project: projection.project,
       reviews: projection.reviews,
@@ -227,6 +229,8 @@ export async function acceptPortableRestorationReceipt(input = {}) {
       )
   );
   // The policy input is closed; project/review/registration facts come only from the new fixed projection.
+  if (projection.preservationObligations.length)
+    throw boundedOwnershipError('owner-reconciliation-unproved', projection.classification);
   const disposition = classifyPortableReconciliationCore({
     project: projection.project,
     reviews: projection.reviews,
