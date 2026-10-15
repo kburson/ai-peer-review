@@ -551,7 +551,7 @@ export async function inspectOwnerElectionLease(input = {}) {
     )
   )
     throw stale('genuine-election-lease-required');
-  if (Object.hasOwn(input, 'paths') && record.binding !== pathBindings.get(input.paths))
+  if (Object.hasOwn(input, 'paths') && record.pathBinding !== pathBindings.get(input.paths))
     throw stale('owner-lease-paths-mismatch');
   const current = portableOwnerOperation(input.lease) || record.budget;
   if (
@@ -720,6 +720,8 @@ export async function acquireOwnerElection(options = {}) {
       productionLeases.set(lease, {
         core,
         binding: transaction,
+        // Transaction guards are freshly opened; retain their authenticated origin.
+        pathBinding: binding,
         assurance: current.assurance,
         identity: current,
         budget,
