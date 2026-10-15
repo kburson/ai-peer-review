@@ -603,6 +603,13 @@ async function genuineInventoryFixture(
 // substituted result, changed context or post-failure retry is permitted.
 async function traceGenuineInventory(t, options, control) {
   const originalLstat = fsPromises.lstat;
+  const originalOpendir = fsPromises.opendir;
+  let lastEnumeration;
+  fsPromises.opendir = async (...args) => {
+    const directory = await originalOpendir(...args);
+    lastEnumeration = String(args[0]);
+    return directory;
+  };
   const records = new Map();
   const fields = ['size', 'mode', 'nlink', 'uid', 'gid', 'mtimeNs', 'ctimeNs'];
   let recording = false,
@@ -610,7 +617,7 @@ async function traceGenuineInventory(t, options, control) {
     project;
   fsPromises.lstat = async (...args) => {
     const stat = await originalLstat(...args);
-    if (recording && args[1]?.bigint === true && stat.isDirectory()) {
+    if (recording && args[1]?.bigint === true) {
       const location = String(args[0]);
       const facts = {
         identity: `${stat.dev}:${stat.ino}`,
@@ -657,7 +664,15 @@ async function traceGenuineInventory(t, options, control) {
             : relative && !relative.startsWith('..') && !path.isAbsolute(relative)
               ? 'project-other'
               : 'outside-project';
-      changes.push({ role, identityChanged, changedFields });
+      const standardNames = ['appdata', 'local', 'temp', '.cache', 'private', 'runtime'];
+      const basename = path.basename(location).toLowerCase();
+      changes.push({
+        role,
+        identityChanged,
+        changedFields,
+        childOfLastEnumeration: path.dirname(location) === lastEnumeration,
+        standardName: standardNames.includes(basename) ? basename : 'other',
+      });
     }
     console.error(
       'inventory-refusal-diagnostic ' +
@@ -666,12 +681,22 @@ async function traceGenuineInventory(t, options, control) {
           code: error.code,
           reason: error.details?.reason,
           truncated,
+          lastEnumeration: !lastEnumeration
+            ? 'unavailable'
+            : path.basename(path.dirname(lastEnumeration)).toLowerCase() === 'users'
+              ? 'account-profile'
+              : path.basename(lastEnumeration).toLowerCase() === '.cache'
+                ? 'account-cache'
+                : lastEnumeration === project || lastEnumeration.startsWith(project + path.sep)
+                  ? 'project-store'
+                  : 'outside-other',
           changes,
         })
     );
     throw error;
   } finally {
     fsPromises.lstat = originalLstat;
+    fsPromises.opendir = originalOpendir;
     syncBuiltinESMExports();
   }
 }
