@@ -54,6 +54,27 @@ test('closed child diagnostics bound cyclic causes and retain an actual aborted 
   );
 });
 
+test('child frame retains actual bootstrap and service input refusals', async () => {
+  const { readPortableBrokerBootstrap } = await import('../../src/broker/portable-bootstrap.mjs');
+  const { startPortableBrokerService } = await import('../../src/broker/portable-service.mjs');
+  for (const [operation, reason] of [
+    [() => readPortableBrokerBootstrap({}), 'bootstrap-path-unproved'],
+    [() => startPortableBrokerService({ unexpected: true }), 'fixed-service-input-required'],
+  ]) {
+    let observed;
+    try {
+      await operation();
+    } catch (error) {
+      observed = error;
+    }
+    assert.equal(observed.code, 'APR_BROKER_START_FAILED');
+    const frame = api.encodePortableBrokerChildFailure(observed);
+    assert.equal(api.decodePortableBrokerChildFailure(frame).reason, reason);
+    assert.equal(frame.includes('recovery'), false);
+    assert.equal(frame.includes(observed.message), false);
+  }
+});
+
 test('broker child projection carries only closed reasons and obligation names', () => {
   assert.equal(typeof api.encodePortableBrokerChildFailure, 'function');
   const encoded = api.encodePortableBrokerChildFailure({
