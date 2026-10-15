@@ -1,0 +1,40 @@
+# Diagnostic variant: the actual workflow name satisfies the existing hosted guard.
+# This instrumented process supplies no installed acceptance or receipt.
+name: Installed portable journeys
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  startup-diagnostic:
+    name: Diagnostic only / stock Linux startup exceptions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APR_SKIP_NATIVE_BROKER_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '26'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node test/helpers/warm-packed-cache.mjs
+      - name: Observe actual exception sites under unchanged original budgets
+        run: node --import ./test/helpers/broker-startup-exception-observer.mjs test/helpers/installed-portable-ci.mjs
+      - name: Preserve closed observations and incomplete outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startup-exception-diagnostic-${{ github.run_attempt }}
+          path: |
+            .scratch/190-startup-diagnostic-public/
+            .scratch/190-installed-public/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
