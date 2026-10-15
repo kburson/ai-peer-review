@@ -316,8 +316,21 @@ export async function assertOperationAuthority({
     return fence;
   }
   const parentSeal = parent ? fences.get(parent) : null;
-  if (parentSeal && parentSeal.kind !== 'read' && cwd === parentSeal.cwd) {
-    const seal = { ...parentSeal, kind, reviewWorkspace, reviewContext };
+  if (parentSeal && parentSeal.kind !== 'read') {
+    if (cwd !== parentSeal.cwd) {
+      // A different lexical directory does not create another operation budget.
+      // Prove its physical worktree and current primary generation before sharing
+      // the parent's private context and admission lineage.
+      const observed = await observePrimary(cwd, parentSeal.context);
+      await assertPrimaryAuthorityGeneration(parentSeal.primary, observed.primary);
+      if (
+        observed.primary.activeWorktreeRoot !== parentSeal.primary.activeWorktreeRoot ||
+        observed.primary.activationDigest !== parentSeal.primary.activationDigest ||
+        observed.integrationDigest !== parentSeal.integrationDigest
+      )
+        refuse('Nested operation cannot change its admitted physical worktree or primary.');
+    }
+    const seal = { ...parentSeal, cwd, kind, reviewWorkspace, reviewContext };
     if (
       reviewContext &&
       realpathSync(reviewContext.repository_root) !== seal.primary.activeWorktreeRoot
