@@ -231,8 +231,13 @@ test('[#187] hosted CI runs all four portable unit groups on independent bounded
   assert.ok(job, 'unit partitions need independent machines, not more processes on one host');
   assert.equal(job['runs-on'], 'windows-latest');
   assert.equal(job.strategy['max-parallel'], 4);
-  assert.deepEqual(job.strategy.matrix.node, ['24', '26', 'current']);
-  assert.deepEqual(job.strategy.matrix.group, ['selection', 'authority', 'storage', 'identity']);
+  assert.deepEqual([...job.strategy.matrix.node].sort(), ['24', '26', 'current']);
+  assert.deepEqual([...job.strategy.matrix.group].sort(), [
+    'authority',
+    'identity',
+    'selection',
+    'storage',
+  ]);
   const integration = job.steps.filter((step) =>
     step.run?.startsWith('node scripts/ci/record-tests.mjs portable-integration-')
   );

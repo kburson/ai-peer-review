@@ -407,9 +407,11 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 4
+      # Start the longer partitions first; keep the same twelve isolated jobs,
+      # four-worker cap, file partitions and original operation/lane budgets.
       matrix:
-        node: ['24', '26', 'current']
-        group: [selection, authority, storage, identity]
+        group: [identity, selection, authority, storage]
+        node: ['26', 'current', '24']
     env:
       APR_CI_JOB_KEY: portable-unit-${{ matrix.group }}-${{ matrix.node }}-windows-latest
       APR_CI_MATRIX_NODE: ${{ matrix.node }}
