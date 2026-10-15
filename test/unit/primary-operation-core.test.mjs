@@ -18,6 +18,7 @@ import {
   selectionScopeOutcome,
 } from '../../src/config/selection-read-scope.mjs';
 import { runtimeFixture } from '../helpers/runtime-selection-fixture.mjs';
+import { stockCommandTimings } from '../helpers/stock-command-timings.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
 const context = () => ({
@@ -254,6 +255,7 @@ function activationDiagnostic(f, failure, effectAtReturn) {
     outcome: selectionScopeOutcome(failure),
     stages: f.trace.stages,
     admissions: f.trace.admissions,
+    stockCommands: stockCommandTimings(f.trace.started),
     callbackFailure: f.trace.callbackFailure,
     callbackSettled: f.trace.callbackSettled,
     mutationApplied: f.trace.mutationApplied,
