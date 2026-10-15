@@ -19,6 +19,7 @@ import {
 } from '../../src/config/selection-read-scope.mjs';
 import { runtimeFixture } from '../helpers/runtime-selection-fixture.mjs';
 import { stockCommandTimings } from '../helpers/stock-command-timings.mjs';
+import { fixtureHandleDiagnostics } from '../helpers/fixture-handle-diagnostics.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 const packageRoot = fileURLToPath(new URL('../..', import.meta.url));
 const context = () => ({
@@ -101,7 +102,7 @@ async function owned(
   t,
   { initial = false, mutateAfter = false, failAssert = false, afterCallback, onCommitted } = {}
 ) {
-  const cleanup = { selection: null, scope: null };
+  const cleanup = { selection: null, scope: null, project: null, runtime: null };
   const trace = {
     context: null,
     callbackSettled: false,
@@ -116,14 +117,40 @@ async function owned(
   // Discharge real retained resources before fixture directories are removed,
   // including when an assertion or the original operation deadline fails.
   t.after(async () => {
-    await callbackSettlement;
-    await drainCallbackContinuation();
-    await cleanup.selection?.retryCleanup();
-    await cleanup.scope?.retryCleanup();
-    await retryPrimaryMaintenanceCleanup();
+    const stages = [];
+    try {
+      await callbackSettlement;
+      await drainCallbackContinuation();
+      stages.push('callback-settled');
+      await cleanup.selection?.retryCleanup();
+      stages.push('selection-cleanup-complete');
+      await cleanup.scope?.retryCleanup();
+      stages.push('scope-cleanup-complete');
+      await retryPrimaryMaintenanceCleanup();
+      stages.push('primary-maintenance-cleanup-complete');
+    } finally {
+      t.diagnostic(
+        JSON.stringify({
+          verified: false,
+          operationalAuthority: 'unavailable',
+          fixtureCleanup: {
+            stages,
+            callbackFailure: trace.callbackFailure,
+            project: cleanup.project
+              ? fixtureHandleDiagnostics([
+                  cleanup.project.parent,
+                  cleanup.project.root,
+                  cleanup.project.commonDir,
+                ])
+              : null,
+            runtime: cleanup.runtime ? fixtureHandleDiagnostics([cleanup.runtime.root]) : null,
+          },
+        })
+      );
+    }
   });
-  const project = await setupHostFixture(t),
-    runtime = runtimeFixture(t);
+  const project = (cleanup.project = await setupHostFixture(t)),
+    runtime = (cleanup.runtime = runtimeFixture(t));
   const selection = createSelectionStore({
     packageRoot: runtime.packageRoot,
     account: runtime.account,
