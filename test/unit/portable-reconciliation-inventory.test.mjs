@@ -610,6 +610,7 @@ test('fixed genuine-path inventory observes ordinary stores and delegates C4-own
     const changes = [];
     const fields = ['size', 'mode', 'nlink', 'uid', 'gid', 'mtimeNs', 'ctimeNs'];
     for (const [containerIndex, container] of data.containers.entries()) {
+      if (changes.length >= 32) break;
       if (container.mechanism !== 'ordinary') continue;
       const directories = [
         { location: container.root, identity: container.identity, version: container.version },
@@ -622,6 +623,7 @@ test('fixed genuine-path inventory observes ordinary stores and delegates C4-own
           })),
       ];
       for (const [directoryIndex, before] of directories.entries()) {
+        if (changes.length >= 32) break;
         try {
           const after = await fsPromises.lstat(before.location, { bigint: true });
           const values = before.version.split(':');
