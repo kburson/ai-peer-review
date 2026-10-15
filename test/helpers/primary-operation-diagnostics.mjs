@@ -4,26 +4,37 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { captureCommand } from '../../scripts/ci/receipt.mjs';
 const scope = process.env.APR_PRIMARY_DIAGNOSTIC_SCOPE ?? 'focused';
 if (
-  !['focused', 'file', 'inventory', 'preservation', 'inventory-file', 'preservation-file'].includes(
-    scope
-  )
+  ![
+    'focused',
+    'file',
+    'inventory',
+    'preservation',
+    'inventory-file',
+    'preservation-file',
+    'identity-lane',
+  ].includes(scope)
 )
   throw Error('Unsupported diagnostic scope');
-const result = captureCommand(process.execPath, [
-  '--test',
-  ...(scope === 'focused'
-    ? ['--test-name-pattern=actual activation preserves|committed activation retains']
-    : scope === 'inventory'
-      ? ['--test-name-pattern=fixed genuine-path inventory']
-      : scope === 'preservation'
-        ? ['--test-name-pattern=genuine hold retains locks/review.lock$']
-        : []),
-  scope.startsWith('inventory')
-    ? 'test/unit/portable-reconciliation-inventory.test.mjs'
-    : scope.startsWith('preservation')
-      ? 'test/unit/portable-reconciliation-preservation.test.mjs'
-      : 'test/unit/primary-operation-core.test.mjs',
-]);
+const result = captureCommand(
+  process.execPath,
+  scope === 'identity-lane'
+    ? ['test/helpers/run-suite.mjs', 'unit', '--portable-unit-shard', 'identity']
+    : [
+        '--test',
+        ...(scope === 'focused'
+          ? ['--test-name-pattern=actual activation preserves|committed activation retains']
+          : scope === 'inventory'
+            ? ['--test-name-pattern=fixed genuine-path inventory']
+            : scope === 'preservation'
+              ? ['--test-name-pattern=genuine hold retains locks/review.lock$']
+              : []),
+        scope.startsWith('inventory')
+          ? 'test/unit/portable-reconciliation-inventory.test.mjs'
+          : scope.startsWith('preservation')
+            ? 'test/unit/portable-reconciliation-preservation.test.mjs'
+            : 'test/unit/primary-operation-core.test.mjs',
+      ]
+);
 const directory = '.scratch/209-primary-diagnostic/' + scope;
 mkdirSync(directory, { recursive: true });
 writeFileSync(directory + '/controls.log', result.output);

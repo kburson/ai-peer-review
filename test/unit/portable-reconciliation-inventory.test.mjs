@@ -553,7 +553,10 @@ test('resource namespace binds C3 filenames to the exact root and independent re
 
 // Explicit maintenance prepares C1 stores before each independent startup observation.
 // No bound paths, inventory, signal or deadline are renewed within a control.
-async function genuineInventoryFixture(t, { initialOwner = true } = {}) {
+async function genuineInventoryFixture(
+  t,
+  { initialOwner = true, beginObservation = () => {} } = {}
+) {
   const api = await import('../../src/broker/portable-reconciliation-inventory.mjs');
   const election = await import('../../src/broker/ownership-election.mjs');
   const project = await realpath(await mkdtemp(path.join(tmpdir(), 'apr-fixed-inventory-209-')));
@@ -590,58 +593,71 @@ async function genuineInventoryFixture(t, { initialOwner = true } = {}) {
     ...context,
   });
   held.paths = paths;
+  beginObservation();
   const observed = await api.observeReconciliationInventory({ paths, ...context });
   held.observed = observed;
   return { api, base, project, context, paths, observed, privateReceipt, held };
 }
 
-test('fixed genuine-path inventory observes ordinary stores and delegates C4-owned bytes', async (t) => {
-  const { api, base, project, context, paths, observed } = await genuineInventoryFixture(t);
-  const data = await api.readReconciliationInventory({ observation: observed, paths, ...context });
-  assert.equal(observed.verified, false);
-  assert.equal(data.project.physicalRoot, project);
-  // In-place fixture content change preserves the genuine C1 file ACL; these bytes never
-  // mint a C4 owner, election or source capability. C4 independently owns their generation.
-  await writeFile(path.join(base, 'private', 'owner.json'), '{"changed":true}\n');
+// Trace only real directory stats already requested by production. No extra I/O,
+// substituted result, changed context or post-failure retry is permitted.
+async function traceGenuineInventory(t, options, control) {
+  const originalLstat = fsPromises.lstat;
+  const records = new Map();
+  const fields = ['size', 'mode', 'nlink', 'uid', 'gid', 'mtimeNs', 'ctimeNs'];
+  let recording = false,
+    truncated = false,
+    project;
+  fsPromises.lstat = async (...args) => {
+    const stat = await originalLstat(...args);
+    if (recording && args[1]?.bigint === true && stat.isDirectory()) {
+      const location = String(args[0]);
+      const facts = {
+        identity: `${stat.dev}:${stat.ino}`,
+        values: fields.map((field) => String(stat[field])),
+      };
+      const record = records.get(location);
+      if (record) record.last = facts;
+      else if (records.size < 128) records.set(location, { first: facts, last: facts });
+      else truncated = true;
+    }
+    return stat;
+  };
+  syncBuiltinESMExports();
   try {
-    await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+    const fixture = await genuineInventoryFixture(t, {
+      ...options,
+      beginObservation: () => {
+        recording = true;
+      },
+    });
+    project = fixture.project;
+    await control(fixture);
   } catch (error) {
-    // Post-refusal diagnostics only: real metadata reads cannot rescue the observation.
     const changes = [];
-    const fields = ['size', 'mode', 'nlink', 'uid', 'gid', 'mtimeNs', 'ctimeNs'];
-    for (const [containerIndex, container] of data.containers.entries()) {
+    for (const [location, { first, last }] of records) {
       if (changes.length >= 32) break;
-      if (container.mechanism !== 'ordinary') continue;
-      const directories = [
-        { location: container.root, identity: container.identity, version: container.version },
-        ...container.entries
-          .filter((entry) => entry.type === 'directory' && entry.fileVersion)
-          .map((entry) => ({
-            location: path.join(container.root, entry.relativePath),
-            identity: entry.identity,
-            version: entry.fileVersion,
-          })),
+      const changedFields = fields.filter((field, i) => first.values[i] !== last.values[i]);
+      const identityChanged = first.identity !== last.identity;
+      if (!identityChanged && !changedFields.length) continue;
+      const relative = project && path.relative(project, location);
+      const known = [
+        '.scratch',
+        '.scratch/peer-review',
+        '.scratch/peer-review/private',
+        '.scratch/peer-review/runtime',
+        '.scratch/peer-review/retained-review',
       ];
-      for (const [directoryIndex, before] of directories.entries()) {
-        if (changes.length >= 32) break;
-        try {
-          const after = await fsPromises.lstat(before.location, { bigint: true });
-          const values = before.version.split(':');
-          const changedFields = fields.filter((field, i) => String(after[field]) !== values[i]);
-          const identityChanged = `${after.dev}:${after.ino}` !== before.identity;
-          if ((identityChanged || changedFields.length) && changes.length < 32)
-            changes.push({
-              containerIndex,
-              directoryIndex,
-              insideProject:
-                before.location === project || before.location.startsWith(project + path.sep),
-              identityChanged,
-              changedFields,
-            });
-        } catch {
-          changes.push({ containerIndex, directoryIndex, metadataUnavailable: true });
-        }
-      }
+      const normalized = relative?.split(path.sep).join('/');
+      const role =
+        location === project
+          ? 'project-root'
+          : known.includes(normalized)
+            ? normalized
+            : relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+              ? 'project-other'
+              : 'outside-project';
+      changes.push({ role, identityChanged, changedFields });
     }
     console.error(
       'inventory-refusal-diagnostic ' +
@@ -649,22 +665,45 @@ test('fixed genuine-path inventory observes ordinary stores and delegates C4-own
           verified: false,
           code: error.code,
           reason: error.details?.reason,
+          truncated,
           changes,
         })
     );
     throw error;
+  } finally {
+    fsPromises.lstat = originalLstat;
+    syncBuiltinESMExports();
   }
+}
+
+test('fixed genuine-path inventory observes ordinary stores and delegates C4-owned bytes', async (t) => {
+  await traceGenuineInventory(t, {}, async ({ api, base, project, context, paths, observed }) => {
+    const data = await api.readReconciliationInventory({
+      observation: observed,
+      paths,
+      ...context,
+    });
+    assert.equal(observed.verified, false);
+    assert.equal(data.project.physicalRoot, project);
+    // In-place fixture content change preserves the genuine C1 file ACL; these bytes never
+    // mint a C4 owner, election or source capability. C4 independently owns their generation.
+    await writeFile(path.join(base, 'private', 'owner.json'), '{"changed":true}\n');
+    await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+  });
 });
 
 test('fixed genuine-path inventory delegates a newly created C4-owned file within its original context', async (t) => {
-  const { api, context, paths, observed, privateReceipt, held } = await genuineInventoryFixture(t, {
-    initialOwner: false,
-  });
-  const writer = await openProtectedRoot({ receipt: privateReceipt, ...context });
-  held.guards.push(writer);
-  await writer.writeExclusive('owner.json', Buffer.from('{}\n'));
-  await api.assertReconciliationInventory({ observation: observed, paths, ...context });
-  assert.equal(observed.verified, false);
+  await traceGenuineInventory(
+    t,
+    { initialOwner: false },
+    async ({ api, context, paths, observed, privateReceipt, held }) => {
+      const writer = await openProtectedRoot({ receipt: privateReceipt, ...context });
+      held.guards.push(writer);
+      await writer.writeExclusive('owner.json', Buffer.from('{}\n'));
+      await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+      assert.equal(observed.verified, false);
+    }
+  );
 });
 
 test('fixed genuine-path inventory refuses an unknown private child before reconciliation', async (t) => {

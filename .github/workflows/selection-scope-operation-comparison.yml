@@ -21,7 +21,8 @@ on:
       diagnostic_scope:
         description: Closed scope for the unverified primary diagnostic
         type: choice
-        options: [focused, file, inventory, preservation, inventory-file, preservation-file]
+        options:
+          [focused, file, inventory, preservation, inventory-file, preservation-file, identity-lane]
         required: false
         default: focused
 permissions:
@@ -65,6 +66,8 @@ jobs:
     name: Unverified scope diagnostic / Windows / Node ${{ inputs.diagnostic_node }}
     runs-on: windows-latest
     timeout-minutes: 15
+    env:
+      APR_SKIP_NATIVE_BROKER_TESTS: '1'
     steps:
       - name: Enable Windows long checkout paths
         shell: powershell
