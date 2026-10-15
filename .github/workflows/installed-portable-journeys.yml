@@ -133,6 +133,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Real stock reads retain one original 30 second budget
         run: node --test --test-name-pattern='twenty protected snapshot reads' test/unit/storage-protection.test.mjs
       - name: Diagnose the same reads with unchanged stock calls and budget

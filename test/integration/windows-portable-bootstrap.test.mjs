@@ -10,6 +10,42 @@ async function driver() {
     throw error;
   }
 }
+test('installed diagnostics consume the shipped entrypoint closed failure frame', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const subject = await driver();
+  const actual = spawnSync(
+    process.execPath,
+    [fileURLToPath(new URL('../../bin/peer-review-broker.mjs', import.meta.url))],
+    { encoding: 'utf8', timeout: 30000, maxBuffer: 4096 }
+  );
+  assert.equal(actual.status, 1);
+  assert.equal(actual.stdout, '');
+  assert.deepEqual(subject.brokerChildRefusalReasons(actual.stderr), ['broker-startup-incomplete']);
+});
+test('installed diagnostics preserve closed reconciliation obligations without private bytes', async () => {
+  const subject = await driver();
+  const { encodePortableBrokerChildFailure } =
+    await import('../../src/broker/portable-child-failure.mjs');
+  const frame = encodePortableBrokerChildFailure({
+    details: {
+      reason: 'owner-reconciliation-unproved',
+      outstandingObligations: [
+        { name: 'provider-resource-retained', path: '/private/DO-NOT-PUBLISH' },
+        { name: 'review-lock-retained', credential: 'DO-NOT-PUBLISH' },
+      ],
+    },
+  });
+  const observed = subject.brokerChildRefusalReasons(frame);
+  assert.deepEqual(observed, [
+    'owner-reconciliation-unproved',
+    'provider-resource-retained',
+    'review-lock-retained',
+  ]);
+  assert.equal(JSON.stringify(observed).includes('DO-NOT-PUBLISH'), false);
+  for (const bad of [frame + 'private trailing bytes', frame + frame, frame.slice(0, -1)])
+    assert.deepEqual(subject.brokerChildRefusalReasons(bad), []);
+});
 test('child refusal diagnostics reject private or unrecognized categories', async () => {
   const subject = await driver();
   assert.equal(typeof subject.brokerChildRefusalReasons, 'function');

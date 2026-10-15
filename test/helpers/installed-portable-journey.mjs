@@ -2,6 +2,7 @@
 // Actual hosted installed operations. Public reports are data, never capabilities.
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { assertInstalledEffectAcceptance } from './installed-effect-acceptance.mjs';
+import { decodePortableBrokerChildFailure } from '../../src/broker/portable-child-failure.mjs';
 import { mkdir, writeFile, realpath, lstat } from 'node:fs/promises';
 import { userInfo, release, arch } from 'node:os';
 import path from 'node:path';
@@ -142,6 +143,10 @@ const childRefusalReasons = new Set([
 ]);
 export function brokerChildRefusalReasons(text) {
   if (typeof text !== 'string' || text.length > 65536) return [];
+  if (text.startsWith('APR_BROKER_FAILURE_V1:')) {
+    const closed = decodePortableBrokerChildFailure(text);
+    return closed ? [...new Set([closed.reason, ...closed.obligations])] : [];
+  }
   for (const line of text.split(/\r?\n/u)) {
     try {
       const value = JSON.parse(line);
@@ -448,12 +453,18 @@ export async function runInstalledPortableJourney(options = {}) {
             diagnosticText = '';
           child.stderr.on('data', (bytes) => {
             diagnosticBytes += bytes.length;
-            if (diagnosticBytes > 65536) return;
+            if (diagnosticBytes > 65536) {
+              diagnosticText = '';
+              delete report.brokerChildFailureCode;
+              delete report.brokerChildRefusalReasons;
+              return;
+            }
             diagnosticText += bytes.toString('utf8');
             const code = brokerChildFailureCode(diagnosticText);
             if (code) report.brokerChildFailureCode = code;
             const reasons = brokerChildRefusalReasons(diagnosticText);
             if (reasons.length) report.brokerChildRefusalReasons = reasons;
+            else delete report.brokerChildRefusalReasons;
           });
           childExited = new Promise((resolve, reject) => {
             child.once('error', reject);
