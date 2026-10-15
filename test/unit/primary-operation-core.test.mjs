@@ -107,6 +107,7 @@ async function owned(
     finalizerReached: false,
     mutationApplied: false,
     stages: [],
+    admissions: [],
     callbackFailure: null,
     started: null,
   };
@@ -156,9 +157,18 @@ async function owned(
     admission: {
       run: project.admission.run,
       assert: async (...args) => {
-        await project.admission.assert(...args);
-        if (failAssert && ++asserts === (typeof failAssert === 'number' ? failAssert : 2))
-          throw new Error('fixture-pre-receipt');
+        const step = { startMs: Math.round(performance.now() - trace.started) };
+        trace.admissions.push(step);
+        try {
+          await project.admission.assert(...args);
+          if (failAssert && ++asserts === (typeof failAssert === 'number' ? failAssert : 2))
+            throw new Error('fixture-pre-receipt');
+        } catch (error) {
+          step.failure = boundedFailure(error);
+          throw error;
+        } finally {
+          step.endMs = Math.round(performance.now() - trace.started);
+        }
       },
     },
     // Scheduling ports are deliberately unverified. The genuine selected
@@ -243,6 +253,7 @@ function activationDiagnostic(f, failure, effectAtReturn) {
     failure: boundedFailure(failure),
     outcome: selectionScopeOutcome(failure),
     stages: f.trace.stages,
+    admissions: f.trace.admissions,
     callbackFailure: f.trace.callbackFailure,
     callbackSettled: f.trace.callbackSettled,
     mutationApplied: f.trace.mutationApplied,
@@ -361,7 +372,9 @@ test('actual activation preserves commitment through finalizer refusal or origin
   assert.ok(failure);
   const effectAtReturn = f.effect();
   if (effectAtReturn !== 'committed') await f.waitCallback();
-  assert.equal(effectAtReturn, 'committed', activationDiagnostic(f, failure, effectAtReturn));
+  const diagnostic = activationDiagnostic(f, failure, effectAtReturn);
+  t.diagnostic(diagnostic);
+  assert.equal(effectAtReturn, 'committed', diagnostic);
   const actual = JSON.parse(readFileSync(f.project.registrationPath));
   assert.equal(actual.primary_initialized, true);
   assert.deepEqual(f.retained().result, actual);

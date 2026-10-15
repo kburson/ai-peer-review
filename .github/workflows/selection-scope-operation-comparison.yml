@@ -12,6 +12,12 @@ on:
         type: boolean
         required: false
         default: false
+      diagnostic_scope:
+        description: Closed scope for the unverified primary diagnostic
+        type: choice
+        options: [focused, file]
+        required: false
+        default: focused
 permissions:
   contents: read
 jobs:
@@ -78,6 +84,8 @@ jobs:
           $null = [System.Security.AccessControl.RawSecurityDescriptor]
           $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
       - run: node test/helpers/primary-operation-diagnostics.mjs
+        env:
+          APR_PRIMARY_DIAGNOSTIC_SCOPE: ${{ inputs.diagnostic_scope }}
       - name: Retain incomplete diagnostic observations
         if: always()
         uses: actions/upload-artifact@v4
