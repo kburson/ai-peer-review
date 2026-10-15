@@ -12,6 +12,7 @@ if (
     'inventory-file',
     'preservation-file',
     'identity-lane',
+    'contract-source',
   ].includes(scope)
 )
   throw Error('Unsupported diagnostic scope');
@@ -19,21 +20,27 @@ const result = captureCommand(
   process.execPath,
   scope === 'identity-lane'
     ? ['test/helpers/run-suite.mjs', 'unit', '--portable-unit-shard', 'identity']
-    : [
-        '--test',
-        ...(scope === 'focused'
-          ? ['--test-name-pattern=actual activation preserves|committed activation retains']
-          : scope === 'inventory'
-            ? ['--test-name-pattern=fixed genuine-path inventory']
-            : scope === 'preservation'
-              ? ['--test-name-pattern=genuine hold retains locks/review.lock$']
-              : []),
-        scope.startsWith('inventory')
-          ? 'test/unit/portable-reconciliation-inventory.test.mjs'
-          : scope.startsWith('preservation')
-            ? 'test/unit/portable-reconciliation-preservation.test.mjs'
-            : 'test/unit/primary-operation-core.test.mjs',
-      ]
+    : scope === 'contract-source'
+      ? [
+          '--test',
+          'test/integration/runtime-contract-verification-input.test.mjs',
+          'test/integration/runtime-contract-github-source.test.mjs',
+        ]
+      : [
+          '--test',
+          ...(scope === 'focused'
+            ? ['--test-name-pattern=actual activation preserves|committed activation retains']
+            : scope === 'inventory'
+              ? ['--test-name-pattern=fixed genuine-path inventory']
+              : scope === 'preservation'
+                ? ['--test-name-pattern=genuine hold retains locks/review.lock$']
+                : []),
+          scope.startsWith('inventory')
+            ? 'test/unit/portable-reconciliation-inventory.test.mjs'
+            : scope.startsWith('preservation')
+              ? 'test/unit/portable-reconciliation-preservation.test.mjs'
+              : 'test/unit/primary-operation-core.test.mjs',
+        ]
 );
 const directory = '.scratch/209-primary-diagnostic/' + scope;
 mkdirSync(directory, { recursive: true });

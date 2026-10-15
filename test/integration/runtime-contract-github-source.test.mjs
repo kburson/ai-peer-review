@@ -1,11 +1,15 @@
 // @story #144
 // Transport conformance only; a source read never grants contract adoption.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+const diagnostic = fileURLToPath(
+  new URL('../helpers/contract-source-transport-diagnostics.mjs', import.meta.url)
+);
 import { readNativeContractSource } from '../../scripts/lib/runtime-contract-evidence.mjs';
 
 const descriptor = {
@@ -50,6 +54,48 @@ test('[#144] native GitHub source refuses unavailable credential resolver withou
   );
   assert.equal(output.trim(), 'approved-evidence-source-unavailable');
 });
+test('contract transport diagnostics preserve actual command output', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      diagnostic,
+      '--input-type=module',
+      '-e',
+      "import {execFileSync} from 'node:child_process'; process.stdout.write(execFileSync(process.execPath,['-e','process.stdout.write(\"actual-output\")'],{stdio:['ignore','pipe','pipe']}));",
+    ],
+    { encoding: 'utf8' }
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, 'actual-output');
+  assert.equal(result.stderr, '');
+});
+test('contract transport diagnostics retain real unavailable credential refusal without private values', (t) => {
+  const config = mkdtempSync(path.join(tmpdir(), 'apr-contract-diagnostic-'));
+  t.after(() => rmSync(config, { recursive: true, force: true }));
+  const env = { ...process.env, PATH: config, GH_CONFIG_DIR: config };
+  delete env.GH_TOKEN;
+  delete env.GITHUB_TOKEN;
+  const script =
+    "import {readNativeContractSource} from './scripts/lib/runtime-contract-evidence.mjs';try {readNativeContractSource(JSON.parse(process.argv[1])); process.exitCode=2;} catch(e) {console.log(e.message);}";
+  const result = spawnSync(
+    process.execPath,
+    ['--import', diagnostic, '--input-type=module', '-e', script, JSON.stringify(descriptor)],
+    { env, encoding: 'utf8' }
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), 'approved-evidence-source-unavailable');
+  const line = result.stderr.trim();
+  assert.ok(line.startsWith('contract-transport-diagnostic '));
+  const evidence = JSON.parse(line.slice('contract-transport-diagnostic '.length));
+  assert.equal(evidence.verified, false);
+  assert.equal(evidence.operation, 'credential');
+  assert.equal(evidence.code, 'ENOENT');
+  assert.equal(evidence.status, null);
+  assert.ok(Number.isFinite(evidence.elapsedMs));
+  assert.equal(line.includes(config), false);
+});
+
 test(
   '[#144] hosted Actions credential reads the fixed GitHub repository and original comment',
   {

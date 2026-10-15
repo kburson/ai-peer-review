@@ -12,6 +12,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const source = 'evidence/portable-runtime/contracts/approved-reference.json';
 const output = '.scratch/peer-review/evidence-approved-ref.json';
 const helper = path.join(root, 'scripts/ci/prepare-contract-adoption.mjs');
+const diagnostic = path.join(root, 'test/helpers/contract-source-transport-diagnostics.mjs');
 const original = fs.readFileSync(path.join(root, source));
 function checkout(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apr-144-input-'));
@@ -29,7 +30,7 @@ function checkout(t) {
   return dir;
 }
 function run(cwd) {
-  return spawnSync(process.execPath, [helper], { cwd, encoding: 'utf8' });
+  return spawnSync(process.execPath, ['--import', diagnostic, helper], { cwd, encoding: 'utf8' });
 }
 function destination(cwd) {
   fs.mkdirSync(path.dirname(path.join(cwd, output)), { recursive: true });
@@ -44,6 +45,8 @@ test('[#144] clean checkout recreates validated reference and keeps publication 
   const check = spawnSync(
     process.execPath,
     [
+      '--import',
+      diagnostic,
       path.join(root, 'scripts/check-runtime-contract-adoption.mjs'),
       '--mode',
       'adoption-only',
