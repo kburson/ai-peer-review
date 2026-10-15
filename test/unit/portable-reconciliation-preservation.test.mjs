@@ -17,7 +17,7 @@ const originalContext = () => ({
 
 test('fixed parsed preservation retains a registration and excludes its worker without clearing resource obligations', async (t) => {
   assert.equal(typeof projection.readPortableReconciliationRecordsCore, 'function');
-  const f = await setupHostFixture(t);
+  const f = await setupHostFixture(t, { initializePrimary: false });
   const workspace = path.join(f.root, '.scratch', 'peer-review', 'review-obsolete');
   const directory = path.join(f.root, '.scratch', 'peer-review', 'broker', 'registrations');
   await mkdir(workspace, { recursive: true });
@@ -122,7 +122,7 @@ test('fixed parsed preservation retains a registration and excludes its worker w
 });
 
 test('released genuine hold cannot remain a preservation disposition during startup', async (t) => {
-  const f = await setupHostFixture(t);
+  const f = await setupHostFixture(t, { initializePrimary: false });
   const workspace = path.join(f.root, '.scratch', 'peer-review', 'review-held');
   await mkdir(workspace, { recursive: true });
   await writeFile(path.join(workspace, 'events.jsonl'), 'unsupported held attempt\n');
@@ -179,7 +179,7 @@ for (const [entry, expected] of [
       async (t) => {
         let stage = 'setup';
         try {
-          const f = await setupHostFixture(t);
+          const f = await setupHostFixture(t, { initializePrimary: false });
           stage = 'maintenance';
           const workspace = path.join(f.root, '.scratch', 'peer-review', 'review-held');
           await mkdir(path.dirname(path.join(workspace, entry)), { recursive: true });

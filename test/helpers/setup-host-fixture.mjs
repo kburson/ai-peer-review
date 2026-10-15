@@ -15,7 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { primaryAdmissionFixture } from './primary-admission-fixture.mjs';
 import { createSetupMaintenanceCore } from '../../src/config/setup-core.mjs';
-export async function setupHostFixture(t) {
+export async function setupHostFixture(t, { initializePrimary = true } = {}) {
   const parent = realpathSync(mkdtempSync(path.join(tmpdir(), 'primary setup ')));
   t.after(() => rmSync(parent, { recursive: true, force: true }));
   let root = path.join(parent, 'primary project'),
@@ -73,11 +73,15 @@ export async function setupHostFixture(t) {
     root: path.dirname(registrationPath),
     ...context,
   });
-  const guard = await openProtectedRoot({ receipt, ...context });
-  try {
-    await guard.writeExclusive(path.basename(registrationPath), Buffer.from(registrationBytes));
-  } finally {
-    await guard.close();
+  // Preservation-only controls need the genuine protected parent, not an unrelated
+  // primary activation record. All primary/setup controls retain the default.
+  if (initializePrimary) {
+    const guard = await openProtectedRoot({ receipt, ...context });
+    try {
+      await guard.writeExclusive(path.basename(registrationPath), Buffer.from(registrationBytes));
+    } finally {
+      await guard.close();
+    }
   }
   const setupApply = (options = {}) =>
     core.setup({
