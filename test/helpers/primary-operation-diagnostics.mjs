@@ -3,7 +3,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { captureCommand } from '../../scripts/ci/receipt.mjs';
 const scope = process.env.APR_PRIMARY_DIAGNOSTIC_SCOPE ?? 'focused';
-if (!['focused', 'file', 'inventory', 'preservation'].includes(scope))
+if (
+  !['focused', 'file', 'inventory', 'preservation', 'inventory-file', 'preservation-file'].includes(
+    scope
+  )
+)
   throw Error('Unsupported diagnostic scope');
 const result = captureCommand(process.execPath, [
   '--test',
@@ -14,9 +18,9 @@ const result = captureCommand(process.execPath, [
       : scope === 'preservation'
         ? ['--test-name-pattern=genuine hold retains locks/review.lock$']
         : []),
-  scope === 'inventory'
+  scope.startsWith('inventory')
     ? 'test/unit/portable-reconciliation-inventory.test.mjs'
-    : scope === 'preservation'
+    : scope.startsWith('preservation')
       ? 'test/unit/portable-reconciliation-preservation.test.mjs'
       : 'test/unit/primary-operation-core.test.mjs',
 ]);

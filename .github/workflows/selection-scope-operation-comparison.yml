@@ -21,7 +21,7 @@ on:
       diagnostic_scope:
         description: Closed scope for the unverified primary diagnostic
         type: choice
-        options: [focused, file, inventory, preservation]
+        options: [focused, file, inventory, preservation, inventory-file, preservation-file]
         required: false
         default: focused
 permissions:
