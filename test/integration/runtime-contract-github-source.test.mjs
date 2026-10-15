@@ -6,6 +6,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+// Confined to this isolated test process; also trace the actual hosted direct read.
+import '../helpers/contract-source-transport-diagnostics.mjs';
 const diagnostic = new URL('../helpers/contract-source-transport-diagnostics.mjs', import.meta.url)
   .href;
 import { readNativeContractSource } from '../../scripts/lib/runtime-contract-evidence.mjs';
