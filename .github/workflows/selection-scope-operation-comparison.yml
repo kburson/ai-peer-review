@@ -92,6 +92,9 @@ jobs:
           $null = [System.Security.AccessControl.FileSecurity]
           $null = [System.Security.AccessControl.RawSecurityDescriptor]
           $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+      - name: Warm the existing CI offline dependency cache
+        if: ${{ inputs.diagnostic_scope == 'identity-lane' }}
+        run: node test/helpers/warm-packed-cache.mjs
       - run: node test/helpers/primary-operation-diagnostics.mjs
         env:
           APR_PRIMARY_DIAGNOSTIC_SCOPE: ${{ inputs.diagnostic_scope }}
