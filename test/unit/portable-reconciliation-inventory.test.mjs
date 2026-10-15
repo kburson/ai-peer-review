@@ -83,6 +83,62 @@ test('absence anchors retain unrelated links without following them and refuse t
   await assert.rejects(() => observation.assertUnchanged(), { code: 'APR_BROKER_STALE' });
 });
 
+for (const kind of ['file', 'directory']) {
+  test('absence anchors ignore unrelated sibling ' + kind + ' content changes', async (t) => {
+    const input = await ordinaryDirectory(t);
+    const sibling = path.join(input.root, 'unrelated');
+    if (kind === 'directory') await mkdir(sibling);
+    else await writeFile(sibling, 'before\n');
+    const observation = await ordinary.observeOrdinaryReconciliationAbsenceCore({
+      ...input,
+      root: path.join(input.root, 'missing-store', 'resources'),
+    });
+    t.after(() => observation.close());
+    await writeFile(
+      kind === 'directory' ? path.join(sibling, 'activity.json') : sibling,
+      'after\n'
+    );
+    assert.equal(observation.verified, false);
+    await observation.assertUnchanged();
+  });
+}
+
+for (const change of ['add', 'remove', 'replace', 'type', 'anchor', 'target', 'abort', 'expire']) {
+  test('absence anchors retain strict ' + change + ' refusal', async (t) => {
+    const input = await ordinaryDirectory(t);
+    const sibling = path.join(input.root, 'sibling');
+    await writeFile(sibling, 'before\n');
+    const controller = new AbortController();
+    const observation = await ordinary.observeOrdinaryReconciliationAbsenceCore({
+      ...input,
+      root: path.join(input.root, 'missing-store', 'resources'),
+      signal: controller.signal,
+      ...(change === 'expire' ? { deadline: performance.now() + 250 } : {}),
+    });
+    t.after(() => observation.close());
+    if (change === 'add') await writeFile(path.join(input.root, 'added'), 'new\n');
+    if (change === 'remove') await rm(sibling);
+    if (change === 'replace') {
+      await writeFile(path.join(input.root, 'replacement'), 'after\n');
+      await rename(path.join(input.root, 'replacement'), sibling);
+    }
+    if (change === 'type') {
+      await rm(sibling);
+      await mkdir(sibling);
+    }
+    if (change === 'anchor') {
+      await rename(input.root, input.root + '-retained');
+      t.after(() => rm(input.root + '-retained', { recursive: true, force: true }));
+      await mkdir(input.root);
+    }
+    if (change === 'target')
+      await mkdir(path.join(input.root, 'missing-store', 'resources'), { recursive: true });
+    if (change === 'abort') controller.abort();
+    if (change === 'expire') await new Promise((resolve) => setTimeout(resolve, 260));
+    await assert.rejects(() => observation.assertUnchanged(), { code: 'APR_BROKER_STALE' });
+  });
+}
+
 test('ordinary reconciliation inventory observes physical files without granting protected authority', async (t) => {
   // Omitting a nested authority file would hide an orphan transaction.
   const input = await ordinaryDirectory(t);

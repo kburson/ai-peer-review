@@ -266,7 +266,14 @@ export async function assertOrdinaryReconciliationTreeUnchanged(observed) {
       JSON.stringify(directories(current)) !== JSON.stringify(directories(record.recorded))
     )
       refuse('reconciliation-generation-changed');
-    if (JSON.stringify(current.entries) !== JSON.stringify(record.recorded.entries))
+    // An absent store borrows only its nearest physical parent's membership.
+    // Unrelated sibling contents are not observed authority; all identities,
+    // names/types, physical ancestor facts and target-absence checks stay strict.
+    const entries = (value) =>
+      record.mode === 'absence-anchor'
+        ? value.entries.map(({ fileVersion: _fileVersion, ...entry }) => entry)
+        : value.entries;
+    if (JSON.stringify(entries(current)) !== JSON.stringify(entries(record.recorded)))
       refuse('reconciliation-generation-changed');
     for (const [name, original] of record.recorded.files)
       if (current.files.get(name)?.digest !== original.digest)
