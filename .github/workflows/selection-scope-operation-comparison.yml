@@ -34,6 +34,7 @@ on:
             github-source,
             github-source-sampled,
             github-source-no-telemetry,
+            acl-probe-comparison,
           ]
         required: false
         default: focused
