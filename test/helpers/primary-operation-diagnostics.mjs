@@ -3,13 +3,22 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { captureCommand } from '../../scripts/ci/receipt.mjs';
 const scope = process.env.APR_PRIMARY_DIAGNOSTIC_SCOPE ?? 'focused';
-if (!['focused', 'file'].includes(scope)) throw Error('Unsupported diagnostic scope');
+if (!['focused', 'file', 'inventory', 'preservation'].includes(scope))
+  throw Error('Unsupported diagnostic scope');
 const result = captureCommand(process.execPath, [
   '--test',
   ...(scope === 'focused'
     ? ['--test-name-pattern=actual activation preserves|committed activation retains']
-    : []),
-  'test/unit/primary-operation-core.test.mjs',
+    : scope === 'inventory'
+      ? ['--test-name-pattern=fixed genuine-path inventory']
+      : scope === 'preservation'
+        ? ['--test-name-pattern=genuine hold retains locks/review.lock$']
+        : []),
+  scope === 'inventory'
+    ? 'test/unit/portable-reconciliation-inventory.test.mjs'
+    : scope === 'preservation'
+      ? 'test/unit/portable-reconciliation-preservation.test.mjs'
+      : 'test/unit/primary-operation-core.test.mjs',
 ]);
 const directory = '.scratch/209-primary-diagnostic/' + scope;
 mkdirSync(directory, { recursive: true });

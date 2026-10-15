@@ -603,7 +603,55 @@ test('fixed genuine-path inventory observes ordinary stores and delegates C4-own
   // In-place fixture content change preserves the genuine C1 file ACL; these bytes never
   // mint a C4 owner, election or source capability. C4 independently owns their generation.
   await writeFile(path.join(base, 'private', 'owner.json'), '{"changed":true}\n');
-  await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+  try {
+    await api.assertReconciliationInventory({ observation: observed, paths, ...context });
+  } catch (error) {
+    // Post-refusal diagnostics only: real metadata reads cannot rescue the observation.
+    const changes = [];
+    const fields = ['size', 'mode', 'nlink', 'uid', 'gid', 'mtimeNs', 'ctimeNs'];
+    for (const [containerIndex, container] of data.containers.entries()) {
+      if (container.mechanism !== 'ordinary') continue;
+      const directories = [
+        { location: container.root, identity: container.identity, version: container.version },
+        ...container.entries
+          .filter((entry) => entry.type === 'directory' && entry.fileVersion)
+          .map((entry) => ({
+            location: path.join(container.root, entry.relativePath),
+            identity: entry.identity,
+            version: entry.fileVersion,
+          })),
+      ];
+      for (const [directoryIndex, before] of directories.entries()) {
+        try {
+          const after = await fsPromises.lstat(before.location, { bigint: true });
+          const values = before.version.split(':');
+          const changedFields = fields.filter((field, i) => String(after[field]) !== values[i]);
+          const identityChanged = `${after.dev}:${after.ino}` !== before.identity;
+          if ((identityChanged || changedFields.length) && changes.length < 32)
+            changes.push({
+              containerIndex,
+              directoryIndex,
+              insideProject:
+                before.location === project || before.location.startsWith(project + path.sep),
+              identityChanged,
+              changedFields,
+            });
+        } catch {
+          changes.push({ containerIndex, directoryIndex, metadataUnavailable: true });
+        }
+      }
+    }
+    console.error(
+      'inventory-refusal-diagnostic ' +
+        JSON.stringify({
+          verified: false,
+          code: error.code,
+          reason: error.details?.reason,
+          changes,
+        })
+    );
+    throw error;
+  }
 });
 
 test('fixed genuine-path inventory delegates a newly created C4-owned file within its original context', async (t) => {

@@ -12,10 +12,16 @@ on:
         type: boolean
         required: false
         default: false
+      diagnostic_node:
+        description: Node version for the unverified diagnostic
+        type: choice
+        options: ['26', '24']
+        required: false
+        default: '26'
       diagnostic_scope:
         description: Closed scope for the unverified primary diagnostic
         type: choice
-        options: [focused, file]
+        options: [focused, file, inventory, preservation]
         required: false
         default: focused
 permissions:
@@ -56,7 +62,7 @@ jobs:
 
   primary-operation-diagnostic:
     if: ${{ inputs.primary_operation_diagnostic == true }}
-    name: Unverified primary scope diagnostic / Windows / Node 26
+    name: Unverified scope diagnostic / Windows / Node ${{ inputs.diagnostic_node }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -69,7 +75,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
-          node-version: 26
+          node-version: ${{ inputs.diagnostic_node }}
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Initialize stock Windows PowerShell without retaining authority

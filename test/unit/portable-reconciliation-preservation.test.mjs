@@ -177,79 +177,103 @@ for (const [entry, expected] of [
         entry +
         (registrationFallback ? ' through registration lookup' : ''),
       async (t) => {
-        const f = await setupHostFixture(t);
-        const workspace = path.join(f.root, '.scratch', 'peer-review', 'review-held');
-        await mkdir(path.dirname(path.join(workspace, entry)), { recursive: true });
-        await writeFile(path.join(workspace, entry), '{}\n');
-        if (!registrationFallback)
-          await preserveReviewHistory({
-            commonDir: f.commonDir,
-            worktreeRoot: f.root,
-            target: workspace,
-            kind: 'hold',
-            reason: 'independent generation remains retained',
-            ...originalContext(),
+        let stage = 'setup';
+        try {
+          const f = await setupHostFixture(t);
+          stage = 'maintenance';
+          const workspace = path.join(f.root, '.scratch', 'peer-review', 'review-held');
+          await mkdir(path.dirname(path.join(workspace, entry)), { recursive: true });
+          await writeFile(path.join(workspace, entry), '{}\n');
+          if (!registrationFallback)
+            await preserveReviewHistory({
+              commonDir: f.commonDir,
+              worktreeRoot: f.root,
+              target: workspace,
+              kind: 'hold',
+              reason: 'independent generation remains retained',
+              ...originalContext(),
+            });
+          let registration;
+          if (registrationFallback) {
+            const root = path.join(f.root, '.scratch', 'peer-review', 'broker', 'registrations');
+            await mkdir(root, { recursive: true });
+            const bytes = Buffer.from(
+              JSON.stringify({ workspace, schema: 'historical-obsolete-format' }) + '\n'
+            );
+            const registrationFile = path.join(root, 'review-held.json');
+            await writeFile(registrationFile, bytes);
+            await preserveReviewHistory({
+              commonDir: f.commonDir,
+              worktreeRoot: f.root,
+              target: registrationFile,
+              kind: 'history',
+              reason: 'historical registration excludes worker but does not settle effects',
+              ...originalContext(),
+            });
+            registration = {
+              kind: 'registrations',
+              root,
+              entries: [],
+              files: [{ name: 'review-held.json', bytes }],
+            };
+          }
+          stage = 'observe';
+          const context = originalContext();
+          const { observeOrdinaryReconciliationTree, assertOrdinaryReconciliationTreeUnchanged } =
+            await import('../../src/broker/portable-reconciliation-inventory.mjs');
+          const inventory = await observeOrdinaryReconciliationTree({
+            root: workspace,
+            ...context,
           });
-        let registration;
-        if (registrationFallback) {
-          const root = path.join(f.root, '.scratch', 'peer-review', 'broker', 'registrations');
-          await mkdir(root, { recursive: true });
-          const bytes = Buffer.from(
-            JSON.stringify({ workspace, schema: 'historical-obsolete-format' }) + '\n'
-          );
-          const registrationFile = path.join(root, 'review-held.json');
-          await writeFile(registrationFile, bytes);
-          await preserveReviewHistory({
-            commonDir: f.commonDir,
-            worktreeRoot: f.root,
-            target: registrationFile,
-            kind: 'history',
-            reason: 'historical registration excludes worker but does not settle effects',
-            ...originalContext(),
-          });
-          registration = {
-            kind: 'registrations',
-            root,
-            entries: [],
-            files: [{ name: 'review-held.json', bytes }],
+          t.after(() => inventory.close());
+          assert.ok(inventory.entries.some(({ relativePath }) => relativePath === entry));
+          const data = {
+            project: { digest: 'a'.repeat(64), physicalRoot: f.root, commonDirectory: f.commonDir },
+            namespaces: [
+              {
+                kind: 'review',
+                root: workspace,
+                entries: inventory.entries,
+                files: [{ name: entry, bytes: await readFile(path.join(workspace, entry)) }],
+              },
+            ],
           };
+          if (registration) data.namespaces.unshift(registration);
+          stage = 'projection';
+          const result = await projection.readPortableReconciliationRecordsCore({
+            data,
+            ...context,
+          });
+          assert.equal(result.classification.status, 'unknown');
+          assert.ok(
+            result.classification.outstandingObligations.some(({ name }) => name === expected)
+          );
+          assert.ok(result.classification.outstandingObligations.length <= 64);
+          assert.equal(result.verified, false);
+          assert.deepEqual(result.registrations, []);
+          assert.deepEqual(result.reviews, []);
+          if (registrationFallback) assert.equal(result.preservedRegistrations.length, 1);
+          const { selectPortableExistingEffectCandidatesCore } =
+            await import('../../src/broker/portable-existing-effect-reconciliation.mjs');
+          const selected = selectPortableExistingEffectCandidatesCore(data, result);
+          assert.equal(selected.status, 'unknown');
+          assert.equal(selected.reason, expected);
+          assert.equal(selected.verified, false);
+          stage = 'unchanged';
+          await assertOrdinaryReconciliationTreeUnchanged(inventory);
+          assert.deepEqual(await readFile(path.join(workspace, entry)), Buffer.from('{}\n'));
+        } catch (error) {
+          console.error(
+            'preservation-refusal-diagnostic ' +
+              JSON.stringify({
+                verified: false,
+                stage,
+                code: error.code,
+                reason: error.details?.reason,
+              })
+          );
+          throw error;
         }
-        const context = originalContext();
-        const { observeOrdinaryReconciliationTree, assertOrdinaryReconciliationTreeUnchanged } =
-          await import('../../src/broker/portable-reconciliation-inventory.mjs');
-        const inventory = await observeOrdinaryReconciliationTree({ root: workspace, ...context });
-        t.after(() => inventory.close());
-        assert.ok(inventory.entries.some(({ relativePath }) => relativePath === entry));
-        const data = {
-          project: { digest: 'a'.repeat(64), physicalRoot: f.root, commonDirectory: f.commonDir },
-          namespaces: [
-            {
-              kind: 'review',
-              root: workspace,
-              entries: inventory.entries,
-              files: [{ name: entry, bytes: await readFile(path.join(workspace, entry)) }],
-            },
-          ],
-        };
-        if (registration) data.namespaces.unshift(registration);
-        const result = await projection.readPortableReconciliationRecordsCore({ data, ...context });
-        assert.equal(result.classification.status, 'unknown');
-        assert.ok(
-          result.classification.outstandingObligations.some(({ name }) => name === expected)
-        );
-        assert.ok(result.classification.outstandingObligations.length <= 64);
-        assert.equal(result.verified, false);
-        assert.deepEqual(result.registrations, []);
-        assert.deepEqual(result.reviews, []);
-        if (registrationFallback) assert.equal(result.preservedRegistrations.length, 1);
-        const { selectPortableExistingEffectCandidatesCore } =
-          await import('../../src/broker/portable-existing-effect-reconciliation.mjs');
-        const selected = selectPortableExistingEffectCandidatesCore(data, result);
-        assert.equal(selected.status, 'unknown');
-        assert.equal(selected.reason, expected);
-        assert.equal(selected.verified, false);
-        await assertOrdinaryReconciliationTreeUnchanged(inventory);
-        assert.deepEqual(await readFile(path.join(workspace, entry)), Buffer.from('{}\n'));
       }
     );
   }
