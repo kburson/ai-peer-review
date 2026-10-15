@@ -8,6 +8,13 @@ import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 import { preserveReviewHistory } from '../../src/config/review-history.mjs';
 import * as projection from '../../src/broker/portable-reconciliation-projection.mjs';
 
+// Each independent maintenance command or read-only projection invocation starts its own
+// original bounded context. A retained tree observation keeps one context throughout.
+const originalContext = () => ({
+  signal: new AbortController().signal,
+  deadline: performance.now() + 30000,
+});
+
 test('fixed parsed preservation retains a registration and excludes its worker without clearing resource obligations', async (t) => {
   assert.equal(typeof projection.readPortableReconciliationRecordsCore, 'function');
   const f = await setupHostFixture(t);
@@ -20,7 +27,6 @@ test('fixed parsed preservation retains a registration and excludes its worker w
   const file = path.join(directory, 'review-obsolete.json');
   const record = { workspace, schema: 'historical-obsolete-format' };
   await writeFile(file, JSON.stringify(record) + '\n');
-  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
   for (const target of [workspace, file])
     await preserveReviewHistory({
       commonDir: f.commonDir,
@@ -28,7 +34,7 @@ test('fixed parsed preservation retains a registration and excludes its worker w
       target,
       kind: 'history',
       reason: 'unchanged obsolete attempt',
-      ...context,
+      ...originalContext(),
     });
   const bytes = await readFile(file);
   const data = {
@@ -50,7 +56,10 @@ test('fixed parsed preservation retains a registration and excludes its worker w
       },
     ],
   };
-  const result = await projection.readPortableReconciliationRecordsCore({ data, ...context });
+  const result = await projection.readPortableReconciliationRecordsCore({
+    data,
+    ...originalContext(),
+  });
   assert.equal(result.verified, false);
   assert.equal(result.classification.status, 'clear');
   assert.deepEqual(result.registrations, []);
@@ -97,7 +106,7 @@ test('fixed parsed preservation retains a registration and excludes its worker w
         },
       ],
     },
-    ...context,
+    ...originalContext(),
   });
   assert.equal(withResource.classification.status, 'unknown');
   assert.ok(
@@ -107,7 +116,7 @@ test('fixed parsed preservation retains a registration and excludes its worker w
   );
   await writeFile(file, JSON.stringify({ ...record, changed: true }));
   await assert.rejects(
-    () => projection.readPortableReconciliationRecordsCore({ data, ...context }),
+    () => projection.readPortableReconciliationRecordsCore({ data, ...originalContext() }),
     { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' }
   );
 });
@@ -117,14 +126,13 @@ test('released genuine hold cannot remain a preservation disposition during star
   const workspace = path.join(f.root, '.scratch', 'peer-review', 'review-held');
   await mkdir(workspace, { recursive: true });
   await writeFile(path.join(workspace, 'events.jsonl'), 'unsupported held attempt\n');
-  const context = { signal: new AbortController().signal, deadline: performance.now() + 30000 };
   await preserveReviewHistory({
     commonDir: f.commonDir,
     worktreeRoot: f.root,
     target: workspace,
     kind: 'hold',
     reason: 'active review held',
-    ...context,
+    ...originalContext(),
   });
   const data = {
     project: { digest: 'a'.repeat(64), physicalRoot: f.root, commonDirectory: f.commonDir },
@@ -139,12 +147,15 @@ test('released genuine hold cannot remain a preservation disposition during star
       },
     ],
   };
-  const held = await projection.readPortableReconciliationRecordsCore({ data, ...context });
+  const held = await projection.readPortableReconciliationRecordsCore({
+    data,
+    ...originalContext(),
+  });
   assert.equal(held.classification.status, 'clear');
   const { releaseReviewHold } = await import('../../src/config/review-history.mjs');
-  await releaseReviewHold(f.commonDir, workspace, context);
+  await releaseReviewHold(f.commonDir, workspace, originalContext());
   await assert.rejects(() =>
-    projection.readPortableReconciliationRecordsCore({ data, ...context })
+    projection.readPortableReconciliationRecordsCore({ data, ...originalContext() })
   );
 });
 
@@ -170,10 +181,6 @@ for (const [entry, expected] of [
         const workspace = path.join(f.root, '.scratch', 'peer-review', 'review-held');
         await mkdir(path.dirname(path.join(workspace, entry)), { recursive: true });
         await writeFile(path.join(workspace, entry), '{}\n');
-        const context = {
-          signal: new AbortController().signal,
-          deadline: performance.now() + 30000,
-        };
         if (!registrationFallback)
           await preserveReviewHistory({
             commonDir: f.commonDir,
@@ -181,8 +188,33 @@ for (const [entry, expected] of [
             target: workspace,
             kind: 'hold',
             reason: 'independent generation remains retained',
-            ...context,
+            ...originalContext(),
           });
+        let registration;
+        if (registrationFallback) {
+          const root = path.join(f.root, '.scratch', 'peer-review', 'broker', 'registrations');
+          await mkdir(root, { recursive: true });
+          const bytes = Buffer.from(
+            JSON.stringify({ workspace, schema: 'historical-obsolete-format' }) + '\n'
+          );
+          const registrationFile = path.join(root, 'review-held.json');
+          await writeFile(registrationFile, bytes);
+          await preserveReviewHistory({
+            commonDir: f.commonDir,
+            worktreeRoot: f.root,
+            target: registrationFile,
+            kind: 'history',
+            reason: 'historical registration excludes worker but does not settle effects',
+            ...originalContext(),
+          });
+          registration = {
+            kind: 'registrations',
+            root,
+            entries: [],
+            files: [{ name: 'review-held.json', bytes }],
+          };
+        }
+        const context = originalContext();
         const { observeOrdinaryReconciliationTree, assertOrdinaryReconciliationTreeUnchanged } =
           await import('../../src/broker/portable-reconciliation-inventory.mjs');
         const inventory = await observeOrdinaryReconciliationTree({ root: workspace, ...context });
@@ -199,29 +231,7 @@ for (const [entry, expected] of [
             },
           ],
         };
-        if (registrationFallback) {
-          const root = path.join(f.root, '.scratch', 'peer-review', 'broker', 'registrations');
-          await mkdir(root, { recursive: true });
-          const bytes = Buffer.from(
-            JSON.stringify({ workspace, schema: 'historical-obsolete-format' }) + '\n'
-          );
-          const registrationFile = path.join(root, 'review-held.json');
-          await writeFile(registrationFile, bytes);
-          await preserveReviewHistory({
-            commonDir: f.commonDir,
-            worktreeRoot: f.root,
-            target: registrationFile,
-            kind: 'history',
-            reason: 'historical registration excludes worker but does not settle effects',
-            ...context,
-          });
-          data.namespaces.unshift({
-            kind: 'registrations',
-            root,
-            entries: [],
-            files: [{ name: 'review-held.json', bytes }],
-          });
-        }
+        if (registration) data.namespaces.unshift(registration);
         const result = await projection.readPortableReconciliationRecordsCore({ data, ...context });
         assert.equal(result.classification.status, 'unknown');
         assert.ok(
