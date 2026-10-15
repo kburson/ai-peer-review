@@ -41,7 +41,7 @@ if (path.basename(process.argv[1] ?? '') !== 'peer-review-broker.mjs') {
   session.on('Debugger.scriptParsed', ({ params }) => scripts.set(params.scriptId, params.url));
   session.on('Debugger.paused', async ({ params }) => {
     try {
-      if (params.reason !== 'exception') return;
+      if (!['exception', 'promiseRejection'].includes(params.reason)) return;
       const frames = params.callFrames
         .flatMap((frame) => {
           const url = scripts.get(frame.location.scriptId);
@@ -63,6 +63,7 @@ if (path.basename(process.argv[1] ?? '') !== 'peer-review-broker.mjs') {
         if (typeof value === 'string' && /^(?:APR|ERR)_[A-Z0-9_]{1,80}$/u.test(value)) code = value;
       }
       rows.push({
+        event: params.reason,
         errorClass: ['Error', 'TypeError', 'RangeError', 'SyntaxError'].includes(
           params.data?.className
         )

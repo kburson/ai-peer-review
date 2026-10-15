@@ -30,6 +30,8 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: node test/helpers/warm-packed-cache.mjs
+      - name: Load only the current diagnostic observer beside the pinned candidate
+        run: git show '${{ github.sha }}:test/helpers/broker-startup-exception-observer.mjs' > test/helpers/broker-startup-exception-observer.mjs
       - name: Observe actual exception sites under unchanged original budgets
         run: node --import ./test/helpers/broker-startup-exception-observer.mjs test/helpers/installed-portable-ci.mjs
       - name: Preserve closed observations and incomplete outcomes
