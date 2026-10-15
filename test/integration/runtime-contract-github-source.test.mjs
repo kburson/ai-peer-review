@@ -2,14 +2,124 @@
 // Transport conformance only; a source read never grants contract adoption.
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { chmodSync, copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 // Confined to this isolated test process; also trace the actual hosted direct read.
 import * as transportDiagnostics from '../helpers/contract-source-transport-diagnostics.mjs';
 const diagnostic = new URL('../helpers/contract-source-transport-diagnostics.mjs', import.meta.url)
   .href;
+const timeoutFixture = new URL('../helpers/contract-source-timeout-fixture.mjs', import.meta.url)
+  .href;
+let timeoutBinaryDirectory;
+after(() => {
+  if (timeoutBinaryDirectory) rmSync(timeoutBinaryDirectory, { recursive: true, force: true });
+});
+function timedSourceRead(t, mode) {
+  const directory = mkdtempSync(path.join(tmpdir(), 'apr-source-timeout-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  if (!timeoutBinaryDirectory) {
+    timeoutBinaryDirectory = mkdtempSync(path.join(tmpdir(), 'apr-source-process-'));
+    const executable = path.join(
+      timeoutBinaryDirectory,
+      process.platform === 'win32' ? 'gh.exe' : 'gh'
+    );
+    copyFileSync(process.execPath, executable);
+    if (process.platform !== 'win32') chmodSync(executable, 0o755);
+    assert.match(execFileSync(executable, ['--version'], { encoding: 'utf8' }), /^v[0-9]+\./u);
+  }
+  const env = {
+    ...process.env,
+    PATH: timeoutBinaryDirectory,
+    GH_TOKEN: 'unverified-timeout-fixture',
+    NODE_OPTIONS: '--import=' + timeoutFixture,
+    APR_CONTRACT_TIMEOUT_FIXTURE: directory,
+    APR_CONTRACT_TIMEOUT_MODE: mode,
+  };
+  const script =
+    "import {readNativeContractSource} from './scripts/lib/runtime-contract-evidence.mjs';try {readNativeContractSource(JSON.parse(process.argv[1])); process.exitCode=2;} catch(e) {console.log(e.message);}";
+  const started = performance.now();
+  const result = spawnSync(
+    process.execPath,
+    ['--input-type=module', '-e', script, JSON.stringify(descriptor)],
+    { env, encoding: 'utf8', timeout: 45000 }
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), 'approved-evidence-source-unavailable');
+  assert.equal(result.stderr, '');
+  const calls = JSON.parse(readFileSync(path.join(directory, 'attempts.json')));
+  const startedChildren = JSON.parse(readFileSync(path.join(directory, 'calls.json')));
+  assert.ok(startedChildren.length > 0);
+  assert.ok(startedChildren.every((call) => call.mode === mode));
+  for (const call of calls) {
+    assert.deepEqual(call.args, [
+      'api',
+      '--hostname',
+      'github.com',
+      'repos/kburson/ai-peer-review',
+    ]);
+    assert.equal(call.explicitCredential, true);
+    assert.equal(call.fixedHost, true);
+  }
+  return { calls, elapsedMs: performance.now() - started };
+}
+test('silent timed-out fixed API read permits one remaining-budget attempt and still refuses unproved source', (t) => {
+  const { calls } = timedSourceRead(t, 'silent-first');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].code, 'ETIMEDOUT');
+  assert.equal(calls[0].signal, 'SIGTERM');
+  assert.equal(calls[0].status, null);
+  assert.equal(calls[0].stdoutEmpty, true);
+  assert.equal(calls[0].stderrEmpty, true);
+  assert.ok(calls.every((call) => Number.isInteger(call.timeout) && call.timeout > 0));
+  assert.ok(calls[0].timeout + calls[1].timeout <= 30000);
+});
+for (const mode of [
+  'partial',
+  'http-error',
+  'ordinary-exit',
+  'malformed',
+  'wrong-repository',
+  'wrong-signal',
+  'overflow',
+])
+  test(`fixed API ${mode} failure refuses without a second process`, (t) => {
+    const { calls } = timedSourceRead(t, mode);
+    assert.equal(calls.length, 1);
+    const [call] = calls;
+    if (['partial', 'http-error'].includes(mode)) {
+      assert.equal(call.code, 'ETIMEDOUT');
+      assert.equal(call.signal, 'SIGTERM');
+      assert.equal(call.status, null);
+      assert.equal(call.stdoutEmpty, mode === 'http-error');
+      assert.equal(call.stderrEmpty, mode === 'partial');
+    } else if (['malformed', 'wrong-repository'].includes(mode)) {
+      assert.equal(call.returned, true);
+      assert.equal(call.stdoutEmpty, false);
+      assert.equal(call.jsonObject, mode === 'wrong-repository');
+    } else if (mode === 'ordinary-exit') {
+      assert.equal(call.code, null);
+      assert.equal(call.status, 9);
+      assert.equal(call.signal, null);
+      assert.equal(call.stdoutEmpty, true);
+      assert.equal(call.stderrEmpty, true);
+    } else if (mode === 'wrong-signal') {
+      assert.equal(call.code, null);
+      assert.ok(call.signal === 'SIGKILL' || (Number.isInteger(call.status) && call.status !== 0));
+    } else {
+      assert.equal(call.code, 'ENOBUFS');
+      assert.equal(call.stdoutEmpty, false);
+    }
+  });
+test('a second silent API timeout consumes only the original remaining allowance and never starts a third process', (t) => {
+  const { calls, elapsedMs } = timedSourceRead(t, 'always-pending');
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((call) => call.code === 'ETIMEDOUT'));
+  assert.ok(calls.every((call) => Number.isInteger(call.timeout) && call.timeout > 0));
+  assert.ok(calls[0].timeout + calls[1].timeout <= 30000);
+  assert.ok(elapsedMs >= 29000, 'the real subprocesses exercised the original clock');
+});
 
 test('contract trace reports only ordered fixed-request phases and excludes private debug bytes', () => {
   assert.equal(typeof transportDiagnostics.contractTransportTrace, 'function');

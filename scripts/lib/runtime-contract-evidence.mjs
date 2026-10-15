@@ -262,16 +262,44 @@ export function readNativeContractSource(transaction) {
     )
   );
   env.GH_HOST = 'github.com';
-  const read = (endpoint) =>
-    parseRawJson(
+  const read = (endpoint) => {
+    const deadline = performance.now() + 30000;
+    const remaining = () => {
+      const milliseconds = Math.floor(deadline - performance.now());
+      if (milliseconds < 1) fail('approved-evidence-source-unavailable');
+      return milliseconds;
+    };
+    const execute = (timeout) =>
       execFileSync('gh', ['api', '--hostname', 'github.com', endpoint], {
         env,
         encoding: 'utf8',
         maxBuffer: 32 * 1024 * 1024,
-        timeout: 30000,
+        timeout,
         stdio: ['ignore', 'pipe', 'pipe'],
-      })
-    );
+      });
+    let bytes;
+    try {
+      bytes = execute(Math.min(10000, remaining()));
+    } catch (error) {
+      const empty = (value) =>
+        (typeof value === 'string' || Buffer.isBuffer(value)) && value.length === 0;
+      if (
+        error.code !== 'ETIMEDOUT' ||
+        error.signal !== 'SIGTERM' ||
+        error.status !== null ||
+        !empty(error.stdout) ||
+        !empty(error.stderr)
+      )
+        throw error;
+      // Same fixed read-only GET, once, within its original absolute allowance.
+      // Any output or other failure refuses; completed reads are never replayed.
+      bytes = execute(remaining());
+    }
+    remaining();
+    const value = parseRawJson(bytes);
+    remaining();
+    return value;
+  };
   try {
     // Match gh's explicit github.com token precedence on every source read.
     // Resolve stored credentials only when neither explicit token is supplied.
