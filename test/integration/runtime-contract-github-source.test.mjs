@@ -94,6 +94,56 @@ test('contract transport diagnostics retain real unavailable credential refusal 
   assert.equal(line.includes(config), false);
 });
 
+// An explicit credential never proves source authority: actual API transport is still mandatory.
+for (const name of ['GH_TOKEN', 'GITHUB_TOKEN']) {
+  test(`explicit ${name} avoids redundant credential CLI but refuses unavailable actual API`, (t) => {
+    const config = mkdtempSync(path.join(tmpdir(), 'apr-explicit-github-auth-'));
+    t.after(() => rmSync(config, { recursive: true, force: true }));
+    const env = { ...process.env, PATH: config, GH_CONFIG_DIR: config };
+    delete env.GH_TOKEN;
+    delete env.GITHUB_TOKEN;
+    env[name] = 'unverified-test-credential';
+    const script =
+      "import {readNativeContractSource} from './scripts/lib/runtime-contract-evidence.mjs';try {readNativeContractSource(JSON.parse(process.argv[1])); process.exitCode=2;} catch(e) {console.log(e.message);}";
+    const result = spawnSync(
+      process.execPath,
+      ['--import', diagnostic, '--input-type=module', '-e', script, JSON.stringify(descriptor)],
+      { env, encoding: 'utf8' }
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'approved-evidence-source-unavailable');
+    const line = result.stderr.trim();
+    assert.ok(line.startsWith('contract-transport-diagnostic '));
+    const evidence = JSON.parse(line.slice('contract-transport-diagnostic '.length));
+    assert.equal(evidence.operation, 'repository');
+    assert.equal(evidence.code, 'ENOENT');
+    assert.equal(evidence.verified, false);
+    assert.equal(line.includes(env[name]), false);
+    assert.equal(line.includes(config), false);
+  });
+}
+test('malformed preferred explicit credential refuses without lower-priority credential or CLI fallback', (t) => {
+  const config = mkdtempSync(path.join(tmpdir(), 'apr-invalid-github-auth-'));
+  t.after(() => rmSync(config, { recursive: true, force: true }));
+  const env = {
+    ...process.env,
+    PATH: config,
+    GH_CONFIG_DIR: config,
+    GH_TOKEN: 'invalid\ncredential',
+    GITHUB_TOKEN: 'unverified-lower-priority-credential',
+  };
+  const script =
+    "import {readNativeContractSource} from './scripts/lib/runtime-contract-evidence.mjs';try {readNativeContractSource(JSON.parse(process.argv[1])); process.exitCode=2;} catch(e) {console.log(e.message);}";
+  const result = spawnSync(
+    process.execPath,
+    ['--import', diagnostic, '--input-type=module', '-e', script, JSON.stringify(descriptor)],
+    { env, encoding: 'utf8' }
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), 'approved-evidence-source-unavailable');
+  assert.equal(result.stderr, '');
+});
+
 test(
   '[#144] hosted Actions credential reads the fixed GitHub repository and original comment',
   {

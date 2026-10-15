@@ -273,15 +273,19 @@ export function readNativeContractSource(transaction) {
       })
     );
   try {
-    // Resolve the same credential used by gh api, without persisting or exposing
-    // its bytes. A successful authenticated fixed repository read works for both
-    // user and Actions installation tokens; neither implies a human reader.
-    const credential = execFileSync('gh', ['auth', 'token', '--hostname', 'github.com'], {
-      env,
-      encoding: 'utf8',
-      timeout: 30000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim();
+    // Match gh's explicit github.com token precedence on every source read.
+    // Resolve stored credentials only when neither explicit token is supplied.
+    // Presence never proves authority: all fixed authenticated API reads remain.
+    const credential = (
+      env.GH_TOKEN ||
+      env.GITHUB_TOKEN ||
+      execFileSync('gh', ['auth', 'token', '--hostname', 'github.com'], {
+        env,
+        encoding: 'utf8',
+        timeout: 30000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    ).trim();
     if (!credential || /[\r\n]/.test(credential)) fail('approved-evidence-source-unavailable');
     const repository = read('repos/' + REPOSITORY);
     if (
