@@ -4,6 +4,9 @@ const schema = 'ai-peer-review.broker-child-failure/v1';
 const prefix = 'APR_BROKER_FAILURE_V1:';
 const reasons = new Set([
   'broker-startup-incomplete',
+  'operation-deadline',
+  'operation-aborted',
+  'invalid-context-input',
   'owner-reconciliation-unproved',
   'source-class-unavailable',
   'existing-effect-reconciliation-unproved',
@@ -27,9 +30,17 @@ const reasons = new Set([
   'reconciliation-context-unproved',
 ]);
 export function encodePortableBrokerChildFailure(error) {
-  const reason = reasons.has(error?.details?.reason)
-    ? error.details.reason
-    : 'broker-startup-incomplete';
+  let reason = 'broker-startup-incomplete',
+    current = error;
+  const seen = new Set();
+  for (let depth = 0; current && depth < 4 && !seen.has(current); depth++) {
+    seen.add(current);
+    if (reasons.has(current.details?.reason)) {
+      reason = current.details.reason;
+      break;
+    }
+    current = current.cause;
+  }
   const obligations = [
     ...new Set(
       (Array.isArray(error?.details?.outstandingObligations)

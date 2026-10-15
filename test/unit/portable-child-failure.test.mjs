@@ -6,6 +6,54 @@ const api = await import('../../src/broker/portable-child-failure.mjs').catch((e
   throw error;
 });
 
+test('closed child diagnostics retain an actual expired original context through a wrapper', async () => {
+  const { initializePortableSystem } = await import('../../src/broker/portable-system.mjs');
+  let observed;
+  try {
+    await initializePortableSystem({
+      signal: new AbortController().signal,
+      deadline: performance.now() - 1,
+    });
+  } catch (error) {
+    observed = error;
+  }
+  assert.equal(observed.code, 'APR_PORTABLE_OPERATIONS_UNAVAILABLE');
+  const wrapped = new Error('DO-NOT-PUBLISH', { cause: observed });
+  const frame = api.encodePortableBrokerChildFailure(wrapped);
+  assert.deepEqual(api.decodePortableBrokerChildFailure(frame), {
+    schema: 'ai-peer-review.broker-child-failure/v1',
+    reason: 'operation-deadline',
+    obligations: [],
+  });
+  assert.equal(frame.includes('DO-NOT-PUBLISH'), false);
+});
+
+test('closed child diagnostics bound cyclic causes and retain an actual aborted context', async () => {
+  const { initializePortableSystem } = await import('../../src/broker/portable-system.mjs');
+  const controller = new AbortController();
+  controller.abort();
+  let observed;
+  try {
+    await initializePortableSystem({
+      signal: controller.signal,
+      deadline: performance.now() + 30000,
+    });
+  } catch (error) {
+    observed = error;
+  }
+  assert.equal(observed.code, 'APR_PORTABLE_OPERATIONS_UNAVAILABLE');
+  assert.equal(
+    api.decodePortableBrokerChildFailure(api.encodePortableBrokerChildFailure(observed)).reason,
+    'operation-aborted'
+  );
+  const cycle = { details: { reason: '/private/DO-NOT-PUBLISH' } };
+  cycle.cause = cycle;
+  assert.equal(
+    api.decodePortableBrokerChildFailure(api.encodePortableBrokerChildFailure(cycle)).reason,
+    'broker-startup-incomplete'
+  );
+});
+
 test('broker child projection carries only closed reasons and obligation names', () => {
   assert.equal(typeof api.encodePortableBrokerChildFailure, 'function');
   const encoded = api.encodePortableBrokerChildFailure({
