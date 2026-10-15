@@ -1,7 +1,7 @@
 // @story #209
 // Diagnostic only: compare fresh real native observations; never issue authority.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,11 +11,14 @@ const context = () => ({
   deadline: performance.now() + 30000,
 });
 let root;
+let stage = 'platform';
 try {
   if (process.platform !== 'win32') throw Error('windows-required');
+  stage = 'executable';
   const executable = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
   assert.equal(fs.lstatSync(executable).isFile(), true);
   assert.equal(fs.realpathSync(executable).toLowerCase(), executable.toLowerCase());
+  stage = 'source';
   const source = fs.readFileSync(
     new URL('../../src/broker/storage-protection.mjs', import.meta.url),
     'utf8'
@@ -26,6 +29,7 @@ try {
   assert.ok(start >= marker.length && end > start);
   const baseline = source.slice(start, end);
   let candidate = baseline;
+  stage = 'candidate';
   for (const [before, after] of [
     [
       "[Reflection.Assembly]::Load('System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35') | Out-Null",
@@ -39,19 +43,24 @@ try {
     assert.equal(candidate.split(before).length, 2);
     candidate = candidate.replace(before, after);
   }
+  stage = 'fixture';
   root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'apr-probe-comparison-')));
   const original = context();
+  stage = 'provision';
   const receipt = await provisionProtectedRoot({ root, ...original });
+  stage = 'open';
   const guard = await openProtectedRoot({ receipt, ...original });
   try {
+    stage = 'write';
     await guard.writeExclusive('sample.json', Buffer.from('{"diagnostic":true}\n'));
   } finally {
+    stage = 'close';
     await guard.close();
   }
   const input = JSON.stringify({ mode: 'observe', paths: [root, path.join(root, 'sample.json')] });
   function observe(script) {
     const started = performance.now();
-    const bytes = execFileSync(
+    const result = spawnSync(
       executable,
       [
         '-NoLogo',
@@ -73,15 +82,22 @@ try {
         stdio: ['pipe', 'pipe', 'pipe'],
       }
     );
+    if (result.error) throw result.error;
+    assert.equal(result.status, 0);
+    assert.equal(result.signal, null);
+    assert.equal(result.stderr.trim(), '');
     return {
       elapsedMs: Math.round(performance.now() - started),
-      value: JSON.parse(bytes.replace(/^\uFEFF/, '').trim()),
+      value: JSON.parse(result.stdout.replace(/^\uFEFF/, '').trim()),
     };
   }
   const pairs = [];
   for (let index = 0; index < 12; index += 1) {
+    stage = index % 2 ? 'candidate-first' : 'baseline-first';
     const first = observe(index % 2 ? candidate : baseline);
+    stage = index % 2 ? 'baseline-second' : 'candidate-second';
     const second = observe(index % 2 ? baseline : candidate);
+    stage = 'compare';
     assert.deepEqual(first.value, second.value);
     assert.equal(first.value.schema, 'ai-peer-review.windows-protection-observation/v1');
     assert.equal(first.value.records.length, 2);
@@ -98,12 +114,16 @@ try {
       pairs,
     })
   );
-} catch {
+} catch (error) {
   console.error(
     JSON.stringify({
       verified: false,
       operationalAuthority: 'unavailable',
       reason: 'comparison-incomplete',
+      stage,
+      code: ['ERR_ASSERTION', 'ENOENT', 'EACCES', 'ETIMEDOUT'].includes(error.code)
+        ? error.code
+        : 'other',
     })
   );
   process.exitCode = 1;

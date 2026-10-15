@@ -41,6 +41,7 @@ syncBuiltinESMExports();
 export function stockCommandTimings(since) {
   return {
     verified: false,
+    coverage: 'callback-execFile-only',
     discarded,
     commands: records
       .filter((entry) => entry.started >= since)
