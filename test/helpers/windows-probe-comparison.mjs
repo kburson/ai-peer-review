@@ -44,7 +44,9 @@ try {
     candidate = candidate.replace(before, after);
   }
   stage = 'fixture';
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'apr-probe-comparison-')));
+  root = await fs.promises.realpath(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'apr-probe-comparison-'))
+  );
   const original = context();
   stage = 'provision';
   const receipt = await provisionProtectedRoot({ root, ...original });
@@ -121,9 +123,19 @@ try {
       operationalAuthority: 'unavailable',
       reason: 'comparison-incomplete',
       stage,
-      code: ['ERR_ASSERTION', 'ENOENT', 'EACCES', 'ETIMEDOUT'].includes(error.code)
+      code: [
+        'ERR_ASSERTION',
+        'ENOENT',
+        'EACCES',
+        'ETIMEDOUT',
+        'APR_BROKER_START_FAILED',
+        'APR_BROKER_STALE',
+      ].includes(error.code)
         ? error.code
         : 'other',
+      storageReason: /^[a-z][a-z0-9-]{0,127}$/u.test(error.details?.reason ?? '')
+        ? error.details.reason
+        : null,
     })
   );
   process.exitCode = 1;
