@@ -30,15 +30,58 @@ function operationFor(command, args) {
   }
   return 'other-gh';
 }
+export function contractTransportTrace(stderr, endpoint) {
+  const traceTruncated = stderr.length > 65536;
+  const unknown = {
+    requestObserved: false,
+    responseHeadersObserved: false,
+    httpStatus: null,
+    traceTruncated,
+  };
+  if (
+    traceTruncated ||
+    !['repository', 'issue', 'approval-comment'].includes(
+      operationFor('gh', ['api', '--hostname', 'github.com', endpoint])
+    )
+  )
+    return unknown;
+  const lines = stderr.slice(0, 65536).split(/\r?\n/u);
+  let cursor = lines.findIndex((line) => line.startsWith('* Request at '));
+  if (
+    cursor < 0 ||
+    lines[++cursor] !== '* Request to https://api.github.com/' + endpoint ||
+    !lines[++cursor]?.startsWith('> GET /' + endpoint + ' HTTP/') ||
+    !/^> GET \S+ HTTP\/[0-9.]+$/u.test(lines[cursor])
+  )
+    return unknown;
+  let hostObserved = false;
+  while (lines[++cursor]?.startsWith('> ')) {
+    if (!/^> [A-Za-z0-9-]+: /u.test(lines[cursor])) return unknown;
+    hostObserved ||= lines[cursor] === '> Host: api.github.com';
+  }
+  if (lines[cursor] !== '' || !hostObserved) return unknown;
+  const request = { ...unknown, requestObserved: true };
+  while (lines[cursor] === '') cursor += 1;
+  const status = /^< HTTP\/[0-9.]+ ([1-5][0-9]{2})(?: [^\r\n]*)?$/u.exec(lines[cursor] ?? '');
+  return status
+    ? { ...request, responseHeadersObserved: true, httpStatus: Number(status[1]) }
+    : request;
+}
 childProcess.execFileSync = function (...args) {
   const operation = operationFor(args[0], args[1]);
+  const traceEnabled =
+    process.env.APR_CONTRACT_TRANSPORT_TRACE === '1' &&
+    ['repository', 'issue', 'approval-comment'].includes(operation);
+  if (traceEnabled)
+    args[2] = { ...args[2], env: { ...(args[2]?.env ?? process.env), GH_DEBUG: 'api' } };
   const started = performance.now();
   try {
     return original.apply(this, args);
   } catch (error) {
     if (operation) {
       const stderr = String(error.stderr ?? '');
-      const http = /HTTP ([1-5][0-9]{2})/u.exec(stderr);
+      const trace = traceEnabled ? contractTransportTrace(stderr, args[1][3]) : null;
+      const http = traceEnabled ? null : /HTTP ([1-5][0-9]{2})/u.exec(stderr);
       let jsonOutputComplete = false;
       if (operation !== 'credential')
         try {
@@ -50,6 +93,8 @@ childProcess.execFileSync = function (...args) {
       const evidence = {
         verified: false,
         operation,
+        traceEnabled,
+        ...(trace ?? {}),
         commandOutputPresent: (error.stdout?.length ?? 0) > 0,
         jsonOutputComplete,
         code: codes.has(error.code) ? error.code : 'other',
@@ -58,8 +103,9 @@ childProcess.execFileSync = function (...args) {
             ? error.status
             : null,
         signal: error.signal == null ? null : signals.has(error.signal) ? error.signal : 'other',
-        httpStatus: http ? Number(http[1]) : null,
+        httpStatus: trace?.httpStatus ?? (http ? Number(http[1]) : null),
         connectionFailure:
+          !traceEnabled &&
           /error connecting to api\.github\.com|no such host|TLS handshake timeout/u.test(stderr),
         elapsedMs: Math.max(0, Math.round(performance.now() - started)),
       };

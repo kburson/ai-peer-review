@@ -7,9 +7,67 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 // Confined to this isolated test process; also trace the actual hosted direct read.
-import '../helpers/contract-source-transport-diagnostics.mjs';
+import * as transportDiagnostics from '../helpers/contract-source-transport-diagnostics.mjs';
 const diagnostic = new URL('../helpers/contract-source-transport-diagnostics.mjs', import.meta.url)
   .href;
+
+test('contract trace reports only ordered fixed-request phases and excludes private debug bytes', () => {
+  assert.equal(typeof transportDiagnostics.contractTransportTrace, 'function');
+  const trace = [
+    '* Request at fixture-time',
+    '* Request to https://api.github.com/repos/kburson/ai-peer-review',
+    '> GET /repos/kburson/ai-peer-review HTTP/1.1',
+    '> Host: api.github.com',
+    '> Authorization: Bearer fixture-private-token',
+    '',
+    '< HTTP/2.0 200 OK',
+    '< Set-Cookie: fixture-private-cookie',
+    '',
+    '{"private":"fixture-private-body"}',
+    '< HTTP/2.0 500 body-text-is-not-a-response',
+  ].join('\n');
+  assert.deepEqual(
+    transportDiagnostics.contractTransportTrace(trace, 'repos/kburson/ai-peer-review'),
+    {
+      requestObserved: true,
+      responseHeadersObserved: true,
+      httpStatus: 200,
+      traceTruncated: false,
+    }
+  );
+});
+test('contract trace cannot infer a response from body text or an unexpected endpoint', () => {
+  assert.equal(typeof transportDiagnostics.contractTransportTrace, 'function');
+  for (const trace of [
+    '* Request at fixture-time\n* Request to https://foreign.invalid/private\n> GET /repos/kburson/ai-peer-review HTTP/1.1\n> Host: api.github.com\n\n< HTTP/2.0 200 OK',
+    'private body\n< HTTP/2.0 200 OK\n* Request took 1ms',
+    '* Request at fixture-time\n* Request to https://api.github.com/repos/kburson/ai-peer-review\n> GET /repos/kburson/ai-peer-review HTTP/1.1\nprivate body\n< HTTP/2.0 200 OK',
+  ])
+    assert.deepEqual(
+      transportDiagnostics.contractTransportTrace(trace, 'repos/kburson/ai-peer-review'),
+      {
+        requestObserved: false,
+        responseHeadersObserved: false,
+        httpStatus: null,
+        traceTruncated: false,
+      }
+    );
+});
+test('contract trace retains unknown phases for truncated debug output', () => {
+  assert.equal(typeof transportDiagnostics.contractTransportTrace, 'function');
+  assert.deepEqual(
+    transportDiagnostics.contractTransportTrace(
+      'private'.repeat(10000),
+      'repos/kburson/ai-peer-review'
+    ),
+    {
+      requestObserved: false,
+      responseHeadersObserved: false,
+      httpStatus: null,
+      traceTruncated: true,
+    }
+  );
+});
 import { readNativeContractSource } from '../../scripts/lib/runtime-contract-evidence.mjs';
 
 const descriptor = {

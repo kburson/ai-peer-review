@@ -14,6 +14,7 @@ if (
     'storage-file',
     'identity-lane',
     'contract-source',
+    'contract-source-trace',
     'github-source',
     'github-source-sampled',
     'github-source-no-telemetry',
@@ -26,16 +27,17 @@ if (scope === 'github-source-sampled') {
   process.env.GH_TELEMETRY_SAMPLE_RATE = '100';
 }
 if (scope === 'github-source-no-telemetry') process.env.GH_TELEMETRY = '0';
+if (scope === 'contract-source-trace') process.env.APR_CONTRACT_TRANSPORT_TRACE = '1';
 const result = captureCommand(
   process.execPath,
   scope === 'acl-probe-comparison'
     ? ['test/helpers/windows-probe-comparison.mjs']
     : scope === 'identity-lane'
       ? ['test/helpers/run-suite.mjs', 'unit', '--portable-unit-shard', 'identity']
-      : scope === 'contract-source' || scope.startsWith('github-source')
+      : scope.startsWith('contract-source') || scope.startsWith('github-source')
         ? [
             '--test',
-            ...(scope === 'contract-source'
+            ...(scope.startsWith('contract-source')
               ? ['test/integration/runtime-contract-verification-input.test.mjs']
               : []),
             'test/integration/runtime-contract-github-source.test.mjs',

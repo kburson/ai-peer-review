@@ -32,6 +32,7 @@ on:
             storage-file,
             identity-lane,
             contract-source,
+            contract-source-trace,
             github-source,
             github-source-sampled,
             github-source-no-telemetry,
