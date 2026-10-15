@@ -3,6 +3,9 @@
 name: Installed portable journeys
 
 on:
+  push:
+    branches: [codex/190-installed-journeys]
+    paths: [.github/workflows/portable-startup-diagnostic.yml]
   workflow_dispatch:
 
 permissions:
@@ -18,6 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          # Preserve the admitted failing baseline, separate from pending repairs.
+          ref: 3b580c6007189067e7b7236d7c75ef4ebebd6878
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
