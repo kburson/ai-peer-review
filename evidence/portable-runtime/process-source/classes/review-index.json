@@ -348,6 +348,64 @@
           "sha256": "44a11af4ef9473bcc4884a3ea56d7658f3e9fd89cdc6e40e67c550be60ca772d"
         }
       }
+    },
+    {
+      "schema": "ai-peer-review.process-source-class-approved-ref/v1",
+      "producerVersion": "0.4.0",
+      "review": {
+        "reviewId": "review-b3f16c9e8c7564dbe3eee41c6fbe8510",
+        "subject": {
+          "revision": "5357a5f82c90d880a46fe25d8e009c42df5bb534",
+          "path": "evidence/portable-runtime/process-source/class-reviews/2026-10-15-190-post209-wave8.md",
+          "blob": "67ab34ef5ce5a1a84c69950ce0573c0c42924488",
+          "sha256": "687d8cb2152c99dfb42ff1bc87ed9de0a8b51ea68cf659e186ff89cf024be623"
+        },
+        "manifest": {
+          "revision": "af4bb1cba12fd68dbf0c79ded09e9f053695fbe1",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-15-2026-10-15-190-post209-wave8-review-b3f16c9e8c7564dbe3eee41c6fbe8510/review-b3f16c9e8c7564dbe3eee41c6fbe8510-review-manifest.md",
+          "blob": "24a4334059997f554651ebd32b495f7390796c4d",
+          "sha256": "80d8bb8c14fedca7eb86e4daac984bd735fbeb4bdfbc954dde37064f7feb4cd8"
+        },
+        "finalResponse": {
+          "revision": "af4bb1cba12fd68dbf0c79ded09e9f053695fbe1",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-15-2026-10-15-190-post209-wave8-review-b3f16c9e8c7564dbe3eee41c6fbe8510/review-b3f16c9e8c7564dbe3eee41c6fbe8510-reviewer-response-1.md",
+          "blob": "c34e4bf36df6f936dd62fd4c931b7a547b1d33d0",
+          "sha256": "6aee82eb8a9fc0ef7b918f7989b8a4a8495d89deb3f1d932bf9edbb363aa0b56"
+        },
+        "finalization": {
+          "revision": "af4bb1cba12fd68dbf0c79ded09e9f053695fbe1",
+          "sha256": "951e2c2e8bf915ae5122d94b00002a4fb55c5c4ab8fe5f5337941ea0241679ae"
+        }
+      }
+    },
+    {
+      "schema": "ai-peer-review.process-source-class-approved-ref/v1",
+      "producerVersion": "0.4.0",
+      "review": {
+        "reviewId": "review-f495299d7a66807eb6b294ae9cfe78fd",
+        "subject": {
+          "revision": "af4bb1cba12fd68dbf0c79ded09e9f053695fbe1",
+          "path": "evidence/portable-runtime/process-source/class-reviews/2026-10-15-190-post209-wave9.md",
+          "blob": "e2814930a0b563a84a2655421587a42b165b93ed",
+          "sha256": "a71fd3fccc7cd19f91d9adf4c952a86a07cdf4757ca6b4d29c89958be55afdf7"
+        },
+        "manifest": {
+          "revision": "008999ef3dd6bc210a2dfeb54a461450829fcb18",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-15-2026-10-15-190-post209-wave9-review-f495299d7a66807eb6b294ae9cfe78fd/review-f495299d7a66807eb6b294ae9cfe78fd-review-manifest.md",
+          "blob": "7d4aedbffc01274e5432e88f8eebea62a9b8ceb3",
+          "sha256": "b2141bc630232e1118b50d54d49a9e5ec991be513c75efc87c4d3cb7747ccdf1"
+        },
+        "finalResponse": {
+          "revision": "008999ef3dd6bc210a2dfeb54a461450829fcb18",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-15-2026-10-15-190-post209-wave9-review-f495299d7a66807eb6b294ae9cfe78fd/review-f495299d7a66807eb6b294ae9cfe78fd-reviewer-response-1.md",
+          "blob": "40df5aec4dd554c60676e467fc1612bc5c2f3dc2",
+          "sha256": "e7841d76d6e3e173ec6b664b53be78563d1e9a9f7afbee92bc19d8d156444e24"
+        },
+        "finalization": {
+          "revision": "008999ef3dd6bc210a2dfeb54a461450829fcb18",
+          "sha256": "3f4c4f74436f40af8a745e0e6cb9be0e8f82c13c1a929a05295867314d7f8002"
+        }
+      }
     }
   ]
 }
