@@ -6,10 +6,17 @@ on:
       # Normal class acceptance must precede this genuine operation comparison.
       - src/protocol/process-source-contracts.json
   workflow_dispatch:
+    inputs:
+      primary_operation_diagnostic:
+        description: Run only unverified Windows primary scope controls
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
 jobs:
   compare:
+    if: ${{ inputs.primary_operation_diagnostic != true }}
     name: Genuine operation comparison / Linux / Node ${{ matrix.node }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -40,3 +47,42 @@ jobs:
           path: .scratch/190-scope-comparison-public/
           if-no-files-found: error
           retention-days: 30
+
+  primary-operation-diagnostic:
+    if: ${{ inputs.primary_operation_diagnostic == true }}
+    name: Unverified primary scope diagnostic / Windows / Node 26
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Enable Windows long checkout paths
+        shell: powershell
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Initialize stock Windows PowerShell without retaining authority
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules'
+          Get-Command -Name Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json -CommandType Cmdlet -ErrorAction Stop | Out-Null
+          $null = [System.Security.AccessControl.DirectorySecurity]
+          $null = [System.Security.AccessControl.FileSecurity]
+          $null = [System.Security.AccessControl.RawSecurityDescriptor]
+          $null = '{"initialized":true}' | ConvertFrom-Json | ConvertTo-Json -Compress
+      - run: node test/helpers/primary-operation-diagnostics.mjs
+      - name: Retain incomplete diagnostic observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: primary-operation-diagnostic-${{ github.run_attempt }}
+          path: .scratch/209-primary-diagnostic/
+          if-no-files-found: error
+          retention-days: 14

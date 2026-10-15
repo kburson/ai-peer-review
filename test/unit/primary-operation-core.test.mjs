@@ -106,6 +106,9 @@ async function owned(
     callbackSettled: false,
     finalizerReached: false,
     mutationApplied: false,
+    stages: [],
+    callbackFailure: null,
+    started: null,
   };
   let callbackSettlement = Promise.resolve();
   // Discharge real retained resources before fixture directories are removed,
@@ -165,16 +168,21 @@ async function owned(
     selectionScope: (original, callback) =>
       scope.run(original, (sink) => {
         trace.context = original;
+        trace.started = performance.now();
         const actual = (async () => {
           try {
             const observing = {
               ...sink,
               possible() {
-                effect = 'unknown';
+                trace.stages.push('possible-attempted');
                 sink.possible();
+                trace.stages.push('possible-accepted');
+                effect = 'unknown';
               },
               committed(actualReceipt, actualResult) {
+                trace.stages.push('commit-attempted');
                 sink.committed(actualReceipt, actualResult);
+                trace.stages.push('commit-accepted');
                 effect = 'committed';
                 receipt = actualReceipt;
                 result = actualResult;
@@ -189,6 +197,9 @@ async function owned(
               writeFileSync(selectionFile, JSON.stringify(value));
             }
             return value;
+          } catch (error) {
+            trace.callbackFailure = boundedFailure(error);
+            throw error;
           } finally {
             if (afterCallback) await afterCallback(original);
             trace.callbackSettled = true;
@@ -213,6 +224,37 @@ async function owned(
     effect: () => effect,
     retained: () => ({ receipt, result }),
   };
+}
+// Only bounded categories, counters and booleans leave this diagnostic fixture.
+function boundedFailure(error) {
+  const code = /^[A-Z][A-Z0-9_]{0,79}$/.test(error?.code ?? '') ? error.code : null;
+  const reason = /^[a-z][a-z0-9-]{0,95}$/.test(error?.details?.reason ?? '')
+    ? error.details.reason
+    : null;
+  return { code, reason };
+}
+function activationDiagnostic(f, failure, effectAtReturn) {
+  const actual = JSON.parse(readFileSync(f.project.registrationPath));
+  return JSON.stringify({
+    verified: false,
+    operationalAuthority: 'unavailable',
+    effectAtReturn,
+    effectAfterSettlement: f.effect(),
+    failure: boundedFailure(failure),
+    outcome: selectionScopeOutcome(failure),
+    stages: f.trace.stages,
+    callbackFailure: f.trace.callbackFailure,
+    callbackSettled: f.trace.callbackSettled,
+    mutationApplied: f.trace.mutationApplied,
+    finalizerReached: f.trace.finalizerReached,
+    originalExpired: performance.now() >= f.trace.context.deadline,
+    originalAborted: f.trace.context.signal.aborted,
+    elapsedMs: Math.round(performance.now() - f.trace.started),
+    primaryInitialized: actual.primary_initialized,
+    receipts: readdirSync(path.dirname(f.project.registrationPath)).filter((name) =>
+      name.startsWith('receipt-')
+    ).length,
+  });
 }
 test('actual primary commit persists when final selection closure becomes uncertain', async (t) => {
   const f = await owned(t, { initial: true, mutateAfter: true });
@@ -317,7 +359,9 @@ test('actual activation preserves commitment through finalizer refusal or origin
     failure = error;
   }
   assert.ok(failure);
-  assert.equal(f.effect(), 'committed');
+  const effectAtReturn = f.effect();
+  if (effectAtReturn !== 'committed') await f.waitCallback();
+  assert.equal(effectAtReturn, 'committed', activationDiagnostic(f, failure, effectAtReturn));
   const actual = JSON.parse(readFileSync(f.project.registrationPath));
   assert.equal(actual.primary_initialized, true);
   assert.deepEqual(f.retained().result, actual);
