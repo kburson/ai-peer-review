@@ -13,6 +13,7 @@ if (
     'preservation-file',
     'identity-lane',
     'contract-source',
+    'github-source',
   ].includes(scope)
 )
   throw Error('Unsupported diagnostic scope');
@@ -20,10 +21,12 @@ const result = captureCommand(
   process.execPath,
   scope === 'identity-lane'
     ? ['test/helpers/run-suite.mjs', 'unit', '--portable-unit-shard', 'identity']
-    : scope === 'contract-source'
+    : ['contract-source', 'github-source'].includes(scope)
       ? [
           '--test',
-          'test/integration/runtime-contract-verification-input.test.mjs',
+          ...(scope === 'contract-source'
+            ? ['test/integration/runtime-contract-verification-input.test.mjs']
+            : []),
           'test/integration/runtime-contract-github-source.test.mjs',
         ]
       : [
