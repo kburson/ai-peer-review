@@ -14,14 +14,21 @@ if (
     'identity-lane',
     'contract-source',
     'github-source',
+    'github-source-sampled',
+    'github-source-no-telemetry',
   ].includes(scope)
 )
   throw Error('Unsupported diagnostic scope');
+if (scope === 'github-source-sampled') {
+  process.env.GH_TELEMETRY = 'enabled';
+  process.env.GH_TELEMETRY_SAMPLE_RATE = '100';
+}
+if (scope === 'github-source-no-telemetry') process.env.GH_TELEMETRY = '0';
 const result = captureCommand(
   process.execPath,
   scope === 'identity-lane'
     ? ['test/helpers/run-suite.mjs', 'unit', '--portable-unit-shard', 'identity']
-    : ['contract-source', 'github-source'].includes(scope)
+    : scope === 'contract-source' || scope.startsWith('github-source')
       ? [
           '--test',
           ...(scope === 'contract-source'

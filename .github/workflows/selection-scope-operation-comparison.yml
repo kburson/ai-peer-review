@@ -32,6 +32,8 @@ on:
             identity-lane,
             contract-source,
             github-source,
+            github-source-sampled,
+            github-source-no-telemetry,
           ]
         required: false
         default: focused

@@ -39,9 +39,19 @@ childProcess.execFileSync = function (...args) {
     if (operation) {
       const stderr = String(error.stderr ?? '');
       const http = /HTTP ([1-5][0-9]{2})/u.exec(stderr);
+      let jsonOutputComplete = false;
+      if (operation !== 'credential')
+        try {
+          const value = JSON.parse(String(error.stdout ?? ''));
+          jsonOutputComplete = value !== null && typeof value === 'object' && !Array.isArray(value);
+        } catch {
+          // No output contents leave this failed command; this never supplies authority.
+        }
       const evidence = {
         verified: false,
         operation,
+        commandOutputPresent: (error.stdout?.length ?? 0) > 0,
+        jsonOutputComplete,
         code: codes.has(error.code) ? error.code : 'other',
         status:
           Number.isInteger(error.status) && error.status >= 0 && error.status <= 255
