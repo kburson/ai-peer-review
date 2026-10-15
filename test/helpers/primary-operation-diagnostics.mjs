@@ -11,7 +11,7 @@ const result = captureCommand(process.execPath, [
     : []),
   'test/unit/primary-operation-core.test.mjs',
 ]);
-const directory = '.scratch/209-primary-diagnostic';
+const directory = '.scratch/209-primary-diagnostic/' + scope;
 mkdirSync(directory, { recursive: true });
 writeFileSync(directory + '/controls.log', result.output);
 writeFileSync(

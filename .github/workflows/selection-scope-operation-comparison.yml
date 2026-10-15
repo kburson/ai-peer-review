@@ -86,6 +86,11 @@ jobs:
       - run: node test/helpers/primary-operation-diagnostics.mjs
         env:
           APR_PRIMARY_DIAGNOSTIC_SCOPE: ${{ inputs.diagnostic_scope }}
+      - name: Compare isolated controls on the same runner after the full file
+        if: ${{ always() && inputs.diagnostic_scope == 'file' }}
+        run: node test/helpers/primary-operation-diagnostics.mjs
+        env:
+          APR_PRIMARY_DIAGNOSTIC_SCOPE: focused
       - name: Retain incomplete diagnostic observations
         if: always()
         uses: actions/upload-artifact@v4
