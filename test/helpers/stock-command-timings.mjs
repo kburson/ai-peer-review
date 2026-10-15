@@ -34,7 +34,7 @@ function observedExecFile(...args) {
     });
   return child;
 }
-// Preserve the native custom promisifier and every original function property.
+// Preserve the native custom promisify function and every original function property.
 Object.defineProperties(observedExecFile, Object.getOwnPropertyDescriptors(original));
 childProcess.execFile = observedExecFile;
 syncBuiltinESMExports();

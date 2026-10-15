@@ -1173,6 +1173,29 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       throw error;
     }
   }
+  // Observe the same root/file boundary in one fresh OS query.
+  async function verifyFile(entry, file = null) {
+    if (process.platform !== 'win32') {
+      await verify();
+      await matchFile(entry, file);
+      return;
+    }
+    const pair = await readPairPhase(path.join(r.root, entry.name));
+    if (
+      pair.root.fingerprint !== binding.fingerprint ||
+      identity(await directory.stat({ bigint: true })) !== r.identity
+    )
+      throw failure('APR_BROKER_STALE', 'root-protection-changed');
+    if (
+      pair.file.observation.identity !== entry.identity ||
+      pair.file.observation.fileVersion !== entry.fileVersion ||
+      (file &&
+        (identity(await file.stat({ bigint: true })) !== entry.identity ||
+          version(await file.stat({ bigint: true })) !== entry.fileVersion))
+    )
+      throw failure('APR_BROKER_STALE', 'private-file-changed');
+    budget.check();
+  }
   async function readObserved(name, writable = false, maxBytes = MAX_BYTES) {
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > MAX_BYTES)
       throw failure('APR_BROKER_PATH_INVALID', 'private-read-bound-invalid');
@@ -1295,8 +1318,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       await file.sync();
       const written = await file.stat({ bigint: true });
       entry.fileVersion = version(written);
-      await verify();
-      await matchFile(entry, file);
+      await verifyFile(entry, file);
     } catch (error) {
       caught = error;
     }
@@ -1344,8 +1366,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       released = false;
     try {
       const leaseCheck = async () => {
-        await verify();
-        await matchFile(lease, lease.file);
+        await verifyFile(lease, lease.file);
         budget.check();
       };
       await leaseCheck();
@@ -1354,8 +1375,7 @@ export async function openProtectedRoot({ receipt: r, signal, deadline, clock } 
       caught = report(error);
     }
     try {
-      await verify();
-      await matchFile(lease, lease.file);
+      await verifyFile(lease, lease.file);
       budget.check();
       await unlink(path.join(r.root, lockName));
       released = true;

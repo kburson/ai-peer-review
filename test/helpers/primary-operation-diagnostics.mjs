@@ -11,6 +11,7 @@ if (
     'preservation',
     'inventory-file',
     'preservation-file',
+    'storage-file',
     'identity-lane',
     'contract-source',
     'github-source',
@@ -52,7 +53,9 @@ const result = captureCommand(
               ? 'test/unit/portable-reconciliation-inventory.test.mjs'
               : scope.startsWith('preservation')
                 ? 'test/unit/portable-reconciliation-preservation.test.mjs'
-                : 'test/unit/primary-operation-core.test.mjs',
+                : scope === 'storage-file'
+                  ? 'test/unit/storage-protection.test.mjs'
+                  : 'test/unit/primary-operation-core.test.mjs',
           ]
 );
 const directory = '.scratch/209-primary-diagnostic/' + scope;

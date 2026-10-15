@@ -29,6 +29,7 @@ on:
             preservation,
             inventory-file,
             preservation-file,
+            storage-file,
             identity-lane,
             contract-source,
             github-source,
