@@ -6,10 +6,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-const diagnostic = fileURLToPath(
-  new URL('../helpers/contract-source-transport-diagnostics.mjs', import.meta.url)
-);
+const diagnostic = new URL('../helpers/contract-source-transport-diagnostics.mjs', import.meta.url)
+  .href;
 import { readNativeContractSource } from '../../scripts/lib/runtime-contract-evidence.mjs';
 
 const descriptor = {

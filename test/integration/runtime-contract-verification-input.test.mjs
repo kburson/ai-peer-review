@@ -12,7 +12,8 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const source = 'evidence/portable-runtime/contracts/approved-reference.json';
 const output = '.scratch/peer-review/evidence-approved-ref.json';
 const helper = path.join(root, 'scripts/ci/prepare-contract-adoption.mjs');
-const diagnostic = path.join(root, 'test/helpers/contract-source-transport-diagnostics.mjs');
+const diagnostic = new URL('../helpers/contract-source-transport-diagnostics.mjs', import.meta.url)
+  .href;
 const original = fs.readFileSync(path.join(root, source));
 function checkout(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apr-144-input-'));
