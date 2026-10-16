@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           # Pin the admitted repaired candidate; this observer grants no acceptance.
-          ref: 44639f60dd58c328530bbf7322e90c480917fb38
+          ref: 53dce48a63d725408d36494893096216e5323422
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
