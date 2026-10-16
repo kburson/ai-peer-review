@@ -2,11 +2,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  copyFileSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 const runner = new URL('../helpers/run-suite.mjs', import.meta.url);
-function fixture(t, fail = '') {
+function fixture(t, fail = '', isolateSource = false) {
   const root = mkdtempSync(path.join(tmpdir(), 'apr-ci-schedule-166-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, 'test', 'integration'), { recursive: true });
@@ -21,7 +29,7 @@ function fixture(t, fail = '') {
   ])
     writeFileSync(
       path.join(root, 'test', 'integration', file),
-      "import test from 'node:test';import assert from 'node:assert/strict';import{writeFileSync,existsSync}from'node:fs';import{setTimeout}from'node:timers/promises';" +
+      "import test from 'node:test';import assert from 'node:assert/strict';import{writeFileSync,existsSync,readFileSync,appendFileSync}from'node:fs';import{setTimeout}from'node:timers/promises';" +
         'test(' +
         JSON.stringify(
           group === 'portable'
@@ -29,6 +37,11 @@ function fixture(t, fail = '') {
             : 'primary partition makes progress'
         ) +
         ',async()=>{' +
+        (isolateSource
+          ? "assert.ok(readFileSync('run-order','utf8').startsWith('source-start\\nsource-end\\n'));appendFileSync('run-order'," +
+            JSON.stringify(group + '-start\n') +
+            ');'
+          : '') +
         'writeFileSync(' +
         JSON.stringify(group + '-ready') +
         ",'ready');const stop=Date.now()+4000;" +
@@ -41,6 +54,12 @@ function fixture(t, fail = '') {
         'assert.notEqual(process.env.APR_FIXTURE_FAILURE,' +
         JSON.stringify(group) +
         ');});'
+    );
+  if (isolateSource)
+    writeFileSync(
+      path.join(root, 'test/integration/runtime-contract-verification-input.test.mjs'),
+      "import test from 'node:test';import assert from 'node:assert/strict';import{appendFileSync,existsSync}from'node:fs';import{setTimeout}from'node:timers/promises';" +
+        "test('live source scheduling sentinel',async()=>{appendFileSync('run-order','source-start\\n');await setTimeout(100);assert.equal(existsSync('primary-ready')||existsSync('portable-ready'),false);appendFileSync('run-order','source-end\\n');assert.notEqual(process.env.APR_FIXTURE_FAILURE,'source');});"
     );
   const env = { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true', APR_FIXTURE_FAILURE: fail };
   delete env.NODE_TEST_CONTEXT;
@@ -67,6 +86,22 @@ for (const group of ['primary', 'portable'])
     assert.equal(existsSync(path.join(root, 'primary-ready')), true);
     assert.equal(existsSync(path.join(root, 'portable-ready')), true);
   });
+
+for (const fail of ['', 'source'])
+  test(
+    '[#190] hosted live-source file runs alone exactly once without dropping independent cases' +
+      (fail ? ' after its failure' : ''),
+    (t) => {
+      const { root, result } = fixture(t, fail, true);
+      assert.equal(result.status === 0, !fail, result.stdout + result.stderr);
+      assert.equal(result.signal, null);
+      assert.equal(existsSync(path.join(root, 'primary-ready')), true);
+      assert.equal(existsSync(path.join(root, 'portable-ready')), true);
+      const order = readFileSync(path.join(root, 'run-order'), 'utf8').trim().split('\n');
+      assert.deepEqual(order.slice(0, 2), ['source-start', 'source-end']);
+      assert.deepEqual(order.slice(2).sort(), ['portable-start', 'primary-start']);
+    }
+  );
 
 test('[#175] explicit hosted baseline selector omits only separately recorded owner cases', (t) => {
   const root = mkdtempSync(path.join(tmpdir(), 'apr-ci-owner-shard-'));

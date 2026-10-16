@@ -75,11 +75,28 @@ function argumentsFor(group) {
     hosted: process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true',
   });
 }
-// Both disjoint groups execute every discovered active test. Hosted integration
-// runs two independent Node processes; each keeps its existing two-file limit.
+// Every discovered active file executes once. Hosted integration isolates its
+// live-source input before independent groups keep their existing two-file limit.
 if (suite === 'integration' && process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true') {
+  // Keep live authority reads away from concurrent filesystem-heavy fixtures.
+  // Every file still executes once inside the unchanged enclosing lane budget.
+  const liveSource = 'test/integration/runtime-contract-verification-input.test.mjs';
+  const independentGroups = [];
+  for (const group of groups) {
+    if (!group.files.includes(liveSource)) {
+      independentGroups.push(group);
+      continue;
+    }
+    const result = spawnSync(process.execPath, argumentsFor({ ...group, files: [liveSource] }), {
+      stdio: 'inherit',
+    });
+    if (result.error) throw result.error;
+    if (result.status !== 0 || result.signal !== null) process.exitCode = result.status || 1;
+    const files = group.files.filter((file) => file !== liveSource);
+    if (files.length) independentGroups.push({ ...group, files });
+  }
   const results = await Promise.all(
-    groups.map(
+    independentGroups.map(
       (group) =>
         new Promise((resolve) => {
           const child = spawn(process.execPath, argumentsFor(group), { stdio: 'inherit' });
