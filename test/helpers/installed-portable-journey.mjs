@@ -489,9 +489,25 @@ export async function runInstalledPortableJourney(options = {}) {
         await delay(25, undefined, { signal: context.signal });
       }
       // File presence is waiting data only. Actual production authentication supplies readiness.
-      const status = await step('broker-authenticated-status', () =>
-        client.requestBroker(locator, 'status')
-      );
+      const status = await step('broker-authenticated-status', async () => {
+        for (;;) {
+          checked(context);
+          if (child.exitCode !== null || child.signalCode !== null)
+            fail('journey-broker-exited-before-ready');
+          try {
+            return await client.requestBroker(locator, 'status');
+          } catch (error) {
+            if (
+              error.code !== 'APR_BROKER_STALE' ||
+              error.details?.retrySafe !== true ||
+              error.details?.mutationOccurred !== false
+            )
+              throw error;
+            report.readinessRefusals = (report.readinessRefusals ?? 0) + 1;
+            await delay(25, undefined, { signal: context.signal });
+          }
+        }
+      });
       if (status.status !== 'running' || status.reviews !== 0)
         fail('journey-authenticated-status-unavailable');
       if ((await fence.currentOperationAuthorityContext()) !== context)
