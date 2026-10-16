@@ -185,6 +185,32 @@
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-309cdbd08e38bdf4b2cf1b65791b6b9d",
+      "capability": "absence",
+      "scope": {
+        "platform": "darwin",
+        "builds": ["25.6.0"],
+        "architectures": ["arm64"],
+        "nodeMajors": [24],
+        "probe": {
+          "path": "/bin/ps",
+          "visibility": "same-user-full-selection",
+          "errorContract": "exact-ps-selection-v1",
+          "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+        }
+      },
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "semantics": "darwin-ps-selection-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:b09af87e5f2325d825ad11440af4d33f3d2038f6ffb8801d81b4e0bdbe166860",
+        "reviewDigest": "sha256:682f71287f733d8dd02393693d7b145dc1a5cbf3660e4afe722d328910420f02"
+      },
+      "approvalDigest": "sha256:07d8198818c1b08386efefe41ff7bd362aac950e303d3b0b5556534601ed65ce"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
       "classId": "source-311cdf00ad8ed4fbb81d94e7bc650892",
       "capability": "absence",
       "scope": {
@@ -263,6 +289,32 @@
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-3b0710dbe74a179cc1607b293734e16e",
+      "capability": "creation",
+      "scope": {
+        "platform": "linux",
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [24, 26],
+        "probe": {
+          "path": "/proc",
+          "visibility": "full-pid-namespace",
+          "errorContract": "exact-pid-directory-v1",
+          "version": "procfs-v1"
+        }
+      },
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "semantics": "linux-start-ticks-v1",
+      "precision": "one-tick",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:61f75aa3fb30acd187b6834b4ef5b30912f40f4cf5a0e7705bf5e8d2dd27408e",
+        "reviewDigest": "sha256:682f71287f733d8dd02393693d7b145dc1a5cbf3660e4afe722d328910420f02"
+      },
+      "approvalDigest": "sha256:60cebadc29d7028419a7383d6e70a5354785d23be092867ba9e5e8c8d4328284"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
       "classId": "source-4710f30e63cf052b7b9ee46a276c5a00",
       "capability": "absence",
       "scope": {
@@ -286,6 +338,32 @@
         "reviewDigest": "sha256:d639fc98daa78aca5c0da0a4f648cd0ab8c968be308c8b012b785747da77fb37"
       },
       "approvalDigest": "sha256:bdaeb638ca648ea08f617522600bbb01fa0b9d44416c91e5cf7f0f3f3b63432a"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-4d1b20fbb22e5c3484c9e38fbc510639",
+      "capability": "absence",
+      "scope": {
+        "platform": "win32",
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [24],
+        "probe": {
+          "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "visibility": "local-cim-query",
+          "errorContract": "completed-cim-query-v1",
+          "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+        }
+      },
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "semantics": "windows-cim-completed-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:47c51ea7de1f9e470248acfdea8c5402a9d4b720d7ea8e4edb7c82b7fe9596c4",
+        "reviewDigest": "sha256:682f71287f733d8dd02393693d7b145dc1a5cbf3660e4afe722d328910420f02"
+      },
+      "approvalDigest": "sha256:61f2b411a3f61f3bfbe6508d03a185e3945efd51375c4cca86517c536743cd44"
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
@@ -705,6 +783,32 @@
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-b62aabd12bb9c860a4a2d30d046490fa",
+      "capability": "absence",
+      "scope": {
+        "platform": "linux",
+        "builds": ["6.17.0-1022-azure"],
+        "architectures": ["x64"],
+        "nodeMajors": [24, 26],
+        "probe": {
+          "path": "/proc",
+          "visibility": "full-pid-namespace",
+          "errorContract": "exact-pid-directory-v1",
+          "version": "procfs-v1"
+        }
+      },
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "semantics": "linux-pid-directory-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:82290e9036d8eab03463effb5d8d14090629c7de264079797160902ee197dcc4",
+        "reviewDigest": "sha256:682f71287f733d8dd02393693d7b145dc1a5cbf3660e4afe722d328910420f02"
+      },
+      "approvalDigest": "sha256:e3aa279d4ea02a517e79814cfb6dbd3c60a706b8fd339689b4a9647c26a0fe14"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
       "classId": "source-b7581d688d387488bd6180199108cb75",
       "capability": "absence",
       "scope": {
@@ -783,6 +887,32 @@
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-b8c4374616e1a09baa4fe321ca84da8e",
+      "capability": "absence",
+      "scope": {
+        "platform": "win32",
+        "builds": ["10.0.26100"],
+        "architectures": ["x64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "visibility": "local-cim-query",
+          "errorContract": "completed-cim-query-v1",
+          "version": "sha256:54b68d3922699817166ae7ddc4a18f7864fbe61c65f3c12b94ece0b3614b4366"
+        }
+      },
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "semantics": "windows-cim-completed-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:720695e243274682adb50b6882e78c01f8ae4b898749e8d2c0fd54e71bec9264",
+        "reviewDigest": "sha256:e37582604b90ccb1b6c92d2572ed364d4b6d6c24df4cbf2efcdfabee856afd8f"
+      },
+      "approvalDigest": "sha256:908c5cd7eea35709aef9315b038cf44459315d2d9c0cc9ec23373f8e6ca73b93"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
       "classId": "source-bac15cfac43ede793eefeb83886d3ca3",
       "capability": "absence",
       "scope": {
@@ -832,6 +962,32 @@
         "reviewDigest": "sha256:d6a3014a4f2770842d4a02151a036e73bb22026ed32376c259c57b84b8a6f7b7"
       },
       "approvalDigest": "sha256:4717808bd10812d28fdffff6435943db8d36abc34cdb5fee135a5e3c09eb9d87"
+    },
+    {
+      "schema": "ai-peer-review.process-source-class/v1",
+      "classId": "source-c4122dde29ee712495a9935a7b5f4fb0",
+      "capability": "absence",
+      "scope": {
+        "platform": "darwin",
+        "builds": ["25.6.0"],
+        "architectures": ["arm64"],
+        "nodeMajors": [26],
+        "probe": {
+          "path": "/bin/ps",
+          "visibility": "same-user-full-selection",
+          "errorContract": "exact-ps-selection-v1",
+          "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+        }
+      },
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "semantics": "darwin-ps-selection-v1",
+      "precision": "not-applicable",
+      "acceptance": {
+        "status": "accepted",
+        "evidenceDigest": "sha256:663a61b16ab0982fa5b33dcb8d7b9d74a41d42f746b853ead4de0149422f7b92",
+        "reviewDigest": "sha256:e37582604b90ccb1b6c92d2572ed364d4b6d6c24df4cbf2efcdfabee856afd8f"
+      },
+      "approvalDigest": "sha256:c5e855ea2389896cd125bd6043d1de0547755c91506c3429d1bcf7deaae38ac1"
     },
     {
       "schema": "ai-peer-review.process-source-class/v1",

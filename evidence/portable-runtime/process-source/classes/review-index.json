@@ -406,6 +406,64 @@
           "sha256": "3f4c4f74436f40af8a745e0e6cb9be0e8f82c13c1a929a05295867314d7f8002"
         }
       }
+    },
+    {
+      "schema": "ai-peer-review.process-source-class-approved-ref/v1",
+      "producerVersion": "0.4.0",
+      "review": {
+        "reviewId": "review-9062928295c24c9f18c70572c972469c",
+        "subject": {
+          "revision": "6747f27164e88a946f80d42db63ee05947bf1582",
+          "path": "evidence/portable-runtime/process-source/class-reviews/2026-10-15-190-repair-wave12.md",
+          "blob": "431be7af4d54ecb7047fd842802564137921e3bb",
+          "sha256": "09160c1e665b16d3edeff52748272058b0e81c21c8740cef48ffd2da1f02fa2a"
+        },
+        "manifest": {
+          "revision": "52564f941101ca21f91e86922ea95d0e9ee5f06a",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-16-2026-10-15-190-repair-wave12-review-9062928295c24c9f18c70572c972469c/review-9062928295c24c9f18c70572c972469c-review-manifest.md",
+          "blob": "d3a5e523cb7ac9247bc4beb847576d26c31cafe5",
+          "sha256": "59b5c678ce1595ba7dc2dc7a2cc9cec84e9ac790bd8e767a2f404da55a5f02e3"
+        },
+        "finalResponse": {
+          "revision": "52564f941101ca21f91e86922ea95d0e9ee5f06a",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-16-2026-10-15-190-repair-wave12-review-9062928295c24c9f18c70572c972469c/review-9062928295c24c9f18c70572c972469c-reviewer-response-1.md",
+          "blob": "ea29a70c6e57375f01a9815b5e89f457edc273ee",
+          "sha256": "d6ab50273c2fa8d6957f3b4ccc71d5544773a11920f456dcd4ebc69b0cec74d2"
+        },
+        "finalization": {
+          "revision": "52564f941101ca21f91e86922ea95d0e9ee5f06a",
+          "sha256": "52e85a9dd77488e21783cefcb55edb95fd7b5a2db0d3883af3f795bed82ef19f"
+        }
+      }
+    },
+    {
+      "schema": "ai-peer-review.process-source-class-approved-ref/v1",
+      "producerVersion": "0.4.0",
+      "review": {
+        "reviewId": "review-f63ed2ecbde3c6716bc90220742c8eb0",
+        "subject": {
+          "revision": "52564f941101ca21f91e86922ea95d0e9ee5f06a",
+          "path": "evidence/portable-runtime/process-source/class-reviews/2026-10-15-190-repair-wave13.md",
+          "blob": "a9a871e211ef46290dfad927579d8694dc230c0f",
+          "sha256": "c33b321d2bff0bdcaa3f93dd8f0650802d6d4d3d5930c3e99db5ae07d6d20e0f"
+        },
+        "manifest": {
+          "revision": "fcfbe4baa21b8fa7cf1e233026a0687436ce83f4",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-16-2026-10-15-190-repair-wave13-review-f63ed2ecbde3c6716bc90220742c8eb0/review-f63ed2ecbde3c6716bc90220742c8eb0-review-manifest.md",
+          "blob": "afc3dbad713bffaf5a0aa5766fcafd336e541332",
+          "sha256": "3cb6c18828db760433d89cd2de50f4e542bcce3a04caf794b7ccbe27b8ef86c3"
+        },
+        "finalResponse": {
+          "revision": "fcfbe4baa21b8fa7cf1e233026a0687436ce83f4",
+          "path": "docs/superpowers/peer-reviews/spec/2026-10-16-2026-10-15-190-repair-wave13-review-f63ed2ecbde3c6716bc90220742c8eb0/review-f63ed2ecbde3c6716bc90220742c8eb0-reviewer-response-1.md",
+          "blob": "01c73590cc46e8f0eabb6062ec66ff5814882584",
+          "sha256": "8e250bc2d5c457c4f19a783e3ba0ae636cf6a8ebd31f5ccf249a220d06693cf6"
+        },
+        "finalization": {
+          "revision": "fcfbe4baa21b8fa7cf1e233026a0687436ce83f4",
+          "sha256": "8aafec9197db4c501caf0ce1ecd8851c27f0cf61e7e946a6fb816846bbee6abb"
+        }
+      }
     }
   ]
 }
