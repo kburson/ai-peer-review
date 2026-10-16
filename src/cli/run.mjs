@@ -198,8 +198,8 @@ export function finalizeReview(input, ...args) {
     () => current().finalizeReview(input, ...args)
   );
 }
-export function runHandoffMcpStdio(input, ...args) {
-  return withOperationAuthority(
+export async function runHandoffMcpStdio(input, ...args) {
+  await withOperationAuthority(
     {
       operation: 'mcp.wait',
       cwd:
@@ -209,8 +209,10 @@ export function runHandoffMcpStdio(input, ...args) {
         process.cwd(),
       reviewWorkspace: input?.workspace,
     },
-    () => current().runHandoffMcpStdio(input, ...args)
+    async () => {}
   );
+  // A resident transport must not retain the startup operation's deadline.
+  return current().runHandoffMcpStdio(input, ...args);
 }
 export async function run(argv, io) {
   try {

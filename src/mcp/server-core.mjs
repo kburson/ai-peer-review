@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
+import { AsyncResource } from 'node:async_hooks';
 import { z } from 'zod';
 
 import { AprError } from '../errors.mjs';
@@ -79,33 +80,56 @@ export function createHandoffMcpImplementation({
       },
       async (input, context = {}) => {
         try {
-          return await withOperationAuthority(
-            {
-              operation: 'mcp.wait',
-              cwd: repositoryRoot,
-              reviewWorkspace: path.join(
-                repositoryRoot,
-                '.scratch',
-                'peer-review',
-                input.review_id
-              ),
-            },
-            async () => {
-              let deliveries = deliverySources.get(input.review_id);
-              if (!deliveries) {
-                deliveries = createDeliveries({ repositoryRoot, reviewId: input.review_id });
-                deliverySources.set(input.review_id, deliveries);
-              }
-              const result = await wait({
-                reviewId: input.review_id,
-                participant: input.participant,
-                afterSequence: input.after_sequence ?? 0,
-                deliveries,
-                signal: context.signal,
-              });
-              return toolResult(result, { error: result.status !== 'delivered' });
-            }
-          );
+          const observe = (operation) =>
+            withOperationAuthority(
+              {
+                operation: 'mcp.wait',
+                cwd: repositoryRoot,
+                reviewWorkspace: path.join(
+                  repositoryRoot,
+                  '.scratch',
+                  'peer-review',
+                  input.review_id
+                ),
+              },
+              operation
+            );
+          let pending = deliverySources.get(input.review_id);
+          if (!pending) {
+            pending = Promise.resolve().then(async () => {
+              const source = await observe(() =>
+                createDeliveries({ repositoryRoot, reviewId: input.review_id })
+              );
+              return {
+                readAfter: (request) => observe(() => source.readAfter(request)),
+                manualRecovery: (request) => observe(() => source.manualRecovery(request)),
+                subscribe(request) {
+                  // Filesystem hints carry no authority. Resume from the
+                  // passive caller context, then authenticate each read.
+                  const onChange = AsyncResource.bind(request.onChange);
+                  const onError = AsyncResource.bind(request.onError);
+                  return observe(() => source.subscribe({ ...request, onChange, onError }));
+                },
+              };
+            });
+            deliverySources.set(input.review_id, pending);
+          }
+          let deliveries;
+          try {
+            deliveries = await pending;
+          } catch (error) {
+            if (deliverySources.get(input.review_id) === pending)
+              deliverySources.delete(input.review_id);
+            throw error;
+          }
+          const result = await wait({
+            reviewId: input.review_id,
+            participant: input.participant,
+            afterSequence: input.after_sequence ?? 0,
+            deliveries,
+            signal: context.signal,
+          });
+          return toolResult(result, { error: result.status !== 'delivered' });
         } catch (cause) {
           const error = cause instanceof AprError ? cause : internalError();
           return toolResult(error.toJSON(), { error: true });

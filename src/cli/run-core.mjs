@@ -6027,7 +6027,6 @@ export function createReviewOperations({
   }
 
   async function runHandoffMcpStdio(options) {
-    await assertProjectSetupCompatible({ cwd: options.repositoryRoot });
     const { serveHandoffMcpStdio } = await import('../mcp/server.mjs');
     return serveHandoffMcpStdio(options);
   }

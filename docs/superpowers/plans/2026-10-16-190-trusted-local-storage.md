@@ -29,7 +29,7 @@ The user's 2026-10-16 clarification selects this simple local workflow. It repla
 2. A target changes after startup: automation rejects an outside-project publication at write time; provider/manual edits with changed physical identity/containment are refused at sealing/advance. Do not claim interception of an independent editor (Task1).
 3. A provider lacks exact edit restrictions: an automated reviewer uses existing read-only execution plus exact notes publication; an unsupported automated author routes to an existing instruction-bound session. Label actual enforcement accurately (Task1).
 4. An agent exits after notes are saved but before acknowledgement: resume the same pending handoff without a duplicate turn or fabricated acceptance (Task2).
-5. Existing primary/source protection machinery is still reachable indirectly during local startup: actual installed tests must expose the residual ACL/source-class dependency (Tasks2–3).
+5. Existing primary/source protection machinery is still reachable indirectly during local startup: actual installed tests must expose the residual ACL/source-class dependency (Tasks2–3). Include the real MCP stdio entry point and official SDK discovery in an ordinary unregistered project. Admit startup through the existing local operation boundary, then close that startup frame before connecting the resident transport so it cannot lend an expired startup deadline to later waits. Every wait keeps its own authority and sealed delivery checks; participant claims/submissions and legacy primary maintenance retain their guards.
 
 ## Task 1: Exact local paths and participant write permissions
 

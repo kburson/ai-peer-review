@@ -119,16 +119,22 @@ test('derives delivery authority from repository root and returns compact struct
     kind: 'source',
     input: { repositoryRoot: '/repo', reviewId: 'review-123' },
   });
-  assert.deepEqual(calls[1], {
-    kind: 'wait',
-    input: {
-      reviewId: 'review-123',
-      participant: 'author',
-      afterSequence: 8,
-      deliveries: deliverySource,
-      signal,
-    },
-  });
+  const { deliveries, ...waitInput } = calls[1].input;
+  assert.deepEqual(
+    { kind: calls[1].kind, input: waitInput },
+    {
+      kind: 'wait',
+      input: {
+        reviewId: 'review-123',
+        participant: 'author',
+        afterSequence: 8,
+        signal,
+      },
+    }
+  );
+  assert.equal(typeof deliveries.readAfter, 'function');
+  assert.equal(typeof deliveries.subscribe, 'function');
+  assert.equal(typeof deliveries.manualRecovery, 'function');
   assert.deepEqual(result.structuredContent, success());
   assert.deepEqual(JSON.parse(result.content[0].text), success());
   assert.equal(result.isError, undefined);
@@ -164,48 +170,56 @@ test('maps timeout and cancellation fallback deliveries to structured tool error
   }
 });
 
-test('duplicate client requests share one delivery source and filesystem subscription', async () => {
-  const fake = fakeServerFactory();
-  let sourceCreations = 0;
-  let subscriptions = 0;
-  let current = null;
-  const listeners = new Set();
-  const source = {
-    readAfter() {
-      return current;
-    },
-    subscribe({ onChange }) {
-      subscriptions += 1;
-      listeners.add(onChange);
-      return { close: () => listeners.delete(onChange) };
-    },
-    manualRecovery() {
-      return { available: true, command: 'peer-review resume workspace' };
-    },
-  };
-  createHandoffMcpServer({
-    createServer: fake.createServer,
-    repositoryRoot: '/repo',
-    version: '0.2.0',
-    createDeliveries() {
-      sourceCreations += 1;
-      return source;
-    },
-  });
-  const input = { review_id: 'review-123', participant: 'author', after_sequence: 8 };
-  const context = { signal: new AbortController().signal };
-  const first = fake.registered[0].handler(input, context);
-  const second = fake.registered[0].handler(input, context);
-  await Promise.resolve();
-  await Promise.resolve();
+test(
+  'duplicate client requests share one asynchronous delivery source and filesystem subscription',
+  { timeout: 5000 },
+  async () => {
+    const fake = fakeServerFactory();
+    let sourceCreations = 0;
+    let subscriptions = 0;
+    let current = null;
+    const listeners = new Set();
+    let subscribed;
+    const ready = new Promise((resolve) => {
+      subscribed = resolve;
+    });
+    const source = {
+      readAfter() {
+        return current;
+      },
+      subscribe({ onChange }) {
+        subscriptions += 1;
+        listeners.add(onChange);
+        subscribed();
+        return { close: () => listeners.delete(onChange) };
+      },
+      manualRecovery() {
+        return { available: true, command: 'peer-review resume workspace' };
+      },
+    };
+    createHandoffMcpServer({
+      createServer: fake.createServer,
+      repositoryRoot: '/repo',
+      version: '0.2.0',
+      async createDeliveries() {
+        sourceCreations += 1;
+        return source;
+      },
+    });
+    const input = { review_id: 'review-123', participant: 'author', after_sequence: 8 };
+    const context = { signal: new AbortController().signal };
+    const first = fake.registered[0].handler(input, context);
+    const second = fake.registered[0].handler(input, context);
+    await ready;
 
-  assert.equal(sourceCreations, 1);
-  assert.equal(subscriptions, 1);
-  current = success();
-  for (const notify of [...listeners]) notify();
-  assert.deepEqual((await first).structuredContent, success());
-  assert.deepEqual((await second).structuredContent, success());
-});
+    assert.equal(sourceCreations, 1);
+    assert.equal(subscriptions, 1);
+    current = success();
+    for (const notify of [...listeners]) notify();
+    assert.deepEqual((await first).structuredContent, success());
+    assert.deepEqual((await second).structuredContent, success());
+  }
+);
 
 test('maps authority conflicts to stable APR structured errors', async () => {
   const fake = fakeServerFactory();
@@ -287,35 +301,44 @@ test('CLI integration seam loads MCP wiring only when the resident server starts
   assert.equal(fake.server.transport, transport);
 });
 
-test('idle server registration and waiting invoke no model or session callback', async () => {
-  const fake = fakeServerFactory();
-  let modelTurns = 0;
-  let sessionCallbacks = 0;
-  let resolveWait;
-  createHandoffMcpServer({
-    createServer: fake.createServer,
-    repositoryRoot: '/repo',
-    version: '0.2.0',
-    createDeliveries: () => ({}),
-    wait: () =>
-      new Promise((resolve) => {
-        resolveWait = resolve;
-      }),
-    onModelTurn: () => {
-      modelTurns += 1;
-    },
-    onSessionCallback: () => {
-      sessionCallbacks += 1;
-    },
-  });
-  const pending = fake.registered[0].handler(
-    { review_id: 'review-123', participant: 'reviewer', after_sequence: 0 },
-    { signal: new AbortController().signal }
-  );
-  await Promise.resolve();
+test(
+  'idle server registration and waiting invoke no model or session callback',
+  { timeout: 5000 },
+  async () => {
+    const fake = fakeServerFactory();
+    let modelTurns = 0;
+    let sessionCallbacks = 0;
+    let resolveWait;
+    let entered;
+    const ready = new Promise((resolve) => {
+      entered = resolve;
+    });
+    createHandoffMcpServer({
+      createServer: fake.createServer,
+      repositoryRoot: '/repo',
+      version: '0.2.0',
+      createDeliveries: () => ({}),
+      wait: () =>
+        new Promise((resolve) => {
+          resolveWait = resolve;
+          entered();
+        }),
+      onModelTurn: () => {
+        modelTurns += 1;
+      },
+      onSessionCallback: () => {
+        sessionCallbacks += 1;
+      },
+    });
+    const pending = fake.registered[0].handler(
+      { review_id: 'review-123', participant: 'reviewer', after_sequence: 0 },
+      { signal: new AbortController().signal }
+    );
+    await ready;
 
-  assert.equal(modelTurns, 0);
-  assert.equal(sessionCallbacks, 0);
-  resolveWait({ ...success(), participant: 'reviewer' });
-  await pending;
-});
+    assert.equal(modelTurns, 0);
+    assert.equal(sessionCallbacks, 0);
+    resolveWait({ ...success(), participant: 'reviewer' });
+    await pending;
+  }
+);
