@@ -2,14 +2,29 @@
   "schema": "ai-peer-review.process-source-registration-index/v1",
   "captures": [
     {
-      "captureId": "source-3c4630b619f12de2cc9f1939c77139fa",
-      "path": "evidence/portable-runtime/process-source/registrations/source-3c4630b619f12de2cc9f1939c77139fa.json",
-      "digest": "sha256:c408aece967639d3d2baafc216e70f54bee366642ad3b4d9d4ceb4f504122dba"
+      "captureId": "source-35e9f9a617b5153c31d6dc5654452245",
+      "path": "evidence/portable-runtime/process-source/registrations/source-35e9f9a617b5153c31d6dc5654452245.json",
+      "digest": "sha256:a14a7f97a96334db1e96064179a4ee656c135f2173266e777bebf3e615ca6223"
     },
     {
-      "captureId": "source-b61f670390d56751ea0341849641ce82",
-      "path": "evidence/portable-runtime/process-source/registrations/source-b61f670390d56751ea0341849641ce82.json",
-      "digest": "sha256:69cd8094778b7679bb4c33a2e76e97d1fecf533781e5b58e8e05b6e86c41e4cf"
+      "captureId": "source-64518a2f7ff9659570d7f1d773e5d6be",
+      "path": "evidence/portable-runtime/process-source/registrations/source-64518a2f7ff9659570d7f1d773e5d6be.json",
+      "digest": "sha256:b6a4ffb62946fa34722a65c2fd3615c4ef188be4ea938659dc3e9d3796650180"
+    },
+    {
+      "captureId": "source-74d6e472e2ecc1a780a01716d7a51b13",
+      "path": "evidence/portable-runtime/process-source/registrations/source-74d6e472e2ecc1a780a01716d7a51b13.json",
+      "digest": "sha256:104b5df84fa8ebe15dbb5bc94739a74c05b86c570c242fc2e64eb2227e933631"
+    },
+    {
+      "captureId": "source-837da5f71c145f62cec19da23e75342d",
+      "path": "evidence/portable-runtime/process-source/registrations/source-837da5f71c145f62cec19da23e75342d.json",
+      "digest": "sha256:ae7527346382f710d966b5d007a609627345be58803fca849d99ac7b19558b06"
+    },
+    {
+      "captureId": "source-c8bf7c1b096e70312cce9d7600b6bf4a",
+      "path": "evidence/portable-runtime/process-source/registrations/source-c8bf7c1b096e70312cce9d7600b6bf4a.json",
+      "digest": "sha256:3b090ab12a08d87f20bacba3682fbf7d6e05759c389566702b89fbd1ef73b981"
     }
   ]
 }
