@@ -1,8 +1,25 @@
 # #141 Protected Storage and Exclusive Ownership Delivery Plan
 
+## Active simple local handoff amendment
+
+The user's 2026-10-16 direction selects trusted agents already permitted to work
+in one local project. The [simple handoff design](../specs/2026-10-16-190-trusted-local-storage-design.md) and
+[implementation plan](./2026-10-16-190-trusted-local-storage.md) govern that workflow. Reviewer writes only its
+current response notes; author may also revise the artifact; neither participant
+modifies other tracked files, Git metadata or anything outside the project.
+Use normal filesystem access with essential turn authentication, locking and
+restart recovery. No initial/repeated ACL or SID challenge, protection-admission
+scope, source-class enrollment/capture prerequisite, persistent query worker or
+native binary is required for this local handoff.
+Conflicting stronger requirements below are historical/broader capability scope,
+not local handoff gates. Preserve their evidence and do not mark their broader
+claims complete. Old accepted revisions do not approve this amendment; normally
+review the revised documents and record the changed #190 scope before runtime
+implementation.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement each governed child with its own red/green verification and review. Do not implement source while its issue remains in Plan.
 
-**Goal:** Deliver the complete accepted #107 Task2 through bounded, independently verifiable children without weakening protection, death proof, conformance or activation gates.
+**Goal:** Deliver the complete accepted #107 Task2 through bounded, independently verifiable children with the amended trusted-local protection boundary and unchanged authentication, death proof, conformance and activation gates.
 
 **Architecture:** Stock OS observations and guarded private storage feed a closed installed source-class boundary. A durable bounded bakery election encloses owner creation/reclaim and retained cleanup. Portable consumers keep #102 installed-current authority and #144's separate activation/publication decision.
 
@@ -64,7 +81,7 @@ Before Plan approval, read rules/user-story-quality.md. Resolve Story Intent fro
 
 ## Review Focus
 
-1. A private file appears secure by mode but a macOS ACL or protected/unprotected Windows ACE grants a foreign effective reader: observation and every effect must refuse.
+1. A private file appears secure by mode but a macOS ACL or protected/unprotected Windows ACE grants a foreign effective reader: the broader protection capability must refuse. The amended local handoff uses ordinary OS permission without ACL challenges and retains exact role/path/version/lock checks instead.
 2. A process query fails or a live PID loses a subfile during observation: this must remain unknown, never become death or trigger quarantine.
 3. Two reclaimers and a live newcomer interleave choosing, quarantine and wx creation: one winning lease protects the exact generation until owned release.
 4. A signed capture has real bytes but a changed probe/source scope, inadequate offset window or incomplete restoration: class admission must refuse, never inherit a generic passed flag.
@@ -120,7 +137,7 @@ The46-hour native risk-adjusted parent estimate is allocated without reduction: 
 - [ ] Add Windows owner-SID-equality-only refusal and elevated Administrators-owned creation cases: acceptance also requires current-user membership, protected inheritance and verified effective rights. Run actual elevated and non-elevated creation plus foreign explicit/inherited ACE controls on owned Windows roots; missing elevation remains unavailable, never fixture-proven.
 - [ ] Run the exact command below and observe the intended RED before implementation.
 - [ ] Implement fixed System32 WindowsPowerShell with structured Get-Acl -LiteralPath and data-only inputs (no PATH lookup, wildcard expansion or interpolation), and fixed stock POSIX/macOS probes with structured observations, effective-rights ordering checks and recorded SYSTEM/Administrators allowances only under the accepted membership rule. Setup applies the protected descriptor then rereads. macOS enumerates actual extended ACLs; POSIX modes do not erase grants.
-- [ ] Bind descriptor and canonical ancestry; re-observe protection and identity at every create/read/remove/publication. Changed identities or ACLs invalidate the receipt. Never claim inode equality detects every trusted-account security-descriptor edit.
+- [ ] For the amended local handoff, use normal filesystem operations with canonical project containment, exact role write paths, expected bytes/version and owned lock generation. Do not require C1 protection receipts or ACL challenges to hand off notes. The broader C1 OS protection/conformance capability remains historical/separate and is not declared complete by this change.
 - [ ] Exercise real current-OS protected creation, foreign explicit/inherited grants and restoration on owned temporary roots. Off-OS cases are unavailable locally and execute in their actual CI OS job.
 - [ ] Run GREEN, record limits and commit the scoped implementation under its native child issue.
 
@@ -235,7 +252,7 @@ node --test test/unit/ownership-election.test.mjs
 - [ ] Write RED interleavings for same-worktree contention, linked roots/distinct endpoints, stale/no-death proof, substitution, choosing/broker/quarantine-before-create crashes, flush/rename failures and two reclaimers plus live newcomer.
 - [ ] Inside the held election reread owner bytes/generation and descriptor/parent identities; independently prove exact broker death, authenticate any reachable endpoint and reconcile registry/manual/wake/provider obligations. Unknown or fenced effects refuse replacement.
 - [ ] Retain quarantined bytes and receipt, compare the exact generation immediately before mutation, then exclusive wx/create/write/fsync while retaining both owner descriptor and winning slot. Rename alone is never treated as compare-and-swap.
-- [ ] Publish only after recovery/server readiness. verify/release recheck owned identities/generation/protection; foreign/new ownership and failed cleanup stay fenced. Create a random32-byte credential exclusively in .scratch/peer-review/private/ using verified protection operations. Publish runtime/endpoint.json with fingerprint/instance/port/digest/heartbeat and accepted owner/version binding, never the credential. Its digest is a non-secret binding digest, not the credential digest. Add RED checks that endpoint and status/doctor/error outputs expose neither credentials nor credential digests.
+- [ ] Publish only after recovery/server readiness. local verify/release recheck owned identities/generation without an ACL challenge; foreign/new ownership and failed cleanup stay fenced. Create a random32-byte credential exclusively in .scratch/peer-review/private/ using verified protection operations. Publish runtime/endpoint.json with fingerprint/instance/port/digest/heartbeat and accepted owner/version binding, never the credential. Its digest is a non-secret binding digest, not the credential digest. Add RED checks that endpoint and status/doctor/error outputs expose neither credentials nor credential digests.
 - [ ] Run GREEN and commit the transaction seam; actual admitted class/installed journeys are cumulative children C5/C6 requirements, not claimed from scheduling fixtures.
 
 ```js

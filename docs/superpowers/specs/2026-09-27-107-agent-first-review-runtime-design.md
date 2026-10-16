@@ -1,5 +1,22 @@
 # Agent-First Review API and Portable Runtime Design
 
+## Active simple local handoff amendment
+
+The user's 2026-10-16 direction selects trusted agents already permitted to work
+in one local project. The [simple handoff design](./2026-10-16-190-trusted-local-storage-design.md) and
+[implementation plan](../plans/2026-10-16-190-trusted-local-storage.md) govern that workflow. Reviewer writes only its
+current response notes; author may also revise the artifact; neither participant
+modifies other tracked files, Git metadata or anything outside the project.
+Use normal filesystem access with essential turn authentication, locking and
+restart recovery. No initial/repeated ACL or SID challenge, protection-admission
+scope, source-class enrollment/capture prerequisite, persistent query worker or
+native binary is required for this local handoff.
+Conflicting stronger requirements below are historical/broader capability scope,
+not local handoff gates. Preserve their evidence and do not mark their broader
+claims complete. Old accepted revisions do not approve this amendment; normally
+review the revised documents and record the changed #190 scope before runtime
+implementation.
+
 ## Document Status
 
 - **Date:** 2026-09-27

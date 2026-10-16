@@ -1,5 +1,22 @@
 # #171 Portable Consumer Migration Decomposition Implementation Plan
 
+## Active simple local handoff amendment
+
+The user's 2026-10-16 direction selects trusted agents already permitted to work
+in one local project. The [simple handoff design](../specs/2026-10-16-190-trusted-local-storage-design.md) and
+[implementation plan](./2026-10-16-190-trusted-local-storage.md) govern that workflow. Reviewer writes only its
+current response notes; author may also revise the artifact; neither participant
+modifies other tracked files, Git metadata or anything outside the project.
+Use normal filesystem access with essential turn authentication, locking and
+restart recovery. No initial/repeated ACL or SID challenge, protection-admission
+scope, source-class enrollment/capture prerequisite, persistent query worker or
+native binary is required for this local handoff.
+Conflicting stronger requirements below are historical/broader capability scope,
+not local handoff gates. Preserve their evidence and do not mark their broader
+claims complete. Old accepted revisions do not approve this amendment; normally
+review the revised documents and record the changed #190 scope before runtime
+implementation.
+
 > **For agentic workers:** Use superpowers:executing-plans inline. Root implements and delivers every child; no implementer delegation or parallel mutation wave. One fresh read-only whole-child review follows each independently delivered child.
 
 **Goal:** Migrate the complete portable consumer path to actual guarded stock operations and prove fresh installed recovery while preserving current-runtime authority.
@@ -32,7 +49,7 @@ Actual native imports/calls occur in broker entry/client, startup runtime/author
 - Node>=24; no native build/load/download or compatibility fallback on portable operational paths.
 - Startup election budget30000ms; recovery inherits its sealed absolute monotonic deadline. Every nested operation keeps the original signal/deadline. No TTL, endpoint-silence death, blind relaunch or renewed budget.
 - Winning leases survive through exact owned release or retained obligations. Primary, provider/manual and broker roots are distinct and independently protected.
-- Reobserve actual principal/ACL/type/link/parent/file identity at effects. No USERNAME SID, copied operations/fence or caller receipt grants authority.
+- The amended local handoff relies on normal OS permission plus exact project/role paths, authenticated turn/version and lock ownership. No ACL/SID/protection/source-class challenge gates that handoff; no caller flag, copied role or environment name grants another participant permission.
 - Credentials are32random bytes under private protection; discovery/status/errors expose neither bytes nor digest. No synthetic peerUser.
 - Preserve #102 selected/current runtime, registry/inventory and operation predicates across awaits and before effects. Read-only/comparison/fixture authority is never current effect authority.
 - Ordinary startup requires no capture key/index/receipt. Pure fixtures and graph/source data stay verified:false and operationally unavailable.
@@ -167,9 +184,9 @@ node scripts/verify-portable-consumers.mjs --report-only
 
 - [ ] RED: unknown JSON/non-JS import refuses; covered owner/HTTP bytes change digest; metadata-only package edits leave code digest unchanged while stale/tampered installed inventory refuses actual effects.
 - [ ] RED: source-contract manifest missing/extra/new dependency and all fresh-process import orders refuse stale closure/cycle behavior; constructor performs no observed effect.
-- [ ] RED: replace current selection/registry/protection during awaited read/mutation; effect refuses and retains bytes/lease. Include copied fence, stale candidate role and unawaited promise negatives.
+- [ ] For the amended local handoff, RED: wrong project/role/session/turn/version, outside-project or replaced response target, unrelated tracked-file write, duplicate submission and live lock contention refuse. No source-class or ACL enrollment is required merely to start the two-agent turn loop.
 - [ ] RED: primary contention and failed withdrawal preserve exact identity/obligations; roots differ from provider/manual/broker.
-- [ ] Convert actual selection/bootstrap/current operation/maintenance checks to awaited C1 guards; revalidate authority before every effect and migrate every actual caller.
+- [ ] Route the amended local start/join/submit/status/recover path through ordinary project filesystem access and existing authenticated turn/journal locking. Remove C1/C2/C3 protection/class dependencies that exist solely to challenge this local handoff; preserve exact path/role/version and owned-lock checks.
 - [ ] Inventory covered core/wrapper edits; old524b becomes unavailable, historical proof retained. No fake sync adapter or accepted-class override.
 - [ ] GREEN refusal/current-selection checks and commit; actual new-contract installed acceptance belongs toTask5.
 
@@ -295,7 +312,7 @@ Retained broker-multiproject/broker-endpoint/readiness journeys must actually ru
 - [ ] Pack/bind exact final bytes and list covered edits. When changed, prepare real disposable registrations, complete transitive freeze/approved branch and genuine normal registration/index before capture.
 - [ ] Execute signed absence and expressly authorized Linux creation after real privilege/restoration preflight. Preserve failures; separate normal finite class approval precedes active ledger promotion. Keep old524b historical.
 - [ ] Install exact candidate on fresh unregistered user/worktree roots without keys/index/receipts. Actually start/crash/observe absent original PID/reclaim under original budget, authenticate manual suspension/recovery, retain cleanup. Reuse/overlap only with genuine creation coverage.
-- [ ] Execute real elevated/non-elevated Windows ACL/bootstrap plus macOS/Linux/manual journeys. Record finite host/build/Node/probe/current contract and limitations. Later covered edits require recapture.
+- [ ] For the amended local claim, execute ordinary-permission installed handoff/restart and role-write-boundary controls on supported hosts. Privilege/ACL/clock/source-class conformance remains separate, not a prerequisite to this local claim. Record finite host/build/Node/probe/current contract and limitations. Later covered edits require recapture.
 - [ ] GREEN tamper/unit and exact hosted/native delivery checks; no production activation/native-free/package/provider/reboot/descendant claim.
 
 ```js
