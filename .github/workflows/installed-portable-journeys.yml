@@ -4,16 +4,11 @@ on:
   push:
     branches: [codex/190-installed-journeys]
     paths:
-      - src/protocol/process-source-contracts.json
-      - src/broker/bootstrap-core.mjs
-      - src/broker/portable-bootstrap.mjs
-      - test/helpers/installed-portable-journey.mjs
-      - test/helpers/installed-effect-acceptance.mjs
-      - test/helpers/installed-portable-ci.mjs
-      - test/helpers/windows-primary-diagnostic.mjs
-      - test/helpers/windows-stock-timing.mjs
-      - test/helpers/windows-acl-api-benchmark.mjs
-      - test/helpers/windows-limited-installed-journey.ps1
+      - 'src/**'
+      - 'test/**'
+      - scripts/pack-runtime.mjs
+      - package.json
+      - package-lock.json
       - .github/workflows/installed-portable-journeys.yml
   workflow_dispatch:
 
@@ -22,7 +17,7 @@ permissions:
 
 jobs:
   installed:
-    name: Installed / Node ${{ matrix.node }} / ${{ matrix.os }} / ${{ matrix.token }}
+    name: Local handoff / Node ${{ matrix.node }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -31,17 +26,6 @@ jobs:
       matrix:
         node: ['24', '26']
         os: [ubuntu-latest, macos-latest, windows-latest]
-        token: [ordinary]
-        include:
-          - node: '24'
-            os: windows-latest
-            token: limited
-          - node: '26'
-            os: windows-latest
-            token: limited
-    env:
-      APR_SKIP_NATIVE_BROKER_TESTS: '1'
-      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Enable Windows long checkout paths
         if: runner.os == 'Windows'
@@ -56,120 +40,15 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: node test/helpers/warm-packed-cache.mjs
-      - name: Initialize stock Windows PowerShell
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $env:PSModulePath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules"
-          Get-Command Get-Acl, Set-Acl, ConvertFrom-Json, ConvertTo-Json | Out-Null
-          [Security.AccessControl.DirectorySecurity] | Out-Null
-          [Security.AccessControl.FileSecurity] | Out-Null
-          [Security.AccessControl.RawSecurityDescriptor] | Out-Null
-      - name: Actual fresh installed broker and manual journey
-        if: matrix.token == 'ordinary'
-        run: node test/helpers/installed-portable-ci.mjs
-      - name: Actual non-elevated Windows token and fresh installed journey
-        if: matrix.token == 'limited'
-        shell: powershell
-        run: ./test/helpers/windows-limited-installed-journey.ps1
-      - name: Preserve public observations and incomplete outcomes
+      - name: Installed local filesystem and restart controls
+        # These are real installed files with declared sessions, not live provider proof.
+        run: node test/helpers/installed-local-ci.mjs
+      - name: Preserve observations and incomplete outcomes
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: installed-${{ runner.os }}-${{ matrix.node }}-${{ matrix.token }}-${{ github.run_attempt }}
-          path: .scratch/190-installed-public/
+          name: local-handoff-${{ runner.os }}-${{ matrix.node }}-${{ github.run_attempt }}
+          path: .scratch/190-local-public/
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
-
-  windows-primary-diagnostic:
-    name: Windows primary timing / Node ${{ matrix.node }}
-    runs-on: windows-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['24', '26']
-    steps:
-      - name: Enable Windows long checkout paths
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: git config --global core.longpaths true
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci --ignore-scripts --no-audit --no-fund
-      - run: node test/helpers/warm-packed-cache.mjs
-      - name: Observe stock primary costs without changing production inputs or budgets
-        run: node test/helpers/windows-primary-diagnostic.mjs
-      - name: Preserve timing numbers and codes without private details
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-primary-timing-${{ matrix.node }}-${{ github.run_attempt }}
-          path: .scratch/190-primary-diagnostic-public/timings.json
-          if-no-files-found: error
-          retention-days: 30
-
-  windows-read-budget:
-    name: Fresh protected reads / Node ${{ matrix.node }}
-    runs-on: windows-latest
-    timeout-minutes: 5
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['24', '26']
-    steps:
-      - name: Enable Windows long checkout paths
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: git config --global core.longpaths true
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node }}
-      - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Real stock reads retain one original 30 second budget
-        run: node --test --test-name-pattern='twenty protected snapshot reads' test/unit/storage-protection.test.mjs
-      - name: Diagnose the same reads with unchanged stock calls and budget
-        if: failure()
-        run: node --import ./test/helpers/windows-stock-timing.mjs --test --test-name-pattern='twenty protected snapshot reads' test/unit/storage-protection.test.mjs
-
-  windows-acl-benchmark:
-    name: Stock Windows ACL API comparison
-    runs-on: windows-latest
-    timeout-minutes: 5
-    steps:
-      - name: Enable Windows long checkout paths
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: git config --global core.longpaths true
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '26'
-      - name: Compare genuine stock API descriptor bytes and cost
-        run: node test/helpers/windows-acl-api-benchmark.mjs
-      - name: Preserve only comparison booleans and timing numbers
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: stock-acl-api-comparison-${{ github.run_attempt }}
-          path: .scratch/190-acl-benchmark-public/comparison.json
-          if-no-files-found: error
-      - name: Compare exact stock script JSON conversion without changing production code
-        run: node test/helpers/windows-json-benchmark.mjs
-      - name: Preserve only JSON equality and timing data
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: stock-json-comparison-${{ github.run_attempt }}
-          path: .scratch/190-json-benchmark-public/comparison.json
-          if-no-files-found: error

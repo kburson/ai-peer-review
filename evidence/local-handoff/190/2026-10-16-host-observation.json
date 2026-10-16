@@ -1,0 +1,41 @@
+{
+  "schema": "ai-peer-review.local-host-observation/v1",
+  "source_commit": "0d57f4fb711e4a16be26712d406b2fc327554d2b",
+  "platform": "darwin",
+  "node": "26.8.1",
+  "review_id": "review-cf9006ce2c69f68feeb262af4b6a9963",
+  "outcome": "accepted-uncommitted",
+  "author_scope": "actual root Codex author, existing session, instruction-bound",
+  "reviewer_scope": "actual same Claude Opus 5.5 high session; exact Edit and Bash tools; continuation explicitly resumed externally after controller reporting timeout",
+  "controller_automatic_completion": "incomplete: original 30000ms context expired after actual reviewer submission; reservation retained, no blind relaunch or timeout increase",
+  "participant_fingerprints": [
+    "sha256:49863c1adf7739b218afe693008fc5de335f50b5fdaed3624eae7dc56df0e096",
+    "sha256:b3a638a9581200e0d1c4edc32791a2c6bf93d87685809229445c869b1e3fe106"
+  ],
+  "event_types": [
+    "review-created",
+    "compatibility-declared",
+    "identity-changed",
+    "reviewer-joined",
+    "turn-claimed",
+    "reviewer-revisions-requested",
+    "turn-claimed",
+    "delivery-written",
+    "author-revision-sealed-no-commit",
+    "delivery-written",
+    "reviewer-accepted",
+    "delivery-written",
+    "finalization-started",
+    "acceptance-sealed-no-commit"
+  ],
+  "events_sha256": "582997a2dc2f5c7304ae2517294b44fe783b6c37e5fc51654aa0e329bd0aa852",
+  "artifact_sha256": "7d1cefa2416fc9e84d8c9aadeb51d4f35ab43b0b13ab647e4d95fe1ab2e634a7",
+  "git_head_unchanged": true,
+  "index_matches_setup_head": true,
+  "unrelated_dirty_tracked_preserved": true,
+  "untracked_preserved": true,
+  "outside_owned_sentinel_preserved": true,
+  "scope": "actual trusted local manual-session handoff; not broker wake, release, Linux manual input, Windows provider, class or OS sandbox proof",
+  "private_evidence": ".scratch/190-delivery/simple-live/; original official provider transcript retained separately",
+  "provider_transcript_sha256": "79f004bb950a2c0ed04ecc08d0cf22615300bc0045348e01af387baf00b14b7d"
+}

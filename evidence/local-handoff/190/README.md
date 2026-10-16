@@ -1,0 +1,11 @@
+# #190 local handoff evidence
+
+The [accepted design](../../../docs/superpowers/specs/2026-10-16-190-trusted-local-storage-design.md) governs these narrow observations.
+
+- `2026-10-16-host-observation.json`: actual root Codex author and the same Claude Opus 5.5 high reviewer completed notes → author revision/notes → reviewer acceptance → journal finalization. The author is instruction-bound. The reviewer used exact existing tool permissions. Unrelated dirty tracked work, an untracked file and an owned outside sentinel remained unchanged; HEAD stayed fixed and the index still matched the setup tree.
+- `2026-10-16-provider-scope-observation.json`: a separate actual Claude CLI component probe attempted all nine prohibited writes. Eight Edit calls and one new-file Write were denied; only its exact current-response Edit succeeded. Actual tracked/dirty/untracked/ignored fixtures and the outside sentinel were checked afterward. These are tool permission observations, not an OS sandbox claim.
+- Hosted `Installed portable journeys` runs the real installed filesystem/protocol controls on Linux/macOS/Windows, Node 24/26, with portable concurrency four and the original budgets. Sessions in those tests are declared fixtures, and human-override controls use explicit test-only authority. They are not actual provider or human approval proof. Live Linux manual input remains excluded.
+
+The first actual controller launch exceeded its original 30000 ms operation context after the reviewer had submitted revisions. Its reservation remains preserved. The official terminal provider transcript and journal established that outcome before continuation of the same existing session. This proves the trusted manual-session route; automatic controller completion reporting remains incomplete. No larger timeout, duplicate reviewer, invented approval or uncertainty discharge is used.
+
+Public observations contain hashes and bounded outcomes. Raw provider output, the original transcript, response notes, journal and failed controller output remain private. No new native component, ACL worker or class capture was used for the amended local path. Broader broker, source-class, package-distribution and release claims remain separate.

@@ -1,5 +1,7 @@
 # ai-peer-review
 
+> Development scope for #190: new local reviews automate filepath handoffs between two trusted agents. Ordinary project access is sufficient; no native helper, ACL challenge, host enrollment or source-class capture gates this path. Existing manual sessions remain instruction-bound. The journal records turns durably without making Git writes. Broader broker/setup/release material below describes separately owned capabilities and is not a prerequisite for this local workflow. See the [accepted local design](docs/superpowers/specs/2026-10-16-190-trusted-local-storage-design.md).
+
 Two AI agents, one document, and a set of rules that keeps them honest.
 
 `ai-peer-review` sets up a real peer review between two AI sessions: one wrote
@@ -59,19 +61,23 @@ Then, back in the first session, whenever the reviewer hands work back:
 > Read the review findings, revise the spec, and submit the round.
 
 The two agents pass the document back and forth until the reviewer accepts it.
-Manual and resume-only modes keep you as the courier. New cross-provider reviews
-(XPR) still register through the project-local broker, even when handoffs are
-manual. Same-provider reviews (SPR) may use native orchestration only when the
-provider can launch and resume the distinct reviewer session; otherwise they
-need the broker. There is no automatic fallback to another reviewer or runtime.
+Existing manual sessions receive the exact next artifact and response-note paths.
+The reviewer edits only its current notes; the author edits only the artifact and
+its own current notes. Unsupported automatic author launch uses that existing
+manual-session route. Instructions describe this accurately; they do not claim
+an OS sandbox. There is no automatic replacement of an uncertain reviewer.
+
 You remain the tie-breaker when the agents cannot agree.
 
 ## Setting it up
 
 Ask your agent to do it:
 
-> Install `@kburson/ai-peer-review` globally, build its native helper, register the
-> runtime and primary checkout, and run project setup for Claude Code.
+> Use the installed package for the trusted local handoff. Pass the artifact
+> filepath and select the reviewer provider, model and effort.
+
+The local handoff requires no native build or runtime/primary enrollment. The
+following setup details belong to the separately governed legacy broker path.
 
 Project setup writes the portable primary policy and current host integrations:
 
@@ -240,23 +246,19 @@ exact identifiers and does not resolve aliases.
 Direct classifier callers can follow the [Claude launch API migration](docs/claude-launch-api-migration.md) guide for session evidence, conditional recovery, and the widened v1 result schema.
 
 The invoking session is the author participant; a sponsoring human is not a
-substitute for its identity. Normal mode creates the tracked review evidence
-and author-owned commits when required. `--no-commit` is an explicit
-non-durable test mode, not an equivalent assurance level. `peer-review help
+substitute for its identity. New local reviews use durable journal-only state and snapshots. They do not
+stage or commit files. `--no-commit` is an idempotent spelling of that default;
+`--test-human-authority` still marks explicit fixture records as test evidence. `peer-review help
 start`, `peer-review help spr`, and `peer-review help xpr` work offline.
 
 Your agent gets back a workspace, a brief of its own, and a reviewer invitation
 containing every path the second agent needs.
 
-For automatic Claude Code broker handoffs, install the package locally, build
-its native broker helper, and add a `PreToolUse` Bash hook to the project
-`.claude/settings.json` with command
-`node node_modules/@kburson/ai-peer-review/bin/peer-review-claude-hook.mjs`.
-Check `peer-review doctor --mode automatic-required`, then add
-`--transport-mode automatic-required` to `peer-review start`. The broker
-validates both exact sessions and can resume either role. Manual and
-resume-only operation remain choices; requested effort is not claimed as
-provider-verified.
+Current local authors use their existing session. An explicitly launched Claude
+reviewer uses the existing exact response tool permissions. A provider turn can
+outlast the controller's original operation budget; preserve its pending launch
+and inspect the same session and journal before any continuation. A controller
+timeout or silence is never acceptance, and must not trigger a duplicate launch.
 
 ### 2. The reviewer joins
 
@@ -394,14 +396,14 @@ replaced, both through `recover`.
 
 ## Try it without touching your Git history
 
-If you want to watch the whole protocol run before you trust it with real work,
-start a review with `--no-commit`. The conversation is identical, but nothing is
-staged or committed — artifact snapshots and digests are kept in the ignored
-workspace instead, and the review ends as `accepted-uncommitted`.
+New local reviews keep durable artifact snapshots and digests in their project
+coordination workspace. The normal local result is `accepted-uncommitted`:
+acceptance refers to the exact reviewer decision and artifact bytes, with no
+Git commit created. Invitations and notes say `LOCAL JOURNAL MODE`.
 
-Every handoff in that mode is stamped `NO-COMMIT TEST MODE`, and both agents are
-told to disclose it. It is a rehearsal, and it is labeled as one; it never
-counts as acceptance evidence.
+Explicit `--test-human-authority` records retain `NO-COMMIT TEST MODE` and never
+count as actual provider or human-approval evidence. Existing legacy normal
+records remain readable history; this path refuses to mutate or convert them.
 
 ## The guardrails
 
@@ -411,12 +413,11 @@ The things that stop this quietly going wrong:
   agent believes.
 - Reviewer code receives read-only observations of the repository, and cannot
   commit or push through the package API.
-- Author commits use exact-path transactions and leave unrelated staged work
-  untouched.
+- Local turns leave Git HEAD, index, refs and unrelated human work untouched.
 - Nothing is ever pushed for you.
 - Human authority is graded as the weaker of signer isolation and verifier
   binding — it will not flatter itself.
-- `--no-commit` is explicitly non-durable and never implies Git evidence.
+- Durable local journal state records acceptance without implying Git evidence.
 - Automatic handoff blocks inside the local MCP tool, not in model turns; there
   is no background prompt polling while it waits.
 - Durable coordination runs outside participant context, persists one immutable
