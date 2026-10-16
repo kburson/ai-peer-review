@@ -88,6 +88,9 @@ function validManifest(overrides = {}) {
         'test',
       ],
       exact: [
+        'evidence/local-handoff/190/2026-10-16-host-observation.json',
+        'evidence/local-handoff/190/2026-10-16-provider-scope-observation.json',
+        'evidence/local-handoff/190/README.md',
         '.ai-peer-review.json',
         '.ai-peer-review/config.json',
         '.ai-peer-review/skills/peer-review/SKILL.md',
@@ -821,4 +824,10 @@ test('primary policy paths are admitted while neighboring private state remains 
  const manifest=validManifest();
  await verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n.ai-peer-review/config.json\n.ai-peer-review/skills/peer-review/SKILL.md'})});
  for(const file of ['.ai-peer-review/credentials.json','.ai-peer-review/review-history/entry.json','.ai-peer-review/skills/other/SKILL.md']) await assert.rejects(verifyExtraction({root:'/repo',manifest,runGit:fakeGit({current:'LICENSE\n'+file})}),/foreign standalone paths/);
+});
+
+test('[#190] admits only the exact public local handoff observations', async () => {
+  const declared=['evidence/local-handoff/190/2026-10-16-host-observation.json','evidence/local-handoff/190/2026-10-16-provider-scope-observation.json','evidence/local-handoff/190/README.md'];
+  await verifyExtraction({root:'/repo',manifest:validManifest(),runGit:fakeGit({current:['LICENSE',...declared].join('\n')})});
+  for(const foreign of ['evidence/local-handoff/190/private.json','evidence/local-handoff/191/README.md']) await assert.rejects(verifyExtraction({root:'/repo',manifest:validManifest(),runGit:fakeGit({current:['LICENSE',...declared,foreign].join('\n')})}),/foreign standalone paths/);
 });

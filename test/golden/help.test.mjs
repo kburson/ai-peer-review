@@ -305,7 +305,7 @@ test('help --all, search, JSON, and stable error explanations have deterministic
   const consolidate = helpRequest('consolidate', 'json');
   assert.match(consolidate.usage, /--destination.*--dry-run.*--apply/);
   assert.match(consolidate.effects.join(' '), /source.*digest.*receipt/i);
-  assert.equal(consolidate.commit, 'Exact relocation paths only in normal mode.');
+  assert.equal(consolidate.commit, 'No Git writes; legacy normal records are read-only.');
   assert.equal(explainError('APR_STALE_REVIEW').code, 'APR_STALE_REVIEW');
   assert.equal(explainError('APR_TEMPLATE_INVALID').code, 'APR_TEMPLATE_INVALID');
   assert.match(

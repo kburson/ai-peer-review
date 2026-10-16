@@ -1,4 +1,5 @@
 import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { assertCurrentLocalWritePath } from '../startup/authority-fence.mjs';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
@@ -117,6 +118,7 @@ export function createClaudeHook({ performCurrentOperationEffect }) {
     if (START.test(command) || JOIN.test(command)) {
       const file = recordFile(event.cwd, token);
       await performCurrentOperationEffect(() => {
+        assertCurrentLocalWritePath(file);
         mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
         atomicWrite(file, `${JSON.stringify(record)}\n`);
       });

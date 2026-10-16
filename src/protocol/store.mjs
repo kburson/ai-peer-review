@@ -15,6 +15,7 @@ import path from 'node:path';
 import os from 'node:os';
 
 import { AprError } from '../errors.mjs';
+import { assertCurrentLocalWritePath } from '../startup/authority-fence.mjs';
 // #190: a foreign lock is retained unless ownership/death is proven. Merely
 // finding a PID (or not finding it) never authorizes takeover of its lock.
 async function defaultObserveProcessIdentity({ pid = process.pid } = {}) {
@@ -198,8 +199,10 @@ export async function inspectReviewLock({
 }
 
 function retainLock(inspection, { reason, now }) {
+  assertCurrentLocalWritePath(inspection.lockFile);
   const lockDirectory = path.dirname(inspection.lockFile);
   const staleDirectory = path.join(lockDirectory, 'stale');
+  assertCurrentLocalWritePath(path.join(staleDirectory, 'retained.json'));
   mkdirSync(staleDirectory, { recursive: true });
   const suffix = inspection.digest.slice('sha256:'.length);
   const retainedPath = path.join(staleDirectory, `review-lock-${suffix}-${randomUUID()}.json`);
@@ -269,6 +272,7 @@ export async function reclaimReviewLock({
 }
 
 export function atomicWrite(file, bytes) {
+  assertCurrentLocalWritePath(file);
   const payload = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   const directory = path.dirname(file);
   const temporary = path.join(directory, `.${path.basename(file)}.${randomUUID()}.tmp`);
@@ -305,6 +309,7 @@ export function atomicWrite(file, bytes) {
 }
 
 export function atomicCreate(file, bytes) {
+  assertCurrentLocalWritePath(file);
   const payload = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   const directory = path.dirname(file);
   const temporary = path.join(directory, `.${path.basename(file)}.${randomUUID()}.tmp`);
@@ -356,6 +361,7 @@ export async function withReviewLock(workspace, operation, options = {}) {
   const effect = options.effect ?? ((operation) => operation());
   const lockDirectory = path.join(workspace, 'locks');
   const lockFile = path.join(lockDirectory, 'review.lock');
+  assertCurrentLocalWritePath(lockFile);
   const token = randomUUID();
   const ownerIdentity = options.ownerIdentity || (await localOwnerIdentity());
   const observeProcessIdentity = options.observeProcessIdentity || defaultObserveProcessIdentity;

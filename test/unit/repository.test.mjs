@@ -154,7 +154,7 @@ test('refuses tracked symlinks', (t) => {
 
   assert.throws(
     () => repository.artifactState(fixture.root, 'docs/tracked-link.md'),
-    (error) => error.code === 'APR_ARTIFACT_NOT_REGULAR'
+    (error) => error.code === 'APR_PATH_OUTSIDE_REPOSITORY'
   );
 });
 

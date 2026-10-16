@@ -37,5 +37,17 @@
   "outside_owned_sentinel_preserved": true,
   "scope": "actual trusted local manual-session handoff; not broker wake, release, Linux manual input, Windows provider, class or OS sandbox proof",
   "private_evidence": ".scratch/190-delivery/simple-live/; original official provider transcript retained separately",
-  "provider_transcript_sha256": "79f004bb950a2c0ed04ecc08d0cf22615300bc0045348e01af387baf00b14b7d"
+  "provider_transcript_sha256": "79f004bb950a2c0ed04ecc08d0cf22615300bc0045348e01af387baf00b14b7d",
+  "explicit_recovery": {
+    "command": "peer-review recover <original-workspace> --reconcile-launch",
+    "result": "same bound terminal reviewer submission reconciled; launch-state restored; original reserved operation retained as submitted",
+    "provider_relaunches": 0,
+    "journal_unchanged": true,
+    "journal_sha256": "582997a2dc2f5c7304ae2517294b44fe783b6c37e5fc51654aa0e329bd0aa852",
+    "resume_session_fingerprint": "sha256:b3a638a9581200e0d1c4edc32791a2c6bf93d87685809229445c869b1e3fe106",
+    "resume_protocol_revision": 3,
+    "original_operation_deadline_extended": false,
+    "installed_repair_inventory_sha256": "b3bc868d6c42938147a937381af753c8d3c22678c2d4328784f73513ddd3f79c",
+    "scope": "actual installed explicit author recovery after the original timeout; automatic launch completion before deadline is not claimed"
+  }
 }

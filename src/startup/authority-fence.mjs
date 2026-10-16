@@ -601,6 +601,14 @@ export async function performCurrentOperationEffect(operation) {
   return await performOperationEffect(fence, operation);
 }
 
+// Reuse the current local frame for concrete coordination destinations. This
+// checks paths only; it neither queries permissions nor creates new authority.
+export function assertCurrentLocalWritePath(file) {
+  const seal = fences.get(operationContext.getStore());
+  if (seal?.local)
+    resolveContainedPath(seal.primary.activeWorktreeRoot, path.resolve(file), 'coordination file');
+}
+
 export async function assertCurrentOperationAuthority() {
   const fence = operationContext.getStore();
   if (!fence) refuse('Production operation has no admitted context.');

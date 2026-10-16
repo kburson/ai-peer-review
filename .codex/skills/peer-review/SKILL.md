@@ -1,11 +1,11 @@
 ---
 name: peer-review
-description: Load the registered primary peer review procedure.
+description: Use when two agents exchange local review artifact and response-note filepaths.
 ---
 
 # Peer review for codex
 
-Run `peer-review primary inspect --json` from the active project. The selected
-global tool verifies the registered primary and current integration contract.
-Read the returned `skillPath` in full before review work. If verification fails,
-stop and follow its recovery command. This wrapper contains no review procedure.
+Run `peer-review help --json` from the actual project and read the returned
+`skillPath` in full. This ordinary installed help lookup needs no runtime
+enrollment, primary activation or broker. Existing sessions are instruction-bound.
+Keep legacy maintenance and unresolved reviews on their recorded compatible path.

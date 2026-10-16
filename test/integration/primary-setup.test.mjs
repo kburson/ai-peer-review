@@ -669,7 +669,7 @@ test(
     await f.setupApply({ update: true, migrate: true });
     assert.equal(f.exists('.ai-peer-review.json'), false);
     assert.equal(JSON.parse(f.read('.ai-peer-review/config.json')).setup.agents[0], 'generic');
-    assert.match(f.read('.agents/skills/peer-review/SKILL.md'), /primary inspect --json/);
+    assert.match(f.read('.agents/skills/peer-review/SKILL.md'), /peer-review help --json/);
   }
 );
 
@@ -980,7 +980,7 @@ test(
     );
     assert.match(
       readFileSync(path.join(f.home, '.agents/skills/peer-review/SKILL.md'), 'utf8'),
-      /primary inspect --json/
+      /peer-review help --json/
     );
   }
 );

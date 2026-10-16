@@ -96,7 +96,8 @@ test(
     };
     syncBuiltinESMExports();
     const {startReview,joinReview,submitReviewTurn,submitAuthorTurn,finalizeReview,advanceReview}=await import(${module('src/cli/run.mjs')});
-    const {withReviewLock}=await import(${module('src/protocol/store.mjs')});
+    const {withReviewLock,atomicWrite,atomicCreate}=await import(${module('src/protocol/store.mjs')});
+    const {withOperationAuthority}=await import(${module('src/startup/authority-fence.mjs')});
     const {initializeReview}=await import(${module('src/protocol/service.mjs')});
     const {participantIdentity}=await import(${module('src/identity/registry.mjs')});
     const fs=await import('node:fs'); const path=await import('node:path');
@@ -120,10 +121,24 @@ test(
       fs.writeFileSync(file,text.replace(expression,'$1'+value));
     };
     try {
+      const initialArtifactBytes=fs.readFileSync('artifact.md');
+      const expectedPlanDigest='sha256:'+(await import('node:crypto')).createHash('sha256').update(fs.readFileSync('plan.md')).digest('hex');
       const author=participantIdentity({role:'author',host:'codex',provider:'openai',modelId:'declared-model',modelDisplay:'Declared fixture',sessionId:'fixture-author',source:'declared',joinedAt:new Date().toISOString()});
       const result=await operation(()=>startReview({cwd:process.cwd(),artifact:'artifact.md',artifactKind:'spec',phases:'spec,plan',issue:190,reviewerProvider:'codex',reviewerModel:'declared-model',reviewerEffort:'medium',transportMode:'automatic-required',identity:author}));
+      const redirects=[];
+      for(const directory of ['locks','deliveries','provider']) {
+        const bound=path.join(result.paths.workspace,directory), saved=bound+'-original';
+        const outside=fs.mkdtempSync(path.join(path.dirname(process.cwd()),'outside-coordination-'));
+        const present=fs.existsSync(bound); if(present) fs.renameSync(bound,saved);
+        fs.symlinkSync(outside,bound,process.platform==='win32'?'junction':'dir');
+        let code=null;
+        try {await withOperationAuthority({operation:'submit',cwd:process.cwd(),reviewWorkspace:result.paths.workspace},()=>directory==='locks'?withReviewLock(result.paths.workspace,()=>{}):directory==='deliveries'?atomicCreate(path.join(bound,'probe.json'),'outside'):atomicWrite(path.join(bound,'claude','probe.json'),'outside'));} catch(error){code=error.code;}
+        redirects.push({directory,code,outsideWrites:fs.readdirSync(outside).length});
+        fs.unlinkSync(bound); if(present) fs.renameSync(saved,bound);
+      }
+      if(redirects.some(x=>x.code!=='APR_PATH_OUTSIDE_REPOSITORY'||x.outsideWrites!==0)) throw Error('coordination path redirect: '+JSON.stringify(redirects));
       const initialSnapshot=path.join(result.paths.workspace,'artifacts','start.md');
-      const initialSnapshotDurable=fs.existsSync(initialSnapshot) && fs.readFileSync(initialSnapshot,'utf8')==='# Review me\n';
+      const initialSnapshotDurable=fs.existsSync(initialSnapshot) && fs.readFileSync(initialSnapshot).equals(initialArtifactBytes);
       const legacyWorkspace=path.join(process.cwd(),'.scratch','peer-review','legacy-attempt');
       const initialEvent=JSON.parse(fs.readFileSync(result.paths.events,'utf8').split('\n')[0]);
       initialEvent.payload.commit_mode='normal';
@@ -165,7 +180,7 @@ test(
       await operation(()=>submitReviewTurn({cwd:process.cwd(),workspace:result.paths.workspace,identity:reviewer,decision:'accepted'}));
       const final=await operation(()=>finalizeReview({cwd:process.cwd(),workspace:result.paths.workspace,identity:author}));
       const terminal=fs.readFileSync(result.paths.events,'utf8').trim().split('\n').map(line=>JSON.parse(line)).findLast(event=>event.type==='acceptance-sealed-no-commit');
-      const phaseSnapshotIsCurrent=terminal.payload.terminal.snapshot_digest==='sha256:c3964bb3b70a957ec9b233c7dd3653f6ba17701ab00facf88ae1393dc6155577';
+      const phaseSnapshotIsCurrent=terminal.payload.terminal.snapshot_digest===expectedPlanDigest;
       // A phase accepted as written must also retain a real coordination snapshot.
       const second=await operation(()=>startReview({cwd:process.cwd(),artifact:'artifact.md',artifactKind:'spec',phases:'spec,plan',reviewId:'review-local-phases-as-written',issue:190,reviewerProvider:'codex',reviewerModel:'declared-model',reviewerEffort:'medium',transportMode:'manual',identity:author}));
       const secondJoin=await operation(()=>joinReview({cwd:process.cwd(),invitation:second.paths.reviewer_invitation,identity:reviewer}));
@@ -241,7 +256,7 @@ test(
       assert.equal(observed.commitMode, 'no-commit');
       assert.equal(observed.transportMode, 'manual');
       assert.equal(observed.legacyRefusedWithoutWrite, true);
-      assert.equal(observed.initialSnapshotDurable, true);
+      assert.equal(observed.initialSnapshotDurable, true, JSON.stringify(observed));
       assert.equal(observed.snapshotRestartSafe, true, JSON.stringify(observed));
       assert.deepEqual(observed.securityProcesses, []);
       assert.deepEqual(observed.sourceClassReads, []);

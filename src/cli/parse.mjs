@@ -82,7 +82,7 @@ export const COMMAND_FLAGS = Object.freeze({
   supplement: frozenList(['--for', '--grant']),
   continue: frozenList(['--additional-turns', '--focus', '--grant']),
   finalize: frozenList(['--good-enough', '--grant', '--rationale']),
-  recover: frozenList(['--reclaim', '--replace-participant', '--grant']),
+  recover: frozenList(['--reclaim', '--replace-participant', '--grant', '--reconcile-launch']),
   abandon: frozenList(['--reason']),
   supersede: frozenList(['--reason', '--by']),
   consolidate: frozenList(['--destination', '--dry-run', '--apply', '--json']),
@@ -120,7 +120,7 @@ export const COMMAND_USAGE = Object.freeze({
   finalize:
     'peer-review finalize <workspace> [--good-enough --grant <signed-grant> --rationale <file>]',
   recover:
-    'peer-review recover <workspace> [--reclaim | --replace-participant <role> --grant <signed-grant>]',
+    'peer-review recover <workspace> [--reconcile-launch | --reclaim | --replace-participant <role> --grant <signed-grant>]',
   abandon: 'peer-review abandon <workspace> --reason <text>',
   supersede: 'peer-review supersede <workspace> --reason <text> --by <successor-review-id>',
   consolidate:
@@ -173,6 +173,7 @@ const BOOLEAN_FLAGS = new Set([
   '--no-artifact-change',
   '--good-enough',
   '--reclaim',
+  '--reconcile-launch',
   '--resume',
   '--all',
 ]);
@@ -400,6 +401,8 @@ function validateConstraints(command, args, options) {
     }
   }
   if (command === 'recover') {
+    if (options.reconcileLaunch && (options.reclaim || options.replaceParticipant || options.grant))
+      usage('--reconcile-launch is a separate recovery action');
     validateEnum(options, 'replaceParticipant', '--replace-participant', ['author', 'reviewer']);
     if (options.reclaim && options.replaceParticipant) {
       usage('--reclaim and --replace-participant are mutually exclusive');

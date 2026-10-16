@@ -19,6 +19,7 @@ import { verifyAndConsumeGrant } from '../authority/verify.mjs';
 import { resolveReviewPaths } from '../collateral/paths.mjs';
 import { nextActionCommand } from '../cli/help-data.mjs';
 import { AprError } from '../errors.mjs';
+import { assertCurrentLocalWritePath } from '../startup/authority-fence.mjs';
 import { startupEvidence } from '../broker/registry.mjs';
 import {
   assertReaderWriterCompatibility,
@@ -145,6 +146,7 @@ export function createProtocolService(authority) {
   }
 
   function writeDeliveryReceiptExclusive(file, delivery) {
+    assertCurrentLocalWritePath(file);
     const expected = Buffer.from(
       canonicalProjection({
         delivery_id: delivery.delivery_id,

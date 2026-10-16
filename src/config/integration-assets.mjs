@@ -1,6 +1,6 @@
 // @story #134
 export function hostWrapper(host) {
-  return `---\nname: peer-review\ndescription: Load the registered primary peer review procedure.\n---\n\n# Peer review for ${host}\n\nRun \`peer-review primary inspect --json\` from the active project. The selected\nglobal tool verifies the registered primary and current integration contract.\nRead the returned \`skillPath\` in full before review work. If verification fails,\nstop and follow its recovery command. This wrapper contains no review procedure.\n`;
+  return `---\nname: peer-review\ndescription: Use when two agents exchange local review artifact and response-note filepaths.\n---\n\n# Peer review for ${host}\n\nRun \`peer-review help --json\` from the actual project and read the returned\n\`skillPath\` in full. This ordinary installed help lookup needs no runtime\nenrollment, primary activation or broker. Existing sessions are instruction-bound.\nKeep legacy maintenance and unresolved reviews on their recorded compatible path.\n`;
 }
 export const INTEGRATION_CONTRACT = 'ai-peer-review.integration/v1';
 export const HOST_DIRECTORIES = Object.freeze({

@@ -681,3 +681,22 @@ test('local start defaults to the same journal-only semantics as explicit no-com
   assert.equal(parseCommand(args).options.noCommit, true);
   assert.equal(parseCommand([...args, '--no-commit']).options.noCommit, true);
 });
+
+test('local launch reconciliation is a separate explicit recovery action', () => {
+  assert.equal(
+    parseCommand(['recover', '/project/review', '--reconcile-launch']).options.reconcileLaunch,
+    true
+  );
+  for (const flag of ['--reclaim', '--grant'])
+    assert.throws(
+      () =>
+        parseCommand([
+          'recover',
+          '/project/review',
+          '--reconcile-launch',
+          flag,
+          ...(flag === '--grant' ? ['grant.json'] : []),
+        ]),
+      { code: 'APR_USAGE' }
+    );
+});

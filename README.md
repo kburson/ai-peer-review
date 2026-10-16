@@ -258,7 +258,9 @@ Current local authors use their existing session. An explicitly launched Claude
 reviewer uses the existing exact response tool permissions. A provider turn can
 outlast the controller's original operation budget; preserve its pending launch
 and inspect the same session and journal before any continuation. A controller
-timeout or silence is never acceptance, and must not trigger a duplicate launch.
+timeout or silence is never acceptance, and must not trigger a duplicate launch. For a completed submission with retained reservation, the registered author
+uses `recover <workspace> --reconcile-launch` to verify the same terminal session
+and restore package-managed resume; active/unknown outcomes remain pending.
 
 ### 2. The reviewer joins
 

@@ -201,7 +201,7 @@ const EFFECTS = Object.freeze({
   ],
   start: [
     'Creates event authority, projections, reservation, startup, and invitation; never pushes.',
-    'Seals the requested issue ID; author revisions and finalization use [#N] commit subjects in normal mode.',
+    'Seals the requested issue ID; local turns retain durable journal and snapshot evidence without Git writes.',
     'A fresh --reviews-root or --review-path-template can create an independent review when an older attempt remains uncertain; verify the new review ID, invitation, and output paths. --record-id alone is insufficient. Use --preserved-predecessor <absolute-workspace> to seal the reference to preserved incompatible collateral.',
   ],
   advance: ['Appends one next-artifact event, reviewer draft, and durable delivery.'],
@@ -218,8 +218,10 @@ const EFFECTS = Object.freeze({
   submit: ['Seals one response and appends its lifecycle and delivery events.'],
   supplement: ['Registers digest-bound scratch context and its signed authority event.'],
   continue: ['Consumes one signed grant and resumes exactly one interrupted role.'],
-  finalize: ['Produces terminal manifest evidence and author-only Git work in normal mode.'],
-  recover: ['Performs only the selected event-authorized reclaim or replacement.'],
+  finalize: ['Produces terminal manifest evidence without staging or committing files.'],
+  recover: [
+    'Performs the selected reclaim, replacement or explicit --reconcile-launch recovery; terminal session/submission proof is required for launch settlement.',
+  ],
   abandon: [
     'Appends terminal abandonment while preserving listed evidence paths and broker records; ambiguous launch outcomes remain blocked.',
     'Legacy manual launch history, Claude session or tool observations, reserved operations, and earlier unknown wake outcomes refuse unjoined retirement until exact non-submission proof exists.',
@@ -1123,7 +1125,7 @@ function topic(command) {
             'ten turns',
             'eight-hour claim TTL',
             'medium reviewer effort',
-            'normal commit mode',
+            'durable local journal-only mode (no Git writes)',
           ]
         : command === 'setup'
           ? ['--update uses project scope and all recorded hosts']
@@ -1136,9 +1138,9 @@ function topic(command) {
     effects: EFFECTS[command],
     commit:
       command === 'consolidate'
-        ? 'Exact relocation paths only in normal mode.'
+        ? 'No Git writes; legacy normal records are read-only.'
         : command === 'submit' || command === 'finalize' || command === 'advance'
-          ? 'Author-only when normal mode requires it.'
+          ? 'No Git writes.'
           : 'never',
     push: 'never',
     block: HUMAN_GATED.has(command)
@@ -1156,12 +1158,12 @@ function topic(command) {
         : 'No background polling or model-token spending.',
     no_commit:
       command === 'consolidate'
-        ? 'Dry-run never mutates; apply uses exact-path Git commit in normal mode.'
+        ? 'Dry-run never mutates; local apply publishes the exact record without Git writes.'
         : command === 'start' ||
             command === 'submit' ||
             command === 'finalize' ||
             command === 'advance'
-          ? 'Uses explicit non-durable snapshot evidence and never implies a Git commit.'
+          ? 'Uses durable local snapshots and never creates a Git commit.'
           : 'Mode is read from protocol authority and cannot be changed here.',
     examples: [
       COMMAND_USAGE[command],

@@ -1,12 +1,12 @@
 {
   "schema": "ai-peer-review.integration-contract/v1",
   "contract": "ai-peer-review.integration/v1",
-  "shared_skill_sha256": "5df0e064c01c3d6cc81f01ac87dc8ea87f1ff6cea6ca63597ebf7c277a2a9b9e",
+  "shared_skill_sha256": "26b9677bf4bb3c3908df34090d6e6694cc9dc7020e58d0da6b7ac1abc7938b5f",
   "wrappers": {
-    "codex": "de7d8353c37973be7f0796273ebae3c0135e5d5ae9373a382fb650a4a87e0986",
-    "claude": "fa8ab5abac29969c4495004edcf49faf052dc775e6888f281dae214e3ab2bcf3",
-    "grok": "bb38c2298a830f81929dc7e5fa9a4564b575c4e30a609d1737cdc56375dcc6eb",
-    "generic": "0b5e7e430f879fb8f9fcecbe614a1f53bcae80f31a2d2e335b42f5b81f353d5a"
+    "codex": "c557dabccecb35b20ae20d7c5dae1c57e215263fd5c4d85560eae95de639ccda",
+    "claude": "f1249d4607b9d22cf06abe53f12e806b5e7681a26d8b5e9ab88eb8a318592ee4",
+    "grok": "4eb82fa0aa5befb702a244372af490c2315911208ce45d703fde8ca1b6522c50",
+    "generic": "01bf1d5ad57fff66adb093c47879cd3579d057e080d7a3de2a9dc5139d52fbd0"
   },
   "hooks": {
     "codex": "3abaeef021325e722348b84e1b2b129fc440c8c03a9a439ea9abc551e368007b",

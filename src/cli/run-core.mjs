@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { renderSelectionScopeFailure } from '../config/selection-read-scope.mjs';
 import { registerRuntimeSelection, inspectRuntimeSelection } from '../config/runtime-selection.mjs';
 import { projectPortableBrokerChildDiagnostic } from '../broker/portable-child-failure.mjs';
@@ -31,6 +32,7 @@ import {
   manualLaunchProvesNonSubmission,
   reserveManualLaunch,
   settleManualLaunch,
+  reconcileSubmittedManualLaunch,
 } from '../provider/manual-launch-ledger.mjs';
 import { allWakeOperations } from '../coordinator/ledger.mjs';
 import {
@@ -73,7 +75,10 @@ import {
   claudeJoinCommand,
 } from '../provider/claude-launch.mjs';
 import { withoutProviderIdentity } from '../provider/preflight.mjs';
-import { createClaudeStreamRecorder as rawCreateClaudeStreamRecorder } from '../providers/claude-stream.mjs';
+import {
+  createClaudeStreamRecorder as rawCreateClaudeStreamRecorder,
+  readClaudeSessionSnapshot,
+} from '../providers/claude-stream.mjs';
 import { authorityDiagnosticRows } from '../startup/authority-diagnostics.mjs';
 import { doctor } from '../doctor.mjs';
 import { inspectPortableBrokerSupport } from '../broker/portable-project.mjs';
@@ -2463,6 +2468,57 @@ export function createReviewOperations({
     const absolute = path.resolve(input.workspace);
     const authority = inspectReviewAuthority(absolute);
     let state = authority.state;
+    if (input.reconcileLaunch) {
+      if (
+        state.protocol.commit_mode !== 'no-commit' ||
+        input.identity?.role !== 'author' ||
+        input.identity.session_fingerprint !== state.participants.author?.session_fingerprint
+      )
+        fail(
+          'APR_IDENTITY_CONFLICT',
+          'Launch reconciliation requires the registered local author.'
+        );
+      const { paths } = sealedPaths(state);
+      const evidence = startupEvidence(absolute, state);
+      const runtime = state.protocol.startup.runtime;
+      const reconciled = await reconcileSubmittedManualLaunch({
+        workspace: absolute,
+        root: state.protocol.startup.context.repository_root,
+        invitation: paths.reviewerInvitation.absolute,
+        details: {
+          reviewId: state.protocol.review_id,
+          requestDigest: evidence.journal.request_digest,
+        },
+        authority,
+        effect: performCurrentOperationEffect,
+        observeTerminal: async () => {
+          const binding = await openParticipantSession({
+            workspace: absolute,
+            role: 'reviewer',
+            authority: {
+              review_id: state.protocol.review_id,
+              ...runtime.reviewer,
+              adapter_version: runtime.adapter_version,
+              operation_id: `join:${state.protocol.review_id}`,
+            },
+            adapters: productionProviderAdapters(),
+            projectRoot: state.protocol.startup.context.repository_root,
+            now: input.now ?? new Date(),
+          });
+          const snapshot = readClaudeSessionSnapshot({
+            projectRoot: state.protocol.startup.context.repository_root,
+            sessionId: binding.handle_locator,
+            now: input.now ?? new Date(),
+          });
+          return { binding, snapshot };
+        },
+      });
+      return recoveryResult(state, absolute, {
+        mutation: reconciled.reconciled,
+        recovery: 'manual-launch-reconciled',
+        ...reconciled,
+      });
+    }
     const role =
       currentActor(state.protocol.intervention?.interrupted_state) ?? state.protocol.current_actor;
     if (!input.reclaim && !input.replaceParticipant) {
@@ -5253,7 +5309,18 @@ export function createReviewOperations({
           parsed.args[0] === 'search'
             ? helpRequest(parsed.args[1], format, { search: true })
             : helpRequest(parsed.args[0] ?? null, format, { all: parsed.options.all });
-        if (format === 'json') writeJson(io.stdout, response);
+        if (format === 'json')
+          writeJson(
+            io.stdout,
+            parsed.args.length === 0 && !parsed.options.all
+              ? {
+                  ...response,
+                  skillPath: fileURLToPath(
+                    new URL('../../skills/peer-review/SKILL.md', import.meta.url)
+                  ),
+                }
+              : response
+          );
         else io.stdout.write(response);
         return 0;
       }
@@ -5871,11 +5938,14 @@ export function createReviewOperations({
             cwd: io.cwd,
             workspace,
             reclaim: parsed.options.reclaim,
+            reconcileLaunch: parsed.options.reconcileLaunch,
             replaceParticipant: parsed.options.replaceParticipant,
             grant: parsed.options.grant,
             identity:
-              parsed.options.reclaim || parsed.options.replaceParticipant
-                ? commandIdentity(io, state, role, {
+              parsed.options.reclaim ||
+              parsed.options.replaceParticipant ||
+              parsed.options.reconcileLaunch
+                ? commandIdentity(io, state, parsed.options.reconcileLaunch ? 'author' : role, {
                     allowReplacement: Boolean(parsed.options.replaceParticipant),
                     config: loaded.config,
                   })

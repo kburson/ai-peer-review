@@ -52,6 +52,9 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'test',
   ],
   exact: [
+    'evidence/local-handoff/190/2026-10-16-host-observation.json',
+    'evidence/local-handoff/190/2026-10-16-provider-scope-observation.json',
+    'evidence/local-handoff/190/README.md',
     '.ai-peer-review.json',
     '.ai-peer-review/config.json',
     '.ai-peer-review/skills/peer-review/SKILL.md',
