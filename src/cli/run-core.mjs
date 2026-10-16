@@ -5388,7 +5388,8 @@ export function createReviewOperations({
           if (!(error instanceof AprError)) throw error;
           loaded = { config: { hosts: {}, review: {}, authority: {} }, diagnostic: error.toJSON() };
         }
-        if (loaded.diagnostic) writeJson(io.stderr, loaded.diagnostic);
+        if (loaded.diagnostic && loaded.diagnostic.code !== 'APR_REPOSITORY_NOT_FOUND')
+          writeJson(io.stderr, loaded.diagnostic);
         const detected = await detectedDoctorContext(io, loaded, parsed.options.mode ?? 'manual');
         const context = io.doctorContext ?? {};
         const response = doctor({
