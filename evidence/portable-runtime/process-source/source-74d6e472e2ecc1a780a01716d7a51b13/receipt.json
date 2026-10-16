@@ -1,0 +1,71 @@
+{
+  "schema": "ai-peer-review.process-source-conformance/v1",
+  "captureId": "source-74d6e472e2ecc1a780a01716d7a51b13",
+  "hostId": "sha256:e72672bfda8bb04403855476c4dcc188ebcbc561a2776eba93bc9a960d2825c2",
+  "registrationDigest": "sha256:104b5df84fa8ebe15dbb5bc94739a74c05b86c570c242fc2e64eb2227e933631",
+  "registrationRevision": "3fcb15a15b3a723536f97c6a1f6d88001872169f",
+  "registrationIndexDigest": "sha256:6f7443cf949d5fc2efa5431ac563c5276a0f27909adcb6f6f4106c0d1696dbc1",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "edc0585afd21be8e645b4903323b116225987711",
+    "tarballDigest": "sha256:8d42ec62541ba454b0ddf07e93b6c227743f2b77dc2849fa78c1bb4e74e9ebe3",
+    "inventoryDigest": "sha256:671b62eb6fcf2c0393d46d1808e3a57a01085c8512ec0a0460e04e3f227e5ac6",
+    "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e"
+  },
+  "scope": {
+    "platform": "linux",
+    "build": "6.17.0-1022-azure",
+    "architecture": "x64",
+    "nodeMajor": 24,
+    "probe": {
+      "path": "/proc",
+      "visibility": "full-pid-namespace",
+      "errorContract": "exact-pid-directory-v1",
+      "version": "procfs-v1"
+    }
+  },
+  "kind": "absence",
+  "controls": {
+    "producer": {
+      "kind": "installed-source",
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "inventoryDigest": "sha256:671b62eb6fcf2c0393d46d1808e3a57a01085c8512ec0a0460e04e3f227e5ac6"
+    },
+    "live": {
+      "pid": 3652,
+      "nonce": "6df48fda597388253d66e2ad44d5ecca4d5ea990c0644ea290fb129a0e4320fc",
+      "creation": {
+        "unit": "linux-ticks:6e34fbce-991e-4550-a7f7-3c3c0f183922",
+        "lower": "92033",
+        "upper": "92034"
+      }
+    },
+    "exit": {
+      "pid": 3652,
+      "exitCode": 0,
+      "signal": null
+    },
+    "absence": {
+      "pid": 3652,
+      "status": "absent"
+    },
+    "error": {
+      "status": "unknown",
+      "reason": "probe-access-error"
+    },
+    "cleanup": {
+      "childExited": true,
+      "restoration": "not-required"
+    }
+  },
+  "transitions": [],
+  "boot": {
+    "before": "6e34fbce-991e-4550-a7f7-3c3c0f183922",
+    "after": "6e34fbce-991e-4550-a7f7-3c3c0f183922"
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "keyId": "sha256:f75975def23bd5584464306fffbbc08697ddce4a76b058f9e0b32f060ec8c2cc",
+    "value": "4ff5fa431838505eacfc03656745594fb0bd6f37d3b067abc35f72018a0b45fbe5559d3156da9e7314c4f288af15067ca5121a2688493b5de13be17de2668301"
+  }
+}

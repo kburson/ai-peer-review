@@ -1,0 +1,28 @@
+{
+  "schema": "ai-peer-review.process-source-registration/v1",
+  "captureId": "source-ac9a301b5a2a598764670bae71e1492f",
+  "hostId": "sha256:298788dd5d73b6a24310c1ca1737acf113e31e386db815e5d2f4c8bd2618a6b8",
+  "publicKey": "MCowBQYDK2VwAyEAxSX720kxC3+4zuBc5zwAR5UylsRliQgPGhpHz+tkuPU=",
+  "keyId": "sha256:41e8a3e7fc34d3181476ff3729511f372a01e89be6cbe99241ddf73d52638a5b",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "edc0585afd21be8e645b4903323b116225987711",
+    "tarballDigest": "sha256:8d42ec62541ba454b0ddf07e93b6c227743f2b77dc2849fa78c1bb4e74e9ebe3",
+    "inventoryDigest": "sha256:671b62eb6fcf2c0393d46d1808e3a57a01085c8512ec0a0460e04e3f227e5ac6",
+    "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e"
+  },
+  "scope": {
+    "platform": "darwin",
+    "build": "25.6.0",
+    "architecture": "arm64",
+    "nodeMajor": 26,
+    "probe": {
+      "path": "/bin/ps",
+      "visibility": "same-user-full-selection",
+      "errorContract": "exact-ps-selection-v1",
+      "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+    }
+  },
+  "kinds": ["absence"],
+  "transitions": []
+}
