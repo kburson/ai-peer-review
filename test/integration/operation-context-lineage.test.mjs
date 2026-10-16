@@ -3,14 +3,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { authorityInstalledFixture } from '../helpers/authority-installed-fixture.mjs';
+import { execFileSync } from 'node:child_process';
+import { fixture as createProject } from '../helpers/intervention-fixture.mjs';
+import { installRuntimeFixture } from '../helpers/runtime-package.mjs';
 
 test('nested mutation retains original context and refuses cross-worktree or aborted parents', async (t) => {
-  const fixture = await authorityInstalledFixture(t, { nativeSecurity: false });
-  fixture.write('docs/lineage.md', '# Context\n');
-  const selected = fixture.execute('');
-  assert.equal(selected.status, 0, selected.stderr);
-  await fixture.setupApply({ scope: 'user', agents: ['grok'] });
+  const project = createProject();
+  t.after(project.cleanup);
+  const installed = installRuntimeFixture(t);
+  const fixture = {
+    root: project.root,
+    module: installed.module,
+    execute: (code) => installed.execute(code, { cwd: project.root }),
+  };
   const prefix =
     'import {withOperationAuthority,currentOperationAuthorityContext} from ' +
     fixture.module('src/startup/authority-fence.mjs') +
@@ -31,8 +36,11 @@ test('nested mutation retains original context and refuses cross-worktree or abo
     assert.deepEqual(result, { sameSignal: true, sameDeadline: true });
   });
   await t.test('a linked checkout cannot inherit the parent admission', () => {
-    const linked = path.join(fixture.parent, 'linked-context');
-    fixture.git('worktree', 'add', '--detach', linked, 'HEAD');
+    const linked = path.join(fixture.root, 'linked-context');
+    execFileSync('git', ['worktree', 'add', '--detach', linked, 'HEAD'], {
+      cwd: fixture.root,
+      stdio: 'pipe',
+    });
     const result = run(
       'let entered=false,code;try{await withOperationAuthority({operation:"submit",cwd:' +
         JSON.stringify(fixture.root) +
