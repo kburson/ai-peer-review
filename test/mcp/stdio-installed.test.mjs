@@ -16,6 +16,10 @@ test(
   'installed MCP receives a pending local handoff after 30s without primary enrollment',
   { timeout: 800000 },
   async (t) => {
+    const client = new Client({ name: 'installed-local-handoff-test', version: '1' });
+    // Close the owned process before fixture cleanup deletes its cwd/package.
+    // A failed earlier after-hook prevents later hooks from running.
+    t.after(() => client.close());
     const f = installRuntimeFixture(t);
     const directory = path.join(f.directory, 'ordinary project');
     mkdirSync(directory);
@@ -92,7 +96,6 @@ test(
       legacyJournal: readFileSync(journal, 'utf8'),
     });
     const before = snapshot();
-    const client = new Client({ name: 'installed-local-handoff-test', version: '1' });
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [path.join(f.packageRoot, 'bin', 'peer-review-mcp.mjs')],
@@ -103,7 +106,6 @@ test(
     transport.stderr?.on('data', (chunk) => {
       stderr += chunk;
     });
-    t.after(() => client.close());
     try {
       await client.connect(transport, { timeout: 30000 });
     } catch (error) {
