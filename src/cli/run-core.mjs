@@ -1088,7 +1088,7 @@ export function createReviewOperations({
       reviewId,
       recordId,
     });
-    if (!repository.checkIgnored(root, paths.scratch.relative)) {
+    if (commitMode === 'normal' && !repository.checkIgnored(root, paths.scratch.relative)) {
       fail(
         'APR_SCRATCH_NOT_IGNORED',
         'The peer-review scratch workspace is not ignored by Git.',
@@ -3900,9 +3900,12 @@ export function createReviewOperations({
     return [...events]
       .reverse()
       .find((event) =>
-        ['author-revision-sealed-no-commit', 'author-closing-round-sealed-no-commit'].includes(
-          event.type
-        )
+        [
+          'author-revision-sealed-no-commit',
+          'author-closing-round-sealed-no-commit',
+          'phase-artifact-sealed-no-commit',
+          'phase-acceptance-sealed-no-commit',
+        ].includes(event.type)
       )?.payload.snapshot;
   }
 
@@ -4371,7 +4374,7 @@ export function createReviewOperations({
             );
           }
           const snapshot = latestNoCommitSnapshot(events) ?? {
-            path: current.protocol.artifact.path,
+            path: 'artifacts/start.md',
             digest: current.protocol.artifact.digest,
           };
           return eventFor(

@@ -184,7 +184,10 @@ export function createStartupRuntime({
         })
       );
     }
-    if (runtime.ownership === 'broker' && runtime.transport_mode !== 'manual') {
+    if (
+      runtime.ownership === 'broker' &&
+      (runtime.transport_mode !== 'manual' || input.noCommit === false)
+    ) {
       image = await (prior?.runtime ??
         (deps.pinRuntimeImage ?? effectPinRuntimeImage)({
           packageRoot,
@@ -368,7 +371,7 @@ export function createStartupRuntime({
           });
         }
         if (['launched', 'manual'].includes(journal.stage)) return enriched(result);
-        if (prepared.runtime.transport_mode === 'manual') {
+        if (prepared.runtime.transport_mode === 'manual' && request.input.noCommit !== false) {
           save('manual');
           return enriched(result);
         }

@@ -4,6 +4,7 @@ import {
   fixtureObservation,
 } from '../helpers/internal-api.mjs';
 import { execFileSync } from 'node:child_process';
+import { installRuntimeFixture } from '../helpers/runtime-package.mjs';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -28,11 +29,11 @@ function digest(bytes) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
-function fixture(t) {
+function fixture(t, { linked = false } = {}) {
   const scratch = path.join(process.cwd(), '.scratch', 'test');
   mkdirSync(scratch, { recursive: true });
   const parent = mkdtempSync(path.join(scratch, 'review-record-integration-'));
-  const root = path.join(parent, 'repository');
+  let root = path.join(parent, 'repository');
   mkdirSync(path.join(root, 'docs'), { recursive: true });
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore', shell: false });
   execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root });
@@ -45,6 +46,11 @@ function fixture(t) {
     stdio: 'ignore',
     shell: false,
   });
+  if (linked) {
+    const next = path.join(parent, 'linked repository');
+    execFileSync('git', ['worktree', 'add', '-b', 'linked', next], { cwd: root, stdio: 'ignore' });
+    root = next;
+  }
   t.after(() => {
     try {
       rmSync(parent, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
@@ -98,7 +104,7 @@ function completeAuthor(file) {
   replaceSection(file, 'Verification', 'Reviewed exact bytes.');
 }
 
-async function startAndJoin(root, reviewId, minute) {
+async function startAndJoin(root, reviewId, minute, noCommit = false) {
   const at = `2026-09-08T12:${String(minute).padStart(2, '0')}:00.000Z`;
   const author = identity('author', `${reviewId}-author`, at);
   const reviewer = identity('reviewer', `${reviewId}-reviewer`, at);
@@ -110,6 +116,7 @@ async function startAndJoin(root, reviewId, minute) {
       artifactKind: 'spec',
       identity: author,
       reviewId,
+      noCommit,
       recordId: RECORD_ID,
       reviewPathTemplate: TEMPLATE,
       now: at,
@@ -126,8 +133,8 @@ async function startAndJoin(root, reviewId, minute) {
   return { author, reviewer, started, joined };
 }
 
-async function revisionAttempt(root, reviewId, minute, { changeArtifact }) {
-  const review = await startAndJoin(root, reviewId, minute);
+async function revisionAttempt(root, reviewId, minute, { changeArtifact, noCommit = false }) {
+  const review = await startAndJoin(root, reviewId, minute, noCommit);
   completeReviewer(review.joined.paths.response, 'revisions-requested', { finding: true });
   const handoff = await api.submitReviewTurn({
     cwd: root,
@@ -186,129 +193,182 @@ function writeLineage(attempts) {
   return receipt;
 }
 
-test('three recovery attempts consolidate into one truthful terminal review record', async (t) => {
-  const { root } = fixture(t);
+for (const { noCommit, linked, label } of [
+  { noCommit: false, linked: false, label: 'legacy source fixture' },
+  { noCommit: true, linked: false, label: 'installed local' },
+  { noCommit: true, linked: true, label: 'installed linked local' },
+])
+  test(`three recovery attempts consolidate into one truthful terminal review record (${label})`, async (t) => {
+    const { root } = fixture(t, { linked });
+    const acceptedState = noCommit ? 'accepted-uncommitted' : 'accepted';
 
-  const first = await revisionAttempt(root, 'review-incident-01', 0, { changeArtifact: true });
-  completeReviewer(first.submitted.paths.response, 'accepted');
-  const unsubmittedBytes = readFileSync(first.submitted.paths.response);
-  const second = await revisionAttempt(root, 'review-incident-02', 4, { changeArtifact: false });
-  const incompleteBytes = readFileSync(second.submitted.paths.response);
-  assert.match(incompleteBytes.toString('utf8'), /<!-- Write the review summary\. -->/);
-  const third = await startAndJoin(root, 'review-incident-03', 8);
-  writeLineage([first, second, third]);
+    const first = await revisionAttempt(root, 'review-incident-01', 0, {
+      changeArtifact: true,
+      noCommit,
+    });
+    completeReviewer(first.submitted.paths.response, 'accepted');
+    const unsubmittedBytes = readFileSync(first.submitted.paths.response);
+    const second = await revisionAttempt(root, 'review-incident-02', 4, {
+      changeArtifact: false,
+      noCommit,
+    });
+    const incompleteBytes = readFileSync(second.submitted.paths.response);
+    assert.match(incompleteBytes.toString('utf8'), /<!-- Write the review summary\. -->/);
+    const third = await startAndJoin(root, 'review-incident-03', 8, noCommit);
+    writeLineage([first, second, third]);
 
-  await api.supersedeReview({
-    workspace: first.started.paths.workspace,
-    identity: first.reviewer,
-    reason: 'Capture-ref churn prevented submission.',
-    successorReviewId: 'review-incident-02',
-    now: '2026-09-08T12:03:00.000Z',
-  });
-  await api.supersedeReview({
-    workspace: second.started.paths.workspace,
-    identity: second.reviewer,
-    reason: 'Replacement inspection was not completed.',
-    successorReviewId: 'review-incident-03',
-    now: '2026-09-08T12:07:00.000Z',
-  });
-  completeReviewer(third.joined.paths.response, 'accepted');
-  await api.submitReviewTurn({
-    cwd: root,
-    workspace: third.started.paths.workspace,
-    identity: third.reviewer,
-    decision: 'accepted',
-    now: '2026-09-08T12:09:00.000Z',
-  });
-  writeLineage([first, second, third]);
-  const finalized = await api.finalizeReview({
-    cwd: root,
-    workspace: third.started.paths.workspace,
-    identity: third.author,
-    now: '2026-09-08T12:10:00.000Z',
-  });
-  assert.equal(finalized.state, 'accepted');
-
-  const args = [
-    'consolidate',
-    first.started.paths.workspace,
-    second.started.paths.workspace,
-    third.started.paths.workspace,
-    '--destination',
-    'docs/peer-reviews/spec/record-incident',
-  ];
-  const dryOut = [];
-  const dryErr = [];
-  assert.equal(
-    await api.run([...args, '--dry-run', '--json'], {
+    await api.supersedeReview({
+      workspace: first.started.paths.workspace,
+      identity: first.reviewer,
+      reason: 'Capture-ref churn prevented submission.',
+      successorReviewId: 'review-incident-02',
+      now: '2026-09-08T12:03:00.000Z',
+    });
+    await api.supersedeReview({
+      workspace: second.started.paths.workspace,
+      identity: second.reviewer,
+      reason: 'Replacement inspection was not completed.',
+      successorReviewId: 'review-incident-03',
+      now: '2026-09-08T12:07:00.000Z',
+    });
+    completeReviewer(third.joined.paths.response, 'accepted');
+    await api.submitReviewTurn({
       cwd: root,
-      env: {},
-      now: new Date('2026-09-08T12:11:00.000Z'),
-      stdout: { write: (value) => dryOut.push(String(value)) },
-      stderr: { write: (value) => dryErr.push(String(value)) },
-    }),
-    0,
-    dryErr.join('')
-  );
-  const dryRun = JSON.parse(dryOut.join(''));
-  const sourceBytes = new Map(
-    dryRun.mappings.map(({ source }) => [source, readFileSync(path.join(root, source))])
-  );
-  assert.equal(
-    dryRun.mappings.every(({ collision }) => collision === 'none'),
-    true
-  );
-  assert.equal(
-    dryRun.mappings.every(
-      ({ source, digest: expected }) => digest(sourceBytes.get(source)) === expected
-    ),
-    true
-  );
-
-  const applyOut = [];
-  const applyErr = [];
-  assert.equal(
-    await api.run([...args, '--apply', '--json'], {
+      workspace: third.started.paths.workspace,
+      identity: third.reviewer,
+      decision: 'accepted',
+      now: '2026-09-08T12:09:00.000Z',
+    });
+    writeLineage([first, second, third]);
+    const finalized = await api.finalizeReview({
       cwd: root,
-      env: {},
-      now: new Date('2026-09-08T12:11:00.000Z'),
-      stdout: { write: (value) => applyOut.push(String(value)) },
-      stderr: { write: (value) => applyErr.push(String(value)) },
-    }),
-    0,
-    applyErr.join('')
-  );
-  const applied = JSON.parse(applyOut.join(''));
-  assert.match(applied.review.commit, /^[0-9a-f]{40,64}$/);
-  for (const mapping of applied.mappings) {
-    assert.deepEqual(
-      readFileSync(path.join(root, mapping.destination)),
-      sourceBytes.get(mapping.source)
+      workspace: third.started.paths.workspace,
+      identity: third.author,
+      now: '2026-09-08T12:10:00.000Z',
+    });
+    assert.equal(finalized.state, acceptedState);
+
+    const args = [
+      'consolidate',
+      first.started.paths.workspace,
+      second.started.paths.workspace,
+      third.started.paths.workspace,
+      '--destination',
+      'docs/peer-reviews/spec/record-incident',
+    ];
+    const dryOut = [];
+    const dryErr = [];
+    assert.equal(
+      await api.run([...args, '--dry-run', '--json'], {
+        cwd: root,
+        env: {},
+        now: new Date('2026-09-08T12:11:00.000Z'),
+        stdout: { write: (value) => dryOut.push(String(value)) },
+        stderr: { write: (value) => dryErr.push(String(value)) },
+      }),
+      0,
+      dryErr.join('')
     );
-    assert.equal(existsSync(path.join(root, mapping.source)), false);
-  }
-  assert.deepEqual(
-    readFileSync(
-      path.join(
-        root,
-        applied.mappings.find(({ source }) => source.endsWith('reviewer-response-2.md')).destination
-      )
-    ),
-    unsubmittedBytes
-  );
-  assert.equal(
-    [...sourceBytes.values()].some((bytes) => bytes.equals(incompleteBytes)),
-    true
-  );
-  const history = readFileSync(path.join(root, applied.paths.history), 'utf8');
-  assert.match(
-    history,
-    /review-incident-01[\s\S]*not-submitted[\s\S]*review-incident-02[\s\S]*incomplete[\s\S]*review-incident-03[\s\S]*accepted/
-  );
-  const receipt = JSON.parse(readFileSync(path.join(root, applied.receipt), 'utf8'));
-  assert.equal(receipt.attempts.filter(({ state }) => state === 'accepted').length, 1);
-  assert.equal(
-    receipt.mappings.every(({ digest: expected }) => /^sha256:[0-9a-f]{64}$/.test(expected)),
-    true
-  );
-});
+    const dryRun = JSON.parse(dryOut.join(''));
+    const sourceBytes = new Map(
+      dryRun.mappings.map(({ source }) => [source, readFileSync(path.join(root, source))])
+    );
+    assert.equal(
+      dryRun.mappings.every(({ collision }) => collision === 'none'),
+      true
+    );
+    assert.equal(
+      dryRun.mappings.every(
+        ({ source, digest: expected }) => digest(sourceBytes.get(source)) === expected
+      ),
+      true
+    );
+
+    const applyOut = [];
+    const applyErr = [];
+    if (!noCommit) {
+      assert.equal(
+        await api.run([...args, '--apply', '--json'], {
+          cwd: root,
+          env: {},
+          now: new Date('2026-09-08T12:11:00.000Z'),
+          stdout: { write: (value) => applyOut.push(String(value)) },
+          stderr: { write: (value) => applyErr.push(String(value)) },
+        }),
+        0,
+        applyErr.join('')
+      );
+    } else {
+      // Source-authored fixture history; the installed production reader/writer
+      // consumes actual files. This is not provider or human-approval evidence.
+      const runtime = installRuntimeFixture(t);
+      const code = `
+      const {planReviewRecord,applyReviewRecord}=await import(${runtime.module('src/collateral/review-record.mjs')});
+      const plan=planReviewRecord({workspaces:${JSON.stringify(args.slice(1, 4))},destination:'docs/peer-reviews/spec/record-incident',now:'2026-09-08T12:11:00.000Z'});
+      let refused=false;
+      try {await applyReviewRecord(plan,{mode:'normal'});} catch(error) {refused=error.code==='APR_LEGACY_REVIEW_READ_ONLY';}
+      if(!refused) throw Error('local consolidation allowed legacy Git-writing mode');
+      const {run}=await import(${runtime.module('src/cli/run.mjs')});
+      const out=[],err=[];
+      const exit=await run(${JSON.stringify([...args, '--apply', '--json'])},{cwd:process.cwd(),env:{},now:new Date('2026-09-08T12:11:00.000Z'),stdout:{write(value){out.push(String(value));}},stderr:{write(value){err.push(String(value));}}});
+      console.log(JSON.stringify({exit,out:out.join(''),err:err.join('')}));
+    `;
+      const beforeHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root });
+      const indexFile = execFileSync('git', ['rev-parse', '--git-path', 'index'], {
+        cwd: root,
+        encoding: 'utf8',
+      }).trim();
+      const beforeIndex = readFileSync(path.resolve(root, indexFile));
+      const beforeRefs = execFileSync(
+        'git',
+        ['for-each-ref', '--format=%(refname) %(objectname)'],
+        { cwd: root }
+      );
+      const child = runtime.execute(code, { cwd: root });
+      assert.equal(child.status, 0, child.stderr);
+      const result = JSON.parse(child.stdout);
+      assert.equal(result.exit, 0, result.err);
+      applyOut.push(result.out);
+      assert.deepEqual(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root }), beforeHead);
+      assert.deepEqual(readFileSync(path.resolve(root, indexFile)), beforeIndex);
+      assert.deepEqual(
+        execFileSync('git', ['for-each-ref', '--format=%(refname) %(objectname)'], { cwd: root }),
+        beforeRefs
+      );
+    }
+    const applied = JSON.parse(applyOut.join(''));
+    if (noCommit) assert.equal(applied.review.commit, null);
+    else assert.match(applied.review.commit, /^[0-9a-f]{40,64}$/);
+    for (const mapping of applied.mappings) {
+      assert.deepEqual(
+        readFileSync(path.join(root, mapping.destination)),
+        sourceBytes.get(mapping.source)
+      );
+      assert.equal(existsSync(path.join(root, mapping.source)), false);
+    }
+    assert.deepEqual(
+      readFileSync(
+        path.join(
+          root,
+          applied.mappings.find(({ source }) => source.endsWith('reviewer-response-2.md'))
+            .destination
+        )
+      ),
+      unsubmittedBytes
+    );
+    assert.equal(
+      [...sourceBytes.values()].some((bytes) => bytes.equals(incompleteBytes)),
+      true
+    );
+    const history = readFileSync(path.join(root, applied.paths.history), 'utf8');
+    assert.match(
+      history,
+      /review-incident-01[\s\S]*not-submitted[\s\S]*review-incident-02[\s\S]*incomplete[\s\S]*review-incident-03[\s\S]*accepted/
+    );
+    const receipt = JSON.parse(readFileSync(path.join(root, applied.receipt), 'utf8'));
+    assert.equal(receipt.attempts.filter(({ state }) => state === acceptedState).length, 1);
+    assert.equal(
+      receipt.mappings.every(({ digest: expected }) => /^sha256:[0-9a-f]{64}$/.test(expected)),
+      true
+    );
+  });

@@ -2,7 +2,7 @@
 
 # Review manifest
 
-> **NO-COMMIT TEST MODE** — authority assurance: `unavailable`
+> **LOCAL JOURNAL MODE** — authority assurance: `unavailable`
 
 ```json
 {
@@ -31,7 +31,6 @@
     "schema": "ai-peer-review.lineage-receipt/v1"
   },
   "residual_risk": [
-    "uncommitted-test-evidence",
     "human-authority-unavailable"
   ],
   "review_id": "golden-review",

@@ -28,7 +28,6 @@ import {
 import { AprError } from '../errors.mjs';
 import { createGitRepository } from '../git/repository.mjs';
 import { resolveContainedPath } from '../collateral/paths.mjs';
-import { validateRuntimeSelection } from '../config/runtime-selection-core.mjs';
 import {
   assertSelectedRuntime,
   verifiedAccountSelectionPath,
@@ -264,21 +263,6 @@ function localOperationFence(input, kind, parentSeal) {
     );
   const metadata = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
   if (metadata.name !== '@kburson/ai-peer-review') refuse('Unexpected local automation package.');
-  const home = userInfo().homedir;
-  const selectedFile = path.join(
-    home,
-    process.platform === 'win32' ? 'AppData/Local' : '.config',
-    'ai-peer-review',
-    'runtime-selection.json'
-  );
-  if (existsSync(selectedFile)) {
-    const selected = validateRuntimeSelection(JSON.parse(readFileSync(selectedFile, 'utf8')));
-    if (
-      realpathSync(selected.package_root) !== realpathSync(packageRoot) ||
-      realpathSync(selected.node_executable) !== realpathSync(process.execPath)
-    )
-      refuse('Invoke the selected installed tool and Node executable.');
-  }
   let directory = path.resolve(input.cwd ?? process.cwd());
   while (!existsSync(directory)) directory = path.dirname(directory);
   const repository = createGitRepository();

@@ -513,7 +513,7 @@ test('collateral reservation is idempotent, refuses partial output, and derives 
   );
 });
 
-// #190: sealing must reject reparenting, but permit normal editor atomic saves.
+// #190: sealing must reject redirected parents, but permit normal editor atomic saves.
 test('sealing refuses an internally redirected response parent without changing the target', (t) => {
   const fx = fixture();
   t.after(fx.cleanup);

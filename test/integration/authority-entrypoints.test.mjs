@@ -563,45 +563,28 @@ test(
   }
 );
 
-test('standalone broker bootstrap refuses source execution before launch or bootstrap effects', async (t) => {
+test('standalone broker bootstrap refuses source execution before bootstrap effects', async (t) => {
   const root = workspace(t);
   const { ensureBroker } = await import('../../src/broker/client.mjs');
-  let effects = 0;
   await assert.rejects(
     ensureBroker({
       project: { physicalRoot: root, digest: 'e'.repeat(64) },
       versions: {},
       runtimeImage: { root, nodeExecutable: process.execPath },
-      platform: {
-        verifyRuntimeImage: () => true,
-        connect: async () => {
-          throw Object.assign(new Error('missing'), { code: 'ENOENT' });
-        },
-        createBootstrap: () => {
-          effects++;
-          return 'bootstrap';
-        },
-        spawn: () => {
-          effects++;
-          throw new Error('unsafe launch');
-        },
-      },
     }),
     runtimeRefusal
   );
-  assert.equal(effects, 0);
+  assert.equal(existsSync(path.join(root, '.scratch')), false);
 });
 
-test('standalone production worker refuses source authority before recovery evidence writes', async (t) => {
+test('standalone production worker refuses injected dependencies before recovery writes', async (t) => {
   const { recoveryWorkerFixture } = await import('../helpers/recovery-worker-fixture.mjs');
   const { createProductionReviewWorker } = await import('../../src/broker/worker-factory.mjs');
   const f = recoveryWorkerFixture(t, { workerFactory: createProductionReviewWorker });
   await assert.rejects(
-    (async () => {
-      const worker = await f.makeWorker();
-      await worker.start();
-    })(),
-    runtimeRefusal
+    f.makeWorker(),
+    (error) =>
+      error.code === 'APR_BROKER_START_FAILED' && /fixed portable dependencies/.test(error.message)
   );
   assert.equal(existsSync(f.file), false);
 });

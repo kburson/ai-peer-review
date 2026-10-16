@@ -55,6 +55,7 @@ export async function loadLegacyAuthority({
 
 export function fixtureSelection(selector, model, effort = 'medium') {
   return {
+    noCommit: false, // Historical source fixtures; installed defaults are independently tested.
     issue: 117,
     reviewerProvider: selector,
     reviewerModel: model,

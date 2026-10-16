@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 
 import * as api from '../helpers/internal-api.mjs';
+import { installRuntimeFixture } from '../helpers/runtime-package.mjs';
 import {
   participantIdentity,
   claimRole,
@@ -406,7 +407,7 @@ test('no-commit consensus finalization writes retained manifest without Git muta
   assert.equal(git(fx.root, ['rev-parse', 'HEAD']).trim(), head);
   assert.deepEqual(git(fx.root, ['ls-files', '--stage', '-z'], { encoding: null }), index);
   const manifest = readFileSync(finalized.paths.manifest, 'utf8');
-  assert.match(manifest, /NO-COMMIT TEST MODE/);
+  assert.match(manifest, /LOCAL JOURNAL MODE/);
   assert.match(manifest, /"final_commit": null/);
   assert.match(manifest, /"lineage_receipt": \{/);
   assert.match(api.resumeReview(review.started.paths.workspace).instructions, /terminal/);
@@ -570,44 +571,64 @@ test('normal human override recovers an exact commit after interruption', async 
   );
 });
 
-test('no-commit human override seals retained decision without Git mutation', async (t) => {
-  const fx = fixture();
-  t.after(fx.cleanup);
-  const review = await budgetIntervention(fx.root, 'finalize-override-no-commit');
-  const head = git(fx.root, ['rev-parse', 'HEAD']).trim();
-  const index = git(fx.root, ['ls-files', '--stage', '-z'], { encoding: null });
-  const parameters = overrideParameters(review.started.paths.workspace);
-  const grant = await signedGrant(
-    review.started.paths.workspace,
-    'accept-over-objections',
-    parameters,
-    review.fixtureId,
-    review.author,
-    '2026-09-09T02:03:00.000Z'
-  );
-  const finalized = await api.finalizeReview({
-    cwd: fx.root,
-    workspace: review.started.paths.workspace,
-    identity: review.author,
-    goodEnough: true,
-    grant,
-    rationale: RATIONALE,
-    now: '2026-09-09T02:04:00.000Z',
+for (const linked of [false, true])
+  test(`installed no-commit human override preserves Git (${linked ? 'linked' : 'ordinary'})`, async (t) => {
+    const fx = fixture();
+    t.after(fx.cleanup);
+    if (linked) {
+      const next = path.join(fx.root, 'linked worktree');
+      git(fx.root, ['worktree', 'add', '-b', 'linked', next], { stdio: 'ignore' });
+      fx.root = next;
+    }
+    const rationalePath = path.join(fx.root, 'rationale.txt');
+    writeFileSync(rationalePath, RATIONALE);
+    const runtime = installRuntimeFixture(t);
+    const finalizeInstalled = (input) => {
+      const child = runtime.execute(
+        `const {finalizeReview}=await import(${runtime.module('src/cli/run.mjs')}); const result=await finalizeReview(${JSON.stringify(input)}); console.log(JSON.stringify(result));`,
+        { cwd: fx.root }
+      );
+      assert.equal(child.status, 0, child.stderr);
+      return JSON.parse(child.stdout);
+    };
+
+    const review = await budgetIntervention(fx.root, 'finalize-override-no-commit');
+    const head = git(fx.root, ['rev-parse', 'HEAD']).trim();
+    const index = git(fx.root, ['ls-files', '--stage', '-z'], { encoding: null });
+    const refs = git(fx.root, ['for-each-ref', '--format=%(refname) %(objectname)']);
+    const parameters = overrideParameters(review.started.paths.workspace);
+    const grant = await signedGrant(
+      review.started.paths.workspace,
+      'accept-over-objections',
+      parameters,
+      review.fixtureId,
+      review.author,
+      '2026-09-09T02:03:00.000Z'
+    );
+    const finalized = await finalizeInstalled({
+      cwd: fx.root,
+      workspace: review.started.paths.workspace,
+      identity: review.author,
+      goodEnough: true,
+      grant,
+      rationale: rationalePath,
+      now: '2026-09-09T02:04:00.000Z',
+    });
+    assert.equal(finalized.state, 'accepted-over-objections-uncommitted');
+    assert.equal(git(fx.root, ['rev-parse', 'HEAD']).trim(), head);
+    assert.deepEqual(git(fx.root, ['ls-files', '--stage', '-z'], { encoding: null }), index);
+    assert.equal(git(fx.root, ['for-each-ref', '--format=%(refname) %(objectname)']), refs);
+    assert.match(readFileSync(finalized.paths.human_decision, 'utf8'), /NO-COMMIT TEST MODE/);
+    const eventBytes = readFileSync(review.started.paths.events);
+    const retry = await finalizeInstalled({
+      cwd: fx.root,
+      workspace: review.started.paths.workspace,
+      identity: review.author,
+      goodEnough: true,
+      grant,
+      rationale: rationalePath,
+      now: '2026-09-09T02:04:00.000Z',
+    });
+    assert.equal(retry.state, finalized.state);
+    assert.deepEqual(readFileSync(review.started.paths.events), eventBytes);
   });
-  assert.equal(finalized.state, 'accepted-over-objections-uncommitted');
-  assert.equal(git(fx.root, ['rev-parse', 'HEAD']).trim(), head);
-  assert.deepEqual(git(fx.root, ['ls-files', '--stage', '-z'], { encoding: null }), index);
-  assert.match(readFileSync(finalized.paths.human_decision, 'utf8'), /NO-COMMIT TEST MODE/);
-  const eventBytes = readFileSync(review.started.paths.events);
-  const retry = await api.finalizeReview({
-    cwd: fx.root,
-    workspace: review.started.paths.workspace,
-    identity: review.author,
-    goodEnough: true,
-    grant,
-    rationale: RATIONALE,
-    now: '2026-09-09T02:04:00.000Z',
-  });
-  assert.equal(retry.state, finalized.state);
-  assert.deepEqual(readFileSync(review.started.paths.events), eventBytes);
-});

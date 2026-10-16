@@ -45,14 +45,7 @@ function model({ override = false, noCommit = false } = {}) {
     acceptance_basis: override ? 'human-override' : 'reviewer-consensus',
     commit_mode: noCommit ? 'no-commit' : 'normal',
     authority_assurance: override ? 'cryptographic-local' : 'unavailable',
-    residual_risk: noCommit
-      ? [
-          'uncommitted-test-evidence',
-          ...(override ? ['detection-grade-authority'] : ['human-authority-unavailable']),
-        ]
-      : override
-        ? ['detection-grade-authority']
-        : ['human-authority-unavailable'],
+    residual_risk: override ? ['detection-grade-authority'] : ['human-authority-unavailable'],
     startup_commit: git,
     final_commit: noCommit ? null : git,
     human_decision: humanDecision,

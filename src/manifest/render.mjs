@@ -322,7 +322,8 @@ export function buildManifest(review) {
     protocol.authority?.verifier?.signer_strength ??
     'unavailable';
   const residualRisk = [];
-  if (protocol.commit_mode === 'no-commit') residualRisk.push('uncommitted-test-evidence');
+  if (protocol.commit_mode === 'no-commit' && assurance === 'unverified-test')
+    residualRisk.push('uncommitted-test-evidence');
   if (assurance === 'unavailable') residualRisk.push('human-authority-unavailable');
   if (['cryptographic-local', 'unverified-test'].includes(assurance)) {
     residualRisk.push('detection-grade-authority');
@@ -384,7 +385,8 @@ export function buildPhaseManifest(review) {
   const entry = events[boundaryIndex];
   const assurance = protocol.authority?.verifier?.signer_strength ?? 'unavailable';
   const residualRisk = [];
-  if (protocol.commit_mode === 'no-commit') residualRisk.push('uncommitted-test-evidence');
+  if (protocol.commit_mode === 'no-commit' && assurance === 'unverified-test')
+    residualRisk.push('uncommitted-test-evidence');
   if (assurance === 'unavailable') residualRisk.push('human-authority-unavailable');
   if (['cryptographic-local', 'unverified-test'].includes(assurance)) {
     residualRisk.push('detection-grade-authority');

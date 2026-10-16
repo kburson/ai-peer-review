@@ -18,7 +18,12 @@ export function prepareStartup(input, ...args) {
       productionProviderAdapters,
       performCurrentOperationEffect,
     });
-    const prepared = await runtime.prepareStartup(input, ...args);
+    // Current authors use their existing instruction-bound sessions. The
+    // existing launch-reviewer command may still enforce the reviewer's exact notes.
+    const prepared = await runtime.prepareStartup(
+      { ...input, noCommit: true, transportMode: 'manual' },
+      ...args
+    );
     preparationFences.set(prepared, fence);
     return prepared;
   });

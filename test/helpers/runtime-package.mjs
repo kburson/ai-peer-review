@@ -1,10 +1,10 @@
 // @story #137
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseNpmPackOutput } from './npm-command.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseNpmPackOutput, runNpm } from './npm-command.mjs';
 
 export const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export function packRuntime(t) {
@@ -24,4 +24,61 @@ export function packRuntime(t) {
   const extracted = path.join(directory, 'package');
   execFileSync('tar', ['-xf', tarball, '-C', directory]);
   return { directory, report, tarball, extracted };
+}
+
+// @story #190
+// Real installed filesystem/protocol fixtures; the isolated account locator is
+// test-only and conveys no actual provider or OS process-source assurance.
+export function installRuntimeFixture(t) {
+  const packed = packRuntime(t);
+  const prefix = path.join(packed.directory, 'installed prefix');
+  runNpm(
+    'npm',
+    [
+      'install',
+      '--global',
+      '--prefix',
+      prefix,
+      '--offline',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      packed.tarball,
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] }
+  );
+  const packageRoot = path.join(
+    prefix,
+    ...(process.platform === 'win32' ? [] : ['lib']),
+    'node_modules',
+    '@kburson',
+    'ai-peer-review'
+  );
+  const accountRoot = path.join(packed.directory, 'account');
+  mkdirSync(accountRoot);
+  return {
+    ...packed,
+    packageRoot,
+    module(relative) {
+      return JSON.stringify(pathToFileURL(path.join(packageRoot, relative)).href);
+    },
+    execute(code, { cwd }) {
+      return spawnSync(
+        process.execPath,
+        [
+          '--import',
+          new URL('./installed-provider/account-profile.mjs', import.meta.url).href,
+          '--input-type=module',
+          '-e',
+          code,
+        ],
+        {
+          cwd,
+          encoding: 'utf8',
+          env: { ...process.env, HOME: accountRoot, APR_FIXTURE_ACCOUNT_HOME: accountRoot },
+          timeout: 30000,
+        }
+      );
+    },
+  };
 }

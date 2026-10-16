@@ -2,7 +2,7 @@
 
 # Review manifest
 
-> **NO-COMMIT TEST MODE** — authority assurance: `cryptographic-local`
+> **LOCAL JOURNAL MODE** — authority assurance: `cryptographic-local`
 
 ```json
 {
@@ -36,7 +36,6 @@
     "schema": "ai-peer-review.lineage-receipt/v1"
   },
   "residual_risk": [
-    "uncommitted-test-evidence",
     "detection-grade-authority"
   ],
   "review_id": "golden-review",

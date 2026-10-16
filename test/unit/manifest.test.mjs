@@ -327,7 +327,7 @@ test('manifest sealing rejects contradictory terminal claims', () => {
   );
 });
 
-test('no-commit manifest carries explicit non-durable status and residual risk', () => {
+test('ordinary journal-only manifest retains its mode without claiming test authority', () => {
   const events = acceptancePendingEvents();
   events[0].payload.commit_mode = 'no-commit';
   events[0].payload.startup.no_commit_baseline = {
@@ -345,6 +345,6 @@ test('no-commit manifest carries explicit non-durable status and residual risk',
   );
   assert.equal(model.commit_mode, 'no-commit');
   assert.equal(model.final_commit, null);
-  assert.equal(model.residual_risk.includes('uncommitted-test-evidence'), true);
-  assert.match(renderManifest(model).toString(), /NO-COMMIT TEST MODE/);
+  assert.equal(model.residual_risk.includes('uncommitted-test-evidence'), false);
+  assert.match(renderManifest(model).toString(), /LOCAL JOURNAL MODE/);
 });
