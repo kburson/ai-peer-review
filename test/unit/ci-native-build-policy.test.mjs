@@ -162,10 +162,15 @@ test('[#187] actual suite runner executes each active disposable fixture once', 
     'runtime-selection',
     'portable-authority-fences',
     'broker-ownership',
+    'primary-hook-inventory',
   ]) {
     writeFileSync(
       path.join(fixture, 'test/unit/' + name + '.test.mjs'),
-      `import test from 'node:test'; import {appendFileSync} from 'node:fs'; test('fixture ${name}',()=>appendFileSync(${JSON.stringify(log)},${JSON.stringify(name + '\n')}));\n`
+      `import test from 'node:test'; import assert from 'node:assert/strict'; import {appendFileSync,existsSync,readFileSync} from 'node:fs'; import {setTimeout} from 'node:timers/promises'; test('fixture ${name}',async()=>{${
+        name === 'primary-hook-inventory'
+          ? `assert.equal(existsSync(${JSON.stringify(log)}),false); await setTimeout(100); assert.equal(existsSync(${JSON.stringify(log)}),false);`
+          : `assert.ok(readFileSync(${JSON.stringify(log)},'utf8').startsWith('primary-hook-inventory\\n'));`
+      }appendFileSync(${JSON.stringify(log)},${JSON.stringify(name + '\n')});});\n`
     );
   }
   const env = { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true' };
@@ -179,6 +184,7 @@ test('[#187] actual suite runner executes each active disposable fixture once', 
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.deepEqual(readFileSync(log, 'utf8').trim().split('\n').sort(), [
     'portable-authority-fences',
+    'primary-hook-inventory',
     'regular',
     'runtime-selection',
   ]);
@@ -197,4 +203,25 @@ test('inspector attribution keeps every control in an isolated unit process', as
   assert.equal(plan.excluded.includes(inspector), false);
   const lanes = plan.windowsPortableShards.filter(({ files }) => files.includes(inspector));
   assert.equal(lanes.length, 1);
+});
+
+// @story #190
+// Preserve every bounded inventory assertion while separating its process load.
+test('historical hook inventory executes first alone within the ordinary baseline', async () => {
+  const { classifySuiteFiles } = await import('../helpers/suite-plan.mjs');
+  const file = 'test/unit/primary-hook-inventory.test.mjs';
+  const plan = classifySuiteFiles(['test/unit/format.test.mjs', file]);
+  assert.deepEqual(plan.groups[0], { files: [file], filtered: true });
+  assert.equal(plan.groups.flatMap(({ files }) => files).filter((x) => x === file).length, 1);
+  assert.equal(
+    plan.groups
+      .filter(({ filtered }) => filtered)
+      .flatMap(({ files }) => files)
+      .includes(file),
+    true
+  );
+  assert.equal(
+    plan.windowsPortableShards.some(({ files }) => files.includes(file)),
+    false
+  );
 });

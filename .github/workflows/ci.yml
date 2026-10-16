@@ -74,7 +74,7 @@ jobs:
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - name: Prepare approved contract reference
-        run: node scripts/ci/prepare-contract-adoption.mjs
+        run: node --import ./test/helpers/contract-source-transport-diagnostics.mjs scripts/ci/prepare-contract-adoption.mjs
       - run: npm run format:check
       - run: npm run lint
       - name: 'Verify tests: fast'
@@ -145,7 +145,7 @@ jobs:
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - name: Prepare approved contract reference
-        run: node scripts/ci/prepare-contract-adoption.mjs
+        run: node --import ./test/helpers/contract-source-transport-diagnostics.mjs scripts/ci/prepare-contract-adoption.mjs
       - run: npm run format:check
       - run: npm run lint
       - name: 'Verify tests: fast'
@@ -332,7 +332,7 @@ jobs:
       - name: Warm offline runtime dependencies
         run: node test/helpers/warm-packed-cache.mjs
       - name: Prepare approved contract reference
-        run: node scripts/ci/prepare-contract-adoption.mjs
+        run: node --import ./test/helpers/contract-source-transport-diagnostics.mjs scripts/ci/prepare-contract-adoption.mjs
       - run: npm run format:check
       - run: npm run lint
       - run: node scripts/verify-extraction.mjs --require-legacy-removed

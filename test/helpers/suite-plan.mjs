@@ -6,6 +6,7 @@ export const WINDOWS_PORTABLE_UNIT_GROUPS = Object.freeze([
   'storage',
   'identity',
 ]);
+const HOOK_INVENTORY = 'test/unit/primary-hook-inventory.test.mjs';
 const INSPECTOR_ATTRIBUTION = 'test/unit/selection-attribution.test.mjs';
 export const RUNTIME_SELECTION_AGGREGATE = 'test/unit/runtime-selection.test.mjs';
 export function runtimeSelectionCaseFile(group) {
@@ -61,7 +62,9 @@ export function classifySuiteFiles(discovered) {
     (file) => !excluded.includes(file) && !portable.includes(file)
   );
   const groups = [
-    { files: ordinary, filtered: true },
+    // Run the short bounded Git inventory before ordinary filesystem-heavy cases.
+    { files: ordinary.filter((file) => file === HOOK_INVENTORY), filtered: true },
+    { files: ordinary.filter((file) => file !== HOOK_INVENTORY), filtered: true },
     { files: portable.filter((file) => file !== INSPECTOR_ATTRIBUTION), filtered: false },
     { files: portable.filter((file) => file === INSPECTOR_ATTRIBUTION), filtered: false },
   ].filter((group) => group.files.length);
