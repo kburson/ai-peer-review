@@ -188,3 +188,27 @@ test('rejects unknown placeholders, missing positive issue IDs, and unsafe ident
     (error) => error.code === 'APR_PATH_TEMPLATE_INVALID'
   );
 });
+
+// #190: a response/artifact alias must not redirect the exact role write path.
+test('refuses a symlink leaf even when its target stays inside the project', (t) => {
+  const { root } = containedFixture(t);
+  const target = path.join(root, 'docs', 'artifact.md');
+  writeFileSync(target, '# Author artifact\n');
+  symlinkSync(target, path.join(root, 'docs', 'reviewer-response.md'));
+  assert.throws(() => resolveContainedPath(root, 'docs/reviewer-response.md', 'response'), {
+    code: 'APR_PATH_OUTSIDE_REPOSITORY',
+  });
+});
+
+test('refuses a replaced parent that redirects a bound response into another project directory', (t) => {
+  const { root } = containedFixture(t);
+  mkdirSync(path.join(root, 'other'));
+  symlinkSync(
+    path.join(root, 'other'),
+    path.join(root, 'responses'),
+    process.platform === 'win32' ? 'junction' : 'dir'
+  );
+  assert.throws(() => resolveContainedPath(root, 'responses/current.md', 'response'), {
+    code: 'APR_PATH_OUTSIDE_REPOSITORY',
+  });
+});

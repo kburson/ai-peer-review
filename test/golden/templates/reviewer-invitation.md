@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:064952674640611160aff00e947b64de060d4a4cfe7139019eb0f24ee264aa25" -->
+<!-- ai-peer-review-template version="1" digest="sha256:83e1152f236d0468d42cccebe89136e5a97d44849991b9fab7acd33965d739bd" -->
 <!-- ai-peer-review-invitation data="cGF5bG9hZA" -->
 
 # Reviewer invitation
@@ -43,8 +43,10 @@ Installed-package join: `npx --no-install ai-peer-review join /repo/docs/peer-re
 
 Rules of engagement:
 
-- Edit only the exact pending reviewer response shown above.
+- Edit only `/repo/docs/peer-reviews/spec/example/reviewer-response-1.md`, the exact pending reviewer response shown above.
 - Do not edit the reviewed artifact, create commits, or push.
+- Do not write any other tracked, untracked, ignored or new files, Git metadata, automation-owned coordination records, another response or anything outside the project.
+- Existing human-launched sessions are instruction-bound: these instructions do not change their host permissions. Automatically launched sessions use the provider's existing exact response restriction where supported.
 - Query `peer-review help join` instead of guessing command syntax.
 
 Recovery: `peer-review resume /repo/.scratch/peer-review/review-01`

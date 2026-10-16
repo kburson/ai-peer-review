@@ -60,19 +60,28 @@ export function resolveContainedPath(root, candidate, label) {
   }
   const physicalRelative = relativeToPhysicalRoot(physicalRoot, physicalParent);
   if (physicalRelative === null) throw pathError(label, candidate);
-  let absolute;
-  if (existingParent === requested && existingMetadata.isSymbolicLink()) {
-    const physicalLogicalParent = realpathSync(path.dirname(existingParent));
-    const logicalParentRelative = relativeToPhysicalRoot(physicalRoot, physicalLogicalParent);
-    if (logicalParentRelative === null) throw pathError(label, candidate);
-    absolute = path.resolve(physicalRoot, logicalParentRelative, path.basename(existingParent));
-  } else {
-    absolute = path.resolve(
-      physicalRoot,
-      physicalRelative,
-      path.relative(existingParent, requested)
-    );
+  // Exact role paths cannot alias another file, even inside this project.
+  // A different leaf inode after an editor's atomic save remains valid.
+  if (existingMetadata.isSymbolicLink()) throw pathError(label, candidate);
+  const lexicalRelative = path.relative(physicalRoot, requested);
+  if (
+    !path.isAbsolute(lexicalRelative) &&
+    lexicalRelative !== '..' &&
+    !lexicalRelative.startsWith(`..${path.sep}`)
+  ) {
+    let ancestor = existingParent;
+    while (ancestor !== physicalRoot) {
+      if (lstatSync(ancestor).isSymbolicLink()) throw pathError(label, candidate);
+      const parent = path.dirname(ancestor);
+      if (parent === ancestor) throw pathError(label, candidate);
+      ancestor = parent;
+    }
   }
+  const absolute = path.resolve(
+    physicalRoot,
+    physicalRelative,
+    path.relative(existingParent, requested)
+  );
   const relative = path.relative(physicalRoot, absolute);
   if (
     !relative ||

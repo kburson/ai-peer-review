@@ -1,4 +1,4 @@
-<!-- ai-peer-review-template version="1" digest="sha256:7555c0e7388bb1e33e4ec68e9f0387d9c25cf16764c1fe2139f718efee4456aa" -->
+<!-- ai-peer-review-template version="1" digest="sha256:155e1fc135a1045ea2819117e88031f389655669bed77bf9362969c315ca8998" -->
 
 # Author startup
 
@@ -27,6 +27,14 @@ Chat may contain only:
 Read the relevant durable reviewer or author response document; do not rely on a chat summary. Do not paste findings, dispositions, revised prose, verification output, or other durable document content into chat unless the human explicitly requests it.
 
 “Terse chat” does not mean terse review evidence. Durable reviewer and author response documents remain complete, self-contained, and authoritative.
+
+## Role write boundaries
+
+Author writes only `/repo/docs/example.md` and the exact current author response returned by the handoff. The response listed above belongs to the reviewer; do not edit it. Reviewer writes only its exact current reviewer response and never the artifact.
+
+Neither participant writes other tracked, untracked, ignored or new files, Git metadata, automation-owned coordination records, another response or anything outside the project. The automation's protocol commands own its coordination writes. Do not create commits or push during a review turn.
+
+Existing human-launched sessions are instruction-bound; this handoff does not change their host permissions or claim OS isolation. Use existing provider write controls where available. An author without exact automated artifact/response scope continues in its existing human-launched session.
 
 ## Project-local broker and recovery
 

@@ -146,3 +146,25 @@ test('hydration rejects unknown templates, incomplete variables, extras, and tem
     (error) => error.code === 'APR_TEMPLATE_INVALID'
   );
 });
+
+// #190: a manual handoff must tell both existing sessions their exact role scope.
+test('generated manual invitations disclose instruction-bound roles and forbid every other write', () => {
+  for (const name of ['author-startup', 'reviewer-invitation']) {
+    const variables = Object.fromEntries(TEMPLATE_VARIABLES[name].map((key) => [key, values[key]]));
+    const output = hydrateTemplate(name, variables).toString();
+    assert.match(output, /instruction-bound/);
+    assert.match(output, /tracked, untracked, ignored or new files/);
+    assert.match(output, /Git metadata/);
+    assert.match(output, /outside the project/);
+    assert.match(output, /automation-owned coordination/);
+    if (name === 'author-startup') {
+      assert.match(output, /Author writes only/);
+      assert.ok(output.includes(values.artifact_display));
+      assert.match(output, /current author response/);
+      assert.match(output, /Reviewer writes only/);
+    } else {
+      assert.ok(output.includes(`Edit only ${values.response_display}`));
+      assert.match(output, /Do not edit the reviewed artifact/);
+    }
+  }
+});

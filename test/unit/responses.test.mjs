@@ -4,6 +4,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  renameSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -363,7 +364,7 @@ test('draft creation never overwrites a conflicting tracked response', (t) => {
   symlinkSync(outside, linkedTarget);
   assert.throws(
     () => createResponseDraft(linked.review, 'reviewer', 1),
-    (error) => error.code === 'APR_OUTPUT_COLLISION'
+    (error) => ['APR_OUTPUT_COLLISION', 'APR_PATH_OUTSIDE_REPOSITORY'].includes(error.code)
   );
   assert.equal(readFileSync(outside, 'utf8'), 'outside bytes');
 
@@ -510,4 +511,58 @@ test('collateral reservation is idempotent, refuses partial output, and derives 
     readFileSync(foreign.review.paths.manifest.absolute, 'utf8'),
     'complete foreign manifest'
   );
+});
+
+// #190: sealing must reject reparenting, but permit normal editor atomic saves.
+test('sealing refuses an internally redirected response parent without changing the target', (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const draft = createResponseDraft(fx.review, 'reviewer', 1);
+  writeFileSync(draft.path, fillReviewer(draft.bytes, { decision: 'accepted' }));
+  const parent = path.dirname(draft.path);
+  const moved = `${parent}-moved`;
+  renameSync(parent, moved);
+  symlinkSync(moved, parent, process.platform === 'win32' ? 'junction' : 'dir');
+  const before = readFileSync(draft.path);
+  assert.throws(
+    () => sealResponse(fx.review, draft.path, fx.review.participants.reviewer),
+    (error) => ['APR_PATH_OUTSIDE_REPOSITORY', 'APR_OUTPUT_COLLISION'].includes(error.code)
+  );
+  assert.deepEqual(readFileSync(draft.path), before);
+});
+
+test('reviewer and author response sealing accepts an atomic save at the exact allowed path', (t) => {
+  for (const role of ['reviewer', 'author']) {
+    const fx = fixture();
+    t.after(fx.cleanup);
+    if (role === 'author') {
+      fx.review.protocol.state = 'author-revision';
+      fx.review.protocol.turns_used = 1;
+      fx.review.pending_finding_ids = ['R1-F001'];
+    }
+    const draft = createResponseDraft(fx.review, role, 1);
+    const bytes =
+      role === 'reviewer'
+        ? fillReviewer(draft.bytes, { decision: 'accepted' })
+        : fillAuthor(draft.bytes);
+    const temporary = `${draft.path}.save`;
+    writeFileSync(temporary, bytes);
+    renameSync(temporary, draft.path);
+    const sealed = sealResponse(fx.review, draft.path, fx.review.participants[role]);
+    assert.equal(sealed.path, draft.path);
+    assert.match(sealed.digest, /^sha256:[0-9a-f]{64}$/);
+  }
+});
+
+test('draft publication refuses an internally redirected destination before any write', (t) => {
+  const fx = fixture();
+  t.after(fx.cleanup);
+  const destination = fx.review.paths.destination.absolute;
+  const moved = `${destination}-redirected`;
+  mkdirSync(moved, { recursive: true });
+  symlinkSync(moved, destination, process.platform === 'win32' ? 'junction' : 'dir');
+  assert.throws(() => createResponseDraft(fx.review, 'reviewer', 1), {
+    code: 'APR_PATH_OUTSIDE_REPOSITORY',
+  });
+  assert.deepEqual(readdirSync(moved), []);
 });
