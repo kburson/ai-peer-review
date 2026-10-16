@@ -6,12 +6,14 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { inspectPrimaryReviewInventory } from '../../src/config/primary-inventory.mjs';
+import { discoverAuthorityRepository } from '../../src/git/repository.mjs';
 
 function fixture(t) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'apr-hook-inventory-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   execFileSync('git', ['init', '-b', 'trunk', root], { stdio: 'ignore' });
-  const directory = path.join(root, '.scratch', 'peer-review', 'codex-hooks');
+  const location = discoverAuthorityRepository(root);
+  const directory = path.join(location.root, '.scratch', 'peer-review', 'codex-hooks');
   mkdirSync(directory, { recursive: true });
   const file = path.join(directory, 'a'.repeat(32) + '.json');
   const record = {
@@ -37,7 +39,7 @@ function fixture(t) {
     file,
     record,
     write,
-    inspect: () => inspectPrimaryReviewInventory(path.join(root, '.git'), root),
+    inspect: () => inspectPrimaryReviewInventory(location.commonDir, location.root),
   };
 }
 
@@ -64,7 +66,10 @@ test('unknown historical shapes and nullable-field misuse still refuse inventory
       if (change === 'command') fx.record.command = 'npx --no-install peer-review abandon /other';
       fx.write();
       const before = readFileSync(fx.file);
-      await assert.rejects(fx.inspect, { code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE' });
+      await assert.rejects(fx.inspect, {
+        code: 'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
+        message: 'Hook observation has an unknown or malformed record.',
+      });
       assert.deepEqual(readFileSync(fx.file), before);
     });
   }
