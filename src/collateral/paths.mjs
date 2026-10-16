@@ -87,7 +87,8 @@ export function resolveContainedPath(root, candidate, label) {
     !relative ||
     path.isAbsolute(relative) ||
     relative === '..' ||
-    relative.startsWith(`..${path.sep}`)
+    relative.startsWith(`..${path.sep}`) ||
+    relative.split(path.sep).some((segment) => segment.toLowerCase() === '.git')
   ) {
     throw pathError(label, candidate);
   }

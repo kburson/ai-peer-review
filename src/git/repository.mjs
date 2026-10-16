@@ -1,3 +1,4 @@
+// cspell:ignore fsmonitor
 import { validateAuthorityMembership } from './authority-membership.mjs';
 import { execFileSync as nodeExecFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -112,7 +113,13 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     try {
       return execFileSync('git', args, {
         cwd,
-        env: scrubGitEnvironment(),
+        env: {
+          ...scrubGitEnvironment(),
+          GIT_OPTIONAL_LOCKS: '0',
+          GIT_CONFIG_COUNT: '1',
+          GIT_CONFIG_KEY_0: 'core.fsmonitor',
+          GIT_CONFIG_VALUE_0: 'false',
+        },
         encoding: buffer ? null : 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
@@ -310,6 +317,25 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     });
   }
 
+  // #190: local artifact versions describe working bytes, without a whole-index
+  // inventory or requiring an automatic commit before the next filepath handoff.
+  function workingArtifactState(cwd, relative) {
+    const repositoryRoot = root(cwd);
+    const resolved = resolveContainedPath(repositoryRoot, relative, 'artifact');
+    const metadata = lstatSync(resolved.absolute);
+    if (!metadata.isFile() || metadata.isSymbolicLink())
+      throw new AprError('APR_ARTIFACT_NOT_REGULAR', 'Artifact must be an ordinary project file.');
+    const bytes = readFileSync(resolved.absolute);
+    return Object.freeze({
+      path: resolved.relative,
+      head: String(run(repositoryRoot, ['rev-parse', 'HEAD'])).trim(),
+      blob: String(
+        run(repositoryRoot, ['hash-object', '--no-filters', '--', resolved.relative])
+      ).trim(),
+      worktreeDigest: digest(bytes),
+    });
+  }
+
   function commitTree(cwd, revision = 'HEAD') {
     const repositoryRoot = root(cwd);
     return String(
@@ -411,6 +437,7 @@ export function createGitRepository({ execFileSync = nodeExecFileSync } = {}) {
     gitPath,
     status,
     artifactState,
+    workingArtifactState,
     indexEntry,
     workingBytes,
     commitTree,

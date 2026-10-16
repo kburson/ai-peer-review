@@ -418,6 +418,7 @@ function validateArtifact(value, label, { initial = false } = {}) {
 }
 
 function validateRepositoryBoundary(value, label) {
+  if (value === null) return; // Local journal-only turns do not freeze Git state.
   exactKeys(value, ['head', 'branch', 'index_digest', 'refs_digest', 'worktree_digest'], label);
   assertGitObject(value.head, `${label} head`);
   assertString(value.branch, `${label} branch`);
@@ -765,7 +766,7 @@ function validatePayload(type, payload, valueReviewId) {
           throw invalid('review-created phase initial kind');
         }
       }
-      if ((payload.commit_mode === 'no-commit') !== (payload.startup.no_commit_baseline !== null)) {
+      if (payload.commit_mode === 'normal' && payload.startup.no_commit_baseline !== null) {
         throw invalid('review-created no-commit baseline');
       }
       if (

@@ -38,7 +38,7 @@ export function startReview(input, ...args) {
         process.cwd(),
       reviewWorkspace: input?.workspace,
     },
-    () => current().startReview(input, ...args)
+    () => current().startReview({ ...input, noCommit: true }, ...args)
   );
 }
 export function joinReview(input, ...args) {

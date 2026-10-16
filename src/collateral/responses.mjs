@@ -389,7 +389,7 @@ function draftVariables(role, frontmatter, protocol) {
   const assurance = protocol.authority?.verifier?.signer_strength ?? 'unavailable';
   const modeBanner =
     protocol.commit_mode === 'no-commit'
-      ? `> **NO-COMMIT TEST MODE** — authority assurance: \`${assurance}\``
+      ? `> **${assurance === 'unverified-test' ? 'NO-COMMIT TEST MODE' : 'LOCAL JOURNAL MODE'}** — authority assurance: \`${assurance}\``
       : 'Mode: `normal`';
   if (role === 'reviewer') {
     return {

@@ -435,9 +435,22 @@ test('enforces no-commit and no-artifact-change constraints', () => {
     ['start', 'x', '--artifact-kind', 'spec', '--no-commit', '--no-commit'],
     /duplicate|nested/i
   );
-  usage(
-    ['start', 'x', '--artifact-kind', 'spec', '--test-human-authority', 'fixture'],
-    /requires --no-commit/i
+  assert.equal(
+    parseCommand([
+      'start',
+      'x',
+      '--artifact-kind',
+      'spec',
+      '--issue',
+      '190',
+      '--reviewer-provider',
+      'codex',
+      '--reviewer-model',
+      'declared-model',
+      '--test-human-authority',
+      'fixture',
+    ]).options.noCommit,
+    true
   );
   usage(['submit', 'workspace', '--no-artifact-change'], /requires.*--reason/i);
   usage(['submit', 'workspace', '--reason', 'unchanged'], /requires.*--no-artifact-change/i);
@@ -649,4 +662,22 @@ test('primary history maintenance requires exact target and explicit rationale',
   ]);
   usage(['primary', 'register', '/target'], /target|positional/i);
   usage(['primary', 'release-review', '/target', '--reason', 'unneeded'], /reason/i);
+});
+
+// #190: omitting --no-commit cannot authorize Git writes.
+test('local start defaults to the same journal-only semantics as explicit no-commit', () => {
+  const args = [
+    'start',
+    'docs/spec.md',
+    '--artifact-kind',
+    'spec',
+    '--issue',
+    '190',
+    '--reviewer-provider',
+    'codex',
+    '--reviewer-model',
+    'declared-model',
+  ];
+  assert.equal(parseCommand(args).options.noCommit, true);
+  assert.equal(parseCommand([...args, '--no-commit']).options.noCommit, true);
 });

@@ -2,7 +2,7 @@ import {
   claimPortableServiceRequest,
   claimPortableServiceLifecycle,
 } from '../broker/owner-readiness.mjs';
-import { existsSync, lstatSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, realpathSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { initializePortableSystem } from '../broker/portable-system.mjs';
 import { assertProtectedSnapshotUnchanged } from '../broker/storage-protection.mjs';
@@ -26,6 +26,9 @@ import {
   readRuntimeCompatibility,
 } from '../protocol/compatibility-read.mjs';
 import { AprError } from '../errors.mjs';
+import { createGitRepository } from '../git/repository.mjs';
+import { resolveContainedPath } from '../collateral/paths.mjs';
+import { validateRuntimeSelection } from '../config/runtime-selection-core.mjs';
 import {
   assertSelectedRuntime,
   verifiedAccountSelectionPath,
@@ -162,6 +165,143 @@ export function classifyOperation(operation) {
   if (!Object.hasOwn(OPERATION_CLASSIFICATION, operation)) refuse('Operation is unclassified.');
   return OPERATION_CLASSIFICATION[operation];
 }
+// #190: local turns rely on ordinary project access. Legacy broker/maintenance
+// operations retain their separate authority contract below.
+const LOCAL_TURNS = new Set([
+  'start',
+  'join',
+  'advance',
+  'resume',
+  'submit',
+  'supplement',
+  'continue',
+  'finalize',
+  'recover',
+  'abandon',
+  'supersede',
+  'request-grant',
+  'launch-reviewer',
+  'consolidate',
+  'provider.launch',
+  'protocol.initialize',
+  'protocol.read-repair',
+  'protocol.repair',
+  'protocol.mutate',
+  'protocol.reclaim',
+  'protocol.snapshot',
+  'protocol.delivery-receipt',
+  'mcp.wait',
+  'hook.codex',
+  'hook.claude',
+  'record.apply',
+]);
+function assertLocalLocation(seal) {
+  if (seal.context.signal.aborted || performance.now() >= seal.context.deadline)
+    refuse('Original operation context was aborted or expired.');
+  if (realpathSync(seal.primary.activeWorktreeRoot) !== seal.primary.activeWorktreeRoot)
+    refuse('Local project physical root changed.');
+  if (seal.reviewContext && seal.reviewContext.repository_root !== seal.primary.activeWorktreeRoot)
+    refuse('Review context belongs to a different physical worktree.');
+  if (!seal.reviewWorkspace) return;
+  const workspace = resolveContainedPath(
+    seal.primary.activeWorktreeRoot,
+    path.resolve(seal.reviewWorkspace),
+    'review workspace'
+  ).absolute;
+  if (!existsSync(path.join(workspace, 'events.jsonl'))) return;
+  const { state, events } = inspectReviewAuthority(workspace);
+  if (state.protocol.startup?.context?.repository_root !== seal.primary.activeWorktreeRoot)
+    refuse('Existing review belongs to a different physical worktree.');
+  if (state.protocol.commit_mode !== 'no-commit')
+    throw new AprError(
+      'APR_LEGACY_REVIEW_READ_ONLY',
+      'Legacy Git-bound review is read-only in this local runtime.',
+      {
+        recovery:
+          'Preserve this pending review. Finish with its currently selected compatible tool before changing global tools, or use explicit operator recovery. No mode conversion was performed.',
+      }
+    );
+  const snapshots =
+    state.protocol.startup.no_commit_baseline === null
+      ? [{ path: 'artifacts/start.md', digest: events[0].payload.artifact.digest }]
+      : [];
+  snapshots.push(
+    ...events.flatMap((event) => (event.payload.snapshot ? [event.payload.snapshot] : []))
+  );
+  for (const snapshot of snapshots) {
+    try {
+      const file = resolveContainedPath(
+        seal.primary.activeWorktreeRoot,
+        path.join(workspace, snapshot.path),
+        'artifact snapshot'
+      ).absolute;
+      if (!lstatSync(file).isFile() || digest(readFileSync(file)) !== snapshot.digest)
+        throw new Error('snapshot digest mismatch');
+    } catch (cause) {
+      throw new AprError(
+        'APR_SNAPSHOT_CORRUPT',
+        'A sealed local artifact snapshot is missing or changed.',
+        {
+          recovery:
+            'Preserve the journal and restore the exact snapshot bytes before resuming. No turn was replayed.',
+          details: { path: snapshot.path },
+          cause,
+        }
+      );
+    }
+  }
+}
+function localOperationFence(input, kind, parentSeal) {
+  // Installed package identity is checked once at entry, without inventory scans,
+  // protected account enrollment or an OS process-source class.
+  if (!existsSync(path.join(packageRoot, 'runtime-inventory.json')))
+    throw new AprError(
+      'APR_RUNTIME_INSTALLATION_INVALID',
+      'Local automation requires its installed package.',
+      {
+        recovery: 'Invoke the installed peer-review command for this project.',
+      }
+    );
+  const metadata = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
+  if (metadata.name !== '@kburson/ai-peer-review') refuse('Unexpected local automation package.');
+  const home = userInfo().homedir;
+  const selectedFile = path.join(
+    home,
+    process.platform === 'win32' ? 'AppData/Local' : '.config',
+    'ai-peer-review',
+    'runtime-selection.json'
+  );
+  if (existsSync(selectedFile)) {
+    const selected = validateRuntimeSelection(JSON.parse(readFileSync(selectedFile, 'utf8')));
+    if (
+      realpathSync(selected.package_root) !== realpathSync(packageRoot) ||
+      realpathSync(selected.node_executable) !== realpathSync(process.execPath)
+    )
+      refuse('Invoke the selected installed tool and Node executable.');
+  }
+  let directory = path.resolve(input.cwd ?? process.cwd());
+  while (!existsSync(directory)) directory = path.dirname(directory);
+  const repository = createGitRepository();
+  const root = repository.root(directory);
+  if (parentSeal?.local && parentSeal.primary.activeWorktreeRoot !== root)
+    refuse('Nested local operation cannot change its physical worktree.');
+  const seal = {
+    local: true,
+    kind,
+    cwd: input.cwd,
+    reviewWorkspace: input.reviewWorkspace,
+    reviewContext: input.reviewContext,
+    context: parentSeal?.local
+      ? parentSeal.context
+      : Object.freeze({
+          signal: input.signal ?? new AbortController().signal,
+          deadline: input.deadline ?? performance.now() + 30000,
+        }),
+    primary: { activeWorktreeRoot: root, commonDir: repository.commonDir(root) },
+  };
+  assertLocalLocation(seal);
+  return seal;
+}
 async function selectionSnapshot(file, context) {
   const system = await initializePortableSystem(context);
   const receipt = await system.observeProtection({ root: path.dirname(file) });
@@ -256,6 +396,10 @@ async function withFreshOperationAuthority(fence, continuation) {
   const seal = fences.get(fence);
   if (!seal) refuse('Authority fence is not an authenticated observation.');
   if (seal.kind === 'read') return continuation();
+  if (seal.local) {
+    assertLocalLocation(seal);
+    return continuation();
+  }
   if (
     nodeIdentity(lstatSync(realpathSync(process.execPath), { bigint: true })) !== seal.nodeIdentity
   )
@@ -307,6 +451,19 @@ export async function assertOperationAuthority({
 } = {}) {
   const kind = classifyOperation(operation);
   const parent = operationContext.getStore();
+  const inheritedSeal = parent && fences.get(parent);
+  if (LOCAL_TURNS.has(operation)) {
+    const fence = Object.freeze({ operation, kind });
+    fences.set(
+      fence,
+      localOperationFence(
+        { operation, cwd, reviewWorkspace, reviewContext, signal, deadline },
+        kind,
+        inheritedSeal
+      )
+    );
+    return fence;
+  }
   if (parent && kind !== 'read') await revalidateOperationAuthority(parent);
   if (kind === 'maintenance')
     refuse('Maintenance uses its explicit registration, setup or activation transaction.');
@@ -406,7 +563,7 @@ export async function assertOperationAuthority({
 export async function revalidateOperationAuthority(fence) {
   const seal = fences.get(fence);
   if (!seal) refuse('Authority fence is not an authenticated observation.');
-  if (seal.kind !== 'read')
+  if (seal.kind !== 'read' && !seal.local)
     await assertSelectedRuntime({ previousObservation: seal.runtime, ...seal.context });
   return await assertOperationAuthorityNow(fence);
 }
@@ -423,6 +580,12 @@ export async function performOperationEffect(fence, operation) {
   await assertOperationAuthorityNow(fence);
   const seal = fences.get(fence);
   if (seal.kind === 'read') refuse('Read authority cannot perform effects.');
+  if (seal.local) {
+    assertLocalLocation(seal);
+    const result = await operation();
+    assertLocalLocation(seal);
+    return result;
+  }
   const inherited = effectContext.getStore();
   if (inherited && admissionLineage.same(inherited.fence, fence)) {
     if (!inherited.active) refuse('An inherited effect outlived its held primary generation.');

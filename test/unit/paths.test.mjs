@@ -212,3 +212,15 @@ test('refuses a replaced parent that redirects a bound response into another pro
     code: 'APR_PATH_OUTSIDE_REPOSITORY',
   });
 });
+
+// #190: even an explicitly selected artifact/response cannot authorize Git metadata.
+test('refuses Git metadata as an artifact or review response destination', (t) => {
+  const { root } = containedFixture(t);
+  mkdirSync(path.join(root, '.git'));
+  writeFileSync(path.join(root, '.git', 'HEAD'), 'ref: refs/heads/trunk\n');
+  for (const label of ['artifact', 'response', 'reviews root']) {
+    assert.throws(() => resolveContainedPath(root, '.git/HEAD', label), {
+      code: 'APR_PATH_OUTSIDE_REPOSITORY',
+    });
+  }
+});

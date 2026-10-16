@@ -108,7 +108,7 @@ const operations = createReviewOperations({
   performCurrentOperationEffect: (operation) => operation(),
 });
 export const {
-  startReview,
+  startReview: startLegacyReview,
   joinReview,
   statusReview,
   resumeReview,
@@ -134,3 +134,9 @@ export const {
   selectRuntime,
   observeSelectedRuntime,
 } = startup;
+
+// Historical Git-bound record fixtures stay explicit and inert. Production
+// defaults and legacy mutation refusal are exercised through installed APIs.
+export function startReview(input, ...args) {
+  return startLegacyReview({ ...input, noCommit: input.noCommit ?? false }, ...args);
+}

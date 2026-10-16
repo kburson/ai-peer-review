@@ -140,7 +140,9 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
   const fx = fixture();
   t.after(fx.cleanup);
   const before = repositoryBytes(fx.root);
-  const assertRepositoryPreserved = () => assert.deepEqual(repositoryBytes(fx.root), before);
+  let expectedRepository = before;
+  const assertRepositoryPreserved = () =>
+    assert.deepEqual(repositoryBytes(fx.root), expectedRepository);
   const spy = createGitSpy();
   const repository = createGitRepository({ execFileSync: spy.execFileSync });
   const transactionRepository = api.createGitTransactionRepository(fx.root, {
@@ -165,27 +167,7 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
   assert.match(readFileSync(started.paths.author_startup, 'utf8'), /NO-COMMIT TEST MODE/);
   assert.match(readFileSync(started.paths.author_startup, 'utf8'), /unverified-test/);
   assert.match(readFileSync(started.paths.reviewer_invitation, 'utf8'), /NO-COMMIT TEST MODE/);
-  assert.deepEqual(
-    started.review.no_commit_baseline.changed_paths.map(
-      ({ path: changedPath, status, digest }) => ({
-        path: changedPath,
-        status,
-        digest,
-      })
-    ),
-    [
-      {
-        path: 'staged.txt',
-        status: 'M ',
-        digest: `sha256:${createHash('sha256').update(before.staged).digest('hex')}`,
-      },
-      {
-        path: 'unstaged.txt',
-        status: ' M',
-        digest: `sha256:${createHash('sha256').update(before.unstaged).digest('hex')}`,
-      },
-    ]
-  );
+  assert.equal(started.review.no_commit_baseline, null);
   assertRepositoryPreserved();
 
   const joined = await api.joinReview(
@@ -225,31 +207,10 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
   replaceSection(handoff.paths.response, 'Changes made', 'Updated artifact.');
   replaceSection(handoff.paths.response, 'Declined changes and rationale', 'None.');
   replaceSection(handoff.paths.response, 'Verification', 'No-commit fixture.');
-  writeFileSync(path.join(fx.root, 'unstaged.txt'), 'mutated unrelated bytes\n');
-  const preexistingMutationEvents = readFileSync(started.paths.events);
-  await assert.rejects(
-    api.submitAuthorTurn({
-      cwd: fx.root,
-      workspace: started.paths.workspace,
-      identity: author,
-      now: '2026-09-09T06:02:00.000Z',
-    }),
-    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
-  );
-  assert.deepEqual(readFileSync(started.paths.events), preexistingMutationEvents);
-  writeFileSync(path.join(fx.root, 'unstaged.txt'), before.unstaged);
-  writeFileSync(path.join(fx.root, 'foreign.txt'), 'new unrelated path\n');
-  await assert.rejects(
-    api.submitAuthorTurn({
-      cwd: fx.root,
-      workspace: started.paths.workspace,
-      identity: author,
-      now: '2026-09-09T06:02:00.000Z',
-    }),
-    (error) => error.code === 'APR_REVIEWER_GIT_VIOLATION'
-  );
-  assert.deepEqual(readFileSync(started.paths.events), preexistingMutationEvents);
-  rmSync(path.join(fx.root, 'foreign.txt'));
+  // Human work outside the role-bound artifact is not a repository freeze.
+  writeFileSync(path.join(fx.root, 'unstaged.txt'), 'human unrelated bytes\n');
+  writeFileSync(path.join(fx.root, 'foreign.txt'), 'human unrelated path\n');
+  expectedRepository = repositoryBytes(fx.root);
   const submitted = await api.submitAuthorTurn(
     {
       cwd: fx.root,
@@ -327,6 +288,7 @@ test('no-commit dialogue is visibly labeled and never invokes a mutating Git com
   );
   assert.equal(submitted.review.commit, null);
   assertRepositoryPreserved();
+  assert.equal(readFileSync(path.join(fx.root, 'foreign.txt'), 'utf8'), 'human unrelated path\n');
   spy.assertReadOnly();
 });
 

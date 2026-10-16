@@ -52,7 +52,7 @@ export function createProtocolService(authority) {
 
   async function sealNoCommitHandoff({ review, artifactBytes, responses, store }) {
     const protocol = review?.protocol ?? review;
-    if (protocol?.commit_mode !== 'no-commit' || !protocol.startup?.no_commit_baseline) {
+    if (protocol?.commit_mode !== 'no-commit') {
       throw authorityError(
         'APR_INVALID_TRANSITION',
         'No-commit handoff sealing requires immutable no-commit review authority.',
@@ -474,7 +474,7 @@ export function createProtocolService(authority) {
         authority_assurance: assurance,
         mode_notice:
           state.protocol.commit_mode === 'no-commit'
-            ? `NO-COMMIT TEST MODE — authority assurance: ${assurance}`
+            ? `${assurance === 'unverified-test' ? 'NO-COMMIT TEST MODE' : 'LOCAL JOURNAL MODE'} — authority assurance: ${assurance}`
             : 'NORMAL COMMIT MODE',
         ...review,
       }),

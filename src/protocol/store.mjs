@@ -15,7 +15,16 @@ import path from 'node:path';
 import os from 'node:os';
 
 import { AprError } from '../errors.mjs';
-import { observeProcessIdentity as defaultObserveProcessIdentity } from './process-identity.mjs';
+// #190: a foreign lock is retained unless ownership/death is proven. Merely
+// finding a PID (or not finding it) never authorizes takeover of its lock.
+async function defaultObserveProcessIdentity({ pid = process.pid } = {}) {
+  try {
+    process.kill(pid, 0);
+    return { status: 'unknown', host: os.hostname(), pid, reason: 'pid-live-ownership-unverified' };
+  } catch {
+    return { status: 'unknown', host: os.hostname(), pid, reason: 'owner-identity-unavailable' };
+  }
+}
 
 const ACTIVE_LOCK_TOKENS = new Set();
 
@@ -89,10 +98,6 @@ function reviewLockError(code, message, recovery, details = {}) {
 }
 
 async function localOwnerIdentity() {
-  if (process.platform === 'linux') {
-    const observed = await defaultObserveProcessIdentity();
-    if (observed.status === 'live') return observed;
-  }
   const nowSeconds = Date.now() / 1000;
   return Object.freeze({
     status: 'live',

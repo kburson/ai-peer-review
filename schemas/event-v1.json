@@ -645,6 +645,9 @@
       }
     },
     "repositoryBoundary": {
+      "anyOf": [{ "$ref": "#/$defs/legacyRepositoryBoundary" }, { "type": "null" }]
+    },
+    "legacyRepositoryBoundary": {
       "type": "object",
       "additionalProperties": false,
       "required": ["head", "branch", "index_digest", "refs_digest", "worktree_digest"],

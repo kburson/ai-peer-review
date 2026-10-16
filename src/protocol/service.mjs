@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { AprError } from '../errors.mjs';
 // @story #136
 import * as authority from '../startup/authority-fence.mjs';
 import { createProtocolService } from './service-core.mjs';
@@ -49,9 +50,28 @@ export function statusReview(...args) {
   service ??= createProtocolService(authority);
   return service.statusReview(...args);
 }
-export function initializeReview(...args) {
-  service ??= createProtocolService(authority);
-  return service.initializeReview(...args);
+export function initializeReview(workspace, event, ...args) {
+  return authority.withOperationAuthority(
+    {
+      operation: 'protocol.initialize',
+      cwd: workspace,
+      reviewWorkspace: workspace,
+      reviewContext: event?.payload?.startup?.context,
+    },
+    () => {
+      if (event?.payload?.commit_mode !== 'no-commit')
+        throw new AprError(
+          'APR_LEGACY_REVIEW_READ_ONLY',
+          'This local runtime only creates journal-only reviews.',
+          {
+            recovery:
+              'Preserve legacy Git-bound reviews with their compatible runtime; no mode conversion was performed.',
+          }
+        );
+      service ??= createProtocolService(authority);
+      return service.initializeReview(workspace, event, ...args);
+    }
+  );
 }
 export function mutateReview(...args) {
   service ??= createProtocolService(authority);

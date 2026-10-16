@@ -2,6 +2,8 @@ import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { discoverPrimaryAuthorityRepository as discoverAuthorityRepository } from './primary-authority.mjs';
 import { primaryRegistrationPath, resolvePrimaryAuthoritySync } from './primary-authority.mjs';
 import os from 'node:os';
+import { createGitRepository } from '../git/repository.mjs';
+import { validatePrimaryActivation } from './primary-authority.mjs';
 import path from 'node:path';
 
 import { AprError } from '../errors.mjs';
@@ -557,6 +559,34 @@ export async function loadConfig(options = {}) {
       : paths.project === null
         ? null
         : readConfig(paths.project);
+  return resolvedConfig(paths, user, project, options);
+}
+
+// #190: local turn configuration is ordinary read-only project configuration.
+// Maintenance continues to use loadConfig and its explicit activation workflow.
+export async function loadLocalConfig(options = {}) {
+  const repository = createGitRepository();
+  const root = repository.root(options.cwd ?? process.cwd());
+  const common = repository.commonDir(root);
+  let primaryRoot = null;
+  const registration = primaryRegistrationPath(common);
+  if (existsSync(registration)) {
+    const record = validatePrimaryActivation(JSON.parse(readFileSync(registration, 'utf8')));
+    if (record.common_dir !== common) invalid('Primary locator belongs to another clone.');
+    primaryRoot = record.primary_root;
+  } else if (existsSync(path.join(root, '.ai-peer-review', 'config.json'))) primaryRoot = root;
+  const paths = Object.freeze({
+    user: userConfigPath(options),
+    project: primaryRoot
+      ? path.join(primaryRoot, '.ai-peer-review', 'config.json')
+      : path.join(root, '.ai-peer-review.json'),
+    primaryRoot,
+    activeWorktreeRoot: root,
+  });
+  return resolvedConfig(paths, readConfig(paths.user), readConfig(paths.project), options);
+}
+
+function resolvedConfig(paths, user, project, options) {
   const legacyProject =
     paths.primaryRoot === null && project?.schema === 'ai-peer-review.config/v1';
   let legacyUser = user;

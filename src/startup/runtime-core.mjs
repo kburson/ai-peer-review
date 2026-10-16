@@ -6,13 +6,14 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { observePortableProject } from '../broker/portable-project.mjs';
+import { canonicalProjectIdentity } from '../broker/identity.mjs';
+import { userInfo } from 'node:os';
 import { requestBroker as rawRequestBroker } from '../broker/client.mjs';
 import { registerReview, readStartupJournal, startupEvidence } from '../broker/registry.mjs';
 import { recordParticipantBinding } from '../broker/participant-binding.mjs';
 import { pinRuntimeImage, verifyRuntimeImage } from '../broker/runtime-image.mjs';
 import { createGitRepository } from '../git/repository.mjs';
-import { loadConfig } from '../config/load.mjs';
+import { loadLocalConfig as loadConfig } from '../config/load.mjs';
 import { canonicalProjection, inspectReview } from '../protocol/service.mjs';
 import {
   atomicCreate,
@@ -25,7 +26,16 @@ import { initializeManualLaunchHistory } from '../provider/manual-launch-ledger.
 // @story #136
 export function createStartupRuntime({
   startReview,
-  resolveProject = observePortableProject,
+  resolveProject = ({ cwd, repository }) =>
+    canonicalProjectIdentity({
+      cwd,
+      platform: {
+        kind: process.platform,
+        canonicalPath: realpathSync,
+        repository,
+        userId: () => userInfo().username,
+      },
+    }),
   ensureBroker,
   requestBroker = rawRequestBroker,
   productionProviderAdapters,
@@ -174,7 +184,7 @@ export function createStartupRuntime({
         })
       );
     }
-    if (runtime.ownership === 'broker') {
+    if (runtime.ownership === 'broker' && runtime.transport_mode !== 'manual') {
       image = await (prior?.runtime ??
         (deps.pinRuntimeImage ?? effectPinRuntimeImage)({
           packageRoot,
@@ -358,6 +368,10 @@ export function createStartupRuntime({
           });
         }
         if (['launched', 'manual'].includes(journal.stage)) return enriched(result);
+        if (prepared.runtime.transport_mode === 'manual') {
+          save('manual');
+          return enriched(result);
+        }
         const dispatchRevision = inspectReview(workspace).protocol.revision;
         save('authority');
         await deps.afterStartupStage?.('authority', { workspace });

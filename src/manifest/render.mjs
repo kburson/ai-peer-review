@@ -488,7 +488,7 @@ export function renderManifest(model) {
   assertManifestTruth(model);
   const modeBanner =
     model.commit_mode === 'no-commit'
-      ? `> **NO-COMMIT TEST MODE** — authority assurance: \`${model.authority_assurance}\``
+      ? `> **${model.authority_assurance === 'unverified-test' ? 'NO-COMMIT TEST MODE' : 'LOCAL JOURNAL MODE'}** — authority assurance: \`${model.authority_assurance}\``
       : 'Mode: `normal`';
   return hydrateTemplate('review-manifest', {
     mode_banner: modeBanner,
@@ -594,7 +594,7 @@ export function sealHumanDecision(input) {
     frontmatter: decisionFrontmatter(model),
     mode_banner:
       protocol.commit_mode === 'no-commit'
-        ? `> **NO-COMMIT TEST MODE** — authority assurance: \`${assurance}\``
+        ? `> **${assurance === 'unverified-test' ? 'NO-COMMIT TEST MODE' : 'LOCAL JOURNAL MODE'}** — authority assurance: \`${assurance}\``
         : 'Mode: `normal`',
     human_rationale: rationale,
   });

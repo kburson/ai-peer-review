@@ -44,7 +44,7 @@ import {
 import { connectPortableBroker } from '../broker/client.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { planReviewRecord } from '../collateral/review-record.mjs';
-import { loadConfig } from '../config/load.mjs';
+import { loadLocalConfig as loadConfig } from '../config/load.mjs';
 import {
   registerPrimary,
   activatePrimaryPolicy,
@@ -286,7 +286,7 @@ export function createReviewOperations({
     const assurance = state.protocol.authority?.verifier?.signer_strength ?? 'unavailable';
     const modeNotice =
       state.protocol.commit_mode === 'no-commit'
-        ? `NO-COMMIT TEST MODE — authority assurance: ${assurance}`
+        ? `${assurance === 'unverified-test' ? 'NO-COMMIT TEST MODE' : 'LOCAL JOURNAL MODE'} — authority assurance: ${assurance}`
         : 'NORMAL COMMIT MODE';
     return Object.freeze({
       schema: 'ai-peer-review.cli-result/v1',
@@ -303,6 +303,23 @@ export function createReviewOperations({
         ...review,
       }),
       paths: Object.freeze(paths),
+    });
+  }
+
+  function localSealedFileReader(root, artifactBlob) {
+    const file = (relative) => resolveContainedPath(root, relative, 'sealed file').absolute;
+    return Object.freeze({
+      hashWorking(relative) {
+        const bytes = regularInputFile(file(relative), 'APR_ARTIFACT_NOT_REGULAR');
+        return createHash(artifactBlob.length === 64 ? 'sha256' : 'sha1')
+          .update(Buffer.from(`blob ${bytes.length}\0`))
+          .update(bytes)
+          .digest('hex');
+      },
+      workingMode(relative) {
+        regularInputFile(file(relative), 'APR_ARTIFACT_NOT_REGULAR');
+        return lstatSync(file(relative)).mode & 0o111 ? '100755' : '100644';
+      },
     });
   }
 
@@ -340,40 +357,6 @@ export function createReviewOperations({
 
   function repositoryRelative(root, absolute, label = 'repository path') {
     return resolveContainedPath(root, absolute, label).relative;
-  }
-
-  function noCommitOwnedChangedPaths(state) {
-    const { context, paths } = sealedPaths(state);
-    const maximum = state.protocol.max_turns * (state.protocol.phases?.kinds?.length ?? 1);
-    return new Set(
-      [...Object.values(trackedStartupPaths(paths)), ...everyReservedPath(paths, maximum)].map(
-        (absolute) => repositoryRelative(context.repository_root, absolute)
-      )
-    );
-  }
-
-  function preservesNoCommitBaseline(baseline, observed, artifactPath, ownedPaths) {
-    if (observed.head !== baseline?.head || observed.index_digest !== baseline?.index_digest) {
-      return false;
-    }
-    const startupByPath = new Map(
-      (baseline.changed_paths ?? []).map((entry) => [entry.path, entry])
-    );
-    const currentByPath = new Map(
-      (observed.changed_paths ?? []).map((entry) => [entry.path, entry])
-    );
-    const startupPathsPreserved = (baseline.changed_paths ?? [])
-      .filter((entry) => entry.path !== artifactPath)
-      .every((entry) => sameValue(entry, currentByPath.get(entry.path)));
-    return (
-      startupPathsPreserved &&
-      (observed.changed_paths ?? []).every(
-        (entry) =>
-          startupByPath.has(entry.path) ||
-          entry.path === artifactPath ||
-          (ownedPaths.has(entry.path) && entry.status === '??' && entry.source_path === null)
-      )
-    );
   }
 
   function sameParticipant(left, right) {
@@ -893,7 +876,7 @@ export function createReviewOperations({
         review_id: reviewId,
         mode_banner:
           commitMode === 'no-commit'
-            ? `> **NO-COMMIT TEST MODE** — authority assurance: \`${authorityAssurance}\``
+            ? `> **${authorityAssurance === 'unverified-test' ? 'NO-COMMIT TEST MODE' : 'LOCAL JOURNAL MODE'}** — authority assurance: \`${authorityAssurance}\``
             : 'Mode: `normal`',
         artifact_absolute: artifactAbsolute,
         workspace_absolute: workspaceAbsolute,
@@ -919,7 +902,7 @@ export function createReviewOperations({
           ? `${markdownCodeSpan(runtime.reviewer.model_display)} (${markdownCodeSpan(runtime.reviewer.model_id)}), effort: ${markdownCodeSpan(runtime.reviewer.effort)}`
           : 'Legacy review: consult sealed startup authority',
         runtime_display: runtime
-          ? `${runtime.classification}, ${runtime.ownership === 'broker' ? 'project-local broker' : 'provider-native'}`
+          ? `${runtime.classification}, ${commitMode === 'no-commit' && runtime.transport_mode === 'manual' ? 'local filepath handoff' : runtime.ownership === 'broker' ? 'project-local broker' : 'provider-native'}`
           : 'Legacy recorded runtime',
         broker_reconcile_display: markdownCodeSpan(
           renderCommand(['peer-review', 'broker', 'reconcile', workspaceAbsolute, '--json'])
@@ -972,8 +955,11 @@ export function createReviewOperations({
     const relativeArtifact = path.isAbsolute(input.artifact)
       ? repositoryRelative(root, input.artifact, 'artifact')
       : input.artifact;
-    const artifact = repository.artifactState(root, relativeArtifact);
-    if (!artifact.clean) {
+    const artifact =
+      input.noCommit === false
+        ? repository.artifactState(root, relativeArtifact)
+        : repository.workingArtifactState(root, relativeArtifact);
+    if (input.noCommit === false && !artifact.clean) {
       fail(
         'APR_ARTIFACT_DIRTY',
         'The tracked artifact differs from HEAD.',
@@ -1008,7 +994,7 @@ export function createReviewOperations({
       8 * 60 * 60 * 1000,
       'claim TTL'
     );
-    const commitMode = input.noCommit ? 'no-commit' : 'normal';
+    const commitMode = input.noCommit === false ? 'normal' : 'no-commit';
     if (input.testHumanAuthority && commitMode !== 'no-commit') {
       fail(
         'APR_AUTHORITY_POLICY',
@@ -1329,7 +1315,7 @@ export function createReviewOperations({
     ]) {
       if (entryExists(file)) collision(file);
     }
-    const noCommitBaseline = commitMode === 'no-commit' ? repository.baseline(root) : null;
+    const noCommitBaseline = null;
     let authority = requestedAuthority;
     let bootstrap = null;
     const authorityRequest = input.bootstrapGrant ?? input.testHumanAuthority;
@@ -1402,6 +1388,24 @@ export function createReviewOperations({
       sha256(canonicalProjection(initial.payload)) !== `sha256:${deps.requestDigest}`
     )
       collision(path.join(paths.scratch.absolute, 'startup-request.json'));
+    if (commitMode === 'no-commit') {
+      const snapshotPath = resolveContainedPath(
+        root,
+        path.join(paths.scratch.relative, 'artifacts/start.md'),
+        'initial artifact snapshot'
+      ).absolute;
+      const bytes = regularInputFile(
+        resolveContainedPath(root, artifact.path, 'artifact').absolute,
+        'APR_ARTIFACT_NOT_REGULAR'
+      );
+      if (sha256(bytes) !== initial.payload.artifact.digest)
+        fail(
+          'APR_STALE_REVIEW',
+          'Artifact changed before startup publication.',
+          'Retry with the current artifact version.'
+        );
+      await ensureExactFile(snapshotPath, bytes);
+    }
     let state = await (deps.initializeReview ?? initializeReview)(paths.scratch.absolute, initial);
     state = await mutateReview(paths.scratch.absolute, expected(state), (current) =>
       eventFor(
@@ -1698,7 +1702,10 @@ export function createReviewOperations({
       assertRequestedReviewer(
         state.protocol.startup.runtime,
         input.identity,
-        input.runtimeObservation
+        input.runtimeObservation ??
+          (input.identity.identity_source === 'declared'
+            ? (await runtimeObservationForJoin(invitation, input.identity, {})).observation
+            : undefined)
       );
     }
     const requestedMode = state.protocol.startup.transport_mode;
@@ -1818,10 +1825,10 @@ export function createReviewOperations({
     }
     const joined = await mutateReview(values.workspace, expected(state), (current) => {
       const currentPaths = validateJoinAuthority({ state: current, root, invitation, values });
-      const repositoryBoundary = repository.reviewerBoundary(
-        root,
-        currentPaths.reviewerResponse(1).relative
-      );
+      const repositoryBoundary =
+        current.protocol.commit_mode === 'no-commit'
+          ? null
+          : repository.reviewerBoundary(root, currentPaths.reviewerResponse(1).relative);
       return eventFor(
         current,
         'reviewer-joined',
@@ -2699,7 +2706,10 @@ export function createReviewOperations({
     const relativeArtifact = path.isAbsolute(input.artifact)
       ? repositoryRelative(requestedRoot, input.artifact, 'artifact')
       : input.artifact;
-    const observed = repository.artifactState(requestedRoot, relativeArtifact);
+    const observed =
+      state.protocol.commit_mode === 'no-commit'
+        ? repository.workingArtifactState(requestedRoot, relativeArtifact)
+        : repository.artifactState(requestedRoot, relativeArtifact);
     const observedArtifact = {
       path: observed.path,
       blob: observed.blob,
@@ -2774,7 +2784,10 @@ export function createReviewOperations({
       );
     }
     const nextResponsePath = paths.reviewerResponse(state.protocol.turns_used + 1);
-    const boundary = repository.reviewerBoundary(requestedRoot, nextResponsePath.relative);
+    const boundary =
+      state.protocol.commit_mode === 'no-commit'
+        ? null
+        : repository.reviewerBoundary(requestedRoot, nextResponsePath.relative);
     let snapshot = null;
     if (state.protocol.commit_mode === 'no-commit') {
       const bytes = repository.workingBytes(requestedRoot, observed.path);
@@ -2841,6 +2854,27 @@ export function createReviewOperations({
         'Reviewer submission came from a different physical worktree.',
         'Return to the exact event-authorized worktree and retry.'
       );
+    }
+    if (state.protocol.commit_mode === 'no-commit') {
+      const bytes = regularInputFile(
+        resolveContainedPath(root, state.protocol.artifact.path, 'artifact').absolute,
+        'APR_ARTIFACT_NOT_REGULAR'
+      );
+      const snapshot = latestNoCommitSnapshot(events);
+      if (
+        sha256(bytes) !== state.protocol.artifact.digest ||
+        (snapshot &&
+          !exactRegularDigest(
+            path.join(sealedPaths(state).paths.scratch.absolute, snapshot.path),
+            snapshot.digest
+          ))
+      )
+        fail(
+          'APR_REVIEWER_GIT_VIOLATION',
+          'Reviewed artifact or sealed snapshot changed.',
+          'Restore the exact reviewed artifact or snapshot; unrelated human work may remain.'
+        );
+      return;
     }
     const artifact = repository.artifactState(root, state.protocol.artifact.path);
     const expectedHead = latestHead(state, events);
@@ -3509,27 +3543,15 @@ export function createReviewOperations({
         );
       }
     } else {
-      const baseline = state.protocol.startup.no_commit_baseline;
-      const observed = git.baseline(root);
       const snapshotFile = path.join(absolute, event.payload.snapshot.path);
-      const artifactMode = transactionRepository.modeAt(
-        events[0].payload.artifact.head,
-        event.payload.artifact.path
-      );
       if (
-        !preservesNoCommitBaseline(
-          baseline,
-          observed,
-          event.payload.artifact.path,
-          noCommitOwnedChangedPaths(state)
-        ) ||
-        transactionRepository.workingMode(event.payload.artifact.path) !== artifactMode ||
+        !exactRegularDigest(snapshotFile, event.payload.snapshot.digest) ||
         !exactFile(snapshotFile, artifactBytes)
       ) {
         fail(
           'APR_REVIEWER_GIT_VIOLATION',
-          'No-commit handoff recovery detected repository or snapshot mutation.',
-          'Restore the startup HEAD, index, and exact artifact snapshot before retrying.'
+          'Local handoff snapshot changed or is missing.',
+          'Restore the exact sealed artifact snapshot before retrying.'
         );
       }
       snapshot = { ...event.payload.snapshot, path: snapshotFile };
@@ -3551,9 +3573,15 @@ export function createReviewOperations({
 
   async function submitAuthorTurn(input, deps = {}) {
     const git = deps.repository ?? createGitRepository();
-    const transactionRepository =
-      deps.transactionRepository ?? createGitTransactionRepository(input.cwd);
     const authority = submissionAuthority(input.workspace);
+    const transactionRepository =
+      deps.transactionRepository ??
+      (authority.state.protocol.commit_mode === 'no-commit'
+        ? localSealedFileReader(
+            authority.state.protocol.startup.context.repository_root,
+            authority.state.protocol.artifact.blob
+          )
+        : createGitTransactionRepository(input.cwd));
     const initialSubmission = latestAuthorSubmission(authority.events);
     const recoverable =
       authority.state.protocol.state !== 'author-revision' &&
@@ -3593,8 +3621,12 @@ export function createReviewOperations({
     }
     const turn = decision.payload.turn;
     const responseFile = paths.authorResponse(turn).absolute;
-    const artifactFile = path.join(root, state.protocol.artifact.path);
-    const artifactBytes = readFileSync(artifactFile);
+    const artifactFile = resolveContainedPath(
+      root,
+      state.protocol.artifact.path,
+      'artifact'
+    ).absolute;
+    const artifactBytes = regularInputFile(artifactFile, 'APR_ARTIFACT_NOT_REGULAR');
     const artifactDigest = sha256(artifactBytes);
     const artifactChanged = artifactDigest !== state.protocol.artifact.digest;
     if (!artifactChanged && (!input.noArtifactChange || !String(input.reason ?? '').trim())) {
@@ -3612,8 +3644,14 @@ export function createReviewOperations({
       );
     }
     const expectedHead = latestHead(state, events);
-    const artifactMode = transactionRepository.modeAt(expectedHead, state.protocol.artifact.path);
-    if (transactionRepository.workingMode(state.protocol.artifact.path) !== artifactMode) {
+    const artifactMode =
+      state.protocol.commit_mode === 'normal'
+        ? transactionRepository.modeAt(expectedHead, state.protocol.artifact.path)
+        : null;
+    if (
+      artifactMode !== null &&
+      transactionRepository.workingMode(state.protocol.artifact.path) !== artifactMode
+    ) {
       fail(
         'APR_GIT_SEAL_MISMATCH',
         'Artifact mode differs from event-authorized Git mode.',
@@ -3644,7 +3682,6 @@ export function createReviewOperations({
     checkpoint(deps, 'response-sealed');
     const artifactBlob = transactionRepository.hashWorking(state.protocol.artifact.path);
     if (state.protocol.commit_mode === 'no-commit') {
-      const baseline = state.protocol.startup.no_commit_baseline;
       const snapshotRelative = `artifacts/turn-${turn}.md`;
       const snapshotFile = path.join(absolute, snapshotRelative);
       const responses = [
@@ -3653,21 +3690,12 @@ export function createReviewOperations({
       ];
       const store = {
         assertBaseline() {
-          const observed = git.baseline(root);
-          if (
-            !preservesNoCommitBaseline(
-              baseline,
-              observed,
-              state.protocol.artifact.path,
-              noCommitOwnedChangedPaths(state)
-            )
-          ) {
+          if (sha256(regularInputFile(artifactFile, 'APR_ARTIFACT_NOT_REGULAR')) !== artifactDigest)
             fail(
-              'APR_REVIEWER_GIT_VIOLATION',
-              'No-commit submission detected HEAD, index, or pre-existing path mutation.',
-              'Restore the startup HEAD, index, and unrelated changed paths without discarding protocol-owned working bytes.'
+              'APR_STALE_REVIEW',
+              'Author artifact changed while sealing the handoff.',
+              'Retry with the exact current artifact version.'
             );
-          }
         },
         async writeExclusiveSnapshot(reviewId, sequence, bytes) {
           if (reviewId !== state.protocol.review_id || sequence !== state.protocol.sequence + 1) {
@@ -3693,7 +3721,10 @@ export function createReviewOperations({
         digest: noCommitSeal.snapshot_digest,
       };
       const nextReviewerPath = paths.reviewerResponse(turn + 1);
-      const repositoryBoundary = git.reviewerBoundary(root, nextReviewerPath.relative);
+      const repositoryBoundary =
+        state.protocol.commit_mode === 'no-commit'
+          ? null
+          : git.reviewerBoundary(root, nextReviewerPath.relative);
       const eventType = turnBudgetExhausted(state.protocol)
         ? 'author-closing-round-sealed-no-commit'
         : 'author-revision-sealed-no-commit';
@@ -3805,7 +3836,10 @@ export function createReviewOperations({
     );
     checkpoint(deps, 'transaction-completed');
     const nextReviewerPath = paths.reviewerResponse(turn + 1);
-    const repositoryBoundary = git.reviewerBoundary(root, nextReviewerPath.relative);
+    const repositoryBoundary =
+      state.protocol.commit_mode === 'no-commit'
+        ? null
+        : git.reviewerBoundary(root, nextReviewerPath.relative);
     const eventType = turnBudgetExhausted(state.protocol)
       ? 'author-closing-round-committed'
       : 'author-revision-committed';
@@ -3872,16 +3906,26 @@ export function createReviewOperations({
       )?.payload.snapshot;
   }
 
-  function assertFinalizationArtifact({
-    state,
-    events,
-    git,
-    transactionRepository,
-    workspace,
-    allowedHead = null,
-  }) {
+  function assertFinalizationArtifact({ state, events, git, workspace, allowedHead = null }) {
     const root = state.protocol.startup.context.repository_root;
     const expectedHead = latestHead(state, events);
+    if (state.protocol.commit_mode === 'no-commit') {
+      const bytes = regularInputFile(
+        resolveContainedPath(root, state.protocol.artifact.path, 'artifact').absolute,
+        'APR_ARTIFACT_NOT_REGULAR'
+      );
+      const snapshot = latestNoCommitSnapshot(events);
+      if (
+        sha256(bytes) !== state.protocol.artifact.digest ||
+        (snapshot && !exactRegularDigest(path.join(workspace, snapshot.path), snapshot.digest))
+      )
+        fail(
+          'APR_REVIEWER_GIT_VIOLATION',
+          'Accepted artifact or sealed snapshot changed.',
+          'Restore the exact accepted artifact and snapshot before retrying.'
+        );
+      return expectedHead;
+    }
     const artifact = git.artifactState(root, state.protocol.artifact.path);
     const digestMatches = `sha256:${artifact.worktreeDigest}` === state.protocol.artifact.digest;
     if (state.protocol.commit_mode === 'normal') {
@@ -3899,30 +3943,7 @@ export function createReviewOperations({
       }
       return expectedHead;
     }
-    const observed = git.baseline(root);
-    const snapshot = latestNoCommitSnapshot(events);
-    const snapshotMatches =
-      snapshot === undefined ||
-      exactRegularDigest(path.join(workspace, snapshot.path), snapshot.digest);
-    if (
-      artifact.head !== expectedHead ||
-      !digestMatches ||
-      !snapshotMatches ||
-      !preservesNoCommitBaseline(
-        state.protocol.startup.no_commit_baseline,
-        observed,
-        state.protocol.artifact.path,
-        noCommitOwnedChangedPaths(state)
-      ) ||
-      transactionRepository.workingMode(state.protocol.artifact.path) !==
-        transactionRepository.modeAt(events[0].payload.artifact.head, state.protocol.artifact.path)
-    ) {
-      fail(
-        'APR_REVIEWER_GIT_VIOLATION',
-        'No-commit finalization differs from sealed artifact or repository authority.',
-        'Restore the startup repository baseline and latest sealed artifact snapshot before retrying.'
-      );
-    }
+
     return expectedHead;
   }
 
@@ -4140,7 +4161,10 @@ export function createReviewOperations({
     const root = state.protocol.startup.context.repository_root;
     const git = deps.repository ?? createGitRepository();
     const transactionRepository =
-      deps.transactionRepository ?? createGitTransactionRepository(root);
+      deps.transactionRepository ??
+      (state.protocol.commit_mode === 'no-commit'
+        ? localSealedFileReader(root, state.protocol.artifact.blob)
+        : createGitTransactionRepository(root));
     const existingPhaseAcceptance = [...events]
       .reverse()
       .find((event) =>
@@ -5288,7 +5312,7 @@ export function createReviewOperations({
       if (parsed.command === 'doctor') {
         let loaded;
         try {
-          await assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
+          await loadConfig({ cwd: io.cwd, env: io.env });
           loaded = await loadConfig({ cwd: io.cwd, env: io.env });
         } catch (error) {
           if (!(error instanceof AprError)) throw error;
@@ -5325,7 +5349,7 @@ export function createReviewOperations({
         return response.healthy ? 0 : 1;
       }
       try {
-        await assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
+        await loadConfig({ cwd: io.cwd, env: io.env });
       } catch (error) {
         if (parsed.command !== 'status' || !(error instanceof AprError)) throw error;
         writeJson(io.stderr, error.toJSON());

@@ -292,6 +292,7 @@ function validateConstraints(command, args, options) {
     ]);
   }
   if (command === 'start') {
+    options.noCommit = true;
     if (!options.artifactKind) usage('start requires --artifact-kind');
     validateEnum(options, 'artifactKind', '--artifact-kind', ['spec', 'plan']);
     if (options.testHumanAuthority && !options.noCommit) {
