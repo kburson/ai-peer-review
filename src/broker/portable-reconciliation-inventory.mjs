@@ -479,7 +479,7 @@ function assertReviewNamespace(entries) {
     /^provider\/(codex|claude|grok)\/observations\/([a-f0-9]{64}|join:[A-Za-z0-9][A-Za-z0-9._-]{0,127})\.json$/u,
     /^wake\/operations\/[a-f0-9]{64}\.json$/u,
     /^wake\/outcomes\/[a-f0-9]{64}\/[0-9]{6}\.json$/u,
-    /^artifacts\/turn-[1-9][0-9]*\.md$/u,
+    /^artifacts\/(start|turn-[1-9][0-9]*)\.md$/u,
     /^supplements\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.md$/u,
     /^handoffs\/(author|reviewer)-resume\.json$/u,
   ];

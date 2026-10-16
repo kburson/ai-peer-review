@@ -79,10 +79,11 @@ test(
     const script = String.raw`
     import childProcess from 'node:child_process';
     import {syncBuiltinESMExports} from 'node:module';
-    const securityProcesses=[]; const gitInventories=[]; const sourceClassReads=[]; let inOperation=false;
+    const securityProcesses=[]; const gitInventories=[]; const sourceClassReads=[]; let inOperation=false; let gitCalls=0;
     for(const name of ['execFile','execFileSync','spawn','spawnSync']) {
       const original=childProcess[name];
       childProcess[name]=function(...args) {
+        if(args[0]==='git') gitCalls++;
         if(/(?:powershell|pwsh|icacls|getfacl|broker.security)/i.test(JSON.stringify(args.slice(0,2)))) securityProcesses.push(name);
         if(inOperation && args[0]==='git' && (/(?:status|for-each-ref|--others)/.test(JSON.stringify(args[1])) || (args[1]?.includes('--stage') && !args[1].includes('--')))) gitInventories.push(args[1]);
         return Reflect.apply(original,this,args);
@@ -137,6 +138,10 @@ test(
         fs.unlinkSync(bound); if(present) fs.renameSync(saved,bound);
       }
       if(redirects.some(x=>x.code!=='APR_PATH_OUTSIDE_REPOSITORY'||x.outsideWrites!==0)) throw Error('coordination path redirect: '+JSON.stringify(redirects));
+      let expiredRecovery=null; const beforeExpired=gitCalls;
+      try {await withOperationAuthority({operation:'submit',cwd:process.cwd(),reviewWorkspace:result.paths.workspace,deadline:performance.now()-1},()=>{});} catch(error) {expiredRecovery=error.recovery;}
+      if(gitCalls!==beforeExpired) throw Error('expired operation ran Git before checking its original budget');
+      if(typeof expiredRecovery!=='string'||!expiredRecovery.includes('reconcile-launch')||/activated primary|selected runtime/.test(expiredRecovery)) throw Error('local timeout suggests enrollment: '+expiredRecovery);
       const initialSnapshot=path.join(result.paths.workspace,'artifacts','start.md');
       const initialSnapshotDurable=fs.existsSync(initialSnapshot) && fs.readFileSync(initialSnapshot).equals(initialArtifactBytes);
       const legacyWorkspace=path.join(process.cwd(),'.scratch','peer-review','legacy-attempt');

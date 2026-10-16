@@ -194,9 +194,24 @@ const LOCAL_TURNS = new Set([
   'hook.claude',
   'record.apply',
 ]);
+function assertLocalBudget(context) {
+  if (
+    !(context.signal instanceof AbortSignal) ||
+    !Number.isFinite(context.deadline) ||
+    context.signal.aborted ||
+    performance.now() >= context.deadline
+  )
+    throw new AprError(
+      'APR_OPERATION_AUTHORITY_UNAVAILABLE',
+      'Original operation context was aborted or expired.',
+      {
+        recovery:
+          'Preserve the journal and provider evidence; read peer-review status. For a completed Claude submission the registered author can use recover <workspace> --reconcile-launch before same-session resume. Active or unknown provider outcomes remain pending.',
+      }
+    );
+}
 function assertLocalLocation(seal) {
-  if (seal.context.signal.aborted || performance.now() >= seal.context.deadline)
-    refuse('Original operation context was aborted or expired.');
+  assertLocalBudget(seal.context);
   if (realpathSync(seal.primary.activeWorktreeRoot) !== seal.primary.activeWorktreeRoot)
     refuse('Local project physical root changed.');
   if (seal.reviewContext && seal.reviewContext.repository_root !== seal.primary.activeWorktreeRoot)
@@ -251,6 +266,13 @@ function assertLocalLocation(seal) {
   }
 }
 function localOperationFence(input, kind, parentSeal) {
+  const context = parentSeal?.local
+    ? parentSeal.context
+    : Object.freeze({
+        signal: input.signal ?? new AbortController().signal,
+        deadline: input.deadline ?? performance.now() + 30000,
+      });
+  assertLocalBudget(context);
   // Installed package identity is checked once at entry, without inventory scans,
   // protected account enrollment or an OS process-source class.
   if (!existsSync(path.join(packageRoot, 'runtime-inventory.json')))
@@ -275,12 +297,7 @@ function localOperationFence(input, kind, parentSeal) {
     cwd: input.cwd,
     reviewWorkspace: input.reviewWorkspace,
     reviewContext: input.reviewContext,
-    context: parentSeal?.local
-      ? parentSeal.context
-      : Object.freeze({
-          signal: input.signal ?? new AbortController().signal,
-          deadline: input.deadline ?? performance.now() + 30000,
-        }),
+    context,
     primary: { activeWorktreeRoot: root, commonDir: repository.commonDir(root) },
   };
   assertLocalLocation(seal);

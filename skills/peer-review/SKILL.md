@@ -11,6 +11,11 @@ need no ACL challenge, runtime enrollment, primary activation, source-class
 capture, native helper or broker. Keep the real author and reviewer sessions
 distinct. The invoking session is the author; a human sponsor is not its identity.
 
+For installation outside a participant turn, use
+`npm install --global @kburson/ai-peer-review`. Use the existing compatible
+installation afterward; do not reinstall or upgrade during a pending review.
+Consumer CI does not need AI peer review unless it invokes a review command.
+
 ## Start and hand off
 
 1. Identify the tracked issue number, artifact filepath, reviewer provider,
@@ -79,10 +84,27 @@ denial from instruction-bound compliance or declared-session test fixtures.
 
 ## Communication policy (v1)
 
-Keep chat terse: status, document pointer, exact next action, or a concise
-blocker. Put complete analysis, findings, dispositions, rationale, decisions and
-verification in the durable response documents. Read those documents in full;
-never substitute a chat summary. Terse chat does not mean terse review evidence.
+Apply this policy at startup and throughout all later turns, resumes, handoffs,
+and finalization, in every transport and commit mode.
+
+Keep all peer-review chat messages terse. Put complete review analysis,
+findings, dispositions, revised prose, rationale, decisions, and verification
+evidence in the generated durable review documents.
+
+Chat may contain only:
+
+- a short operational status;
+- a pointer to the relevant durable document;
+- the exact next action; or
+- a concise blocker requiring human action.
+
+Read the relevant durable reviewer or author response document; do not rely on
+a chat summary. Do not paste findings, dispositions, revised prose,
+verification output, or other durable document content into chat unless the
+human explicitly requests it.
+
+“Terse chat” does not mean terse review evidence. Durable reviewer and author
+response documents remain complete, self-contained, and authoritative.
 
 ## Legacy maintenance
 
@@ -93,3 +115,7 @@ recovery procedure separately. Runtime registration, primary activation, setup,
 broker/source-class/epoch and distribution operations retain their separate
 legacy contracts. They are not prerequisites for starting or advancing this
 trusted local workflow. Never invoke them merely to pass the next filepath.
+
+For separately requested legacy maintenance, `peer-review register-runtime` and
+primary registration/activation use their original compatible procedure. Never
+run those commands as a prerequisite to the new local handoff.

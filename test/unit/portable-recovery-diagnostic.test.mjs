@@ -55,4 +55,11 @@ test('actual same-session recovery diagnostic remains bounded historical evidenc
   assert.deepEqual(await readFile(file), bytes);
   await writeFile(file, '{}\n');
   await assert.rejects(() => observed.assertUnchanged(), { code: 'APR_BROKER_STALE' });
+  await writeFile(path.join(workspace, 'artifacts', 'start-copy.md'), 'undeclared neighbor');
+  await assert.rejects(
+    () => observeProjectReconciliationInventoryCore(context),
+    (error) =>
+      error.code === 'APR_BROKER_STALE' &&
+      error.details.reason === 'reconciliation-namespace-unproved'
+  );
 });
