@@ -1,0 +1,71 @@
+{
+  "schema": "ai-peer-review.process-source-conformance/v1",
+  "captureId": "source-4cebaecf0d4429deb0d285d3aa29ca5c",
+  "hostId": "sha256:88a3499aeb68109c65bcaf0e834a6d943d7b54d7614e80f5aa755180eaad020f",
+  "registrationDigest": "sha256:f8091bef40868cff54f7d96a380d8e71eddb69f3adaff8f5a4720774482f02b7",
+  "registrationRevision": "29cf2f284cf14f1d85d438759ff302e74a9cd80f",
+  "registrationIndexDigest": "sha256:d93cf88814383e3ade3f67bbd0eadae305d28082a837acf79ea66245b248f411",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "91fa4acdfdd5f3a16930cdbc4ad1a735ef440443",
+    "tarballDigest": "sha256:8d42ec62541ba454b0ddf07e93b6c227743f2b77dc2849fa78c1bb4e74e9ebe3",
+    "inventoryDigest": "sha256:671b62eb6fcf2c0393d46d1808e3a57a01085c8512ec0a0460e04e3f227e5ac6",
+    "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e"
+  },
+  "scope": {
+    "platform": "darwin",
+    "build": "25.6.0",
+    "architecture": "arm64",
+    "nodeMajor": 24,
+    "probe": {
+      "path": "/bin/ps",
+      "visibility": "same-user-full-selection",
+      "errorContract": "exact-ps-selection-v1",
+      "version": "sha256:62c342e1351240eb62402b3fc8f7affed8d2d0bc8fa498df358dec09108b940f"
+    }
+  },
+  "kind": "absence",
+  "controls": {
+    "producer": {
+      "kind": "installed-source",
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "inventoryDigest": "sha256:671b62eb6fcf2c0393d46d1808e3a57a01085c8512ec0a0460e04e3f227e5ac6"
+    },
+    "live": {
+      "pid": 40106,
+      "nonce": "ba3e7a51b21ef92a57170d8a6250f125108cea4b9f9fbd7e52b3982601c3ca30",
+      "creation": {
+        "unit": "utc-nanoseconds",
+        "lower": "1792113526000000000",
+        "upper": "1792113527000000000"
+      }
+    },
+    "exit": {
+      "pid": 40106,
+      "exitCode": 0,
+      "signal": null
+    },
+    "absence": {
+      "pid": 40106,
+      "status": "absent"
+    },
+    "error": {
+      "status": "unknown",
+      "reason": "probe-query-error"
+    },
+    "cleanup": {
+      "childExited": true,
+      "restoration": "not-required"
+    }
+  },
+  "transitions": [],
+  "boot": {
+    "before": null,
+    "after": null
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "keyId": "sha256:b0a16e19111a646960fffa82ad3c8c66d5927149c024d84c0370f2c1414bf8f1",
+    "value": "18b9f027d32f12a6613e4f23b7040c86956e2d4d3ea647e7bcd2993ea2d26d6ffb2afe5c4623d76181df771e9a0e4bc8f3667ebbf0ddecb4473383f927f7ea03"
+  }
+}

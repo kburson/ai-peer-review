@@ -1,0 +1,1044 @@
+{
+  "schema": "ai-peer-review.process-source-conformance/v1",
+  "captureId": "source-361b058077b403406d8f65e8be0afdc8",
+  "hostId": "sha256:805b69afa2fdd540eef8d0ed426532204e98e541eaede60a9b5f07152c109803",
+  "registrationDigest": "sha256:6f33cf95cb13f1555f6597a503dca7a6afe2244dbb209caf538c8596d98a5deb",
+  "registrationRevision": "29cf2f284cf14f1d85d438759ff302e74a9cd80f",
+  "registrationIndexDigest": "sha256:d93cf88814383e3ade3f67bbd0eadae305d28082a837acf79ea66245b248f411",
+  "package": {
+    "schema": "ai-peer-review.process-source-package/v1",
+    "sourceCommit": "91fa4acdfdd5f3a16930cdbc4ad1a735ef440443",
+    "tarballDigest": "sha256:8d42ec62541ba454b0ddf07e93b6c227743f2b77dc2849fa78c1bb4e74e9ebe3",
+    "inventoryDigest": "sha256:671b62eb6fcf2c0393d46d1808e3a57a01085c8512ec0a0460e04e3f227e5ac6",
+    "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e"
+  },
+  "scope": {
+    "platform": "linux",
+    "build": "6.17.0-1022-azure",
+    "architecture": "x64",
+    "nodeMajor": 26,
+    "probe": {
+      "path": "/proc",
+      "visibility": "full-pid-namespace",
+      "errorContract": "exact-pid-directory-v1",
+      "version": "procfs-v1"
+    }
+  },
+  "kind": "creation",
+  "controls": {
+    "producer": {
+      "kind": "installed-source",
+      "contractDigest": "sha256:e9793b094e58189caa9db25db3da6da6139ba3bddb7466fadf66df173732c66e",
+      "inventoryDigest": "sha256:671b62eb6fcf2c0393d46d1808e3a57a01085c8512ec0a0460e04e3f227e5ac6"
+    },
+    "live": {
+      "pid": 4278,
+      "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+      "creation": {
+        "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+        "lower": "113541",
+        "upper": "113542"
+      }
+    },
+    "exit": {
+      "pid": 4278,
+      "exitCode": 0,
+      "signal": null
+    },
+    "absence": {
+      "pid": 4278,
+      "status": "absent"
+    },
+    "error": {
+      "status": "unknown",
+      "reason": "probe-access-error"
+    },
+    "cleanup": {
+      "childExited": true,
+      "restoration": "verified"
+    }
+  },
+  "transitions": [
+    {
+      "kind": "clock-forward",
+      "before": [
+        {
+          "monotonicNs": "1135500049102",
+          "utcNs": "1792113523415000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1136552808792",
+          "utcNs": "1792113524468000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1137603616020",
+          "utcNs": "1792113525519000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1138654370549",
+          "utcNs": "1792113526569000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1139707072911",
+          "utcNs": "1792113527622000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1140754974822",
+          "utcNs": "1792113528670000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ],
+      "during": [
+        {
+          "monotonicNs": "1140809608885",
+          "utcNs": "1792113618714000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1141860375165",
+          "utcNs": "1792113619764000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1142908277674",
+          "utcNs": "1792113620812000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1143954855732",
+          "utcNs": "1792113621859000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1145005592000",
+          "utcNs": "1792113622909000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1146056229125",
+          "utcNs": "1792113623960000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ],
+      "after": [
+        {
+          "monotonicNs": "1146111924471",
+          "utcNs": "1792113534018000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1147164373692",
+          "utcNs": "1792113535070000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1148212620397",
+          "utcNs": "1792113536118000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1149258505661",
+          "utcNs": "1792113537164000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1150309572106",
+          "utcNs": "1792113538215000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1151361702112",
+          "utcNs": "1792113539268000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clock-backward",
+      "before": [
+        {
+          "monotonicNs": "1151409106333",
+          "utcNs": "1792113539315000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1152456515270",
+          "utcNs": "1792113540362000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1153504378699",
+          "utcNs": "1792113541410000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1154558746653",
+          "utcNs": "1792113542465000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1155614301830",
+          "utcNs": "1792113543520000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1156663066691",
+          "utcNs": "1792113544569000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ],
+      "during": [
+        {
+          "monotonicNs": "1156716444697",
+          "utcNs": "1792113454622000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1157767047848",
+          "utcNs": "1792113455673000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1158818555426",
+          "utcNs": "1792113456724000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1159865356828",
+          "utcNs": "1792113457771000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1160916557420",
+          "utcNs": "1792113458822000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1161966975071",
+          "utcNs": "1792113459873000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ],
+      "after": [
+        {
+          "monotonicNs": "1162018175145",
+          "utcNs": "1792113549922000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1163066746692",
+          "utcNs": "1792113550970000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1164118055355",
+          "utcNs": "1792113552021000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1165173483267",
+          "utcNs": "1792113553077000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1166219945716",
+          "utcNs": "1792113554123000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1167270355613",
+          "utcNs": "1792113555174000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "timezone",
+      "before": [
+        {
+          "monotonicNs": "1167315704017",
+          "utcNs": "1792113555219000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1168365184351",
+          "utcNs": "1792113556269000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1169416127207",
+          "utcNs": "1792113557320000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1170465511197",
+          "utcNs": "1792113558369000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1171512838452",
+          "utcNs": "1792113559416000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1172563700028",
+          "utcNs": "1792113560467000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ],
+      "during": [
+        {
+          "monotonicNs": "1172614299611",
+          "utcNs": "1792113560518000000",
+          "zone": "America/Detroit",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1173665487147",
+          "utcNs": "1792113561569000000",
+          "zone": "America/Detroit",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1174713712714",
+          "utcNs": "1792113562617000000",
+          "zone": "America/Detroit",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1175765174965",
+          "utcNs": "1792113563669000000",
+          "zone": "America/Detroit",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1176818631136",
+          "utcNs": "1792113564722000000",
+          "zone": "America/Detroit",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1177868390096",
+          "utcNs": "1792113565772000000",
+          "zone": "America/Detroit",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ],
+      "after": [
+        {
+          "monotonicNs": "1177921681642",
+          "utcNs": "1792113565827000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1178972816909",
+          "utcNs": "1792113566878000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1180019967221",
+          "utcNs": "1792113567925000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1181066735225",
+          "utcNs": "1792113568972000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1182116321676",
+          "utcNs": "1792113570022000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1183172173762",
+          "utcNs": "1792113571077000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "dst",
+      "before": [
+        {
+          "monotonicNs": "1183226576493",
+          "utcNs": "1792113571132000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1184277223271",
+          "utcNs": "1792113572183000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1185323359424",
+          "utcNs": "1792113573229000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1186371345162",
+          "utcNs": "1792113574277000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1187421442612",
+          "utcNs": "1792113575327000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1188468545122",
+          "utcNs": "1792113576374000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ],
+      "during": [
+        {
+          "monotonicNs": "1188517005305",
+          "utcNs": "1768478453908000000",
+          "zone": "America/New_York",
+          "dst": false,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1189564551419",
+          "utcNs": "1768478454956000000",
+          "zone": "America/New_York",
+          "dst": false,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1190612824992",
+          "utcNs": "1768478456004000000",
+          "zone": "America/New_York",
+          "dst": false,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1191662396302",
+          "utcNs": "1768478457053000000",
+          "zone": "America/New_York",
+          "dst": false,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1192713881666",
+          "utcNs": "1768478458105000000",
+          "zone": "America/New_York",
+          "dst": false,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1193761468228",
+          "utcNs": "1768478459152000000",
+          "zone": "America/New_York",
+          "dst": false,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ],
+      "after": [
+        {
+          "monotonicNs": "1193844893045",
+          "utcNs": "1792113581751000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1194891325239",
+          "utcNs": "1792113582797000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1195940293682",
+          "utcNs": "1792113583846000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1196986843235",
+          "utcNs": "1792113584893000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1198035505163",
+          "utcNs": "1792113585941000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        },
+        {
+          "monotonicNs": "1199084388926",
+          "utcNs": "1792113586990000000",
+          "zone": "America/New_York",
+          "dst": true,
+          "pid": 4278,
+          "nonce": "5064f65fdf109aada21d9ef05693d42c075a9a241d158adb7ec03a98639d173f",
+          "creation": {
+            "unit": "linux-ticks:c03abb4c-d614-4704-9523-805220323dd7",
+            "lower": "113541",
+            "upper": "113542"
+          }
+        }
+      ]
+    }
+  ],
+  "boot": {
+    "before": "c03abb4c-d614-4704-9523-805220323dd7",
+    "after": "c03abb4c-d614-4704-9523-805220323dd7"
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "keyId": "sha256:261697a229c92b496aca5e93d9ecdb0f70e5a91e1333fa9739a4a6569a22cb35",
+    "value": "d06eae58824fab54409a960d7289853d47917daa80647a05a83ba2e0b2b11b332c9cb9d7e705da60d3fdb25acb1052028e0e84d5192f879551d8a411373d1201"
+  }
+}
