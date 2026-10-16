@@ -21,8 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          # Preserve the admitted failing baseline, separate from pending repairs.
-          ref: 3b580c6007189067e7b7236d7c75ef4ebebd6878
+          # Pin the admitted repaired candidate; this observer grants no acceptance.
+          ref: 44639f60dd58c328530bbf7322e90c480917fb38
           fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
