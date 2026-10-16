@@ -335,9 +335,19 @@ export function createSetupMaintenanceCore({
         (entry) => entry.file !== userFile && entry.file !== localFile
       ),
       userWrites = writes.filter((entry) => entry.file === userFile);
-    const checked = await validateSetupWriteSet({ writes: projectWrites, destinationRoot: root });
+    const checked = await validateSetupWriteSet({
+      writes: projectWrites,
+      destinationRoot: root,
+      signal: options.signal,
+      deadline: options.deadline,
+    });
     const localChecked = localWrites.length
-      ? await validateSetupWriteSet({ writes: localWrites, destinationRoot: location.commonDir })
+      ? await validateSetupWriteSet({
+          writes: localWrites,
+          destinationRoot: location.commonDir,
+          signal: options.signal,
+          deadline: options.deadline,
+        })
       : null;
     let userRoot = home;
     if (userWrites.length) {
@@ -367,7 +377,12 @@ export function createSetupMaintenanceCore({
       }
     }
     const userChecked = userWrites.length
-      ? await validateSetupWriteSet({ writes: userWrites, destinationRoot: userRoot })
+      ? await validateSetupWriteSet({
+          writes: userWrites,
+          destinationRoot: userRoot,
+          signal: options.signal,
+          deadline: options.deadline,
+        })
       : null;
     await admit({ signal: options.signal, deadline: options.deadline });
     if (location) {
