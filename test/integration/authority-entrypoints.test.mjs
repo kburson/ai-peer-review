@@ -607,10 +607,29 @@ test('standalone production worker refuses source authority before recovery evid
 });
 
 // @story #209
-// This is refusal evidence. Positive installed effects and drift acceptance remain #190 gates
-// after genuine final-source registration, signed capture and class review.
+// This is refusal evidence. Current classes can be admitted on the hosted tuple,
+// so explicitly change covered disposable bytes instead of relying on historical classes.
 test('installed primary effect refuses changed source without admission before callback', async (t) => {
   const f = await authorityInstalledFixture(t, { nativeSecurity: false, activatePrimary: false });
+  const relative = 'src/broker/portable-ownership.mjs';
+  const covered = JSON.parse(
+    readFileSync(path.join(f.installed, 'src/protocol/process-source-contract-files.json'))
+  );
+  assert.ok(covered.files.includes(relative));
+  const changed = Buffer.concat([
+    readFileSync(path.join(f.installed, relative)),
+    Buffer.from('\n// Disposable changed-source refusal fixture.\n'),
+  ]);
+  writeFileSync(path.join(f.installed, relative), changed);
+  // Keep installation inventory truthful; this tests missing source-class authority,
+  // rather than substituting a malformed runtime inventory for that refusal.
+  const inventoryFile = path.join(f.installed, 'runtime-inventory.json');
+  const inventory = JSON.parse(readFileSync(inventoryFile));
+  const entry = inventory.files.find((file) => file.path === relative);
+  assert.ok(entry);
+  const { createHash } = await import('node:crypto');
+  entry.sha256 = createHash('sha256').update(changed).digest('hex');
+  writeFileSync(inventoryFile, JSON.stringify(inventory) + '\n');
   const outcome = f.execute(
     'import {withPrimaryAdmissionFence} from ' +
       f.module('src/config/primary-admission.mjs') +
