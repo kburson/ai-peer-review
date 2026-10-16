@@ -3000,7 +3000,7 @@ export function createReviewOperations({
     });
   }
 
-  async function completeReviewerHandoff({ input, deps, absolute, paths, state, sealed }) {
+  async function prepareReviewerHandoff({ input, deps, absolute, paths, state, sealed }) {
     let current = (
       await refreshSubmissionIdentity(
         { absolute, paths, state },
@@ -3066,6 +3066,11 @@ export function createReviewOperations({
       );
     }
     checkpoint(deps, 'delivery-written');
+    return { current, nextResponse, deliveryId, prior };
+  }
+
+  async function completeReviewerHandoff({ input, deps, absolute, sealed, prepared }) {
+    const { current, nextResponse, deliveryId, prior } = prepared;
     const delivered = await deliverAndAcknowledge({
       transport: prior?.acknowledged_at ? null : deps.transport,
       state: current,
@@ -3075,10 +3080,9 @@ export function createReviewOperations({
       now: input.now,
       exec: deps.execFile,
     });
-    current = delivered.state;
     return result(
       'submit',
-      current,
+      delivered.state,
       { workspace: absolute, response: nextResponse ?? sealed.path },
       {
         decision: input.decision,
@@ -3130,7 +3134,10 @@ export function createReviewOperations({
         ['author-revision', 'acceptance-pending'].includes(state.protocol.state)
       ) {
         const sealed = sealedReviewerFromEvent(root, decision);
-        return completeReviewerHandoff({ input, deps, absolute, paths, state, sealed });
+        const prepared = await performCurrentOperationEffect(() =>
+          prepareReviewerHandoff({ input, deps, absolute, paths, state, sealed })
+        );
+        return completeReviewerHandoff({ input, deps, absolute, sealed, prepared });
       }
       fail(
         'APR_INVALID_TRANSITION',
@@ -3157,38 +3164,50 @@ export function createReviewOperations({
         ? event.payload.finding_ids
         : []
     );
-    const sealed = await effectSealResponse(
-      { ...state, paths, now: input.now, prior_finding_ids: priorFindingIds },
-      responseFile,
-      input.identity
-    );
-    checkpoint(deps, 'response-sealed');
-    const eventType =
-      input.decision === 'accepted' ? 'reviewer-accepted' : 'reviewer-revisions-requested';
-    const decided = await mutateReview(absolute, expected(state), (current) => {
-      assertCurrentParticipant(current, 'reviewer', input.identity, input.now);
-      assertReviewerRepository(input, current, events, repository);
-      return eventFor(
-        current,
-        eventType,
-        input.identity.session_fingerprint,
-        {
-          turn: sealed.turn,
-          response: {
-            path: repositoryRelative(
-              state.protocol.startup.context.repository_root,
-              sealed.path,
-              'reviewer response'
-            ),
-            digest: sealed.digest,
-          },
-          finding_ids: sealed.finding_ids,
-        },
-        input.now ?? new Date()
+    // Hold one original admission for local writes; release it before transport.
+    const local = await performCurrentOperationEffect(async () => {
+      const sealed = await effectSealResponse(
+        { ...state, paths, now: input.now, prior_finding_ids: priorFindingIds },
+        responseFile,
+        input.identity
       );
+      checkpoint(deps, 'response-sealed');
+      const eventType =
+        input.decision === 'accepted' ? 'reviewer-accepted' : 'reviewer-revisions-requested';
+      const decided = await mutateReview(absolute, expected(state), (current) => {
+        assertCurrentParticipant(current, 'reviewer', input.identity, input.now);
+        assertReviewerRepository(input, current, events, repository);
+        return eventFor(
+          current,
+          eventType,
+          input.identity.session_fingerprint,
+          {
+            turn: sealed.turn,
+            response: {
+              path: repositoryRelative(
+                state.protocol.startup.context.repository_root,
+                sealed.path,
+                'reviewer response'
+              ),
+              digest: sealed.digest,
+            },
+            finding_ids: sealed.finding_ids,
+          },
+          input.now ?? new Date()
+        );
+      });
+      checkpoint(deps, 'decision-appended');
+      const prepared = await prepareReviewerHandoff({
+        input,
+        deps,
+        absolute,
+        paths,
+        state: decided,
+        sealed,
+      });
+      return { sealed, prepared };
     });
-    checkpoint(deps, 'decision-appended');
-    return completeReviewerHandoff({ input, deps, absolute, paths, state: decided, sealed });
+    return completeReviewerHandoff({ input, deps, absolute, ...local });
   }
 
   function latestReviewerDecision(events) {

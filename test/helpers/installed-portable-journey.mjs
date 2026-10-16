@@ -435,7 +435,7 @@ export async function runInstalledPortableJourney(options = {}) {
         imageApi.pinRuntimeImage({
           packageRoot: installed,
           nodeExecutable: await realpath(process.execPath),
-          destination: path.join(root, '.scratch', 'peer-review', 'journey-image'),
+          destination: path.join(root, '.scratch', 'peer-review', 'runtimes', project.digest),
         })
       );
       bootstrap = await step('broker-bootstrap-publication', () =>
