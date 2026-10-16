@@ -2,19 +2,34 @@
   "schema": "ai-peer-review.process-source-registration-index/v1",
   "captures": [
     {
-      "captureId": "source-ac9a301b5a2a598764670bae71e1492f",
-      "path": "evidence/portable-runtime/process-source/registrations/source-ac9a301b5a2a598764670bae71e1492f.json",
-      "digest": "sha256:e42d9e90f3a75dc0067692cb0c8a427e8b7e185f8d6b4c66c15e92d09183d9f7"
+      "captureId": "source-1bc4c61df889d6260311297d84aff16e",
+      "path": "evidence/portable-runtime/process-source/registrations/source-1bc4c61df889d6260311297d84aff16e.json",
+      "digest": "sha256:0f7d0c5d14f2e11b453a6eb2c49524437cdb107f53f38633def3261f29d77dc3"
     },
     {
-      "captureId": "source-be994c6f3a6b74ae77d33aeab5c01a12",
-      "path": "evidence/portable-runtime/process-source/registrations/source-be994c6f3a6b74ae77d33aeab5c01a12.json",
-      "digest": "sha256:212063a9c2d67001e1ccf2d677e4982764803c38dbec87effeaa1514fe39cbd5"
+      "captureId": "source-2df3670232e220a7d74a9f53a422c2a0",
+      "path": "evidence/portable-runtime/process-source/registrations/source-2df3670232e220a7d74a9f53a422c2a0.json",
+      "digest": "sha256:bb1b7f5b1353ae5d2105ce629d4cd2244f46aaac2d21549c26eea4ba361408d2"
     },
     {
-      "captureId": "source-c8bb28cef2b1cd68d79b1b524bbf7529",
-      "path": "evidence/portable-runtime/process-source/registrations/source-c8bb28cef2b1cd68d79b1b524bbf7529.json",
-      "digest": "sha256:12be1c0fadb0a2002feec8fd513e59a4882066734df86e04d046821a2246d4fd"
+      "captureId": "source-361b058077b403406d8f65e8be0afdc8",
+      "path": "evidence/portable-runtime/process-source/registrations/source-361b058077b403406d8f65e8be0afdc8.json",
+      "digest": "sha256:6f33cf95cb13f1555f6597a503dca7a6afe2244dbb209caf538c8596d98a5deb"
+    },
+    {
+      "captureId": "source-4cebaecf0d4429deb0d285d3aa29ca5c",
+      "path": "evidence/portable-runtime/process-source/registrations/source-4cebaecf0d4429deb0d285d3aa29ca5c.json",
+      "digest": "sha256:f8091bef40868cff54f7d96a380d8e71eddb69f3adaff8f5a4720774482f02b7"
+    },
+    {
+      "captureId": "source-a06c852222ccd0c14faefc510c2eef89",
+      "path": "evidence/portable-runtime/process-source/registrations/source-a06c852222ccd0c14faefc510c2eef89.json",
+      "digest": "sha256:bac82c5b37b613bbfe288b029be517fc5c307a71f71fc04e5fdb865ae1e59e29"
+    },
+    {
+      "captureId": "source-a2a5a73e8523d80e53a8b7578ee0ce63",
+      "path": "evidence/portable-runtime/process-source/registrations/source-a2a5a73e8523d80e53a8b7578ee0ce63.json",
+      "digest": "sha256:2ffb29995abaab9b0f36c12883b1061a3adaef08d96ed4708f24b4ca287c168f"
     }
   ]
 }
