@@ -164,7 +164,12 @@ for (const [mode, options] of MODES) {
     for (const file of [started.paths.author_startup, started.paths.reviewer_invitation]) {
       const bytes = readFileSync(file, 'utf8');
       assert.match(bytes, /Reviewer: `gpt-test` \(`gpt-test`\), effort: `medium`/);
-      assert.match(bytes, /Runtime: SPR, provider-native/);
+      assert.match(
+        bytes,
+        mode === 'no-commit'
+          ? /Runtime: SPR, local filepath handoff/
+          : /Runtime: SPR, provider-native/
+      );
       assert.match(bytes, /## Communication policy \(v1\)/);
       assert.match(bytes, /do not rely on a chat summary/i);
       assert.match(bytes, /unless the human explicitly requests it/i);

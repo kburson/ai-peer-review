@@ -1311,6 +1311,7 @@ test('startup preserves definitely-not-submitted and stable provider failures', 
     const fx = repositoryFixture(`apr-provider-outcome-${failure.code}-`);
     t.after(fx.cleanup);
     const input = {
+      noCommit: false, // Historical inert adapter launch; new local authors use manual sessions.
       issue: 117,
       reviewerProvider: 'codex',
       reviewerModel: 'gpt-test',

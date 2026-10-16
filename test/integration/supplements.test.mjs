@@ -6,7 +6,6 @@ import assert from 'node:assert/strict';
 import * as api from '../helpers/internal-api.mjs';
 import { parseResponse } from '../../src/collateral/responses.mjs';
 import { resolveReviewPaths } from '../../src/collateral/paths.mjs';
-import { createGitRepository } from '../../src/git/repository.mjs';
 import { inspectReview } from '../helpers/protocol-api.mjs';
 import {
   budgetIntervention,
@@ -19,7 +18,6 @@ test('supplement bytes are normalized, frozen, and acknowledged by the next targ
   const fx = fixture();
   t.after(fx.cleanup);
   const review = await budgetIntervention(fx.root, 'supplement-intervention');
-  const repository = createGitRepository();
   const state = inspectReview(review.started.paths.workspace);
   const physicalRoot = state.protocol.startup.context.repository_root;
   const resolved = resolveReviewPaths({
@@ -34,7 +32,7 @@ test('supplement bytes are normalized, frozen, and acknowledged by the next targ
   });
   const responseRelative = resolved.reviewerResponse(2).relative;
   const initialBoundary = state.protocol.reviewer_boundary;
-  assert.deepEqual(repository.reviewerBoundary(fx.root, responseRelative), initialBoundary);
+  assert.equal(initialBoundary, null);
   const source = path.join(review.started.paths.workspace, 'supplement-source.md');
   writeFileSync(source, 'Cafe\u0301\r\nEvidence\r\n');
   const normalized = Buffer.from('Café\nEvidence\n');
@@ -91,10 +89,7 @@ test('supplement bytes are normalized, frozen, and acknowledged by the next targ
     path.relative(physicalRoot, continued.paths.response).split(path.sep).join('/'),
     responseRelative
   );
-  assert.deepEqual(
-    repository.reviewerBoundary(fx.root, responseRelative),
-    inspectReview(review.started.paths.workspace).protocol.reviewer_boundary
-  );
+  assert.equal(inspectReview(review.started.paths.workspace).protocol.reviewer_boundary, null);
   replaceSection(continued.paths.response, 'Summary', 'Supplement considered.');
   replaceSection(continued.paths.response, 'Findings', 'None.');
   replaceSection(continued.paths.response, 'Required changes', 'None.');

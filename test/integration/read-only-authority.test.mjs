@@ -12,7 +12,7 @@ import { reviewerTurnEvents } from '../helpers/review-fixture.mjs';
 import { setupHostFixture } from '../helpers/setup-host-fixture.mjs';
 
 test(
-  'CLI status preserves the typed read result when primary policy becomes dirty',
+  'local CLI status reads history without primary activation challenges',
   { skip: process.platform === 'win32' ? 'Native security fixture paused for #102/#107' : false },
   async (t) => {
     const f = await setupHostFixture(t);
@@ -60,6 +60,6 @@ test(
     const dirty = await invoke();
     assert.equal(dirty.code, 0, dirty.stderr);
     assert.deepEqual(JSON.parse(dirty.stdout), expected);
-    assert.equal(JSON.parse(dirty.stderr).code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE');
+    assert.equal(dirty.stderr, '');
   }
 );

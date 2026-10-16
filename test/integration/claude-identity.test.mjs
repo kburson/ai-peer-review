@@ -280,5 +280,5 @@ test('workflow uses runtime author and invocation-scoped manual reviewer identit
 
   const finalized = await runText(['finalize', workspace], fx.root, 'claude-author');
   assert.equal(finalized.code, 0, JSON.stringify(finalized.stderr));
-  assert.equal(statusReview(workspace).state, 'accepted');
+  assert.equal(statusReview(workspace).state, 'accepted-uncommitted');
 });

@@ -1,9 +1,8 @@
 // @story #190
-// Actual installed protocol fixtures only; no ordinary OS journey acceptance.
+// Actual installed protocol fixtures with declared identities; no provider proof.
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import test from 'node:test';
-import path from 'node:path';
 import { participantIdentity } from '../../src/identity/registry.mjs';
 import {
   fixtureSelection,
@@ -11,126 +10,79 @@ import {
   fixtureObservation,
 } from '../helpers/internal-api.mjs';
 import { startReview, joinReview } from '../helpers/operations-api.mjs';
-import { authorityInstalledFixture } from '../helpers/authority-installed-fixture.mjs';
-
-for (const externalProbe of [false, true]) {
-  test(
-    'installed reviewer handoff keeps its original budget' +
-      (externalProbe ? ' and releases primary admission before manual delivery' : ''),
-    {
-      skip:
-        process.platform === 'win32'
-          ? 'POSIX installed protocol fixture; actual Windows ordinary and limited journeys are separate'
-          : false,
-    },
-    async (t) => {
-      const f = await authorityInstalledFixture(t, { nativeSecurity: false });
-      f.write('docs/artifact.md', '# Artifact\n');
-      f.git('add', '.');
-      f.git('commit', '-m', 'review artifact');
-      const previous = { HOME: process.env.HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME };
-      process.env.HOME = f.home;
-      process.env.XDG_CONFIG_HOME = f.home + '/.config';
-      t.after(() => {
-        for (const [key, value] of Object.entries(previous)) {
-          if (value === undefined) delete process.env[key];
-          else process.env[key] = value;
-        }
+import { fixture } from '../helpers/intervention-fixture.mjs';
+import { installRuntimeFixture } from '../helpers/runtime-package.mjs';
+for (const manualDelivery of [false, true])
+  test(`installed local handoff keeps its original deadline (manual delivery=${manualDelivery})`, async (t) => {
+    const f = fixture();
+    t.after(f.cleanup);
+    const runtime = installRuntimeFixture(t),
+      now = '2026-09-09T12:00:00.000Z';
+    const identity = (role) =>
+      participantIdentity({
+        role,
+        provider: 'openai',
+        host: 'codex',
+        modelId: 'gpt-test',
+        modelDisplay: 'GPT Test',
+        sessionId: 'review-' + role,
+        source: 'declared',
+        joinedAt: now,
       });
-      const now = '2026-09-09T12:00:00.000Z';
-      const identity = (role) =>
-        participantIdentity({
-          role,
-          provider: 'openai',
-          host: 'codex',
-          modelId: 'gpt-test',
-          modelDisplay: 'GPT Test',
-          sessionId: 'review-' + role,
-          source: 'runtime',
-          joinedAt: now,
-        });
-      const author = identity('author');
-      const reviewer = identity('reviewer');
-      const started = await startReview(
-        {
-          ...fixtureSelection('codex', 'gpt-test'),
-          cwd: f.root,
-          artifact: 'docs/artifact.md',
-          artifactKind: 'spec',
-          identity: author,
-          reviewId: 'review-effect-fence',
-          now,
-        },
-        fixtureStartupDeps
-      );
-      const joined = await joinReview({
+    const author = identity('author'),
+      reviewer = identity('reviewer');
+    const started = await startReview(
+      {
+        ...fixtureSelection('codex', 'gpt-test'),
+        noCommit: true,
         cwd: f.root,
-        invitation: started.paths.reviewer_invitation,
-        identity: reviewer,
-        runtimeObservation: fixtureObservation(),
+        artifact: 'docs/artifact.md',
+        artifactKind: 'spec',
+        identity: author,
+        reviewId: 'review-budget',
         now,
-      });
-      for (const [heading, content] of [
-        ['Summary', 'One repair remains.'],
-        ['Findings', '### R1-F001 — Repair\n\nFix it.'],
-        ['Required changes', '- Address R1-F001.'],
-        ['Optional suggestions', 'None.'],
-        ['Decision', 'revisions-requested'],
-      ]) {
-        const text = readFileSync(joined.paths.response, 'utf8');
-        const pattern = new RegExp(
-          '(## ' + heading + '\\r?\\n\\r?\\n)[\\s\\S]*?(?=\\r?\\n\\r?\\n## |$)'
-        );
-        writeFileSync(joined.paths.response, text.replace(pattern, '$1' + content));
-      }
-      const input = {
-        cwd: f.root,
-        workspace: started.paths.workspace,
-        identity: reviewer,
-        decision: 'revisions-requested',
-        now: '2026-09-09T12:01:00.000Z',
-      };
-      const result = f.execute(
-        'import {submitReviewTurn} from ' +
-          f.module('src/cli/run.mjs') +
-          ';import {currentOperationAuthorityContext} from ' +
-          f.module('src/startup/authority-fence.mjs') +
-          ';import {withPrimaryAdmissionFence} from ' +
-          f.module('src/config/primary-admission.mjs') +
-          ';import {manualTransport} from ' +
-          f.module('src/transport/manual.mjs') +
-          ';import {isInstalledProcessSourceAssurance} from ' +
-          f.module('src/protocol/process-source-assurance.mjs') +
-          ';import {observeOriginalProcess} from ' +
-          f.module('src/protocol/process-identity.mjs') +
-          ';import {readFileSync,writeFileSync,existsSync} from "node:fs";import path from "node:path";' +
-          'const currentProcess=await observeOriginalProcess({signal:new AbortController().signal,deadline:performance.now()+30000});const sourceAvailable=currentProcess.status==="live"&&isInstalledProcessSourceAssurance(currentProcess.assurance);let changed=false,externalAdmission=false,failure;try{await submitReviewTurn(' +
-          JSON.stringify(input) +
-          ',{checkpoint(name){if(name==="author-claimed"){changed=true;}}' +
-          (externalProbe
-            ? ',transport:{async deliver(request){const context=await currentOperationAuthorityContext();await withPrimaryAdmissionFence({commonDir:' +
-              JSON.stringify(path.join(f.root, '.git')) +
-              ',...context},async()=>{externalAdmission=true;});return manualTransport.deliver(request);}}'
-            : '') +
-          '});}catch(error){failure={code:error.code,message:error.message,reason:["operation-deadline","operation-aborted","invalid-context-input"].includes(error.details?.reason)?error.details.reason:null};}' +
-          'const workspace=' +
-          JSON.stringify(started.paths.workspace) +
-          ';console.log(JSON.stringify({changed,externalAdmission,failure,sourceAvailable,' +
-          'draftExists:existsSync(' +
-          JSON.stringify(
-            joined.paths.response.replace('reviewer-response-1.md', 'author-response-1.md')
-          ) +
-          '),' +
-          'registryExists:existsSync(path.join(workspace,"responses","author-1.json"))}));'
+      },
+      fixtureStartupDeps
+    );
+    const joined = await joinReview({
+      cwd: f.root,
+      invitation: started.paths.reviewer_invitation,
+      identity: reviewer,
+      runtimeObservation: { ...fixtureObservation(), assurance: 'declared' },
+      now,
+    });
+    for (const [heading, content] of [
+      ['Summary', 'One repair.'],
+      ['Findings', '### R1-F001 — Repair\n\nFix it.'],
+      ['Required changes', 'Address R1-F001.'],
+      ['Optional suggestions', 'None.'],
+      ['Decision', 'revisions-requested'],
+    ]) {
+      const text = readFileSync(joined.paths.response, 'utf8');
+      writeFileSync(
+        joined.paths.response,
+        text.replace(
+          new RegExp('(## ' + heading + '\\r?\\n\\r?\\n)[\\s\\S]*?(?=\\r?\\n\\r?\\n## |$)'),
+          '$1' + content
+        )
       );
-      assert.equal(result.status, 0, result.stderr);
-      const observed = JSON.parse(result.stdout);
-      assert.equal(observed.sourceAvailable, true, JSON.stringify(observed));
-      assert.equal(observed.changed, true, JSON.stringify(observed));
-      assert.equal(observed.externalAdmission, externalProbe, JSON.stringify(observed));
-      assert.equal(observed.failure, undefined, JSON.stringify(observed));
-      assert.equal(observed.draftExists, true, JSON.stringify(observed));
-      assert.equal(observed.registryExists, true, JSON.stringify(observed));
     }
-  );
-}
+    const input = {
+      cwd: f.root,
+      workspace: started.paths.workspace,
+      identity: reviewer,
+      decision: 'revisions-requested',
+      now: '2026-09-09T12:01:00.000Z',
+    };
+    const result = runtime.execute(
+      `const {submitReviewTurn}=await import(${runtime.module('src/cli/run.mjs')});const {withOperationAuthority,currentOperationAuthorityContext}=await import(${runtime.module('src/startup/authority-fence.mjs')});const {manualTransport}=await import(${runtime.module('src/transport/manual.mjs')});const fs=await import('node:fs');let deadline,changed=false,delivered=false;await withOperationAuthority({operation:'submit',cwd:process.cwd(),reviewWorkspace:${JSON.stringify(started.paths.workspace)}},async()=>{deadline=(await currentOperationAuthorityContext()).deadline;await submitReviewTurn(${JSON.stringify(input)},{checkpoint(name){if(name==='author-claimed')changed=true;}${manualDelivery ? ",transport:{async deliver(request){if((await currentOperationAuthorityContext()).deadline!==deadline)throw Error('renewed budget');delivered=true;return manualTransport.deliver(request);}}" : ''}});if((await currentOperationAuthorityContext()).deadline!==deadline)throw Error('renewed operation budget');});console.log(JSON.stringify({changed,delivered,noPrimaryAdmission:!fs.existsSync('.git/ai-peer-review/admission.lock'),draft:fs.existsSync(${JSON.stringify(joined.paths.response.replace('reviewer-response-1.md', 'author-response-1.md'))})}));`,
+      { cwd: f.root }
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      changed: true,
+      delivered: manualDelivery,
+      noPrimaryAdmission: true,
+      draft: true,
+    });
+  });

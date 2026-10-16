@@ -46,7 +46,10 @@ import {
 import { connectPortableBroker } from '../broker/client.mjs';
 import { resolveContainedPath, resolveReviewPaths } from '../collateral/paths.mjs';
 import { planReviewRecord } from '../collateral/review-record.mjs';
-import { loadLocalConfig as loadConfig } from '../config/load.mjs';
+import {
+  loadLocalConfig as loadConfig,
+  loadConfig as loadInspectionConfig,
+} from '../config/load.mjs';
 import {
   registerPrimary,
   activatePrimaryPolicy,
@@ -5382,8 +5385,8 @@ export function createReviewOperations({
       if (parsed.command === 'doctor') {
         let loaded;
         try {
-          await loadConfig({ cwd: io.cwd, env: io.env });
-          loaded = await loadConfig({ cwd: io.cwd, env: io.env });
+          await assertProjectSetupCompatible({ cwd: io.cwd, env: io.env });
+          loaded = await loadInspectionConfig({ cwd: io.cwd, env: io.env });
         } catch (error) {
           if (!(error instanceof AprError)) throw error;
           loaded = { config: { hosts: {}, review: {}, authority: {} }, diagnostic: error.toJSON() };

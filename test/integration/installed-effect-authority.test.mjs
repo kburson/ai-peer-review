@@ -12,7 +12,7 @@ import { startReview, joinReview } from '../helpers/operations-api.mjs';
 import { authorityInstalledFixture } from '../helpers/authority-installed-fixture.mjs';
 
 test(
-  'installed submission fences draft and registry writes under current source and primary authority',
+  'installed local path refuses legacy normal mutation before drafts or registry writes',
   {
     skip:
       process.platform === 'win32'
@@ -111,17 +111,8 @@ test(
     );
     assert.equal(result.status, 0, result.stderr);
     const observed = JSON.parse(result.stdout);
-    assert.equal(observed.changed, observed.sourceAvailable, JSON.stringify(observed));
-    if (!observed.sourceAvailable)
-      assert.match(
-        observed.failure.message,
-        /^Primary admission election refused: source-class-unavailable$/
-      );
-    assert.equal(
-      observed.failure.code,
-      'APR_PRIMARY_AUTHORITY_UNAVAILABLE',
-      JSON.stringify(observed)
-    );
+    assert.equal(observed.changed, false, JSON.stringify(observed));
+    assert.equal(observed.failure.code, 'APR_LEGACY_REVIEW_READ_ONLY', JSON.stringify(observed));
     assert.equal(observed.draftExists, false);
     assert.equal(observed.registryExists, false);
   }

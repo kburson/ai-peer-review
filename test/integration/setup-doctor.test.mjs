@@ -385,7 +385,7 @@ test('historical setup fixture --update refuses a project with no prior package-
   });
 });
 
-test('mutating CLI refuses stale setup package identity before review work', async (t) => {
+test('local CLI requires a real project rather than a stale setup receipt', async (t) => {
   const files = fixture();
   t.after(() => rmSync(files.root, { recursive: true, force: true }));
   const options = {
@@ -419,8 +419,8 @@ test('mutating CLI refuses stale setup package identity before review work', asy
   config.setup.package_version = '0.0.0';
   writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`);
   assert.equal(await run(['resume', 'missing-review'], io), 1);
-  assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
-  assert.match(JSON.parse(output.stderr).recovery, /setup --update --dry-run/i);
+  assert.equal(JSON.parse(output.stderr).code, 'APR_REPOSITORY_NOT_FOUND');
+  assert.match(JSON.parse(output.stderr).recovery, /repository/i);
   output.stderr = '';
   assert.equal(await run(['help', 'setup'], io), 0);
   assert.match(output.stdout, /--remove/);
@@ -434,7 +434,7 @@ test('mutating CLI refuses stale setup package identity before review work', asy
   writeFileSync(skillFile, `${readFileSync(skillFile, 'utf8')}\nchanged\n`);
   output.stderr = '';
   assert.equal(await run(['resume', 'missing-review'], io), 1);
-  assert.equal(JSON.parse(output.stderr).code, 'APR_SETUP_VERSION_MISMATCH');
+  assert.equal(JSON.parse(output.stderr).code, 'APR_REPOSITORY_NOT_FOUND');
   await setup(options);
   assert.equal((await setup(options)).changed, false);
 });
@@ -812,7 +812,7 @@ test('doctor text distinguishes installation health from missing current-session
   assert.doesNotMatch(installed.stdout, /recovery: ai-peer-review build broker-security/i);
 });
 
-test('historical copied setup refuses review startup and reports migration diagnostics', async (t) => {
+test('legacy doctor reports migration diagnostics while local startup requires identity', async (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'apr-setup-start-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   execFileSync('git', ['init', '-b', 'trunk'], { cwd: root, stdio: 'ignore' });
@@ -884,7 +884,7 @@ test('historical copied setup refuses review startup and reports migration diagn
     }
   );
   assert.equal(startupCode, 1, startupError);
-  assert.match(startupError, /APR_SETUP_VERSION_MISMATCH/);
+  assert.equal(JSON.parse(startupError).code, 'APR_IDENTITY_REQUIRED');
   assert.equal(existsSync(path.join(root, '.scratch/peer-review')), false);
 });
 

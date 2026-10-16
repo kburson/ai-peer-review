@@ -591,7 +591,7 @@ test('exact start recovery validates every collision before repairing derived fi
   assert.equal(readFileSync(started.paths.events, 'utf8').trim().split('\n').length, 3);
 });
 
-test('start validates transport and seals the no-commit Git baseline', async (t) => {
+test('start validates transport and omits unrelated Git inventory in local mode', async (t) => {
   const fx = repositoryFixture();
   t.after(fx.cleanup);
   await assert.rejects(
@@ -625,9 +625,11 @@ test('start validates transport and seals the no-commit Git baseline', async (t)
     fixtureStartupDeps
   );
   assert.equal(started.review.commit_mode, 'no-commit');
-  assert.equal(started.review.no_commit_baseline.head.length, 40);
-  assert.match(started.review.no_commit_baseline.index_digest, /^sha256:[0-9a-f]{64}$/);
-  assert.match(started.review.no_commit_baseline.worktree_digest, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(started.review.no_commit_baseline, null);
+  assert.equal(
+    readFileSync(path.join(started.paths.workspace, 'artifacts/start.md'), 'utf8'),
+    readFileSync(path.join(fx.root, 'docs/example.md'), 'utf8')
+  );
   assert.equal(started.review.authority.verifier.assurance_grade, 'test-fixture');
   assert.equal(started.review.bootstrap.challenge.action, 'pin-verifier');
   assert.equal(started.review.bootstrap.attestation.strength, 'unverified-test');
