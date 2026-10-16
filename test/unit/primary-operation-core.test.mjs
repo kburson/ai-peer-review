@@ -387,7 +387,7 @@ test('actual receipt write followed by failed activation read-back remains unkno
     infrastructure: 'may-exist',
   });
 });
-test('actual activation preserves commitment through finalizer refusal or original-budget quiescence refusal', async (t) => {
+test('actual activation preserves observed commitment or retains an unknown original-budget outcome', async (t) => {
   const f = await owned(t, { mutateAfter: true });
   await f.project.setupApply();
   f.project.git('add', '.');
@@ -403,6 +403,55 @@ test('actual activation preserves commitment through finalizer refusal or origin
   if (effectAtReturn !== 'committed') await f.waitCallback();
   const diagnostic = activationDiagnostic(f, failure, effectAtReturn);
   t.diagnostic(diagnostic);
+  if (effectAtReturn === 'unknown') {
+    // A slow stock host can exhaust the original budget after the receipt,
+    // before activation. This proves retained uncertainty, never commitment.
+    assert.equal(failure.code, 'APR_SELECTION_SCOPE_UNAVAILABLE', diagnostic);
+    assert.equal(failure.details?.reason, 'quiescence-unproved', diagnostic);
+    assert.ok(performance.now() >= f.trace.context.deadline, diagnostic);
+    assert.equal(f.trace.context.signal.aborted, false, diagnostic);
+    assert.equal(f.trace.callbackSettled, true, diagnostic);
+    assert.equal(f.trace.callbackFailure?.code, 'APR_PRIMARY_AUTHORITY_UNAVAILABLE', diagnostic);
+    assert.equal(f.effect(), 'unknown', diagnostic);
+    assert.equal(f.trace.mutationApplied, false, diagnostic);
+    assert.equal(f.trace.finalizerReached, false, diagnostic);
+    assert.deepEqual(f.trace.stages, ['possible-attempted', 'possible-accepted'], diagnostic);
+    assert.deepEqual(f.retained(), { receipt: undefined, result: undefined }, diagnostic);
+    assert.deepEqual(selectionScopeOutcome(failure), {
+      effect: 'unknown',
+      completion: 'uncertain',
+      cleanup: 'retained',
+      infrastructure: 'may-exist',
+    });
+    assert.throws(() => f.scope.assertRegistrationAllowed(), {
+      code: 'APR_SELECTION_SCOPE_UNAVAILABLE',
+    });
+    const current = JSON.parse(readFileSync(f.project.registrationPath));
+    const receipts = readdirSync(path.dirname(f.project.registrationPath)).filter((name) =>
+      name.startsWith('receipt-')
+    );
+    assert.equal(receipts.length, 1, diagnostic);
+    const receipt = JSON.parse(
+      readFileSync(path.join(path.dirname(f.project.registrationPath), receipts[0]))
+    );
+    assert.equal(receipt.schema, 'ai-peer-review.primary-maintenance-receipt/v1');
+    assert.equal(receipt.operation, 'activate');
+    assert.equal(receipt.before.primary_initialized, false);
+    assert.equal(receipt.after.primary_initialized, true);
+    assert.deepEqual(current, current.primary_initialized ? receipt.after : receipt.before);
+    assert.deepEqual(
+      JSON.parse(Buffer.from(receipt.before_bytes_base64, 'base64').toString('utf8')),
+      receipt.before
+    );
+    t.diagnostic(
+      'Positive legacy activation/finalizer coverage incomplete on this host: the original deadline expired before commitment was observed; only exact receipt-bound state, retained uncertainty and blocked retry are proven. Local handoffs have no primary activation prerequisite.'
+    );
+    await f.scope.retryCleanup();
+    f.scope.assertRegistrationAllowed();
+    assert.equal(f.effect(), 'unknown');
+    assert.deepEqual(JSON.parse(readFileSync(f.project.registrationPath)), current);
+    return;
+  }
   assert.equal(effectAtReturn, 'committed', diagnostic);
   const actual = JSON.parse(readFileSync(f.project.registrationPath));
   assert.equal(actual.primary_initialized, true);
