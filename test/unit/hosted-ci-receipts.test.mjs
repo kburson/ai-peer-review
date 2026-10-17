@@ -332,3 +332,25 @@ test('[#212] scope job command publishes real selected scope and runner outputs'
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('[#212] native project policy selects scoped proof only on approved source branch', async () => {
+  const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
+  const { workers } = await import('../../scripts/ci/verify-receipts.mjs');
+  assert.equal(projectReceiptScope('codex/190-installed-journeys'), 'linux-macos');
+  for (const branch of ['trunk', 'codex/other', 'HEAD']) {
+    assert.equal(projectReceiptScope(branch), 'all');
+    assert.equal(workers(projectReceiptScope(branch)).length, 37);
+  }
+  const config = JSON.parse(
+    readFileSync(new URL('../../.ai-task-manager/task-tracker.json', import.meta.url), 'utf8')
+  );
+  const provider = config.verificationProvider;
+  for (const steps of [provider.develop.iterationSteps, provider.test.steps]) {
+    const tests = steps.filter((step) => step.kind === 'test');
+    assert.equal(tests.length, 1);
+    assert.equal(tests[0].command, 'node scripts/ci/verify-project-receipts.mjs');
+    assert.equal(tests[0].classification, 'test-cloud-declared-platforms');
+  }
+  for (const coverage of provider.test.declaredCommandCoverage)
+    assert.deepEqual(coverage.requires, ['test-cloud-declared-platforms']);
+});

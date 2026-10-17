@@ -62,9 +62,9 @@
     "develop": {
       "iterationSteps": [
         {
-          "classification": "test-cloud-complete",
+          "classification": "test-cloud-declared-platforms",
           "kind": "test",
-          "command": "node scripts/ci/verify-receipts.mjs"
+          "command": "node scripts/ci/verify-project-receipts.mjs"
         }
       ],
       "finalSteps": [
@@ -84,9 +84,9 @@
       "setup": "npm-ci",
       "steps": [
         {
-          "classification": "test-cloud-complete",
+          "classification": "test-cloud-declared-platforms",
           "kind": "test",
-          "command": "node scripts/ci/verify-receipts.mjs"
+          "command": "node scripts/ci/verify-project-receipts.mjs"
         },
         {
           "classification": "environment-contract-reference",
@@ -97,11 +97,11 @@
       "declaredCommandCoverage": [
         {
           "command": "npm test",
-          "requires": ["test-cloud-complete"]
+          "requires": ["test-cloud-declared-platforms"]
         },
         {
           "command": "npm run test:slow",
-          "requires": ["test-cloud-complete"]
+          "requires": ["test-cloud-declared-platforms"]
         }
       ]
     }
