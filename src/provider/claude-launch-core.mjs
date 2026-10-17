@@ -22,11 +22,13 @@ export function createClaudeLaunchOperations({
   performCurrentOperationEffect,
   assertCurrentOperationAuthority,
   executionOwnsAdmission = () => false,
+  withProviderOperationAuthority = (_input, effect) => effect(),
 }) {
   if (
     typeof performCurrentOperationEffect !== 'function' ||
     typeof assertCurrentOperationAuthority !== 'function' ||
-    typeof executionOwnsAdmission !== 'function'
+    typeof executionOwnsAdmission !== 'function' ||
+    typeof withProviderOperationAuthority !== 'function'
   )
     throw new TypeError('Explicit provider effect authority required');
   const atomicWrite = async (...args) =>
@@ -891,6 +893,8 @@ export function createClaudeLaunchOperations({
   async function runClaudeReviewerLaunch({
     contract,
     resume = false,
+    signal,
+    deadline,
     execFile,
     inspectAuthority = defaultInspectAuthority,
     fingerprintSession = defaultFingerprintSession,
@@ -905,100 +909,135 @@ export function createClaudeLaunchOperations({
         recovery: 'Use a validated package-generated Claude launch contract.',
       });
     }
-    const before = inspectAuthority(contract.workspace);
-    const prior = authorityProjection(before, 'pre-launch');
-    if (prior.protocol.review_id !== contract.review_id) {
-      throw resultError('Claude pre-launch authority does not match the launch contract.');
-    }
-    const priorState = resume
-      ? readLaunchState(contract, fingerprintSession, { allowPriorResponse: true })
-      : null;
-    const staleReviewer = deriveClaimStatus(before.state, 'reviewer', now);
-    const needsReclaim =
-      resume &&
-      staleReviewer.status === 'stale' &&
-      (prior.protocol.state === 'reviewer-turn' ||
-        (prior.protocol.state === 'intervention-required' &&
-          prior.protocol.intervention?.reason === 'stale-claim' &&
-          prior.protocol.intervention?.interrupted_state === 'reviewer-turn'));
-    if (priorState && Number.isSafeInteger(prior.protocol.turns_used)) {
-      const turn = prior.protocol.turns_used + 1;
-      const current = path.basename(contract.response).match(/^(.*reviewer-response-)(\d+)\.md$/u);
-      const previous = path
-        .basename(priorState.response)
-        .match(/^(.*reviewer-response-)(\d+)\.md$/u);
-      const expected = current
-        ? path.join(path.dirname(contract.response), `${current[1]}${turn}.md`)
-        : null;
-      if (
-        (prior.protocol.state !== 'reviewer-turn' && !needsReclaim) ||
-        !Number.isSafeInteger(turn) ||
-        turn < 1 ||
-        !current ||
-        contract.response !== expected ||
-        !previous ||
-        previous[1] !== current[1] ||
-        Number(previous[2]) < 1 ||
-        Number(previous[2]) > turn ||
-        priorState.response !==
-          path.join(path.dirname(contract.response), `${previous[1]}${previous[2]}.md`)
-      ) {
-        throw sessionError(
-          'Claude resume response does not match current reviewer authority.',
-          'Use the event-authorized pending reviewer response from peer-review status.'
-        );
+    const control = (effect) =>
+      withProviderOperationAuthority({ contract, signal, deadline }, effect);
+    const { before, prior, priorState, staleReviewer, needsReclaim, args, environment } =
+      await control(async () => {
+        const before = inspectAuthority(contract.workspace);
+        const prior = authorityProjection(before, 'pre-launch');
+        if (prior.protocol.review_id !== contract.review_id) {
+          throw resultError('Claude pre-launch authority does not match the launch contract.');
+        }
+        const priorState = resume
+          ? readLaunchState(contract, fingerprintSession, { allowPriorResponse: true })
+          : null;
+        const staleReviewer = deriveClaimStatus(before.state, 'reviewer', now);
+        const needsReclaim =
+          resume &&
+          staleReviewer.status === 'stale' &&
+          (prior.protocol.state === 'reviewer-turn' ||
+            (prior.protocol.state === 'intervention-required' &&
+              prior.protocol.intervention?.reason === 'stale-claim' &&
+              prior.protocol.intervention?.interrupted_state === 'reviewer-turn'));
+        if (priorState && Number.isSafeInteger(prior.protocol.turns_used)) {
+          const turn = prior.protocol.turns_used + 1;
+          const current = path
+            .basename(contract.response)
+            .match(/^(.*reviewer-response-)(\d+)\.md$/u);
+          const previous = path
+            .basename(priorState.response)
+            .match(/^(.*reviewer-response-)(\d+)\.md$/u);
+          const expected = current
+            ? path.join(path.dirname(contract.response), `${current[1]}${turn}.md`)
+            : null;
+          if (
+            (prior.protocol.state !== 'reviewer-turn' && !needsReclaim) ||
+            !Number.isSafeInteger(turn) ||
+            turn < 1 ||
+            !current ||
+            contract.response !== expected ||
+            !previous ||
+            previous[1] !== current[1] ||
+            Number(previous[2]) < 1 ||
+            Number(previous[2]) > turn ||
+            priorState.response !==
+              path.join(path.dirname(contract.response), `${previous[1]}${previous[2]}.md`)
+          ) {
+            throw sessionError(
+              'Claude resume response does not match current reviewer authority.',
+              'Use the event-authorized pending reviewer response from peer-review status.'
+            );
+          }
+        }
+        if (priorState && priorState.protocol_revision > prior.protocol.revision) {
+          throw sessionError(
+            'Claude resume state is newer than current review authority.',
+            'Preserve the review and reconcile its event authority before resuming Claude.'
+          );
+        }
+        if (
+          priorState &&
+          prior.reviewer &&
+          prior.reviewer.session_fingerprint !== priorState.session_fingerprint
+        ) {
+          throw new AprError(
+            'APR_IDENTITY_CONFLICT',
+            'Claude resume state conflicts with reviewer.',
+            {
+              recovery: 'Restore the exact registered Claude reviewer session.',
+            }
+          );
+        }
+        const commandArgs = [...contract.command.args];
+        if (resume && prior.reviewer) {
+          // The sealed invitation routes to turn one. A registered participant must
+          // continue the event-authorized response instead of joining that turn again.
+          const promptIndex = commandArgs.indexOf('-p');
+          if (promptIndex < 0) throw resultError('Claude resume prompt is missing.');
+          if (!contract.submit_command && contract.preflight_digest) {
+            throw resultError('Claude preflight resume submit command is missing.');
+          }
+          commandArgs[promptIndex + 1] = [
+            executionPrompt(
+              { ...contract, join_required: false },
+              null,
+              contract.submit_command ??
+                renderClaudeBashCommand(packageCommand('submit', contract.workspace))
+            ),
+            `The current authorized response is ${contract.response}. The original invitation response is historical; do not rejoin.`,
+            'Do not change the shell working directory; use absolute paths with Read, Glob, and Grep.',
+          ].join(' ');
+        }
+        const args = resume
+          ? Object.freeze(['--resume', priorState.session_handle, ...commandArgs])
+          : contract.command.args;
+        const hasEnvironment = Object.hasOwn(contract, 'environment');
+        if (
+          hasEnvironment &&
+          (contract.environment === null ||
+            typeof contract.environment !== 'object' ||
+            Array.isArray(contract.environment))
+        ) {
+          throw new AprError('APR_CLAUDE_RESULT_INVALID', 'Claude child environment is invalid.', {
+            recovery: 'Rebuild the launch contract from current deterministic preflight.',
+          });
+        }
+        const environment = hasEnvironment ? contract.environment : buildClaudeLaunchEnvironment();
+        return { before, prior, priorState, staleReviewer, needsReclaim, args, environment };
+      });
+    async function execute(commandArgs, extraOptions = {}) {
+      const options = {
+        cwd: contract.repository_root,
+        shell: false,
+        encoding: 'utf8',
+        env: environment,
+        maxBuffer: 1024 * 1024,
+        ...extraOptions,
+        control,
+      };
+      if (executionOwnsAdmission(execFile)) {
+        // The genuine factory bounds its spawn. Its wait inherits no control frame.
+        return execFile(contract.command.file, commandArgs, options);
       }
-    }
-    if (priorState && priorState.protocol_revision > prior.protocol.revision) {
-      throw sessionError(
-        'Claude resume state is newer than current review authority.',
-        'Preserve the review and reconcile its event authority before resuming Claude.'
+      const { pending } = await control(() =>
+        performCurrentOperationEffect(() => {
+          const pending = Promise.resolve(execFile(contract.command.file, commandArgs, options));
+          pending.catch(() => {});
+          return { pending };
+        })
       );
+      return pending;
     }
-    if (
-      priorState &&
-      prior.reviewer &&
-      prior.reviewer.session_fingerprint !== priorState.session_fingerprint
-    ) {
-      throw new AprError('APR_IDENTITY_CONFLICT', 'Claude resume state conflicts with reviewer.', {
-        recovery: 'Restore the exact registered Claude reviewer session.',
-      });
-    }
-    const commandArgs = [...contract.command.args];
-    if (resume && prior.reviewer) {
-      // The sealed invitation routes to turn one. A registered participant must
-      // continue the event-authorized response instead of joining that turn again.
-      const promptIndex = commandArgs.indexOf('-p');
-      if (promptIndex < 0) throw resultError('Claude resume prompt is missing.');
-      if (!contract.submit_command && contract.preflight_digest) {
-        throw resultError('Claude preflight resume submit command is missing.');
-      }
-      commandArgs[promptIndex + 1] = [
-        executionPrompt(
-          { ...contract, join_required: false },
-          null,
-          contract.submit_command ??
-            renderClaudeBashCommand(packageCommand('submit', contract.workspace))
-        ),
-        `The current authorized response is ${contract.response}. The original invitation response is historical; do not rejoin.`,
-        'Do not change the shell working directory; use absolute paths with Read, Glob, and Grep.',
-      ].join(' ');
-    }
-    const args = resume
-      ? Object.freeze(['--resume', priorState.session_handle, ...commandArgs])
-      : contract.command.args;
-    const hasEnvironment = Object.hasOwn(contract, 'environment');
-    if (
-      hasEnvironment &&
-      (contract.environment === null ||
-        typeof contract.environment !== 'object' ||
-        Array.isArray(contract.environment))
-    ) {
-      throw new AprError('APR_CLAUDE_RESULT_INVALID', 'Claude child environment is invalid.', {
-        recovery: 'Rebuild the launch contract from current deterministic preflight.',
-      });
-    }
-    const environment = hasEnvironment ? contract.environment : buildClaudeLaunchEnvironment();
     if (needsReclaim) {
       if (
         !priorState ||
@@ -1034,148 +1073,125 @@ export function createClaudeLaunchOperations({
       let recoveredExecution;
       let recoveryError = null;
       try {
-        recoveredExecution = await performCurrentOperationEffect(() => ({
-          pending: execFile(contract.command.file, recoverArgs, {
-            cwd: contract.repository_root,
-            shell: false,
-            encoding: 'utf8',
-            env: environment,
-            maxBuffer: 1024 * 1024,
-            reviewerRecoveryCommand: recoverCommand,
-          }),
-        })).pending;
+        recoveredExecution = await execute(recoverArgs, {
+          reviewerRecoveryCommand: recoverCommand,
+        });
       } catch (cause) {
         recoveryError = cause;
       }
-      assertCurrentOperationAuthority();
-      const recovered = inspectAuthority(contract.workspace);
-      const observed = normalizeClaudeExecution({
-        execution: recoveredExecution,
-        error: recoveryError,
-      });
-      atomicWrite(
-        path.join(contract.workspace, 'provider', 'claude', `recovery-${randomUUID()}.json`),
-        `${JSON.stringify({
-          schema: 'ai-peer-review.claude-recovery-diagnostic/v1',
-          review_id: contract.review_id,
-          claim_id: staleReviewer.claim.claim_id,
-          before_sequence: prior.protocol.sequence,
-          after_sequence: recovered.state.protocol.sequence,
-          observation: observed,
-        })}\n`
-      );
-      const reclaim = recovered.events.find(
-        (event) =>
-          event.sequence > prior.protocol.sequence &&
-          event.type === 'same-session-reclaim' &&
-          event.actor === priorState.session_fingerprint &&
-          event.payload.old_claim.claim_id === staleReviewer.claim.claim_id &&
-          event.payload.new_claim.role === 'reviewer' &&
-          event.payload.new_claim.session_fingerprint === priorState.session_fingerprint
-      );
-      if (
-        !observed.output_valid ||
-        observed.exit_code !== 0 ||
-        observed.interrupted ||
-        observed.provider_failed ||
-        observed.permission_denials.length !== 0 ||
-        observed.session_id !== priorState.session_handle ||
-        !reclaim ||
-        recovered.state.protocol.state !== 'reviewer-turn' ||
-        recovered.state.participants.reviewer.session_fingerprint !==
-          priorState.session_fingerprint ||
-        deriveClaimStatus(recovered.state, 'reviewer', now).status !== 'active' ||
-        recovered.state.protocol.claims.reviewer.claim_id !== reclaim.payload.new_claim.claim_id
-      ) {
-        throw sessionError(
-          'Claude reviewer recovery did not prove same-session reclaim.',
-          'Preserve the recovery output and review events; do not edit, submit, replace, or replay an uncertain reviewer launch.'
+      await control(async () => {
+        await assertCurrentOperationAuthority();
+        const recovered = inspectAuthority(contract.workspace);
+        const observed = normalizeClaudeExecution({
+          execution: recoveredExecution,
+          error: recoveryError,
+        });
+        await atomicWrite(
+          path.join(contract.workspace, 'provider', 'claude', `recovery-${randomUUID()}.json`),
+          `${JSON.stringify({
+            schema: 'ai-peer-review.claude-recovery-diagnostic/v1',
+            review_id: contract.review_id,
+            claim_id: staleReviewer.claim.claim_id,
+            before_sequence: prior.protocol.sequence,
+            after_sequence: recovered.state.protocol.sequence,
+            observation: observed,
+          })}\n`
         );
-      }
+        const reclaim = recovered.events.find(
+          (event) =>
+            event.sequence > prior.protocol.sequence &&
+            event.type === 'same-session-reclaim' &&
+            event.actor === priorState.session_fingerprint &&
+            event.payload.old_claim.claim_id === staleReviewer.claim.claim_id &&
+            event.payload.new_claim.role === 'reviewer' &&
+            event.payload.new_claim.session_fingerprint === priorState.session_fingerprint
+        );
+        if (
+          !observed.output_valid ||
+          observed.exit_code !== 0 ||
+          observed.interrupted ||
+          observed.provider_failed ||
+          observed.permission_denials.length !== 0 ||
+          observed.session_id !== priorState.session_handle ||
+          !reclaim ||
+          recovered.state.protocol.state !== 'reviewer-turn' ||
+          recovered.state.participants.reviewer.session_fingerprint !==
+            priorState.session_fingerprint ||
+          deriveClaimStatus(recovered.state, 'reviewer', now).status !== 'active' ||
+          recovered.state.protocol.claims.reviewer.claim_id !== reclaim.payload.new_claim.claim_id
+        ) {
+          throw sessionError(
+            'Claude reviewer recovery did not prove same-session reclaim.',
+            'Preserve the recovery output and review events; do not edit, submit, replace, or replay an uncertain reviewer launch.'
+          );
+        }
+      });
     }
     let execution;
     let executionError = null;
     try {
-      const executionOptions = {
-        cwd: contract.repository_root,
-        shell: false,
-        encoding: 'utf8',
-        env: environment,
-        maxBuffer: 1024 * 1024,
-      };
-      if (executionOwnsAdmission(execFile)) {
-        // This genuine factory admits its actual spawn itself. Completion is
-        // supervised outside the primary lease, without nested held admission.
-        execution = await execFile(contract.command.file, args, executionOptions);
-      } else {
-        let completion;
-        await performCurrentOperationEffect(() => {
-          // Admission covers initiating the process. The reviewer needs its own
-          // primary admission while it joins and submits; waiting is not an effect.
-          completion = Promise.resolve(execFile(contract.command.file, args, executionOptions));
-          completion.catch(() => {}); // Retain rejection until completion is consumed below.
-        });
-        execution = await completion;
-      }
+      execution = await execute(args);
     } catch (cause) {
       executionError = cause;
     }
-    await assertCurrentOperationAuthority();
-    const after = inspectAuthority(contract.workspace);
-    const providerResult = normalizeClaudeExecution({ execution, error: executionError });
-    const returnedHandle = providerResult.session_id_present ? providerResult.session_id : null;
-    if (
-      providerResult.session_id_present &&
-      (typeof returnedHandle !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(returnedHandle))
-    ) {
-      throw sessionError(
-        'Claude launch returned an invalid provider session.',
-        'Preserve the review and inspect the exact Claude session metadata.'
-      );
-    }
-    if (priorState && returnedHandle !== null && returnedHandle !== priorState.session_handle) {
-      throw sessionError(
-        'Claude resume returned a different provider session.',
-        'Restore the exact recorded Claude session; do not replace reviewer identity.'
-      );
-    }
-    const sessionHandle = returnedHandle ?? priorState?.session_handle ?? null;
-    const expectedSessionFingerprint = sessionHandle
-      ? fingerprintSession('anthropic', sessionHandle)
-      : null;
-    const outcomeInput = {
-      before,
-      after,
-      providerResult,
-      contract,
-      expectedSessionFingerprint,
-    };
-    const first = classifyClaudeReviewerOutcome(outcomeInput);
-    let resumeAvailable = Boolean(priorState);
-    if (providerResult.output_valid && sessionHandle) {
-      await atomicWrite(
-        launchStatePath(contract),
-        `${JSON.stringify(
-          {
-            schema: 'ai-peer-review.claude-launch-state/v1',
-            review_id: contract.review_id,
-            invitation: contract.invitation,
-            response: contract.response,
-            model: contract.model,
-            effort: contract.effort,
-            session_handle: sessionHandle,
-            session_fingerprint: expectedSessionFingerprint,
-            protocol_revision: after.state.protocol.revision,
-          },
-          null,
-          2
-        )}\n`
-      );
-      resumeAvailable = true;
-    }
-    return resumeAvailable
-      ? classifyClaudeReviewerOutcome({ ...outcomeInput, resumeAvailable: true })
-      : first;
+    return control(async () => {
+      await assertCurrentOperationAuthority();
+      const after = inspectAuthority(contract.workspace);
+      const providerResult = normalizeClaudeExecution({ execution, error: executionError });
+      const returnedHandle = providerResult.session_id_present ? providerResult.session_id : null;
+      if (
+        providerResult.session_id_present &&
+        (typeof returnedHandle !== 'string' || !/^[A-Za-z0-9._:-]+$/.test(returnedHandle))
+      ) {
+        throw sessionError(
+          'Claude launch returned an invalid provider session.',
+          'Preserve the review and inspect the exact Claude session metadata.'
+        );
+      }
+      if (priorState && returnedHandle !== null && returnedHandle !== priorState.session_handle) {
+        throw sessionError(
+          'Claude resume returned a different provider session.',
+          'Restore the exact recorded Claude session; do not replace reviewer identity.'
+        );
+      }
+      const sessionHandle = returnedHandle ?? priorState?.session_handle ?? null;
+      const expectedSessionFingerprint = sessionHandle
+        ? fingerprintSession('anthropic', sessionHandle)
+        : null;
+      const outcomeInput = {
+        before,
+        after,
+        providerResult,
+        contract,
+        expectedSessionFingerprint,
+      };
+      const first = classifyClaudeReviewerOutcome(outcomeInput);
+      let resumeAvailable = Boolean(priorState);
+      if (providerResult.output_valid && sessionHandle) {
+        await atomicWrite(
+          launchStatePath(contract),
+          `${JSON.stringify(
+            {
+              schema: 'ai-peer-review.claude-launch-state/v1',
+              review_id: contract.review_id,
+              invitation: contract.invitation,
+              response: contract.response,
+              model: contract.model,
+              effort: contract.effort,
+              session_handle: sessionHandle,
+              session_fingerprint: expectedSessionFingerprint,
+              protocol_revision: after.state.protocol.revision,
+            },
+            null,
+            2
+          )}\n`
+        );
+        resumeAvailable = true;
+      }
+      return resumeAvailable
+        ? classifyClaudeReviewerOutcome({ ...outcomeInput, resumeAvailable: true })
+        : first;
+    });
   }
 
   return Object.freeze({

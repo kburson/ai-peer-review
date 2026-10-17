@@ -225,6 +225,7 @@ export async function run(argv, io) {
           : parsed.command;
     const kind = classifyOperation(operation);
     if (
+      parsed.command === 'launch-reviewer' ||
       kind === 'read' ||
       kind === 'maintenance' ||
       (parsed.command === 'consolidate' && parsed.options.dryRun)

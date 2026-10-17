@@ -23,7 +23,7 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
   const atomicWrite = async (...args) =>
     await performCurrentOperationEffect(() => rawAtomicWrite(...args));
 
-  function createClaudeStreamingExec({ recorder, spawnProcess = spawn } = {}) {
+  function createClaudeStreamingExec({ recorder, createRecorder, spawnProcess = spawn } = {}) {
     return async (file, args, options = {}) => {
       const index = args?.indexOf('--output-format');
       if (index < 0 || args[index + 1] !== 'json')
@@ -31,24 +31,33 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
       const streamArgs = [...args];
       streamArgs[index + 1] = 'stream-json';
       if (!streamArgs.includes('--verbose')) streamArgs.push('--verbose');
-      const lifetime = await performCurrentOperationEffect(() =>
-        spawnProviderProcess(
-          file,
-          streamArgs,
-          {
-            cwd: options.cwd,
-            env: options.env,
-            shell: false,
-            stdio: ['ignore', 'pipe', 'pipe'],
-          },
-          spawnProcess
+      const control = options.control ?? ((effect) => effect());
+      const currentRecorder = createRecorder ? createRecorder(options) : recorder;
+      const lifetime = await control(() =>
+        performCurrentOperationEffect(() =>
+          spawnProviderProcess(
+            file,
+            streamArgs,
+            {
+              cwd: options.cwd,
+              env: options.env,
+              shell: false,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            },
+            spawnProcess
+          )
         )
       );
-      return collectClaudeStream({ child: lifetime.child, recorder, lifetime });
+      return collectClaudeStream({
+        child: lifetime.child,
+        recorder: currentRecorder,
+        lifetime,
+        control,
+      });
     };
   }
 
-  async function collectClaudeStream({ child, recorder, lifetime } = {}) {
+  async function collectClaudeStream({ child, recorder, lifetime, control } = {}) {
     if (!child?.stdout || !child?.stderr || typeof recorder?.accept !== 'function')
       invalid('Claude stream process is incomplete.');
     let stderr = '';
@@ -69,7 +78,7 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
         } catch {
           invalid('Claude stream contains invalid structured JSON.');
         }
-        await recorder.accept(event);
+        await recorder.accept(event, control);
         if (event?.type === 'result') result = event;
       }
       const exitCode = lifetime
@@ -122,7 +131,7 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
       invalid('Claude join command is missing.');
     let initialized = null;
     return Object.freeze({
-      async accept(event) {
+      async accept(event, control = (effect) => effect()) {
         if (event?.type === 'system' && event.subtype === 'init') {
           if (
             initialized ||
@@ -170,7 +179,7 @@ export function createClaudeStreamOperations({ performCurrentOperationEffect }) 
           phase: 'tool-use',
           tool_use_id: calls[0].id,
         };
-        await atomicWrite(file, `${JSON.stringify(observed)}\n`);
+        await control(() => atomicWrite(file, `${JSON.stringify(observed)}\n`));
       },
     });
   }

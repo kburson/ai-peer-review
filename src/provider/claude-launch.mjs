@@ -10,6 +10,17 @@ const operations = createClaudeLaunchOperations({
   performCurrentOperationEffect,
   assertCurrentOperationAuthority,
   executionOwnsAdmission: isAdmissionOwnedClaudeExecutor,
+  withProviderOperationAuthority: (input, effect) =>
+    withOperationAuthority(
+      {
+        operation: 'provider.launch',
+        signal: input.signal,
+        deadline: input.deadline,
+        cwd: input.contract?.repository_root,
+        reviewWorkspace: input.contract?.workspace,
+      },
+      effect
+    ),
 });
 export const {
   buildClaudeLaunchEnvironment,
@@ -25,14 +36,5 @@ export const {
   buildClaudeReviewerResume,
 } = operations;
 export function runClaudeReviewerLaunch(input) {
-  return withOperationAuthority(
-    {
-      operation: 'provider.launch',
-      signal: input?.signal,
-      deadline: input?.deadline,
-      cwd: input?.contract?.repository_root,
-      reviewWorkspace: input?.contract?.workspace,
-    },
-    () => operations.runClaudeReviewerLaunch(input)
-  );
+  return operations.runClaudeReviewerLaunch(input);
 }

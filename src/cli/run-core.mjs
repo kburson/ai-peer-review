@@ -5286,23 +5286,6 @@ export function createReviewOperations({
     }
   }
 
-  // Bind the exact review before legacy checks or any manual-launch bookkeeping.
-  async function runWithReviewAuthority(argv, io) {
-    try {
-      const parsed = parseCommand(argv);
-      if (parsed.command !== 'launch-reviewer') return run(argv, io);
-      const values = invitationValues(path.resolve(io.cwd, parsed.args[0]));
-      return await withReviewOperationAuthority(
-        { operation: 'launch-reviewer', cwd: io.cwd, reviewWorkspace: values.workspace },
-        () => run(argv, io)
-      );
-    } catch (error) {
-      if (!(error instanceof AprError)) throw error;
-      writeJson(io.stderr, error.toJSON());
-      return error.exitCode;
-    }
-  }
-
   async function run(argv, io) {
     try {
       const parsed = parseCommand(argv);
@@ -5468,177 +5451,197 @@ export function createReviewOperations({
       if (parsed.command === 'launch-reviewer') {
         const invitation = path.resolve(io.cwd, parsed.args[0]);
         const values = invitationValues(invitation);
-        const routing = {
-          schema: 'ai-peer-review.invitation-routing/v1',
-          review_id: values.reviewId,
-          artifact: values.artifact,
-          workspace: values.workspace,
-          response: values.response,
-        };
-        if (parsed.options.resume) {
-          const current = statusReview(values.workspace, { now: io.now ?? new Date() });
-          const authority = inspectReviewAuthority(values.workspace).state;
-          const staleIntervention =
-            authority.protocol.state === 'intervention-required' &&
-            authority.protocol.intervention?.reason === 'stale-claim' &&
-            authority.protocol.intervention?.interrupted_state === 'reviewer-turn' &&
-            deriveClaimStatus(authority, 'reviewer', io.now ?? new Date()).status === 'stale';
-          const reclaimReviewer =
-            staleIntervention ||
-            (current.state === 'intervention-required' &&
-              current.claim?.role === 'reviewer' &&
-              current.claim?.status === 'stale');
-          const response = staleIntervention
-            ? sealedPaths(authority).paths.reviewerResponse(authority.protocol.turns_used + 1)
-                .absolute
-            : current.paths.response;
-          if (
-            (current.state !== 'reviewer-turn' && !reclaimReviewer) ||
-            current.paths.invitation !== invitation ||
-            typeof response !== 'string'
-          ) {
-            throw new AprError(
-              'APR_CLAUDE_SESSION_INVALID',
-              'Claude resume has no current reviewer response authority.',
-              { recovery: 'Read peer-review status and resume only its pending reviewer turn.' }
-            );
-          }
-          routing.response = response;
-        }
-        const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
-        const current = inspectReviewAuthority(values.workspace).state;
-        const evidence =
-          current.protocol.startup.runtime?.ownership === 'broker'
-            ? startupEvidence(values.workspace, current)
-            : null;
-        const baseContract = parsed.options.resume
-          ? buildClaudeReviewerResume({
-              repositoryRoot,
-              invitation,
-              routing,
-              runtimeImage: evidence?.journal.runtime,
-            })
-          : buildClaudeReviewerLaunch({
-              repositoryRoot,
-              invitation,
-              routing,
-              model: parsed.options.model,
-              effort: parsed.options.effort,
-              runtimeImage: evidence?.journal.runtime,
-            });
-        const registered = inspectReview(values.workspace).participants.reviewer;
-        const configured = (await loadConfig({ cwd: io.cwd, env: io.env })).config.hosts?.claude
-          ?.identity;
-        const declared = registered
-          ? registered.identity_source === 'declared'
-          : Boolean(configured);
-        const contract = Object.freeze({
-          ...baseContract,
-          environment: Object.freeze({
-            ...withoutProviderIdentity(io.env),
-            ...(!declared
-              ? {
-                  CLAUDE_MODEL_ID: baseContract.model,
-                  CLAUDE_MODEL_DISPLAY: baseContract.model,
-                }
-              : {}),
-          }),
-        });
-        const launchDetails = evidence && {
-          reviewId: values.reviewId,
-          requestDigest: evidence.journal.request_digest,
-          intentDigest: sha256(
-            canonicalProjection({
-              invitation,
-              response: contract.response,
-              model: contract.model,
-              effort: contract.effort,
-              resume: Boolean(parsed.options.resume),
-            })
-          ),
-        };
-        const operation =
-          evidence &&
-          (await reserveManualLaunch(values.workspace, launchDetails, {
-            effect: performCurrentOperationEffect,
-            verifyAuthority() {
-              const fresh = inspectReviewAuthority(values.workspace).state;
-              const observed = startupEvidence(values.workspace, fresh);
-              if (
-                fresh.protocol.review_id !== values.reviewId ||
-                observed.journal.request_digest !== launchDetails.requestDigest ||
-                observed.recovery.fenced ||
-                observed.recovery.suspending ||
-                (!['awaiting-reviewer', 'reviewer-turn'].includes(fresh.protocol.state) &&
-                  !(
-                    parsed.options.resume &&
-                    fresh.protocol.state === 'intervention-required' &&
-                    fresh.protocol.intervention?.reason === 'stale-claim' &&
-                    fresh.protocol.intervention?.interrupted_state === 'reviewer-turn' &&
-                    deriveClaimStatus(fresh, 'reviewer', io.now ?? new Date()).status === 'stale'
-                  ))
-              ) {
-                fail(
-                  'APR_WAKE_OUTCOME_UNKNOWN',
-                  'Manual launch authority changed or is fenced.',
-                  'Read the exact review status and reconcile its launch evidence before retrying.'
-                );
-              }
+        const control = (effect) =>
+          withReviewOperationAuthority(
+            {
+              operation: 'launch-reviewer',
+              cwd: io.cwd,
+              reviewWorkspace: values.workspace,
+              signal: io.signal,
+              deadline: io.deadline,
             },
-          }));
+            effect
+          );
+        const { contract, launchDetails, operation } = await control(async () => {
+          const routing = {
+            schema: 'ai-peer-review.invitation-routing/v1',
+            review_id: values.reviewId,
+            artifact: values.artifact,
+            workspace: values.workspace,
+            response: values.response,
+          };
+          if (parsed.options.resume) {
+            const current = statusReview(values.workspace, { now: io.now ?? new Date() });
+            const authority = inspectReviewAuthority(values.workspace).state;
+            const staleIntervention =
+              authority.protocol.state === 'intervention-required' &&
+              authority.protocol.intervention?.reason === 'stale-claim' &&
+              authority.protocol.intervention?.interrupted_state === 'reviewer-turn' &&
+              deriveClaimStatus(authority, 'reviewer', io.now ?? new Date()).status === 'stale';
+            const reclaimReviewer =
+              staleIntervention ||
+              (current.state === 'intervention-required' &&
+                current.claim?.role === 'reviewer' &&
+                current.claim?.status === 'stale');
+            const response = staleIntervention
+              ? sealedPaths(authority).paths.reviewerResponse(authority.protocol.turns_used + 1)
+                  .absolute
+              : current.paths.response;
+            if (
+              (current.state !== 'reviewer-turn' && !reclaimReviewer) ||
+              current.paths.invitation !== invitation ||
+              typeof response !== 'string'
+            ) {
+              throw new AprError(
+                'APR_CLAUDE_SESSION_INVALID',
+                'Claude resume has no current reviewer response authority.',
+                { recovery: 'Read peer-review status and resume only its pending reviewer turn.' }
+              );
+            }
+            routing.response = response;
+          }
+          const repositoryRoot = (io.repository ?? createGitRepository()).root(io.cwd);
+          const current = inspectReviewAuthority(values.workspace).state;
+          const evidence =
+            current.protocol.startup.runtime?.ownership === 'broker'
+              ? startupEvidence(values.workspace, current)
+              : null;
+          const baseContract = parsed.options.resume
+            ? buildClaudeReviewerResume({
+                repositoryRoot,
+                invitation,
+                routing,
+                runtimeImage: evidence?.journal.runtime,
+              })
+            : buildClaudeReviewerLaunch({
+                repositoryRoot,
+                invitation,
+                routing,
+                model: parsed.options.model,
+                effort: parsed.options.effort,
+                runtimeImage: evidence?.journal.runtime,
+              });
+          const registered = inspectReview(values.workspace).participants.reviewer;
+          const configured = (await loadConfig({ cwd: io.cwd, env: io.env })).config.hosts?.claude
+            ?.identity;
+          const declared = registered
+            ? registered.identity_source === 'declared'
+            : Boolean(configured);
+          const contract = Object.freeze({
+            ...baseContract,
+            environment: Object.freeze({
+              ...withoutProviderIdentity(io.env),
+              ...(!declared
+                ? {
+                    CLAUDE_MODEL_ID: baseContract.model,
+                    CLAUDE_MODEL_DISPLAY: baseContract.model,
+                  }
+                : {}),
+            }),
+          });
+          const launchDetails = evidence && {
+            reviewId: values.reviewId,
+            requestDigest: evidence.journal.request_digest,
+            intentDigest: sha256(
+              canonicalProjection({
+                invitation,
+                response: contract.response,
+                model: contract.model,
+                effort: contract.effort,
+                resume: Boolean(parsed.options.resume),
+              })
+            ),
+          };
+          const operation =
+            evidence &&
+            (await reserveManualLaunch(values.workspace, launchDetails, {
+              effect: performCurrentOperationEffect,
+              verifyAuthority() {
+                const fresh = inspectReviewAuthority(values.workspace).state;
+                const observed = startupEvidence(values.workspace, fresh);
+                if (
+                  fresh.protocol.review_id !== values.reviewId ||
+                  observed.journal.request_digest !== launchDetails.requestDigest ||
+                  observed.recovery.fenced ||
+                  observed.recovery.suspending ||
+                  (!['awaiting-reviewer', 'reviewer-turn'].includes(fresh.protocol.state) &&
+                    !(
+                      parsed.options.resume &&
+                      fresh.protocol.state === 'intervention-required' &&
+                      fresh.protocol.intervention?.reason === 'stale-claim' &&
+                      fresh.protocol.intervention?.interrupted_state === 'reviewer-turn' &&
+                      deriveClaimStatus(fresh, 'reviewer', io.now ?? new Date()).status === 'stale'
+                    ))
+                ) {
+                  fail(
+                    'APR_WAKE_OUTCOME_UNKNOWN',
+                    'Manual launch authority changed or is fenced.',
+                    'Read the exact review status and reconcile its launch evidence before retrying.'
+                  );
+                }
+              },
+            }));
+          return { contract, launchDetails, operation };
+        });
         let response;
         try {
           response = await runClaudeReviewerLaunch({
             contract,
             resume: parsed.options.resume,
+            signal: io.signal,
+            deadline: io.deadline,
             execFile:
               io.execFile ??
-              ((file, args, options) =>
-                createClaudeStreamingExec({
-                  recorder: createClaudeStreamRecorder({
+              createClaudeStreamingExec({
+                createRecorder: (options) =>
+                  createClaudeStreamRecorder({
                     workspace: values.workspace,
                     operationId: `join:${values.reviewId}`,
                     expectedCommand: options.reviewerRecoveryCommand ?? claudeJoinCommand(contract),
                   }),
-                  spawnProcess: io.spawnProcess,
-                })(file, args, options)),
+                spawnProcess: io.spawnProcess,
+              }),
             inspectAuthority: io.inspectAuthority,
             fingerprintSession: io.fingerprintSession,
             now: io.now ?? new Date(),
           });
           if (operation)
-            await settleManualLaunch(
-              values.workspace,
-              launchDetails,
-              operation.id,
-              ['submitted', 'permission-blocked'].includes(response.status)
-                ? 'submitted'
-                : 'outcome-unknown',
-              { effect: performCurrentOperationEffect }
-            );
-        } catch (error) {
-          if (operation && error?.code === 'APR_REVIEWER_SELECTION_REFUSED') {
-            const observationBase = path.join(
-              values.workspace,
-              'provider',
-              'claude',
-              'observations'
-            );
-            const observed = [
-              path.join(
-                observationBase,
-                `${createHash('sha256').update(`join:${values.reviewId}`).digest('hex')}.json`
-              ),
-              path.join(observationBase, `join:${values.reviewId}.json`),
-            ].some(existsSync);
-            if (!observed)
-              await settleManualLaunch(
+            await control(() =>
+              settleManualLaunch(
                 values.workspace,
                 launchDetails,
                 operation.id,
-                'not-submitted',
+                ['submitted', 'permission-blocked'].includes(response.status)
+                  ? 'submitted'
+                  : 'outcome-unknown',
                 { effect: performCurrentOperationEffect }
+              )
+            );
+        } catch (error) {
+          if (operation && error?.code === 'APR_REVIEWER_SELECTION_REFUSED') {
+            await control(async () => {
+              const observationBase = path.join(
+                values.workspace,
+                'provider',
+                'claude',
+                'observations'
               );
+              const observed = [
+                path.join(
+                  observationBase,
+                  `${createHash('sha256').update(`join:${values.reviewId}`).digest('hex')}.json`
+                ),
+                path.join(observationBase, `join:${values.reviewId}.json`),
+              ].some(existsSync);
+              if (!observed)
+                await settleManualLaunch(
+                  values.workspace,
+                  launchDetails,
+                  operation.id,
+                  'not-submitted',
+                  { effect: performCurrentOperationEffect }
+                );
+            });
           }
           throw error;
         }
@@ -6045,7 +6048,7 @@ export function createReviewOperations({
     submitReviewTurn,
     submitAuthorTurn,
     finalizeReview,
-    run: runWithReviewAuthority,
+    run,
     runHandoffMcpStdio,
   });
 }
