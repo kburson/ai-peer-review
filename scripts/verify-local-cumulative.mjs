@@ -14,6 +14,20 @@ const OBSERVATIONS = [
   'evidence/local-handoff/190/2026-10-16-provider-scope-observation.json',
 ];
 const LOCAL = ['paths', 'roles', 'turns', 'locking', 'restart', 'installed', 'limits'];
+const LOCAL_LIMITATIONS = {
+  paths: 'Trusted physical project and exact role paths; no hostile filesystem guarantee.',
+  roles:
+    'Actual recorded Claude tool denials only; author remains instruction-bound; no OS sandbox.',
+  turns: 'Actual historical two-agent accepted turn sequence; no newly launched provider proof.',
+  locking:
+    'Protocol duplicate/ownership controls use declared fixtures; they do not prove an independent provider restriction.',
+  restart:
+    'Historical explicit recovery is limited to its exact completed submission; original uncertain review remains unsettled.',
+  installed:
+    'Fresh installed filesystem/turn/restart controls are hosted Linux/macOS Node24/26 with declared sessions; live Linux manual input excluded.',
+  limits:
+    'Original deadline failure stays failed; no renewed operation budget or provider termination inference.',
+};
 const LOCAL_EVIDENCE = {
   paths: ['test/unit/paths.test.mjs', 'test/integration/submission.test.mjs'],
   roles: [
@@ -236,8 +250,7 @@ export function validateCumulativeEvidence(input) {
       row.id !== LOCAL[index] ||
       row.status !== 'requires-behavioral-verification' ||
       !same(row.evidence, LOCAL_EVIDENCE[row.id]) ||
-      typeof row.limitation !== 'string' ||
-      !row.limitation.trim()
+      row.limitation !== LOCAL_LIMITATIONS[row.id]
     )
       invalid();
   }

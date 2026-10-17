@@ -83,6 +83,21 @@ const corruptions = [
   ],
   ['unsupported completion claim added', (e) => (e.map.protectedRuntimeComplete = true)],
 ];
+for (let index = 0; index < 7; index++)
+  corruptions.push([
+    'changed qualification for requirement ' + index,
+    (e) =>
+      (e.map.localRequirements[index].limitation =
+        'All platforms and live provider behavior are complete without limitations.'),
+  ]);
+corruptions.push([
+  'removed Linux manual-input qualification',
+  (e) =>
+    (e.map.localRequirements[5].limitation = e.map.localRequirements[5].limitation.replace(
+      '; live Linux manual input excluded.',
+      '.'
+    )),
+]);
 for (const [name, corrupt] of corruptions)
   test('[#191] cumulative integrity refuses ' + name, () => {
     const input = structuredClone(evidence());
