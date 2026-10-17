@@ -22,11 +22,12 @@ export function resolveVerificationScope({
     throw new Error('ci-scope: unsupported event');
   if (typeof branch !== 'string' || !branch.trim())
     throw new Error('ci-scope: missing source branch');
-  // This is the human-approved #190 deferral, including its first push and PR.
+  // #213 defers Windows on the feature and its canonical delivery parent,
+  // including the parent push and PR synchronization caused by merging #190.
   if (
     sourceRepository === 'kburson/ai-peer-review' &&
     refType === 'branch' &&
-    branch === 'codex/190-installed-journeys'
+    ['codex/190-installed-journeys', 'codex/171-portable-consumers'].includes(branch)
   )
     return 'linux-macos';
   return eventName === 'workflow_dispatch' ? requestedScope : 'all';

@@ -174,6 +174,64 @@ function expandedWorkers(workflow, scope) {
   return output;
 }
 
+test('[#190] delivery-parent events schedule POSIX workers without reactivating Windows', async () => {
+  const { resolveVerificationScope } = await import('../../scripts/ci/verification-scope.mjs');
+  const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
+  const ci = loadYaml(
+    readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+  );
+  const installed = loadYaml(
+    readFileSync(
+      new URL('../../.github/workflows/installed-portable-journeys.yml', import.meta.url),
+      'utf8'
+    )
+  );
+  for (const eventName of ['push', 'pull_request', 'workflow_dispatch']) {
+    const scope = resolveVerificationScope({
+      eventName,
+      branch: 'codex/171-portable-consumers',
+      sourceRepository: 'kburson/ai-peer-review',
+      refType: 'branch',
+      requestedScope: 'all',
+    });
+    assert.equal(scope, 'linux-macos');
+    const jobs = expandedWorkers(ci, scope);
+    assert.equal(
+      jobs.some((job) => job.os === 'windows-latest'),
+      false
+    );
+    assert.equal(
+      jobs.filter((job) => ['node-24', 'preferred-node', 'phase-2-boundary'].includes(job.key))
+        .length,
+      7
+    );
+    const journeys = expandedWorkers(installed, scope).filter((job) => job.key === 'installed');
+    assert.deepEqual(journeys.map((job) => `${job.node}/${job.os}`).sort(), [
+      '24/macos-latest',
+      '24/ubuntu-latest',
+      '26/macos-latest',
+      '26/ubuntu-latest',
+    ]);
+  }
+  assert.equal(projectReceiptScope('codex/171-portable-consumers'), 'linux-macos');
+  for (const change of [
+    { sourceRepository: 'someone/ai-peer-review' },
+    { refType: 'tag' },
+    { branch: 'codex/171-portable-consumers-extra' },
+  ]) {
+    assert.equal(
+      resolveVerificationScope({
+        eventName: 'push',
+        branch: 'codex/171-portable-consumers',
+        sourceRepository: 'kburson/ai-peer-review',
+        refType: 'branch',
+        ...change,
+      }),
+      'all'
+    );
+  }
+});
+
 test('[#212] event scope keeps #190 POSIX and ordinary branches all-platform', async () => {
   const { resolveVerificationScope, scopePlatforms } =
     await import('../../scripts/ci/verification-scope.mjs');

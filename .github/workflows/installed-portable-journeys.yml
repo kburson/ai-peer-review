@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       verification_scope:
-        description: Declared platform scope; the approved #190 branch always defers Windows
+        description: Declared platform scope; approved feature and delivery branches defer Windows
         required: true
         default: all
         type: choice
@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 jobs:
-  # The exact #190 source branch carries an explicit human-approved Windows deferral.
+  # The exact feature and delivery-parent branches carry the Windows deferral under #213.
   scope:
     name: Verification scope
     runs-on: ubuntu-latest
