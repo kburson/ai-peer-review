@@ -401,3 +401,22 @@ test('[#212] automatic deferral binds the canonical source repository and branch
     assert.equal(env.APR_CI_REF_TYPE, '${{ github.ref_type }}');
   }
 });
+
+test('[#212] native detached verification retains only the exact approved issue source', async () => {
+  const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
+  const head = 'a'.repeat(40);
+  const context = { issueNumber: 212, sourceHead: head, branchHead: head, publishedHead: head };
+  assert.equal(projectReceiptScope('HEAD', context), 'linux-macos');
+  assert.equal(projectReceiptScope('HEAD', { ...context, issueNumber: 190 }), 'linux-macos');
+  for (const changed of [
+    { issueNumber: 213 },
+    { issueNumber: undefined },
+    { branchHead: 'b'.repeat(40) },
+    { publishedHead: 'b'.repeat(40) },
+    { sourceHead: undefined },
+    { sourceHead: 'invalid' },
+  ])
+    assert.equal(projectReceiptScope('HEAD', { ...context, ...changed }), 'all');
+  for (const branch of ['trunk', 'codex/other'])
+    assert.equal(projectReceiptScope(branch, context), 'all');
+});
