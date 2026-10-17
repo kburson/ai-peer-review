@@ -2,7 +2,7 @@ name: Installed portable journeys
 
 on:
   push:
-    branches: [codex/190-installed-journeys]
+    branches: [codex/190-installed-journeys, codex/171-fresh-continuation]
     paths:
       - 'src/**'
       - 'test/**'

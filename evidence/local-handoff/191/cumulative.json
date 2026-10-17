@@ -1,0 +1,191 @@
+{
+  "schema": "ai-peer-review.local-cumulative/v1",
+  "deliveredHead": "67a5dd5463f51d29c2711469b2c7b2814ed982f4",
+  "scope": "local-evidence-integrity",
+  "windows": "deferred under #213; unverified",
+  "currentProviderProof": false,
+  "originalObligations": [
+    {
+      "id": "171:1",
+      "text": "Write RED mapping every current native consumer, re-derived from the complete src/bin graph at child Develop entry: canonical path/principal, bootstrap reads/create, provider-resource acquire/verify/release/abandon, owner/endpoint publication, client join/status/stop, manual suspension and cleanup. Cover stale #102 selection, unaccepted class/protection and attempt to route through native fallback.",
+      "source": "dd1e1fc70b19c8830be086bf7b2b32c42096e8b2:docs/superpowers/plans/2026-10-06-141-protected-storage-ownership-decomposition.md",
+      "originalOwner": 186,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "171:2",
+      "text": "Create the portable-consumer inventory verifier and statically walk the complete src/bin import graph. Portable operational paths must have no reachable platformSecurity, inspectPlatformSecurity, loadBinding, peerUser or native handle operations. Enumerate residuals with explicit owner/disposition: #107 Task4 (#143) removes legacy build/load/native inventory branches, which must already be unreachable from C6 portable operations. Every new consumer needs an owned migration row before C6/root acceptance. Preserve #102 primary admission, authority fences and current-selection semantics across async guarded operations; no native compatibility shim.",
+      "source": "dd1e1fc70b19c8830be086bf7b2b32c42096e8b2:docs/superpowers/plans/2026-10-06-141-protected-storage-ownership-decomposition.md",
+      "originalOwner": 186,
+      "status": "broader-unverified",
+      "remainingOwners": [141, 143]
+    },
+    {
+      "id": "171:3",
+      "text": "Initialize actual OS/protection/source operations before canonical identity and propagate async results through consumers; a renamed sync method backed by the native loader is not portable. Preserve #102's selected/current runtime, operation fences, registry and cleanup predicates across awaits.",
+      "source": "dd1e1fc70b19c8830be086bf7b2b32c42096e8b2:docs/superpowers/plans/2026-10-06-141-protected-storage-ownership-decomposition.md",
+      "originalOwner": 187,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "171:4",
+      "text": "Migrate provider-exclusive resources through C3’s independent protected election roots, exact session/nonce identity and indeterminate outcomes. primary-admission’s exclusive lock is a separate primary-selection resource migrated to the same algorithm and its own slots, never a nested broker-owner lock. Manual fencing retains the election across registry/wake/manual-launch reconciliation and durable suspension, or sends authenticated suspend to a proved live broker.",
+      "source": "dd1e1fc70b19c8830be086bf7b2b32c42096e8b2:docs/superpowers/plans/2026-10-06-141-protected-storage-ownership-decomposition.md",
+      "originalOwner": 188,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "171:5",
+      "text": "Wire the #140 async HTTP lifecycle only after actual protection/ownership and restoration of workers. Discovery is credential-free; no synthetic peerUser. Prove async readiness, stopped response drain and retained ownership on cleanup failure.",
+      "source": "dd1e1fc70b19c8830be086bf7b2b32c42096e8b2:docs/superpowers/plans/2026-10-06-141-protected-storage-ownership-decomposition.md",
+      "originalOwner": 189,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "171:6",
+      "text": "Install actual candidate bytes on fresh unregistered user/worktree roots without source receipts, registration indexes or keys. Match accepted shipped class and loaded source hashes, start/crash/observe absent PID/reclaim under the same budget, reject tampered/widened classes and test reuse/overlap only within genuine creation-class coverage.",
+      "source": "dd1e1fc70b19c8830be086bf7b2b32c42096e8b2:docs/superpowers/plans/2026-10-06-141-protected-storage-ownership-decomposition.md",
+      "originalOwner": 190,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "171:7",
+      "text": "Execute real target-OS ACL/bootstrap and owned manual-recovery journeys; retain exact honest capability limitations. No final native-free package claim before #107 Task4 closure, no production activation before its accepted pair, and no descendant/effect-discharge claim belonging to #107 Task17.",
+      "source": "dd1e1fc70b19c8830be086bf7b2b32c42096e8b2:docs/superpowers/plans/2026-10-06-141-protected-storage-ownership-decomposition.md",
+      "originalOwner": 190,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "171:8",
+      "text": "Run GREEN and commit; root #141 then rechecks the original whole #107 Task2 criterion and its complete verification commands against actual merged children and exact-head CI receipts.",
+      "source": "dd1e1fc70b19c8830be086bf7b2b32c42096e8b2:docs/superpowers/plans/2026-10-06-141-protected-storage-ownership-decomposition.md",
+      "originalOwner": 141,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "191:1",
+      "text": "RED: inject reachable native alias/default/dynamic edge, omit original row or add unowned imported consumer to an otherwise complete graph.",
+      "source": "c11a4987c0cd0ff0270885d3ec97f30fa26273a1:docs/superpowers/plans/2026-10-08-171-portable-consumer-decomposition.md",
+      "originalOwner": 191,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "191:2",
+      "text": "Derive actual final merged src/bin graph and compare every original/current row; unresolved analysis and reachable native residuals refuse.",
+      "source": "c11a4987c0cd0ff0270885d3ec97f30fa26273a1:docs/superpowers/plans/2026-10-08-171-portable-consumer-decomposition.md",
+      "originalOwner": 191,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "191:3",
+      "text": "Recheck exact normal new-contract proof/ledger and actual fresh installed/OS/manual/cleanup evidence. Stale/incomplete evidence blocks whole171.",
+      "source": "c11a4987c0cd0ff0270885d3ec97f30fa26273a1:docs/superpowers/plans/2026-10-08-171-portable-consumer-decomposition.md",
+      "originalOwner": 191,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    },
+    {
+      "id": "191:4",
+      "text": "GREEN original171 commands and exact hosted/native checks. Root171 then root141 reverify original whole107Task2; no Scope or later release gate disappears.",
+      "source": "c11a4987c0cd0ff0270885d3ec97f30fa26273a1:docs/superpowers/plans/2026-10-08-171-portable-consumer-decomposition.md",
+      "originalOwner": 191,
+      "status": "broader-unverified",
+      "remainingOwners": [141]
+    }
+  ],
+  "localRequirements": [
+    {
+      "id": "paths",
+      "status": "requires-behavioral-verification",
+      "evidence": ["test/unit/paths.test.mjs", "test/integration/submission.test.mjs"],
+      "limitation": "Trusted physical project and exact role paths; no hostile filesystem guarantee."
+    },
+    {
+      "id": "roles",
+      "status": "requires-behavioral-verification",
+      "evidence": [
+        "test/unit/claude-launch-permissions.test.mjs",
+        "test/integration/claude-launch-permissions.test.mjs",
+        "evidence/local-handoff/190/2026-10-16-provider-scope-observation.json"
+      ],
+      "limitation": "Actual recorded Claude tool denials only; author remains instruction-bound; no OS sandbox."
+    },
+    {
+      "id": "turns",
+      "status": "requires-behavioral-verification",
+      "evidence": [
+        "test/integration/submission.test.mjs",
+        "evidence/local-handoff/190/2026-10-16-host-observation.json"
+      ],
+      "limitation": "Actual historical two-agent accepted turn sequence; no newly launched provider proof."
+    },
+    {
+      "id": "locking",
+      "status": "requires-behavioral-verification",
+      "evidence": [
+        "test/integration/submission.test.mjs",
+        "test/unit/installed-handoff-evidence.test.mjs"
+      ],
+      "limitation": "Protocol duplicate/ownership controls use declared fixtures; they do not prove an independent provider restriction."
+    },
+    {
+      "id": "restart",
+      "status": "requires-behavioral-verification",
+      "evidence": [
+        "test/unit/installed-handoff-lifecycle.test.mjs",
+        "test/unit/installed-handoff-evidence.test.mjs",
+        "evidence/local-handoff/190/2026-10-16-host-observation.json"
+      ],
+      "limitation": "Historical explicit recovery is limited to its exact completed submission; original uncertain review remains unsettled."
+    },
+    {
+      "id": "installed",
+      "status": "requires-behavioral-verification",
+      "evidence": ["test/helpers/installed-local-ci.mjs", "evidence/local-handoff/190/README.md"],
+      "limitation": "Fresh installed filesystem/turn/restart controls are hosted Linux/macOS Node24/26 with declared sessions; live Linux manual input excluded."
+    },
+    {
+      "id": "limits",
+      "status": "requires-behavioral-verification",
+      "evidence": [
+        "test/integration/claude-launch-lifetime.test.mjs",
+        "evidence/local-handoff/190/README.md"
+      ],
+      "limitation": "Original deadline failure stays failed; no renewed operation budget or provider termination inference."
+    }
+  ],
+  "failedBroadGraph": {
+    "sha256": "af68d1380c0dfbcae54ca431bfb881aa94e752250e9b9473d9353b2acc3ceafe",
+    "blockers": 6935,
+    "moduleCount": 186,
+    "edgeCount": 28908,
+    "counts": {
+      "reachable-native-operation": 3,
+      "external-implementation-dependency": 5,
+      "unknown-handle-origin": 6886,
+      "unresolved-process-entry": 24,
+      "unawaited-resource-lease": 11,
+      "reachable-native-load": 5,
+      "observed-graph-mismatch": 1
+    }
+  },
+  "observations": [
+    {
+      "path": "evidence/local-handoff/190/2026-10-16-host-observation.json",
+      "sha256": "e10518985be343172be541233f5aea99b36ac1f9ddc06cd039395decb6820e82"
+    },
+    {
+      "path": "evidence/local-handoff/190/2026-10-16-provider-scope-observation.json",
+      "sha256": "ee2db91ca90faa3beeddf89a05111843d1e6a92891d4e181380d8ed864b4f37c"
+    }
+  ]
+}

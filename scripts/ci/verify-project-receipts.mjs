@@ -1,5 +1,5 @@
 // @story #212
-// Native project gate: explicit #190 POSIX deferral, all-platform proof elsewhere.
+// Native project gate: exact approved POSIX refs; all-platform proof elsewhere.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -9,11 +9,13 @@ import { verifyCloudReceipts } from './verify-receipts.mjs';
 export function projectReceiptScope(branch, context = {}) {
   // AITM Test uses a detached worktree and supplies its issue number. That
   // context only selects the approved request; it cannot supply CI evidence.
-  // Require both real source refs to bind this request to the published #190
-  // source, and preserve all-platform requirements for every other issue.
+  // Require both real source refs to bind this request to the published source.
+  // The cumulative continuation has its own exact issue and source branch pair.
   if (
     branch === 'HEAD' &&
-    [190, 212].includes(context.issueNumber) &&
+    ([190, 212].includes(context.issueNumber) ||
+      ([191, 171].includes(context.issueNumber) &&
+        context.sourceBranch === 'codex/171-fresh-continuation')) &&
     /^[a-f0-9]{40}$/.test(context.sourceHead ?? '') &&
     context.sourceHead === context.branchHead &&
     context.sourceHead === context.publishedHead
@@ -33,7 +35,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     encoding: 'utf8',
   }).trim();
   const context = { issueNumber: Number(process.env.AITM_TEST_ISSUE_NUMBER) };
-  if (branch === 'HEAD' && [190, 212].includes(context.issueNumber)) {
+  if (branch === 'HEAD' && [190, 212, 191, 171].includes(context.issueNumber)) {
     const ref = (name) => {
       try {
         return execFileSync('git', ['rev-parse', '--verify', name], {
@@ -44,9 +46,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         return null; // Missing or unreadable refs never request the exception.
       }
     };
+    context.sourceBranch = [191, 171].includes(context.issueNumber)
+      ? 'codex/171-fresh-continuation'
+      : 'codex/190-installed-journeys';
     context.sourceHead = ref('HEAD');
-    context.branchHead = ref('refs/heads/codex/190-installed-journeys');
-    context.publishedHead = ref('refs/remotes/origin/codex/190-installed-journeys');
+    context.branchHead = ref('refs/heads/' + context.sourceBranch);
+    context.publishedHead = ref('refs/remotes/origin/' + context.sourceBranch);
   }
   console.log(
     JSON.stringify(verifyCloudReceipts({ scope: projectReceiptScope(branch, context) }), null, 2)

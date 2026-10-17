@@ -478,3 +478,82 @@ test('[#212] native detached verification retains only the exact approved issue 
   for (const branch of ['trunk', 'codex/other'])
     assert.equal(projectReceiptScope(branch, context), 'all');
 });
+
+test('[#191] fresh continuation events allocate no Windows workers', async () => {
+  const { resolveVerificationScope } = await import('../../scripts/ci/verification-scope.mjs');
+  const ci = loadYaml(
+    readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+  );
+  const own = {
+    branch: 'codex/171-fresh-continuation',
+    sourceRepository: 'kburson/ai-peer-review',
+    refType: 'branch',
+  };
+  for (const eventName of ['push', 'pull_request', 'workflow_dispatch']) {
+    const scope = resolveVerificationScope({ ...own, eventName });
+    assert.equal(scope, 'linux-macos');
+    const jobs = expandedWorkers(ci, scope);
+    assert.equal(
+      jobs.some((job) => job.os === 'windows-latest'),
+      false
+    );
+    assert.equal(
+      jobs.filter((job) => ['node-24', 'preferred-node', 'phase-2-boundary'].includes(job.key))
+        .length,
+      7
+    );
+  }
+  for (const changed of [
+    { branch: 'codex/171-fresh-continuation-other' },
+    { sourceRepository: 'someone/ai-peer-review' },
+    { refType: 'tag' },
+  ])
+    assert.equal(resolveVerificationScope({ ...own, eventName: 'push', ...changed }), 'all');
+  const installed = loadYaml(
+    readFileSync(
+      new URL('../../.github/workflows/installed-portable-journeys.yml', import.meta.url),
+      'utf8'
+    )
+  );
+  assert.ok(installed.on.push.branches.includes('codex/171-fresh-continuation'));
+});
+
+test('[#191] detached cumulative verification requires exact continuation ref evidence', async () => {
+  const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
+  const head = 'c'.repeat(40);
+  const context = {
+    sourceBranch: 'codex/171-fresh-continuation',
+    sourceHead: head,
+    branchHead: head,
+    publishedHead: head,
+  };
+  for (const issueNumber of [191, 171]) {
+    assert.equal(projectReceiptScope('HEAD', { ...context, issueNumber }), 'linux-macos');
+    for (const change of [
+      { sourceBranch: undefined },
+      { sourceBranch: 'codex/other' },
+      { branchHead: 'b'.repeat(40) },
+      { publishedHead: undefined },
+      { sourceHead: 'invalid' },
+    ])
+      assert.equal(projectReceiptScope('HEAD', { ...context, issueNumber, ...change }), 'all');
+  }
+  assert.equal(projectReceiptScope('HEAD', { ...context, issueNumber: 213 }), 'all');
+});
+
+test('[#171] integration-parent push keeps Windows deferred before child delivery', async () => {
+  const { resolveVerificationScope } = await import('../../scripts/ci/verification-scope.mjs');
+  const context = {
+    eventName: 'push',
+    branch: 'feature/child/141',
+    sourceRepository: 'kburson/ai-peer-review',
+    refType: 'branch',
+  };
+  assert.equal(resolveVerificationScope(context), 'linux-macos');
+  for (const change of [
+    { branch: 'feature/child/141-other' },
+    { sourceRepository: 'someone/ai-peer-review' },
+    { refType: 'tag' },
+  ])
+    assert.equal(resolveVerificationScope({ ...context, ...change }), 'all');
+});

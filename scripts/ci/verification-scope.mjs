@@ -27,7 +27,12 @@ export function resolveVerificationScope({
   if (
     sourceRepository === 'kburson/ai-peer-review' &&
     refType === 'branch' &&
-    ['codex/190-installed-journeys', 'codex/171-portable-consumers'].includes(branch)
+    [
+      'codex/190-installed-journeys',
+      'codex/171-portable-consumers',
+      'codex/171-fresh-continuation',
+      'feature/child/141',
+    ].includes(branch)
   )
     return 'linux-macos';
   return eventName === 'workflow_dispatch' ? requestedScope : 'all';
