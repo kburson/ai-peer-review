@@ -6,6 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      verification_scope:
+        description: Declared platform scope; the approved #190 branch always defers Windows
+        required: true
+        default: all
+        type: choice
+        options: [all, linux-macos]
       live_claude:
         description: Run the optional disposable Claude permission conformance probe
         required: false
@@ -32,12 +38,35 @@ concurrency:
 # Native broker build and verification paused for #102/#107.
 # Source suites report broker exclusions until #107 replaces native transport.
 jobs:
+  # The exact #190 source branch carries an explicit human-approved Windows deferral.
+  scope:
+    name: Verification scope
+    runs-on: ubuntu-latest
+    outputs:
+      scope: ${{ steps.selected.outputs.scope }}
+      os: ${{ steps.selected.outputs.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Select declared platform scope
+        id: selected
+        env:
+          APR_CI_EVENT_NAME: ${{ github.event_name }}
+          APR_CI_SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
+          APR_CI_REQUESTED_SCOPE: ${{ inputs.verification_scope || 'all' }}
+        run: node scripts/ci/verification-scope.mjs
+      - name: 'Declare scope: ${{ steps.selected.outputs.scope }}'
+        run: node -e "console.log('Verification scope declared.')"
+
   node-24:
+    needs: scope
     name: Node 24 / ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.scope.outputs.os) }}
     runs-on: ${{ matrix.os }}
     env:
       APR_CI_JOB_KEY: node-24-24-${{ matrix.os }}
@@ -103,12 +132,13 @@ jobs:
           if-no-files-found: error
 
   preferred-node:
+    needs: scope
     name: Node ${{ matrix.node }} / ${{ matrix.os == 'ubuntu-latest' && 'Ubuntu' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         node: ['26', 'current']
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.scope.outputs.os) }}
     runs-on: ${{ matrix.os }}
     env:
       APR_CI_JOB_KEY: preferred-node-${{ matrix.node }}-${{ matrix.os }}
@@ -176,6 +206,8 @@ jobs:
   # Dedicated machines retain every owner case without loading the baseline's
   # expensive stock Windows probes at the same time. Each partition publishes receipts.
   owner-publication-windows:
+    needs: scope
+    if: needs.scope.outputs.scope == 'all'
     name: Owner publication ${{ matrix.group }} / Node ${{ matrix.node }} / windows-latest
     strategy:
       fail-fast: false
@@ -227,6 +259,8 @@ jobs:
           if-no-files-found: error
 
   portable-ownership-windows:
+    needs: scope
+    if: needs.scope.outputs.scope == 'all'
     name: Portable ownership / Node ${{ matrix.node }} / windows-latest
     strategy:
       fail-fast: false
@@ -402,6 +436,8 @@ jobs:
           if-no-files-found: error
 
   portable-units:
+    needs: scope
+    if: needs.scope.outputs.scope == 'all'
     name: Portable units / ${{ matrix.group }} / Node ${{ matrix.node }} / windows-latest
     runs-on: windows-latest
     strategy:

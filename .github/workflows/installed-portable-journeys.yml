@@ -6,17 +6,50 @@ on:
     paths:
       - 'src/**'
       - 'test/**'
+      - 'scripts/ci/**'
+      - .ai-task-manager/task-tracker.json
+      - .github/workflows/ci.yml
       - scripts/pack-runtime.mjs
       - package.json
       - package-lock.json
       - .github/workflows/installed-portable-journeys.yml
   workflow_dispatch:
+    inputs:
+      verification_scope:
+        description: Declared platform scope; the approved #190 branch always defers Windows
+        required: true
+        default: all
+        type: choice
+        options: [all, linux-macos]
 
 permissions:
   contents: read
 
 jobs:
+  # The exact #190 source branch carries an explicit human-approved Windows deferral.
+  scope:
+    name: Verification scope
+    runs-on: ubuntu-latest
+    outputs:
+      scope: ${{ steps.selected.outputs.scope }}
+      os: ${{ steps.selected.outputs.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Select declared platform scope
+        id: selected
+        env:
+          APR_CI_EVENT_NAME: ${{ github.event_name }}
+          APR_CI_SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
+          APR_CI_REQUESTED_SCOPE: ${{ inputs.verification_scope || 'all' }}
+        run: node scripts/ci/verification-scope.mjs
+      - name: 'Declare scope: ${{ steps.selected.outputs.scope }}'
+        run: node -e "console.log('Verification scope declared.')"
+
   installed:
+    needs: scope
     name: Local handoff / Node ${{ matrix.node }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -25,7 +58,7 @@ jobs:
       max-parallel: 4
       matrix:
         node: ['24', '26']
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.scope.outputs.os) }}
     steps:
       - name: Enable Windows long checkout paths
         if: runner.os == 'Windows'
