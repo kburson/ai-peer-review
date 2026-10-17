@@ -2,6 +2,14 @@
 
 ## Active simple local handoff amendment
 
+Owner approval in the fresh171 continuation on2026-10-17 applies this amendment
+to remaining child191 and171 cumulative acceptance. The
+[191 cumulative plan](./2026-10-17-191-cumulative-local-acceptance.md) retains every
+original obligation/status/owner and the failed broad graph; its local evidence
+integrity result cannot satisfy broader conformance. Windows remains indefinitely
+deferred under standalone213 and cannot block191/171. This is an acceptance-scope
+amendment, not a claim that the historical whole graph passed.
+
 The user's 2026-10-16 direction selects trusted agents already permitted to work
 in one local project. The [simple handoff design](../specs/2026-10-16-190-trusted-local-storage-design.md) and
 [implementation plan](./2026-10-16-190-trusted-local-storage.md) govern that workflow. Reviewer writes only its
