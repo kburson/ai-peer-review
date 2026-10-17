@@ -91,6 +91,10 @@ function validManifest(overrides = {}) {
         'evidence/local-handoff/190/2026-10-16-host-observation.json',
         'evidence/local-handoff/190/2026-10-16-provider-scope-observation.json',
         'evidence/local-handoff/190/README.md',
+        'evidence/local-handoff/191/README.md',
+        'evidence/local-handoff/191/cumulative.json',
+        'evidence/local-handoff/191/failed-broad-graph.json',
+        'scripts/verify-local-cumulative.mjs',
         '.ai-peer-review.json',
         '.ai-peer-review/config.json',
         '.ai-peer-review/skills/peer-review/SKILL.md',
@@ -831,7 +835,14 @@ test('primary policy paths are admitted while neighboring private state remains 
 test('[#190] admits only the exact public local handoff observations', async () => {
   const declared=['evidence/local-handoff/190/2026-10-16-host-observation.json','evidence/local-handoff/190/2026-10-16-provider-scope-observation.json','evidence/local-handoff/190/README.md'];
   await verifyExtraction({root:'/repo',manifest:validManifest(),runGit:fakeGit({current:['LICENSE',...declared].join('\n')})});
-  for(const foreign of ['evidence/local-handoff/190/private.json','evidence/local-handoff/191/README.md']) await assert.rejects(verifyExtraction({root:'/repo',manifest:validManifest(),runGit:fakeGit({current:['LICENSE',...declared,foreign].join('\n')})}),/foreign standalone paths/);
+  for(const foreign of ['evidence/local-handoff/190/private.json','evidence/local-handoff/191/private.json']) await assert.rejects(verifyExtraction({root:'/repo',manifest:validManifest(),runGit:fakeGit({current:['LICENSE',...declared,foreign].join('\n')})}),/foreign standalone paths/);
+});
+
+test('[#191] admits only the exact cumulative artifacts and development verifier', async () => {
+  const declared = ['evidence/local-handoff/191/README.md', 'evidence/local-handoff/191/cumulative.json', 'evidence/local-handoff/191/failed-broad-graph.json', 'scripts/verify-local-cumulative.mjs'];
+  await verifyExtraction({ root: '/repo', manifest: validManifest(), runGit: fakeGit({ current: ['LICENSE', ...declared].join('\n') }) });
+  for (const foreign of ['evidence/local-handoff/191/private.json', 'evidence/local-handoff/192/README.md', 'scripts/verify-local-cumulative-copy.mjs'])
+    await assert.rejects(verifyExtraction({ root: '/repo', manifest: validManifest(), runGit: fakeGit({ current: ['LICENSE', ...declared, foreign].join('\n') }) }), /foreign standalone paths/);
 });
 
 // @story #212
