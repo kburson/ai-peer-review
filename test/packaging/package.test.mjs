@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { load } from 'js-yaml';
 import { LANES } from '../../scripts/ci/receipt.mjs';
+import { scopePlatforms, resolveVerificationScope } from '../../scripts/ci/verification-scope.mjs';
 import { fileURLToPath } from 'node:url';
 
 import { parseNpmPackOutput, runNpm, runRuntimePack } from '../helpers/npm-command.mjs';
@@ -229,12 +230,10 @@ test('public exports and command guidance remain narrow and installation-aware',
 
 test('workflows retain complete platform and release safety gates', () => {
   const ci = readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
+  const workflow = load(ci);
   for (const required of [
     'actions/checkout@v6',
     'actions/setup-node@v6',
-    'ubuntu-latest',
-    'macos-latest',
-    'windows-latest',
     'npm run format:check',
     'npm run lint',
     'npm run pack:runtime -- --dry-run',
@@ -250,10 +249,30 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.match(live, /test\/live\/claude-live-conformance\.mjs/);
   assert.match(live, /runner\.temp/);
   assert.match(live, /upload-artifact/);
-  assert.doesNotMatch(live, /needs:/);
-  const minimumNode = ci.match(/node-24:[\s\S]*?\n  preferred-node:/)?.[0] ?? '';
-  assert.match(minimumNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
-  const workflow = load(ci);
+  assert.equal(workflow.jobs['live-provider-optional'].needs, undefined);
+  // #212: platform safety is the resolved default matrix, not a literal list
+  // in YAML. A scoped #190 run still cannot stand in for this all-platform gate.
+  const defaultScope = resolveVerificationScope({
+    eventName: 'push',
+    branch: 'trunk',
+    sourceRepository: 'kburson/ai-peer-review',
+    refType: 'branch',
+  });
+  assert.equal(defaultScope, 'all');
+  assert.deepEqual(scopePlatforms(defaultScope), [
+    'ubuntu-latest',
+    'macos-latest',
+    'windows-latest',
+  ]);
+  assert.equal(workflow.jobs.scope.outputs.os, '${{ steps.selected.outputs.os }}');
+  assert.equal(
+    workflow.jobs.scope.steps.find((step) => step.id === 'selected').run,
+    'node scripts/ci/verification-scope.mjs'
+  );
+  for (const key of ['node-24', 'preferred-node']) {
+    assert.equal(workflow.jobs[key].needs, 'scope');
+    assert.equal(workflow.jobs[key].strategy.matrix.os, '${{ fromJSON(needs.scope.outputs.os) }}');
+  }
   assert.equal(workflow.env.APR_SKIP_NATIVE_BROKER_TESTS, '1');
   const requiredLanes = {
     fast: ['npm', 'test'],
@@ -277,8 +296,7 @@ test('workflows retain complete platform and release safety gates', () => {
     assert.equal(uploads[0].with['include-hidden-files'], true);
   }
   const preferredNode = ci.match(/preferred-node:[\s\S]*?\n  npm-pack-compatibility:/)?.[0] ?? '';
-  assert.match(preferredNode, /os: \[ubuntu-latest, macos-latest, windows-latest\]/);
-  assert.match(preferredNode, /runs-on: \$\{\{ matrix\.os \}\}/);
+  assert.equal(workflow.jobs['preferred-node']['runs-on'], '${{ matrix.os }}');
   for (const job of Object.values(workflow.jobs)) {
     for (const step of job.steps) {
       assert.doesNotMatch(step.run ?? '', /build:broker-security|node-gyp/);
