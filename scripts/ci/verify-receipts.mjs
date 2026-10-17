@@ -15,11 +15,14 @@ import {
   validateTestedCommit,
 } from './receipt.mjs';
 
+import { scopePlatforms } from './verification-scope.mjs';
+
 import { WINDOWS_PORTABLE_UNIT_GROUPS } from '../../test/helpers/suite-plan.mjs';
 
 const OS = { 'ubuntu-latest': 'Linux', 'macos-latest': 'macOS', 'windows-latest': 'Windows' };
 const baselineLanes = ['fast', 'integration', 'mcp', 'packaging', 'smoke'];
-export function workers() {
+export function workers(scope = 'all') {
+  scopePlatforms(scope);
   const result = [];
   for (const [os, runnerOS] of Object.entries(OS)) {
     result.push({ key: 'node-24-24-' + os, name: 'Node 24 / ' + os, matrixNode: '24', runnerOS });
@@ -68,19 +71,23 @@ export function workers() {
         runnerOS: 'Windows',
         lanes: ['portable-unit-' + group, 'portable-integration-' + group],
       });
-  return result;
+  return scope === 'all' ? result : result.filter((worker) => worker.runnerOS !== 'Windows');
 }
-export function verificationLanes(mode = 'all') {
+export function verificationLanes(mode = 'all', scope = 'all') {
   if (!['all', 'fast', 'slow'].includes(mode)) fail('mode');
-  const required = [...new Set(workers().flatMap((worker) => worker.lanes))];
+  const required = [...new Set(workers(scope).flatMap((worker) => worker.lanes))];
   const isFast = (lane) => lane === 'fast' || lane.startsWith('portable-unit-');
   return mode === 'all'
     ? required
     : required.filter((lane) => (mode === 'fast' ? isFast(lane) : !isFast(lane)));
 }
-export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' } = {}) {
+export function verifyCloudReceipts({
+  projectDir = process.cwd(),
+  mode = 'all',
+  scope = 'all',
+} = {}) {
   if (!['all', 'fast', 'slow'].includes(mode)) fail('mode');
-  const lanes = verificationLanes(mode);
+  const lanes = verificationLanes(mode, scope);
   const execute = (command, args) =>
     execFileSync(command, args, { cwd: projectDir, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   const state = projectState(projectDir);
@@ -109,24 +116,20 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
   const run = runs.find((item) => item.event === 'pull_request') ?? runs[0];
   validateCloudRun(run, { repository, sourceHead: state.head });
   const jobs = api('actions', 'runs', run.id, 'attempts', run.run_attempt, 'jobs?per_page=100');
-  if (jobs.total_count !== jobs.jobs.length) fail('incomplete job inventory');
-  const expectedWorkers = workers();
-  for (const worker of expectedWorkers)
-    validateRequiredJob(jobs.jobs, { name: worker.name, lanes: worker.lanes });
   const artifacts = api('actions', 'runs', run.id, 'artifacts?per_page=100');
-  if (artifacts.total_count !== artifacts.artifacts.length) fail('incomplete artifact inventory');
-  const names = expectedWorkers.map((worker) => 'apr-ci-' + worker.key + '-' + run.run_attempt);
-  for (const name of names) {
-    const matches = artifacts.artifacts.filter((artifact) => artifact.name === name);
-    if (matches.length !== 1 || matches[0].expired)
-      fail('missing, duplicate or expired artifact ' + name);
-  }
+  const { expectedWorkers, names } = validateCloudEvidence({
+    jobs,
+    artifacts,
+    runAttempt: run.run_attempt,
+    scope,
+  });
   const root = path.join(projectDir, '.scratch', 'ci-receipts');
   mkdirSync(root, { recursive: true });
   const dir = mkdtempSync(path.join(root, run.id + '-' + run.run_attempt + '-'));
   writeFileSync(
     path.join(dir, 'provenance.json'),
-    JSON.stringify({ repository, sourceHead: state.head, run, jobs, artifacts }, null, 2) + '\n'
+    JSON.stringify({ repository, sourceHead: state.head, scope, run, jobs, artifacts }, null, 2) +
+      '\n'
   );
   execute('gh', [
     'run',
@@ -168,6 +171,8 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
     commitObject: commit === state.head ? null : api('git', 'commits', commit),
   });
   return {
+    scope,
+    windows: scope === 'all' ? 'verified by required Windows workers' : 'deferred; unverified',
     sourceHead: state.head,
     testedCommit: commit,
     runId: run.id,
@@ -179,9 +184,58 @@ export function verifyCloudReceipts({ projectDir = process.cwd(), mode = 'all' }
     artifactDirectory: dir,
   };
 }
+// Preserve the full default worker contract. A selected subset never becomes
+// an all-platform result merely by changing the caller's requested label.
+export function validateCloudEvidence({ jobs, artifacts, runAttempt, scope = 'all' }) {
+  const expectedWorkers = workers(scope);
+  if (!Number.isSafeInteger(runAttempt) || runAttempt < 1) fail('run attempt');
+  if (jobs.total_count !== jobs.jobs.length) fail('incomplete job inventory');
+  validateRequiredJob(jobs.jobs, { name: 'Verification scope', lanes: [] });
+  const declaration = jobs.jobs
+    .find((job) => job.name === 'Verification scope')
+    .steps.filter((step) => step.name.startsWith('Declare scope: '));
+  if (
+    declaration.length !== 1 ||
+    declaration[0].name !== 'Declare scope: ' + scope ||
+    declaration[0].conclusion !== 'success'
+  )
+    fail('workflow scope does not match requested scope');
+  if (
+    scope === 'linux-macos' &&
+    jobs.jobs.some(
+      (job) =>
+        (/windows/i.test(job.name) || job.labels?.some((label) => /windows/i.test(label))) &&
+        !(job.status === 'completed' && job.conclusion === 'skipped')
+    )
+  )
+    fail('Windows worker scheduled for linux-macos scope');
+  for (const worker of expectedWorkers) validateRequiredJob(jobs.jobs, worker);
+  if (artifacts.total_count !== artifacts.artifacts.length) fail('incomplete artifact inventory');
+  const names = expectedWorkers.map((worker) => 'apr-ci-' + worker.key + '-' + runAttempt);
+  for (const name of names) {
+    const matches = artifacts.artifacts.filter((artifact) => artifact.name === name);
+    if (matches.length !== 1 || matches[0].expired)
+      fail('missing, duplicate or expired artifact ' + name);
+  }
+  return { expectedWorkers, names };
+}
+
+export function parseReceiptArguments(args) {
+  const options = { mode: 'all', scope: 'all' };
+  const seen = new Set();
+  for (let i = 0; i < args.length; i += 2) {
+    const key = args[i],
+      value = args[i + 1];
+    if (!['--lane', '--scope'].includes(key) || seen.has(key) || !value)
+      fail('usage: verify-receipts [--lane fast|slow] [--scope all|linux-macos]');
+    seen.add(key);
+    options[key === '--lane' ? 'mode' : 'scope'] = value;
+  }
+  verificationLanes(options.mode, options.scope);
+  return options;
+}
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const args = process.argv.slice(2);
-  if (args.length && (args.length !== 2 || args[0] !== '--lane'))
-    fail('usage: verify-receipts [--lane fast|slow]');
-  console.log(JSON.stringify(verifyCloudReceipts({ mode: args[1] ?? 'all' }), null, 2));
+  console.log(
+    JSON.stringify(verifyCloudReceipts(parseReceiptArguments(process.argv.slice(2))), null, 2)
+  );
 }

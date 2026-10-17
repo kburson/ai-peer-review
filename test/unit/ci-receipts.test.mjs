@@ -500,3 +500,169 @@ test('expanded Windows owner workflow jobs match every required receipt worker',
       assert.equal(render(steps[0].run), 'node scripts/ci/record-tests.mjs ' + lane);
     }
 });
+
+// @story #212
+// Catch subset/full confusion, dropped selected lanes/workers and stale artifacts.
+test('[#212] explicit POSIX receipt workers retain every baseline lane', async () => {
+  const { verificationLanes } = await import('../../scripts/ci/verify-receipts.mjs');
+  const posix = workers('linux-macos');
+  assert.deepEqual(posix.map((w) => w.key).sort(), [
+    'node-24-24-macos-latest',
+    'node-24-24-ubuntu-latest',
+    'phase-2-boundary-26-ubuntu-latest',
+    'preferred-node-26-macos-latest',
+    'preferred-node-26-ubuntu-latest',
+    'preferred-node-current-macos-latest',
+    'preferred-node-current-ubuntu-latest',
+  ]);
+  assert.equal(workers().length, 37);
+  assert.equal(workers('all').length, 37);
+  for (const worker of posix)
+    assert.deepEqual(worker.lanes, ['fast', 'integration', 'mcp', 'packaging', 'smoke']);
+  assert.deepEqual(verificationLanes('all', 'linux-macos'), [
+    'fast',
+    'integration',
+    'mcp',
+    'packaging',
+    'smoke',
+  ]);
+  assert.deepEqual(verificationLanes('fast', 'linux-macos'), ['fast']);
+  assert.deepEqual(verificationLanes('slow', 'linux-macos'), [
+    'integration',
+    'mcp',
+    'packaging',
+    'smoke',
+  ]);
+  assert.throws(() => workers('posix'));
+});
+
+function scopedEvidence(scope = 'linux-macos') {
+  const selected = workers(scope);
+  return {
+    scope,
+    runAttempt: 2,
+    jobs: {
+      total_count: selected.length + 1,
+      jobs: [
+        {
+          name: 'Verification scope',
+          status: 'completed',
+          conclusion: 'success',
+          steps: [{ name: 'Declare scope: ' + scope, conclusion: 'success' }],
+        },
+        ...selected.map((worker) => ({
+          name: worker.name,
+          status: 'completed',
+          conclusion: 'success',
+          steps: worker.lanes.map((lane) => ({
+            name: 'Verify tests: ' + lane,
+            conclusion: 'success',
+          })),
+        })),
+      ],
+    },
+    artifacts: {
+      total_count: selected.length,
+      artifacts: selected.map((worker) => ({
+        name: 'apr-ci-' + worker.key + '-2',
+        expired: false,
+      })),
+    },
+  };
+}
+
+test('[#212] scope proof requires every selected job, lane and fresh artifact', async () => {
+  const { validateCloudEvidence } = await import('../../scripts/ci/verify-receipts.mjs');
+  const proof = scopedEvidence();
+  assert.equal(validateCloudEvidence(proof).expectedWorkers.length, 7);
+  assert.equal(validateCloudEvidence(scopedEvidence('all')).expectedWorkers.length, 37);
+  // POSIX evidence cannot satisfy all-platform mode, even relabelled as all.
+  assert.throws(() => validateCloudEvidence({ ...proof, scope: 'all' }));
+  const relabelled = structuredClone(proof);
+  relabelled.scope = 'all';
+  relabelled.jobs.jobs[0].steps[0].name = 'Declare scope: all';
+  assert.throws(() => validateCloudEvidence(relabelled));
+  for (const worker of workers('linux-macos')) {
+    const without = structuredClone(proof);
+    without.jobs.jobs = without.jobs.jobs.filter((job) => job.name !== worker.name);
+    without.jobs.total_count--;
+    assert.throws(() => validateCloudEvidence(without), /ci-receipt:/);
+    for (const lane of worker.lanes) {
+      const missing = structuredClone(proof);
+      const job = missing.jobs.jobs.find((job) => job.name === worker.name);
+      job.steps = job.steps.filter((step) => step.name !== 'Verify tests: ' + lane);
+      assert.throws(() => validateCloudEvidence(missing), /ci-receipt:/);
+    }
+  }
+  for (const mutate of [
+    (p) => p.jobs.total_count++,
+    (p) => p.artifacts.total_count++,
+    (p) => {
+      p.jobs.jobs[0].steps[0].name = 'Declare scope: all';
+    },
+    (p) => {
+      p.jobs.jobs[0].conclusion = 'skipped';
+    },
+    (p) => {
+      p.jobs.jobs.push(p.jobs.jobs[1]);
+      p.jobs.total_count++;
+    },
+    (p) => {
+      p.artifacts.artifacts.pop();
+      p.artifacts.total_count--;
+    },
+    (p) => {
+      p.artifacts.artifacts.push(p.artifacts.artifacts[0]);
+      p.artifacts.total_count++;
+    },
+    (p) => {
+      p.artifacts.artifacts[0].expired = true;
+    },
+    (p) => {
+      p.artifacts.artifacts[0].name = p.artifacts.artifacts[0].name.replace(/-2$/, '-1');
+    },
+    (p) => {
+      p.jobs.jobs.push({
+        name: 'Portable units / windows-latest',
+        status: 'queued',
+        conclusion: null,
+      });
+      p.jobs.total_count++;
+    },
+    (p) => {
+      p.jobs.jobs.push({
+        name: 'renamed worker',
+        labels: ['self-hosted', 'Windows'],
+        status: 'completed',
+        conclusion: 'success',
+      });
+      p.jobs.total_count++;
+    },
+  ]) {
+    const bad = structuredClone(proof);
+    mutate(bad);
+    assert.throws(() => validateCloudEvidence(bad), /ci-receipt:/);
+  }
+  const skipped = structuredClone(proof);
+  skipped.jobs.jobs.push({ name: 'Windows deferred', status: 'completed', conclusion: 'skipped' });
+  skipped.jobs.total_count++;
+  assert.doesNotThrow(() => validateCloudEvidence(skipped));
+});
+
+test('[#212] receipt CLI defaults remain all and scope flags are closed', async () => {
+  const { parseReceiptArguments } = await import('../../scripts/ci/verify-receipts.mjs');
+  assert.deepEqual(parseReceiptArguments([]), { mode: 'all', scope: 'all' });
+  assert.deepEqual(parseReceiptArguments(['--lane', 'slow']), { mode: 'slow', scope: 'all' });
+  assert.deepEqual(parseReceiptArguments(['--scope', 'linux-macos', '--lane', 'fast']), {
+    mode: 'fast',
+    scope: 'linux-macos',
+  });
+  for (const args of [
+    ['--scope'],
+    ['--scope', 'posix'],
+    ['--scope', 'all', '--scope', 'linux-macos'],
+    ['--lane', 'none'],
+    ['--ignore-windows', 'true'],
+  ])
+    assert.throws(() => parseReceiptArguments(args));
+});
