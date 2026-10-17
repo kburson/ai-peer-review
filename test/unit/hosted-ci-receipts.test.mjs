@@ -182,6 +182,8 @@ test('[#212] event scope keeps #190 POSIX and ordinary branches all-platform', a
       assert.equal(
         resolveVerificationScope({
           eventName,
+          sourceRepository: 'kburson/ai-peer-review',
+          refType: 'branch',
           branch: 'codex/190-installed-journeys',
           requestedScope,
         }),
@@ -241,7 +243,12 @@ test('[#212] actual workflow expansion gates every Windows job before scheduling
     assert.equal(select.env.APR_CI_REQUESTED_SCOPE, "${{ inputs.verification_scope || 'all' }}");
   }
   for (const eventName of ['push', 'pull_request', 'workflow_dispatch']) {
-    const scope = resolveVerificationScope({ eventName, branch: 'codex/190-installed-journeys' });
+    const scope = resolveVerificationScope({
+      eventName,
+      branch: 'codex/190-installed-journeys',
+      sourceRepository: 'kburson/ai-peer-review',
+      refType: 'branch',
+    });
     const jobs = expandedWorkers(ci, scope),
       journeys = expandedWorkers(installed, scope);
     assert.equal(
@@ -322,6 +329,8 @@ test('[#212] scope job command publishes real selected scope and runner outputs'
           GITHUB_OUTPUT: output,
           APR_CI_EVENT_NAME: eventName,
           APR_CI_SOURCE_BRANCH: branch,
+          APR_CI_SOURCE_REPOSITORY: 'kburson/ai-peer-review',
+          APR_CI_REF_TYPE: 'branch',
           APR_CI_REQUESTED_SCOPE: requestedScope,
         },
       });
@@ -353,4 +362,42 @@ test('[#212] native project policy selects scoped proof only on approved source 
   }
   for (const coverage of provider.test.declaredCommandCoverage)
     assert.deepEqual(coverage.requires, ['test-cloud-declared-platforms']);
+});
+
+test('[#212] automatic deferral binds the canonical source repository and branch ref', async () => {
+  const { resolveVerificationScope } = await import('../../scripts/ci/verification-scope.mjs');
+  const own = {
+    eventName: 'pull_request',
+    branch: 'codex/190-installed-journeys',
+    sourceRepository: 'kburson/ai-peer-review',
+    refType: 'branch',
+  };
+  assert.equal(resolveVerificationScope(own), 'linux-macos');
+  for (const context of [
+    { ...own, sourceRepository: 'someone/ai-peer-review' },
+    { ...own, eventName: 'workflow_dispatch', refType: 'tag' },
+    { ...own, sourceRepository: undefined },
+    { ...own, refType: undefined },
+  ])
+    assert.equal(resolveVerificationScope(context), 'all');
+  assert.equal(
+    resolveVerificationScope({
+      ...own,
+      eventName: 'workflow_dispatch',
+      refType: 'tag',
+      requestedScope: 'linux-macos',
+    }),
+    'linux-macos'
+  );
+  for (const filename of ['ci.yml', 'installed-portable-journeys.yml']) {
+    const workflow = loadYaml(
+      readFileSync(new URL('../../.github/workflows/' + filename, import.meta.url), 'utf8')
+    );
+    const env = workflow.jobs.scope.steps.find((step) => step.id === 'selected').env;
+    assert.equal(
+      env.APR_CI_SOURCE_REPOSITORY,
+      '${{ github.event.pull_request.head.repo.full_name || github.repository }}'
+    );
+    assert.equal(env.APR_CI_REF_TYPE, '${{ github.ref_type }}');
+  }
 });

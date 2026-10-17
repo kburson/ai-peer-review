@@ -135,6 +135,8 @@ function validManifest(overrides = {}) {
         'scripts/ci/receipt.mjs',
         'scripts/ci/record-tests.mjs',
         'scripts/ci/verify-receipts.mjs',
+        'scripts/ci/verification-scope.mjs',
+        'scripts/ci/verify-project-receipts.mjs',
         'scripts/check-runtime-contract-adoption.mjs',
         'scripts/generate-process-source-contract.mjs',
         'scripts/lib/runtime-contract-evidence.mjs',
@@ -830,4 +832,12 @@ test('[#190] admits only the exact public local handoff observations', async () 
   const declared=['evidence/local-handoff/190/2026-10-16-host-observation.json','evidence/local-handoff/190/2026-10-16-provider-scope-observation.json','evidence/local-handoff/190/README.md'];
   await verifyExtraction({root:'/repo',manifest:validManifest(),runGit:fakeGit({current:['LICENSE',...declared].join('\n')})});
   for(const foreign of ['evidence/local-handoff/190/private.json','evidence/local-handoff/191/README.md']) await assert.rejects(verifyExtraction({root:'/repo',manifest:validManifest(),runGit:fakeGit({current:['LICENSE',...declared,foreign].join('\n')})}),/foreign standalone paths/);
+});
+
+// @story #212
+test('[#212] admits only the two declared platform verification helpers', async () => {
+  const declared = ['scripts/ci/verification-scope.mjs', 'scripts/ci/verify-project-receipts.mjs'];
+  await verifyExtraction({ root: '/repo', manifest: validManifest(), runGit: fakeGit({ current: ['LICENSE', ...declared].join('\n') }) });
+  for (const foreign of ['scripts/ci/verification-scope-copy.mjs', 'scripts/ci/verify-project-receipts-copy.mjs'])
+    await assert.rejects(verifyExtraction({ root: '/repo', manifest: validManifest(), runGit: fakeGit({ current: ['LICENSE', ...declared, foreign].join('\n') }) }), /foreign standalone paths/);
 });

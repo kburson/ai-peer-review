@@ -99,6 +99,8 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'scripts/ci/receipt.mjs',
     'scripts/ci/record-tests.mjs',
     'scripts/ci/verify-receipts.mjs',
+    'scripts/ci/verification-scope.mjs',
+    'scripts/ci/verify-project-receipts.mjs',
     'scripts/check-runtime-contract-adoption.mjs',
     'scripts/generate-process-source-contract.mjs',
     'scripts/lib/runtime-contract-evidence.mjs',

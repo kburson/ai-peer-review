@@ -7,7 +7,12 @@ import { resolveVerificationScope } from './verification-scope.mjs';
 import { verifyCloudReceipts } from './verify-receipts.mjs';
 
 export function projectReceiptScope(branch) {
-  return resolveVerificationScope({ eventName: 'push', branch });
+  return resolveVerificationScope({
+    eventName: 'push',
+    branch,
+    sourceRepository: 'kburson/ai-peer-review',
+    refType: 'branch',
+  });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
