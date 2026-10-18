@@ -1,0 +1,10 @@
+{
+  "input_revision": "issue-222-plan-r5",
+  "input_sha256": "139414a3851a2edc04d429805cc1c0cc656635745ee287409089e3acb1f3cee8",
+  "result_revision": "issue-222-plan-r6",
+  "result_sha256": "40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+  "patch": "plan-r5-to-r6.patch",
+  "patch_sha256": "8219bccdb8438b06ea1fbac97c6587acd9e37126e66a2c760b9901bddc05e1e6",
+  "format": "Git binary-capable full-index zero-context virtual before/after patch; scrub GIT_*; prevent parent discovery; git apply --no-index -p2 --unidiff-zero",
+  "forward_reverse_exact": true
+}

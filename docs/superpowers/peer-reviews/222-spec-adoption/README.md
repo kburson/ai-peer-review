@@ -13,3 +13,7 @@ The [revision-2 self-review](plan-self-review-r2.json), [wave/effort graph](plan
 The [manual Astra/high SAR](../222-plan-sar-astra/review-acceptance.md) accepted `issue-222-plan-r5` after four rounds resolving eleven findings. The revised plan has 50 leaves, 25 dependency waves and 131 provisional human hours, maximum 3.5 hours per leaf. Earlier r1/r2 self-review and wave data above remain historical; current wave/cost data is [plan-waves-r5.json](../222-plan-sar-astra/plan-waves-r5.json).
 
 The [complete SAR manifest](../222-plan-sar-astra/review-manifest.md) preserves both response sides, acceptance-time HEAD and three reversible revision links. The [parent verification receipt](plan-sar-parent-verification.json) records hash/graph/reconstruction checks before external publication. Same-agent technical acceptance is separate from independent review, owner Plan approval, native forecasts or execution authorization. The accepted source specification and orphan archive remain unchanged.
+
+## Subsequent independent plan XPR
+
+The [Astra/high–Claude Opus 5.5/high XPR](../222-plan-xpr/README.md) accepted `issue-222-plan-r6` in two reviewer rounds. Current task data is 51 leaves, 25 waves and 134 provisional human hours, maximum 3.5 per leaf. The same-agent SAR above still accepts only r5. Native Plan approval, owner approval, independent leaf forecasts, hydration and execution remain pending; no historical review records were rewritten.

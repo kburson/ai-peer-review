@@ -1,0 +1,72 @@
+{
+  "record_kind": "External parent verification of native XPR, not participant response or native manifest",
+  "review_id": "review-ae67aea5b6c2c817e8cd1162ee9af02e",
+  "accepted_revision": "issue-222-plan-r6",
+  "accepted_sha256": "40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+  "native_status": "accepted-uncommitted",
+  "acceptance_basis": "reviewer-consensus",
+  "native_manifest": "docs/superpowers/peer-reviews/plan/222-plan-xpr/plan/2026-10-18-2026-10-18-222-review-journal-refactoring-review-ae67aea5b6c2c817e8cd1162ee9af02e/review-ae67aea5b6c2c817e8cd1162ee9af02e-review-manifest.md",
+  "native_manifest_sha256": "1bc660108c125b6f2d2015fc0894fe48a0348a25858cafde6b14c9cf766f8769",
+  "startup_commit": "3a5293b9093fbf56288427f701356b5e2b7b6dc3",
+  "head_observed_after_finalization_before_publication": "3a5293b9093fbf56288427f701356b5e2b7b6dc3",
+  "independent_acceptance_time_head_capture": "unavailable in native v1; no retroactive backfill",
+  "reviewer_accepted_at": "2026-10-18T16:49:03.803Z",
+  "native_finalized_at": "2026-10-18T16:50:26.889Z",
+  "checks": {
+    "native_terminal_status": true,
+    "accepted_bytes_equal_final_snapshot": true,
+    "all_response_and_artifact_hashes_match": true,
+    "distinct_participant_fingerprints": true,
+    "51_leaf_costs_and_25_waves_match_rendered_plan": true,
+    "reversible_r5_to_r6_patch": true,
+    "full_reverse_chain_r6_to_r2_without_git_objects": true,
+    "javascript_syntax_blocks": 8,
+    "accepted_spec_and_SAR_records_unchanged": true
+  },
+  "optional_nonblocking": [
+    "R2-F001: cosmetic summary references should name07D/registry ordering.",
+    "R2-F002: clarify07D creates response-v2 schema; later leaves regenerate from single object."
+  ],
+  "timing": {
+    "conservative_window_start": "2026-10-18T16:35:07Z",
+    "reserved_wall_seconds": 900,
+    "reviewer_acceptance_elapsed_seconds": 836.803,
+    "finalization_elapsed_seconds": 919.889,
+    "finalization_exceeded_reserved_wall_seconds": 19.889,
+    "final_readonly_checks_elapsed_seconds_approx": 936,
+    "conservative_two_participant_bound_through_final_checks_seconds_approx": 1872,
+    "accounting": "Reservation overrun preserved explicitly; not exact engaged time. Preparation/root work/earlier bounds additional; native Unknowns unchanged."
+  },
+  "limits": [
+    "Native v1 has no reviewer_commit protected field or final author-response-2; no fabricated additions.",
+    "Both model/session evidence is declared, authority assurance unavailable.",
+    "Commit publication does not alter native no-commit/accepted-uncommitted labels.",
+    "Owner Plan approval, independent native leaf forecasts, issue hydration and implementation are pending."
+  ],
+  "files": [
+    {
+      "path": "docs/superpowers/peer-reviews/plan/222-plan-xpr/plan/2026-10-18-2026-10-18-222-review-journal-refactoring-review-ae67aea5b6c2c817e8cd1162ee9af02e/review-ae67aea5b6c2c817e8cd1162ee9af02e-author-response-1.md",
+      "sha256": "3e6531f5807f416179309b71fc349b4bed1764b3216848443e4041d8555a2095"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/plan/222-plan-xpr/plan/2026-10-18-2026-10-18-222-review-journal-refactoring-review-ae67aea5b6c2c817e8cd1162ee9af02e/review-ae67aea5b6c2c817e8cd1162ee9af02e-author-startup.md",
+      "sha256": "134ce9e642f909a25bea770dd949ee44dbbe5cb6bc661bcbb895e51d1e86eb63"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/plan/222-plan-xpr/plan/2026-10-18-2026-10-18-222-review-journal-refactoring-review-ae67aea5b6c2c817e8cd1162ee9af02e/review-ae67aea5b6c2c817e8cd1162ee9af02e-review-manifest.md",
+      "sha256": "1bc660108c125b6f2d2015fc0894fe48a0348a25858cafde6b14c9cf766f8769"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/plan/222-plan-xpr/plan/2026-10-18-2026-10-18-222-review-journal-refactoring-review-ae67aea5b6c2c817e8cd1162ee9af02e/review-ae67aea5b6c2c817e8cd1162ee9af02e-reviewer-invitation.md",
+      "sha256": "ca8a1eb7a1ac4edc1d98beab5cb3e7ba11ee1df1702fd7d9ec01f1416a75e22d"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/plan/222-plan-xpr/plan/2026-10-18-2026-10-18-222-review-journal-refactoring-review-ae67aea5b6c2c817e8cd1162ee9af02e/review-ae67aea5b6c2c817e8cd1162ee9af02e-reviewer-response-1.md",
+      "sha256": "9a3daf4db1a9046f0e3ba21b0d57a4541ffd3b2909a3750fdd04175897fb3444"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/plan/222-plan-xpr/plan/2026-10-18-2026-10-18-222-review-journal-refactoring-review-ae67aea5b6c2c817e8cd1162ee9af02e/review-ae67aea5b6c2c817e8cd1162ee9af02e-reviewer-response-2.md",
+      "sha256": "eaa0ba1027d9e22dbd7e202365fb181d9fac79792abc9978ca0798badd21e8c0"
+    }
+  ]
+}

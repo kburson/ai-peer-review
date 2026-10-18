@@ -1,6 +1,6 @@
 ---
-based_on_commit: 9130dc6fa73f80b89ddc67c4f29f055f52d08600
-revision_id: issue-222-plan-r5
+based_on_commit: 3a5293b9093fbf56288427f701356b5e2b7b6dc3
+revision_id: issue-222-plan-r6
 ---
 
 # Review Moderator and Versioned Journal Refactoring Implementation Plan
@@ -15,7 +15,7 @@ revision_id: issue-222-plan-r5
 
 **Spec:** [2026-10-18-222-review-journal-refactoring-design.md](../specs/2026-10-18-222-review-journal-refactoring-design.md), exact accepted revision `issue-222-r13`, SHA-256 `f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be`. Source acceptance: XPR `review-0b5e44367ed1ebf60276c5f385829029`, author `gpt-6-astra/high`, reviewer `claude-opus-5-5/high`.
 
-**Plan metadata:** Draft 5; preparation owner #222 under #141, not an implementation child or approved native Plan. Writing basis `9130dc6fa73f80b89ddc67c4f29f055f52d08600`. Source suitability was recorded at `359a7dc`; only plan/adoption documentation changed since then. Owner explicitly accepted revision 13 and authorized this fresh plan. [Adoption and suitability record](../peer-reviews/222-spec-adoption/owner-adoption-r13.json). Keep accepted spec bytes unchanged despite the documented table-alignment warning. The retired orphan plan was not consulted and supplies no executable scope or estimates.
+**Plan metadata:** Draft 6; preparation owner #222 under #141, not an implementation child or approved native Plan. Writing basis `3a5293b9093fbf56288427f701356b5e2b7b6dc3`. Source suitability was recorded at `359a7dc`; only plan/adoption documentation changed since then. Owner explicitly accepted revision 13 and authorized this fresh plan. [Adoption and suitability record](../peer-reviews/222-spec-adoption/owner-adoption-r13.json). Keep accepted spec bytes unchanged despite the documented table-alignment warning. The retired orphan plan was not consulted and supplies no executable scope or estimates.
 
 ## Global Constraints
 
@@ -91,6 +91,7 @@ If inspection shows a leaf cannot fit **4 human hours total**, split its deliver
 | 07A: Define response and manifest v2 validators                              |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 05C3                                        |
 | 07B: Define event, protocol and explicit handoff contracts                   |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05C3                                        |
 | 07C: Integrate fixed contextual journal dispatch                             |               0.75 |           0.25 |     0.25 |       0.25 |       **1.5** | 07A, 07B                                    |
+| 07D: Prepare version-aware API registry integration without changing v1      |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 07B                                         |
 | 08: Capture bounded root and reviewer working contexts                       |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05C3                                        |
 | 09: Compare effective contexts with exact collateral exclusions              |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 08, 07C                                     |
 | 10: Validate FUR revision identity and protected reviewer provenance         |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 08, 07C                                     |
@@ -101,7 +102,7 @@ If inspection shows a leaf cannot fit **4 human hours total**, split its deliver
 | 15A: Prepare versioned review-only prompts and provider constraints          |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 07C, 10                                     |
 | 15B1: Build inactive new-format review startup orchestration                 |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 12, 13, 14, 15A                             |
 | 15B2: Build inactive external revision submission orchestration              |               1.75 |           0.75 |      0.5 |        0.5 |       **3.5** | 15B1                                        |
-| 15B3: Activate the external revision handoff and reviewer boundary           |               1.25 |           0.75 |      0.5 |        0.5 |         **3** | 15B1, 15B2                                  |
+| 15B3: Activate the external revision handoff and reviewer boundary           |               1.25 |           0.75 |      0.5 |        0.5 |         **3** | 15B1, 15B2, 07D                             |
 | 16: Complete both response sides and acceptance acknowledgements             |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 15B3                                        |
 | 17: Reconstruct FUR history from final bytes after squash                    |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 12, 13                                      |
 | 18: Document and verify scoped external turn publication                     |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 14, 17, 16, 19B                             |
@@ -124,7 +125,7 @@ If inspection shows a leaf cannot fit **4 human hours total**, split its deliver
 | 25B: Collect exact-head Linux/macOS installed and ownership evidence         |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19C, 18, 23A                                |
 | 25C: Reconcile final evidence and prepare governed delivery                  |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 24, 25A, 25B                                |
 
-**50 executable leaf tasks; maximum 3.5 human hours per leaf; provisional aggregate 131 human hours.** These are author planning estimates, not independent native forecasts. The aggregate includes the additional separately reviewed discovery, process, controller, consumer and disposition work; do not infer elapsed duration or speedup.
+**51 executable leaf tasks; maximum 3.5 human hours per leaf; provisional aggregate 134 human hours.** These are author planning estimates, not independent native forecasts. The aggregate includes the additional separately reviewed discovery, process, controller, consumer and disposition work; do not infer elapsed duration or speedup.
 
 ### Dependency waves and safe parallel work
 
@@ -139,7 +140,7 @@ If inspection shows a leaf cannot fit **4 human hours total**, split its deliver
 | 07   | 05C1, 05C2                                    | Respect exclusive files, individual prerequisites and three-worker ceiling |
 | 08   | 05C3                                          | Deliver complete usable process separation                                 |
 | 09   | 06A, 07A, 07B, 08                             | Respect exclusive files, individual prerequisites and three-worker ceiling |
-| 10   | 06B, 07C                                      | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 10   | 06B, 07C, 07D                                 | Respect exclusive files, individual prerequisites and three-worker ceiling |
 | 11   | 06C, 09, 10                                   | Respect exclusive files, individual prerequisites and three-worker ceiling |
 | 12   | 11, 13, 15A, 21                               | Respect exclusive files, individual prerequisites and three-worker ceiling |
 | 13   | 12, 14, 23B1, 23B2                            | Respect exclusive files, individual prerequisites and three-worker ceiling |
@@ -168,7 +169,7 @@ These are earliest dependency layers, **not compulsory all-worker barriers**. A 
 
 ### Parallel ownership rules
 
-The generated wave table is the complete dependency schedule. Within an eligible wave, source census 01A, distribution census 01B and issue hold/partition 01C own separate files; 05A/05B adapters and 05C1/05C2 inactive preparation likewise have disjoint paths. Tasks 07A/07B own different contract families; 08 alone changes repository capture; 09 alone owns drift; 10 alone owns responses. Task 11 owns event/store integration before 12/14 consume it. Inactive 15B1/15B2 orchestration precedes the single 15B3 activation and 16 completion writer. Shared API registry/contracts are serialized 15B3 → 19A → 19D → 19B transport; 16 also precedes 19D/19B. Task 18 uses the completed external operation after 19B. Task 19C owns final package-surface reconciliation. Required generated inventory refresh at each earlier source delivery is assigned to that delivery's integration writer, serialized against all other inventory writes and charged to that leaf's delivery estimate; no source delivery may postpone required installed-integrity coherence until 19C. If refresh/required exact-head verification does not fit the whole-task forecast, split or replan the delivery before registration. This rule creates no extra unnamed worker or hidden allowance. Issue partitions own only their listed nonoverlapping issues and separate records; 23A alone consolidates parents/census. A newly discovered shared path requires an explicit ownership/dependency amendment before either worker writes it.
+The generated wave table is the complete dependency schedule. Within an eligible wave, source census 01A, distribution census 01B and issue hold/partition 01C own separate files; 05A/05B adapters and 05C1/05C2 inactive preparation likewise have disjoint paths. Tasks 07A/07B own different contract families; 08 alone changes repository capture; 09 alone owns drift; 10 alone owns responses. Task 11 owns event/store integration before 12/14 consume it. Inactive 15B1/15B2 orchestration precedes the single 15B3 activation and 16 completion writer. Shared API registry/contracts are serialized 07D → 15B3 → 19A → 19D → 19B transport; 16 also precedes 19D/19B. Task 18 uses the completed external operation after 19B. After 05C3, retain `src/protocol/process-source-contract-files.json` as the tracked generated source inventory, maintained with `node scripts/generate-process-source-contract.mjs`; it is not the historical approval ledger `process-source-contracts.json`, whose old bytes remain unchanged. The integration owner regenerates this list from the integrated import graph rather than hand-merging it, and runs the generator `--check` plus `test/unit/process-source-assurance.test.mjs`, `test/unit/portable-consumer-inventory.test.mjs`, `test/unit/portable-authority-fences.test.mjs` and `test/integration/authority-entrypoints.test.mjs` as applicable. Packed `runtime-inventory.json` is regenerated by `scripts/pack-runtime.mjs` at packing, not hand-edited or reused from another source. Task 19C owns final package-surface reconciliation. Required generated inventory refresh at each earlier source delivery is assigned to that delivery's integration writer, serialized against all other inventory writes and charged to that leaf's delivery estimate; no source delivery may postpone required installed-integrity coherence until 19C. If refresh/required exact-head verification does not fit the whole-task forecast, split or replan the delivery before registration. This rule creates no extra unnamed worker or hidden allowance. Issue partitions own only their listed nonoverlapping issues and separate records; 23A alone consolidates parents/census. A newly discovered shared path requires an explicit ownership/dependency amendment before either worker writes it.
 
 ### File responsibility map
 
@@ -498,9 +499,9 @@ test('missing real probe cannot create support', () => {
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Create `schemas/event-v3.json`, `schemas/protocol-v3.json`, `schemas/start-request-v2.json`, `schemas/submit-turn-request-v2.json`, `schemas/review-publication-request-v1.json`, `src/protocol/journal-lifecycle-contracts.mjs`, `test/unit/journal-lifecycle-contracts.test.mjs`, `docs/review-journal-lifecycle-v3.md`.
+**Files and exclusive write ownership:** Create `schemas/event-v3.json`, `schemas/protocol-v3.json`, `schemas/start-request-v2.json`, `schemas/submit-turn-request-v2.json`, `schemas/review-publication-request-v1.json`, new `src/api/journal-contracts-v2.mjs`, `src/protocol/journal-lifecycle-contracts.mjs`, `test/unit/journal-lifecycle-contracts.test.mjs`, `docs/review-journal-lifecycle-v3.md`.
 
-**Interfaces:** Exports `validateEventV3(document)`, `validateProtocolV3(document)` and `validateReviewRequestV2({operation,document})`, plus `validatePublicationRequestV1(document)` returning `{status,issues}`. Declares actor/version, handoff, decision, acknowledgement, reserved/waiting/pending/released and external outcome bindings.
+**Interfaces:** Exports `validateEventV3(document)`, `validateProtocolV3(document)` and `validateReviewRequestV2({operation,document})`, plus `validatePublicationRequestV1(document)` returning `{status,issues}`. Declares actor/version, handoff, decision, acknowledgement, reserved/waiting/pending/released and external outcome bindings. The three API request definitions have one JS object source in `src/api/journal-contracts-v2.mjs`; emit their JSON files from those objects, and make bounded request validators consume the same definitions rather than hand-copying schemas. Event/protocol document checks remain their existing separate family responsibility. Task 07D integrates these inactive objects into the version-aware registry.
 
 **Completion boundary:** Independently tested inactive lifecycle/request definitions; no concurrent reducer or API-contract edits.
 
@@ -527,6 +528,24 @@ test('missing real probe cannot create support', () => {
 - [ ] Never feed journal schemas through `src/api/validate.mjs:validateContract` as a general schema evaluator; no runtime/remote schema selection.
 - [ ] Run 07A/07B tests plus existing compatibility/manifest/response regressions. Independently review/commit/trace the shared integration after both disjoint readers land.
 - [ ] Every durable family found by 01A has a named writer/version owner before current writer activation. Root/overlay/divergence values embedded in manifest-v2 use that documented record schema; any separately persisted representation needs an explicitly adopted family/version and reader before emission. No current writer activation occurs until the new runtime handoff is ready in 15B3.
+
+## Task 07D: Prepare version-aware API registry integration without changing v1
+
+**Prerequisite leaves:** 07B.
+
+**Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** `src/api/contracts.mjs`, `src/api/registry.mjs`, `src/api/journal-contracts-v2.mjs`, `src/api/validate.mjs`, new `schemas/api-response-v2.json`, `test/unit/journal-registry-versioning.test.mjs`, `test/golden/api-help.test.mjs`, `test/fixtures/api-help.json`. New runtime routes remain inactive until 15B3; no transport/controller edits.
+
+**Interfaces:** Keep existing `requestSchemas`, `nextActionSchema`, diagnostics unions and `responseSchema` frozen to the old v1 request set. The new module owns `requestSchemasV2`, `nextActionSchemaV2`, v2 diagnostics and `responseSchemaV2`. Export `resolveOperationContract({operation,schema})` selecting a fixed operation/request-version entry with its corresponding response schema/document; unknown combinations refuse. A same-named tool can advertise a closed `oneOf` over its supported request versions while validation dispatches by the exact schema identifier. No v2 request is inserted into either historical v1 union.
+
+**Completion boundary:** Tested inactive registry capability and generated artifact discipline, independently reviewable before route activation. This split budgets the previously unassigned registry work rather than adding it inside 15B3.
+
+- [ ] Add tests that compare raw bytes of all existing v1 request artifacts and `api-response-v1.json` before/after registering fixture v2 variants, and exercise fixed response-schema selection for both versions and unknown-schema refusal.
+- [ ] Run `node --test test/unit/journal-registry-versioning.test.mjs test/golden/api-help.test.mjs` before and after implementation. New schema JSON artifacts must deep-equal the single exported JS object source, matching the existing `schemaArtifacts` discipline.
+- [ ] Add fixed version-aware registry/validation plumbing without activating new routes. Generate the v2 envelope from only its intended current request set; keep v1 raw artifacts and semantic unions unchanged. Current help may change, with its exact golden fixture regenerated and reviewed.
+- [ ] Hand 15B3 the version registration and response selection interfaces. Each later registry-changing leaf (15B3,19A,19D and help-changing19B) owns its serialized `schemaArtifacts`, relevant generated current schemas, help fixture and golden-test updates; 07D does not pre-author future operations.
+- [ ] Independently review/commit/trace and verify the whole-task forecast. No generic schema framework or automatic migration is introduced.
 
 ## Task 08: Capture bounded root and reviewer working contexts
 
@@ -592,9 +611,9 @@ assert.equal(missing.status, 'unavailable');
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files:** Create `src/collateral/fur-revision.mjs`, `test/unit/fur-revision.test.mjs`; extend `src/collateral/responses.mjs`, `test/unit/responses.test.mjs`, response templates/index and new-format submission metadata.
+**Files:** Create `src/collateral/fur-revision.mjs`, `test/unit/fur-revision.test.mjs`, `src/protocol/acknowledged-context.mjs`, `test/unit/acknowledged-context.test.mjs`; extend `src/collateral/responses.mjs`, `test/unit/responses.test.mjs`, response templates/index and new-format submission metadata.
 
-**Interfaces:** Exports `validateFurRevision({bytes,lineage}) -> {revisionId,basedOnCommit,digest}` or typed `AprError`. Extends `createResponseDraft`/`sealResponse` through explicit format selection and protected available/unavailable `reviewer_commit` metadata; legacy call semantics stay unchanged.
+**Interfaces:** Exports `validateFurRevision({bytes,lineage}) -> {revisionId,basedOnCommit,digest}` or typed `AprError`. Also exports pure `compareAcknowledgedContext({acknowledged,current}) -> {status:"current"}|{status:"stale",changed}|{status:"unavailable",reason}`. Task 10 owns unit tests for exact tuple equality, each changed available field, malformed acknowledgement and explicit unavailable capture; malformed acknowledgement throws typed `AprError` rather than becoming a decision. Task 15B2 owns the resulting controller action. Extends `createResponseDraft`/`sealResponse` through explicit format selection and protected available/unavailable `reviewer_commit` metadata; legacy call semantics stay unchanged.
 
 - [ ] Add failing cases for malformed/missing frontmatter, changed bytes retaining ID, earlier ID reused for different bytes, byte-identical retry and explicit legacy predecessor. Pin protected-field edit rejection in response-v2.
 
@@ -606,7 +625,7 @@ assert.throws(
 ```
 
 - [ ] Run `node --test test/unit/fur-revision.test.mjs test/unit/responses.test.mjs` and verify intended failures.
-- [ ] Validate new Markdown metadata without editing the FUR. Compare exact digest on reused IDs. Bind response subject revision/digest separately from author-introduced result. The new submission handoff supplies `acknowledgedContext:{head,observationDigest,furDigest,revisionId}` from the bound same checkout. At reviewer submission capture 08 context and compare the entire tuple; stale changes refuse and preserve original records.
+- [ ] Validate new Markdown metadata without editing the FUR. Compare exact digest on reused IDs. Bind response subject revision/digest separately from author-introduced result. The new submission handoff supplies `acknowledgedContext:{head,observationDigest,furDigest,revisionId}` from the bound same checkout. Task 15B2 captures 08 context at submission and calls this Task 10 comparison over the entire tuple; stale changes refuse and preserve original records.
 - [ ] Render protected response-v2 metadata with `{status:'available',commit}` or `{status:'unavailable',reason}`. Same-worktree capture is valid; unadopted separate checkout is unsupported. Do not overload `artifact_commit` or legacy null. If provenance capture is unavailable, retain the authenticated participant decision as provenance-incomplete, without declaring a complete acceptance manifest; a changed available tuple is stale and refuses advancement.
 - [ ] Rerun frontmatter, retry, provenance race and old response fixture tests. Update documented error recovery to external author/reviewer action; commit/review/trace.
 
@@ -646,10 +665,10 @@ The fixture must pass the real new event validators and reducer; do not bypass r
 
 **Files:** Create `src/manifest/journal-v2.mjs`, `test/unit/journal-manifest-v2.test.mjs`; integrate the v2 renderer/template only. Reuse the completed 11 store/event APIs without editing them; do not replace v1 renderer or touch 14 publication files.
 
-**Interfaces:** Exports `buildJournalManifest({state,context,prior}) -> manifestV2`, `sealJournalManifest({workspace,relative,model,expectedRevision}) -> {path,digest}`. Initial record is immutable; each linked cycle/acceptance record has exact paths, IDs, digests and prior-record identity.
+**Interfaces:** Exports `buildJournalManifest({state,context,prior}) -> manifestV2`, `sealJournalManifestLocked({workspace,relative,model,expectedRevision,priorState}) -> {path,digest}`. Initial record is immutable; each linked cycle/acceptance record has exact paths, IDs, digests and prior-record identity. `sealJournalManifestLocked` is internal lock-held work: it never calls `withReviewLock`; its caller owns the single acquisition and passes freshly loaded state/prior bytes. It checks expected revision against that state, then uses atomic persistence, following `appendLockedEvents` rather than nesting locks. A public orchestrator must never expose this internal primitive directly.
 
 - [ ] Pin failing initial-manifest-before-reviewer tests, capture races, repeated SAR/SPR/XPR acceptances with coincident SHAs, detached HEAD and incomplete-provenance observations.
-- [ ] Run `node --test test/unit/journal-manifest-v2.test.mjs test/unit/manifest.test.mjs`; confirm v1 terminal fixtures remain byte-identical.
+- [ ] Run `node --test test/unit/journal-manifest-v2.test.mjs test/unit/manifest.test.mjs`; confirm v1 terminal fixtures remain byte-identical. Exercise the manifest primitive inside one real `withReviewLock`, asserting no nested acquisition and durable output; do not make the primitive acquire the non-reentrant lock again.
 - [ ] Capture08 context and FUR consistently, then atomic-create the initial manifest before turn launch. Record the observed HEAD, not the commit that will later contain this manifest. Link subsequent immutable records rather than mutating a hashed predecessor.
 - [ ] At acceptance capture actual current HEAD and 09 comparison; preserve the root and append informational other-context records. Keep participant decision, acknowledgement and publication fields distinct. Missing overlay/HEAD is explicit incomplete provenance, not a fabricated value.
 - [ ] Verify exact role/path declarations, wrong-link failures and retained historical schemas. Publish stable UTF-8 Markdown with documented machine-readable v2 metadata and commit/review/trace.
@@ -704,7 +723,7 @@ assert.deepEqual(
 
 **Files:** Create `src/protocol/review-publication.mjs`, `test/unit/review-publication.test.mjs`; use 11 existing projection/store APIs without editing events/reducer/store. Keep runtime CLI/API activation in 15B3, so14 and 12 have disjoint writes.
 
-**Interfaces:** Exports `reservePublication({workspace,requestId,expectedRevision,publisherSession,cycleIds,resultDigests})`, `reportPublication({workspace,requestId,expectedRevision,publisherSession,reservation,outcome})`, `reconcilePublication({workspace,requestId,expectedRevision,publisherSession,reservation,outcome})` and `releasePublication({workspace,requestId,expectedRevision,publisherSession,reservation})`. Each authenticates the bound operation, reloads current journal state under `withReviewLock(workspace, ...)`, checks revision/session/token/cycle bindings, and appends through the existing writer with exact-request idempotence. Report/reconcile preserve the externally reported meaning of publication outcomes; AIPR performs no Git verification or mutation. `canOpenReviewerTurn(state)` is only a pure predicate, not an authority token.
+**Interfaces:** Exports `reservePublication({workspace,requestId,expectedRevision,publisherSession,cycleIds,resultDigests,authenticate})`, `reportPublication({workspace,requestId,expectedRevision,publisherSession,reservation,cycleIds,resultDigests,outcome,authenticate})`, `reconcilePublication({workspace,requestId,expectedRevision,publisherSession,reservation,cycleIds,resultDigests,outcome,authenticate})` and `releasePublication({workspace,requestId,expectedRevision,publisherSession,reservation,cycleIds,resultDigests,authenticate})`. Each is the sole lock-acquiring boundary: under one `withReviewLock(workspace, ...)`, reload current journal state, invoke the fixed package-owned `authenticate` callback on that fresh state and request, then check revision/session/token/cycle/digest bindings. The callback comes from the authenticated adapter, never from a request field, and must not acquire this lock. Compare the supplied ordered cycle IDs and result digests with the sealed reservation on every action, then append through the existing writer with exact-request idempotence. Report/reconcile preserve the externally reported meaning of publication outcomes; AIPR performs no Git verification or mutation. `canOpenReviewerTurn(state)` is only a pure predicate, not an authority token.
 
 - [ ] Pin races: reviewer turn open blocks publisher reservation; active reservation blocks reviewer launch; uncertain publish keeps reservation; exact outcome retry is idempotent; wrong session/revision refuses.
 
@@ -713,7 +732,7 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'reserved' } }), false
 assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true);
 ```
 
-- [ ] Run `node --test test/unit/review-publication.test.mjs`; add actual concurrent journal mutation tests, not just these pure checks. A reviewer-open transition checks the reservation and appends its turn-open event under the same writer lock; only afterward may the existing launcher run. If launch fails or its outcome is uncertain, retain the recorded pending/open state for explicit recovery rather than allowing publication by inference.
+- [ ] Run `node --test test/unit/review-publication.test.mjs`; add actual concurrent journal mutation tests, not just these pure checks. Exercise the same fixed-authenticator adapter contract used by 19D with one actual lock acquisition, including wrong-session rejection inside the lock. A reviewer-open transition checks the reservation and appends its turn-open event under the same writer lock; only afterward may the existing launcher run. If launch fails or its outcome is uncertain, retain the recorded pending/open state for explicit recovery rather than allowing publication by inference.
 - [ ] Reserve only a sealed-turn boundary or completed review. Keep deferred publication pending across subsequent sealed cycles without committing during an open reviewer turn. Explicit reconciliation is needed after uncertain publication; timeout is not success.
 - [ ] Record external publication status and exact cycle-result digest without requiring a turn-commit SHA index. Keep arbitrary human Git changes possible but subject to stale reviewer checks.
 - [ ] Test no Git writer is called by the product path using injected Git effects that throw on mutation. Commit/review/trace the lifecycle and recovery documentation.
@@ -744,12 +763,12 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true)
 
 **Files and exclusive write ownership:** Create `src/cli/journal-start-v2.mjs` and `test/integration/journal-start-v2.test.mjs`; no edits to run-core, shared API registry, templates or legacy startup.
 
-**Interfaces:** Exports `startJournalV2({input,ports})`; fixed ports are `authenticateStart`, `captureReviewContext`, `validateFurRevision`, `withReviewLock`, `persistInitialManifest`, `appendEvents`, `writeResponseDraft`, `launchReviewer`. Ports are wired to existing authenticated services and 08/10/11/12/14/15A by 15B3.
+**Interfaces:** Exports `startJournalV2({input,ports})`; fixed ports are `authenticateStart`, `captureReviewContext`, `validateFurRevision`, `withReviewLock`, `sealJournalManifestLocked`, `appendLockedEvents`, `writeResponseDraft`, `launchReviewer`. Ports are wired to existing authenticated services and 08/10/11/12/14/15A by 15B3.
 
 **Completion boundary:** Inactive start transaction sequencing: initial manifest and bound root are durable before any reviewer launch.
 
 - [ ] Write a disposable startup test that records port ordering and persisted real v2 manifests/events; failure before sealing must never invoke launch. Run `node --test test/integration/journal-start-v2.test.mjs` before/after.
-- [ ] Validate authenticated new-format input and exact FUR metadata; under the existing writer lock capture stable context, persist immutable initial manifest and events, under that same lock append the authoritative turn-open event only when publication state permits; afterward invoke the authenticated launcher. Preserve uncertain launch state until supported recovery.
+- [ ] Validate authenticated new-format input and exact FUR metadata; under one existing writer-lock acquisition call only lock-held manifest/event primitives, capture stable context, persist immutable initial manifest and events, under that same lock append the authoritative turn-open event only when publication state permits; afterward invoke the authenticated launcher. Preserve uncertain launch state until supported recovery.
 - [ ] Test capture races, partial I/O/retry, wrong role/session and unsupported separate reviewer checkout using real journal validators; fault-injected port order alone is not whole-workflow proof.
 - [ ] Independently review/commit/trace the inactive module. No legacy route switches until 15B3.
 
@@ -761,29 +780,29 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true)
 
 **Files and exclusive write ownership:** Create `src/cli/journal-submit-v2.mjs` and `test/integration/journal-submit-v2.test.mjs`; read response/diff/store modules; no run-core or API registry edits.
 
-**Interfaces:** Exports `submitJournalV2({input,ports})`; fixed ports are `authenticateSubmit`, `captureReviewContext`, `validateFurRevision`, `sealResponse`, `snapshotExternalResult`, `createFurDiff`, `sealJournalManifest`, `withReviewLock`, `appendEvents`. Input includes expected prior revision/digest, result reference, participant response and acknowledged context.
+**Interfaces:** Exports `submitJournalV2({input,ports})`; fixed ports are `authenticateSubmit`, `captureReviewContext`, `compareAcknowledgedContext`, `validateFurRevision`, `sealResponse`, `snapshotExternalResult`, `createFurDiff`, `sealJournalManifestLocked`, `withReviewLock`, `appendLockedEvents`. Input includes expected prior revision/digest, result reference, participant response and acknowledged context. The Task 10 comparator is the sole owner of current/stale/unavailable semantics; this orchestrator only advances, refuses, or preserves the authenticated decision as provenance-incomplete accordingly.
 
 **Completion boundary:** Inactive revision transaction; no subject mutation, fabricated prose or automatic publication.
 
 - [ ] Add real disposable journal tests for external result handoff, same-ID changed bytes, stale available acknowledged context, unavailable provenance, source change during reviewer turn and exact retry. Run `node --test test/integration/journal-submit-v2.test.mjs` before/after.
-- [ ] Authenticate and lock before comparing prior state. Seal exact participant response and external result bytes, verify the predecessor/result diff in both directions, then persist versioned cycle links using existing atomic storage. Preserve prior response/snapshot identities on every interrupted branch.
+- [ ] Authenticate and acquire the writer lock once before comparing prior state; call only `sealJournalManifestLocked` and `appendLockedEvents` inside it, with freshly read state/prior bytes. No nested lock-taking helper is permitted. Seal exact participant response and external result bytes, verify the predecessor/result diff in both directions, then persist versioned cycle links using existing atomic storage. Preserve prior response/snapshot identities on every interrupted branch.
 - [ ] A participant decision and incomplete closing acknowledgement remain separate. Do not activate finalization behavior reserved for 16; test the explicitly incomplete state rather than fabricating its missing response.
 - [ ] Independently review/commit/trace the inactive module; give 15B3 the exact ports and errors.
 
 ## Task 15B3: Activate the external revision handoff and reviewer boundary
 
-**Prerequisite leaves:** 15B1, 15B2.
+**Prerequisite leaves:** 15B1, 15B2, 07D.
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.25h; verification 0.75h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Exclusive owner of new-format `src/cli/run-core.mjs` activation, `src/api/contracts.mjs` request adapter branches, `src/templates/index.mjs` version selection and provider wiring. Tests `test/integration/review-only-handoff.test.mjs`, existing no-commit/Claude permission suites. New asset files stay owned by 15A.
+**Files and exclusive write ownership:** Exclusive owner of new-format `src/cli/run-core.mjs` activation, `src/api/contracts.mjs` request adapter branches, `src/api/registry.mjs`, `src/api/journal-contracts-v2.mjs`, generated start/submit-v2 and API-response-v2 schema artifacts, `test/fixtures/api-help.json`, `test/golden/api-help.test.mjs`, `src/templates/index.mjs` version selection and provider wiring. Tests `test/integration/review-only-handoff.test.mjs`, existing no-commit/Claude permission suites. New asset files stay owned by 15A.
 
 **Interfaces:** Consumes the fully tested 15B1/15B2 orchestration and 15A constraints; wires their named ports to the existing authenticated services and 08–14 interfaces. Enables start-request-v2 and submit-turn-request-v2 with `{reviewId,expectedRevision,priorDigest,resultReference,submittingSession}`.
 
 **Completion boundary:** Thin reviewed route/port activation of the new externally revised, response-only participant flow; legacy paths remain compatible.
 
 - [ ] Write a failing disposable end-to-end new-format review: participant writes only its response; external author supplies revised bytes; stale input refuses; exact retry advances once; publication reservation excludes new reviewer launch.
-- [ ] Run `node --test test/integration/review-only-handoff.test.mjs`; wire the already implemented orchestration ports, activate the new route and explicit format selection without converting legacy records.
+- [ ] Run `node --test test/integration/review-only-handoff.test.mjs`; wire the already implemented orchestration ports, activate the new route and explicit format selection without converting legacy records. Register start/submit-v2 request variants and `schemaArtifacts` through 07D, advertise both closed versions to MCP, select the response schema per request version, and rerun the exact generated-registry/help golden tests while proving all v1 request/envelope files byte-unchanged.
 - [ ] Snapshot/validate external result bytes and record their identity; never apply source patches or mutate Git. Keep within-turn HEAD/FUR checks and publisher waiting while a turn is open.
 - [ ] Verify real supported provider restrictions only through existing package launcher when separately authorized; automated fixture compliance alone is not OS enforcement. Preserve legacy integration behavior and list unsupported/manual modes truthfully.
 - [ ] Independently review/commit/trace this single controller integration. No other parallel task may edit run-core or the shared API adapter during activation.
@@ -850,7 +869,7 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 
 **Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Exclusive owner of read-only additions in `src/public-api.mjs`, `src/api/contracts.mjs`, `src/api/registry.mjs`, `src/api/errors.mjs`, new `src/api/journal-operations.mjs`, `schemas/inspect-journal-request-v1.json`, `schemas/reconstruct-history-request-v1.json`, `schemas/api-response-v2.json` and `test/unit/journal-api-contract.test.mjs`; starts after 15B3 has released these shared files.
+**Files and exclusive write ownership:** Also owns its serialized `test/fixtures/api-help.json` and `test/golden/api-help.test.mjs` refresh; registry writers also own current `schemaArtifacts`, `src/api/journal-contracts-v2.mjs` and generated API-response-v2/request schemas. Exclusive owner of read-only additions in `src/public-api.mjs`, `src/api/contracts.mjs`, `src/api/registry.mjs`, `src/api/errors.mjs`, new `src/api/journal-operations.mjs`, `schemas/inspect-journal-request-v1.json`, `schemas/reconstruct-history-request-v1.json`, `schemas/api-response-v2.json` and `test/unit/journal-api-contract.test.mjs`; starts after 15B3 has released these shared files.
 
 **Interfaces:** Exports `inspectJournal({workspace,recordPath})` and `reconstructJournalHistory({workspace,headPath,manifestPath,outputDirectory})`; register `inspect_review_journal` and `reconstruct_review_history` with closed request-v1 schemas and API-response-v2. Both operation adapters validate fixed request schemas and required project/session/path bindings before calling the real 07/17 readers; registration alone does not execute an operation. `inspect-journal-request/v1` requires `workspace` and `recordPath`; `reconstruct-history-request/v1` requires `workspace`, `headPath`, `manifestPath`, `outputDirectory`; both carry their exact schema identifier and reject unknown fields. Inspection is read-only; reconstruction writes derived bytes only into the explicitly selected separate destination after containment/no-overwrite checks, never into the FUR or retained collateral. A transport must disclose that bounded output write; it is not a source edit. Uses existing current/historical readers and 17 history reconstruction; never exposes an AIPR Git publisher.
 
@@ -862,22 +881,26 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 - [ ] Independently review/commit/trace the API boundary; provide19B concrete operation names, request/response shapes and errors.
 - [ ] Add export/error fixtures with credentials, private session handles, absolute private paths and raw provider output; redact/omit these at the declared public projection boundary and verify historical records are not republished. Do not edit CLI/MCP dispatch, packaging or inventory files in this leaf.
 
+- [ ] Run `node --test test/golden/api-help.test.mjs test/unit/journal-registry-versioning.test.mjs` after registry/help changes. Regenerate current artifacts from their single objects; verify all existing v1 request artifacts and `schemas/api-response-v1.json` remain byte-unchanged.
+
 ## Task 19D: Expose the bounded external publication coordination API
 
 **Prerequisite leaves:** 19A, 16, 14.
 
 **Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Exclusive serialized additions to `src/public-api.mjs`, `src/api/contracts.mjs`, `src/api/registry.mjs`, `src/api/errors.mjs`, `src/api/journal-operations.mjs`; create `test/unit/publication-api-contract.test.mjs`. No run-core, transport or Git-writer implementation.
+**Files and exclusive write ownership:** Also owns its serialized `test/fixtures/api-help.json` and `test/golden/api-help.test.mjs` refresh; registry writers also own current `schemaArtifacts`, `src/api/journal-contracts-v2.mjs` and generated API-response-v2/request schemas. Exclusive serialized additions to `src/public-api.mjs`, `src/api/contracts.mjs`, `src/api/registry.mjs`, `src/api/errors.mjs`, `src/api/journal-operations.mjs`; create `test/unit/publication-api-contract.test.mjs`. No run-core, transport or Git-writer implementation.
 
-**Interfaces:** Exports `manageReviewPublication(request)` from the journal operation adapter and registers `manage_review_publication` with the 07B publication-request-v1 contract and 14 lifecycle operations. The adapter authenticates the bound publisher session and reservation under the existing journal lock before invoking 14; a declared JSON session string alone is insufficient. The response returns waiting/reserved/pending/released with the exact reservation/cycle identity; session checks remain required.
+**Interfaces:** Exports `manageReviewPublication(request)` from the journal operation adapter and registers `manage_review_publication` with the 07B publication-request-v1 contract and 14 lifecycle operations. The adapter validates the closed request shape and supplies the fixed authenticated-session callback to 14 without acquiring a surrounding review lock; 14 alone acquires it and calls that authenticator against fresh state before mutation. A declared JSON session string alone is insufficient. The response returns waiting/reserved/pending/released with the exact reservation/cycle identity; session checks remain required.
 
 **Completion boundary:** A callable external publisher coordination operation; it changes journal state only.
 
 - [ ] Add failing reserve/report/reconcile/release tests through the real public dispatch boundary. Reject wrong session/token, stale revision, wrong cycle/digest and unknown action; exact request retries are idempotent.
-- [ ] Run `node --test test/unit/publication-api-contract.test.mjs`; register the fixed contract/error cases and route to 14 under the existing lock. Uncertain outcome keeps reservation until explicit reconciliation; never infer success from process exit.
+- [ ] Run `node --test test/unit/publication-api-contract.test.mjs`; register the fixed contract/error cases and route to the sole lock-owning 14 operation. Test the real adapter path with the non-reentrant existing lock, asserting one acquisition and successful authenticated mutation rather than nested `APR_REVIEW_LOCKED` refusal. Uncertain outcome keeps reservation until explicit reconciliation; never infer success from process exit.
 - [ ] Test that every injected Git mutation throws yet ordinary coordination still works; acceptance/closing acknowledgement remains independent from publication outcome.
 - [ ] Independently review/commit/trace; give 19B exact CLI/MCP operation and request examples.
+
+- [ ] Run `node --test test/golden/api-help.test.mjs test/unit/journal-registry-versioning.test.mjs` after registry/help changes. Regenerate current artifacts from their single objects; verify all existing v1 request artifacts and `schemas/api-response-v1.json` remain byte-unchanged.
 
 ## Task 19B: Wire CLI and MCP parity for journal inspection
 
@@ -885,7 +908,7 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 
 **Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Exclusive owner of `src/cli/parse.mjs`, `src/cli/help-data.mjs`, `src/cli/help-topics.mjs`, thin dispatch in `src/cli/run.mjs`, `src/cli/run-core.mjs` and `src/mcp/server-core.mjs`, plus `test/integration/journal-cli-mcp.test.mjs`; use the 19A contract without changing it. Controller lifecycle behavior is already completed by 15B3/16; this leaf only adds transport dispatch after both release the file.
+**Files and exclusive write ownership:** Also owns its serialized `test/fixtures/api-help.json` and `test/golden/api-help.test.mjs` refresh; registry writers also own current `schemaArtifacts`, `src/api/journal-contracts-v2.mjs` and generated API-response-v2/request schemas. Exclusive owner of `src/cli/parse.mjs`, `src/cli/help-data.mjs`, `src/cli/help-topics.mjs`, thin dispatch in `src/cli/run.mjs`, `src/cli/run-core.mjs` and `src/mcp/server-core.mjs`, plus `test/integration/journal-cli-mcp.test.mjs`; use the 19A contract without changing it. Controller lifecycle behavior is already completed by 15B3/16; this leaf only adds transport dispatch after both release the file.
 
 **Interfaces:** Produces equivalent CLI/MCP read-only inspect/reconstruct results for 19A plus the explicit 19D publication coordination operation and versioned lifecycle requests. It grants no subject/Git mutation; publication requests mutate only journal coordination. No transport may grant Git/source-write permission.
 
@@ -896,6 +919,8 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 - [ ] Verify both transports preserve input files, exact meanings and structured errors; expose reconstruction output as an explicit separately authorized destination with no overwrite, rather than describing all effects as read-only; do not independently reimplement journal semantics in a transport.
 - [ ] Independently review/commit/trace the transport integration. Hand 19C the actual shipped entry points/assets.
 - [ ] No concurrent run-core/API contract or package inventory edit is permitted.
+
+- [ ] Run `node --test test/golden/api-help.test.mjs test/unit/journal-registry-versioning.test.mjs` after registry/help changes. Regenerate current artifacts from their single objects; verify all existing v1 request artifacts and `schemas/api-response-v1.json` remain byte-unchanged.
 
 ## Task 19C: Verify portable package closure and immutable format exceptions
 
@@ -1062,9 +1087,9 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 
 **Completion boundary:** A bounded issue-set disposition; surviving implementation and any further deep decomposition remain separately owned and unexecuted.
 
-- [ ] Read each assigned current issue and accepted source-plan/contract. Compare only its requirements affected by this cleanup with completed behavior and actual consumers; preserve unrelated useful scope.
+- [ ] Read each assigned current issue and accepted source-plan/contract. Check live text, accepted references and actual consumers to make the early keep/out-of-scope disposition; do not rely on later unbuilt journal/role/publication behavior. A candidate affected by that later behavior gets an explicit post-19C bounded planning/disposition dependency before mutation. Preserve unrelated useful scope.
 - [ ] For a large surviving story, identify independently reviewable deliverables and separate bounded planning ownership. Do not convert 25-hour or 41.5-hour historical forecasts into nominal four-hour implementation forecasts here. If full bounded replacement planning is not complete, retain an explicit planning dependency and nonexecutable status; this disposition cannot claim that surviving work delivered.
-- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral.
+- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral. #213 remains keep-deferred and unscheduled, with no mutation beyond its reference.
 - [ ] Verify every mutation by read-back and independently review/commit/trace this partition. Assign any newly discovered additional candidate to a new bounded proposal before registration; never silently enlarge this partition.
 
 ## Task 23B2: Disposition the second remaining candidate partition
@@ -1079,9 +1104,9 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 
 **Completion boundary:** A bounded issue-set disposition; surviving implementation and any further deep decomposition remain separately owned and unexecuted.
 
-- [ ] Read each assigned current issue and accepted source-plan/contract. Compare only its requirements affected by this cleanup with completed behavior and actual consumers; preserve unrelated useful scope.
+- [ ] Read each assigned current issue and accepted source-plan/contract. Check live text, accepted references and actual consumers to make the early keep/out-of-scope disposition; do not rely on later unbuilt journal/role/publication behavior. A candidate affected by that later behavior gets an explicit post-19C bounded planning/disposition dependency before mutation. Preserve unrelated useful scope.
 - [ ] For a large surviving story, identify independently reviewable deliverables and separate bounded planning ownership. Do not convert 25-hour or 41.5-hour historical forecasts into nominal four-hour implementation forecasts here. If full bounded replacement planning is not complete, retain an explicit planning dependency and nonexecutable status; this disposition cannot claim that surviving work delivered.
-- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral.
+- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral. #213 remains keep-deferred and unscheduled, with no mutation beyond its reference.
 - [ ] Verify every mutation by read-back and independently review/commit/trace this partition. Assign any newly discovered additional candidate to a new bounded proposal before registration; never silently enlarge this partition.
 
 ## Task 24: Register the downstream AITM ownership and exact-context handoff
@@ -1186,7 +1211,7 @@ Self-review checks: no orphan-plan reuse; no historical schema/data mutation; no
 
 ## Handoff
 
-Revision 5 also makes all four publication operation signatures workspace-bound and records turn opening atomically before launch. Revision 4 incorporated the second manual same-agent SAR pass, explicit durable format inventory, public adapter authentication and per-delivery integrity maintenance. Revision 3 resolved the first SAR findings by splitting discovery, process capability/owner records, proof consumers, controller startup/submission and issue-disposition work; it defines the external publication API and corrects prerequisite/receipt ordering. It contains 50 leaf tasks and 25 earliest dependency waves, recalculated from the task headers. Numeric family references in coverage mean all named leaves of that family, not a separate executable task. Every leaf is at most 3.5 human hours; the four-human-hour ceiling applies to complete work including review/verification/delivery.
+Revision 6 addresses native XPR round 1: generated version-aware API registry ownership, non-reentrant lock composition, one acknowledged-context comparator, explicit publisher cycle bindings, early disposition limits and concrete inventory regeneration. It adds bounded Task 07D rather than hiding registry work inside activation. Revision 5 also makes all four publication operation signatures workspace-bound and records turn opening atomically before launch. Revision 4 incorporated the second manual same-agent SAR pass, explicit durable format inventory, public adapter authentication and per-delivery integrity maintenance. Revision 3 resolved the first SAR findings by splitting discovery, process capability/owner records, proof consumers, controller startup/submission and issue-disposition work; it defines the external publication API and corrects prerequisite/receipt ordering. It contains 51 leaf tasks and 25 earliest dependency waves, recalculated from the task headers. Numeric family references in coverage mean all named leaves of that family, not a separate executable task. Every leaf is at most 3.5 human hours; the four-human-hour ceiling applies to complete work including review/verification/delivery.
 
 This file is a fresh draft implementation plan from the exact owner-adopted revision13. Technical SAR status is recorded separately in the dedicated review evidence; this draft has no owner Plan approval or execution-method selection. The orphan plan remains retired. Next: review this draft and its estimates, revise under an explicit plan revision identity if needed, complete the chosen technical plan review, then obtain native Plan approval and register bounded execution issues through their owning workflows. No implementation, downstream hydration, existing-issue supersession or merge occurs merely because this document exists.
 
