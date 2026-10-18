@@ -1,0 +1,26 @@
+{
+  "record_kind": "External post-review archival turn record; not a native per-turn manifest",
+  "review_id": "review-d81db636f6f2a77ca13e33cef6489934",
+  "turn": 1,
+  "patch": {
+    "predecessor_revision": "issue-222-r9",
+    "result_revision": "issue-222-r10",
+    "predecessor_digest": "sha256:51647cfa5aca488971682b37df073c5d5ecfbb25e5c608fe7253df7ec0b1e259",
+    "result_digest": "sha256:f2edf6b05a941ae6287d32be7a5e822439fccfc7d8ceb83476d1f3f89c84fc44",
+    "path": "docs/superpowers/peer-reviews/222-spec-xpr-rerun/spec-r9-to-r10.diff",
+    "digest": "sha256:14272a63cd3773c6f7f3d1862f5f99e3d5f24988cec7c229cf4a179e1a0950a3",
+    "format": "Git full-index binary-capable patch, zero context; apply with git apply --unidiff-zero",
+    "forward_and_reverse_verified": true
+  },
+  "responses": [
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-author-response-1.md",
+      "digest": "sha256:412236b12b2ce45f3c95eae303da0ed2dc7669425b6229a99791ce978a503d16"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-reviewer-response-1.md",
+      "digest": "sha256:f1cc771d9d542041cbe08ecc75364ce62225ef00ce0875e0087b0fd1bf35cee9"
+    }
+  ],
+  "publication": "Prepared after native finalization for dedicated revision commit; no retroactive acceptance or native publication state is asserted."
+}
