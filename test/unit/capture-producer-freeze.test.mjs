@@ -95,6 +95,9 @@ test('hosted capture refuses a foreign branch before private binding or privileg
     GITHUB_RUN_ID: '190',
     GITHUB_RUN_ATTEMPT: '1',
     RUNNER_OS: 'macOS',
+    GITHUB_EVENT_NAME: 'push',
+    GITHUB_REF_TYPE: 'branch',
+    GITHUB_REF: 'refs/heads/codex/foreign-capture',
     GITHUB_REF_NAME: 'codex/foreign-capture',
   };
   const previous = Object.fromEntries(Object.keys(values).map((key) => [key, process.env[key]]));

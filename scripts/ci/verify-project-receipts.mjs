@@ -1,15 +1,17 @@
 // @story #212
+// @story #215
 // Native project gate: exact approved POSIX refs; all-platform proof elsewhere.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { resolveVerificationScope } from './verification-scope.mjs';
+import { resolveVerificationScope, POSIX_REPAIR_SOURCE_BRANCHES } from './verification-scope.mjs';
 import { verifyCloudReceipts } from './verify-receipts.mjs';
 
 const cumulativeSourceBranches = Object.freeze({
   141: 'feature/child/141',
   171: 'codex/171-fresh-continuation',
   191: 'codex/171-fresh-continuation',
+  ...POSIX_REPAIR_SOURCE_BRANCHES,
 });
 
 export function projectReceiptScope(branch, context = {}) {
@@ -41,7 +43,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     encoding: 'utf8',
   }).trim();
   const context = { issueNumber: Number(process.env.AITM_TEST_ISSUE_NUMBER) };
-  if (branch === 'HEAD' && [190, 212, 191, 171, 141].includes(context.issueNumber)) {
+  if (
+    branch === 'HEAD' &&
+    ([190, 212].includes(context.issueNumber) ||
+      Object.hasOwn(cumulativeSourceBranches, context.issueNumber))
+  ) {
     const ref = (name) => {
       try {
         return execFileSync('git', ['rev-parse', '--verify', name], {

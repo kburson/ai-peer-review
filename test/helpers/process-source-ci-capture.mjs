@@ -1,5 +1,6 @@
 // @story #170
 // @story #190
+// @story #215
 // Public pre-capture artifacts and signed controls on disposable hosted workers only.
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
@@ -14,24 +15,18 @@ import {
   processSourceRecordDigest,
   validateProcessSourceRegistration,
 } from '../live/process-source/records.mjs';
+import {
+  PROCESS_SOURCE_CAPTURE_BRANCH,
+  resolveCaptureWorkflowContext,
+} from '../../scripts/ci/verification-scope.mjs';
 const ROOT = realpathSync(fileURLToPath(new URL('../../', import.meta.url)));
 const DRIVER = 'test/live/process-source-conformance.mjs';
-const CAPTURE_BRANCH = 'codex/190-installed-journeys';
+const CAPTURE_BRANCH = PROCESS_SOURCE_CAPTURE_BRANCH;
 const fail = (code) => {
   throw Error(code);
 };
 function host() {
-  if (
-    process.env.GITHUB_ACTIONS !== 'true' ||
-    process.env.RUNNER_ENVIRONMENT !== 'github-hosted' ||
-    process.env.GITHUB_REPOSITORY !== 'kburson/ai-peer-review' ||
-    process.env.GITHUB_WORKFLOW !== 'Process source conformance capture' ||
-    !/^[0-9]+$/u.test(process.env.GITHUB_RUN_ID ?? '') ||
-    !/^[0-9]+$/u.test(process.env.GITHUB_RUN_ATTEMPT ?? '') ||
-    !['Linux', 'macOS', 'Windows'].includes(process.env.RUNNER_OS)
-  )
-    fail('ci-capture-host-unavailable');
-  if (process.env.GITHUB_REF_NAME !== CAPTURE_BRANCH) fail('ci-capture-branch-unavailable');
+  resolveCaptureWorkflowContext(process.env, git(['rev-parse', 'HEAD']));
 }
 const gitRaw = (args) =>
   execFileSync('git', ['-C', ROOT, ...args], {

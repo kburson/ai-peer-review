@@ -2,7 +2,7 @@ name: Process source conformance capture
 
 on:
   push:
-    branches: [codex/190-installed-journeys]
+    branches: [feature/child/221]
     paths:
       - .github/workflows/process-source-capture.yml
       - test/helpers/process-source-ci-host.mjs
@@ -13,7 +13,22 @@ permissions:
   contents: read
 
 jobs:
+  scope:
+    name: Capture source policy
+    runs-on: ubuntu-latest
+    outputs:
+      os: ${{ steps.selected.outputs.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Validate exact POSIX capture source
+        id: selected
+        run: node scripts/ci/verification-scope.mjs --capture
+
   capture:
+    needs: scope
     name: Source capture / Node ${{ matrix.node }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -22,15 +37,11 @@ jobs:
       max-parallel: 4
       matrix:
         node: ['24', '26']
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON(needs.scope.outputs.os) }}
     env:
       APR_SKIP_NATIVE_BROKER_TESTS: '1'
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Enable Windows long checkout paths
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: git config --global core.longpaths true
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -44,7 +55,7 @@ jobs:
       - name: Verify CI privilege/restoration and prepare exact public registrations
         run: |
           node -e "require('node:fs').mkdirSync('.scratch/peer-review', { recursive: true })"
-          node --import ./test/helpers/windows-stock-timing.mjs test/helpers/process-source-ci-capture.mjs prepare > .scratch/peer-review/source-prepare-diagnostic.log 2>&1
+          node test/helpers/process-source-ci-capture.mjs prepare > .scratch/peer-review/source-prepare-diagnostic.log 2>&1
       - name: Publish public pre-capture registrations
         uses: actions/upload-artifact@v4
         with:
