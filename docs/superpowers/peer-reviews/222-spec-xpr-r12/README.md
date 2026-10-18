@@ -12,6 +12,8 @@ The reviewer confirmed all round-1 required changes resolved. Optional nonblocki
 
 ## Verification and reconstruction
 
+Prettier flags table alignment in section 6 of the accepted specification. Its exact reviewed bytes were preserved; formatting is not reported as passing. Whitespace checks passed.
+
 The parent checked native terminal status, the exact accepted specification against the sealed result, all participant response hashes, both snapshot hashes and distinct participant fingerprints. The r12-to-r13 patch passed forward and reverse application. Starting with the final FUR in a separate temporary directory as `FUR.md`, run `git apply --unidiff-zero --reverse <absolute-path-to-spec-r12-to-r13.diff>` and verify the predecessor digest in the receipt. The resulting revision 12 can then reverse the boundary diff using the repository-relative specification path to recover exact accepted revision 11. This chain check passed without original revision commit objects or independently archived FUR snapshots. Preserve the retained FUR while reconstructing elsewhere.
 
 ## Provenance and workflow limits

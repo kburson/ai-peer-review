@@ -21,7 +21,8 @@
     "distinct_participants": true,
     "accepted_FUR_matches_snapshot": true,
     "patch_forward_reverse": true,
-    "reverse_to_prior_accepted_r11_without_git_objects": true
+    "reverse_to_prior_accepted_r11_without_git_objects": true,
+    "prettier_accepted_specification": false
   },
   "patch": {
     "predecessor_revision": "issue-222-r12",
@@ -73,5 +74,6 @@
       "path": "docs/superpowers/peer-reviews/spec/222-r12/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-0b5e44367ed1ebf60276c5f385829029/review-0b5e44367ed1ebf60276c5f385829029-reviewer-response-2.md",
       "digest": "sha256:3b000c0e8a3edb549adece3424890ea22365e91a875206f01e60121e36c48e3c"
     }
-  ]
+  ],
+  "formatting_note": "Prettier flags Markdown table alignment in section6 after new owning-workflow row. Exact reviewer-accepted bytes preserved; whitespace check passes. This receipt does not claim formatting passed."
 }
