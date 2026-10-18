@@ -1,0 +1,285 @@
+{
+  "record_kind": "Draft planning dependency/effort data; not native issue registration, independent forecasts or execution authority",
+  "plan_revision": "issue-222-plan-r2",
+  "plan_sha256": "58bea1b4f965c858fe4d604794d42dcec939d24a51db9485dbb2105a3d33e2bc",
+  "task_count": 37,
+  "human_hours": {
+    "01": 2,
+    "02": 1,
+    "03": 2,
+    "04": 3,
+    "05A": 3,
+    "05B": 3,
+    "05C": 3.5,
+    "06": 3,
+    "07A": 2.5,
+    "07B": 3,
+    "07C": 1.5,
+    "08": 3,
+    "09": 3,
+    "10": 3,
+    "11": 3,
+    "12": 3,
+    "13": 3,
+    "14": 3,
+    "15A": 2.5,
+    "15B": 3.5,
+    "16": 2.5,
+    "17": 3,
+    "18": 2,
+    "19A": 2.5,
+    "19B": 2.5,
+    "19C": 2.5,
+    "20": 2,
+    "21": 2,
+    "22A": 2,
+    "22B": 2,
+    "22C": 2,
+    "23A": 2,
+    "23B": 2,
+    "24": 2,
+    "25A": 2.5,
+    "25B": 2.5,
+    "25C": 2
+  },
+  "dependencies": {
+    "01": [],
+    "02": [
+      "01"
+    ],
+    "03": [
+      "01",
+      "02"
+    ],
+    "04": [
+      "03"
+    ],
+    "05A": [
+      "04"
+    ],
+    "05B": [
+      "04"
+    ],
+    "05C": [
+      "05A",
+      "05B"
+    ],
+    "06": [
+      "05C"
+    ],
+    "07A": [
+      "05C"
+    ],
+    "07B": [
+      "05C"
+    ],
+    "07C": [
+      "07A",
+      "07B"
+    ],
+    "08": [
+      "05C"
+    ],
+    "09": [
+      "08",
+      "07C"
+    ],
+    "10": [
+      "08",
+      "07C"
+    ],
+    "11": [
+      "07C",
+      "10"
+    ],
+    "12": [
+      "08",
+      "09",
+      "11"
+    ],
+    "13": [
+      "07C",
+      "10"
+    ],
+    "14": [
+      "11",
+      "13"
+    ],
+    "15A": [
+      "07C",
+      "10"
+    ],
+    "15B": [
+      "14",
+      "15A"
+    ],
+    "16": [
+      "15B"
+    ],
+    "17": [
+      "12",
+      "13"
+    ],
+    "18": [
+      "14",
+      "17"
+    ],
+    "19A": [
+      "06",
+      "15B",
+      "17"
+    ],
+    "19B": [
+      "19A",
+      "15B"
+    ],
+    "19C": [
+      "18",
+      "19B",
+      "20"
+    ],
+    "20": [
+      "01",
+      "09",
+      "12",
+      "17"
+    ],
+    "21": [
+      "01",
+      "06"
+    ],
+    "22A": [
+      "16",
+      "20"
+    ],
+    "22B": [
+      "19C"
+    ],
+    "22C": [
+      "19B",
+      "20"
+    ],
+    "23B": [
+      "01",
+      "21"
+    ],
+    "23A": [
+      "21",
+      "22A",
+      "22B",
+      "22C",
+      "23B"
+    ],
+    "24": [
+      "19C",
+      "20",
+      "22C"
+    ],
+    "25A": [
+      "19C",
+      "20",
+      "23A"
+    ],
+    "25B": [
+      "19C",
+      "18"
+    ],
+    "25C": [
+      "24",
+      "25A",
+      "25B"
+    ]
+  },
+  "earliest_dependency_waves": [
+    [
+      "01"
+    ],
+    [
+      "02"
+    ],
+    [
+      "03"
+    ],
+    [
+      "04"
+    ],
+    [
+      "05A",
+      "05B"
+    ],
+    [
+      "05C"
+    ],
+    [
+      "06",
+      "07A",
+      "07B",
+      "08"
+    ],
+    [
+      "07C",
+      "21"
+    ],
+    [
+      "09",
+      "10",
+      "23B"
+    ],
+    [
+      "11",
+      "13",
+      "15A"
+    ],
+    [
+      "12",
+      "14"
+    ],
+    [
+      "15B",
+      "17"
+    ],
+    [
+      "16",
+      "18",
+      "19A",
+      "20"
+    ],
+    [
+      "19B",
+      "22A"
+    ],
+    [
+      "19C",
+      "22C"
+    ],
+    [
+      "22B",
+      "24",
+      "25B"
+    ],
+    [
+      "23A"
+    ],
+    [
+      "25A"
+    ],
+    [
+      "25C"
+    ]
+  ],
+  "aggregate_human_hours": 92.5,
+  "maximum_leaf_human_hours": 3.5,
+  "parallel_policy": {
+    "implementation_workers": 3,
+    "integration_orchestration_owner": 1,
+    "requires_separate_worktrees_and_bound_issues": true,
+    "shared_file_writes": "one assigned writer per leaf; serialize leaves with shared paths",
+    "atomic_process_barrier": "05C delivered usable before later closure-changing work"
+  },
+  "limits": [
+    "Forecasts are provisional; independently inspect whole-task cost before native registration/Develop.",
+    "Human hours include engineering, verification, review and delivery; agent cap/remaining allowance is separate.",
+    "No elapsed-time speedup is claimed from these dependency waves.",
+    "No workers launched or worktrees created by this planning revision."
+  ]
+}

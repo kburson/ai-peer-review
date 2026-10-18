@@ -1,0 +1,26 @@
+{
+  "record_kind": "Draft plan revision-2 self-review; not independent technical acceptance",
+  "plan_revision": "issue-222-plan-r2",
+  "plan_sha256": "58bea1b4f965c858fe4d604794d42dcec939d24a51db9485dbb2105a3d33e2bc",
+  "source_spec_sha256": "f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+  "checks": {
+    "37_unique_leaf_tasks": true,
+    "every_leaf_total_human_estimate_at_most_4": true,
+    "engineering_verification_review_delivery_included": true,
+    "declared_dependencies_match_wave_graph": true,
+    "19_acyclic_dependency_waves": true,
+    "shared_file_ownership_and_integration_barriers_reviewed": true,
+    "javascript_examples_parse": 8,
+    "reverse_diff_recovers_exact_draft1": true,
+    "source_spec_unchanged": true,
+    "orphan_archive_unchanged": true
+  },
+  "provisional_aggregate_human_hours": 92.5,
+  "maximum_leaf_human_hours": 3.5,
+  "limitations": [
+    "Forecasts are not yet independently inspected native forecasts.",
+    "Wave/file-ownership review was inline by the owning planning agent, not a separate reviewer.",
+    "No implementation tests or execution were performed.",
+    "Plan review/approval and actual bounded issue registration remain required."
+  ]
+}
