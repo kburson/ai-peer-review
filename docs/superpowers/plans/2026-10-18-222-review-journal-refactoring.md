@@ -1,6 +1,6 @@
 ---
 based_on_commit: 9130dc6fa73f80b89ddc67c4f29f055f52d08600
-revision_id: issue-222-plan-r4
+revision_id: issue-222-plan-r5
 ---
 
 # Review Moderator and Versioned Journal Refactoring Implementation Plan
@@ -15,7 +15,7 @@ revision_id: issue-222-plan-r4
 
 **Spec:** [2026-10-18-222-review-journal-refactoring-design.md](../specs/2026-10-18-222-review-journal-refactoring-design.md), exact accepted revision `issue-222-r13`, SHA-256 `f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be`. Source acceptance: XPR `review-0b5e44367ed1ebf60276c5f385829029`, author `gpt-6-astra/high`, reviewer `claude-opus-5-5/high`.
 
-**Plan metadata:** Draft 4; preparation owner #222 under #141, not an implementation child or approved native Plan. Writing basis `9130dc6fa73f80b89ddc67c4f29f055f52d08600`. Source suitability was recorded at `359a7dc`; only plan/adoption documentation changed since then. Owner explicitly accepted revision 13 and authorized this fresh plan. [Adoption and suitability record](../peer-reviews/222-spec-adoption/owner-adoption-r13.json). Keep accepted spec bytes unchanged despite the documented table-alignment warning. The retired orphan plan was not consulted and supplies no executable scope or estimates.
+**Plan metadata:** Draft 5; preparation owner #222 under #141, not an implementation child or approved native Plan. Writing basis `9130dc6fa73f80b89ddc67c4f29f055f52d08600`. Source suitability was recorded at `359a7dc`; only plan/adoption documentation changed since then. Owner explicitly accepted revision 13 and authorized this fresh plan. [Adoption and suitability record](../peer-reviews/222-spec-adoption/owner-adoption-r13.json). Keep accepted spec bytes unchanged despite the documented table-alignment warning. The retired orphan plan was not consulted and supplies no executable scope or estimates.
 
 ## Global Constraints
 
@@ -704,7 +704,7 @@ assert.deepEqual(
 
 **Files:** Create `src/protocol/review-publication.mjs`, `test/unit/review-publication.test.mjs`; use 11 existing projection/store APIs without editing events/reducer/store. Keep runtime CLI/API activation in 15B3, so14 and 12 have disjoint writes.
 
-**Interfaces:** Exports `reservePublication({state,expectedRevision,publisherSession})`, `releasePublication({state,reservation,outcome})`, `canOpenReviewerTurn(state)`. Operations emit event-v3 records through the existing writer; they do not run Git.
+**Interfaces:** Exports `reservePublication({workspace,requestId,expectedRevision,publisherSession,cycleIds,resultDigests})`, `reportPublication({workspace,requestId,expectedRevision,publisherSession,reservation,outcome})`, `reconcilePublication({workspace,requestId,expectedRevision,publisherSession,reservation,outcome})` and `releasePublication({workspace,requestId,expectedRevision,publisherSession,reservation})`. Each authenticates the bound operation, reloads current journal state under `withReviewLock(workspace, ...)`, checks revision/session/token/cycle bindings, and appends through the existing writer with exact-request idempotence. Report/reconcile preserve the externally reported meaning of publication outcomes; AIPR performs no Git verification or mutation. `canOpenReviewerTurn(state)` is only a pure predicate, not an authority token.
 
 - [ ] Pin races: reviewer turn open blocks publisher reservation; active reservation blocks reviewer launch; uncertain publish keeps reservation; exact outcome retry is idempotent; wrong session/revision refuses.
 
@@ -713,7 +713,7 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'reserved' } }), false
 assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true);
 ```
 
-- [ ] Run `node --test test/unit/review-publication.test.mjs`; add actual concurrent journal mutation tests, not just these pure checks.
+- [ ] Run `node --test test/unit/review-publication.test.mjs`; add actual concurrent journal mutation tests, not just these pure checks. A reviewer-open transition checks the reservation and appends its turn-open event under the same writer lock; only afterward may the existing launcher run. If launch fails or its outcome is uncertain, retain the recorded pending/open state for explicit recovery rather than allowing publication by inference.
 - [ ] Reserve only a sealed-turn boundary or completed review. Keep deferred publication pending across subsequent sealed cycles without committing during an open reviewer turn. Explicit reconciliation is needed after uncertain publication; timeout is not success.
 - [ ] Record external publication status and exact cycle-result digest without requiring a turn-commit SHA index. Keep arbitrary human Git changes possible but subject to stale reviewer checks.
 - [ ] Test no Git writer is called by the product path using injected Git effects that throw on mutation. Commit/review/trace the lifecycle and recovery documentation.
@@ -749,7 +749,7 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true)
 **Completion boundary:** Inactive start transaction sequencing: initial manifest and bound root are durable before any reviewer launch.
 
 - [ ] Write a disposable startup test that records port ordering and persisted real v2 manifests/events; failure before sealing must never invoke launch. Run `node --test test/integration/journal-start-v2.test.mjs` before/after.
-- [ ] Validate authenticated new-format input and exact FUR metadata; under the existing writer lock capture stable context, persist immutable initial manifest and events, then allow the authenticated launcher only when publication state permits.
+- [ ] Validate authenticated new-format input and exact FUR metadata; under the existing writer lock capture stable context, persist immutable initial manifest and events, under that same lock append the authoritative turn-open event only when publication state permits; afterward invoke the authenticated launcher. Preserve uncertain launch state until supported recovery.
 - [ ] Test capture races, partial I/O/retry, wrong role/session and unsupported separate reviewer checkout using real journal validators; fault-injected port order alone is not whole-workflow proof.
 - [ ] Independently review/commit/trace the inactive module. No legacy route switches until 15B3.
 
@@ -1186,7 +1186,7 @@ Self-review checks: no orphan-plan reuse; no historical schema/data mutation; no
 
 ## Handoff
 
-Revision 4 incorporates both manual same-agent SAR passes, explicit durable format inventory, public adapter authentication and per-delivery integrity maintenance. Revision 3 resolved the first SAR findings by splitting discovery, process capability/owner records, proof consumers, controller startup/submission and issue-disposition work; it defines the external publication API and corrects prerequisite/receipt ordering. It contains 50 leaf tasks and 25 earliest dependency waves, recalculated from the task headers. Numeric family references in coverage mean all named leaves of that family, not a separate executable task. Every leaf is at most 3.5 human hours; the four-human-hour ceiling applies to complete work including review/verification/delivery.
+Revision 5 also makes all four publication operation signatures workspace-bound and records turn opening atomically before launch. Revision 4 incorporated the second manual same-agent SAR pass, explicit durable format inventory, public adapter authentication and per-delivery integrity maintenance. Revision 3 resolved the first SAR findings by splitting discovery, process capability/owner records, proof consumers, controller startup/submission and issue-disposition work; it defines the external publication API and corrects prerequisite/receipt ordering. It contains 50 leaf tasks and 25 earliest dependency waves, recalculated from the task headers. Numeric family references in coverage mean all named leaves of that family, not a separate executable task. Every leaf is at most 3.5 human hours; the four-human-hour ceiling applies to complete work including review/verification/delivery.
 
 This file is a fresh draft implementation plan from the exact owner-adopted revision13. Technical SAR status is recorded separately in the dedicated review evidence; this draft has no owner Plan approval or execution-method selection. The orphan plan remains retired. Next: review this draft and its estimates, revise under an explicit plan revision identity if needed, complete the chosen technical plan review, then obtain native Plan approval and register bounded execution issues through their owning workflows. No implementation, downstream hydration, existing-issue supersession or merge occurs merely because this document exists.
 

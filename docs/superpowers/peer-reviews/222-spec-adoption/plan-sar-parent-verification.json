@@ -1,0 +1,118 @@
+{
+  "record_kind": "Parent verification of completed manual SAR before external Git publication; not independent technical review",
+  "review_method": "manual same-agent SAR",
+  "requested_model": "gpt-6-astra",
+  "requested_effort": "high",
+  "accepted_revision": "issue-222-plan-r5",
+  "accepted_sha256": "139414a3851a2edc04d429805cc1c0cc656635745ee287409089e3acb1f3cee8",
+  "observed_prepublication_head": "9130dc6fa73f80b89ddc67c4f29f055f52d08600",
+  "checks": {
+    "parent_read_acceptance_manifest_and_all_round_responses": true,
+    "parent_reran_graph_cost_dependency_patch_reconstruction_syntax_json_link_verifier": true,
+    "accepted_spec_unchanged": true,
+    "orphan_archive_unchanged": true
+  },
+  "files": [
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/acceptance-context.json",
+      "sha256": "b160e70d3a2eefd682f045ba823a91f721c5c470c00252d7ce0b0391c89b0ae0"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/initial-manifest.json",
+      "sha256": "ff0c0a661a55c4c643b61f36a20b23bd96272a5f43d7d49ac97247881514f0f3"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/plan-waves-r3.json",
+      "sha256": "1dbd4c8d939780fb271b5b220d1029ce9b1148dd3aeaa028b61c46770ab352cd"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/plan-waves-r4.json",
+      "sha256": "46da577c854a70e8d74ddba01415804354a48307741f487ddc4996dec3d9eb27"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/plan-waves-r5.json",
+      "sha256": "d9e2e59e594d698fcc57ef8300509720c8f1ccb59b7f9389f652f98dde78d33e"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/r2-to-r3.metadata.json",
+      "sha256": "efc9b87fd97a0302b6149999232c919b1843f3951116ab9ba4ae5ab82b0e230d"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/r2-to-r3.patch",
+      "sha256": "103d4e2ea56721df5bd3e613eeaed9a334cc41d79bdbe87ebff82fe077f15cd9"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/r3-to-r4.metadata.json",
+      "sha256": "f47ddb425ee836947b15e912fe238fe32b5961840cf1f87c1c5817da335bc533"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/r3-to-r4.patch",
+      "sha256": "aa8fd1f115ac04f9c2189fc05ce95f2b978967a9dc05d8958dfe05dbb663a46e"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/r4-to-r5.metadata.json",
+      "sha256": "88c7fd8f4d1d56bc2990735215793ff46b2a8cb5a7b4d0224f5b1ebb5f4a35bc"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/r4-to-r5.patch",
+      "sha256": "030b3d6bd232777a690a9499e874613f087e43de41cf4ede7f691ae1d9cd3315"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/review-acceptance.md",
+      "sha256": "dd42092986976a200b80ec7a3ef957a3c38ac3ec837af80e333090a79a60cb54"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/review-manifest.md",
+      "sha256": "dbe7dd1e6357cdcc96e20b1388377980bf7068d279af9460979722e9871d76c0"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/round-01-author-response.md",
+      "sha256": "aa89753a328e34ffd34a15c1f2f6890bb683892bd410718ea592f36c0da3e0e2"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/round-01-review-response.md",
+      "sha256": "f368067bc8410d211169be073440176f421f20d90fe3259b614b298f37b5a9a0"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/round-02-author-response.md",
+      "sha256": "d6f703fb53afa26f6becd490805b33c5cf751e8b01c91211365b67c25c4ecbce"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/round-02-review-response.md",
+      "sha256": "ff064db9e9da560da1c837558a1a97db5c1cbc290902b1125143a2d55eb3a22d"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/round-03-author-response.md",
+      "sha256": "7407a387714abac3db5c8fd81dd4912835519d179688bc57275a33b7cd85b226"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/round-03-review-response.md",
+      "sha256": "9e0e8c40e54ad9a7a87c98407e4bd7ef853ce726c58aa0ebcb0df5ff6ee3c5bc"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/round-04-author-response.md",
+      "sha256": "99eaf10aec64303722223b9dea083fb5f3ad1f5a68eec9d71060e1a6aa85dcd2"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/round-04-review-response.md",
+      "sha256": "5d77fa913329154923c754ed644b6553f34b3e51fbf2d2be5835fc54e7486595"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/timing.json",
+      "sha256": "9ae10186863e3c2307ae1d72065bb33dd42c91cfa13bc6be29bd3bf0fea1eddf"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/verification.json",
+      "sha256": "5e6744de367fbef34d5e41ffb680ec8fcff78cb0e18b2b99d6f24029dc42b840"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/verification.md",
+      "sha256": "e70b846ab2f8a68ed1abfa8d2271a8ae8ad5c2fd484fbeb8d5dae2213ad171cf"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-plan-sar-astra/verify-sar.py",
+      "sha256": "1554a81b827ec34ee6ced3b671bdfa65868ca5be2bf382b78f6eb33aa4ef533b"
+    }
+  ],
+  "publication": "Three changed revisions will be published in dedicated external commits; final clean round records accompany accepted r5. Publication does not change the manual acceptance-time HEAD or establish native Plan approval."
+}

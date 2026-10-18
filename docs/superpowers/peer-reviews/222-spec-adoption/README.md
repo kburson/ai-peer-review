@@ -7,3 +7,9 @@ The owner explicitly accepted specification revision `issue-222-r13` and authori
 The accepted specification and native review records remain byte-identical. Their pre-adoption draft wording is historical; this separately recorded owner decision supplies adoption without changing those accepted bytes. Native Plan approval, technical plan review, execution-method selection, issue registration/hydration and implementation have not occurred.
 
 The [revision-2 self-review](plan-self-review-r2.json), [wave/effort graph](plan-waves-r2.json) and [reversible plan diff](plan-r1-to-r2.diff) record task sizing and parallel ownership. The [original draft self-review](plan-self-review.json) remains historical. These records contain document/syntax checks, not executable implementation tests. The new runtime, process, schema and downstream obligations remain proposed work.
+
+## Subsequent plan SAR
+
+The [manual Astra/high SAR](../222-plan-sar-astra/review-acceptance.md) accepted `issue-222-plan-r5` after four rounds resolving eleven findings. The revised plan has 50 leaves, 25 dependency waves and 131 provisional human hours, maximum 3.5 hours per leaf. Earlier r1/r2 self-review and wave data above remain historical; current wave/cost data is [plan-waves-r5.json](../222-plan-sar-astra/plan-waves-r5.json).
+
+The [complete SAR manifest](../222-plan-sar-astra/review-manifest.md) preserves both response sides, acceptance-time HEAD and three reversible revision links. The [parent verification receipt](plan-sar-parent-verification.json) records hash/graph/reconstruction checks before external publication. Same-agent technical acceptance is separate from independent review, owner Plan approval, native forecasts or execution authorization. The accepted source specification and orphan archive remain unchanged.

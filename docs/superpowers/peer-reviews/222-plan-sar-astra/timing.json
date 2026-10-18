@@ -1,0 +1,20 @@
+{
+  "record_kind": "manual SAR conservative wall accounting; not native engaged-time telemetry",
+  "initial_manifest_sealed_at": "2026-10-18T16:13:43.109921+00:00",
+  "observed_at": "2026-10-18T16:31:17.182369+00:00",
+  "observed_seconds_since_initial_manifest": 1054.072448,
+  "reservation_seconds": 1200,
+  "reservation_is_exact_engagement": false,
+  "prior_retained_bounds_seconds": [
+    4037.9,
+    1336,
+    1368,
+    814.524
+  ],
+  "prior_retained_bounds_sum_seconds": 7556.424,
+  "prior_plus_this_reservation_seconds": 8756.423999999999,
+  "unquantified": "Root preparation, earlier Unknown intervals and initial skill/context work before initial-manifest seal remain unquantified; this is not a complete attributable ledger or established remaining allowance. Parent handles native timing.",
+  "passive_waits": "No external provider/CI wait was started by this SAR agent. Parent passive wait is separate.",
+  "cap_policy": "No reset of substantially same work; future native per-leaf execution requires defensible attribution and remaining allowance.",
+  "completion_status": "clean manual SAR accepted within the 1200-second reservation; pre-manifest preparation remains unquantified"
+}
