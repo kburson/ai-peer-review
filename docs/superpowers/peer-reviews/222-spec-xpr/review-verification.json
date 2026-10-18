@@ -1,0 +1,45 @@
+{
+  "reviewId": "review-da89bdc7292cb66cf9ea05e908c2f5fd",
+  "issue": 222,
+  "parent": 141,
+  "nativeState": "accepted-uncommitted",
+  "acceptanceBasis": "reviewer-consensus",
+  "authorityAssurance": "unavailable",
+  "checks": {
+    "nativeTerminalStatus": true,
+    "lastReviewerDecisionAccepted": true,
+    "specificationMatchesManifest": true,
+    "allResponseHashesMatchManifest": true,
+    "distinctParticipantFingerprints": true
+  },
+  "files": [
+    {
+      "path": "docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+      "sha256": "c6bc93ef5d0b6ce0084d75d149469204a6f90a4060c429e436b78d06869133db"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-spec-xpr/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-da89bdc7292cb66cf9ea05e908c2f5fd/review-da89bdc7292cb66cf9ea05e908c2f5fd-author-response-1.md",
+      "sha256": "283e2dc3b0c5f319824e23cfcd797b99cf1113d49300a6726e0630e8920b7f62"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-spec-xpr/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-da89bdc7292cb66cf9ea05e908c2f5fd/review-da89bdc7292cb66cf9ea05e908c2f5fd-author-startup.md",
+      "sha256": "7c6dc6a91b5643d48c62ef71cbe637653f42eb2e96420fd9f765cf4927c1395a"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-spec-xpr/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-da89bdc7292cb66cf9ea05e908c2f5fd/review-da89bdc7292cb66cf9ea05e908c2f5fd-review-manifest.md",
+      "sha256": "195eed4edd52976692d4a855ccb5f8f6aa2bf91a27cfa1ae3200a733d4a316d4"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-spec-xpr/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-da89bdc7292cb66cf9ea05e908c2f5fd/review-da89bdc7292cb66cf9ea05e908c2f5fd-reviewer-invitation.md",
+      "sha256": "c6161e13a31500cee1539d6bec4050cc0bb615b4c54bec6751d97d259b1d0e26"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-spec-xpr/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-da89bdc7292cb66cf9ea05e908c2f5fd/review-da89bdc7292cb66cf9ea05e908c2f5fd-reviewer-response-1.md",
+      "sha256": "fcac756568c3641c435bcdd81b68bf27295aae9d8436f017acd4c9fba1b9b6f5"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/222-spec-xpr/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-da89bdc7292cb66cf9ea05e908c2f5fd/review-da89bdc7292cb66cf9ea05e908c2f5fd-reviewer-response-2.md",
+      "sha256": "ee9ce3b538187fda6669acbc9212467575dd451db10a201cbd74e7b6dc9d6a82"
+    }
+  ]
+}
