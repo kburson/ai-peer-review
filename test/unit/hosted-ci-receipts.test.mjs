@@ -557,3 +557,43 @@ test('[#171] integration-parent push keeps Windows deferred before child deliver
   ])
     assert.equal(resolveVerificationScope({ ...context, ...change }), 'all');
 });
+// @story #141
+test('[#141] detached POSIX verification requires its exact published source ref', async () => {
+  const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
+  const head = 'd'.repeat(40);
+  const context = {
+    issueNumber: 141,
+    sourceBranch: 'feature/child/141',
+    sourceHead: head,
+    branchHead: head,
+    publishedHead: head,
+  };
+  assert.equal(projectReceiptScope('HEAD', context), 'linux-macos');
+  for (const changed of [
+    { issueNumber: 142 },
+    { sourceBranch: undefined },
+    { sourceBranch: 'codex/other' },
+    { sourceHead: 'invalid' },
+    { branchHead: 'e'.repeat(40) },
+    { branchHead: null },
+    { publishedHead: 'e'.repeat(40) },
+    { publishedHead: null },
+  ])
+    assert.equal(projectReceiptScope('HEAD', { ...context, ...changed }), 'all');
+});
+test('[#141] exact107delivery-parent events preserve Windows deferral and foreign defaults', async () => {
+  const { resolveVerificationScope } = await import('../../scripts/ci/verification-scope.mjs');
+  const context = {
+    branch: 'codex/107-install-ready-package',
+    sourceRepository: 'kburson/ai-peer-review',
+    refType: 'branch',
+  };
+  for (const eventName of ['push', 'pull_request', 'workflow_dispatch'])
+    assert.equal(resolveVerificationScope({ ...context, eventName }), 'linux-macos');
+  for (const changed of [
+    { branch: 'codex/107-install-ready-package-other' },
+    { sourceRepository: 'someone/ai-peer-review' },
+    { refType: 'tag' },
+  ])
+    assert.equal(resolveVerificationScope({ ...context, eventName: 'push', ...changed }), 'all');
+});

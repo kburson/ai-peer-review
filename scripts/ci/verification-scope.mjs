@@ -32,6 +32,7 @@ export function resolveVerificationScope({
       'codex/171-portable-consumers',
       'codex/171-fresh-continuation',
       'feature/child/141',
+      'codex/107-install-ready-package',
     ].includes(branch)
   )
     return 'linux-macos';

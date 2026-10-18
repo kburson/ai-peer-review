@@ -29,9 +29,9 @@ function server() {
   });
   return {
     ready,
+    onReady: resolveReady,
     start(value) {
       handler = value;
-      resolveReady();
     },
     request(value) {
       return handler(value);
@@ -73,6 +73,7 @@ test('different project roots and package versions run independent brokers', asy
     workerFactory: worker,
     clock: firstClock,
     server: firstServer,
+    onReady: firstServer.onReady,
   });
   const second = runBroker({
     identity: secondIdentity,
@@ -82,6 +83,7 @@ test('different project roots and package versions run independent brokers', asy
     workerFactory: worker,
     clock: secondClock,
     server: secondServer,
+    onReady: secondServer.onReady,
   });
 
   await Promise.all([firstServer.ready, secondServer.ready]);
@@ -130,6 +132,7 @@ test('multiple reviews share one broker while a foreign registration is refused'
     },
     clock: brokerClock,
     server: brokerServer,
+    onReady: brokerServer.onReady,
   });
 
   await brokerServer.ready;
@@ -429,6 +432,7 @@ test('broker resolves registrations dynamically after startup', async () => {
     workerFactory: () => worker(() => state),
     clock: brokerClock,
     server: brokerServer,
+    onReady: brokerServer.onReady,
   });
   await brokerServer.ready;
   const added = {

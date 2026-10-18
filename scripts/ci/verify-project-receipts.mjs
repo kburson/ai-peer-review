@@ -6,6 +6,12 @@ import { execFileSync } from 'node:child_process';
 import { resolveVerificationScope } from './verification-scope.mjs';
 import { verifyCloudReceipts } from './verify-receipts.mjs';
 
+const cumulativeSourceBranches = Object.freeze({
+  141: 'feature/child/141',
+  171: 'codex/171-fresh-continuation',
+  191: 'codex/171-fresh-continuation',
+});
+
 export function projectReceiptScope(branch, context = {}) {
   // AITM Test uses a detached worktree and supplies its issue number. That
   // context only selects the approved request; it cannot supply CI evidence.
@@ -14,8 +20,8 @@ export function projectReceiptScope(branch, context = {}) {
   if (
     branch === 'HEAD' &&
     ([190, 212].includes(context.issueNumber) ||
-      ([191, 171].includes(context.issueNumber) &&
-        context.sourceBranch === 'codex/171-fresh-continuation')) &&
+      (typeof context.sourceBranch === 'string' &&
+        context.sourceBranch === cumulativeSourceBranches[context.issueNumber])) &&
     /^[a-f0-9]{40}$/.test(context.sourceHead ?? '') &&
     context.sourceHead === context.branchHead &&
     context.sourceHead === context.publishedHead
@@ -35,7 +41,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     encoding: 'utf8',
   }).trim();
   const context = { issueNumber: Number(process.env.AITM_TEST_ISSUE_NUMBER) };
-  if (branch === 'HEAD' && [190, 212, 191, 171].includes(context.issueNumber)) {
+  if (branch === 'HEAD' && [190, 212, 191, 171, 141].includes(context.issueNumber)) {
     const ref = (name) => {
       try {
         return execFileSync('git', ['rev-parse', '--verify', name], {
@@ -46,9 +52,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         return null; // Missing or unreadable refs never request the exception.
       }
     };
-    context.sourceBranch = [191, 171].includes(context.issueNumber)
-      ? 'codex/171-fresh-continuation'
-      : 'codex/190-installed-journeys';
+    context.sourceBranch =
+      cumulativeSourceBranches[context.issueNumber] ?? 'codex/190-installed-journeys';
     context.sourceHead = ref('HEAD');
     context.branchHead = ref('refs/heads/' + context.sourceBranch);
     context.publishedHead = ref('refs/remotes/origin/' + context.sourceBranch);

@@ -1,3 +1,4 @@
+// cspell:words multiproject
 // @story #187
 // Test-runner scheduling data only; every active file retains one real execution.
 export const WINDOWS_PORTABLE_UNIT_GROUPS = Object.freeze([
@@ -42,6 +43,7 @@ export function classifySuiteFiles(discovered) {
   const portable = discovered.filter(
     (file) =>
       file === 'test/unit/ci-native-build-policy.test.mjs' ||
+      file === 'test/integration/broker-multiproject.test.mjs' ||
       file === INSPECTOR_ATTRIBUTION ||
       file === 'test/unit/provider-resource-ports.test.mjs' ||
       file === 'test/unit/primary-operation-core.test.mjs' ||

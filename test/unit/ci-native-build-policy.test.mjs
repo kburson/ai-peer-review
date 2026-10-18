@@ -1,3 +1,4 @@
+// cspell:words multiproject
 // cspell:ignore msvc
 // @story #162
 import assert from 'node:assert/strict';
@@ -222,6 +223,25 @@ test('historical hook inventory executes first alone within the ordinary baselin
   );
   assert.equal(
     plan.windowsPortableShards.some(({ files }) => files.includes(file)),
+    false
+  );
+});
+// @story #141
+test('[#141] multiproject readiness coverage is real and unrelated native broker files stay paused', async () => {
+  const { classifySuiteFiles, suiteCommandArguments } = await import('../helpers/suite-plan.mjs');
+  const file = 'test/integration/broker-multiproject.test.mjs';
+  const legacy = 'test/unit/broker-ownership.test.mjs';
+  const { groups, excluded } = classifySuiteFiles([file, legacy]);
+  assert.deepEqual(excluded, [legacy]);
+  const groupsWithFile = groups.filter((group) => group.files.includes(file));
+  assert.equal(groupsWithFile.length, 1);
+  assert.equal(groupsWithFile[0].filtered, false);
+  assert.equal(
+    suiteCommandArguments(groupsWithFile[0], {
+      suite: 'integration',
+      platform: 'linux',
+      hosted: true,
+    }).some((arg) => arg.startsWith('--test-skip-pattern')),
     false
   );
 });
