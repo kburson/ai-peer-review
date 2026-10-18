@@ -1,0 +1,77 @@
+{
+  "record_kind": "External post-review verification/archive receipt; not a native manifest or participant decision",
+  "issue": 222,
+  "review_id": "review-0b5e44367ed1ebf60276c5f385829029",
+  "native_state": "accepted-uncommitted",
+  "acceptance_basis": "reviewer-consensus",
+  "accepted_revision": "issue-222-r13",
+  "accepted_digest": "sha256:f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+  "native_manifest": "docs/superpowers/peer-reviews/spec/222-r12/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-0b5e44367ed1ebf60276c5f385829029/review-0b5e44367ed1ebf60276c5f385829029-review-manifest.md",
+  "native_manifest_digest": "sha256:b4c394c7c691eb907306c57eb8738ee7c6add5a4a3d94a7c744c02835c10e2f0",
+  "acceptance_recorded_at": "2026-10-18T15:30:47.258Z",
+  "native_startup_commit": "5546d8019e59b98c0e5f6cbb5e1570c7640c857b",
+  "head_observed_after_review_before_publication": "5546d8019e59b98c0e5f6cbb5e1570c7640c857b",
+  "acceptance_head_observed_at_transition": "unavailable in current v1; no backfill",
+  "review_root_contract": "prospective, not implemented by this v1 session",
+  "checks": {
+    "native_terminal_status": true,
+    "last_reviewer_accepted": true,
+    "all_native_response_hashes_match": true,
+    "all_snapshot_hashes_match": true,
+    "distinct_participants": true,
+    "accepted_FUR_matches_snapshot": true,
+    "patch_forward_reverse": true,
+    "reverse_to_prior_accepted_r11_without_git_objects": true
+  },
+  "patch": {
+    "predecessor_revision": "issue-222-r12",
+    "result_revision": "issue-222-r13",
+    "predecessor_digest": "sha256:9250f0cb442f44d62b4910d52bf4280d5bf1b6292fbac3b71a665ec19482fd5c",
+    "result_digest": "sha256:f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+    "path": "docs/superpowers/peer-reviews/222-spec-xpr-r12/spec-r12-to-r13.diff",
+    "digest": "sha256:91ebed69c685314f6eb81ef7bb35e104a92b106e7ad3b51b68eda46d6162be63",
+    "format": "Git full-index binary-capable patch with zero context; use git apply --unidiff-zero",
+    "forward_reverse_verified": true
+  },
+  "optional_nonblocking": [
+    "R2-F001: name journal/provenance and collateral explicitly in the fresh plan work-boundary list; accepted FUR remains unchanged."
+  ],
+  "timing": {
+    "native_wall_seconds": 407.262,
+    "conservative_two_participant_native_window_seconds": 814.524,
+    "basis": "Both participants charged entire native interval; excludes preparation/final handoff; not measured engagement; prior work additional and Unknowns preserved."
+  },
+  "limitations": [
+    "Current v1 responses have no reviewer_commit; reviewer discloses unavailable independent full HEAD observation.",
+    "No final author-response-2 exists in native v1; do not fabricate closing response.",
+    "External publication does not convert native no-commit accepted-uncommitted labels.",
+    "New manifest/root/overlay/response-v2/publication contracts are not implemented."
+  ],
+  "owner_adoption": "pending",
+  "files": [
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-r12/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-0b5e44367ed1ebf60276c5f385829029/review-0b5e44367ed1ebf60276c5f385829029-author-response-1.md",
+      "digest": "sha256:7d7783b44d6a69a25744a815e897d1b004e40571984ed11b36fad637c4d14621"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-r12/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-0b5e44367ed1ebf60276c5f385829029/review-0b5e44367ed1ebf60276c5f385829029-author-startup.md",
+      "digest": "sha256:57aeba806651bf3951bced8720985f8de398ad6a959f10007a80a3f4f5239cb5"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-r12/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-0b5e44367ed1ebf60276c5f385829029/review-0b5e44367ed1ebf60276c5f385829029-review-manifest.md",
+      "digest": "sha256:b4c394c7c691eb907306c57eb8738ee7c6add5a4a3d94a7c744c02835c10e2f0"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-r12/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-0b5e44367ed1ebf60276c5f385829029/review-0b5e44367ed1ebf60276c5f385829029-reviewer-invitation.md",
+      "digest": "sha256:4550247af232d5074a3141b08a921d0856481c7930e85bfd2612ef8d5c89b58b"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-r12/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-0b5e44367ed1ebf60276c5f385829029/review-0b5e44367ed1ebf60276c5f385829029-reviewer-response-1.md",
+      "digest": "sha256:9ecb3dd2bae384977c2a099110142a83900d11fb476bec09541a09183d0579be"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-r12/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-0b5e44367ed1ebf60276c5f385829029/review-0b5e44367ed1ebf60276c5f385829029-reviewer-response-2.md",
+      "digest": "sha256:3b000c0e8a3edb549adece3424890ea22365e91a875206f01e60121e36c48e3c"
+    }
+  ]
+}

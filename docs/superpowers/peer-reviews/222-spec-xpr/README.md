@@ -10,7 +10,7 @@
 
 The parent orchestration checked native terminal status, exact specification and response hashes, distinct participant fingerprints, and the accepted round-2 decision after author finalization. This index and verification record were added afterward; they are not participant acceptance documents. A later documentation commit does not convert the native journal's `no-commit` mode or `accepted-uncommitted` label.
 
-Revision 11 of the specification was accepted by a [new XPR](../222-spec-xpr-rerun/README.md) that reviewed the owner-requested provenance/collateral changes. The working specification is now revision 12 and requires renewed review. The acceptance recorded here still applies only to the revision-6 bytes identified above. Historical participant responses and this native acceptance manifest remain unchanged, and missing historical provenance is not backfilled.
+Revision 11 of the specification was accepted by a [new XPR](../222-spec-xpr-rerun/README.md) that reviewed the owner-requested provenance/collateral changes. The working specification is now revision 13, accepted by a [subsequent XPR](../222-spec-xpr-r12/README.md). The acceptance recorded here still applies only to the revision-6 bytes identified above. Historical participant responses and this native acceptance manifest remain unchanged, and missing historical provenance is not backfilled.
 
 Owner adoption remains pending. The earlier orphan plan is retired as a planning input and stays unchanged in the historical SAR archive. Generate a fresh implementation plan only from the exact accepted specification after owner adoption. No source implementation, old-story Plan approval, parent completion or release authority follows from this review.
 

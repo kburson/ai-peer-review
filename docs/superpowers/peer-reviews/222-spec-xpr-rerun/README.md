@@ -9,7 +9,7 @@ Native XPR `review-d81db636f6f2a77ca13e33cef6489934` completed with **accepted-u
 - [Round-2 archival record](turn-2-archive.json) and [r10-to-r11 diff](spec-r10-to-r11.diff).
 - [Pre-review r6-to-r9 boundary diff](spec-r6-to-r9.diff). Intermediate conversational drafts 7 and 8 were not committed review turns; no retrospective records or acceptances are claimed.
 
-The working specification has subsequently advanced to revision 12 with owner-requested stable review roots and lifecycle-specific drift checks. The acceptance above applies only to revision 11. Revision 12 requires renewed technical review; no native response or manifest has been rewritten to extend the earlier acceptance.
+The working specification has subsequently advanced to revision 13. A [new XPR](../222-spec-xpr-r12/README.md) accepted the stable review-root and lifecycle-specific drift changes. The acceptance above still applies only to revision 11; no native response or manifest has been rewritten to extend it.
 
 ## Reconstruction
 
