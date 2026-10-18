@@ -1,0 +1,105 @@
+{
+  "purpose": "Byte-preserving repository copy of draft specification and complete SAR collateral",
+  "sourceDirectory": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring",
+  "repositoryDirectory": "docs/superpowers/peer-reviews/spec/2026-10-18-journal-refactoring-sar",
+  "originalRecords": "Preserved unchanged, including original absolute paths and observation-time claims. Resolve original paths under sourceDirectory through the same relative path in repositoryDirectory.",
+  "planStatus": "Unchanged context-only plan, not SAR-reviewed or owner-adopted",
+  "issueOwnership": "No cleanup issue registered; filenames retain draft names without an invented owner",
+  "files": [
+    {
+      "path": "2026-10-18-review-journal-refactoring-design.md",
+      "sha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+      "bytes": 32310
+    },
+    {
+      "path": "2026-10-18-review-journal-refactoring-plan.md",
+      "sha256": "9da04af8cebf963265e5fde982941584881165bb94da7271481c1c24b3a9d663",
+      "bytes": 35939
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/README.md",
+      "sha256": "309f9be862193d82759cd4e0e36a47d6ee537bac0926bdfc30fbfe628a51807f",
+      "bytes": 1873
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/engagement.json",
+      "sha256": "d61810a5ccf84421f73063c625b5061ca4874c607dcd89dddaa6677ff114ebb4",
+      "bytes": 3259
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/review-acceptance.md",
+      "sha256": "244c3ffc7395107610477bf385795ab8f03829a6df9bf9afd396cbcd00ffe92b",
+      "bytes": 4230
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/round-01.md",
+      "sha256": "03c4a5b5c82e36ff8581ad1274031e7e9882a430876274990c8fda9ffb1d2251",
+      "bytes": 9267
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/round-01.patch",
+      "sha256": "20f718d9488f045b3708c9d40eba78e692702169caeec0cee83979d0782297e1",
+      "bytes": 10210
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/round-02.md",
+      "sha256": "f45f52bbbe2c46b2d317a79654f577d69d6f77d8889e2365bdcd9cab6ad926f8",
+      "bytes": 3858
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/round-02.patch",
+      "sha256": "0dfa7bff8877553a4d7ef4ec7ea73d499426c0c4ebb67fe0e30972a8fa3ace86",
+      "bytes": 4080
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/round-03.md",
+      "sha256": "d4c12a06dba7d421123f12eb6f0d2d3b3e85d03fbfe7ced7944384e771ff5a0c",
+      "bytes": 6050
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/round-03.patch",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/sha256-manifest.json",
+      "sha256": "cf0414ac401665419b9bfe0fd727f4f62c083367e3f933cacfb52a3498f089f8",
+      "bytes": 4766
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/snapshots/round-01-after.md",
+      "sha256": "674f07d1771693866c52424554041510caf6859d7f6a0dc6b8234635f2a5488a",
+      "bytes": 32121
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/snapshots/round-01-before.md",
+      "sha256": "0cf66f91edc2fb4bb71ca1b4b881f40d16563cfa12934ae08330cef90392e1c1",
+      "bytes": 31363
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/snapshots/round-02-after.md",
+      "sha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+      "bytes": 32310
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/snapshots/round-02-before.md",
+      "sha256": "674f07d1771693866c52424554041510caf6859d7f6a0dc6b8234635f2a5488a",
+      "bytes": 32121
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/snapshots/round-03-after.md",
+      "sha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+      "bytes": 32310
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/snapshots/round-03-before.md",
+      "sha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+      "bytes": 32310
+    },
+    {
+      "path": "spec-sar-astra-2026-10-18/verification.json",
+      "sha256": "f8a7a1c74dc3b3e4bfd374b00237c8793cc77bee3c6abe0d537d6432d1a5299a",
+      "bytes": 32632
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+--- round-02-before.md
++++ round-02-after.md
+@@ -4,7 +4,7 @@
+ 
+ **Date:** 2026-10-18
+ 
+-**Revision:** 3 — incorporates the read-only code/backlog review and manual specification SAR corrections. Pending owner adoption. Revision and technical SAR acceptance do not authorize implementation or live issue changes.
++**Revision:** 4 — incorporates the read-only code/backlog review and manual specification SAR corrections. Pending owner adoption. Revision and technical SAR acceptance do not authorize implementation or live issue changes.
+ 
+ **Companion plan:** [Refactoring plan](2026-10-18-review-journal-refactoring-plan.md)
+ 
+@@ -51,7 +51,7 @@
+ - Review participants may write only their designated current review-documentation outputs. They may not edit application source, dependencies, configuration, Git metadata, another participant's response, or earlier sealed records.
+ - AIPR-owned writes are limited to its declared coordination state and designated review documentation. AIPR does not implement source changes or commit the reviewed codebase.
+ - If an external author revises the artifact, AIPR records the new artifact identity/version and a subsequent review. That revision belongs to the external authoring workflow, not an AIPR permission to modify the subject. The registered submitting participant supplies the revised artifact reference and expected prior review revision/subject digest through an explicit handoff. AIPR reads and snapshots those bytes; it does not apply a patch to the subject. Existing role/session authentication remains required.
+-- An artifact change during a reviewer turn must refuse stale advancement and cannot silently replace the reviewed subject. Preserve recorded responses and snapshots as history about their original digests; a later edit does not retroactively erase or relabel that history. An unfinished turn remains incomplete unless an adopted operation explicitly supersedes it under the applicable versioned contract. A revision handoff must bind the new digest, preserve prior responses, reject stale submissions and retain duplicate-safe retries. An unchanged-artifact response remains possible with an explicit disposition; neither a revision nor a new acceptance is inferred from silence. The exact supported existing operation or necessary versioned change must be adopted before its implementation.
++- An artifact change during a reviewer turn must refuse stale advancement and cannot silently replace the reviewed subject. Preserve recorded responses and snapshots as history about their original digests; a later edit does not retroactively erase or relabel that history. While drift is unresolved, preserve the unfinished turn as incomplete. If the external author restores the exact authorized bytes, the existing valid submission/retry path remains available; AIPR does not restore the subject itself. Any supersession requires an adopted operation under the applicable versioned contract. A revision handoff must bind the new digest, preserve prior responses, reject stale submissions and retain duplicate-safe retries. An unchanged-artifact response remains possible with an explicit disposition; neither a revision nor a new acceptance is inferred from silence. The exact supported existing operation or necessary versioned change must be adopted before its implementation.
+ - Review-only participant behavior is a separate workstream from process observation and owner recovery. Current author artifact-write instructions, CLI submission behavior, launch restrictions, and #118/#148–#150 author-capable requirements must be reconciled together; removing a write permission alone is insufficient.
+ - Existing flows that let an AIPR author participant edit the subject must be assessed explicitly against this boundary. Removing proof alone does not resolve that conflict.
+ - Supported provider path restrictions may enforce the boundary. Existing manual sessions remain instruction-bound where the host offers no enforcement. Do not build a new sandbox or claim that instructions prove write denial.

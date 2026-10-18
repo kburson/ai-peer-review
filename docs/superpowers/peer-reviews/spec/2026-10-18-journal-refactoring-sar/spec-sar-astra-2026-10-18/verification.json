@@ -1,0 +1,363 @@
+{
+  "stage": "final-artifact-checks-passed",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "/Users/kpburson/.codex/runtime-tools/190-posix-763538f/lib/node_modules/@kburson/ai-peer-review/node_modules/prettier/bin/prettier.cjs",
+        "--write",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md"
+      ],
+      "exitCode": 0,
+      "stdout": "../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md 55ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md 4ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md 4ms\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md 10ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md 4ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md 6ms\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "/Users/kpburson/.codex/runtime-tools/190-posix-763538f/lib/node_modules/@kburson/ai-peer-review/node_modules/prettier/bin/prettier.cjs",
+        "--check",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-before.md"
+      ],
+      "exitCode": 0,
+      "stdout": "Checking formatting...\nAll matched files use Prettier code style!\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "/Users/kpburson/.codex/runtime-tools/190-posix-763538f/lib/node_modules/@kburson/ai-peer-review/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs",
+        "--config",
+        "/Users/kpburson/.codex/worktrees/aipr-journal-refactoring/ai-peer-review/.markdownlint-cli2.jsonc",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-before.md"
+      ],
+      "exitCode": 0,
+      "stdout": "markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)\nFinding: /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-after.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-after.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-before.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-after.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-before.md !docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md !evidence/portable-runtime/contracts/owners/102-adoption.md !evidence/portable-runtime/contracts/owners/30-adoption.md !evidence/portable-runtime/contracts/owners/34-adoption.md !evidence/portable-runtime/contracts/owners/109-adoption.md !node_modules/** !coverage/** !.tmp/** !.claude/worktrees/** !.scratch/** !.superpowers/** !.ai-task-manager/memory/** !.ai-task-manager/templates/** !.claude/commands/task.md !AGENTS.md !templates/author-response.md !templates/reviewer-response.md !templates/human-decision.md !test/golden/templates/** !docs/superpowers/peer-reviews/**/payloads/*.md !docs/superpowers/peer-reviews/**/rounds/*-review.md !docs/superpowers/peer-reviews/**/rounds/*-reviewer-response.md !docs/superpowers/peer-reviews/**/*author-response-*.md !docs/superpowers/peer-reviews/**/*reviewer-response-*.md\nLinting: 12 files\nSummary: 0 issues in 0 files\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "",
+      "interpretation": "pass"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--no-index",
+        "--check",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md"
+      ],
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "",
+      "interpretation": "no-index exit 1 reports differing files; no whitespace diagnostics"
+    },
+    {
+      "command": [
+        "node",
+        "/Users/kpburson/.codex/runtime-tools/190-posix-763538f/lib/node_modules/@kburson/ai-peer-review/node_modules/prettier/bin/prettier.cjs",
+        "--write",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md"
+      ],
+      "exitCode": 0,
+      "stdout": "../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md 70ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md 4ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md 5ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md 28ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md 5ms (unchanged)\n../../../visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md 6ms (unchanged)\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "/Users/kpburson/.codex/runtime-tools/190-posix-763538f/lib/node_modules/@kburson/ai-peer-review/node_modules/prettier/bin/prettier.cjs",
+        "--check",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-before.md"
+      ],
+      "exitCode": 0,
+      "stdout": "Checking formatting...\nAll matched files use Prettier code style!\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "/Users/kpburson/.codex/runtime-tools/190-posix-763538f/lib/node_modules/@kburson/ai-peer-review/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs",
+        "--config",
+        "/Users/kpburson/.codex/worktrees/aipr-journal-refactoring/ai-peer-review/.markdownlint-cli2.jsonc",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-before.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-after.md",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-before.md"
+      ],
+      "exitCode": 0,
+      "stdout": "markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)\nFinding: /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/README.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-after.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-after.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-before.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-after.md /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-before.md !docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md !evidence/portable-runtime/contracts/owners/102-adoption.md !evidence/portable-runtime/contracts/owners/30-adoption.md !evidence/portable-runtime/contracts/owners/34-adoption.md !evidence/portable-runtime/contracts/owners/109-adoption.md !node_modules/** !coverage/** !.tmp/** !.claude/worktrees/** !.scratch/** !.superpowers/** !.ai-task-manager/memory/** !.ai-task-manager/templates/** !.claude/commands/task.md !AGENTS.md !templates/author-response.md !templates/reviewer-response.md !templates/human-decision.md !test/golden/templates/** !docs/superpowers/peer-reviews/**/payloads/*.md !docs/superpowers/peer-reviews/**/rounds/*-review.md !docs/superpowers/peer-reviews/**/rounds/*-reviewer-response.md !docs/superpowers/peer-reviews/**/*author-response-*.md !docs/superpowers/peer-reviews/**/*reviewer-response-*.md\nLinting: 12 files\nSummary: 0 issues in 0 files\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "/Users/kpburson/.codex/runtime-tools/190-posix-763538f/lib/node_modules/@kburson/ai-peer-review/node_modules/prettier/bin/prettier.cjs",
+        "--check",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md"
+      ],
+      "exitCode": 0,
+      "stdout": "Checking formatting...\nAll matched files use Prettier code style!\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "node",
+        "/Users/kpburson/.codex/runtime-tools/190-posix-763538f/lib/node_modules/@kburson/ai-peer-review/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs",
+        "--config",
+        "/Users/kpburson/.codex/worktrees/aipr-journal-refactoring/ai-peer-review/.markdownlint-cli2.jsonc",
+        "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md"
+      ],
+      "exitCode": 0,
+      "stdout": "markdownlint-cli2 v0.23.3 (markdownlint v0.41.1)\nFinding: /Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md !docs/superpowers/plans/2026-10-05-144-contract-owner-adoption-addendum.md !evidence/portable-runtime/contracts/owners/102-adoption.md !evidence/portable-runtime/contracts/owners/30-adoption.md !evidence/portable-runtime/contracts/owners/34-adoption.md !evidence/portable-runtime/contracts/owners/109-adoption.md !node_modules/** !coverage/** !.tmp/** !.claude/worktrees/** !.scratch/** !.superpowers/** !.ai-task-manager/memory/** !.ai-task-manager/templates/** !.claude/commands/task.md !AGENTS.md !templates/author-response.md !templates/reviewer-response.md !templates/human-decision.md !test/golden/templates/** !docs/superpowers/peer-reviews/**/payloads/*.md !docs/superpowers/peer-reviews/**/rounds/*-review.md !docs/superpowers/peer-reviews/**/rounds/*-reviewer-response.md !docs/superpowers/peer-reviews/**/*author-response-*.md !docs/superpowers/peer-reviews/**/*reviewer-response-*.md\nLinting: 1 file\nSummary: 0 issues in 0 files\n",
+      "stderr": ""
+    }
+  ],
+  "integrityChecks": {
+    "canonicalDigest": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+    "planDigest": "9da04af8cebf963265e5fde982941584881165bb94da7271481c1c24b3a9d663",
+    "snapshotChainAndPatches": "pass; all snapshot digests and stored exact diffs verified; canonical still equals final snapshot",
+    "snapshotMode": "0444 for all six snapshots",
+    "localLinks": {
+      "count": 31,
+      "result": "pass",
+      "snapshotRelativeContext": "original canonical specification directory; immutable bytes retain original relative links"
+    },
+    "authoredWhitespace": "no trailing whitespace",
+    "sourceHead": "db0febda2e07f827a5c5f47808bcf27ad64e0ed9",
+    "sourceBranch": "codex/aipr-journal-refactoring",
+    "sourceStatus": "",
+    "specLineCount": 186
+  },
+  "localLinkTargets": [
+    {
+      "file": "2026-10-18-review-journal-refactoring-design.md",
+      "target": "2026-10-18-review-journal-refactoring-plan.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-plan.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "../2026-10-18-review-journal-refactoring-design.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "round-01.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "round-02.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "round-03.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "review-acceptance.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/review-acceptance.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "engagement.json",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/engagement.json"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "verification.json",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/verification.json"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "sha256-manifest.json",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/sha256-manifest.json"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/README.md",
+      "target": "snapshots/round-01-before.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/review-acceptance.md",
+      "target": "../2026-10-18-review-journal-refactoring-design.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/review-acceptance.md",
+      "target": "round-01.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/review-acceptance.md",
+      "target": "round-02.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/review-acceptance.md",
+      "target": "round-03.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/review-acceptance.md",
+      "target": "verification.json",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/verification.json"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/review-acceptance.md",
+      "target": "engagement.json",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/engagement.json"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-01.md",
+      "target": "snapshots/round-01-before.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-before.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-01.md",
+      "target": "snapshots/round-01-after.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-01-after.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-01.md",
+      "target": "round-01.patch",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-01.patch"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-02.md",
+      "target": "snapshots/round-02-before.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-before.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-02.md",
+      "target": "snapshots/round-02-after.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-02-after.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-02.md",
+      "target": "round-02.patch",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-02.patch"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-03.md",
+      "target": "snapshots/round-03-before.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-before.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-03.md",
+      "target": "snapshots/round-03-after.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/snapshots/round-03-after.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/round-03.md",
+      "target": "round-03.patch",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/spec-sar-astra-2026-10-18/round-03.patch"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/snapshots/round-01-after.md",
+      "target": "2026-10-18-review-journal-refactoring-plan.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-plan.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/snapshots/round-01-before.md",
+      "target": "2026-10-18-review-journal-refactoring-plan.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-plan.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/snapshots/round-02-after.md",
+      "target": "2026-10-18-review-journal-refactoring-plan.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-plan.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/snapshots/round-02-before.md",
+      "target": "2026-10-18-review-journal-refactoring-plan.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-plan.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/snapshots/round-03-after.md",
+      "target": "2026-10-18-review-journal-refactoring-plan.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-plan.md"
+    },
+    {
+      "file": "spec-sar-astra-2026-10-18/snapshots/round-03-before.md",
+      "target": "2026-10-18-review-journal-refactoring-plan.md",
+      "resolved": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-plan.md"
+    }
+  ],
+  "observedUtc": "2026-10-18T13:21:07.924869+00:00",
+  "checkHarnessCorrection": "Initial no-index assertion expected exit 0; actual exit 1 with empty output reflects intentional file differences. Re-ran accepting 0/1 only with no diagnostics and independently checked trailing whitespace.",
+  "finalSpecSha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+  "sha256ManifestVerified": true,
+  "acceptanceLinkCountCorrection": "Updated acceptance to final 31 links after its verification link was added; acceptance formatting/lint and complete manifest rechecked."
+}

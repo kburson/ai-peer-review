@@ -1,0 +1,71 @@
+{
+  "kind": "manual-specification-SAR",
+  "startObservedUtc": "2026-10-18T13:12:59Z",
+  "requestedModel": "gpt-6-astra",
+  "requestedReasoningEffort": "high",
+  "actualRuntimeModelAttestation": "unavailable",
+  "actualRuntimeEffortAttestation": "unavailable",
+  "sourceHead": "db0febda2e07f827a5c5f47808bcf27ad64e0ed9",
+  "sourceBranch": "codex/aipr-journal-refactoring",
+  "sourceStatusBefore": "",
+  "specPath": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-design.md",
+  "initialSpecSha256": "0cf66f91edc2fb4bb71ca1b4b881f40d16563cfa12934ae08330cef90392e1c1",
+  "planPath": "/Users/kpburson/.codex/visualizations/2026/10/18/01a14ee0-e839-7ad2-8dd9-5b2733900bf5/aipr-refactoring/2026-10-18-review-journal-refactoring-plan.md",
+  "initialPlanSha256": "9da04af8cebf963265e5fde982941584881165bb94da7271481c1c24b3a9d663",
+  "scope": "Specification only; plan context only; no implementation or native workflow mutation",
+  "maxOwnEngagementSeconds": 2700,
+  "priorAttributableAllocation": "Unknown; this window must be considered in later cumulative child accounting; no native timing repair",
+  "rounds": [
+    {
+      "round": 1,
+      "startObservedUtc": "2026-10-18T13:12:59Z",
+      "endObservedUtc": "2026-10-18T13:16:16.846052+00:00",
+      "beforeSha256": "0cf66f91edc2fb4bb71ca1b4b881f40d16563cfa12934ae08330cef90392e1c1",
+      "afterSha256": "674f07d1771693866c52424554041510caf6859d7f6a0dc6b8234635f2a5488a",
+      "acceptedFindings": [
+        "SAR-001",
+        "SAR-002"
+      ],
+      "openFindings": []
+    },
+    {
+      "round": 2,
+      "startObservedUtc": "2026-10-18T13:16:16.846052+00:00",
+      "endObservedUtc": "2026-10-18T13:17:16.315425+00:00",
+      "beforeSha256": "674f07d1771693866c52424554041510caf6859d7f6a0dc6b8234635f2a5488a",
+      "afterSha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+      "acceptedFindings": [
+        "SAR-003"
+      ],
+      "openFindings": []
+    },
+    {
+      "round": 3,
+      "startObservedUtc": "2026-10-18T13:17:16.315425+00:00",
+      "endObservedUtc": "2026-10-18T13:18:31.999378+00:00",
+      "beforeSha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+      "afterSha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+      "acceptedFindings": [],
+      "openFindings": []
+    }
+  ],
+  "round2StartObservedUtc": "2026-10-18T13:16:16.846052+00:00",
+  "round3StartObservedUtc": "2026-10-18T13:17:16.315425+00:00",
+  "finalSpecSha256": "473fd686384a563f21504a10a4d5223a319a6855906099f1176c6a7e0a3e28a3",
+  "endObservedUtc": "2026-10-18T13:21:07.924869+00:00",
+  "observedWindowSeconds": 488.924869,
+  "passiveWaitExclusionsSeconds": 0,
+  "nativeEngagedSeconds": "Unknown",
+  "unmeasuredStartupAndHandoff": "Unknown; observed window excludes time before first clock observation and final handoff after sealing",
+  "outcome": "manual-specification-SAR-technically-accepted",
+  "findingCounts": {
+    "total": 3,
+    "resolved": 3,
+    "open": 0,
+    "rejected": 0,
+    "deferred": 0,
+    "disputed": 0
+  },
+  "sourceStatusAfter": "",
+  "finalPlanSha256": "9da04af8cebf963265e5fde982941584881165bb94da7271481c1c24b3a9d663"
+}
