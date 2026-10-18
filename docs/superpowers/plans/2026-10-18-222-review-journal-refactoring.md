@@ -1,6 +1,6 @@
 ---
-based_on_commit: cd92ab1bee76b43fab0e743c259901ab16b2d844
-revision_id: issue-222-plan-r2
+based_on_commit: 9130dc6fa73f80b89ddc67c4f29f055f52d08600
+revision_id: issue-222-plan-r3
 ---
 
 # Review Moderator and Versioned Journal Refactoring Implementation Plan
@@ -15,7 +15,7 @@ revision_id: issue-222-plan-r2
 
 **Spec:** [2026-10-18-222-review-journal-refactoring-design.md](../specs/2026-10-18-222-review-journal-refactoring-design.md), exact accepted revision `issue-222-r13`, SHA-256 `f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be`. Source acceptance: XPR `review-0b5e44367ed1ebf60276c5f385829029`, author `gpt-6-astra/high`, reviewer `claude-opus-5-5/high`.
 
-**Plan metadata:** Draft 2; preparation owner #222 under #141, not an implementation child or approved native Plan. Writing basis `cd92ab1bee76b43fab0e743c259901ab16b2d844`. Source suitability was recorded at `359a7dc`; only plan/adoption documentation changed since then. Owner explicitly accepted revision 13 and authorized this fresh plan. [Adoption and suitability record](../peer-reviews/222-spec-adoption/owner-adoption-r13.json). Keep accepted spec bytes unchanged despite the documented table-alignment warning. The retired orphan plan was not consulted and supplies no executable scope or estimates.
+**Plan metadata:** Draft 3; preparation owner #222 under #141, not an implementation child or approved native Plan. Writing basis `9130dc6fa73f80b89ddc67c4f29f055f52d08600`. Source suitability was recorded at `359a7dc`; only plan/adoption documentation changed since then. Owner explicitly accepted revision 13 and authorized this fresh plan. [Adoption and suitability record](../peer-reviews/222-spec-adoption/owner-adoption-r13.json). Keep accepted spec bytes unchanged despite the documented table-alignment warning. The retired orphan plan was not consulted and supplies no executable scope or estimates.
 
 ## Global Constraints
 
@@ -53,107 +53,122 @@ AITM currently binds #222 with a timer but Explain reports `state-unavailable` b
 
 1. **Scoped preimplementation adoption and inventory:** Tasks 01, 03, 20.
 2. **CI bootstrap and exact source-ref receipts:** Task 02; preserve #223 globally.
-3. **Process contract/implementation and old-seal compatibility:** Task 03 contract,04 qualification,05A Linux adapter and 05B Darwin/seal adapter precede05C atomic operational integration. Task 04 and 05A/05B remain inactive until05C delivers their real replacement. No later task may deliver a changed source-closure file before 05C, or in a separate incomplete delivery before its usable behavior is available.
-4. **Review-only roles and external revision handoff:** 15A assets then15B activation and 16 acknowledgement, based on the versioned contracts and journal work.
-5. **Journal/provenance and collateral:** 06,07A–07C,08–14,16–18 and 19A–19C. Explicitly named in response to optional accepted-review suggestion **R2-F001**. Includes root/overlay capture, drift, response-v2, manifest-v2, lineage, reversible diffs, reconstruction and publication lifecycle. These modules also change the closure and therefore depend on 05C's delivered separation.
+3. **Process contract/implementation and old-seal compatibility:** Task 03 contract,04 qualification,05A Linux adapter and 05B Darwin/seal adapter feed inactive 05C1 installed selection and 05C2 owner-format helpers, which precede 05C3 atomic operational integration. Task 04 and 05A/05B/05C1/05C2 remain inactive until 05C3 delivers their real replacement. No later task may deliver a changed source-closure file before 05C3, or in a separate incomplete delivery before its usable behavior is available.
+4. **Review-only roles and external revision handoff:** 15A assets and 15B1/15B2 inactive orchestration then 15B3 activation and 16 acknowledgement, based on the versioned contracts and journal work.
+5. **Journal/provenance and collateral:** 06C,07A–07C,08–14,16–18 and 19A–19C. Explicitly named in response to optional accepted-review suggestion **R2-F001**. Includes root/overlay capture, drift, response-v2, manifest-v2, lineage, reversible diffs, reconstruction and publication lifecycle. These modules also change the closure and therefore depend on 05C3's delivered separation.
 6. **Backlog disposition and downstream registration/handoff:** 21,22A–22C,23A–23B and 24.
 7. **Aggregate verification:** 25A local,25B portable and 25C final reconciliation.
+
+All tasks are proposed independently reviewable leaves. The additional inactive preparation leaves below split responsibilities before forecasting; their commits may be reviewed separately but cannot deliver a broken operational checkpoint. Prior work is allocated to substantially the same surviving deliverables without reset; splitting a label does not divide or erase charged engagement. If the remaining allowance is unknowable or insufficient, the affected execution remains blocked for replanning.
+
+For every future executable leaf: register the actual issue using the sanctioned creation command; bind it; refresh Explain and scoped adoption; advance one step at a time using the applicable task verbs; obtain native Plan approval before Develop; preserve the local verification and exact-source Linux/macOS receipt gates before Test/Review; obtain human Review approval before Close. Commit/trace instructions below do not bypass these gates, authorize a push, or set owner approval.
 
 All tasks are proposed independently reviewable leaves. Task 01's inventory/adoption records must enumerate every affected consumer and adopt replacement Scope/ACs before the specific leaf changes it; final backlog disposition is not permission to postpone those prerequisites. If discovery changes an interface, update this fresh plan and obtain its applicable review before affected work. Do not turn a discovery task into unlimited implementation.
 
 ### Task-size gate and full human estimates
 
-Only the numbered leaf tasks in this revision are executable planning units. Family labels05/07/15/19/22/23/25 are no longer standalone tasks; their named A/B/C children replace them. Each leaf has one deliverable, exclusive write ownership, verification and an explicit human estimate below four hours. These forecasts include engineering/document work, verification, independent review and delivery preparation; they are provisional until independently inspected in the owning workflow. Do not add hidden "integration" work to a leaf, rename work to reset prior engagement, or start a leaf whose attributable preparation leaves inadequate remaining agent allowance.
+Only the numbered leaf tasks in this revision are executable planning units. Family labels 01/05/06/07/15/19/22/23/25 are no longer standalone tasks; their named leaves replace the superseded broad scopes. Each leaf has one deliverable, exclusive write ownership, verification and an explicit human estimate below four hours. These forecasts include engineering/document work, verification, independent review and delivery preparation; they are provisional until independently inspected in the owning workflow. Do not add hidden "integration" work to a leaf, rename work to reset prior engagement, or start a leaf whose attributable preparation leaves inadequate remaining agent allowance.
 
 If inspection shows a leaf cannot fit **4 human hours total**, split its deliverable before registration/Develop and revise this plan and dependencies. At execution, stop and replan when the forecast is invalid; the four-hour ceiling is not permission to compress evidence or run over. Agent engagement remains a separate cumulative four-hour cap, independently forecast/charged before execution; this revision removes the prior unsupported automatic one-to-one human/agent estimate. Historical estimates and Unknown values remain unchanged. Passive hosted/provider waits are excluded from active human/agent effort and recorded separately.
 
-| Leaf                                                                        | Engineering/docs h | Verification h | Review h | Delivery h | Total human h | Prerequisites                      |
-| --------------------------------------------------------------------------- | -----------------: | -------------: | -------: | ---------: | ------------: | ---------------------------------- |
-| 01: Inventory consumers and adopt the interim execution hold                |                  1 |            0.5 |     0.25 |       0.25 |         **2** | Approved plan / owner-adopted spec |
-| 02: Verify the global POSIX CI bootstrap and future receipt bindings        |                0.4 |            0.2 |      0.2 |        0.2 |         **1** | 01                                 |
-| 03: Adopt finite process semantics and persisted-seal compatibility         |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 01, 02                             |
-| 04: Build isolated finite process qualification and compatibility readers   |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 03                                 |
-| 05A: Implement isolated Linux probe observations                            |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 04                                 |
-| 05B: Implement Darwin observations and preserve old ownership seals         |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 04                                 |
-| 05C: Activate usable process observations and inventory atomically          |               1.75 |           0.75 |      0.5 |        0.5 |       **3.5** | 05A, 05B                           |
-| 06: Retire proof-only admission consumers and retain useful journal readers |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05C                                |
-| 07A: Define response and manifest v2 validators                             |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 05C                                |
-| 07B: Define event, protocol and explicit handoff contracts                  |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05C                                |
-| 07C: Integrate fixed contextual journal dispatch                            |               0.75 |           0.25 |     0.25 |       0.25 |       **1.5** | 07A, 07B                           |
-| 08: Capture bounded root and reviewer working contexts                      |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05C                                |
-| 09: Compare effective contexts with exact collateral exclusions             |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 08, 07C                            |
-| 10: Validate FUR revision identity and protected reviewer provenance        |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 08, 07C                            |
-| 11: Add new-format event projection with honest intermediate states         |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 07C, 10                            |
-| 12: Seal initial and layered acceptance manifests                           |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 08, 09, 11                         |
-| 13: Generate exact reversible diffs and cross-review links                  |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 07C, 10                            |
-| 14: Coordinate publication windows and pending external outcomes            |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 11, 13                             |
-| 15A: Prepare versioned review-only prompts and provider constraints         |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 07C, 10                            |
-| 15B: Activate the external revision handoff and reviewer boundary           |               1.75 |           0.75 |      0.5 |        0.5 |       **3.5** | 14, 15A                            |
-| 16: Complete both response sides and acceptance acknowledgements            |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 15B                                |
-| 17: Reconstruct FUR history from final bytes after squash                   |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 12, 13                             |
-| 18: Document and verify scoped external turn publication                    |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 14, 17                             |
-| 19A: Expose the read-only public journal and API contracts                  |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 06, 15B, 17                        |
-| 19B: Wire CLI and MCP parity for journal inspection                         |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19A, 15B                           |
-| 19C: Verify portable package closure and immutable format exceptions        |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 18, 19B, 20                        |
-| 20: Deliver the pre-planning suitability decision procedure                 |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 01, 09, 12, 17                     |
-| 21: Disposition the obsolete proof program without false completion         |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 01, 06                             |
-| 22A: Reconcile review roles and measured participant requirements           |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 16, 20                             |
-| 22B: Reconcile journal, recovery and installed-release requirements         |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 19C                                |
-| 22C: Coordinate the external publication consumer obligations               |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 19B, 20                            |
-| 23A: Consolidate parent obligations and the final candidate census          |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 21, 22A, 22B, 22C, 23B             |
-| 23B: Disposition the remaining unrelated and deferred candidates            |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 01, 21                             |
-| 24: Register the downstream AITM ownership and exact-context handoff        |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 19C, 20, 22C                       |
-| 25A: Verify local aggregate behavior and specification coverage             |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19C, 20, 23A                       |
-| 25B: Collect exact-head Linux/macOS installed and ownership evidence        |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19C, 18                            |
-| 25C: Reconcile final evidence and prepare governed delivery                 |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 24, 25A, 25B                       |
+| Leaf                                                                         | Engineering/docs h | Verification h | Review h | Delivery h | Total human h | Prerequisites                               |
+| ---------------------------------------------------------------------------- | -----------------: | -------------: | -------: | ---------: | ------------: | ------------------------------------------- |
+| 01A: Inventory source and development proof consumers                        |               1.75 |           0.75 |      0.5 |        0.5 |       **3.5** | Approved plan / owner-adopted spec          |
+| 01B: Inventory shipped packages and downstream interface consumers           |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | Approved plan / owner-adopted spec          |
+| 01C: Record the interim hold and partition native issue ownership            |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | Approved plan / owner-adopted spec          |
+| 01: Integrate the inventory and scoped-adoption gate                         |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 01A, 01B, 01C                               |
+| 02: Verify the global POSIX CI bootstrap and future receipt bindings         |                0.4 |            0.2 |      0.2 |        0.2 |         **1** | 01                                          |
+| 03: Adopt finite process semantics and persisted-seal compatibility          |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 01, 02                                      |
+| 04: Build isolated finite process qualification and compatibility readers    |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 03                                          |
+| 05A: Implement isolated Linux probe observations                             |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 04                                          |
+| 05B: Implement Darwin observations and preserve old ownership seals          |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 04                                          |
+| 05C1: Build the inactive installed observation capability                    |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05A, 05B                                    |
+| 05C2: Define versioned portable owner records and compatibility              |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05B                                         |
+| 05C3: Activate usable process observations and inventory atomically          |               1.75 |           0.75 |      0.5 |        0.5 |       **3.5** | 05C1, 05C2                                  |
+| 06A: Retire local review-proof production and consumers                      |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05C3                                        |
+| 06B: Remove adopted review-proof admission from CI and process conformance   |               1.75 |           0.75 |      0.5 |        0.5 |       **3.5** | 06A                                         |
+| 06C: Integrate proof-consumer retirement with extraction and ordinary review |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 06A, 06B                                    |
+| 07A: Define response and manifest v2 validators                              |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 05C3                                        |
+| 07B: Define event, protocol and explicit handoff contracts                   |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05C3                                        |
+| 07C: Integrate fixed contextual journal dispatch                             |               0.75 |           0.25 |     0.25 |       0.25 |       **1.5** | 07A, 07B                                    |
+| 08: Capture bounded root and reviewer working contexts                       |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 05C3                                        |
+| 09: Compare effective contexts with exact collateral exclusions              |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 08, 07C                                     |
+| 10: Validate FUR revision identity and protected reviewer provenance         |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 08, 07C                                     |
+| 11: Add new-format event projection with honest intermediate states          |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 07C, 10                                     |
+| 12: Seal initial and layered acceptance manifests                            |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 08, 09, 11                                  |
+| 13: Generate exact reversible diffs and cross-review links                   |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 07C, 10                                     |
+| 14: Coordinate publication windows and pending external outcomes             |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 11, 13                                      |
+| 15A: Prepare versioned review-only prompts and provider constraints          |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 07C, 10                                     |
+| 15B1: Build inactive new-format review startup orchestration                 |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 12, 13, 14, 15A                             |
+| 15B2: Build inactive external revision submission orchestration              |               1.75 |           0.75 |      0.5 |        0.5 |       **3.5** | 15B1                                        |
+| 15B3: Activate the external revision handoff and reviewer boundary           |               1.25 |           0.75 |      0.5 |        0.5 |         **3** | 15B1, 15B2                                  |
+| 16: Complete both response sides and acceptance acknowledgements             |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 15B3                                        |
+| 17: Reconstruct FUR history from final bytes after squash                    |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 12, 13                                      |
+| 18: Document and verify scoped external turn publication                     |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 14, 17, 16, 19B                             |
+| 19A: Expose the read-only public journal and API contracts                   |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 06C, 15B3, 17                               |
+| 19D: Expose the bounded external publication coordination API                |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19A, 16, 14                                 |
+| 19B: Wire CLI and MCP parity for journal inspection                          |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19D, 16                                     |
+| 19C: Verify portable package closure and immutable format exceptions         |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 18, 19B, 20                                 |
+| 20: Deliver the pre-planning suitability decision procedure                  |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 01, 09, 12, 17                              |
+| 21: Disposition the obsolete proof program without false completion          |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 01, 06C                                     |
+| 22A1: Reconcile review role and artifact-write requirements                  |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 16, 20                                      |
+| 22A2: Reconcile participant identity and measured telemetry                  |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 16, 20                                      |
+| 22B1: Reconcile retained journal requirements                                |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19C                                         |
+| 22B2: Reconcile recovery and installed-release requirements                  |                1.5 |            0.5 |      0.5 |        0.5 |         **3** | 19C                                         |
+| 22C: Coordinate the external publication consumer obligations                |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 19B, 20                                     |
+| 23A: Consolidate parent obligations and the final candidate census           |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 21, 22A1, 22A2, 22B1, 22B2, 22C, 23B1, 23B2 |
+| 23B1: Disposition the first remaining candidate partition                    |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 01, 21                                      |
+| 23B2: Disposition the second remaining candidate partition                   |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 01, 21                                      |
+| 24: Register the downstream AITM ownership and exact-context handoff         |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 19C, 20, 22C                                |
+| 25A: Verify local aggregate behavior and specification coverage              |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19C, 20, 23A                                |
+| 25B: Collect exact-head Linux/macOS installed and ownership evidence         |               1.25 |            0.5 |      0.5 |       0.25 |       **2.5** | 19C, 18, 23A                                |
+| 25C: Reconcile final evidence and prepare governed delivery                  |                  1 |            0.5 |     0.25 |       0.25 |         **2** | 24, 25A, 25B                                |
 
-**37 executable leaf tasks; maximum 3.5 human hours per leaf; provisional aggregate 92.5 human hours.** The aggregate grows from 67 hours because splitting broad work adds separately visible review, verification and delivery effort. Do not present the aggregate as one task or claim an elapsed-time speedup without actual worker/host/approval availability.
+**50 executable leaf tasks; maximum 3.5 human hours per leaf; provisional aggregate 131 human hours.** These are author planning estimates, not independent native forecasts. The aggregate includes the additional separately reviewed discovery, process, controller, consumer and disposition work; do not infer elapsed duration or speedup.
 
 ### Dependency waves and safe parallel work
 
-| Wave | Newly eligible work (subject to worker slots) | Barrier / integration note                                                              |
-| ---- | --------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 01   | 01                                            | Serial prerequisite                                                                     |
-| 02   | 02                                            | Serial prerequisite                                                                     |
-| 03   | 03                                            | Serial prerequisite                                                                     |
-| 04   | 04                                            | Serial prerequisite                                                                     |
-| 05   | 05A, 05B                                      | Disjoint leaves can overlap                                                             |
-| 06   | 05C                                           | Deliver usable process separation before later source work                              |
-| 07   | 06, 07A, 07B, 08                              | Disjoint leaves can overlap                                                             |
-| 08   | 07C, 21                                       | One integration owner per shared file set; Disjoint leaves can overlap                  |
-| 09   | 09, 10, 23B                                   | Disjoint leaves can overlap                                                             |
-| 10   | 11, 13, 15A                                   | One integration owner per shared file set; Disjoint leaves can overlap                  |
-| 11   | 12, 14                                        | One integration owner per shared file set; Disjoint leaves can overlap                  |
-| 12   | 15B, 17                                       | One integration owner per shared file set; Disjoint leaves can overlap                  |
-| 13   | 16, 18, 19A, 20                               | One integration owner per shared file set; Disjoint leaves can overlap                  |
-| 14   | 19B, 22A                                      | Disjoint leaves can overlap                                                             |
-| 15   | 19C, 22C                                      | One integration owner per shared file set; Disjoint leaves can overlap                  |
-| 16   | 22B, 24, 25B                                  | Disjoint leaves can overlap; Freeze evidence source;25C revalidates final delivery HEAD |
-| 17   | 23A                                           | One integration owner per shared file set                                               |
-| 18   | 25A                                           | Serial prerequisite                                                                     |
-| 19   | 25C                                           | One integration owner per shared file set                                               |
+| Wave | Newly eligible work (subject to worker slots) | Barrier / integration note                                                 |
+| ---- | --------------------------------------------- | -------------------------------------------------------------------------- |
+| 01   | 01A, 01B, 01C                                 | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 02   | 01                                            | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 03   | 02                                            | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 04   | 03                                            | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 05   | 04                                            | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 06   | 05A, 05B                                      | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 07   | 05C1, 05C2                                    | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 08   | 05C3                                          | Deliver complete usable process separation                                 |
+| 09   | 06A, 07A, 07B, 08                             | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 10   | 06B, 07C                                      | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 11   | 06C, 09, 10                                   | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 12   | 11, 13, 15A, 21                               | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 13   | 12, 14, 23B1, 23B2                            | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 14   | 15B1, 17                                      | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 15   | 15B2, 20                                      | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 16   | 15B3                                          | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 17   | 16, 19A                                       | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 18   | 19D, 22A1, 22A2                               | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 19   | 19B                                           | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 20   | 18, 22C                                       | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 21   | 19C                                           | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 22   | 22B1, 22B2, 24                                | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 23   | 23A                                           | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 24   | 25A, 25B                                      | Respect exclusive files, individual prerequisites and three-worker ceiling |
+| 25   | 25C                                           | Respect exclusive files, individual prerequisites and three-worker ceiling |
 
 These are earliest dependency layers, **not compulsory all-worker barriers**. A leaf may start as soon as its own listed prerequisites are reviewed/delivered and its native approvals/forecast gates pass; it need not wait for unrelated work in the same row. Three implementation workers plus one integration/orchestration owner is the default scheduling ceiling. This is a scheduling choice, separate from the unchanged portable runtime concurrency cap four. Any four-task row is scheduled as three concurrent workers plus the remaining leaf when a slot opens; the integration owner stays reserved for coordination and shared-file review.
 
 - Each worker uses a suitable isolated managed worktree rooted at the declared integration checkpoint. No parallel writers in the same checkout, shared index, timer binding or native review session. This plan does not create workers/worktrees now or choose their models.
 - The integration owner alone merges reviewed leaf commits. Each shared-file integration leaf has one designated writer, which may be an assigned worker in an isolated worktree. Different integration leaves may overlap only when their declared files are disjoint; leaves sharing runtime/API/template/packaging/census files are serialized by the explicit dependencies. Sibling modules/schema families own disjoint files; if discovery adds a shared path, reassign to the integrator or serialize it before editing.
 - Wave completion never grants issue-state advancement. Register/bind actual issues and use their own one-step workflow; read-only reference to another issue does not authorize its mutation.
-- **Mandatory process barrier:**05C is delivered with all adopted finite capabilities and old-seal behavior usable before any later closure-changing task.05A/05B are inactive new modules and cannot deliver partial active selection. No parallel path bypasses05C.
-- **Single-writer integrations:**07C contextual registry;11 event projection/store;12 manifest projection;15B/16 controller sequencing;19A API contracts then19B transport;19C package inventories;23A parent/census;25C final source/evidence binding. Sibling workers do not cherry-pick changes into these files themselves.
-- **Downstream/verification barriers:**24 registers/links actual AITM ownership but does not claim downstream behavior complete.25C waits for real required owning-workflow evidence.25B receives a frozen delivery source SHA; if any later source changes, the integration owner determines which receipts must be refreshed. No worker updates source while claiming existing exact-head evidence remains current.
+- **Mandatory process barrier:**05C3 integrates 05C1/05C2 and is delivered with all adopted finite capabilities and old-seal behavior usable before any later closure-changing task.05A/05B/05C1/05C2 are inactive modules and cannot deliver partial active selection. No parallel path bypasses 05C3.
+- **Single-writer integrations:**07C contextual registry;11 event projection/store;12 manifest projection;15B1/15B2 inactive orchestration then 15B3/16 controller sequencing;19A inspection contracts then 19D publication contracts then 19B transport;19C package inventories;23A parent/census;25C final source/evidence binding. Sibling workers do not cherry-pick changes into these files themselves.
+- **Downstream/verification barriers:**24 registers/links actual AITM ownership but does not claim downstream behavior complete.25C waits for real required owning-workflow evidence.25B receives a frozen candidate source SHA; if any later source changes, the integration owner determines which receipts must be refreshed. No worker updates source while claiming existing exact-head evidence remains current.
 - Per-leaf independent review can overlap implementation of disjoint eligible leaves. Shared-port/service/platform probes and high-cost suites are scheduled by the integration owner so concurrent test processes do not exceed budgets or contaminate fixture ports; all repositories/processes used are disposable, never protected sessions.
 
-### Parallel ownership examples
+### Parallel ownership rules
 
-| Eligible leaves                                    | Disjoint write sets                                                                                                 | Integration handoff                                                                       |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 05A / 05B                                          | Linux adapter versus Darwin/seal adapters and separate tests                                                        | 05C alone activates callers and coherent inventory                                        |
-| 06 / 07A / 07B / 08                                | Proof-consumer scripts versus response/manifest schemas versus lifecycle/request schemas versus Git/context capture | 07C integrates schema dispatch; other owners keep these source sets separate              |
-| 11 / 13 / 15A                                      | Event/store projection versus diff/lineage core versus inactive versioned role assets                               | 12/14 then15B consume reviewed interfaces; no concurrent active template/controller edits |
-| 12 / 14                                            | Manifest renderer/template versus standalone publication-state operations                                           | Both reuse11 completed store/event interfaces without modifying them                      |
-| 15B / 17                                           | Active controller/API request wiring versus independent read-only reconstruction module                             | 19A waits for both before exposing the public API                                         |
-| 16 / 18 / 19A / 20                                 | Response/controller completion versus publisher recipe versus read-only public API versus suitability procedure     | Three workers maximum; controller/API files remain explicitly separate                    |
-| 22A / 22B / 22C / 23B (when individually eligible) | Nonoverlapping issue sets and separate disposition files                                                            | 23A alone consolidates parent obligations and final census                                |
+The generated wave table is the complete dependency schedule. Within an eligible wave, source census 01A, distribution census 01B and issue hold/partition 01C own separate files; 05A/05B adapters and 05C1/05C2 inactive preparation likewise have disjoint paths. Tasks 07A/07B own different contract families; 08 alone changes repository capture; 09 alone owns drift; 10 alone owns responses. Task 11 owns event/store integration before 12/14 consume it. Inactive 15B1/15B2 orchestration precedes the single 15B3 activation and 16 completion writer. Shared API registry/contracts are serialized 15B3 → 19A → 19D → 19B transport; 16 also precedes 19D/19B. Task 18 uses the completed external operation after 19B. Task 19C is the final shared package/inventory writer. Issue partitions own only their listed nonoverlapping issues and separate records; 23A alone consolidates parents/census. A newly discovered shared path requires an explicit ownership/dependency amendment before either worker writes it.
 
 ### File responsibility map
 
@@ -168,7 +183,7 @@ These are earliest dependency layers, **not compulsory all-worker barriers**. A 
 | External workflow                       | Existing documented manual handoff                                                                                         | `docs/review-turn-publication.md`: authorized operator recipe with exact staged-byte checks; not auto-invoked by AIPR                                                                  |
 | Pre-plan/downstream integration         | Governing operator and AITM issue workflow                                                                                 | `docs/review-plan-suitability.md`, `docs/superpowers/adoption/222-downstream-handoff.md`; no invented downstream issue ID                                                              |
 
-New exports below are **proposed interfaces**, not claims they exist today. Keep them internal unless 19A explicitly exposes a read-only public operation. Paths without a leading repository name are relative to this AIPR checkout. Implementation tests create disposable repositories and never read or operate on the protected sessions.
+New exports below are **proposed interfaces**, not claims they exist today. Keep them internal unless 19A explicitly exposes a read-only public operation or 19D exposes the bounded publication coordination operation. Paths without a leading repository name are relative to this AIPR checkout. Implementation tests create disposable repositories and never read or operate on the protected sessions.
 
 ### Shared data decisions for the bounded implementation
 
@@ -177,26 +192,74 @@ New exports below are **proposed interfaces**, not claims they exist today. Keep
 - Context capture is two matching bounded observations around FUR/HEAD reads; changing inventory/content/HEAD produces unavailable/retry without a manufactured root. Do not retain source contents in public collateral. Ignored untracked files, installed dependencies and external runtime state are outside scope.
 - Effective working content overlays commit content. Index contents are separately observed bookkeeping; committing unchanged initial dirty contents is not a source change. The comparison universe includes tree changes between endpoints and the union of both overlays, not only currently dirty paths.
 - New-format Markdown FURs are regular UTF-8 files; support exact LF/CRLF and missing terminal newline, tracked/untracked initial drafts and contained recorded renames. Non-Markdown/binary subject intake is explicitly unsupported until a separate adopted metadata representation exists. A symlink/hard-link escape is refused, not followed as a subject.
-- Adopt patch format `ai-peer-review.fur-git-patch/v1`: Git full-index binary-capable patch bytes over a fixed virtual `FUR.md` path; actual old/new FUR paths are immutable manifest metadata. Generate from sealed byte inputs with `git diff --no-index --binary --full-index --no-ext-diff --no-textconv --unified=0`. Apply using `git apply --unidiff-zero` in an isolated temporary directory after verifying exact input digest, then verify exact result digest. Never use the user's index or source working tree for reconstruction. A result record requires successful forward and reverse round trips; zero-byte content changes and path-only changes have explicit empty payload semantics plus verified endpoint metadata.
+- Adopt patch format `ai-peer-review.fur-git-patch/v1`: Git full-index binary-capable patch bytes over fixed virtual inputs `before/FUR.md` and `after/FUR.md`; actual old/new FUR paths are immutable manifest metadata. Generate from sealed byte inputs with `git diff --no-index --binary --full-index --no-ext-diff --no-textconv --unified=0 --src-prefix=a/ --dst-prefix=b/ -- before/FUR.md after/FUR.md`. Apply using `git apply --no-index -p2 --unidiff-zero` in an isolated temporary directory after verifying exact input digest, then verify exact result digest. Validate that the only patch paths are this fixed pair, producing only `FUR.md` after stripping two components; reject extra paths/options and run scrubbed Git without filters or hooks. Set `GIT_CEILING_DIRECTORIES` to the temporary destination parent and scrub inherited `GIT_*` environment so repository discovery cannot silently skip paths when the temporary directory is inside a checkout. Git diff exit 1 means a produced difference; other nonzero statuses fail. Verify that the expected output actually changed to its exact digest; exit 0 alone is insufficient. Never use the user's index or source working tree for reconstruction. A result record requires successful forward and reverse round trips; zero-byte content changes and path-only changes have explicit empty payload semantics plus verified endpoint metadata.
 - Distinguish participant acceptance, closing acknowledgement, collateral completeness, publication reservation and external publication outcome. None is inferred from another. Fixed package-owned readers select schema by document family, operation and identifier; no executable/remote schema selection and no new generic schema framework.
 
 ---
 
-## Task 01: Inventory consumers and adopt the interim execution hold
+## Task 01A: Inventory source and development proof consumers
 
 **Prerequisite leaves:** Owner-adopted specification and approved fresh plan.
 
+**Total human estimate: 3.5 hours (maximum 4).** Engineering/docs 1.75h; verification 0.75h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Create `docs/superpowers/adoption/222-source-inventory.json`; read spec §5 candidate source/tests/schemas, release/CI and extraction consumers. No production edits.
+
+**Interfaces:** One row per source/export/requirement with introducing commit, actual callers, disposition, scoped adoption owner and verifier; consumed by 01.
+
+**Completion boundary:** A source-consumer census; installed packages and issue mutations belong to 01B/01C.
+
+- [ ] Trace every §5 candidate through imports, tests, public exports, CI callers and generated inventories; preserve historical-schema rows explicitly.
+- [ ] Inspect `scripts/verify-extraction.mjs` and `scripts/verify-portable-consumers.mjs`; distinguish product admission from development approval and installed integrity.
+- [ ] Verify each row against current source and named callers; unavailable history remains unavailable. Independently review, commit and trace this bounded census.
+
+## Task 01B: Inventory shipped packages and downstream interface consumers
+
+**Prerequisite leaves:** Owner-adopted specification and approved fresh plan.
+
+**Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Create `docs/superpowers/adoption/222-distribution-inventory.json`; read installed/remote package metadata and AITM consumer entry points. No source, install, release or downstream writes.
+
+**Interfaces:** Rows bind actual repository/ref/package version, inspected file/export and caller; unavailable access is explicit.
+
+**Completion boundary:** A distribution/downstream census, not broad archaeology or a new installation.
+
+- [ ] Inspect actual accessible installed and released package inventories, relevant remote refs and known AITM importers; do not infer absence from a failed registry lookup.
+- [ ] Bound each unavailable distribution or consumer by its known identity and required follow-up owner. Newly discovered broad investigation becomes a separately forecasted prerequisite, not extra work inside this task.
+- [ ] Verify all selected proof-export retirements have a concrete known consumer disposition or blocked removal; independently review, commit and trace.
+
+## Task 01C: Record the interim hold and partition native issue ownership
+
+**Prerequisite leaves:** Owner-adopted specification and approved fresh plan.
+
+**Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Create `docs/superpowers/adoption/222-execution-hold.md` and `222-initial-issue-partition.json`; sanctioned native hold records only for #214/#217–#221.
+
+**Interfaces:** Consumes live issue identities/dependencies. Produces a governed hold plus nonoverlapping disposition-owner partition; detailed requirement adoption remains per affected leaf.
+
+**Completion boundary:** Containment and issue assignment, without rewriting every accepted plan or decomposing surviving implementation here.
+
+- [ ] Refresh the complete open issue listing and the six open proof-program issues with their source pointers and dependencies. Assign all other candidates to 22/23 owners; count is an observation, not authority.
+- [ ] Use the sanctioned owning workflow for the interim execution hold. If no supported representation exists, record the exact workflow gap and stop dependent execution.
+- [ ] Read back each mutation and preserve original forecasts, Unknown timing and historical decisions. Independently review, commit and trace.
+
+## Task 01: Integrate the inventory and scoped-adoption gate
+
+**Prerequisite leaves:** 01A, 01B, 01C.
+
 **Total human estimate: 2 hours (maximum 4).** Engineering/docs 1h; verification 0.5h; independent review 0.25h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files:** Create `docs/superpowers/adoption/222-consumer-inventory.json`, `222-scoped-adoptions.md` and `222-execution-hold.md`; read spec §5 candidate paths, package files/exports, installed consumers and all open issues. No production edits.
+**Files and exclusive write ownership:** Create `docs/superpowers/adoption/222-consumer-inventory.json` and `222-scoped-adoptions.md`; read the three completed input censuses. No production edits.
 
-**Interfaces:** Consumes exact revision-13 digest and current issue/ref/package observations. Produces an inventory row per path/export/requirement: introducing owner/commit, live callers, shipped location, disposition, reason, cleanup task, scoped adoption and verifier.
+**Interfaces:** Combines exact source/distribution/issue rows and assigns each affected contract amendment to its owning executable leaf.
 
-- [ ] Requery open/closed issue bodies and dependencies, remote refs, actual installed package inventories and downstream importers. Record access failures as unavailable, not absence. Inspect `scripts/verify-extraction.mjs`, `scripts/verify-portable-consumers.mjs`, API/public exports and generated inventory users.
-- [ ] Through the owning AITM workflow, record a scoped interim hold for proof-dependent #214/#217–#221 execution. A hold is not cancellation/Done or replacement AC adoption. If the sanctioned workflow cannot represent it, record the exact gap and stop dependent execution.
-- [ ] Fill the candidate census without keyword deletion. Classify every runtime-proof, development approval, process observation, journal/lineage and CI consumer separately. Retain out-of-scope rows with reasons.
-- [ ] Before each later leaf, record its exact replacement Scope/ACs, source-plan changes, interface consumer decisions and responsible owning approval. Do not treat spec adoption as adoption of all issue contracts.
-- [ ] Verify read-back of each sanctioned mutation and all affected requirements have an owner. Review the inventory independently, commit only these records under the registered leaf issue, and trace that commit.
+**Completion boundary:** A reviewed coverage join and executable prerequisite policy; no hidden implementation or universal approval.
+
+- [ ] Join the three inventories by path/export/requirement and verify every §5 candidate and live consumer has a disposition and owner. Keep unavailable rows as explicit blockers for dependent removal.
+- [ ] Before each affected leaf enters Develop, its owner obtains exact replacement Scope/AC/source-plan/interface adoption through the native workflow and records read-back. Each leaf budgets this narrow scope check; discovery of a broad new amendment requires a separately bounded planning task.
+- [ ] Verify the interim hold remains recorded and no required consumer vanished at the join. Independently review, commit and trace these integration records.
 
 ## Task 02: Verify the global POSIX CI bootstrap and future receipt bindings
 
@@ -239,8 +302,8 @@ assert.equal(
 - [ ] Select the conservative finite-support option in spec §5.3: Linux build `6.17.0-1022-azure`, x64, Node 24/26, absence and creation; Darwin `25.6.0`, arm64, Node 24/26, absence only. Record real probe semantic predicates and precision; other cases remain unavailable. Reconfirm these scopes against actual current evidence before adoption; do not widen them from OS labels.
 - [ ] Define qualification as package-owned supported probe semantics plus observed matching OS/host/process facts, independent of reviewer acceptance, ledger approval or arbitrary journal-source digests. Preserve installed package integrity separately.
 - [ ] Document every persisted `creationSource` v1 shape and in-flight owner operation. Old seals remain readable with original approval fields; only operations justified by their original semantics and current reliable observations stay supported. Uncertain/unsupported cases return Unknown with a compatible recovery path, never automatic seal conversion or takeover.
-- [ ] Adopt v2 class/qualification and seal contracts before implementation; preserve v1 schemas/ledger bytes and Windows historical entries. Define precision, process-instance identity and same-host rules for each operation.
-- [ ] Independently review the contract, its explicit exclusions and representative old-seal fixtures. Obtain scoped native adoption before Task 05C enters Develop; commit/trace the decision without claiming a runtime replacement exists yet.
+- [ ] Adopt v2 class/qualification, seal and containing portable-owner/v2 contracts before implementation; preserve v1 schemas/ledger bytes and Windows historical entries. Define precision, process-instance identity and same-host rules for each operation.
+- [ ] Independently review the contract, its explicit exclusions and representative old-seal fixtures. Obtain scoped native adoption before Task 05C3 enters Develop; commit/trace the decision without claiming a runtime replacement exists yet.
 
 ## Task 04: Build isolated finite process qualification and compatibility readers
 
@@ -272,7 +335,7 @@ test('missing real probe cannot create support', () => {
 - [ ] Run `node --test test/unit/process-source-qualification.test.mjs`; confirm the missing new module or unsupported matching behavior fails for the intended reason.
 - [ ] Implement fixed per-operation qualification from the adopted table, discriminated unsupported results and strict v1/v2 seal dispatch. No approval/review digest is consumed for new qualification. Pure qualification cannot manufacture actual child handles or host observations.
 - [ ] Test unchanged v1 fields/precision and malformed/newer seal refusal. Prove fixture data cannot call the operational installed observer path.
-- [ ] Rerun tests and commit/trace the unactivated module. It may deliver independently only if it neither changes the active closure nor alters current operational capability. Otherwise deliver it atomically with Task 05C.
+- [ ] Rerun tests and commit/trace the unactivated module. It may deliver independently only if it neither changes the active closure nor alters current operational capability. Otherwise deliver it atomically with Task 05C3.
 
 ## Task 05A: Implement isolated Linux probe observations
 
@@ -282,7 +345,7 @@ test('missing real probe cannot create support', () => {
 
 **Files and exclusive write ownership:** Create `src/protocol/process-observation-linux.mjs` and `test/unit/process-observation-linux.test.mjs`; read but do not modify `process-identity.mjs`, qualification modules or inventory files.
 
-**Interfaces:** Exports `observeLinuxProcessFacts({pid,signal,deadline,readProc})` with the existing adopted process-fact representation; Task 05C alone wires it to operational callers. `readProc` is the injected bounded procfs reader, never proof data.
+**Interfaces:** Exports `observeLinuxProcessFacts({pid,signal,deadline,readProc})` with the existing adopted process-fact representation; Task 05C3 alone wires it to operational callers. `readProc` is the injected bounded procfs reader, never proof data.
 
 **Completion boundary:** A tested, unactivated Linux observation adapter; no live capability transition or shared source edit.
 
@@ -290,7 +353,7 @@ test('missing real probe cannot create support', () => {
 - [ ] Run `node --test test/unit/process-observation-linux.test.mjs` and record intended failure before implementing the bounded adapter.
 - [ ] Produce observations only from real procfs reads in production and the adopted finite qualification. Return Unknown on unsupported/uncertain facts; no serialized fixture or reviewer approval can grant production authority.
 - [ ] Test real supported-host observation separately from injected parser fixtures; record unavailable host coverage honestly. Rerun tests and independently review/commit/trace this inactive adapter.
-- [ ] Do not modify active selection, broaden supported hosts or deliver a closure-changing partial activation. Hand the reviewed adapter interface and evidence to 05C.
+- [ ] Do not modify active selection, broaden supported hosts or deliver a closure-changing partial activation. Hand the reviewed adapter interface and evidence to 05C3.
 
 ## Task 05B: Implement Darwin observations and preserve old ownership seals
 
@@ -298,9 +361,9 @@ test('missing real probe cannot create support', () => {
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Create `src/protocol/process-observation-darwin.mjs`, `src/protocol/process-seal-compatibility.mjs`, `test/unit/process-observation-darwin.test.mjs`, `test/unit/process-seal-compatibility.test.mjs`; do not edit05A files or active ownership modules.
+**Files and exclusive write ownership:** Create `src/protocol/process-observation-darwin.mjs`, `src/protocol/process-seal-compatibility.mjs`, `test/unit/process-observation-darwin.test.mjs`, `test/unit/process-seal-compatibility.test.mjs`; do not edit 05A files or active ownership modules.
 
-**Interfaces:** Exports `observeDarwinProcessFacts({pid,signal,deadline,probe})` for adopted absence only, and `interpretCreationSeal({bytes,operation,host})` preserving original bytes/precision. It consumes 04 strict v1/v2 parsing; Task 05C alone changes operational selection.
+**Interfaces:** Exports `observeDarwinProcessFacts({pid,signal,deadline,probe})` for adopted absence only, and `interpretCreationSeal({bytes,operation,host})` preserving original bytes/precision. It consumes 04 strict v1/v2 parsing; Task 05C3 alone changes operational selection.
 
 **Completion boundary:** Tested inactive Darwin absence adapter and old-seal operation reader; no universal macOS claim or live-owner mutation.
 
@@ -308,17 +371,51 @@ test('missing real probe cannot create support', () => {
 - [ ] Run both new unit files, implement the adopted finite semantics and strict operation-specific legacy interpretation, then rerun them.
 - [ ] Preserve original `creationSource` fields including `classId`, `contractDigest`, `approvalDigest` and `precision`; do not convert seals or infer descendant discharge from endpoint silence.
 - [ ] Verify real supported Darwin observation where available, recording platform exclusions and fixture limits. Independently review/commit/trace the unactivated modules and compatibility matrix.
-- [ ] Do not touch the protected review/session, active Linux code or installed inventory. Give 05C exact allowed old-owner operations and explicit Unknown/recovery outcomes.
+- [ ] Do not touch the protected review/session, active Linux code or installed inventory. Give 05C3 exact allowed old-owner operations and explicit Unknown/recovery outcomes.
 
-## Task 05C: Activate usable process observations and inventory atomically
+## Task 05C1: Build the inactive installed observation capability
 
 **Prerequisite leaves:** 05A, 05B.
 
+**Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Create `src/protocol/process-observation-source.mjs`, `test/unit/process-observation-source.test.mjs` and a separate v2 finite qualification data file. Do not edit the historical v1 ledger or active callers.
+
+**Interfaces:** Exports `loadInstalledObservationSource({signal,deadline})`, `revalidateObservationSource(source,{signal,deadline})` and `isInstalledObservationSource(source)`. The first returns an identity-bound object with finite absence/creation capabilities or explicit unavailable; production accepts no injected host/probe/integrity claims.
+
+**Completion boundary:** A tested inactive installed selector with real integrity revalidation; 05C3 alone activates it.
+
+- [ ] Pin failures for copied/forged JSON capability, unsupported finite host, changed installed inventory, expired deadline and probe mismatch. Run `node --test test/unit/process-observation-source.test.mjs` before and after implementation.
+- [ ] Reuse actual installed-runtime integrity APIs; register capabilities privately by object identity, as the current WeakSet/WeakMap boundary does. Remove review/class approval and the 117-file digest from new qualification without weakening installed file integrity.
+- [ ] Use 04/05A/05B finite semantics and real host observations. Preserve Unknown on every unsupported condition; no fixture grants production authority.
+- [ ] Independently review/commit/trace this inactive module and hand exact interfaces to 05C3. If its addition changes an active inventory/closure, retain it in the atomic 05C3 delivery set.
+
+## Task 05C2: Define versioned portable owner records and compatibility
+
+**Prerequisite leaves:** 05B.
+
+**Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Create `schemas/portable-owner-v2.json`, `src/broker/portable-owner-records.mjs`, `test/unit/portable-owner-records.test.mjs` and `docs/portable-owner-records-v2.md`; read current writer and lifecycle readers without editing them.
+
+**Interfaces:** Exports `readPortableOwnerRecord(bytes)` with explicit v1/v2 dispatch and `buildPortableOwnerV2({instanceId,worktree,identity,versions})`. New v2 seal semantics are valid only inside the adopted v2 owner; v1 keeps its original four approval-bearing fields.
+
+**Completion boundary:** Inactive bounded reader/writer helpers plus the operation compatibility matrix; no persisted owner is migrated.
+
+- [ ] Add exact v1 fixture retention, v2 round trip, wrong-container/new-seal, malformed precision, unknown future version and in-flight v1 owner tests. Run `node --test test/unit/portable-owner-records.test.mjs` before/after.
+- [ ] Retain v1 owner bytes, class/ledger data and operation meaning. Record which old seals can be compared with current reliable observations and which require Unknown/compatible recovery. Do not compare approval digests across versions as process identity.
+- [ ] Audit `portable-ownership.mjs`, `portable-ownership-core.mjs`, `portable-owner-lifecycle.mjs`, `owner-lifecycle-core.mjs` and `ownership-election.mjs` so every actual writer/reader has a 05C3 integration entry.
+- [ ] Independently review the format and compatibility matrix and obtain scoped native adoption before 05C3 Develop. Commit/trace only inactive assets.
+
+## Task 05C3: Activate usable process observations and inventory atomically
+
+**Prerequisite leaves:** 05C1, 05C2.
+
 **Total human estimate: 3.5 hours (maximum 4).** Engineering/docs 1.75h; verification 0.75h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Exclusive owner of `src/protocol/process-source-assurance.mjs`, `process-identity.mjs`, active ownership callers in `src/broker/portable-platform.mjs`, `portable-ownership-core.mjs`, `portable-owner-lifecycle.mjs`, `ownership-election.mjs`, and coherent qualification/runtime inventories. Extend existing process/owner tests; do not concurrently edit05A/05B modules.
+**Files and exclusive write ownership:** Exclusive owner of `src/protocol/process-source-assurance.mjs`, `process-identity.mjs`, thin integration of the completed 05C1/05C2 helpers into active ownership callers in `src/broker/portable-platform.mjs`, `portable-ownership-core.mjs`, `portable-owner-lifecycle.mjs`, `portable-ownership.mjs`, `owner-lifecycle-core.mjs`, `ownership-election.mjs`, and coherent qualification/runtime inventories. Extend existing process/owner tests; do not concurrently edit 05A/05B modules.
 
-**Interfaces:** Integrates reviewed04/05A/05B interfaces while preserving existing external observation/reconciliation results. New operations consume measured facts and finite qualifications, not approval chains. Old seals route through 05B.
+**Interfaces:** Integrates reviewed 04/05A/05B/05C1/05C2 interfaces while preserving existing external observation/reconciliation results. New operations consume measured facts and finite qualifications, not approval chains. Old seals route through 05B/05C2 without rewriting their persisted bytes; new owner writes use portable-owner/v2. The process APIs keep `observeOriginalProcess({pid,signal,deadline})` and `reconcileOriginalProcess({original,observation})`, with private observed-object provenance and revalidation preserved.
 
 **Completion boundary:** One atomic usable replacement delivery with tested legacy refusal/compatibility. Other runtime work may start only from this delivered checkpoint.
 
@@ -328,25 +425,58 @@ test('missing real probe cannot create support', () => {
 - [ ] Verify adopted supported and excluded Linux/macOS cases and in-flight v1 owners without automatic migration or capability loss caused only by stale journal hashes. If a required finite supported host is unavailable, record a blocked delivery prerequisite; do not spend this task building a new host matrix or widen support claims. If any formerly supported adopted operation cannot be shown usable, stop delivery rather than publish a reduced interim contract.
 - [ ] Independently review/commit/trace and deliver this activation before any later closure-changing task. Real hosted/integration coverage reuses valid exact-head evidence under the same budgets; no Windows/native build.
 
-## Task 06: Retire proof-only admission consumers and retain useful journal readers
+## Task 06A: Retire local review-proof production and consumers
 
-**Prerequisite leaves:** 05C.
+**Prerequisite leaves:** 05C3.
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files:** Modify/retire actual active callers in `scripts/lib/runtime-review-lineage-proof.mjs`, `runtime-contract-evidence.mjs`, `scripts/check-runtime-contract-adoption.mjs`, `scripts/ci/prepare-contract-adoption.mjs`, extraction/consumer checks and `test/live/process-source/{authority,class-review,classes}.mjs`; preserve historical schemas/data and required external interfaces until consumer adoption.
+**Files and exclusive write ownership:** Only `scripts/lib/runtime-review-lineage-proof.mjs`, its unit test and concrete local production callers assigned by 01. Preserve pinned historical grammar/schema files.
 
-**Interfaces:** Produces a consumer disposition report and ordinary current-journal validation path without producer proof. Existing v1 journals remain interpretable; external approval policy is not treated as product validation.
+**Interfaces:** Removes a traced local proof-production dependency; current journal interpretation remains available and legacy exports remain explicit until their owners adopt removal.
 
-- [ ] Add an integration case that starts/inspects an ordinary current review without producer-image proof, proof publication or source-class review approval. Exercise actual callers, not file-text absence assertions.
-- [ ] Run `node --test test/unit/runtime-review-lineage-proof.test.mjs test/unit/runtime-contract-adoption.test.mjs test/unit/runtime-contract-evidence.test.mjs` to establish existing behavior and a failing ordinary-path regression.
-- [ ] Remove only proof-only active gates traced by 01. Reuse journal/response interpretation where useful, preserve history and isolate legacy readers. Do not replace retired proof with an equivalently mandatory renamed receipt.
-- [ ] Update packaging/extraction consumers and public export compatibility only under their scoped adoption. If a downstream interface remains live, keep it explicitly legacy or postpone its removal until the owning change lands.
-- [ ] Verify valid pending/rejected journals are not forced into terminal acceptance manifests. Run focused behavior/integration tests and exact package-content inspection; independently review, commit/trace and record unresolved external owners.
+**Completion boundary:** Local proof-production retirement; development CI and process capture callers belong to 06B.
+
+- [ ] Add a behavior test using a real current review journal with no producer-image proof; verify meaningful pending/rejected data is interpreted without forcing manifest-v1 acceptance.
+- [ ] Run `node --test test/unit/runtime-review-lineage-proof.test.mjs`, remove only adopted active proof-only calls and rerun retained historical/current reader cases.
+- [ ] A remaining live external export stays explicitly legacy until coordinated adoption. Independently review/commit/trace the local consumer change.
+
+## Task 06B: Remove adopted review-proof admission from CI and process conformance
+
+**Prerequisite leaves:** 06A.
+
+**Total human estimate: 3.5 hours (maximum 4).** Engineering/docs 1.75h; verification 0.75h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Exclusive owner of `scripts/lib/runtime-contract-evidence.mjs`, `scripts/check-runtime-contract-adoption.mjs`, `scripts/ci/prepare-contract-adoption.mjs`, their current CI callers and `test/live/process-source/{authority,class-review,classes}.mjs` with focused tests; no package inventory edits.
+
+**Interfaces:** Implements 01 adopted consumer decisions, preserving legitimate development approval and finite observations while removing review-as-execution-proof prerequisites.
+
+**Completion boundary:** Admission consumer replacement; no new conformance host matrix, general evidence engine or package integration.
+
+- [ ] Inventory 01 must already supply the exact removal/retention decision for each caller. If a new consumer requires redesign, stop that branch for a separate bounded amendment rather than widening this leaf.
+- [ ] Add failing behavior cases on the actual development/CI and process-conformance entry points; run `node --test test/unit/runtime-contract-adoption.test.mjs test/unit/runtime-contract-evidence.test.mjs` and the selected disposable conformance cases.
+- [ ] Remove adopted review-proof requirements while retaining independent development approval, package integrity and Unknown observations. Preserve global #223 Windows exclusion and exact #221 capture binding until separately adopted retirement.
+- [ ] Verify no renamed mandatory proof remains and historical records are unchanged. Independently review/commit/trace the narrow caller changes.
+
+## Task 06C: Integrate proof-consumer retirement with extraction and ordinary review
+
+**Prerequisite leaves:** 06A, 06B.
+
+**Total human estimate: 2 hours (maximum 4).** Engineering/docs 1h; verification 0.5h; independent review 0.25h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Only extraction/portable-consumer inventory checks assigned by 01, a new `test/integration/review-without-proof.test.mjs`, and `docs/superpowers/adoption/222-proof-consumer-result.md`. No public API or runtime controller edits.
+
+**Interfaces:** Produces a verified consumer-disposition join and ordinary existing-format journal path without review-proof prerequisites.
+
+**Completion boundary:** Integration and behavioral proof of the bounded 06A/06B removals; new v2 runtime activation stays in 15B3.
+
+- [ ] Run a disposable ordinary review start/inspect with no producer proof, source-class review or publication; test pending/rejected histories at their real journal/response boundary.
+- [ ] Update extraction/consumer expectations coherently from adopted removals and inspect actual package content without bypassing source-pack refusal.
+- [ ] Record unresolved external consumers as open dependencies. Independently review/commit/trace focused integration results; no claim of new-format acceptance before its own activation.
 
 ## Task 07A: Define response and manifest v2 validators
 
-**Prerequisite leaves:** 05C.
+**Prerequisite leaves:** 05C3.
 
 **Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
@@ -360,25 +490,25 @@ test('missing real probe cannot create support', () => {
 - [ ] Run `node --test test/unit/journal-response-contracts.test.mjs`; implement bounded explicit document checks with closed new-format fields and rerun.
 - [ ] Retain response-v1, terminal-only manifest-v1 and old explanatory schemas byte-for-byte. No generic JSON Schema evaluator or remote schema loading.
 - [ ] Verify supported and unsupported record examples, document every field meaning, independently review/commit/trace and deliver only the new inactive readers.
-- [ ] Hand07C exact validator exports and fixture expectations; do not change the shared registry or templates.
+- [ ] Hand 07C exact validator exports and fixture expectations; do not change the shared registry or templates.
 
 ## Task 07B: Define event, protocol and explicit handoff contracts
 
-**Prerequisite leaves:** 05C.
+**Prerequisite leaves:** 05C3.
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Create `schemas/event-v3.json`, `schemas/protocol-v3.json`, `schemas/start-request-v2.json`, `schemas/submit-turn-request-v2.json`, `src/protocol/journal-lifecycle-contracts.mjs`, `test/unit/journal-lifecycle-contracts.test.mjs`, `docs/review-journal-lifecycle-v3.md`.
+**Files and exclusive write ownership:** Create `schemas/event-v3.json`, `schemas/protocol-v3.json`, `schemas/start-request-v2.json`, `schemas/submit-turn-request-v2.json`, `schemas/review-publication-request-v1.json`, `src/protocol/journal-lifecycle-contracts.mjs`, `test/unit/journal-lifecycle-contracts.test.mjs`, `docs/review-journal-lifecycle-v3.md`.
 
-**Interfaces:** Exports `validateEventV3(document)`, `validateProtocolV3(document)` and `validateReviewRequestV2({operation,document})` returning `{status,issues}`. Declares actor/version, handoff, decision, acknowledgement, reserved/waiting/pending/released and external outcome bindings.
+**Interfaces:** Exports `validateEventV3(document)`, `validateProtocolV3(document)` and `validateReviewRequestV2({operation,document})`, plus `validatePublicationRequestV1(document)` returning `{status,issues}`. Declares actor/version, handoff, decision, acknowledgement, reserved/waiting/pending/released and external outcome bindings.
 
 **Completion boundary:** Independently tested inactive lifecycle/request definitions; no concurrent reducer or API-contract edits.
 
 - [ ] Add failing malformed/unsupported/valid event/protocol/start/submit fixtures, explicit expected revisions and digest bindings, same-session exact retry and wrong-role cases.
 - [ ] Run `node --test test/unit/journal-lifecycle-contracts.test.mjs`; implement the bounded new-family checks and rerun.
 - [ ] Preserve all published old schemas and existing API envelope semantics. Separate recorded participant acceptance from collateral completeness and external publication.
-- [ ] Document exact new operation fields/states and errors without enabling a new runtime path; independently review/commit/trace.
-- [ ] Give 07C validators and operation/family dispatch keys. Do not edit07A record validators, the shared event reducer, registry or CLI.
+- [ ] Document exact new operation fields/states and errors, including `manage_review_publication` actions `reserve`, `report`, `reconcile`, `release`: each binds `requestId`, `reviewId`, `publisherSession`, `expectedRevision`, ordered `cycleIds` and result digests; non-reserve actions require the opaque reservation token; report/reconcile require an explicit observed outcome, and uncertain outcomes retain the reservation without enabling a new runtime path; independently review/commit/trace.
+- [ ] Give 07C validators and operation/family dispatch keys. Do not edit 07A record validators, the shared event reducer, registry or CLI.
 
 ## Task 07C: Integrate fixed contextual journal dispatch
 
@@ -388,25 +518,25 @@ test('missing real probe cannot create support', () => {
 
 **Files and exclusive write ownership:** Exclusive owner of new `src/protocol/journal-contracts.mjs`, `test/unit/journal-contracts.test.mjs`, the contextual additions to `src/protocol/compatibility-read.mjs`, and `docs/review-journal-v2.md`.
 
-**Interfaces:** Exports `validateJournalDocument({family,operation,document}) -> {status:"valid"|"malformed"|"unsupported"|"incomplete",issues}` by fixed mappings to 07A/07B. Request-family dispatch includes start/submit-v2; historical/API same-tag interpretations remain contextual.
+**Interfaces:** Exports `validateJournalDocument({family,operation,document}) -> {status:"valid"|"malformed"|"unsupported"|"incomplete",issues}` by fixed mappings to 07A/07B. Request-family dispatch includes start/submit-v2 and publication-request-v1; historical/API same-tag interpretations remain contextual.
 
 **Completion boundary:** One authoritative contextual dispatch integration, with no parallel writer to compatibility-read.mjs.
 
 - [ ] Test correct family/operation/schema combinations, unknown schemas, absent metadata, wrong-family same tag, malformed versus incomplete data and unchanged historical responses/API envelopes.
 - [ ] Run `node --test test/unit/journal-contracts.test.mjs`; add only the fixed imports/dispatch table and explicit version branches needed to pass.
 - [ ] Never feed journal schemas through `src/api/validate.mjs:validateContract` as a general schema evaluator; no runtime/remote schema selection.
-- [ ] Run07A/07B tests plus existing compatibility/manifest/response regressions. Independently review/commit/trace the shared integration after both disjoint readers land.
-- [ ] No current writer activation occurs until the new runtime handoff is ready in 15B.
+- [ ] Run 07A/07B tests plus existing compatibility/manifest/response regressions. Independently review/commit/trace the shared integration after both disjoint readers land.
+- [ ] No current writer activation occurs until the new runtime handoff is ready in 15B3.
 
 ## Task 08: Capture bounded root and reviewer working contexts
 
-**Prerequisite leaves:** 05C.
+**Prerequisite leaves:** 05C3.
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
 **Files:** Create `src/git/review-context.mjs`, `test/unit/review-context.test.mjs`; extend raw-byte Git access in `src/git/repository.mjs` only as needed.
 
-**Interfaces:** Exports `captureReviewContext({cwd,furPath,declaredPaths,git}) -> {status:"available",head,branch,detached,overlay,digest}|{status:"unavailable",reason}`. Overlay contains sorted entries with path, existence/type/mode and separate index/working digests; no file contents are exported.
+**Interfaces:** Exports `captureReviewContext({cwd,furPath,declaredPaths,git}) -> {status:"available",head,branch,detached,fur:{path,revisionId,digest},overlay,digest}|{status:"unavailable",reason}`. Overlay contains sorted entries with path, existence/type/mode and separate index/working digests; no file contents are exported. `digest` binds the entire canonical observation including FUR identity; capture compares the full HEAD/FUR/overlay tuple twice.
 
 - [ ] Create disposable-repository tests with staged/unstaged source, executable bit, deletion, symlink target, tracked ignored file, untracked nonignored file and ignored dependency. A two-observation injected change must return unavailable.
 
@@ -476,8 +606,8 @@ assert.throws(
 ```
 
 - [ ] Run `node --test test/unit/fur-revision.test.mjs test/unit/responses.test.mjs` and verify intended failures.
-- [ ] Validate new Markdown metadata without editing the FUR. Compare exact digest on reused IDs. Bind response subject revision/digest separately from author-introduced result. At reviewer submission capture08 context and compare against the acknowledged checkout/FUR; stale changes refuse and preserve original records.
-- [ ] Render protected response-v2 metadata with `{status:'available',commit}` or `{status:'unavailable',reason}`. Same-worktree capture is valid; unadopted separate checkout is unsupported. Do not overload `artifact_commit` or legacy null.
+- [ ] Validate new Markdown metadata without editing the FUR. Compare exact digest on reused IDs. Bind response subject revision/digest separately from author-introduced result. The new submission handoff supplies `acknowledgedContext:{head,observationDigest,furDigest,revisionId}` from the bound same checkout. At reviewer submission capture 08 context and compare the entire tuple; stale changes refuse and preserve original records.
+- [ ] Render protected response-v2 metadata with `{status:'available',commit}` or `{status:'unavailable',reason}`. Same-worktree capture is valid; unadopted separate checkout is unsupported. Do not overload `artifact_commit` or legacy null. If provenance capture is unavailable, retain the authenticated participant decision as provenance-incomplete, without declaring a complete acceptance manifest; a changed available tuple is stale and refuses advancement.
 - [ ] Rerun frontmatter, retry, provenance race and old response fixture tests. Update documented error recovery to external author/reviewer action; commit/review/trace.
 
 ## Task 11: Add new-format event projection with honest intermediate states
@@ -514,7 +644,7 @@ The fixture must pass the real new event validators and reducer; do not bypass r
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files:** Create `src/manifest/journal-v2.mjs`, `test/unit/journal-manifest-v2.test.mjs`; integrate the v2 renderer/template only. Reuse the completed 11 store/event APIs without editing them; do not replace v1 renderer or touch14 publication files.
+**Files:** Create `src/manifest/journal-v2.mjs`, `test/unit/journal-manifest-v2.test.mjs`; integrate the v2 renderer/template only. Reuse the completed 11 store/event APIs without editing them; do not replace v1 renderer or touch 14 publication files.
 
 **Interfaces:** Exports `buildJournalManifest({state,context,prior}) -> manifestV2`, `sealJournalManifest({workspace,relative,model,expectedRevision}) -> {path,digest}`. Initial record is immutable; each linked cycle/acceptance record has exact paths, IDs, digests and prior-record identity.
 
@@ -562,7 +692,7 @@ assert.deepEqual(
 ```
 
 - [ ] Run `node --test test/unit/fur-diff.test.mjs test/unit/record-lineage.test.mjs`; first verify a deliberately lossy newline patch fails digest validation.
-- [ ] Generate only from exact sealed inputs and the selected patch format. Use contained temporary files and scrubbed Git, never the subject index. Forward/reverse verify before durably declaring success. Explicit empty change result is allowed only for byte-identical content, with path metadata preserved.
+- [ ] Generate only from exact sealed inputs and the selected patch format. Use the exact fixed before/after virtual pair and strip level specified above, contained temporary files and scrubbed Git, never the subject index. Validate patch path headers before applying; additions/deletions of the subject are unsupported in this first regular-Markdown lineage contract, while empty bytes and recorded path-only renames are explicit. Never imply arbitrary repository patches are accepted. Forward/reverse verify before durably declaring success. Explicit empty change result is allowed only for byte-identical content, with path metadata preserved.
 - [ ] At cross-review intake require an origin or immutable predecessor review/publication manifest link. Differing bytes require a boundary diff; missing historical bytes/links mark a gap. Other author saves are not invented review cycles.
 - [ ] Verify cross-pattern links, legacy predecessors and contradictory path declarations; commit/review/trace with no permanent initial/full-revision snapshot archive.
 
@@ -572,7 +702,7 @@ assert.deepEqual(
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files:** Create `src/protocol/review-publication.mjs`, `test/unit/review-publication.test.mjs`; use11 existing projection/store APIs without editing events/reducer/store. Keep runtime CLI/API activation in 15B, so14 and 12 have disjoint writes.
+**Files:** Create `src/protocol/review-publication.mjs`, `test/unit/review-publication.test.mjs`; use 11 existing projection/store APIs without editing events/reducer/store. Keep runtime CLI/API activation in 15B3, so14 and 12 have disjoint writes.
 
 **Interfaces:** Exports `reservePublication({state,expectedRevision,publisherSession})`, `releasePublication({state,reservation,outcome})`, `canOpenReviewerTurn(state)`. Operations emit event-v3 records through the existing writer; they do not run Git.
 
@@ -596,7 +726,7 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true)
 
 **Files and exclusive write ownership:** Create `templates/v2/author-startup.md`, `templates/v2/reviewer-invitation.md`, `src/provider/review-only-contract.mjs`, `test/unit/review-only-contract.test.mjs`; scoped role documentation only. Do not modify active templates, run-core, event state or launch ledgers.
 
-**Interfaces:** Exports `buildReviewOnlyContract({role,responsePath,revisionHandoff})` selecting only the designated response output and exact supported submission operations; an external authoring workflow supplies FUR revisions. Existing legacy contract remains current until15B.
+**Interfaces:** Exports `buildReviewOnlyContract({role,responsePath,revisionHandoff})` selecting only the designated response output and exact supported submission operations; an external authoring workflow supplies FUR revisions. Existing legacy contract remains current until 15B3.
 
 **Completion boundary:** Tested inactive prompt/constraint assets that can be reviewed independently of runtime activation.
 
@@ -604,29 +734,63 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true)
 - [ ] Run `node --test test/unit/review-only-contract.test.mjs`; implement only the new versioned assets/contract builder and rerun.
 - [ ] Reconcile future #118/#148–#150 role obligations through scoped adoption. Existing manual/normal/no-commit records keep their recorded legacy rules.
 - [ ] Independently review/commit/trace the inactive assets. No new sandbox or handcrafted broader Claude Bash/Edit rules and no actual provider launch in this task.
-- [ ] Hand15B exact template paths, builder and enforcement-status output; do not make existing sessions unusable before external handoff exists.
+- [ ] Hand 15B3 exact template paths, builder and enforcement-status output; do not make existing sessions unusable before external handoff exists.
 
-## Task 15B: Activate the external revision handoff and reviewer boundary
+## Task 15B1: Build inactive new-format review startup orchestration
 
-**Prerequisite leaves:** 14, 15A.
+**Prerequisite leaves:** 12, 13, 14, 15A.
+
+**Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Create `src/cli/journal-start-v2.mjs` and `test/integration/journal-start-v2.test.mjs`; no edits to run-core, shared API registry, templates or legacy startup.
+
+**Interfaces:** Exports `startJournalV2({input,ports})`; fixed ports are `authenticateStart`, `captureReviewContext`, `validateFurRevision`, `withReviewLock`, `persistInitialManifest`, `appendEvents`, `writeResponseDraft`, `launchReviewer`. Ports are wired to existing authenticated services and 08/10/11/12/14/15A by 15B3.
+
+**Completion boundary:** Inactive start transaction sequencing: initial manifest and bound root are durable before any reviewer launch.
+
+- [ ] Write a disposable startup test that records port ordering and persisted real v2 manifests/events; failure before sealing must never invoke launch. Run `node --test test/integration/journal-start-v2.test.mjs` before/after.
+- [ ] Validate authenticated new-format input and exact FUR metadata; under the existing writer lock capture stable context, persist immutable initial manifest and events, then allow the authenticated launcher only when publication state permits.
+- [ ] Test capture races, partial I/O/retry, wrong role/session and unsupported separate reviewer checkout using real journal validators; fault-injected port order alone is not whole-workflow proof.
+- [ ] Independently review/commit/trace the inactive module. No legacy route switches until 15B3.
+
+## Task 15B2: Build inactive external revision submission orchestration
+
+**Prerequisite leaves:** 15B1.
 
 **Total human estimate: 3.5 hours (maximum 4).** Engineering/docs 1.75h; verification 0.75h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
+**Files and exclusive write ownership:** Create `src/cli/journal-submit-v2.mjs` and `test/integration/journal-submit-v2.test.mjs`; read response/diff/store modules; no run-core or API registry edits.
+
+**Interfaces:** Exports `submitJournalV2({input,ports})`; fixed ports are `authenticateSubmit`, `captureReviewContext`, `validateFurRevision`, `sealResponse`, `snapshotExternalResult`, `createFurDiff`, `sealJournalManifest`, `withReviewLock`, `appendEvents`. Input includes expected prior revision/digest, result reference, participant response and acknowledged context.
+
+**Completion boundary:** Inactive revision transaction; no subject mutation, fabricated prose or automatic publication.
+
+- [ ] Add real disposable journal tests for external result handoff, same-ID changed bytes, stale available acknowledged context, unavailable provenance, source change during reviewer turn and exact retry. Run `node --test test/integration/journal-submit-v2.test.mjs` before/after.
+- [ ] Authenticate and lock before comparing prior state. Seal exact participant response and external result bytes, verify the predecessor/result diff in both directions, then persist versioned cycle links using existing atomic storage. Preserve prior response/snapshot identities on every interrupted branch.
+- [ ] A participant decision and incomplete closing acknowledgement remain separate. Do not activate finalization behavior reserved for 16; test the explicitly incomplete state rather than fabricating its missing response.
+- [ ] Independently review/commit/trace the inactive module; give 15B3 the exact ports and errors.
+
+## Task 15B3: Activate the external revision handoff and reviewer boundary
+
+**Prerequisite leaves:** 15B1, 15B2.
+
+**Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.25h; verification 0.75h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
 **Files and exclusive write ownership:** Exclusive owner of new-format `src/cli/run-core.mjs` activation, `src/api/contracts.mjs` request adapter branches, `src/templates/index.mjs` version selection and provider wiring. Tests `test/integration/review-only-handoff.test.mjs`, existing no-commit/Claude permission suites. New asset files stay owned by 15A.
 
-**Interfaces:** Consumes10 protected metadata,11 lifecycle,12 manifests,13 diffs,14 reservation and 15A role contract. Enables start-request-v2 and submit-turn-request-v2 with `{reviewId,expectedRevision,priorDigest,resultReference,submittingSession}`.
+**Interfaces:** Consumes the fully tested 15B1/15B2 orchestration and 15A constraints; wires their named ports to the existing authenticated services and 08–14 interfaces. Enables start-request-v2 and submit-turn-request-v2 with `{reviewId,expectedRevision,priorDigest,resultReference,submittingSession}`.
 
-**Completion boundary:** One reviewed activation of the new externally revised, response-only participant flow; legacy paths remain compatible.
+**Completion boundary:** Thin reviewed route/port activation of the new externally revised, response-only participant flow; legacy paths remain compatible.
 
 - [ ] Write a failing disposable end-to-end new-format review: participant writes only its response; external author supplies revised bytes; stale input refuses; exact retry advances once; publication reservation excludes new reviewer launch.
-- [ ] Run `node --test test/integration/review-only-handoff.test.mjs`; activate the new route and explicit format selection without converting legacy records.
+- [ ] Run `node --test test/integration/review-only-handoff.test.mjs`; wire the already implemented orchestration ports, activate the new route and explicit format selection without converting legacy records.
 - [ ] Snapshot/validate external result bytes and record their identity; never apply source patches or mutate Git. Keep within-turn HEAD/FUR checks and publisher waiting while a turn is open.
 - [ ] Verify real supported provider restrictions only through existing package launcher when separately authorized; automated fixture compliance alone is not OS enforcement. Preserve legacy integration behavior and list unsupported/manual modes truthfully.
 - [ ] Independently review/commit/trace this single controller integration. No other parallel task may edit run-core or the shared API adapter during activation.
 
 ## Task 16: Complete both response sides and acceptance acknowledgements
 
-**Prerequisite leaves:** 15B.
+**Prerequisite leaves:** 15B3.
 
 **Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
@@ -646,7 +810,7 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true)
 
 **Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files:** Create `src/collateral/fur-history.mjs`, `test/integration/fur-history-squash.test.mjs`; consume13 completed lineage interfaces without concurrent edits. Build actual retained-package fixtures using12 manifests and 13 diffs; live controller cycle coverage is verified later by 25A.
+**Files:** Create `src/collateral/fur-history.mjs`, `test/integration/fur-history-squash.test.mjs`; consume 13 completed lineage interfaces without concurrent edits. Build actual retained-package fixtures using12 manifests and 13 diffs; live controller cycle coverage is verified later by 25A.
 
 **Interfaces:** Exports `reconstructFurHistory({headBytes,manifest,readRecord,readPatch}) -> {status:"complete",revisions}|{status:"incomplete"|"corrupt",reason}`. `readRecord`/`readPatch` resolve only contained exact declared artifacts; reconstructed bytes are written only to an explicit separate output destination.
 
@@ -658,7 +822,7 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true)
 
 ## Task 18: Document and verify scoped external turn publication
 
-**Prerequisite leaves:** 14, 17.
+**Prerequisite leaves:** 14, 17, 16, 19B.
 
 **Total human estimate: 2 hours (maximum 4).** Engineering/docs 1h; verification 0.5h; independent review 0.25h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
@@ -667,7 +831,7 @@ assert.equal(canOpenReviewerTurn({ publication: { status: 'released' } }), true)
 **Interfaces:** Produces an operator procedure consuming a reserved window and sealed cycle bundle and returning a verified publication outcome. AIPR records it through 14; only the separately authorized publisher mutates Git.
 
 - [ ] In a disposable fixture, rehearse ordered publication of two pending cycle results after the working FUR advanced. Verify exact staged blobs and dedicated commit contents; leave later working bytes intact.
-- [ ] Document the exact sequence: bind/check registered development owner and publication reservation; verify predecessor/result/response/manifest/patch digests; refuse unrelated staged paths; stage only the declared bundle and exact cycle-result FUR; inspect tree; commit; read back committed digests; record outcome and safely release reservation.
+- [ ] Document the exact sequence: bind/check the authorized external publisher and invoke 19D `manage_review_publication` reserve through 19B with exact expected revision, session and completed cycle IDs; wait or refuse unless a reservation is returned; verify predecessor/result/response/manifest/patch digests; refuse unrelated staged paths; stage only the declared bundle and exact cycle-result FUR; inspect tree; commit; read back committed digests; invoke report with the same reservation and committed result digests, then release only a reconciled safe outcome. Native development issue binding is required only when the separately authorized publication itself belongs to that governed workflow, not as AIPR product admission.
 
 ```bash
 git diff --cached --name-only -z
@@ -682,13 +846,13 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 
 ## Task 19A: Expose the read-only public journal and API contracts
 
-**Prerequisite leaves:** 06, 15B, 17.
+**Prerequisite leaves:** 06C, 15B3, 17.
 
 **Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Exclusive owner of read-only additions in `src/public-api.mjs`, `src/api/contracts.mjs`, `schemas/api-response-v2.json` and `test/unit/journal-api-contract.test.mjs`; starts after 15B has released these shared files.
+**Files and exclusive write ownership:** Exclusive owner of read-only additions in `src/public-api.mjs`, `src/api/contracts.mjs`, `src/api/registry.mjs`, `src/api/errors.mjs`, new `src/api/journal-operations.mjs`, `schemas/inspect-journal-request-v1.json`, `schemas/reconstruct-history-request-v1.json`, `schemas/api-response-v2.json` and `test/unit/journal-api-contract.test.mjs`; starts after 15B3 has released these shared files.
 
-**Interfaces:** Exposes adopted inspect/reconstruct APIs with explicit API-response-v2 contracts. Uses existing current/historical readers and 17 history reconstruction; never exposes an AIPR Git publisher.
+**Interfaces:** Exports `inspectJournal({workspace,recordPath})` and `reconstructJournalHistory({workspace,headPath,manifestPath,outputDirectory})`; register `inspect_review_journal` and `reconstruct_review_history` with closed request-v1 schemas and API-response-v2. Inspection is read-only; reconstruction writes derived bytes only into the explicitly selected separate destination after containment/no-overwrite checks, never into the FUR or retained collateral. A transport must disclose that bounded output write; it is not a source edit. Uses existing current/historical readers and 17 history reconstruction; never exposes an AIPR Git publisher.
 
 **Completion boundary:** Tested read-only API contract/export surface, independent of CLI/MCP presentation and packaging.
 
@@ -696,24 +860,41 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 - [ ] Run `node --test test/unit/journal-api-contract.test.mjs`; wire explicit read-only exports/new envelope and rerun.
 - [ ] Preserve API-v1 and closed legacy schemas unchanged. Verify inspector input bytes remain unchanged, paths stay contained and remote/executable schema selection refuses.
 - [ ] Independently review/commit/trace the API boundary; provide19B concrete operation names, request/response shapes and errors.
-- [ ] Do not edit CLI/MCP dispatch, packaging or inventory files in this leaf.
+- [ ] Add export/error fixtures with credentials, private session handles, absolute private paths and raw provider output; redact/omit these at the declared public projection boundary and verify historical records are not republished. Do not edit CLI/MCP dispatch, packaging or inventory files in this leaf.
 
-## Task 19B: Wire CLI and MCP parity for journal inspection
+## Task 19D: Expose the bounded external publication coordination API
 
-**Prerequisite leaves:** 19A, 15B.
+**Prerequisite leaves:** 19A, 16, 14.
 
 **Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Exclusive owner of CLI help/dispatch and MCP operation routing, plus `test/integration/journal-cli-mcp.test.mjs`; use the19A contract without changing it. Controller write-path changes stay owned by 15B/16.
+**Files and exclusive write ownership:** Exclusive serialized additions to `src/public-api.mjs`, `src/api/contracts.mjs`, `src/api/registry.mjs`, `src/api/errors.mjs`, `src/api/journal-operations.mjs`; create `test/unit/publication-api-contract.test.mjs`. No run-core, transport or Git-writer implementation.
 
-**Interfaces:** Produces equivalent CLI/MCP read-only inspect/reconstruct results for19A public operations and existing versioned lifecycle request routing. No transport may grant Git/source-write permission.
+**Interfaces:** Exports `manageReviewPublication(request)` from the journal operation adapter and registers `manage_review_publication` with the 07B publication-request-v1 contract and 14 lifecycle operations. The response returns waiting/reserved/pending/released with the exact reservation/cycle identity; session checks remain required.
+
+**Completion boundary:** A callable external publisher coordination operation; it changes journal state only.
+
+- [ ] Add failing reserve/report/reconcile/release tests through the real public dispatch boundary. Reject wrong session/token, stale revision, wrong cycle/digest and unknown action; exact request retries are idempotent.
+- [ ] Run `node --test test/unit/publication-api-contract.test.mjs`; register the fixed contract/error cases and route to 14 under the existing lock. Uncertain outcome keeps reservation until explicit reconciliation; never infer success from process exit.
+- [ ] Test that every injected Git mutation throws yet ordinary coordination still works; acceptance/closing acknowledgement remains independent from publication outcome.
+- [ ] Independently review/commit/trace; give 19B exact CLI/MCP operation and request examples.
+
+## Task 19B: Wire CLI and MCP parity for journal inspection
+
+**Prerequisite leaves:** 19D, 16.
+
+**Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Exclusive owner of `src/cli/parse.mjs`, `src/cli/help-data.mjs`, `src/cli/help-topics.mjs`, thin dispatch in `src/cli/run.mjs`, `src/cli/run-core.mjs` and `src/mcp/server-core.mjs`, plus `test/integration/journal-cli-mcp.test.mjs`; use the 19A contract without changing it. Controller lifecycle behavior is already completed by 15B3/16; this leaf only adds transport dispatch after both release the file.
+
+**Interfaces:** Produces equivalent CLI/MCP read-only inspect/reconstruct results for 19A plus the explicit 19D publication coordination operation and versioned lifecycle requests. It grants no subject/Git mutation; publication requests mutate only journal coordination. No transport may grant Git/source-write permission.
 
 **Completion boundary:** Tested CLI/MCP contract parity; transport does not duplicate policy or implement a Git publisher.
 
 - [ ] Add failing parity cases for valid, incomplete, unsupported, malformed and unavailable-context records, including path errors and unchanged legacy workflows.
 - [ ] Run `node --test test/integration/journal-cli-mcp.test.mjs`; implement thin transport routing/help against19A contracts and rerun.
-- [ ] Verify both transports preserve input files, exact meanings and structured errors; do not independently reimplement journal semantics in a transport.
-- [ ] Independently review/commit/trace the transport integration. Hand19C the actual shipped entry points/assets.
+- [ ] Verify both transports preserve input files, exact meanings and structured errors; expose reconstruction output as an explicit separately authorized destination with no overwrite, rather than describing all effects as read-only; do not independently reimplement journal semantics in a transport.
+- [ ] Independently review/commit/trace the transport integration. Hand 19C the actual shipped entry points/assets.
 - [ ] No concurrent run-core/API contract or package inventory edit is permitted.
 
 ## Task 19C: Verify portable package closure and immutable format exceptions
@@ -752,7 +933,7 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 
 ## Task 21: Disposition the obsolete proof program without false completion
 
-**Prerequisite leaves:** 01, 06.
+**Prerequisite leaves:** 01, 06C.
 
 **Total human estimate: 2 hours (maximum 4).** Engineering/docs 1h; verification 0.5h; independent review 0.25h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
@@ -760,45 +941,79 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 
 **Interfaces:** Produces exact keep/rewrite/supersede/split decisions and surviving dependencies with original contracts/timing preserved. No superseded issue is labelled implemented Done.
 
-- [ ] Refresh all seven open proof-program issue bodies, dependencies, forecast/approval markers and parent aggregate requirements. Compare them with implemented consumer dispositions, not names alone.
+- [ ] Refresh all six open proof-program issue bodies, dependencies, forecast/approval markers and parent aggregate requirements. Compare them with implemented consumer dispositions, not names alone.
 - [ ] Prepare concrete replacement Scope/AC/source-plan/verification changes for each surviving requirement and retain original references. Use sanctioned `aitm issue-body`, creation and dependency verbs after fresh Explain; never raw `gh issue create` or arbitrary state jumps.
 - [ ] Record the superseding product decision for closed #216 without rewriting historical adoption or reopening automatically. Preserve #217 forecast/timing and every Unknown.
 - [ ] If there is no sanctioned cancellation/supersession state, record that workflow gap and stop the affected mutation; do not repurpose Done or silently remove blockers.
 - [ ] Verify native read-back/dependency topology and exact parent obligations; independently review, commit/trace the durable disposition record. Final reconciliation does not excuse missing01 scoped adoption.
 
-## Task 22A: Reconcile review roles and measured participant requirements
+## Task 22A1: Reconcile review role and artifact-write requirements
+
+**Prerequisite leaves:** 16, 20.
+
+**Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Governed records only for #118/#148–#150; create `docs/superpowers/adoption/222-role-dispositions.md`. No other issue set, shared census or runtime source writes.
+
+**Interfaces:** Produces exact keep/rewrite/supersede/split decisions, retained original Scope/AC/estimate references and real responsible owners/dependencies.
+
+**Completion boundary:** A bounded issue-set disposition; surviving implementation and any further deep decomposition remain separately owned and unexecuted.
+
+- [ ] Read each assigned current issue and accepted source-plan/contract. Compare only its requirements affected by this cleanup with completed behavior and actual consumers; preserve unrelated useful scope.
+- [ ] For a large surviving story, identify independently reviewable deliverables and separate bounded planning ownership. Do not convert 25-hour or 41.5-hour historical forecasts into nominal four-hour implementation forecasts here. If full bounded replacement planning is not complete, retain an explicit planning dependency and nonexecutable status; this disposition cannot claim that surviving work delivered.
+- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral.
+- [ ] Verify every mutation by read-back and independently review/commit/trace this partition. Assign any newly discovered additional candidate to a new bounded proposal before registration; never silently enlarge this partition.
+
+## Task 22A2: Reconcile participant identity and measured telemetry
 
 **Prerequisite leaves:** 16, 20.
 
 **Total human estimate: 2 hours (maximum 4).** Engineering/docs 1h; verification 0.5h; independent review 0.25h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Governed records only for #118/#148–#150 and #109/#152/#153; create `docs/superpowers/adoption/222-role-dispositions.md`. Other issue sets belong to 22B/22C.
+**Files and exclusive write ownership:** Governed records only for #109/#152/#153; create `docs/superpowers/adoption/222-telemetry-dispositions.md`. No other issue set, shared census or runtime source writes.
 
-**Interfaces:** Produces retained/split/replacement role/write-scope and measured-telemetry obligations, with native references, dependencies and owning adopters.
+**Interfaces:** Produces exact keep/rewrite/supersede/split decisions, retained original Scope/AC/estimate references and real responsible owners/dependencies.
 
-**Completion boundary:** One nonoverlapping role/telemetry issue-set disposition; no runtime or cross-repository source implementation.
+**Completion boundary:** A bounded issue-set disposition; surviving implementation and any further deep decomposition remain separately owned and unexecuted.
 
-- [ ] Refresh each assigned issue body/source-plan pointer and reconcile role requirements with 15–16 and 20. Preserve useful measured telemetry and identity/session routing.
-- [ ] Split surviving25-hour #149 scope into evidence-backed bounded proposals; preserve the old estimate and do not implement inside reconciliation.
-- [ ] Apply only individually adopted changes through sanctioned owner commands. Verify read-back and dependency assignment; superseded is not delivered Done.
-- [ ] Independently review/commit/trace this issue-set record. Do not edit shared aggregate census or other22 task outputs.
+- [ ] Read each assigned current issue and accepted source-plan/contract. Compare only its requirements affected by this cleanup with completed behavior and actual consumers; preserve unrelated useful scope.
+- [ ] For a large surviving story, identify independently reviewable deliverables and separate bounded planning ownership. Do not convert 25-hour or 41.5-hour historical forecasts into nominal four-hour implementation forecasts here. If full bounded replacement planning is not complete, retain an explicit planning dependency and nonexecutable status; this disposition cannot claim that surviving work delivered.
+- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral.
+- [ ] Verify every mutation by read-back and independently review/commit/trace this partition. Assign any newly discovered additional candidate to a new bounded proposal before registration; never silently enlarge this partition.
 
-## Task 22B: Reconcile journal, recovery and installed-release requirements
+## Task 22B1: Reconcile retained journal requirements
 
 **Prerequisite leaves:** 19C.
 
-**Total human estimate: 2 hours (maximum 4).** Engineering/docs 1h; verification 0.5h; independent review 0.25h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+**Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Governed records only for #142/#156/#157/#124 and #30/#151; create `docs/superpowers/adoption/222-journal-dispositions.md`.
+**Files and exclusive write ownership:** Governed records only for #30/#151; create `docs/superpowers/adoption/222-journal-dispositions.md`. No other issue set, shared census or runtime source writes.
 
-**Interfaces:** Produces bounded surviving journal/recovery/release obligations and exact prerequisites after real19C package behavior exists; closed historical evidence retains meaning.
+**Interfaces:** Produces exact keep/rewrite/supersede/split decisions, retained original Scope/AC/estimate references and real responsible owners/dependencies.
 
-**Completion boundary:** One nonoverlapping journal/recovery/package issue-set disposition, not the implementation of those surviving stories.
+**Completion boundary:** A bounded issue-set disposition; surviving implementation and any further deep decomposition remain separately owned and unexecuted.
 
-- [ ] Refresh assigned bodies and accepted contracts. Preserve ownership/recovery and installed compatibility while retiring only traced proof obligations.
-- [ ] Split surviving25-hour #151 and 41.5-hour #157 scopes into bounded proposed leaves; do not hide the work in this2-hour disposition task.
-- [ ] Apply adopted native body/dependency changes, verify read-back and retain original scopes/estimates as history. No automatic #107 activation or release.
-- [ ] Independently review/commit/trace only this task's issue-set record; leave aggregate census and 22A/22C files untouched.
+- [ ] Read each assigned current issue and accepted source-plan/contract. Compare only its requirements affected by this cleanup with completed behavior and actual consumers; preserve unrelated useful scope.
+- [ ] For a large surviving story, identify independently reviewable deliverables and separate bounded planning ownership. Do not convert 25-hour or 41.5-hour historical forecasts into nominal four-hour implementation forecasts here. If full bounded replacement planning is not complete, retain an explicit planning dependency and nonexecutable status; this disposition cannot claim that surviving work delivered.
+- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral.
+- [ ] Verify every mutation by read-back and independently review/commit/trace this partition. Assign any newly discovered additional candidate to a new bounded proposal before registration; never silently enlarge this partition.
+
+## Task 22B2: Reconcile recovery and installed-release requirements
+
+**Prerequisite leaves:** 19C.
+
+**Total human estimate: 3 hours (maximum 4).** Engineering/docs 1.5h; verification 0.5h; independent review 0.5h; delivery 0.5h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Governed records only for #142/#156/#157/#124; create `docs/superpowers/adoption/222-recovery-dispositions.md`. No other issue set, shared census or runtime source writes.
+
+**Interfaces:** Produces exact keep/rewrite/supersede/split decisions, retained original Scope/AC/estimate references and real responsible owners/dependencies.
+
+**Completion boundary:** A bounded issue-set disposition; surviving implementation and any further deep decomposition remain separately owned and unexecuted.
+
+- [ ] Read each assigned current issue and accepted source-plan/contract. Compare only its requirements affected by this cleanup with completed behavior and actual consumers; preserve unrelated useful scope.
+- [ ] For a large surviving story, identify independently reviewable deliverables and separate bounded planning ownership. Do not convert 25-hour or 41.5-hour historical forecasts into nominal four-hour implementation forecasts here. If full bounded replacement planning is not complete, retain an explicit planning dependency and nonexecutable status; this disposition cannot claim that surviving work delivered.
+- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral.
+- [ ] Verify every mutation by read-back and independently review/commit/trace this partition. Assign any newly discovered additional candidate to a new bounded proposal before registration; never silently enlarge this partition.
 
 ## Task 22C: Coordinate the external publication consumer obligations
 
@@ -820,11 +1035,11 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 
 ## Task 23A: Consolidate parent obligations and the final candidate census
 
-**Prerequisite leaves:** 21, 22A, 22B, 22C, 23B.
+**Prerequisite leaves:** 21, 22A1, 22A2, 22B1, 22B2, 22C, 23B1, 23B2.
 
 **Total human estimate: 2 hours (maximum 4).** Engineering/docs 1h; verification 0.5h; independent review 0.25h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Exclusive owner of governed #141/#107 aggregate updates and `docs/superpowers/adoption/222-complete-census.md`. Consumes read-only 21/22A/22B/22C/23B records.
+**Files and exclusive write ownership:** Exclusive owner of governed #141/#107 aggregate updates and `docs/superpowers/adoption/222-complete-census.md`. Consumes read-only 21/22A1/22A2/22B1/22B2/22C/23B1/23B2 records.
 
 **Interfaces:** Produces a complete current-issue census with relevant/out-of-scope reasons, surviving aggregate requirements and exact implementing owners. One integration writer owns parent/body/census consolidation.
 
@@ -835,22 +1050,39 @@ The recipe computes SHA-256 over the raw `git show` blob, checks against the cyc
 - [ ] Verify no removed dependency leaves surviving scope unowned, all records preserve original references and Windows213 remains deferred under global223 policy.
 - [ ] Independently review/read-back/commit/trace the census. Parent Close and source implementation are outside this leaf.
 
-## Task 23B: Disposition the remaining unrelated and deferred candidates
+## Task 23B1: Disposition the first remaining candidate partition
 
 **Prerequisite leaves:** 01, 21.
 
-**Total human estimate: 2 hours (maximum 4).** Engineering/docs 1h; verification 0.5h; independent review 0.25h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+**Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
-**Files and exclusive write ownership:** Governed records for #29/#31–#34/#130/#143/#146–#147/#154–#155/#210/#212 and other candidates outside21/22 sets; create `docs/superpowers/adoption/222-remaining-candidates.md`. Do not edit #141/#107 or the final census.
+**Files and exclusive write ownership:** Governed records only for #29/#31–#34/#130/#143; create `docs/superpowers/adoption/222-remaining-candidates-a.md`. No other issue set, shared census or runtime source writes.
 
-**Interfaces:** Produces an independently reviewed candidate partition with keep/rewrite/split/out-of-scope reasons and unresolved workflow gaps, consumed by 23A.
+**Interfaces:** Produces exact keep/rewrite/supersede/split decisions, retained original Scope/AC/estimate references and real responsible owners/dependencies.
 
-**Completion boundary:** One clearly partitioned candidate-set disposition; discovery beyond its capacity becomes a separately forecasted task before work.
+**Completion boundary:** A bounded issue-set disposition; surviving implementation and any further deep decomposition remain separately owned and unexecuted.
 
-- [ ] Refresh each assigned issue/body/dependency, test actual consumer relevance, and retain out-of-scope retrieval/learning/analytics/configuration work with its reason.
-- [ ] Preserve useful CI integrity and unrelated recovery guarantees; terminology alone is not removal authority. Retain deferred Windows213 and do not schedule it.
-- [ ] If the assigned set cannot be examined honestly inside the stated forecast, partition the remaining issue set before registration; do not silently exceed this task or fabricate a census row.
-- [ ] Verify sanctioned mutation read-back for any adopted changes, independently review/commit/trace this partition and leave aggregate integration to 23A.
+- [ ] Read each assigned current issue and accepted source-plan/contract. Compare only its requirements affected by this cleanup with completed behavior and actual consumers; preserve unrelated useful scope.
+- [ ] For a large surviving story, identify independently reviewable deliverables and separate bounded planning ownership. Do not convert 25-hour or 41.5-hour historical forecasts into nominal four-hour implementation forecasts here. If full bounded replacement planning is not complete, retain an explicit planning dependency and nonexecutable status; this disposition cannot claim that surviving work delivered.
+- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral.
+- [ ] Verify every mutation by read-back and independently review/commit/trace this partition. Assign any newly discovered additional candidate to a new bounded proposal before registration; never silently enlarge this partition.
+
+## Task 23B2: Disposition the second remaining candidate partition
+
+**Prerequisite leaves:** 01, 21.
+
+**Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
+
+**Files and exclusive write ownership:** Governed records only for #146–#147/#154–#155/#210/#212/#213; create `docs/superpowers/adoption/222-remaining-candidates-b.md`. No other issue set, shared census or runtime source writes.
+
+**Interfaces:** Produces exact keep/rewrite/supersede/split decisions, retained original Scope/AC/estimate references and real responsible owners/dependencies.
+
+**Completion boundary:** A bounded issue-set disposition; surviving implementation and any further deep decomposition remain separately owned and unexecuted.
+
+- [ ] Read each assigned current issue and accepted source-plan/contract. Compare only its requirements affected by this cleanup with completed behavior and actual consumers; preserve unrelated useful scope.
+- [ ] For a large surviving story, identify independently reviewable deliverables and separate bounded planning ownership. Do not convert 25-hour or 41.5-hour historical forecasts into nominal four-hour implementation forecasts here. If full bounded replacement planning is not complete, retain an explicit planning dependency and nonexecutable status; this disposition cannot claim that surviving work delivered.
+- [ ] Apply only individually adopted body/dependency changes through sanctioned native commands; no raw issue creation, arbitrary state jump or superseded-as-Done. Preserve Unknown timing, history and global #223 Windows deferral.
+- [ ] Verify every mutation by read-back and independently review/commit/trace this partition. Assign any newly discovered additional candidate to a new bounded proposal before registration; never silently enlarge this partition.
 
 ## Task 24: Register the downstream AITM ownership and exact-context handoff
 
@@ -894,21 +1126,21 @@ git diff --check
 - [ ] Exercise current/historical inspection, both response sides, final acknowledgement, publication race/retry, effective dirty code drift and object-independent squash reconstruction. Reuse valid exact-head leaf evidence where applicable.
 - [ ] Map each spec acceptance criterion to actual behavior/evidence; source-text assertions and skipped native suites are not substituted for it.
 - [ ] Record failures and return them to a bounded owning repair leaf; do not use the verification budget as unlimited debugging.
-- [ ] Independently review/commit/trace the local report. The final delivery source SHA is frozen by 25C before portable exact-head collection.
+- [ ] Independently review/commit/trace the local report. After all source-writing leaves complete, the integration owner freezes the candidate SHA before 25A/25B. Both candidate reports name that SHA. Task 25C later creates the final delivery-record commit and reruns any lanes required by the final exact-source identity.
 
 ## Task 25B: Collect exact-head Linux/macOS installed and ownership evidence
 
-**Prerequisite leaves:** 19C, 18.
+**Prerequisite leaves:** 19C, 18, 23A.
 
 **Total human estimate: 2.5 hours (maximum 4).** Engineering/docs 1.25h; verification 0.5h; independent review 0.5h; delivery 0.25h. Includes the complete task; no hidden integration allowance. Independently inspect the forecast and attributable agent allowance before native registration/execution.
 
 **Files and exclusive write ownership:** Create `docs/superpowers/adoption/222-portable-verification.md`; use existing hosted/installed receipt tooling. No shared CI policy/source/inventory edits.
 
-**Interfaces:** Produces required exact-source Linux/macOS ownership, owner-publication, unit and installed receipts, with host limitations and exclusions intact. The integration owner supplies a frozen delivery SHA.
+**Interfaces:** Produces required exact-source Linux/macOS ownership, owner-publication, unit and installed receipts, with host limitations and exclusions intact. The integration owner supplies the same frozen candidate SHA as 25A after all source-writing leaves; candidate receipts are not final-HEAD receipts if 25C subsequently commits documentation.
 
 **Completion boundary:** Exact-head portable evidence or explicit missing lanes; passive wait is not human effort or engaged-agent time.
 
-- [ ] Freeze the intended source HEAD with the integration owner and verify all prerequisite POSIX mappings before any authorized push/run. No Windows/native worker is permitted.
+- [ ] Freeze the candidate source HEAD with the integration owner and verify all prerequisite POSIX mappings before any authorized push/run. No Windows/native worker is permitted.
 - [ ] Collect required current ownership/owner-publication/unit/installed lanes under existing budgets and concurrency4. Current seven-worker/35-record policy is a baseline, not an excuse to omit newly adopted lanes.
 - [ ] Verify each receipt binds the exact source/host/lane and installed inventory; genuine supported-host observations remain distinct from fixture conformance and skipped native cases.
 - [ ] Pause passive hosted waits and record missing/failed receipts. If source changes, assess invalidated evidence instead of calling an earlier HEAD current.
@@ -934,28 +1166,28 @@ git diff --check
 
 ## Specification coverage and self-review
 
-| Accepted requirement                                                             | Implementation/verification owner                                                                       |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| §1–2 product purpose, complete consumer inventory; AC1/7/8                       | 01, 06, 19, 21–25                                                                                       |
-| §3 review-only boundary, external revisions, coordination; AC2/3/6               | 05, 10–16, 18–19, 25                                                                                    |
-| §4.1–4.2 contextual versions and unchanged history; AC4/5                        | 06–07, 10–13, 19                                                                                        |
-| §4.3 root/overlay/response/FUR/acceptance provenance; AC11/12                    | 08–12, 15–16                                                                                            |
-| §4.3 pre-plan suitability and post-hydration ownership; AC15/16                  | 09, 20, 24–25                                                                                           |
-| §4.4 cycles, diffs, immutable links and squash reconstruction; AC13/14           | 11–18                                                                                                   |
-| §4.5 minimization                                                                | 08–09, 12–13, 19                                                                                        |
-| §5.2 CI bootstrap with later owner-global223 precedence; AC9/10                  | 02, 25                                                                                                  |
-| §5.3 supported process observations, seal compatibility and atomic ordering; AC6 | 03–05 before all closure-changing work                                                                  |
-| §6 live backlog/external consumers and holds; AC8/16                             | 01, 21–24                                                                                               |
-| §7 limits, protected records and truthful estimates; AC10                        | All tasks; forecast/attribution inspection before each native registration                              |
-| §8 complete exact-head verification; §9 adoption and fresh planning              | 25A–25C, owner-adoption receipt, future native plan-review/approval boundary                            |
-| Optional R2-F001 journal/provenance-and-collateral boundary                      | Explicit boundary5 and 06–14 families/16–19 families; process separation precedes their closure changes |
+| Accepted requirement                                                             | Implementation/verification owner                                                                        |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| §1–2 product purpose, complete consumer inventory; AC1/7/8                       | 01, 06C, 19, 21–25                                                                                       |
+| §3 review-only boundary, external revisions, coordination; AC2/3/6               | 05, 10–16, 18–19, 25                                                                                     |
+| §4.1–4.2 contextual versions and unchanged history; AC4/5                        | 06C–07, 10–13, 19                                                                                        |
+| §4.3 root/overlay/response/FUR/acceptance provenance; AC11/12                    | 08–12, 15–16                                                                                             |
+| §4.3 pre-plan suitability and post-hydration ownership; AC15/16                  | 09, 20, 24–25                                                                                            |
+| §4.4 cycles, diffs, immutable links and squash reconstruction; AC13/14           | 11–18                                                                                                    |
+| §4.5 minimization                                                                | 08–09, 12–13, 19                                                                                         |
+| §5.2 CI bootstrap with later owner-global223 precedence; AC9/10                  | 02, 25                                                                                                   |
+| §5.3 supported process observations, seal compatibility and atomic ordering; AC6 | 03–05 before all closure-changing work                                                                   |
+| §6 live backlog/external consumers and holds; AC8/16                             | 01, 21–24                                                                                                |
+| §7 limits, protected records and truthful estimates; AC10                        | All tasks; forecast/attribution inspection before each native registration                               |
+| §8 complete exact-head verification; §9 adoption and fresh planning              | 25A–25C, owner-adoption receipt, future native plan-review/approval boundary                             |
+| Optional R2-F001 journal/provenance-and-collateral boundary                      | Explicit boundary5 and 06C–14 families/16–19 families; process separation precedes their closure changes |
 
-Self-review checks: no orphan-plan reuse; no historical schema/data mutation; no runtime proof gate renamed as a journal; no current v1 provenance backfill; all proposed interfaces have a defining task; each of five Review Focus conditions has a named behavioral owner. Task labels/forecasts are provisional, not fabricated native issues/independent estimates. Governance/document-only tasks use concrete read-back/scenario verification instead of implementation-mirroring tests. Source tests use actual temporary repositories, journal transitions and supported probe cases. Remaining independent review must challenge task size and mechanical/lifecycle interfaces before native hydration.
+Self-review checks: no orphan-plan reuse; no historical schema/data mutation; no runtime proof gate renamed as a journal; no current v1 provenance backfill; all proposed interfaces have a defining task; each of five Review Focus conditions has a named behavioral owner. Task labels/forecasts are provisional, not fabricated native issues/independent estimates. Governance/document-only tasks use concrete read-back/scenario verification instead of implementation-mirroring tests. Source tests use actual temporary repositories, journal transitions and supported probe cases. Future independent native forecast inspection and any owner-required independent plan review must challenge task size and mechanical/lifecycle interfaces before native hydration.
 
 ## Handoff
 
-Revision 2 replaces broad tasks05/07/15/19/22/23/25 with separately forecast A/B/C leaves and adds dependency waves, disjoint ownership and single-writer integration barriers. Numeric family references in coverage mean all named leaves of that family, not a separate executable task. Every leaf is at most3.5 human hours; the four-human-hour ceiling applies to complete work including review/verification/delivery.
+Revision 3 resolves the first manual same-agent SAR findings by splitting discovery, process capability/owner records, proof consumers, controller startup/submission and issue-disposition work; it defines the external publication API and corrects prerequisite/receipt ordering. It contains 50 leaf tasks and 25 earliest dependency waves, recalculated from the task headers. Numeric family references in coverage mean all named leaves of that family, not a separate executable task. Every leaf is at most 3.5 human hours; the four-human-hour ceiling applies to complete work including review/verification/delivery.
 
-This file is a fresh draft implementation plan from the exact owner-adopted revision13. It has not received technical plan acceptance, owner Plan approval or execution-method selection. The orphan plan remains retired. Next: review this draft and its estimates, revise under an explicit plan revision identity if needed, complete the chosen technical plan review, then obtain native Plan approval and register bounded execution issues through their owning workflows. No implementation, downstream hydration, existing-issue supersession or merge occurs merely because this document exists.
+This file is a fresh draft implementation plan from the exact owner-adopted revision13. Technical SAR status is recorded separately in the dedicated review evidence; this draft has no owner Plan approval or execution-method selection. The orphan plan remains retired. Next: review this draft and its estimates, revise under an explicit plan revision identity if needed, complete the chosen technical plan review, then obtain native Plan approval and register bounded execution issues through their owning workflows. No implementation, downstream hydration, existing-issue supersession or merge occurs merely because this document exists.
 
 Recommended execution method after approval: **A. Subagent-driven**, with a fresh implementer and independent reviewer per registered leaf and whole-delivery review; journal/lifecycle/process interfaces justify that scrutiny. **B. Native**, one implementer in this session with independent whole-branch review, remains available if the owner chooses it. Do not infer execution authorization from selecting a review model or accepting the source specification.

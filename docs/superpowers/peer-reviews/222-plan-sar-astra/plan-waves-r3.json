@@ -1,0 +1,667 @@
+{
+  "record_kind": "manual SAR provisional planning data; no independent native forecasts",
+  "plan_revision": "issue-222-plan-r3",
+  "plan_sha256": "1e52ff2b91d075c1a32b99766841997815c8537173ead74e31a73d103aa35fae",
+  "task_count": 50,
+  "human_cost_components": {
+    "01A": {
+      "engineering_docs": 1.75,
+      "verification": 0.75,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "01B": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "01C": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "01": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "02": {
+      "engineering_docs": 0.4,
+      "verification": 0.2,
+      "review": 0.2,
+      "delivery": 0.2
+    },
+    "03": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "04": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "05A": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "05B": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "05C1": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "05C2": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "05C3": {
+      "engineering_docs": 1.75,
+      "verification": 0.75,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "06A": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "06B": {
+      "engineering_docs": 1.75,
+      "verification": 0.75,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "06C": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "07A": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "07B": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "07C": {
+      "engineering_docs": 0.75,
+      "verification": 0.25,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "08": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "09": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "10": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "11": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "12": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "13": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "14": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "15A": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "15B1": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "15B2": {
+      "engineering_docs": 1.75,
+      "verification": 0.75,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "15B3": {
+      "engineering_docs": 1.25,
+      "verification": 0.75,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "16": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "17": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "18": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "19A": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "19D": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "19B": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "19C": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "20": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "21": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "22A1": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "22A2": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "22B1": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "22B2": {
+      "engineering_docs": 1.5,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.5
+    },
+    "22C": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "23A": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "23B1": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "23B2": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "24": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    },
+    "25A": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "25B": {
+      "engineering_docs": 1.25,
+      "verification": 0.5,
+      "review": 0.5,
+      "delivery": 0.25
+    },
+    "25C": {
+      "engineering_docs": 1.0,
+      "verification": 0.5,
+      "review": 0.25,
+      "delivery": 0.25
+    }
+  },
+  "human_hours": {
+    "01A": 3.5,
+    "01B": 3.0,
+    "01C": 3.0,
+    "01": 2.0,
+    "02": 1.0,
+    "03": 2.0,
+    "04": 3.0,
+    "05A": 3.0,
+    "05B": 3.0,
+    "05C1": 3.0,
+    "05C2": 3.0,
+    "05C3": 3.5,
+    "06A": 3.0,
+    "06B": 3.5,
+    "06C": 2.0,
+    "07A": 2.5,
+    "07B": 3.0,
+    "07C": 1.5,
+    "08": 3.0,
+    "09": 3.0,
+    "10": 3.0,
+    "11": 3.0,
+    "12": 3.0,
+    "13": 3.0,
+    "14": 3.0,
+    "15A": 2.5,
+    "15B1": 3.0,
+    "15B2": 3.5,
+    "15B3": 3.0,
+    "16": 2.5,
+    "17": 3.0,
+    "18": 2.0,
+    "19A": 2.5,
+    "19D": 2.5,
+    "19B": 2.5,
+    "19C": 2.5,
+    "20": 2.0,
+    "21": 2.0,
+    "22A1": 2.5,
+    "22A2": 2.0,
+    "22B1": 2.5,
+    "22B2": 3.0,
+    "22C": 2.0,
+    "23A": 2.0,
+    "23B1": 2.5,
+    "23B2": 2.5,
+    "24": 2.0,
+    "25A": 2.5,
+    "25B": 2.5,
+    "25C": 2.0
+  },
+  "dependencies": {
+    "01A": [],
+    "01B": [],
+    "01C": [],
+    "01": [
+      "01A",
+      "01B",
+      "01C"
+    ],
+    "02": [
+      "01"
+    ],
+    "03": [
+      "01",
+      "02"
+    ],
+    "04": [
+      "03"
+    ],
+    "05A": [
+      "04"
+    ],
+    "05B": [
+      "04"
+    ],
+    "05C1": [
+      "05A",
+      "05B"
+    ],
+    "05C2": [
+      "05B"
+    ],
+    "05C3": [
+      "05C1",
+      "05C2"
+    ],
+    "06A": [
+      "05C3"
+    ],
+    "06B": [
+      "06A"
+    ],
+    "06C": [
+      "06A",
+      "06B"
+    ],
+    "07A": [
+      "05C3"
+    ],
+    "07B": [
+      "05C3"
+    ],
+    "07C": [
+      "07A",
+      "07B"
+    ],
+    "08": [
+      "05C3"
+    ],
+    "09": [
+      "08",
+      "07C"
+    ],
+    "10": [
+      "08",
+      "07C"
+    ],
+    "11": [
+      "07C",
+      "10"
+    ],
+    "12": [
+      "08",
+      "09",
+      "11"
+    ],
+    "13": [
+      "07C",
+      "10"
+    ],
+    "14": [
+      "11",
+      "13"
+    ],
+    "15A": [
+      "07C",
+      "10"
+    ],
+    "15B1": [
+      "12",
+      "13",
+      "14",
+      "15A"
+    ],
+    "15B2": [
+      "15B1"
+    ],
+    "15B3": [
+      "15B1",
+      "15B2"
+    ],
+    "16": [
+      "15B3"
+    ],
+    "17": [
+      "12",
+      "13"
+    ],
+    "18": [
+      "14",
+      "17",
+      "16",
+      "19B"
+    ],
+    "19A": [
+      "06C",
+      "15B3",
+      "17"
+    ],
+    "19D": [
+      "19A",
+      "16",
+      "14"
+    ],
+    "19B": [
+      "19D",
+      "16"
+    ],
+    "19C": [
+      "18",
+      "19B",
+      "20"
+    ],
+    "20": [
+      "01",
+      "09",
+      "12",
+      "17"
+    ],
+    "21": [
+      "01",
+      "06C"
+    ],
+    "22A1": [
+      "16",
+      "20"
+    ],
+    "22A2": [
+      "16",
+      "20"
+    ],
+    "22B1": [
+      "19C"
+    ],
+    "22B2": [
+      "19C"
+    ],
+    "22C": [
+      "19B",
+      "20"
+    ],
+    "23A": [
+      "21",
+      "22A1",
+      "22A2",
+      "22B1",
+      "22B2",
+      "22C",
+      "23B1",
+      "23B2"
+    ],
+    "23B1": [
+      "01",
+      "21"
+    ],
+    "23B2": [
+      "01",
+      "21"
+    ],
+    "24": [
+      "19C",
+      "20",
+      "22C"
+    ],
+    "25A": [
+      "19C",
+      "20",
+      "23A"
+    ],
+    "25B": [
+      "19C",
+      "18",
+      "23A"
+    ],
+    "25C": [
+      "24",
+      "25A",
+      "25B"
+    ]
+  },
+  "earliest_dependency_waves": [
+    [
+      "01A",
+      "01B",
+      "01C"
+    ],
+    [
+      "01"
+    ],
+    [
+      "02"
+    ],
+    [
+      "03"
+    ],
+    [
+      "04"
+    ],
+    [
+      "05A",
+      "05B"
+    ],
+    [
+      "05C1",
+      "05C2"
+    ],
+    [
+      "05C3"
+    ],
+    [
+      "06A",
+      "07A",
+      "07B",
+      "08"
+    ],
+    [
+      "06B",
+      "07C"
+    ],
+    [
+      "06C",
+      "09",
+      "10"
+    ],
+    [
+      "11",
+      "13",
+      "15A",
+      "21"
+    ],
+    [
+      "12",
+      "14",
+      "23B1",
+      "23B2"
+    ],
+    [
+      "15B1",
+      "17"
+    ],
+    [
+      "15B2",
+      "20"
+    ],
+    [
+      "15B3"
+    ],
+    [
+      "16",
+      "19A"
+    ],
+    [
+      "19D",
+      "22A1",
+      "22A2"
+    ],
+    [
+      "19B"
+    ],
+    [
+      "18",
+      "22C"
+    ],
+    [
+      "19C"
+    ],
+    [
+      "22B1",
+      "22B2",
+      "24"
+    ],
+    [
+      "23A"
+    ],
+    [
+      "25A",
+      "25B"
+    ],
+    [
+      "25C"
+    ]
+  ],
+  "aggregate_human_hours": 131.0,
+  "maximum_leaf_human_hours": 3.5,
+  "forecast_status": "author provisional; independent native inspection and cumulative agent allowance required before execution",
+  "workers": 3,
+  "integration_owner": 1
+}
