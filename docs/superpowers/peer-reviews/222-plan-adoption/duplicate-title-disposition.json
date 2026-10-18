@@ -1,0 +1,23 @@
+{
+  "task_id": "23B2",
+  "initial_refusal": {
+    "issue": null,
+    "exit": 7,
+    "created_at": "2026-10-18T17:11:30Z"
+  },
+  "matching_issue": 270,
+  "matching_task": "23B1",
+  "similarity": 0.71,
+  "decision": "Use supported --allow-duplicate-child for the owner-authorized distinct task",
+  "evidence": {
+    "23B1": {
+      "issue_set": "#29/#31\u2013#34/#130/#143",
+      "artifact": "docs/superpowers/adoption/222-remaining-candidates-a.md"
+    },
+    "23B2": {
+      "issue_set": "#146\u2013#147/#154\u2013#155/#210/#212/#213",
+      "artifact": "docs/superpowers/adoption/222-remaining-candidates-b.md"
+    }
+  },
+  "no_issue_created_by_refused_attempt": true
+}

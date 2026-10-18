@@ -1,0 +1,1633 @@
+{
+  "record_kind": "Live native Backlog hydration verification",
+  "verified_at": "2026-10-18T17:36:39.293395+00:00",
+  "source_plan_revision": "issue-222-plan-r6",
+  "source_plan_commit": "da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+  "source_plan_sha256": "40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+  "parent": 141,
+  "original_child_count": 9,
+  "new_child_count": 51,
+  "parent_child_count": 60,
+  "dependency_edge_count": 103,
+  "earliest_dependency_wave_count": 25,
+  "human_estimate_total_provisional": 134.0,
+  "human_estimate_maximum_leaf": 3.5,
+  "implementation_started": false,
+  "problems": [],
+  "tasks": [
+    {
+      "task_id": "01A",
+      "issue": 225,
+      "url": "https://github.com/kburson/ai-peer-review/issues/225",
+      "title": "Inventory source and development proof consumers",
+      "earliest_dependency_wave": 1,
+      "prerequisite_task_ids": [],
+      "blocked_by": [],
+      "human_estimate_hours_provisional": 3.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.75, 0.75, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": null,
+      "rank": 1.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "865c6e5c225717a36a18ac0574d0770d05a8c814cf79771adf3ad93679ddf76f",
+      "observed_administrative_binding_windows": [],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "01B",
+      "issue": 226,
+      "url": "https://github.com/kburson/ai-peer-review/issues/226",
+      "title": "Inventory shipped packages and downstream interface consumers",
+      "earliest_dependency_wave": 1,
+      "prerequisite_task_ids": [],
+      "blocked_by": [],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": null,
+      "rank": 1.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "4c47eeddb300403ccbd25c407b6da8fea0c5c597f2f2800d9d5699df553fe01f",
+      "observed_administrative_binding_windows": [],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "01C",
+      "issue": 227,
+      "url": "https://github.com/kburson/ai-peer-review/issues/227",
+      "title": "Record the interim hold and partition native issue ownership",
+      "earliest_dependency_wave": 1,
+      "prerequisite_task_ids": [],
+      "blocked_by": [],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": null,
+      "rank": 1.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "a7c4ea900ce678b05da72176250063e7c336b9cef80dab28587d72961f770903",
+      "observed_administrative_binding_windows": [],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "01",
+      "issue": 228,
+      "url": "https://github.com/kburson/ai-peer-review/issues/228",
+      "title": "Integrate the inventory and scoped-adoption gate",
+      "earliest_dependency_wave": 2,
+      "prerequisite_task_ids": ["01A", "01B", "01C"],
+      "blocked_by": [225, 226, 227],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 2.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "27827fe1279a920209acda3b849f9ccbd88ad05b858714f25bdf7fcbee51e2e3",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343602699,
+          "end_ms": 1792343651300,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 48.601
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "02",
+      "issue": 229,
+      "url": "https://github.com/kburson/ai-peer-review/issues/229",
+      "title": "Verify the global POSIX CI bootstrap and future receipt bindings",
+      "earliest_dependency_wave": 3,
+      "prerequisite_task_ids": ["01"],
+      "blocked_by": [228],
+      "human_estimate_hours_provisional": 1.0,
+      "human_limit_hours": 4,
+      "component_hours": [0.4, 0.2, 0.2, 0.2],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 3.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "2dea7dc5b31d9d22c681b26fcc2d955b87ed89106b84fc5c266b0e78f6682dba",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343657424,
+          "end_ms": 1792343673648,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 16.224
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "03",
+      "issue": 230,
+      "url": "https://github.com/kburson/ai-peer-review/issues/230",
+      "title": "Adopt finite process semantics and persisted-seal compatibility",
+      "earliest_dependency_wave": 4,
+      "prerequisite_task_ids": ["01", "02"],
+      "blocked_by": [228, 229],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 4.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "d2bf317807c9729fc50accddd652f05c5e82d439cc20f790f046605aea08ca66",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343707026,
+          "end_ms": 1792343760619,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 53.593
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "04",
+      "issue": 231,
+      "url": "https://github.com/kburson/ai-peer-review/issues/231",
+      "title": "Build isolated finite process qualification and compatibility readers",
+      "earliest_dependency_wave": 5,
+      "prerequisite_task_ids": ["03"],
+      "blocked_by": [230],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 5.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "5bc6319da85cf32a9c495e641c38a75f8d5331a333c572aab4455fd4a8ea1358",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343788757,
+          "end_ms": 1792343804074,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 15.317
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "05A",
+      "issue": 232,
+      "url": "https://github.com/kburson/ai-peer-review/issues/232",
+      "title": "Implement isolated Linux probe observations",
+      "earliest_dependency_wave": 6,
+      "prerequisite_task_ids": ["04"],
+      "blocked_by": [231],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 6.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "eeac2bfe1eb17d48e18e5476675065c24d6f170495940b860225b657ff1ae30f",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343810997,
+          "end_ms": 1792343826098,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 15.101
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "05B",
+      "issue": 233,
+      "url": "https://github.com/kburson/ai-peer-review/issues/233",
+      "title": "Implement Darwin observations and preserve old ownership seals",
+      "earliest_dependency_wave": 6,
+      "prerequisite_task_ids": ["04"],
+      "blocked_by": [231],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 6.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "d918e8187b77ce26099e3d49fdf1e3a3978b124a92ef4f3d6e218998de509cf1",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343833051,
+          "end_ms": 1792343849194,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 16.143
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "05C1",
+      "issue": 234,
+      "url": "https://github.com/kburson/ai-peer-review/issues/234",
+      "title": "Build the inactive installed observation capability",
+      "earliest_dependency_wave": 7,
+      "prerequisite_task_ids": ["05A", "05B"],
+      "blocked_by": [232, 233],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 7.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "035ec3bc2dede9788efeba1c55350c5b16ab76fbd6a0293c306bbbdbbd810edb",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343855538,
+          "end_ms": 1792343876667,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 21.129
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "05C2",
+      "issue": 235,
+      "url": "https://github.com/kburson/ai-peer-review/issues/235",
+      "title": "Define versioned portable owner records and compatibility",
+      "earliest_dependency_wave": 7,
+      "prerequisite_task_ids": ["05B"],
+      "blocked_by": [233],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 7.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "b5d533ce86d97c294d13234d667ee6a9809193183f9600a0d1c0046624cf764e",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343882930,
+          "end_ms": 1792343898043,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 15.113
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "05C3",
+      "issue": 236,
+      "url": "https://github.com/kburson/ai-peer-review/issues/236",
+      "title": "Activate usable process observations and inventory atomically",
+      "earliest_dependency_wave": 8,
+      "prerequisite_task_ids": ["05C1", "05C2"],
+      "blocked_by": [234, 235],
+      "human_estimate_hours_provisional": 3.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.75, 0.75, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 8.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "908f56cc725d4b39cb3eb296dbfe4547079cdd2e60e2d8b211f0bc755bc02130",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343905123,
+          "end_ms": 1792343922634,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 17.511
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "06A",
+      "issue": 237,
+      "url": "https://github.com/kburson/ai-peer-review/issues/237",
+      "title": "Retire local review-proof production and consumers",
+      "earliest_dependency_wave": 9,
+      "prerequisite_task_ids": ["05C3"],
+      "blocked_by": [236],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 9.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "17bd3c2db901e9a8ab58ff98bfe99518f50761a3d9b9ee6598a77bf303b1983f",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343929819,
+          "end_ms": 1792343945318,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 15.499
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "06B",
+      "issue": 238,
+      "url": "https://github.com/kburson/ai-peer-review/issues/238",
+      "title": "Remove adopted review-proof admission from CI and process conformance",
+      "earliest_dependency_wave": 10,
+      "prerequisite_task_ids": ["06A"],
+      "blocked_by": [237],
+      "human_estimate_hours_provisional": 3.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.75, 0.75, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 10.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "be6c1bc6e52d4fe12359bb3fcf62e6f8b54ebe8a45dae59c8de6c646170f6b6b",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344022670,
+          "end_ms": 1792344037662,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 14.992
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "06C",
+      "issue": 239,
+      "url": "https://github.com/kburson/ai-peer-review/issues/239",
+      "title": "Integrate proof-consumer retirement with extraction and ordinary review",
+      "earliest_dependency_wave": 11,
+      "prerequisite_task_ids": ["06A", "06B"],
+      "blocked_by": [237, 238],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 11.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "d9c43e0b924db9b386be9481d629e1eb9db5c9fa2b736dc6fd258898811a2dd4",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344093173,
+          "end_ms": 1792344110140,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 16.967
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "07A",
+      "issue": 240,
+      "url": "https://github.com/kburson/ai-peer-review/issues/240",
+      "title": "Define response and manifest v2 validators",
+      "earliest_dependency_wave": 9,
+      "prerequisite_task_ids": ["05C3"],
+      "blocked_by": [236],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 9.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "b396e7e764d3dd0c464adcde09c71918786e351cbfe1f214b66f187ab8433d9d",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343952990,
+          "end_ms": 1792343969453,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 16.463
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "07B",
+      "issue": 241,
+      "url": "https://github.com/kburson/ai-peer-review/issues/241",
+      "title": "Define event, protocol and explicit handoff contracts",
+      "earliest_dependency_wave": 9,
+      "prerequisite_task_ids": ["05C3"],
+      "blocked_by": [236],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 9.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "56020c8213cf72b1b2ff617a5f84bafaa6af20af4615cf8e1080298885f5d779",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343976385,
+          "end_ms": 1792343990806,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 14.421
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "07C",
+      "issue": 242,
+      "url": "https://github.com/kburson/ai-peer-review/issues/242",
+      "title": "Integrate fixed contextual journal dispatch",
+      "earliest_dependency_wave": 10,
+      "prerequisite_task_ids": ["07A", "07B"],
+      "blocked_by": [240, 241],
+      "human_estimate_hours_provisional": 1.5,
+      "human_limit_hours": 4,
+      "component_hours": [0.75, 0.25, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 10.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "c23f2e373ab0b1757306ce2dbf9d2aaf2e725149427c25fafda26f4da4e64707",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344044446,
+          "end_ms": 1792344062841,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 18.395
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "07D",
+      "issue": 243,
+      "url": "https://github.com/kburson/ai-peer-review/issues/243",
+      "title": "Prepare version-aware API registry integration without changing v1",
+      "earliest_dependency_wave": 10,
+      "prerequisite_task_ids": ["07B"],
+      "blocked_by": [241],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 10.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "79bbee9b1d893d46e14d4bf8a7fd461ef265b78eff69d604f725884dd4f9b61a",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344070717,
+          "end_ms": 1792344086513,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 15.796
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "08",
+      "issue": 244,
+      "url": "https://github.com/kburson/ai-peer-review/issues/244",
+      "title": "Capture bounded root and reviewer working contexts",
+      "earliest_dependency_wave": 9,
+      "prerequisite_task_ids": ["05C3"],
+      "blocked_by": [236],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 9.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "f33ad35092d082d51d597d0c43c0eee50350f1092ceaadc338f21c2585416c37",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792343998382,
+          "end_ms": 1792344015924,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 17.542
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "09",
+      "issue": 245,
+      "url": "https://github.com/kburson/ai-peer-review/issues/245",
+      "title": "Compare effective contexts with exact collateral exclusions",
+      "earliest_dependency_wave": 11,
+      "prerequisite_task_ids": ["08", "07C"],
+      "blocked_by": [242, 244],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 11.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "942d8dc04ff7129ed98868e5f67774442250ea22d909e2e022c7ef82a6006cf5",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344117995,
+          "end_ms": 1792344138931,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 20.936
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "10",
+      "issue": 246,
+      "url": "https://github.com/kburson/ai-peer-review/issues/246",
+      "title": "Validate FUR revision identity and protected reviewer provenance",
+      "earliest_dependency_wave": 11,
+      "prerequisite_task_ids": ["08", "07C"],
+      "blocked_by": [242, 244],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 11.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "0f3354e2b545633c55d6d7590ff8389c51e8d2e321366f98423262ae3acf0871",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344145690,
+          "end_ms": 1792344164743,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 19.053
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "11",
+      "issue": 247,
+      "url": "https://github.com/kburson/ai-peer-review/issues/247",
+      "title": "Add new-format event projection with honest intermediate states",
+      "earliest_dependency_wave": 12,
+      "prerequisite_task_ids": ["07C", "10"],
+      "blocked_by": [242, 246],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 12.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "c9bda9c4b730ad9961e117ef56faafb2619f7ab613c38f23292f19df8b22bfef",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344173530,
+          "end_ms": 1792344192049,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 18.519
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "12",
+      "issue": 248,
+      "url": "https://github.com/kburson/ai-peer-review/issues/248",
+      "title": "Seal initial and layered acceptance manifests",
+      "earliest_dependency_wave": 13,
+      "prerequisite_task_ids": ["08", "09", "11"],
+      "blocked_by": [244, 245, 247],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 13.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "50c82a5cc1425067443e74b5bb3d6953f2f53075a8f7b3cc64e7dac43a5b9c75",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344275658,
+          "end_ms": 1792344297460,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 21.802
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "13",
+      "issue": 249,
+      "url": "https://github.com/kburson/ai-peer-review/issues/249",
+      "title": "Generate exact reversible diffs and cross-review links",
+      "earliest_dependency_wave": 12,
+      "prerequisite_task_ids": ["07C", "10"],
+      "blocked_by": [242, 246],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 12.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "b0e76949cc8dc02eba634f2ddaccde4990ae44a8d250c18d6c3c15dca0d23020",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344198405,
+          "end_ms": 1792344218561,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 20.156
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "14",
+      "issue": 250,
+      "url": "https://github.com/kburson/ai-peer-review/issues/250",
+      "title": "Coordinate publication windows and pending external outcomes",
+      "earliest_dependency_wave": 13,
+      "prerequisite_task_ids": ["11", "13"],
+      "blocked_by": [247, 249],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 13.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "a5df84ed93028f941ac7df47efc4cb6e469eb1f806c71095caee524ff1148de3",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344304121,
+          "end_ms": 1792344337713,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 33.592
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "15A",
+      "issue": 251,
+      "url": "https://github.com/kburson/ai-peer-review/issues/251",
+      "title": "Prepare versioned review-only prompts and provider constraints",
+      "earliest_dependency_wave": 12,
+      "prerequisite_task_ids": ["07C", "10"],
+      "blocked_by": [242, 246],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 12.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "e0e1dfe818264848044cd854fc39a415db456c5fafb3243143292a841afd5000",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344225212,
+          "end_ms": 1792344243146,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 17.934
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "15B1",
+      "issue": 252,
+      "url": "https://github.com/kburson/ai-peer-review/issues/252",
+      "title": "Build inactive new-format review startup orchestration",
+      "earliest_dependency_wave": 14,
+      "prerequisite_task_ids": ["12", "13", "14", "15A"],
+      "blocked_by": [248, 249, 250, 251],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 14.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "7be70d5183a5a800adb4baf527ac60c3b858af30a87ada3b36b10c04bb4f0049",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344396194,
+          "end_ms": 1792344419462,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 23.268
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "15B2",
+      "issue": 253,
+      "url": "https://github.com/kburson/ai-peer-review/issues/253",
+      "title": "Build inactive external revision submission orchestration",
+      "earliest_dependency_wave": 15,
+      "prerequisite_task_ids": ["15B1"],
+      "blocked_by": [252],
+      "human_estimate_hours_provisional": 3.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.75, 0.75, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 15.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "9233dd4997dbd6130ca16eab1b21c90f4c8d3b250d75fddf855db6ced9e8d70a",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344450417,
+          "end_ms": 1792344465958,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 15.541
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "15B3",
+      "issue": 254,
+      "url": "https://github.com/kburson/ai-peer-review/issues/254",
+      "title": "Activate the external revision handoff and reviewer boundary",
+      "earliest_dependency_wave": 16,
+      "prerequisite_task_ids": ["15B1", "15B2", "07D"],
+      "blocked_by": [243, 252, 253],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.75, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 16.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "2699ee1b29409120b63fbf5fe39457d6cff5b44714a3fb7b2f2341f468b91289",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344503136,
+          "end_ms": 1792344524317,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 21.181
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "16",
+      "issue": 255,
+      "url": "https://github.com/kburson/ai-peer-review/issues/255",
+      "title": "Complete both response sides and acceptance acknowledgements",
+      "earliest_dependency_wave": 17,
+      "prerequisite_task_ids": ["15B3"],
+      "blocked_by": [254],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 17.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "03f3426094b553a747fdb3d2f7f9939706eaf4a3e4fa148d9ae038d2dea31e65",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344530551,
+          "end_ms": 1792344544542,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 13.991
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "17",
+      "issue": 256,
+      "url": "https://github.com/kburson/ai-peer-review/issues/256",
+      "title": "Reconstruct FUR history from final bytes after squash",
+      "earliest_dependency_wave": 14,
+      "prerequisite_task_ids": ["12", "13"],
+      "blocked_by": [248, 249],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 14.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "249fa8717ef8935b74b74d4f218ac899cbb73835fe30414586765df1cd4a2f1a",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344425949,
+          "end_ms": 1792344443783,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 17.834
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "18",
+      "issue": 257,
+      "url": "https://github.com/kburson/ai-peer-review/issues/257",
+      "title": "Document and verify scoped external turn publication",
+      "earliest_dependency_wave": 20,
+      "prerequisite_task_ids": ["14", "17", "16", "19B"],
+      "blocked_by": [250, 255, 256, 260],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 20.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "4702cb66249d99ad030d816b5adb11faff0daf7df3ef5ddf918ed597e2de367b",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344706457,
+          "end_ms": 1792344731205,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 24.748
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "19A",
+      "issue": 258,
+      "url": "https://github.com/kburson/ai-peer-review/issues/258",
+      "title": "Expose the read-only public journal and API contracts",
+      "earliest_dependency_wave": 17,
+      "prerequisite_task_ids": ["06C", "15B3", "17"],
+      "blocked_by": [239, 254, 256],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 17.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "8b5cc8cbf9b2458ab32890127742535677e2fddb0529b787e0305fa10e4b510f",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344552179,
+          "end_ms": 1792344573567,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 21.388
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "19D",
+      "issue": 259,
+      "url": "https://github.com/kburson/ai-peer-review/issues/259",
+      "title": "Expose the bounded external publication coordination API",
+      "earliest_dependency_wave": 18,
+      "prerequisite_task_ids": ["19A", "16", "14"],
+      "blocked_by": [250, 255, 258],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 18.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "86ac967bb52de405b198c43548f9f2b719e81dec5fbb1fc014048beb0393d361",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344579910,
+          "end_ms": 1792344602720,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 22.81
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "19B",
+      "issue": 260,
+      "url": "https://github.com/kburson/ai-peer-review/issues/260",
+      "title": "Wire CLI and MCP parity for journal inspection",
+      "earliest_dependency_wave": 19,
+      "prerequisite_task_ids": ["19D", "16"],
+      "blocked_by": [255, 259],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 19.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "f48b1f53aa37c71d335c5b2ff1a6981360a353d6825e785387acd09ec19b1b4c",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344679551,
+          "end_ms": 1792344699287,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 19.736
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "19C",
+      "issue": 261,
+      "url": "https://github.com/kburson/ai-peer-review/issues/261",
+      "title": "Verify portable package closure and immutable format exceptions",
+      "earliest_dependency_wave": 21,
+      "prerequisite_task_ids": ["18", "19B", "20"],
+      "blocked_by": [257, 260, 262],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 21.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "0c74f9220216a4207c7986c136c0d435deb66ffca64f622aeb498a12b1756d08",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344763885,
+          "end_ms": 1792344786838,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 22.953
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "20",
+      "issue": 262,
+      "url": "https://github.com/kburson/ai-peer-review/issues/262",
+      "title": "Deliver the pre-planning suitability decision procedure",
+      "earliest_dependency_wave": 15,
+      "prerequisite_task_ids": ["01", "09", "12", "17"],
+      "blocked_by": [228, 245, 248, 256],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 15.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "cc577e04bc448b5d190ecd7faf987e78fccf8fe914021bb8a759ba3779e04158",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344472876,
+          "end_ms": 1792344496324,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 23.448
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "21",
+      "issue": 263,
+      "url": "https://github.com/kburson/ai-peer-review/issues/263",
+      "title": "Disposition the obsolete proof program without false completion",
+      "earliest_dependency_wave": 12,
+      "prerequisite_task_ids": ["01", "06C"],
+      "blocked_by": [228, 239],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 12.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "e5ed9b89bb506c976cb5f9f498e0e912c5991ae3196f8f7003de375f8b23f57c",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344249680,
+          "end_ms": 1792344268333,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 18.653
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "22A1",
+      "issue": 264,
+      "url": "https://github.com/kburson/ai-peer-review/issues/264",
+      "title": "Reconcile review role and artifact-write requirements",
+      "earliest_dependency_wave": 18,
+      "prerequisite_task_ids": ["16", "20"],
+      "blocked_by": [255, 262],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 18.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "ec040d8f70c10e9b55d7114f0475e975d331cdb07dee887e5ad7e52c25e542c5",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344610067,
+          "end_ms": 1792344629201,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 19.134
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "22A2",
+      "issue": 265,
+      "url": "https://github.com/kburson/ai-peer-review/issues/265",
+      "title": "Reconcile participant identity and measured telemetry",
+      "earliest_dependency_wave": 18,
+      "prerequisite_task_ids": ["16", "20"],
+      "blocked_by": [255, 262],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 18.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "5bfe57cbdce2a93622f5093644c2340afb26d7aeae699f917bacf935e7f50a90",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344636768,
+          "end_ms": 1792344672986,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 36.218
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "22B1",
+      "issue": 266,
+      "url": "https://github.com/kburson/ai-peer-review/issues/266",
+      "title": "Reconcile retained journal requirements",
+      "earliest_dependency_wave": 22,
+      "prerequisite_task_ids": ["19C"],
+      "blocked_by": [261],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 22.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "3843f33f44102dd575d01edbd8690f97a26d1e418faa7a937fb495c3242482f9",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344792890,
+          "end_ms": 1792344807601,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 14.711
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "22B2",
+      "issue": 267,
+      "url": "https://github.com/kburson/ai-peer-review/issues/267",
+      "title": "Reconcile recovery and installed-release requirements",
+      "earliest_dependency_wave": 22,
+      "prerequisite_task_ids": ["19C"],
+      "blocked_by": [261],
+      "human_estimate_hours_provisional": 3.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.5, 0.5, 0.5, 0.5],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 22.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "02943b2193b1174357f3856b246d7302bd84f89fa7422a063b2b758006b422ed",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344814269,
+          "end_ms": 1792344828699,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 14.43
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "22C",
+      "issue": 268,
+      "url": "https://github.com/kburson/ai-peer-review/issues/268",
+      "title": "Coordinate the external publication consumer obligations",
+      "earliest_dependency_wave": 20,
+      "prerequisite_task_ids": ["19B", "20"],
+      "blocked_by": [260, 262],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 20.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "a893951781c2d603556932a47d123268a591f2c18f95fd74de97ea7ebb119399",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344737591,
+          "end_ms": 1792344756571,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 18.98
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "23A",
+      "issue": 269,
+      "url": "https://github.com/kburson/ai-peer-review/issues/269",
+      "title": "Consolidate parent obligations and the final candidate census",
+      "earliest_dependency_wave": 23,
+      "prerequisite_task_ids": ["21", "22A1", "22A2", "22B1", "22B2", "22C", "23B1", "23B2"],
+      "blocked_by": [263, 264, 265, 266, 267, 268, 270, 271],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 23.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "2ffce22b2a55c377c9fe86bd7be250e73272ec72e3191e55d5497d5c79fec2c3",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344861036,
+          "end_ms": 1792344901900,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 40.864
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "23B1",
+      "issue": 270,
+      "url": "https://github.com/kburson/ai-peer-review/issues/270",
+      "title": "Disposition the first remaining candidate partition",
+      "earliest_dependency_wave": 13,
+      "prerequisite_task_ids": ["01", "21"],
+      "blocked_by": [228, 263],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 13.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "75c8b3a9160067001869e57c4594b6741c15ba9d63c6060ee43d56f0b6648d8b",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344346099,
+          "end_ms": 1792344364454,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 18.355
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "23B2",
+      "issue": 271,
+      "url": "https://github.com/kburson/ai-peer-review/issues/271",
+      "title": "Disposition the second remaining candidate partition",
+      "earliest_dependency_wave": 13,
+      "prerequisite_task_ids": ["01", "21"],
+      "blocked_by": [228, 263],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 13.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "75eeb757d68b895bce2ec507b2b59c423c6d537bb9c83f326fb4f44725594d11",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344371637,
+          "end_ms": 1792344389822,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 18.185
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "24",
+      "issue": 272,
+      "url": "https://github.com/kburson/ai-peer-review/issues/272",
+      "title": "Register the downstream AITM ownership and exact-context handoff",
+      "earliest_dependency_wave": 22,
+      "prerequisite_task_ids": ["19C", "20", "22C"],
+      "blocked_by": [261, 262, 268],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 22.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "eb04184f4a7ead62a689d8d1b7388f0690447de9e628defbdbf6b2abe6514791",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344834475,
+          "end_ms": 1792344854074,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 19.599
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "25A",
+      "issue": 273,
+      "url": "https://github.com/kburson/ai-peer-review/issues/273",
+      "title": "Verify local aggregate behavior and specification coverage",
+      "earliest_dependency_wave": 24,
+      "prerequisite_task_ids": ["19C", "20", "23A"],
+      "blocked_by": [261, 262, 269],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 24.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "d9f878175add63fa442c8fd08f973e6edca93c3beada8208a4f35f28a9851fa5",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344908072,
+          "end_ms": 1792344930139,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 22.067
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "25B",
+      "issue": 274,
+      "url": "https://github.com/kburson/ai-peer-review/issues/274",
+      "title": "Collect exact-head Linux/macOS installed and ownership evidence",
+      "earliest_dependency_wave": 24,
+      "prerequisite_task_ids": ["19C", "18", "23A"],
+      "blocked_by": [257, 261, 269],
+      "human_estimate_hours_provisional": 2.5,
+      "human_limit_hours": 4,
+      "component_hours": [1.25, 0.5, 0.5, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 24.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "41e43d3e4a5d252250447cd8080ea809bf1ad83414352d53c214fc1624358252",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344937446,
+          "end_ms": 1792344957257,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 19.811
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    },
+    {
+      "task_id": "25C",
+      "issue": 275,
+      "url": "https://github.com/kburson/ai-peer-review/issues/275",
+      "title": "Reconcile final evidence and prepare governed delivery",
+      "earliest_dependency_wave": 25,
+      "prerequisite_task_ids": ["24", "25A", "25B"],
+      "blocked_by": [272, 273, 274],
+      "human_estimate_hours_provisional": 2.0,
+      "human_limit_hours": 4,
+      "component_hours": [1.0, 0.5, 0.25, 0.25],
+      "state": "Backlog",
+      "disposition": "BLOCKED",
+      "rank": 25.0,
+      "native_size": null,
+      "native_estimate": null,
+      "body_sha256": "f9eb3b8b41c1f089ed8fb23ce684f5c1be704b2e13dccf9a2b4d0b16d00cb67c",
+      "observed_administrative_binding_windows": [
+        {
+          "start_ms": 1792344963903,
+          "end_ms": 1792344984043,
+          "native_active": "unknown",
+          "observed_binding_window_seconds": 20.14
+        }
+      ],
+      "attribution_limit": "Observed native administrative binding windows only; not complete attributable preparation or measured engagement. Preserve Unknown and prior work; no allowance reset."
+    }
+  ],
+  "original_children_preserved": [166, 167, 168, 169, 170, 171, 214, 222, 223],
+  "creation_readback": {
+    "01A": {
+      "issue": 225,
+      "exit": 0,
+      "created_at": "2026-10-18T17:02:47Z"
+    },
+    "01B": {
+      "issue": 226,
+      "exit": 0,
+      "created_at": "2026-10-18T17:02:58Z"
+    },
+    "01C": {
+      "issue": 227,
+      "exit": 0,
+      "created_at": "2026-10-18T17:03:09Z"
+    },
+    "01": {
+      "issue": 228,
+      "exit": 0,
+      "created_at": "2026-10-18T17:03:19Z"
+    },
+    "02": {
+      "issue": 229,
+      "exit": 0,
+      "created_at": "2026-10-18T17:03:32Z"
+    },
+    "03": {
+      "issue": 230,
+      "exit": 0,
+      "created_at": "2026-10-18T17:03:41Z"
+    },
+    "04": {
+      "issue": 231,
+      "exit": 0,
+      "created_at": "2026-10-18T17:03:53Z"
+    },
+    "05A": {
+      "issue": 232,
+      "exit": 0,
+      "created_at": "2026-10-18T17:04:02Z"
+    },
+    "05B": {
+      "issue": 233,
+      "exit": 0,
+      "created_at": "2026-10-18T17:04:13Z"
+    },
+    "05C1": {
+      "issue": 234,
+      "exit": 0,
+      "created_at": "2026-10-18T17:04:23Z"
+    },
+    "05C2": {
+      "issue": 235,
+      "exit": 0,
+      "created_at": "2026-10-18T17:04:34Z"
+    },
+    "05C3": {
+      "issue": 236,
+      "exit": 0,
+      "created_at": "2026-10-18T17:04:46Z"
+    },
+    "06A": {
+      "issue": 237,
+      "exit": 0,
+      "created_at": "2026-10-18T17:04:59Z"
+    },
+    "06B": {
+      "issue": 238,
+      "exit": 0,
+      "created_at": "2026-10-18T17:05:10Z"
+    },
+    "06C": {
+      "issue": 239,
+      "exit": 0,
+      "created_at": "2026-10-18T17:05:21Z"
+    },
+    "07A": {
+      "issue": 240,
+      "exit": 0,
+      "created_at": "2026-10-18T17:05:30Z"
+    },
+    "07B": {
+      "issue": 241,
+      "exit": 0,
+      "created_at": "2026-10-18T17:05:43Z"
+    },
+    "07C": {
+      "issue": 242,
+      "exit": 0,
+      "created_at": "2026-10-18T17:05:54Z"
+    },
+    "07D": {
+      "issue": 243,
+      "exit": 0,
+      "created_at": "2026-10-18T17:06:06Z"
+    },
+    "08": {
+      "issue": 244,
+      "exit": 0,
+      "created_at": "2026-10-18T17:06:19Z"
+    },
+    "09": {
+      "issue": 245,
+      "exit": 0,
+      "created_at": "2026-10-18T17:06:31Z"
+    },
+    "10": {
+      "issue": 246,
+      "exit": 0,
+      "created_at": "2026-10-18T17:06:43Z"
+    },
+    "11": {
+      "issue": 247,
+      "exit": 0,
+      "created_at": "2026-10-18T17:06:56Z"
+    },
+    "12": {
+      "issue": 248,
+      "exit": 0,
+      "created_at": "2026-10-18T17:07:06Z"
+    },
+    "13": {
+      "issue": 249,
+      "exit": 0,
+      "created_at": "2026-10-18T17:07:19Z"
+    },
+    "14": {
+      "issue": 250,
+      "exit": 0,
+      "created_at": "2026-10-18T17:07:31Z"
+    },
+    "15A": {
+      "issue": 251,
+      "exit": 0,
+      "created_at": "2026-10-18T17:07:44Z"
+    },
+    "15B1": {
+      "issue": 252,
+      "exit": 0,
+      "created_at": "2026-10-18T17:07:57Z"
+    },
+    "15B2": {
+      "issue": 253,
+      "exit": 0,
+      "created_at": "2026-10-18T17:08:08Z"
+    },
+    "15B3": {
+      "issue": 254,
+      "exit": 0,
+      "created_at": "2026-10-18T17:08:19Z"
+    },
+    "16": {
+      "issue": 255,
+      "exit": 0,
+      "created_at": "2026-10-18T17:08:30Z"
+    },
+    "17": {
+      "issue": 256,
+      "exit": 0,
+      "created_at": "2026-10-18T17:08:44Z"
+    },
+    "18": {
+      "issue": 257,
+      "exit": 0,
+      "created_at": "2026-10-18T17:08:55Z"
+    },
+    "19A": {
+      "issue": 258,
+      "exit": 0,
+      "created_at": "2026-10-18T17:09:08Z"
+    },
+    "19D": {
+      "issue": 259,
+      "exit": 0,
+      "created_at": "2026-10-18T17:09:20Z"
+    },
+    "19B": {
+      "issue": 260,
+      "exit": 0,
+      "created_at": "2026-10-18T17:09:33Z"
+    },
+    "19C": {
+      "issue": 261,
+      "exit": 0,
+      "created_at": "2026-10-18T17:09:42Z"
+    },
+    "20": {
+      "issue": 262,
+      "exit": 0,
+      "created_at": "2026-10-18T17:09:50Z"
+    },
+    "21": {
+      "issue": 263,
+      "exit": 0,
+      "created_at": "2026-10-18T17:10:01Z"
+    },
+    "22A1": {
+      "issue": 264,
+      "exit": 0,
+      "created_at": "2026-10-18T17:10:14Z"
+    },
+    "22A2": {
+      "issue": 265,
+      "exit": 0,
+      "created_at": "2026-10-18T17:10:24Z"
+    },
+    "22B1": {
+      "issue": 266,
+      "exit": 0,
+      "created_at": "2026-10-18T17:10:37Z"
+    },
+    "22B2": {
+      "issue": 267,
+      "exit": 0,
+      "created_at": "2026-10-18T17:10:51Z"
+    },
+    "22C": {
+      "issue": 268,
+      "exit": 0,
+      "created_at": "2026-10-18T17:11:04Z"
+    },
+    "23A": {
+      "issue": 269,
+      "exit": 0,
+      "created_at": "2026-10-18T17:11:16Z"
+    },
+    "23B1": {
+      "issue": 270,
+      "exit": 0,
+      "created_at": "2026-10-18T17:11:29Z"
+    },
+    "23B2": {
+      "issue": 271,
+      "exit": 0,
+      "created_at": "2026-10-18T17:11:59Z"
+    },
+    "24": {
+      "issue": 272,
+      "exit": 0,
+      "created_at": "2026-10-18T17:12:12Z"
+    },
+    "25A": {
+      "issue": 273,
+      "exit": 0,
+      "created_at": "2026-10-18T17:12:24Z"
+    },
+    "25B": {
+      "issue": 274,
+      "exit": 0,
+      "created_at": "2026-10-18T17:12:37Z"
+    },
+    "25C": {
+      "issue": 275,
+      "exit": 0,
+      "created_at": "2026-10-18T17:12:49Z"
+    }
+  }
+}

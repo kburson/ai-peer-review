@@ -1,0 +1,7 @@
+Owner accepted **issue-222-plan-r6** and authorized creation of its 51 Backlog tasks with dependencies, parallel waves and the four-human-hour complete-task ceiling. No implementation is authorized.
+
+Accepted plan: `docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md` at `da4148744a3f009163bcfb7f5ef1f2bbc8daba99`, SHA-256 `40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7`. Accepted specification remains `issue-222-r13`, unchanged. Technical XPR acceptance is distinct from this owner acceptance. The orphan plan remains retired.
+
+Hydration uses sanctioned shaped Backlog intake, with empty draft User Story sections. Native split-plan requires numeric task IDs and task Story Intent blocks that the accepted document does not contain. No Story Intent is synthesized or native Plan approval claimed. Task-specific authoritative intent must be authored in its governed planning source and validated before story authoring/Plan approval. Independent forecasts and inherited engagement allowances must be inspected before making these children executable; Backlog creation does not certify those gates or reset prior work.
+
+Parent is #141; #222 remains preparation owner. Exact plan sections, accepted-byte hash, provisional component estimates, 25 earliest dependency layers, three-worker scheduling ceiling, single-writer boundaries and all global constraints are retained in every child. Native Size/Estimate remain unset during Backlog intake as required by AITM.

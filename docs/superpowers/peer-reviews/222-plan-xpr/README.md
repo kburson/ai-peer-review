@@ -23,3 +23,7 @@ Native v1 records remain exact. They lack the prospective protected `reviewer_co
 ## Timing
 
 Reviewer acceptance arrived 836.803 seconds after the declared native-window start. Context compaction delayed supported finalization until 919.889 seconds, 19.889 seconds beyond the 900-second wall reservation. Final read-only checks reached roughly 936 seconds; charging both participants that full interval gives approximately 1872 seconds, not measured engagement. The overrun, all preparation/root overhead, prior cumulative work and every native Unknown remain explicit and additive. No provider was replaced or terminated to meet a timer.
+
+## Subsequent owner acceptance and hydration
+
+The owner subsequently accepted revision 6 and authorized Backlog hydration only. See the [acceptance HEAD and verified 51-task backlog mapping](../222-plan-adoption/README.md). This later action leaves the exact accepted FUR and native v1 review collateral unchanged and does not record native Plan approval or implementation authority.
