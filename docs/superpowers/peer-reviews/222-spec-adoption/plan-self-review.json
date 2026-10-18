@@ -1,0 +1,25 @@
+{
+  "record_kind": "Fresh draft plan self-review, not technical acceptance or native Plan approval",
+  "spec_revision": "issue-222-r13",
+  "spec_sha256": "f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+  "plan": "docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+  "plan_sha256": "9e539d8bfa06745914255326c1f22187ba5961913c2acca065280bbb5e975ad2",
+  "task_count": 25,
+  "provisional_human_hours": 67,
+  "optional_suggestion": "R2-F001 journal/provenance and collateral named explicitly",
+  "checks": {
+    "source_spec_unchanged": true,
+    "numbered_tasks_complete": true,
+    "spec_AC1_through16_mapped": true,
+    "no_TODO_TBD_placeholders": true,
+    "javascript_examples_syntax_valid": 9,
+    "orphan_plan_not_used_or_modified": true
+  },
+  "limits": [
+    "No implementation tests run for proposed modules.",
+    "No independent technical plan acceptance or independently inspected native forecasts.",
+    "No native issue state transition, Plan approval, new child registration or backlog hydration.",
+    "Current native v1 source-review provenance limitations retained in adoption record."
+  ],
+  "plan_revision": "issue-222-plan-r1"
+}
