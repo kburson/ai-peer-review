@@ -110,3 +110,11 @@ Waves are earliest dependency layers, not all-worker barriers. The scheduling ce
 | 25C: Reconcile final evidence and prepare governed delivery                  | [#275](https://github.com/kburson/ai-peer-review/issues/275) | 2                       | #272, #273, #274                               |
 
 Verification inspected native parent relationships, forward and reverse dependency sets, full pagination, assignees, project Status/Disposition/Rank, unset Size/Estimate, lifecycle markers and exact source-derived body fragments for all 51 issues. The recorded body hashes identify the observation, not a promise that later refinement will leave issues unchanged.
+
+## Cohort label and requested preparation close
+
+All 51 hydrated stories (#225–#275) carry **`222-hydration`**. The exact [label membership read-back](hydration-label-verification.json) matches the committed task mapping with no extra issues. This changes labels only and does not authorize implementation or advance any story.
+
+The owner then requested completion of documentation-only #222 through the state machine. The normal native transitions **Backlog → Refine → Ready for Planning** succeeded, bootstrapping the missing lifecycle record without historical backfill. This resolved the initial state-navigation obstruction.
+
+The next native `plan 222` transition refused with **`wip-budget-exceeded`** because sibling epic **#214 is in Develop** and occupies parent #141's one active-child slot. #222 is already `docs-only`; that gate does not exempt documentation work. See the [state-machine progress and refusal receipt](222-close-blocker.json). No #214 scope/state change, parent wave enrollment, raw state jump, fabricated Test/Review approval, force-close or source-code change was performed. All 51 implementation stories remain Backlog. The next native Plan edge requires a supported resolution of that admission constraint.

@@ -1,0 +1,123 @@
+{
+  "record_kind": "Documentation-only state-machine closeout progress and current admission refusal",
+  "owner_direction": "Mark all stories created from this spec with a label identifying them as the \"222-hydration\" stories, then finish 222",
+  "issue": 222,
+  "prepared_at": "2026-10-18T17:43:12.303896+00:00",
+  "head_at_request": "56c539588e41f85b869efefc8fccaa2b82f35017",
+  "completed_work": [
+    "Accepted specification issue-222-r13 retained unchanged",
+    "Accepted plan issue-222-plan-r6 retained unchanged",
+    "51 native children hydrated with 103 dependencies, 25 waves and complete-task human limits",
+    "Exact 51-story cohort labeled 222-hydration and read back"
+  ],
+  "close_diagnostic": {
+    "command": "node node_modules/@kburson/ai-task-manager/bin/aitm.mjs close 222 --explain --json",
+    "reproduced": true,
+    "error": "TypeError: action-decision:snapshot.observations[7].identity:duplicate",
+    "throw_site": "scripts/task-tracker/lib/action-decision/contract.mjs:683",
+    "scope": "Read-only readiness diagnostic; no close transaction or lifecycle mutation executed",
+    "installed_aitm_version": "0.1.0"
+  },
+  "provenance_limit": "Native Backlog entry exists but no move-complete sentinel or last-known lifecycle state resolves. No historical state/approval evidence was fabricated.",
+  "governing_close_rule": "Require a Review-state issue, accepted exact-head Test evidence, Review approval provenance, complete pre-close checkboxes, delivery/merge reachability, matching binding and branch, and a clean workspace. Never call gh issue close or raw move-state.mjs.",
+  "next_boundary": "A supported resolution of the parent single-active-child WIP gate is required before the next native Plan edge. No other issue was changed, no code was edited, and native parallel rank-wave authority was not fabricated.",
+  "implementation_started": false,
+  "issue_closed": false,
+  "initial_observation": {
+    "state": "OPEN",
+    "project_status": "Backlog",
+    "native_navigation": {
+      "schema": "aitm.action-explanation/v2",
+      "result": {
+        "issue": 222,
+        "actionId": null,
+        "status": "indeterminate",
+        "blockers": [
+          {
+            "guardId": "action-navigation",
+            "code": "state-unavailable",
+            "args": {
+              "reason": "unknown"
+            },
+            "noAutomaticRemediation": {
+              "reason": "state-investigation-required"
+            }
+          }
+        ],
+        "normalizations": [],
+        "warnings": [],
+        "humanDecision": {
+          "requests": [
+            {
+              "kind": "manual-investigation",
+              "actor": "human-operator",
+              "subject": {
+                "issue": 222,
+                "actionId": null
+              },
+              "args": {
+                "guardId": "action-navigation",
+                "code": "state-unavailable"
+              }
+            }
+          ]
+        }
+      },
+      "guidance": [
+        {
+          "id": "navigation.unresolved",
+          "digest": "sha256:bca397f2045984fddb1e619fb13b3a23df645591855b983739617aaa2a860437",
+          "status": "expanded",
+          "agent": {
+            "instruction": [
+              {
+                "navigation": "unresolved"
+              },
+              {
+                "recommendation": null
+              },
+              {
+                "never": "bypass_guard"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "current_observed_state": "OPEN",
+  "current_observed_project_status": "Ready for Planning",
+  "updated_at": "2026-10-18T17:51:45.234434+00:00",
+  "initial_navigation_resolution": "Normal native Refine bootstrapped the missing last-known state and move-complete sentinel without synthesizing historical transitions.",
+  "completed_transitions": [
+    {
+      "from": "Backlog",
+      "to": "Refine",
+      "verb": "refine",
+      "native_read_back": "8/8 move tail steps verified"
+    },
+    {
+      "from": "Refine",
+      "to": "Ready for Planning",
+      "verb": "refine",
+      "native_read_back": "8/8 move tail steps verified"
+    }
+  ],
+  "current_admission_refusal": {
+    "command": "aitm plan 222",
+    "exit_code": 4,
+    "code": "wip-budget-exceeded",
+    "reason": "wip-budget: #214 already active. Finish the active sibling before pulling another local child.",
+    "blocking_sibling": 214,
+    "blocking_sibling_state": "Develop",
+    "documentation_only_issue_kind": true,
+    "source": "scripts/task-tracker/lib/epic-children-gate.mjs:314"
+  },
+  "kind_record_correction": {
+    "command": "aitm kind 222 docs-only",
+    "reason": "The old literal escaped kind marker was not recognized by the installed parser. The sanctioned kind command now provides a canonical docs-only marker.",
+    "verified_native_parseIssueKind": "docs-only",
+    "plan_retry_after_correction": "Refused exit 4 with the same wip-budget-exceeded blocker for #214."
+  },
+  "parallel_admission_limit": "Native rank-wave enrollment requires genuine parent authority, exact authenticated epic/rank/full-membership approval, distinct child bindings and all lower ranks actually Done. No such authority was invented and parent/other stories were not changed."
+}

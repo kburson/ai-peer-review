@@ -1,0 +1,18 @@
+{
+  "record_kind": "Hydration cohort label read-back",
+  "verified_at": "2026-10-18T17:43:12.302683+00:00",
+  "label": "222-hydration",
+  "repository": "kburson/ai-peer-review",
+  "source_revision": "issue-222-plan-r6",
+  "source_mapping": "backlog-hydration-r6.json",
+  "issue_count": 51,
+  "issues": [
+    225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243,
+    244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262,
+    263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275
+  ],
+  "unexpected_issues": [],
+  "all_label_members_match_source_mapping": true,
+  "implementation_authorized": false,
+  "lifecycle_transitions_performed": false
+}
