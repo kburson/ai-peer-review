@@ -59,6 +59,7 @@ const EXPECTED_STANDALONE_PATH_RULES = Object.freeze({
     'evidence/local-handoff/191/cumulative.json',
     'evidence/local-handoff/191/failed-broad-graph.json',
     'scripts/verify-local-cumulative.mjs',
+    'scripts/analyze-posix-runtime.mjs',
     '.ai-peer-review.json',
     '.ai-peer-review/config.json',
     '.ai-peer-review/skills/peer-review/SKILL.md',

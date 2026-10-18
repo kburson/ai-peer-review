@@ -95,6 +95,7 @@ function validManifest(overrides = {}) {
         'evidence/local-handoff/191/cumulative.json',
         'evidence/local-handoff/191/failed-broad-graph.json',
         'scripts/verify-local-cumulative.mjs',
+        'scripts/analyze-posix-runtime.mjs',
         '.ai-peer-review.json',
         '.ai-peer-review/config.json',
         '.ai-peer-review/skills/peer-review/SKILL.md',
@@ -851,4 +852,10 @@ test('[#212] admits only the two declared platform verification helpers', async 
   await verifyExtraction({ root: '/repo', manifest: validManifest(), runGit: fakeGit({ current: ['LICENSE', ...declared].join('\n') }) });
   for (const foreign of ['scripts/ci/verification-scope-copy.mjs', 'scripts/ci/verify-project-receipts-copy.mjs'])
     await assert.rejects(verifyExtraction({ root: '/repo', manifest: validManifest(), runGit: fakeGit({ current: ['LICENSE', ...declared, foreign].join('\n') }) }), /foreign standalone paths/);
+});
+// @story #141
+test('[#141] admits only the exact POSIX attribution diagnostic', async () => {
+  const declared = 'scripts/analyze-posix-runtime.mjs';
+  await verifyExtraction({ root: '/repo', manifest: validManifest(), runGit: fakeGit({ current: ['LICENSE', declared].join('\n') }) });
+  await assert.rejects(verifyExtraction({ root: '/repo', manifest: validManifest(), runGit: fakeGit({ current: ['LICENSE', 'scripts/analyze-posix-runtime-copy.mjs'].join('\n') }) }), /foreign standalone paths/);
 });
