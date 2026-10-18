@@ -1,0 +1,26 @@
+{
+  "installed_version": "0.1.0",
+  "requested_setting": {
+    "gatePlanRefineWip": false
+  },
+  "actual_plan_result": {
+    "issue": 222,
+    "exit_code": 4,
+    "code": "wip-budget-exceeded",
+    "blocking_sibling": 214
+  },
+  "setting_usage": "The key appears only in configuration defaults, type definitions and allowed-key registration; neither the guard nor admission decision consults it.",
+  "source_sha256": {
+    "scripts/task-tracker/config.mjs": "d8885b66d363938eed8129102c31a69c2e9ed26c06a157c9157862959df7db06",
+    "scripts/task-tracker/lib/refine-exit-wip-budget-guard.mjs": "ffcc2eb7a5ed7218dac3b3384e517b4df81e0d857bda12285965d8caa8b0b461",
+    "scripts/task-tracker/lib/epic-children-gate.mjs": "5b818567107be0a941ae06eb7143784922c36326bf0d4859e2e8858d9011515c"
+  },
+  "source_modified": false,
+  "latest_native_plan_attempt": {
+    "command": "aitm plan 222",
+    "exit": 4,
+    "stdout": "",
+    "stderr": "[task-tracker] WARN: configuration is missing 1 known project field id(s): Blocked By (cfg.fieldBlockedBy). Some board mirrors will be skipped. Re-run `scripts/gh/init-project-config.sh` to discover and persist them.\n\n\u26d4 Refusing to promote #222 to plan: wip-budget-exceeded: wip-budget: #214 already active. Finish the active sibling before pulling another local child.\n   BLOCKED: wip-budget-exceeded: wip-budget: #214 already active. Finish the active sibling before pulling another local child.\n\n",
+    "observed_at": "2026-10-18T19:01:17.700167+00:00"
+  }
+}

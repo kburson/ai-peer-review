@@ -1,0 +1,1000 @@
+{
+  "record_kind": "Owner-directed hydration focus verification",
+  "verified_at": "2026-10-18T19:01:42.898090+00:00",
+  "owner_direction": "relax the wip limit -- lock everything that is not 222-hydration.",
+  "completion_gate": 275,
+  "completion_gate_verified_prerequisite_closure": [
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275
+  ],
+  "cohort": [
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233,
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251,
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269,
+    270,
+    271,
+    272,
+    273,
+    274,
+    275
+  ],
+  "cohort_internal_edges_preserved": true,
+  "cohort_ranks_and_body_hashes_unchanged": true,
+  "cohort_native_estimates_unset": true,
+  "cohort_stories_all_Backlog": true,
+  "implementation_started": false,
+  "administrative_exception": 222,
+  "issue_222_status": "Ready for Planning",
+  "hold_target_count": 39,
+  "native_hold_count": 38,
+  "holds": [
+    {
+      "issue": 29,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Deliver project-local review lifecycle and learning architecture",
+      "status": "Develop",
+      "disposition": "BLOCKED",
+      "labels": [
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 39,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 30,
+      "title": "Phase 1: Artifact lifecycle and review-evidence layout",
+      "status": "Plan",
+      "disposition": "BLOCKED",
+      "labels": [
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 31,
+      "title": "Phase 2: Clone-shared SQLite authority projection",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 30,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 32,
+      "title": "Phase 3: Project-local knowledge retrieval",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 31,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 33,
+      "title": "Phase 4: Defect feedback and governed learning",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 32,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 34,
+      "title": "Phase 5: Provider-comparison experiments",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 32,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 70,
+      "title": "\ud83d\udc1e [BUG] Configure adaptive estimation rubric authority",
+      "status": "Backlog",
+      "disposition": "BLOCKED",
+      "labels": [
+        "bug",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 107,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Ship install-ready JavaScript review workflow and MCP",
+      "status": "Develop",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 109,
+      "title": "\ud83d\udc1e [BUG] Codex headless author sessions omit attributable usage telemetry",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "bug",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 111,
+      "title": "Refactor peer-review collateral linting and formatting coverage",
+      "status": "Backlog",
+      "disposition": "BLOCKED",
+      "labels": [
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 118,
+      "title": "[Task]  Add support for an SAR",
+      "status": "Backlog",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 124,
+      "title": "\ud83d\udc1e [BUG] Codex linked-worktree hook discovery blocks peer-review identity",
+      "status": "Develop",
+      "disposition": "BLOCKED",
+      "labels": [
+        "bug",
+        "222-hydration-hold"
+      ],
+      "native_hold": false,
+      "blocked_by": [
+        {
+          "number": 1847,
+          "repository": {
+            "nameWithOwner": "kburson/ai-task-manager"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 130,
+      "title": "Design shared peer-review policy and primary-workspace configuration inheritance",
+      "status": "Backlog",
+      "disposition": "BLOCKED",
+      "labels": [
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 141,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Protected Storage and Exclusive Ownership",
+      "status": "Develop",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 142,
+      "title": "Genuine Host Epoch and Descendant Termination",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 143,
+      "title": "Binary-Free Package Closure and CI",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 146,
+      "title": "Config v2 and Finite Roster Resolution",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 147,
+      "title": "Read-Only Preview and Atomic Reservation",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 148,
+      "title": "Headless Identity and Private Role Tools",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 149,
+      "title": "Role Scopes, Context, and Submission Seals",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 150,
+      "title": "Stages, Rounds, Findings and Finite Fallback",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 151,
+      "title": "#30 Shared Evidence and Portable Lineage",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 152,
+      "title": "Existing #109 Attempt and Controller Metrics",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 153,
+      "title": "Existing #109 Aggregates, Chains and Amendments",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 154,
+      "title": "Out-of-Band Monitoring and Observer Admission",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 155,
+      "title": "Identical CLI/MCP and Small Installed Skill",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 156,
+      "title": "Replay-Safe Recovery and Project Cleanup",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 157,
+      "title": "Installed Release Conformance and Migration",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 197,
+      "title": "Export exact-subject review publication envelope and read-only verifier for AITM integration",
+      "status": "Backlog",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 210,
+      "title": "\ud83d\udc1e [BUG] Explicit recovery is unavailable for orphaned portable provider resource generations",
+      "status": "Backlog",
+      "disposition": "BLOCKED",
+      "labels": [
+        "bug",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 212,
+      "title": "Explicit Linux/macOS CI and receipt prerequisite for #190",
+      "status": "Test",
+      "disposition": "BLOCKED",
+      "labels": [
+        "infrastructure",
+        "test",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 213,
+      "title": "Windows support for trusted local review handoffs \u2014 deferred",
+      "status": "Backlog",
+      "disposition": "BLOCKED",
+      "labels": [
+        "enhancement",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 214,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Admit journal review proofs for POSIX source-class approval",
+      "status": "Develop",
+      "disposition": "BLOCKED",
+      "labels": [
+        "epic",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 217,
+      "title": "[B] Verify completed private journals read-only",
+      "status": "Plan",
+      "disposition": "BLOCKED",
+      "labels": [
+        "security",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 216,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 218,
+      "title": "[C] Publish immutable portable approval evidence",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "security",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 217,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 219,
+      "title": "[D] Accept versioned registration approval proofs",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "security",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 218,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 220,
+      "title": "[E] Accept versioned finite-class approval proofs",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "security",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 219,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 221,
+      "title": "[G] Prove one genuine current Linux approval end-to-end",
+      "status": "Ready for Planning",
+      "disposition": "BLOCKED",
+      "labels": [
+        "test",
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 220,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        },
+        {
+          "number": 215,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    },
+    {
+      "issue": 223,
+      "title": "Defer all Windows CI allocations across branches and diagnostics",
+      "status": "Backlog",
+      "disposition": "BLOCKED",
+      "labels": [
+        "222-hydration-hold"
+      ],
+      "native_hold": true,
+      "blocked_by": [
+        {
+          "number": 275,
+          "repository": {
+            "nameWithOwner": "kburson/ai-peer-review"
+          }
+        }
+      ]
+    }
+  ],
+  "verification_gaps": [
+    "#124: no native #275 edge"
+  ],
+  "accepted_spec_and_plan_hashes_unchanged": true,
+  "hold_labels_verified": 39,
+  "cohort_internal_edge_count": 103,
+  "head_at_focus_request": "3d9b3968be3e62e6e83cc64774a7e854d10c6368",
+  "prior_partial_pass": {
+    "verified_at": "2026-10-18T18:26:37.921060+00:00",
+    "native_hold_count": 21,
+    "native_holds_pending": [
+      70,
+      107,
+      109,
+      124,
+      142,
+      146,
+      157,
+      197,
+      210,
+      212,
+      213,
+      214,
+      217,
+      218,
+      219,
+      220,
+      221,
+      223
+    ],
+    "quota": {
+      "resource": "graphql",
+      "remaining": 0,
+      "reset_at": "2026-10-18T18:43:31Z"
+    }
+  },
+  "native_holds_pending": [
+    124
+  ],
+  "wip_setting": {
+    "gatePlanRefineWip": false,
+    "effective": false,
+    "reason": "Installed guard ignores configured switch; native Plan 222 still refused wip-budget-exceeded for sibling 214."
+  },
+  "wip_plan_retry": {
+    "command": "aitm plan 222",
+    "exit": 4,
+    "stdout": "",
+    "stderr": "[task-tracker] WARN: configuration is missing 1 known project field id(s): Blocked By (cfg.fieldBlockedBy). Some board mirrors will be skipped. Re-run `scripts/gh/init-project-config.sh` to discover and persist them.\n\n\u26d4 Refusing to promote #222 to plan: wip-budget-exceeded: wip-budget: #214 already active. Finish the active sibling before pulling another local child.\n   BLOCKED: wip-budget-exceeded: wip-budget: #214 already active. Finish the active sibling before pulling another local child.\n\n",
+    "observed_at": "2026-10-18T19:01:17.700167+00:00"
+  },
+  "timer_cleanup": {
+    "issue_157": "Paused successfully after API reset; native result retained Unknown active time and recorded wall interval.",
+    "all_recovery_bindings": "Successful administrative bindings were paused after their hold operations.",
+    "issue_222": "Rebound for audit publication and commit attribution; pause after checkpoint."
+  },
+  "issue_124_limits": {
+    "hold_label": "222-hydration-hold verified",
+    "existing_dependency": "kburson/ai-task-manager#1847 preserved",
+    "bind_refusal": "Existing occupancy claim retained; no takeover attempted.",
+    "administrative_block_retry": "Registered aitm block command refused native-dependencies:blockedBy-repository without changing the existing dependency."
+  },
+  "issue_217_recovery": "Registered administrative block command succeeded from recorded checkout without binding to or releasing the existing occupancy claim.",
+  "policy": "Native #275 edges are owner scheduling holds, not technical prerequisites. Future outside-cohort issues inherit this owner hold. Cohort disposition tasks may remove this specific edge for accepted administrative supersession/reconciliation, not old-scope implementation.",
+  "publication": {
+    "owned_comment_key": "hydration-focus-hold",
+    "owned_comment_id": "IC_kwDOUTbzDs8AAAABdMKqWA",
+    "owned_comment_published": true,
+    "commit_provenance": "Canonical issue 222 commit trace identifies the collateral commit; no acceptance or lifecycle approval is implied."
+  }
+}

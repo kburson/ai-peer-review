@@ -118,3 +118,15 @@ All 51 hydrated stories (#225–#275) carry **`222-hydration`**. The exact [labe
 The owner then requested completion of documentation-only #222 through the state machine. The normal native transitions **Backlog → Refine → Ready for Planning** succeeded, bootstrapping the missing lifecycle record without historical backfill. This resolved the initial state-navigation obstruction.
 
 The next native `plan 222` transition refused with **`wip-budget-exceeded`** because sibling epic **#214 is in Develop** and occupies parent #141's one active-child slot. #222 is already `docs-only`; that gate does not exempt documentation work. See the [state-machine progress and refusal receipt](222-close-blocker.json). No #214 scope/state change, parent wave enrollment, raw state jump, fabricated Test/Review approval, force-close or source-code change was performed. All 51 implementation stories remain Backlog. The next native Plan edge requires a supported resolution of that admission constraint.
+
+## Owner-directed hydration focus
+
+The owner requested relaxed WIP admission and a hold on all work outside `222-hydration`. [The scheduling policy](focus-hold-policy.md) reserves execution to the 51-story cohort, with documentation-only #222 allowed to finish closeout. Existing implementation approval gates remain in force. Native holds use final reconciliation #275, whose dependency closure covers every cohort story; assigned cohort disposition tasks may remove this specific edge for accepted administrative supersession/reconciliation without authorizing old-scope implementation.
+
+After API recovery, the [fresh verification receipt](focus-hold-verification.json) confirms hold labels on all 39 other open issues, **38 native #275 hold edges**, preserved original blockers and unchanged lifecycle states. All 51 cohort stories remain Backlog, with their issue-body hashes, Rank values and all 103 prerequisite links preserved; native Size/Estimate remain unset. Accepted specification r13 and plan r6 bytes are unchanged. No implementation or lifecycle advancement occurred.
+
+**#124 remains the single native-edge gap.** Its owner hold label and existing cross-repository dependency on `kburson/ai-task-manager#1847` are preserved. AITM's registered administrative block command refuses that dependency representation. Its existing occupancy claim was not taken over. #217's administrative block succeeded without binding to or releasing its existing occupancy claim.
+
+The sanctioned project setting `gatePlanRefineWip=false` is saved, but [the installed guard ignores it](focus-wip-refusal.json): a fresh native `plan 222` attempt still refused for sibling #214. #222 is still Ready for Planning, not Done. Native #157 pause succeeded after API reset, retaining Unknown accounting; successful recovery administration sessions were paused. No guard bypass, fabricated approval, direct state jump or installed-source patch was used.
+
+The canonical #222 owned focus-hold comment and commit trace provide publication and commit provenance. The receipt also preserves the initial partial pass and API-quota interruption.
