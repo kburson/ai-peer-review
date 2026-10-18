@@ -117,6 +117,7 @@ function value(r, n, platform, seen = new Set()) {
     const d = v.defs[0];
     if (
       d.node.type !== 'VariableDeclarator' ||
+      d.node.id.type !== 'Identifier' ||
       d.parent?.kind !== 'const' ||
       v.references.some((ref) => ref.isWrite() && !ref.init)
     )
@@ -139,14 +140,10 @@ function value(r, n, platform, seen = new Set()) {
   if (n.type === 'LogicalExpression') {
     const a = value(r, n.left, platform, seen),
       b = value(r, n.right, platform, seen);
-    if (n.operator === '&&') {
-      if (a === false || b === false) return false;
-      if (a !== undefined && b !== undefined) return a && b;
-    }
-    if (n.operator === '||') {
-      if (a === true || b === true) return true;
-      if (a !== undefined && b !== undefined) return a || b;
-    }
+    // Logical expressions return operands, and an unknown left operand cannot
+    // be replaced by a known right operand without losing its possible value.
+    if (a !== undefined && n.operator === '&&') return a ? b : a;
+    if (a !== undefined && n.operator === '||') return a ? a : b;
   }
   return undefined;
 }

@@ -14,6 +14,53 @@ const cases = [
   ['shared POSIX guard', "if(process.platform!=='win32'){target();}", ['linux', 'darwin']],
   ['shared call', 'target();', all],
   [
+    'destructured platform character remains shared',
+    "const [kind]=process.platform;if(kind!=='linux'&&kind!=='darwin'){target();}",
+    all,
+  ],
+  [
+    'known falsy logical operand retains its value',
+    "const x=0;if(process.platform==='win32'||((x&&false)!==false)){target();}",
+    all,
+  ],
+  [
+    'exported unknown logical operand stays shared',
+    "export function run(x){if(process.platform==='win32'||((x&&false)!==false)){target();}}",
+    all,
+  ],
+
+  [
+    'destructured binding stays unresolved',
+    "const {kind='win32'}=process.platform;if(kind==='win32'){target();}",
+    all,
+  ],
+  [
+    'array destructuring stays unresolved',
+    "const [kind='win32']=[];if(kind==='win32'){target();}",
+    all,
+  ],
+  [
+    'logical and preserves falsy operand',
+    "if((process.platform==='win32'&&false)===false){target();}",
+    all,
+  ],
+  [
+    'logical or preserves truthy operand',
+    "if((process.platform!=='win32'||'win32')==='win32'){target();}",
+    ['win32'],
+  ],
+  [
+    'logical and unknown operand cannot force false value',
+    "if((unknown&&false)===false||process.platform==='win32'){target();}",
+    all,
+  ],
+  [
+    'logical or unknown operand cannot force true value',
+    "if((unknown||true)===true||process.platform==='win32'){target();}",
+    all,
+  ],
+
+  [
     'parameter is not platform proof',
     "export function run(kind){if(kind==='win32'){target();}}",
     all,
