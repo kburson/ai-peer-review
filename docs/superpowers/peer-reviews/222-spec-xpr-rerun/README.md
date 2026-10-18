@@ -1,7 +1,22 @@
 # Issue #222 specification XPR rerun
 
-Owner-requested rerun of revision 9 with `gpt-6-astra` / `high` as author and `claude-opus-5-5` / `high` as reviewer. Review has not yet completed. Prior XPR acceptance applies only to revision 6.
+Native XPR `review-d81db636f6f2a77ca13e33cef6489934` completed with **accepted-uncommitted**, basis **reviewer-consensus**. `gpt-6-astra` / `high` authored revisions 10 and 11; `claude-opus-5-5` / `high` reviewed three rounds and accepted revision 11 with no remaining findings. The final acceptance digest is `ffbb5026d7796075bfa8112376fc2af07acec87f68768633fd6e674884323869`. Owner adoption remains pending; no implementation or fresh plan was authorized.
 
-[Pre-review FUR diff](spec-r6-to-r9.diff) records the revision-6-to-revision-9 changes, including the SHA and revision-ID metadata. Intermediate conversational drafts 7 and 8 were not committed review turns; no retrospective turn records or acceptances are claimed. The new runtime requirements are proposed specification changes, not functionality already implemented by the installed review tooling.
+- [Native acceptance manifest](../spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-review-manifest.md).
+- [Final reviewer acceptance](../spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-reviewer-response-3.md).
+- [External verification receipt](review-verification.json): native terminal status, accepted bytes, all response/snapshot hashes, distinct participant fingerprints, and forward/reverse patch checks.
+- [Round-1 archival record](turn-1-archive.json) and [r9-to-r10 diff](spec-r9-to-r10.diff).
+- [Round-2 archival record](turn-2-archive.json) and [r10-to-r11 diff](spec-r10-to-r11.diff).
+- [Pre-review r6-to-r9 boundary diff](spec-r6-to-r9.diff). Intermediate conversational drafts 7 and 8 were not committed review turns; no retrospective records or acceptances are claimed.
 
-The earlier [XPR record](../222-spec-xpr/README.md) and its native collateral remain unchanged except for its index clarifying the current revision. Native rerun collateral and the final verification receipt will be indexed here after the actual review.
+## Reconstruction
+
+The current FUR is revision 11. In a separate temporary directory, copy it as `FUR.md`, then apply `git apply --unidiff-zero --reverse <absolute-path-to-spec-r10-to-r11.diff>` and then the r9-to-r10 diff with the same flags. Each step must match the predecessor digest in the receipt. These checks passed without accessing original revision commits or independent archived FUR copies. The pre-review boundary diff uses the repository-relative specification path and also reverses revision 9 to the historical revision-6 bytes. Preserve the original FUR during reconstruction.
+
+## Provenance and publication limits
+
+This review used the existing native no-commit v1 contract. It did not implement the prospective response-v2, manifest or publication-window contracts. Native responses and manifest are retained byte-for-byte. The native format has no `reviewer_commit` metadata or final author-response-3; reviewer responses disclose independent checkout-HEAD observation as unavailable. Do not backfill these fields or manufacture a closing participant response. Both participant model/session evidence records are declared; authority assurance is unavailable.
+
+The parent verified the accepted FUR and archived the actual r9-to-r10 and r10-to-r11 changes in dedicated external revision commits after the native review completed. The turn archival records are clearly labelled external derivatives, not invented native per-cycle manifests. Git publication does not change the native `accepted-uncommitted` label. No per-revision commit SHA index or separate baseline is required to reconstruct the FUR.
+
+The native acceptance time is retained in the receipt. The current v1 record does not independently capture acceptance-transition HEAD; its startup/artifact commit and the parent's later observed pre-publication HEAD are retained with their actual meanings. Missing provenance remains missing. Prior SAR and revision-6 XPR evidence remain historical.

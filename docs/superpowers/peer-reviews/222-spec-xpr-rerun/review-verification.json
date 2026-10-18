@@ -1,0 +1,87 @@
+{
+  "record_kind": "External post-review verification and archival receipt; not a native manifest or participant decision",
+  "review_id": "review-d81db636f6f2a77ca13e33cef6489934",
+  "issue": 222,
+  "native_status": "accepted-uncommitted",
+  "acceptance_basis": "reviewer-consensus",
+  "accepted_revision": "issue-222-r11",
+  "accepted_digest": "sha256:ffbb5026d7796075bfa8112376fc2af07acec87f68768633fd6e674884323869",
+  "native_manifest": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-review-manifest.md",
+  "native_manifest_digest": "sha256:1edf3f0648685df97d18d3ebf6d98c5a1a657406e614734ac54bba18f34b05cf",
+  "acceptance_recorded_at": "2026-10-18T14:52:22.049Z",
+  "native_startup_commit": "d213adfdc9e1b3f8f35c1dd018ba017bf969503e",
+  "head_observed_after_review_before_publication": "d213adfdc9e1b3f8f35c1dd018ba017bf969503e",
+  "acceptance_head_observed_at_transition": "unavailable in current v1; not retrospectively fabricated",
+  "checks": {
+    "native_terminal_status": true,
+    "last_reviewer_accepted": true,
+    "all_response_hashes_match": true,
+    "all_artifact_snapshot_hashes_match": true,
+    "distinct_participant_fingerprints": true,
+    "final_spec_equals_accepted_snapshot": true,
+    "reverse_chain_without_git_objects_or_archived_snapshots": true
+  },
+  "patches": [
+    {
+      "predecessor_revision": "issue-222-r9",
+      "result_revision": "issue-222-r10",
+      "predecessor_digest": "sha256:51647cfa5aca488971682b37df073c5d5ecfbb25e5c608fe7253df7ec0b1e259",
+      "result_digest": "sha256:f2edf6b05a941ae6287d32be7a5e822439fccfc7d8ceb83476d1f3f89c84fc44",
+      "path": "docs/superpowers/peer-reviews/222-spec-xpr-rerun/spec-r9-to-r10.diff",
+      "digest": "sha256:14272a63cd3773c6f7f3d1862f5f99e3d5f24988cec7c229cf4a179e1a0950a3",
+      "format": "Git full-index binary-capable patch, zero context; apply with git apply --unidiff-zero",
+      "forward_and_reverse_verified": true
+    },
+    {
+      "predecessor_revision": "issue-222-r10",
+      "result_revision": "issue-222-r11",
+      "predecessor_digest": "sha256:f2edf6b05a941ae6287d32be7a5e822439fccfc7d8ceb83476d1f3f89c84fc44",
+      "result_digest": "sha256:ffbb5026d7796075bfa8112376fc2af07acec87f68768633fd6e674884323869",
+      "path": "docs/superpowers/peer-reviews/222-spec-xpr-rerun/spec-r10-to-r11.diff",
+      "digest": "sha256:d5e6dcbe07f49fee029b01710d38b79ebca64b16f4bbc2aa4dd1c609972f4675",
+      "format": "Git full-index binary-capable patch, zero context; apply with git apply --unidiff-zero",
+      "forward_and_reverse_verified": true
+    }
+  ],
+  "native_limitations": [
+    "Response-v1 has no reviewer_commit field; reviewer reports unavailable independent checkout observation in prose.",
+    "Native no-commit mode has no final author-response-3 or per-cycle manifest; do not fabricate them.",
+    "External dedicated revision commits and this receipt do not alter native accepted-uncommitted/no-commit labels.",
+    "New prospective response-v2, manifest and lifecycle contracts are not implemented by this review."
+  ],
+  "owner_adoption": "pending",
+  "files": [
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-author-response-1.md",
+      "digest": "sha256:412236b12b2ce45f3c95eae303da0ed2dc7669425b6229a99791ce978a503d16"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-author-response-2.md",
+      "digest": "sha256:d608fefa84ae26143f6ddf801423df1eade94a3d2a6b836cf1c362211b55a8fc"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-author-startup.md",
+      "digest": "sha256:fffc299a489895e8fd2e0d9105e516834efced09489476026ac4963a51848492"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-review-manifest.md",
+      "digest": "sha256:1edf3f0648685df97d18d3ebf6d98c5a1a657406e614734ac54bba18f34b05cf"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-reviewer-invitation.md",
+      "digest": "sha256:be7f9a4a71f7dec2443d34bac9dadf7c59d13e476e76449f092b4c9197ee8aab"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-reviewer-response-1.md",
+      "digest": "sha256:f1cc771d9d542041cbe08ecc75364ce62225ef00ce0875e0087b0fd1bf35cee9"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-reviewer-response-2.md",
+      "digest": "sha256:21a085ac9ff9bef821c189b323ea3a5cac80ec03f2112eda2ea95147ea73517f"
+    },
+    {
+      "path": "docs/superpowers/peer-reviews/spec/222-rerun-r9/spec/2026-10-18-2026-10-18-222-review-journal-refactoring-design-review-d81db636f6f2a77ca13e33cef6489934/review-d81db636f6f2a77ca13e33cef6489934-reviewer-response-3.md",
+      "digest": "sha256:9bcf0dae6bee57bdbdb807b35c5c7e86347a10795b6f4feb3838cc28f71d837e"
+    }
+  ]
+}
