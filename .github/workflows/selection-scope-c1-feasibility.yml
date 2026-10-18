@@ -23,7 +23,7 @@ jobs:
       max-parallel: 4
       matrix:
         node: ['24', '26']
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
     env:
       APR_SKIP_NATIVE_BROKER_TESTS: '1'
     steps:

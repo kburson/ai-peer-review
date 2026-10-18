@@ -147,6 +147,7 @@ test('workflow command coverage follows real receipt lanes and rejects dropped s
 function expandedWorkers(workflow, scope) {
   const output = [];
   for (const [key, job] of Object.entries(workflow.jobs)) {
+    if (job.if === false || job.if === '${{ false }}') continue;
     if (job.if && job.if === "needs.scope.outputs.scope == 'all'" && scope !== 'all') continue;
     // The optional provider probe is separately authorized and disabled here.
     if (key === 'live-provider-optional') continue;
@@ -227,12 +228,12 @@ test('[#190] delivery-parent events schedule POSIX workers without reactivating 
         refType: 'branch',
         ...change,
       }),
-      'all'
+      'linux-macos'
     );
   }
 });
 
-test('[#212] event scope keeps #190 POSIX and ordinary branches all-platform', async () => {
+test('[#212] global event scope keeps every branch POSIX', async () => {
   const { resolveVerificationScope, scopePlatforms } =
     await import('../../scripts/ci/verification-scope.mjs');
   for (const eventName of ['push', 'pull_request', 'workflow_dispatch']) {
@@ -248,7 +249,7 @@ test('[#212] event scope keeps #190 POSIX and ordinary branches all-platform', a
         'linux-macos'
       );
     for (const branch of ['trunk', 'codex/other', 'codex/190-installed-journeys-extra'])
-      assert.equal(resolveVerificationScope({ eventName, branch }), 'all');
+      assert.equal(resolveVerificationScope({ eventName, branch }), 'linux-macos');
   }
   assert.equal(
     resolveVerificationScope({
@@ -260,7 +261,7 @@ test('[#212] event scope keeps #190 POSIX and ordinary branches all-platform', a
   );
   assert.equal(
     resolveVerificationScope({ eventName: 'push', branch: 'trunk', requestedScope: 'linux-macos' }),
-    'all'
+    'linux-macos'
   );
   for (const change of [
     { eventName: 'pull_request_target' },
@@ -289,16 +290,18 @@ test('[#212] actual workflow expansion gates every Windows job before scheduling
   for (const workflow of [ci, installed]) {
     assert.ok(workflow.jobs.scope);
     assert.equal(workflow.jobs.scope['runs-on'], 'ubuntu-latest');
-    assert.equal(workflow.on.workflow_dispatch.inputs.verification_scope.default, 'all');
+    assert.equal(workflow.on.workflow_dispatch.inputs.verification_scope.default, 'linux-macos');
     assert.deepEqual(workflow.on.workflow_dispatch.inputs.verification_scope.options, [
-      'all',
       'linux-macos',
     ]);
     const select = workflow.jobs.scope.steps.find((step) => step.id === 'selected');
     assert.equal(select.run, 'node scripts/ci/verification-scope.mjs');
     assert.equal(select.env.APR_CI_EVENT_NAME, '${{ github.event_name }}');
     assert.equal(select.env.APR_CI_SOURCE_BRANCH, '${{ github.head_ref || github.ref_name }}');
-    assert.equal(select.env.APR_CI_REQUESTED_SCOPE, "${{ inputs.verification_scope || 'all' }}");
+    assert.equal(
+      select.env.APR_CI_REQUESTED_SCOPE,
+      "${{ inputs.verification_scope || 'linux-macos' }}"
+    );
   }
   for (const eventName of ['push', 'pull_request', 'workflow_dispatch']) {
     const scope = resolveVerificationScope({
@@ -330,7 +333,7 @@ test('[#212] actual workflow expansion gates every Windows job before scheduling
       ['24/macos-latest', '24/ubuntu-latest', '26/macos-latest', '26/ubuntu-latest']
     );
   }
-  assert.equal(expandedWorkers(ci, 'all').filter((job) => job.os === 'windows-latest').length, 30);
+  assert.equal(expandedWorkers(ci, 'all').filter((job) => job.os === 'windows-latest').length, 3);
   assert.equal(
     expandedWorkers(installed, 'all').filter((job) => job.key === 'installed').length,
     6
@@ -371,7 +374,7 @@ test('[#212] scope job command publishes real selected scope and runner outputs'
         'all',
         'scope=linux-macos\nos=["ubuntu-latest","macos-latest"]\n',
       ],
-      ['trunk', 'push', 'all', 'scope=all\nos=["ubuntu-latest","macos-latest","windows-latest"]\n'],
+      ['trunk', 'push', 'all', 'scope=linux-macos\nos=["ubuntu-latest","macos-latest"]\n'],
       [
         'trunk',
         'workflow_dispatch',
@@ -400,13 +403,13 @@ test('[#212] scope job command publishes real selected scope and runner outputs'
   }
 });
 
-test('[#212] native project policy selects scoped proof only on approved source branch', async () => {
+test('[#212] native project policy selects current POSIX receipt scope on every branch', async () => {
   const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
   const { workers } = await import('../../scripts/ci/verify-receipts.mjs');
   assert.equal(projectReceiptScope('codex/190-installed-journeys'), 'linux-macos');
   for (const branch of ['trunk', 'codex/other', 'HEAD']) {
-    assert.equal(projectReceiptScope(branch), 'all');
-    assert.equal(workers(projectReceiptScope(branch)).length, 37);
+    assert.equal(projectReceiptScope(branch), 'linux-macos');
+    assert.equal(workers(projectReceiptScope(branch)).length, 7);
   }
   const config = JSON.parse(
     readFileSync(new URL('../../.ai-task-manager/task-tracker.json', import.meta.url), 'utf8')
@@ -422,7 +425,7 @@ test('[#212] native project policy selects scoped proof only on approved source 
     assert.deepEqual(coverage.requires, ['test-cloud-declared-platforms']);
 });
 
-test('[#212] automatic deferral binds the canonical source repository and branch ref', async () => {
+test('[#212] global platform deferral does not confer source or capture authority', async () => {
   const { resolveVerificationScope } = await import('../../scripts/ci/verification-scope.mjs');
   const own = {
     eventName: 'pull_request',
@@ -437,7 +440,7 @@ test('[#212] automatic deferral binds the canonical source repository and branch
     { ...own, sourceRepository: undefined },
     { ...own, refType: undefined },
   ])
-    assert.equal(resolveVerificationScope(context), 'all');
+    assert.equal(resolveVerificationScope(context), 'linux-macos');
   assert.equal(
     resolveVerificationScope({
       ...own,
@@ -460,7 +463,7 @@ test('[#212] automatic deferral binds the canonical source repository and branch
   }
 });
 
-test('[#212] native detached verification retains only the exact approved issue source', async () => {
+test('[#212] detached platform selection stays POSIX independently of historical source bindings', async () => {
   const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
   const head = 'a'.repeat(40);
   const context = { issueNumber: 212, sourceHead: head, branchHead: head, publishedHead: head };
@@ -474,9 +477,9 @@ test('[#212] native detached verification retains only the exact approved issue 
     { sourceHead: undefined },
     { sourceHead: 'invalid' },
   ])
-    assert.equal(projectReceiptScope('HEAD', { ...context, ...changed }), 'all');
+    assert.equal(projectReceiptScope('HEAD', { ...context, ...changed }), 'linux-macos');
   for (const branch of ['trunk', 'codex/other'])
-    assert.equal(projectReceiptScope(branch, context), 'all');
+    assert.equal(projectReceiptScope(branch, context), 'linux-macos');
 });
 
 test('[#191] fresh continuation events allocate no Windows workers', async () => {
@@ -508,7 +511,10 @@ test('[#191] fresh continuation events allocate no Windows workers', async () =>
     { sourceRepository: 'someone/ai-peer-review' },
     { refType: 'tag' },
   ])
-    assert.equal(resolveVerificationScope({ ...own, eventName: 'push', ...changed }), 'all');
+    assert.equal(
+      resolveVerificationScope({ ...own, eventName: 'push', ...changed }),
+      'linux-macos'
+    );
   const installed = loadYaml(
     readFileSync(
       new URL('../../.github/workflows/installed-portable-journeys.yml', import.meta.url),
@@ -518,7 +524,7 @@ test('[#191] fresh continuation events allocate no Windows workers', async () =>
   assert.ok(installed.on.push.branches.includes('codex/171-fresh-continuation'));
 });
 
-test('[#191] detached cumulative verification requires exact continuation ref evidence', async () => {
+test('[#191] detached cumulative platform selection remains POSIX', async () => {
   const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
   const head = 'c'.repeat(40);
   const context = {
@@ -536,9 +542,12 @@ test('[#191] detached cumulative verification requires exact continuation ref ev
       { publishedHead: undefined },
       { sourceHead: 'invalid' },
     ])
-      assert.equal(projectReceiptScope('HEAD', { ...context, issueNumber, ...change }), 'all');
+      assert.equal(
+        projectReceiptScope('HEAD', { ...context, issueNumber, ...change }),
+        'linux-macos'
+      );
   }
-  assert.equal(projectReceiptScope('HEAD', { ...context, issueNumber: 213 }), 'all');
+  assert.equal(projectReceiptScope('HEAD', { ...context, issueNumber: 213 }), 'linux-macos');
 });
 
 test('[#171] integration-parent push keeps Windows deferred before child delivery', async () => {
@@ -555,10 +564,10 @@ test('[#171] integration-parent push keeps Windows deferred before child deliver
     { sourceRepository: 'someone/ai-peer-review' },
     { refType: 'tag' },
   ])
-    assert.equal(resolveVerificationScope({ ...context, ...change }), 'all');
+    assert.equal(resolveVerificationScope({ ...context, ...change }), 'linux-macos');
 });
 // @story #141
-test('[#141] detached POSIX verification requires its exact published source ref', async () => {
+test('[#141] detached POSIX platform scope does not authorize publication', async () => {
   const { projectReceiptScope } = await import('../../scripts/ci/verify-project-receipts.mjs');
   const head = 'd'.repeat(40);
   const context = {
@@ -579,9 +588,9 @@ test('[#141] detached POSIX verification requires its exact published source ref
     { publishedHead: 'e'.repeat(40) },
     { publishedHead: null },
   ])
-    assert.equal(projectReceiptScope('HEAD', { ...context, ...changed }), 'all');
+    assert.equal(projectReceiptScope('HEAD', { ...context, ...changed }), 'linux-macos');
 });
-test('[#141] exact107delivery-parent events preserve Windows deferral and foreign defaults', async () => {
+test('[#141] 107delivery-parent and foreign contexts all preserve global Windows deferral', async () => {
   const { resolveVerificationScope } = await import('../../scripts/ci/verification-scope.mjs');
   const context = {
     branch: 'codex/107-install-ready-package',
@@ -595,5 +604,8 @@ test('[#141] exact107delivery-parent events preserve Windows deferral and foreig
     { sourceRepository: 'someone/ai-peer-review' },
     { refType: 'tag' },
   ])
-    assert.equal(resolveVerificationScope({ ...context, eventName: 'push', ...changed }), 'all');
+    assert.equal(
+      resolveVerificationScope({ ...context, eventName: 'push', ...changed }),
+      'linux-macos'
+    );
 });

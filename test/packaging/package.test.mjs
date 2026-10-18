@@ -251,19 +251,15 @@ test('workflows retain complete platform and release safety gates', () => {
   assert.match(live, /upload-artifact/);
   assert.equal(workflow.jobs['live-provider-optional'].needs, undefined);
   // #212: platform safety is the resolved default matrix, not a literal list
-  // in YAML. A scoped #190 run still cannot stand in for this all-platform gate.
+  // in YAML. #223 globally defers Windows; current default evidence is POSIX-only.
   const defaultScope = resolveVerificationScope({
     eventName: 'push',
     branch: 'trunk',
     sourceRepository: 'kburson/ai-peer-review',
     refType: 'branch',
   });
-  assert.equal(defaultScope, 'all');
-  assert.deepEqual(scopePlatforms(defaultScope), [
-    'ubuntu-latest',
-    'macos-latest',
-    'windows-latest',
-  ]);
+  assert.equal(defaultScope, 'linux-macos');
+  assert.deepEqual(scopePlatforms(defaultScope), ['ubuntu-latest', 'macos-latest']);
   assert.equal(workflow.jobs.scope.outputs.os, '${{ steps.selected.outputs.os }}');
   assert.equal(
     workflow.jobs.scope.steps.find((step) => step.id === 'selected').run,

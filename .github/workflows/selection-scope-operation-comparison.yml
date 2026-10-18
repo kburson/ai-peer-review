@@ -77,7 +77,7 @@ jobs:
           retention-days: 30
 
   primary-operation-diagnostic:
-    if: ${{ inputs.primary_operation_diagnostic == true }}
+    if: ${{ false }} # Windows CI deferred under #223.
     name: Unverified scope diagnostic / Windows / Node ${{ inputs.diagnostic_node }}
     runs-on: windows-latest
     timeout-minutes: 15

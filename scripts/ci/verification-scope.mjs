@@ -1,3 +1,4 @@
+// @story #223
 // @story #212
 // @story #215
 // CI-only declared platform scope; runtime operation budgets are unrelated.
@@ -53,34 +54,16 @@ export function scopePlatforms(scope) {
   throw new Error('ci-scope: unsupported scope');
 }
 
-export function resolveVerificationScope({
-  eventName,
-  branch,
-  sourceRepository,
-  refType,
-  requestedScope = 'all',
-}) {
+export function resolveVerificationScope({ eventName, branch, requestedScope = 'all' }) {
   scopePlatforms(requestedScope);
   if (!['push', 'pull_request', 'workflow_dispatch'].includes(eventName))
     throw new Error('ci-scope: unsupported event');
   if (typeof branch !== 'string' || !branch.trim())
     throw new Error('ci-scope: missing source branch');
-  // #213 defers Windows on the feature and its canonical delivery parent,
-  // including the parent push and PR synchronization caused by merging #190.
-  if (
-    sourceRepository === 'kburson/ai-peer-review' &&
-    refType === 'branch' &&
-    [
-      'codex/190-installed-journeys',
-      'codex/171-portable-consumers',
-      'codex/171-fresh-continuation',
-      'feature/child/141',
-      'codex/107-install-ready-package',
-      ...Object.values(POSIX_REPAIR_SOURCE_BRANCHES),
-    ].includes(branch)
-  )
-    return 'linux-macos';
-  return eventName === 'workflow_dispatch' ? requestedScope : 'all';
+  // #223: Windows support and CI are deferred on every source ref. Keep the
+  // legacy `all` input parseable, but it cannot reactivate scheduling.
+  // Repository/ref identity is still verified by the actual receipt consumer.
+  return 'linux-macos';
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

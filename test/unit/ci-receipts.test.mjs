@@ -649,10 +649,13 @@ test('[#212] scope proof requires every selected job, lane and fresh artifact', 
   assert.doesNotThrow(() => validateCloudEvidence(skipped));
 });
 
-test('[#212] receipt CLI defaults remain all and scope flags are closed', async () => {
+test('[#212] receipt CLI defaults to POSIX and historical scope flags remain closed', async () => {
   const { parseReceiptArguments } = await import('../../scripts/ci/verify-receipts.mjs');
-  assert.deepEqual(parseReceiptArguments([]), { mode: 'all', scope: 'all' });
-  assert.deepEqual(parseReceiptArguments(['--lane', 'slow']), { mode: 'slow', scope: 'all' });
+  assert.deepEqual(parseReceiptArguments([]), { mode: 'all', scope: 'linux-macos' });
+  assert.deepEqual(parseReceiptArguments(['--lane', 'slow']), {
+    mode: 'slow',
+    scope: 'linux-macos',
+  });
   assert.deepEqual(parseReceiptArguments(['--scope', 'linux-macos', '--lane', 'fast']), {
     mode: 'fast',
     scope: 'linux-macos',

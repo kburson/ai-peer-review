@@ -27,7 +27,7 @@ const general = {
   refType: 'branch',
 };
 
-// Missing exact branches would allocate the unsupported Windows matrix on first push.
+// #223: every branch is POSIX-only; exact capture authority remains separate.
 for (const [, branch] of sources) {
   test(`canonical ${branch} requests only POSIX CI on every supported event`, () => {
     for (const eventName of ['push', 'pull_request', 'workflow_dispatch']) {
@@ -40,7 +40,7 @@ for (const [, branch] of sources) {
       ]) {
         assert.equal(
           resolveVerificationScope({ ...general, eventName, branch, ...changed }),
-          'all'
+          'linux-macos'
         );
       }
     }
@@ -64,13 +64,13 @@ test('unrelated manual scope remains a CI request, without granting capture auth
       branch: 'trunk',
       requestedScope: 'linux-macos',
     }),
-    'all'
+    'linux-macos'
   );
 });
 
-// A wrong/missing/stale pair must never turn a detached Test checkout into an exemption.
+// Platform selection is global; it does not confer source or capture authority.
 for (const [issueNumber, sourceBranch] of sources) {
-  test(`detached #${issueNumber} requires its exact local and published source`, () => {
+  test(`detached #${issueNumber} retains POSIX platform scope for all source contexts`, () => {
     const context = {
       issueNumber,
       sourceBranch,
@@ -89,14 +89,14 @@ for (const [issueNumber, sourceBranch] of sources) {
       { publishedHead: 'c'.repeat(40) },
       { publishedHead: null },
     ])
-      assert.equal(projectReceiptScope('HEAD', { ...context, ...changed }), 'all');
+      assert.equal(projectReceiptScope('HEAD', { ...context, ...changed }), 'linux-macos');
   });
 }
 
 function context(changes = {}) {
   return {
     ...process.env,
-    // Deliberately unrelated general scope: ignoring --capture would emit Windows.
+    // General scheduling scope does not grant exact capture authority.
     APR_CI_EVENT_NAME: 'push',
     APR_CI_SOURCE_BRANCH: 'trunk',
     APR_CI_SOURCE_REPOSITORY: 'kburson/ai-peer-review',

@@ -16,17 +16,17 @@ on:
   workflow_dispatch:
     inputs:
       verification_scope:
-        description: Declared platform scope; approved feature and delivery branches defer Windows
+        description: Windows CI is deferred; current scope is Linux/macOS only
         required: true
-        default: all
+        default: linux-macos
         type: choice
-        options: [all, linux-macos]
+        options: [linux-macos]
 
 permissions:
   contents: read
 
 jobs:
-  # The exact feature and delivery-parent branches carry the Windows deferral under #213.
+  # Windows CI is deferred on every branch under #223; historical receipts remain intact.
   scope:
     name: Verification scope
     runs-on: ubuntu-latest
@@ -45,7 +45,7 @@ jobs:
           APR_CI_SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
           APR_CI_SOURCE_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           APR_CI_REF_TYPE: ${{ github.ref_type }}
-          APR_CI_REQUESTED_SCOPE: ${{ inputs.verification_scope || 'all' }}
+          APR_CI_REQUESTED_SCOPE: ${{ inputs.verification_scope || 'linux-macos' }}
         run: node scripts/ci/verification-scope.mjs
       - name: 'Declare scope: ${{ steps.selected.outputs.scope }}'
         run: node -e "console.log('Verification scope declared.')"

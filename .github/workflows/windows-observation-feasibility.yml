@@ -12,6 +12,7 @@ permissions:
 jobs:
   observation:
     name: Observation / Node ${{ matrix.node }} / ${{ matrix.token }}
+    if: ${{ false }} # Windows CI deferred under #223.
     runs-on: windows-2025
     timeout-minutes: 10
     strategy:

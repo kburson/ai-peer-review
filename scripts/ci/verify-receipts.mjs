@@ -221,7 +221,7 @@ export function validateCloudEvidence({ jobs, artifacts, runAttempt, scope = 'al
 }
 
 export function parseReceiptArguments(args) {
-  const options = { mode: 'all', scope: 'all' };
+  const options = { mode: 'all', scope: 'linux-macos' };
   const seen = new Set();
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i],

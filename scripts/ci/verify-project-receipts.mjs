@@ -1,6 +1,8 @@
 // @story #212
 // @story #215
-// Native project gate: exact approved POSIX refs; all-platform proof elsewhere.
+// Current project verification is Linux/macOS-only under #223.
+// Retain exact historical detached-source bindings; receipt validation still
+// verifies the actual source, run and tested bytes.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
