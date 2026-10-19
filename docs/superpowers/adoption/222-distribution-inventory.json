@@ -1,0 +1,1876 @@
+{
+  "schema": "ai-peer-review.distribution-inventory/v1",
+  "issue": 226,
+  "task": "01B",
+  "inspection_date": "2026-10-19",
+  "authority": {
+    "spec": "docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+    "spec_revision": "issue-222-r13",
+    "accepted_plan": "docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+    "accepted_task": "Task01B",
+    "source_baseline": "095599d8471830dc4ed38859957fc6168a04c106",
+    "supplement_commit": "f7df78d9acfece538262b5c40b6eddf481b5d97a"
+  },
+  "boundary": "Read-only accessible distribution/downstream census; not adoption/removal authority or a claim of complete global installations. No source pack, installation, release, downstream write or live-session inspection.",
+  "remote_ref_observations": [
+    {
+      "repository": "kburson/ai-peer-review",
+      "ref": "refs/heads/trunk",
+      "commit": "7a17a736ddfab84b6a36b9fc3733e293ea3709cd",
+      "package_version": "0.4.0"
+    },
+    {
+      "repository": "kburson/ai-peer-review",
+      "ref": "refs/heads/feature/child/141",
+      "commit": "095599d8471830dc4ed38859957fc6168a04c106",
+      "package_version": "0.4.0"
+    },
+    {
+      "repository": "kburson/ai-peer-review",
+      "ref": "refs/tags/v0.2.2",
+      "tag_object": "c59a7212e646b904ee7673efd77c5777d7e55744",
+      "commit": "f3f2762d0fced569e06edca160c8eddff73d0c40",
+      "package_version": "0.2.2"
+    }
+  ],
+  "remote_ref_freshness": "Read-only same-day git ls-remote/tag-object observations; refs are inspection snapshots, not promises of current deployment. Source manifests are not released artifacts.",
+  "source_pack_policy": {
+    "inspected_files": {
+      "package.json": "19789efe27729a1b676cf89a9f43079efafe7d6e840570e70554d0e890037122",
+      "scripts/pack-runtime.mjs": "68ec4798cfe1be0e730b555a5ad0eb405f59be40b9fa411cbdd9dcdf1a3e8aa1",
+      "scripts/refuse-source-pack.mjs": "96b396277a829f28c1306c924d545e8f59a0ef8665cc03f25e717a3b67907e38",
+      "scripts/verify-extraction.mjs": "cdb9b7fbf138ba0afac656c96091a480af57cc5293313684a4ecceeff31c283f",
+      "scripts/verify-portable-consumers.mjs": "e443fdce450f4e8f4ec40843a499fac571c2c1c7f0f0e4e6227c5090b56c7f46",
+      "src/public-api.mjs": "891f97267ec63ce815e005b47ed94fd65e694107d69b998a7aa054296dfcd44c"
+    },
+    "package_version": "0.4.0",
+    "declared_package_files": [
+      "bin/",
+      "src/",
+      "schemas/",
+      "templates/",
+      "skills/",
+      "provenance/",
+      "native/broker-security/binding.gyp",
+      "native/broker-security/addon.cc",
+      "native/broker-security/posix.cc",
+      "native/broker-security/windows.cc",
+      "scripts/build-broker-security.mjs",
+      "scripts/bootstrap-portable-runtime.mjs",
+      "LICENSE",
+      "NOTICE",
+      "README.md",
+      "docs/releases/",
+      "docs/dependency-audit-mcp.md",
+      "docs/dependency-audit-broker-build.md",
+      "docs/manual-cross-provider-peer-review.md",
+      "docs/claude-launch-api-migration.md",
+      "docs/spdx-policy.md",
+      "docs/installation-runtime.md"
+    ],
+    "actual_pack": "Not run. Current source runtime inventory not manufactured; any future delivery must inspect actual packed bytes under existing source-pack refusal and integrity policy.",
+    "follow_up_owner": "Task19C; Task01 join before affected source retirement"
+  },
+  "distributions": [
+    {
+      "id": "release-0.1.0",
+      "kind": "release",
+      "repository": "kburson/ai-peer-review",
+      "ref": "refs/tags/v0.1.0",
+      "artifact_sha256": "36f4aab8cacd8654ec2736ad54887039ece1ddfa14964c3716dd8e7ef28d406b",
+      "npm_artifact_sha256": "36f4aab8cacd8654ec2736ad54887039ece1ddfa14964c3716dd8e7ef28d406b",
+      "github_asset_url": "https://github.com/kburson/ai-peer-review/releases/download/v0.1.0/ai-peer-review-0.1.0.tgz",
+      "npm_tarball_url": "https://registry.npmjs.org/ai-peer-review/-/ai-peer-review-0.1.0.tgz",
+      "access": "observed-complete-package-file-list",
+      "inspection": "tarfile member enumeration and selected file bytes; npm downloaded bytes compared exactly; no extraction hooks or installation",
+      "package_name": "ai-peer-review",
+      "version": "0.1.0",
+      "package_json_sha256": "7b439f518280429a9495f350bcd0c515cc5b8951c533b6481bd82f7cd09f4cec",
+      "inventory": {
+        "entry_count": 59,
+        "paths_sha256": "c1395f8b66469e68a11c6750e3521c53bae29445e315ea6b19a810f060ff18e8",
+        "paths": [
+          "LICENSE",
+          "NOTICE",
+          "README.md",
+          "bin/peer-review.mjs",
+          "docs/design/2026-09-07-ai-peer-review-extraction-design.md",
+          "docs/spdx-policy.md",
+          "package.json",
+          "provenance/allowed-signers",
+          "provenance/extraction-manifest.json",
+          "provenance/release-manifest.json",
+          "provenance/relicensing-declaration.json",
+          "schemas/cli-result-v1.json",
+          "schemas/config-v1.json",
+          "schemas/event-v1.json",
+          "schemas/grant-challenge-v1.json",
+          "schemas/human-decision-v1.json",
+          "schemas/manifest-v1.json",
+          "schemas/participants-v1.json",
+          "schemas/protocol-v1.json",
+          "schemas/response-v1.json",
+          "scripts/verify-extraction.mjs",
+          "scripts/verify-release.mjs",
+          "skills/peer-review/SKILL.md",
+          "src/authority/canonicalize.mjs",
+          "src/authority/challenge.mjs",
+          "src/authority/verify.mjs",
+          "src/cli/help-data.mjs",
+          "src/cli/parse.mjs",
+          "src/cli/run.mjs",
+          "src/collateral/paths.mjs",
+          "src/collateral/responses.mjs",
+          "src/config/guards.mjs",
+          "src/config/load.mjs",
+          "src/config/setup.mjs",
+          "src/doctor.mjs",
+          "src/errors.mjs",
+          "src/git/repository.mjs",
+          "src/git/transaction.mjs",
+          "src/identity/claude.mjs",
+          "src/identity/codex.mjs",
+          "src/identity/generic.mjs",
+          "src/identity/grok.mjs",
+          "src/identity/registry.mjs",
+          "src/manifest/render.mjs",
+          "src/protocol/events.mjs",
+          "src/protocol/reducer.mjs",
+          "src/protocol/service.mjs",
+          "src/protocol/store.mjs",
+          "src/public-api.mjs",
+          "src/templates/index.mjs",
+          "src/transport/manual.mjs",
+          "src/transport/registry.mjs",
+          "src/transport/resume.mjs",
+          "templates/author-response.md",
+          "templates/author-startup.md",
+          "templates/human-decision.md",
+          "templates/review-manifest.md",
+          "templates/reviewer-invitation.md",
+          "templates/reviewer-response.md"
+        ]
+      },
+      "public_api_sha256": "da8129ee00860c3a91709172c647283f08da73c0dd106e11425ffa095393ce4f",
+      "public_exports": [
+        {
+          "export": "explainError",
+          "from": "./cli/help-data.mjs"
+        },
+        {
+          "export": "statusReview",
+          "from": "./protocol/service.mjs"
+        }
+      ],
+      "selected_files": {
+        "scripts/lib/runtime-review-lineage-proof.mjs": {
+          "present": false
+        },
+        "schemas/runtime-review-lineage-proof-v1.json": {
+          "present": false
+        },
+        "scripts/lib/runtime-review-grammar-v0.4.1.mjs": {
+          "present": false
+        },
+        "scripts/lib/review-grammar-v0.4.1/": {
+          "present": false
+        },
+        "scripts/check-runtime-contract-adoption.mjs": {
+          "present": false
+        },
+        "scripts/lib/runtime-contract-evidence.mjs": {
+          "present": false
+        },
+        "scripts/ci/prepare-contract-adoption.mjs": {
+          "present": false
+        },
+        "schemas/runtime-contract-adoption-v1.json": {
+          "present": false
+        },
+        "schemas/runtime-contract-evidence-approval-v1.json": {
+          "present": false
+        },
+        "src/protocol/process-source-assurance.mjs": {
+          "present": false
+        },
+        "src/protocol/process-identity.mjs": {
+          "present": false
+        },
+        "src/protocol/process-source-contract-files.json": {
+          "present": false
+        },
+        "src/protocol/process-source-contracts.json": {
+          "present": false
+        },
+        "schemas/process-source-class-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-conformance-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-registration-v1.json": {
+          "present": false
+        },
+        "src/manifest/render.mjs": {
+          "present": true,
+          "sha256": "2b6325c772aa9d4ab0a8ce35de7144753df1de40780c2733865a4ae559157e80"
+        },
+        "src/protocol/events.mjs": {
+          "present": true,
+          "sha256": "c2303bb2e7e642b7e01702d183ce03561aaee34f2c6a599a0f628874694c2502"
+        },
+        "src/protocol/compatibility-read.mjs": {
+          "present": false
+        },
+        "src/protocol/format-authority.mjs": {
+          "present": false
+        },
+        "src/protocol/record-lineage.mjs": {
+          "present": false
+        },
+        "src/api/validate.mjs": {
+          "present": false
+        },
+        "runtime-inventory.json": {
+          "present": false
+        }
+      },
+      "provenance_claim": {
+        "version": "0.1.0",
+        "source_commit": "4b3bcd43cba141a611da4a2b861433b915462806",
+        "release_commit": null,
+        "tag": "v0.1.0"
+      },
+      "provenance_discrepancy": false,
+      "provenance_policy": "Embedded claims are retained as claims; actual package version and inspected bytes determine this row. No provenance correction performed."
+    },
+    {
+      "id": "release-0.2.0",
+      "kind": "release",
+      "repository": "kburson/ai-peer-review",
+      "ref": "refs/tags/v0.2.0",
+      "artifact_sha256": "d67b69cc22f18efb08a4014bb40e9981e78e9bd09c706745aae230bdc5e0970f",
+      "npm_artifact_sha256": "d67b69cc22f18efb08a4014bb40e9981e78e9bd09c706745aae230bdc5e0970f",
+      "github_asset_url": "https://github.com/kburson/ai-peer-review/releases/download/v0.2.0/ai-peer-review-0.2.0.tgz",
+      "npm_tarball_url": "https://registry.npmjs.org/ai-peer-review/-/ai-peer-review-0.2.0.tgz",
+      "access": "observed-complete-package-file-list",
+      "inspection": "tarfile member enumeration and selected file bytes; npm downloaded bytes compared exactly; no extraction hooks or installation",
+      "package_name": "ai-peer-review",
+      "version": "0.2.0",
+      "package_json_sha256": "8eb521397bb7df74eee3f5f8c81ea801d0473da1d56a8d3b5316370552ca7b52",
+      "inventory": {
+        "entry_count": 66,
+        "paths_sha256": "906d49069a24bfce6f8173ffc44767e8be1cb0e583bd48d917d6a5359fc6971e",
+        "paths": [
+          "LICENSE",
+          "NOTICE",
+          "README.md",
+          "bin/peer-review-mcp.mjs",
+          "bin/peer-review.mjs",
+          "docs/dependency-audit-mcp.md",
+          "docs/design/2026-09-07-ai-peer-review-extraction-design.md",
+          "docs/spdx-policy.md",
+          "package.json",
+          "provenance/allowed-signers",
+          "provenance/extraction-manifest.json",
+          "provenance/release-manifest.json",
+          "provenance/relicensing-declaration.json",
+          "schemas/cli-result-v1.json",
+          "schemas/config-v1.json",
+          "schemas/event-v1.json",
+          "schemas/grant-challenge-v1.json",
+          "schemas/human-decision-v1.json",
+          "schemas/manifest-v1.json",
+          "schemas/participants-v1.json",
+          "schemas/protocol-v1.json",
+          "schemas/response-v1.json",
+          "scripts/verify-extraction.mjs",
+          "scripts/verify-release.mjs",
+          "skills/peer-review/SKILL.md",
+          "src/authority/canonicalize.mjs",
+          "src/authority/challenge.mjs",
+          "src/authority/verify.mjs",
+          "src/cli/help-data.mjs",
+          "src/cli/parse.mjs",
+          "src/cli/run.mjs",
+          "src/collateral/paths.mjs",
+          "src/collateral/responses.mjs",
+          "src/config/guards.mjs",
+          "src/config/load.mjs",
+          "src/config/setup.mjs",
+          "src/doctor.mjs",
+          "src/errors.mjs",
+          "src/git/repository.mjs",
+          "src/git/transaction.mjs",
+          "src/identity/claude.mjs",
+          "src/identity/codex.mjs",
+          "src/identity/generic.mjs",
+          "src/identity/grok.mjs",
+          "src/identity/registry.mjs",
+          "src/manifest/render.mjs",
+          "src/mcp/server.mjs",
+          "src/mcp/wait.mjs",
+          "src/protocol/events.mjs",
+          "src/protocol/reducer.mjs",
+          "src/protocol/service.mjs",
+          "src/protocol/store.mjs",
+          "src/public-api.mjs",
+          "src/templates/index.mjs",
+          "src/transport/live-wait.mjs",
+          "src/transport/manual.mjs",
+          "src/transport/native-push.mjs",
+          "src/transport/registry.mjs",
+          "src/transport/resident.mjs",
+          "src/transport/resume.mjs",
+          "templates/author-response.md",
+          "templates/author-startup.md",
+          "templates/human-decision.md",
+          "templates/review-manifest.md",
+          "templates/reviewer-invitation.md",
+          "templates/reviewer-response.md"
+        ]
+      },
+      "public_api_sha256": "3457b7441acb60134826cb9ef11edf1ec43041e9876dc020175d567d17da4b82",
+      "public_exports": [
+        {
+          "export": "explainError",
+          "from": "./cli/help-data.mjs"
+        },
+        {
+          "export": "statusReview",
+          "from": "./protocol/service.mjs"
+        },
+        {
+          "export": "refreshResidentLease",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "residentHealth",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "residentLivenessEvent",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "validateResidentLease",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "createNativePushTransport",
+          "from": "./transport/native-push.mjs"
+        },
+        {
+          "export": "negotiateAutomaticRequired",
+          "from": "./transport/registry.mjs"
+        },
+        {
+          "export": "validateAutomaticParticipant",
+          "from": "./transport/registry.mjs"
+        }
+      ],
+      "selected_files": {
+        "scripts/lib/runtime-review-lineage-proof.mjs": {
+          "present": false
+        },
+        "schemas/runtime-review-lineage-proof-v1.json": {
+          "present": false
+        },
+        "scripts/lib/runtime-review-grammar-v0.4.1.mjs": {
+          "present": false
+        },
+        "scripts/lib/review-grammar-v0.4.1/": {
+          "present": false
+        },
+        "scripts/check-runtime-contract-adoption.mjs": {
+          "present": false
+        },
+        "scripts/lib/runtime-contract-evidence.mjs": {
+          "present": false
+        },
+        "scripts/ci/prepare-contract-adoption.mjs": {
+          "present": false
+        },
+        "schemas/runtime-contract-adoption-v1.json": {
+          "present": false
+        },
+        "schemas/runtime-contract-evidence-approval-v1.json": {
+          "present": false
+        },
+        "src/protocol/process-source-assurance.mjs": {
+          "present": false
+        },
+        "src/protocol/process-identity.mjs": {
+          "present": false
+        },
+        "src/protocol/process-source-contract-files.json": {
+          "present": false
+        },
+        "src/protocol/process-source-contracts.json": {
+          "present": false
+        },
+        "schemas/process-source-class-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-conformance-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-registration-v1.json": {
+          "present": false
+        },
+        "src/manifest/render.mjs": {
+          "present": true,
+          "sha256": "2b6325c772aa9d4ab0a8ce35de7144753df1de40780c2733865a4ae559157e80"
+        },
+        "src/protocol/events.mjs": {
+          "present": true,
+          "sha256": "aa1c9c4f9ca0aed5611843cded1ff4158965bff93c908497f433ba3d5d98c98a"
+        },
+        "src/protocol/compatibility-read.mjs": {
+          "present": false
+        },
+        "src/protocol/format-authority.mjs": {
+          "present": false
+        },
+        "src/protocol/record-lineage.mjs": {
+          "present": false
+        },
+        "src/api/validate.mjs": {
+          "present": false
+        },
+        "runtime-inventory.json": {
+          "present": false
+        }
+      },
+      "provenance_claim": {
+        "version": "0.1.0",
+        "source_commit": "4b3bcd43cba141a611da4a2b861433b915462806",
+        "release_commit": "1c86f21a8aacca77dc7ebdc8299606fabfaa7e50",
+        "tag": "v0.1.0"
+      },
+      "provenance_discrepancy": true,
+      "provenance_policy": "Embedded claims are retained as claims; actual package version and inspected bytes determine this row. No provenance correction performed."
+    },
+    {
+      "id": "release-0.2.1",
+      "kind": "release",
+      "repository": "kburson/ai-peer-review",
+      "ref": "refs/tags/v0.2.1",
+      "artifact_sha256": "b2357a02969f5c92ba2830c0d20b93aceeb0a899ee4e970e8b813d6090d828ba",
+      "npm_artifact_sha256": "b2357a02969f5c92ba2830c0d20b93aceeb0a899ee4e970e8b813d6090d828ba",
+      "github_asset_url": "https://github.com/kburson/ai-peer-review/releases/download/v0.2.1/ai-peer-review-0.2.1.tgz",
+      "npm_tarball_url": "https://registry.npmjs.org/ai-peer-review/-/ai-peer-review-0.2.1.tgz",
+      "access": "observed-complete-package-file-list",
+      "inspection": "tarfile member enumeration and selected file bytes; npm downloaded bytes compared exactly; no extraction hooks or installation",
+      "package_name": "ai-peer-review",
+      "version": "0.2.1",
+      "package_json_sha256": "3b036b6f0e4ed42d3dcaf9be8fcb55d6db4228d94802df959c5ccf03a88ae470",
+      "inventory": {
+        "entry_count": 67,
+        "paths_sha256": "488a7a867b81652341d7e736bec82360c549131f6bfd9d76ecf9777692fb5b92",
+        "paths": [
+          "LICENSE",
+          "NOTICE",
+          "README.md",
+          "bin/peer-review-mcp.mjs",
+          "bin/peer-review.mjs",
+          "docs/dependency-audit-mcp.md",
+          "docs/design/2026-09-07-ai-peer-review-extraction-design.md",
+          "docs/manual-cross-provider-peer-review.md",
+          "docs/spdx-policy.md",
+          "package.json",
+          "provenance/allowed-signers",
+          "provenance/extraction-manifest.json",
+          "provenance/release-manifest.json",
+          "provenance/relicensing-declaration.json",
+          "schemas/cli-result-v1.json",
+          "schemas/config-v1.json",
+          "schemas/event-v1.json",
+          "schemas/grant-challenge-v1.json",
+          "schemas/human-decision-v1.json",
+          "schemas/manifest-v1.json",
+          "schemas/participants-v1.json",
+          "schemas/protocol-v1.json",
+          "schemas/response-v1.json",
+          "scripts/verify-extraction.mjs",
+          "scripts/verify-release.mjs",
+          "skills/peer-review/SKILL.md",
+          "src/authority/canonicalize.mjs",
+          "src/authority/challenge.mjs",
+          "src/authority/verify.mjs",
+          "src/cli/help-data.mjs",
+          "src/cli/parse.mjs",
+          "src/cli/run.mjs",
+          "src/collateral/paths.mjs",
+          "src/collateral/responses.mjs",
+          "src/config/guards.mjs",
+          "src/config/load.mjs",
+          "src/config/setup.mjs",
+          "src/doctor.mjs",
+          "src/errors.mjs",
+          "src/git/repository.mjs",
+          "src/git/transaction.mjs",
+          "src/identity/claude.mjs",
+          "src/identity/codex.mjs",
+          "src/identity/generic.mjs",
+          "src/identity/grok.mjs",
+          "src/identity/registry.mjs",
+          "src/manifest/render.mjs",
+          "src/mcp/server.mjs",
+          "src/mcp/wait.mjs",
+          "src/protocol/events.mjs",
+          "src/protocol/reducer.mjs",
+          "src/protocol/service.mjs",
+          "src/protocol/store.mjs",
+          "src/public-api.mjs",
+          "src/templates/index.mjs",
+          "src/transport/live-wait.mjs",
+          "src/transport/manual.mjs",
+          "src/transport/native-push.mjs",
+          "src/transport/registry.mjs",
+          "src/transport/resident.mjs",
+          "src/transport/resume.mjs",
+          "templates/author-response.md",
+          "templates/author-startup.md",
+          "templates/human-decision.md",
+          "templates/review-manifest.md",
+          "templates/reviewer-invitation.md",
+          "templates/reviewer-response.md"
+        ]
+      },
+      "public_api_sha256": "3457b7441acb60134826cb9ef11edf1ec43041e9876dc020175d567d17da4b82",
+      "public_exports": [
+        {
+          "export": "explainError",
+          "from": "./cli/help-data.mjs"
+        },
+        {
+          "export": "statusReview",
+          "from": "./protocol/service.mjs"
+        },
+        {
+          "export": "refreshResidentLease",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "residentHealth",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "residentLivenessEvent",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "validateResidentLease",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "createNativePushTransport",
+          "from": "./transport/native-push.mjs"
+        },
+        {
+          "export": "negotiateAutomaticRequired",
+          "from": "./transport/registry.mjs"
+        },
+        {
+          "export": "validateAutomaticParticipant",
+          "from": "./transport/registry.mjs"
+        }
+      ],
+      "selected_files": {
+        "scripts/lib/runtime-review-lineage-proof.mjs": {
+          "present": false
+        },
+        "schemas/runtime-review-lineage-proof-v1.json": {
+          "present": false
+        },
+        "scripts/lib/runtime-review-grammar-v0.4.1.mjs": {
+          "present": false
+        },
+        "scripts/lib/review-grammar-v0.4.1/": {
+          "present": false
+        },
+        "scripts/check-runtime-contract-adoption.mjs": {
+          "present": false
+        },
+        "scripts/lib/runtime-contract-evidence.mjs": {
+          "present": false
+        },
+        "scripts/ci/prepare-contract-adoption.mjs": {
+          "present": false
+        },
+        "schemas/runtime-contract-adoption-v1.json": {
+          "present": false
+        },
+        "schemas/runtime-contract-evidence-approval-v1.json": {
+          "present": false
+        },
+        "src/protocol/process-source-assurance.mjs": {
+          "present": false
+        },
+        "src/protocol/process-identity.mjs": {
+          "present": false
+        },
+        "src/protocol/process-source-contract-files.json": {
+          "present": false
+        },
+        "src/protocol/process-source-contracts.json": {
+          "present": false
+        },
+        "schemas/process-source-class-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-conformance-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-registration-v1.json": {
+          "present": false
+        },
+        "src/manifest/render.mjs": {
+          "present": true,
+          "sha256": "2b6325c772aa9d4ab0a8ce35de7144753df1de40780c2733865a4ae559157e80"
+        },
+        "src/protocol/events.mjs": {
+          "present": true,
+          "sha256": "aa1c9c4f9ca0aed5611843cded1ff4158965bff93c908497f433ba3d5d98c98a"
+        },
+        "src/protocol/compatibility-read.mjs": {
+          "present": false
+        },
+        "src/protocol/format-authority.mjs": {
+          "present": false
+        },
+        "src/protocol/record-lineage.mjs": {
+          "present": false
+        },
+        "src/api/validate.mjs": {
+          "present": false
+        },
+        "runtime-inventory.json": {
+          "present": false
+        }
+      },
+      "provenance_claim": {
+        "version": "0.2.0",
+        "source_commit": "4b3bcd43cba141a611da4a2b861433b915462806",
+        "release_commit": "7921042427a0be6b53d9c3e41fd75d7099e86a78",
+        "tag": "v0.2.0"
+      },
+      "provenance_discrepancy": true,
+      "provenance_policy": "Embedded claims are retained as claims; actual package version and inspected bytes determine this row. No provenance correction performed."
+    },
+    {
+      "id": "release-0.2.2",
+      "kind": "release",
+      "repository": "kburson/ai-peer-review",
+      "ref": "refs/tags/v0.2.2",
+      "artifact_sha256": "a2ac027482971619641d1a85f41a6c2921f95b54e03c9fec7fdd32d9f323b748",
+      "npm_artifact_sha256": "a2ac027482971619641d1a85f41a6c2921f95b54e03c9fec7fdd32d9f323b748",
+      "github_asset_url": "https://github.com/kburson/ai-peer-review/releases/download/v0.2.2/ai-peer-review-0.2.2.tgz",
+      "npm_tarball_url": "https://registry.npmjs.org/ai-peer-review/-/ai-peer-review-0.2.2.tgz",
+      "access": "observed-complete-package-file-list",
+      "inspection": "tarfile member enumeration and selected file bytes; npm downloaded bytes compared exactly; no extraction hooks or installation",
+      "package_name": "ai-peer-review",
+      "version": "0.2.2",
+      "package_json_sha256": "c6b7377d4bff9c86bb64bb1a8f38c89c4321e93a485608cbacfa9d0b25956e43",
+      "inventory": {
+        "entry_count": 71,
+        "paths_sha256": "bb33e7577e5940118bc10106bf8f6b7968bd64eaa215f9557e3e59adb15258d6",
+        "paths": [
+          "LICENSE",
+          "NOTICE",
+          "README.md",
+          "bin/peer-review-mcp.mjs",
+          "bin/peer-review.mjs",
+          "docs/dependency-audit-mcp.md",
+          "docs/design/2026-08-22-1377-phased-co-review-orchestration-design.md",
+          "docs/design/2026-09-07-ai-peer-review-extraction-design.md",
+          "docs/design/2026-09-11-provider-neutral-runtime-orchestration-design.md",
+          "docs/design/2026-09-12-whitepaper-ownership-and-cross-reference-design.md",
+          "docs/manual-cross-provider-peer-review.md",
+          "docs/spdx-policy.md",
+          "docs/whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md",
+          "package.json",
+          "provenance/allowed-signers",
+          "provenance/extraction-manifest.json",
+          "provenance/release-manifest.json",
+          "provenance/relicensing-declaration.json",
+          "schemas/cli-result-v1.json",
+          "schemas/config-v1.json",
+          "schemas/event-v1.json",
+          "schemas/grant-challenge-v1.json",
+          "schemas/human-decision-v1.json",
+          "schemas/manifest-v1.json",
+          "schemas/participants-v1.json",
+          "schemas/protocol-v1.json",
+          "schemas/response-v1.json",
+          "scripts/verify-extraction.mjs",
+          "scripts/verify-release.mjs",
+          "skills/peer-review/SKILL.md",
+          "src/authority/canonicalize.mjs",
+          "src/authority/challenge.mjs",
+          "src/authority/verify.mjs",
+          "src/cli/help-data.mjs",
+          "src/cli/parse.mjs",
+          "src/cli/run.mjs",
+          "src/collateral/paths.mjs",
+          "src/collateral/responses.mjs",
+          "src/config/guards.mjs",
+          "src/config/load.mjs",
+          "src/config/setup.mjs",
+          "src/doctor.mjs",
+          "src/errors.mjs",
+          "src/git/repository.mjs",
+          "src/git/transaction.mjs",
+          "src/identity/claude.mjs",
+          "src/identity/codex.mjs",
+          "src/identity/generic.mjs",
+          "src/identity/grok.mjs",
+          "src/identity/registry.mjs",
+          "src/manifest/render.mjs",
+          "src/mcp/server.mjs",
+          "src/mcp/wait.mjs",
+          "src/protocol/events.mjs",
+          "src/protocol/reducer.mjs",
+          "src/protocol/service.mjs",
+          "src/protocol/store.mjs",
+          "src/public-api.mjs",
+          "src/templates/index.mjs",
+          "src/transport/live-wait.mjs",
+          "src/transport/manual.mjs",
+          "src/transport/native-push.mjs",
+          "src/transport/registry.mjs",
+          "src/transport/resident.mjs",
+          "src/transport/resume.mjs",
+          "templates/author-response.md",
+          "templates/author-startup.md",
+          "templates/human-decision.md",
+          "templates/review-manifest.md",
+          "templates/reviewer-invitation.md",
+          "templates/reviewer-response.md"
+        ]
+      },
+      "public_api_sha256": "3457b7441acb60134826cb9ef11edf1ec43041e9876dc020175d567d17da4b82",
+      "public_exports": [
+        {
+          "export": "explainError",
+          "from": "./cli/help-data.mjs"
+        },
+        {
+          "export": "statusReview",
+          "from": "./protocol/service.mjs"
+        },
+        {
+          "export": "refreshResidentLease",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "residentHealth",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "residentLivenessEvent",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "validateResidentLease",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "createNativePushTransport",
+          "from": "./transport/native-push.mjs"
+        },
+        {
+          "export": "negotiateAutomaticRequired",
+          "from": "./transport/registry.mjs"
+        },
+        {
+          "export": "validateAutomaticParticipant",
+          "from": "./transport/registry.mjs"
+        }
+      ],
+      "selected_files": {
+        "scripts/lib/runtime-review-lineage-proof.mjs": {
+          "present": false
+        },
+        "schemas/runtime-review-lineage-proof-v1.json": {
+          "present": false
+        },
+        "scripts/lib/runtime-review-grammar-v0.4.1.mjs": {
+          "present": false
+        },
+        "scripts/lib/review-grammar-v0.4.1/": {
+          "present": false
+        },
+        "scripts/check-runtime-contract-adoption.mjs": {
+          "present": false
+        },
+        "scripts/lib/runtime-contract-evidence.mjs": {
+          "present": false
+        },
+        "scripts/ci/prepare-contract-adoption.mjs": {
+          "present": false
+        },
+        "schemas/runtime-contract-adoption-v1.json": {
+          "present": false
+        },
+        "schemas/runtime-contract-evidence-approval-v1.json": {
+          "present": false
+        },
+        "src/protocol/process-source-assurance.mjs": {
+          "present": false
+        },
+        "src/protocol/process-identity.mjs": {
+          "present": false
+        },
+        "src/protocol/process-source-contract-files.json": {
+          "present": false
+        },
+        "src/protocol/process-source-contracts.json": {
+          "present": false
+        },
+        "schemas/process-source-class-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-conformance-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-registration-v1.json": {
+          "present": false
+        },
+        "src/manifest/render.mjs": {
+          "present": true,
+          "sha256": "2b6325c772aa9d4ab0a8ce35de7144753df1de40780c2733865a4ae559157e80"
+        },
+        "src/protocol/events.mjs": {
+          "present": true,
+          "sha256": "aa1c9c4f9ca0aed5611843cded1ff4158965bff93c908497f433ba3d5d98c98a"
+        },
+        "src/protocol/compatibility-read.mjs": {
+          "present": false
+        },
+        "src/protocol/format-authority.mjs": {
+          "present": false
+        },
+        "src/protocol/record-lineage.mjs": {
+          "present": false
+        },
+        "src/api/validate.mjs": {
+          "present": false
+        },
+        "runtime-inventory.json": {
+          "present": false
+        }
+      },
+      "provenance_claim": {
+        "version": "0.2.0",
+        "source_commit": "4b3bcd43cba141a611da4a2b861433b915462806",
+        "release_commit": "7921042427a0be6b53d9c3e41fd75d7099e86a78",
+        "tag": "v0.2.0"
+      },
+      "provenance_discrepancy": true,
+      "provenance_policy": "Embedded claims are retained as claims; actual package version and inspected bytes determine this row. No provenance correction performed."
+    },
+    {
+      "id": "installed-node26-global",
+      "kind": "installed",
+      "repository": "kburson/ai-peer-review",
+      "ref": "installed-package; source commit not established",
+      "source_commit": null,
+      "location": "Observed Node26.8.1 global scoped package; physical directory, not a checkout link. Private host prefix omitted.",
+      "access": "observed-own-package-files; dependency node_modules excluded",
+      "artifact_sha256": null,
+      "follow_up_owner": "Installation operator and Task19C package-surface reconciliation",
+      "inspection": "Read-only own-package file enumeration and selected bytes; no config/session reads, execution or install",
+      "package_name": "@kburson/ai-peer-review",
+      "version": "0.4.1",
+      "package_json_sha256": "cd1af50f34eaac30edb5c055316b26dd006181aa06ec3b9871f87ba23fe59c2a",
+      "inventory": {
+        "entry_count": 437,
+        "paths_sha256": "da880a03c87ad06d4f63675b1334c212294cd3715a144e0dbaadc9ed30023aa5",
+        "paths": [
+          "LICENSE",
+          "NOTICE",
+          "README.md",
+          "bin/peer-review-broker.mjs",
+          "bin/peer-review-claude-hook.mjs",
+          "bin/peer-review-codex-hook.mjs",
+          "bin/peer-review-mcp.mjs",
+          "bin/peer-review.mjs",
+          "docs/claude-launch-api-migration.md",
+          "docs/conformance/2026-09-21-88-installed-provider-surfaces.md",
+          "docs/conformance/2026-09-26-106-manual-xpr-evidence.json",
+          "docs/conformance/2026-09-26-106-manual-xpr.md",
+          "docs/dependency-audit-broker-build.md",
+          "docs/dependency-audit-mcp.md",
+          "docs/manual-cross-provider-peer-review.md",
+          "docs/releases/0.3.0.md",
+          "docs/spdx-policy.md",
+          "docs/superpowers/conformance/2026-09-21-88-managed-turn-contract.md",
+          "docs/superpowers/peer-reviews/111/spec/review-f81fd40702ce2b18f9a79f7f8ab5cbed/review-f81fd40702ce2b18f9a79f7f8ab5cbed-author-response-1.md",
+          "docs/superpowers/peer-reviews/111/spec/review-f81fd40702ce2b18f9a79f7f8ab5cbed/review-f81fd40702ce2b18f9a79f7f8ab5cbed-author-startup.md",
+          "docs/superpowers/peer-reviews/111/spec/review-f81fd40702ce2b18f9a79f7f8ab5cbed/review-f81fd40702ce2b18f9a79f7f8ab5cbed-review-manifest.md",
+          "docs/superpowers/peer-reviews/111/spec/review-f81fd40702ce2b18f9a79f7f8ab5cbed/review-f81fd40702ce2b18f9a79f7f8ab5cbed-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/111/spec/review-f81fd40702ce2b18f9a79f7f8ab5cbed/review-f81fd40702ce2b18f9a79f7f8ab5cbed-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/111/spec/review-f81fd40702ce2b18f9a79f7f8ab5cbed/review-f81fd40702ce2b18f9a79f7f8ab5cbed-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/111/spec/sar-relocation.json",
+          "docs/superpowers/peer-reviews/111/spec/sar-review-01/sar.md",
+          "docs/superpowers/peer-reviews/111/spec/sar-review-02/sar.md",
+          "docs/superpowers/peer-reviews/117/spec/sar-review-01/sar.md",
+          "docs/superpowers/peer-reviews/pinned-proof/plan/2026-09-29-2026-09-29-117-broker-recovery-review-43b99d6a77e9f54687dade3cc40bfd60/review-43b99d6a77e9f54687dade3cc40bfd60-author-response-1.md",
+          "docs/superpowers/peer-reviews/pinned-proof/plan/2026-09-29-2026-09-29-117-broker-recovery-review-43b99d6a77e9f54687dade3cc40bfd60/review-43b99d6a77e9f54687dade3cc40bfd60-author-startup.md",
+          "docs/superpowers/peer-reviews/pinned-proof/plan/2026-09-29-2026-09-29-117-broker-recovery-review-43b99d6a77e9f54687dade3cc40bfd60/review-43b99d6a77e9f54687dade3cc40bfd60-review-manifest.md",
+          "docs/superpowers/peer-reviews/pinned-proof/plan/2026-09-29-2026-09-29-117-broker-recovery-review-43b99d6a77e9f54687dade3cc40bfd60/review-43b99d6a77e9f54687dade3cc40bfd60-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/pinned-proof/plan/2026-09-29-2026-09-29-117-broker-recovery-review-43b99d6a77e9f54687dade3cc40bfd60/review-43b99d6a77e9f54687dade3cc40bfd60-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/pinned-proof/plan/2026-09-29-2026-09-29-117-broker-recovery-review-43b99d6a77e9f54687dade3cc40bfd60/review-43b99d6a77e9f54687dade3cc40bfd60-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-author-startup.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-review-manifest.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366-recovery-1/review-41fe00bc644d30de210814514e77b924-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/README.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-response-3.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-author-startup.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-3.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-14-2026-09-14-project-local-spr-xpr-broker-review-a5116cf2aa668c3132ae2b2ee7016366/review-a5116cf2aa668c3132ae2b2ee7016366-reviewer-response-4.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-3.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-4.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-3.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-14-56-macos-broker-endpoint-review-5cd2937d118a0a6c9a6caf9622f19ae1/review-5cd2937d118a0a6c9a6caf9622f19ae1-author-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-14-56-macos-broker-endpoint-review-5cd2937d118a0a6c9a6caf9622f19ae1/review-5cd2937d118a0a6c9a6caf9622f19ae1-review-manifest.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-14-56-macos-broker-endpoint-review-5cd2937d118a0a6c9a6caf9622f19ae1/review-5cd2937d118a0a6c9a6caf9622f19ae1-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-14-56-macos-broker-endpoint-review-5cd2937d118a0a6c9a6caf9622f19ae1/review-5cd2937d118a0a6c9a6caf9622f19ae1-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-author-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-author-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-author-response-3.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-author-startup.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-review-manifest.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-reviewer-response-3.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-19-2026-09-19-76-change-npm-package-scope-review-d8ada0e4b98fb3f9fce0cf730294487d/review-d8ada0e4b98fb3f9fce0cf730294487d-reviewer-response-4.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-21-2026-09-21-88-provider-authority-broker-reconciliation-review-bd65fa3d0a76ec9f39a096656662a981/review-bd65fa3d0a76ec9f39a096656662a981-author-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-21-2026-09-21-88-provider-authority-broker-reconciliation-review-bd65fa3d0a76ec9f39a096656662a981/review-bd65fa3d0a76ec9f39a096656662a981-review-manifest.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-21-2026-09-21-88-provider-authority-broker-reconciliation-review-bd65fa3d0a76ec9f39a096656662a981/review-bd65fa3d0a76ec9f39a096656662a981-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-21-2026-09-21-88-provider-authority-broker-reconciliation-review-bd65fa3d0a76ec9f39a096656662a981/review-bd65fa3d0a76ec9f39a096656662a981-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-24-2026-09-24-90-claude-launch-identity-review-5c0fb5ab0be7bcb3fa7c01991792504a/review-5c0fb5ab0be7bcb3fa7c01991792504a-author-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-24-2026-09-24-90-claude-launch-identity-review-5c0fb5ab0be7bcb3fa7c01991792504a/review-5c0fb5ab0be7bcb3fa7c01991792504a-author-startup.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-24-2026-09-24-90-claude-launch-identity-review-5c0fb5ab0be7bcb3fa7c01991792504a/review-5c0fb5ab0be7bcb3fa7c01991792504a-review-manifest.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-24-2026-09-24-90-claude-launch-identity-review-5c0fb5ab0be7bcb3fa7c01991792504a/review-5c0fb5ab0be7bcb3fa7c01991792504a-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-24-2026-09-24-90-claude-launch-identity-review-5c0fb5ab0be7bcb3fa7c01991792504a/review-5c0fb5ab0be7bcb3fa7c01991792504a-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/plan/2026-09-24-2026-09-24-90-claude-launch-identity-review-5c0fb5ab0be7bcb3fa7c01991792504a/review-5c0fb5ab0be7bcb3fa7c01991792504a-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/relocation-receipt.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/00-review-history.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/01-review-853b-author-startup.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/02-review-853b-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/03-review-853b-reviewer-response-1-revisions-requested.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/04-review-853b-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/05-review-853b-reviewer-response-2-acceptance-not-submitted.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/06-review-7e25-author-startup.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/07-review-7e25-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/08-review-7e25-reviewer-response-1-revisions-requested.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/09-review-7e25-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/10-review-7e25-reviewer-response-2-not-completed.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/11-review-59eb-author-startup.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/12-review-59eb-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/13-review-59eb-reviewer-response-1-accepted.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/14-review-59eb-author-finalization-manifest.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-12-project-local-review-lifecycle-and-learning-design-review/15-relocation-receipt.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-1/review-7ac84e67eb2cc40db4f3229984135e27-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-1/review-7ac84e67eb2cc40db4f3229984135e27-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-10/review-49caf706a41c040538343545ff0d9c6b-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-10/review-49caf706a41c040538343545ff0d9c6b-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-11/review-eb1be65b9cdf02d104b74a5db558e7be-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-11/review-eb1be65b9cdf02d104b74a5db558e7be-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-12/review-4ff08b002a59a1db716139830c763e1b-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-12/review-4ff08b002a59a1db716139830c763e1b-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-13/review-7076772afa1aeb1d83f758be498b02d8-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-13/review-7076772afa1aeb1d83f758be498b02d8-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-2/review-597f95fd88e73615a78d0fa74c6c131b-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-2/review-597f95fd88e73615a78d0fa74c6c131b-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-3/review-7f960d0baa0c582f580431012d7adcd6-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-3/review-7f960d0baa0c582f580431012d7adcd6-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-4/review-f700e910260bcf2a23f0d2fc5932a15e-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-4/review-f700e910260bcf2a23f0d2fc5932a15e-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-5/review-058f969aa93ade2e18d7082fa9331bb0-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-5/review-058f969aa93ade2e18d7082fa9331bb0-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-6/review-27389f044c211b8bcf6c68a96f5d8766-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-6/review-27389f044c211b8bcf6c68a96f5d8766-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-7/review-6b3d9911feadd5d18165eb56cbdcc48f-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-7/review-6b3d9911feadd5d18165eb56cbdcc48f-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-8/review-4cd67a4ac1119dbdc0c89d86ce259a3f-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-8/review-4cd67a4ac1119dbdc0c89d86ce259a3f-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-9/review-4c2e7644422e7a83591a649374cb1afc-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb-recovery-9/review-4c2e7644422e7a83591a649374cb1afc-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb/review-4cfb5f9f356de98531af24241169ebfb-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-56-macos-broker-endpoint-design-review-4cfb5f9f356de98531af24241169ebfb/review-4cfb5f9f356de98531af24241169ebfb-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-author-startup.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-review-manifest.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-14-2026-09-14-project-local-spr-xpr-broker-design-review-814c7c140b809d00b564ed1d1868f59d/review-814c7c140b809d00b564ed1d1868f59d-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-2.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-3.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-4.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-5.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/author-response-6.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-3.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-4.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-5.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-17-57-61-peer-review-recovery-architecture-review/reviewer-response-6.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-19-2026-09-14-56-macos-broker-endpoint-design-review-ac3e35c32b02cc36dbbf5bebb20c0a70/review-ac3e35c32b02cc36dbbf5bebb20c0a70-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-19-2026-09-14-56-macos-broker-endpoint-design-review-ac3e35c32b02cc36dbbf5bebb20c0a70/review-ac3e35c32b02cc36dbbf5bebb20c0a70-review-manifest.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-19-2026-09-14-56-macos-broker-endpoint-design-review-ac3e35c32b02cc36dbbf5bebb20c0a70/review-ac3e35c32b02cc36dbbf5bebb20c0a70-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-19-2026-09-14-56-macos-broker-endpoint-design-review-ac3e35c32b02cc36dbbf5bebb20c0a70/review-ac3e35c32b02cc36dbbf5bebb20c0a70-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-24-2026-09-24-90-claude-launch-identity-design-review-37a26a19df24a739c7672e9214322c8e/review-37a26a19df24a739c7672e9214322c8e-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-24-2026-09-24-90-claude-launch-identity-design-review-37a26a19df24a739c7672e9214322c8e/review-37a26a19df24a739c7672e9214322c8e-author-startup.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-24-2026-09-24-90-claude-launch-identity-design-review-37a26a19df24a739c7672e9214322c8e/review-37a26a19df24a739c7672e9214322c8e-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-24-2026-09-24-90-claude-launch-identity-design-review-37a26a19df24a739c7672e9214322c8e/review-37a26a19df24a739c7672e9214322c8e-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-102-aipr-install-policy-design-review-7e2f728a783cebdbe3659714f0dc0480/review-7e2f728a783cebdbe3659714f0dc0480-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-102-aipr-install-policy-design-review-7e2f728a783cebdbe3659714f0dc0480/review-7e2f728a783cebdbe3659714f0dc0480-review-manifest.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-102-aipr-install-policy-design-review-7e2f728a783cebdbe3659714f0dc0480/review-7e2f728a783cebdbe3659714f0dc0480-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-102-aipr-install-policy-design-review-7e2f728a783cebdbe3659714f0dc0480/review-7e2f728a783cebdbe3659714f0dc0480-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-106-manual-xpr-startup-design-review-b9a20b7ba40e0363b2cecb59a3293f6e/review-b9a20b7ba40e0363b2cecb59a3293f6e-author-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-106-manual-xpr-startup-design-review-b9a20b7ba40e0363b2cecb59a3293f6e/review-b9a20b7ba40e0363b2cecb59a3293f6e-author-startup.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-106-manual-xpr-startup-design-review-b9a20b7ba40e0363b2cecb59a3293f6e/review-b9a20b7ba40e0363b2cecb59a3293f6e-review-manifest.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-106-manual-xpr-startup-design-review-b9a20b7ba40e0363b2cecb59a3293f6e/review-b9a20b7ba40e0363b2cecb59a3293f6e-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-106-manual-xpr-startup-design-review-b9a20b7ba40e0363b2cecb59a3293f6e/review-b9a20b7ba40e0363b2cecb59a3293f6e-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-26-2026-09-26-106-manual-xpr-startup-design-review-b9a20b7ba40e0363b2cecb59a3293f6e/review-b9a20b7ba40e0363b2cecb59a3293f6e-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/baseline.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/capture.mjs",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/events.jsonl",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/final-fur.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/initial-fur.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/lineage.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/manifest.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/metrics.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/01-after.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/01-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/01-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/01.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/01.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/02-after.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/02-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/02-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/02.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/02.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/03-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/03-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/03.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/rounds/03.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-145046-controller-worker-sar/validation.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/events.jsonl",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/final-fur.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/initial-fur.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/lineage.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/manifest.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/metrics.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/reviewer-brief.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/01-after.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/01-author-proposed.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/01-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/01-reviewer-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/01.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/02-after.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/02-author-proposed.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/02-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/02-reviewer-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/02.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/03-after.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/03-author-proposed.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/03-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/03-reviewer-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/03.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-150048-astra-claude-controller-workers-xpr/rounds/04-reviewer-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/events.jsonl",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/final-fur.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/lineage.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/manifest.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/metrics.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/rounds/01-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/rounds/01-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/rounds/01.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-sar/rounds/02-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/events.jsonl",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/final-fur.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/lineage.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/manifest.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/metrics.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/payloads/01-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/payloads/02-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/payloads/03-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/payloads/04-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/01-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/01-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/01.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/02-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/02-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/02.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/03-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/03-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/03.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-cost-metrics-xpr/rounds/04-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/events.jsonl",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/manifest.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/metrics.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/01-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/01-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/01.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/02-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/02-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/02.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/03-author-response.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/03-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/03.patch",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-sar/rounds/04-review.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-xpr/events.jsonl",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-xpr/manifest.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-xpr/metrics.json",
+          "docs/superpowers/peer-reviews/spec/2026-09-27-107-agent-first-review-runtime-design-xpr/rounds/01-review-attempts.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-520f38c7ed6a6565ecf6e7b5d8833a5e/review-520f38c7ed6a6565ecf6e7b5d8833a5e-author-startup.md",
+          "docs/superpowers/peer-reviews/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-520f38c7ed6a6565ecf6e7b5d8833a5e/review-520f38c7ed6a6565ecf6e7b5d8833a5e-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/verified/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-05b472f0d8ed4866d16288adb821eaf2/review-05b472f0d8ed4866d16288adb821eaf2-author-response-1.md",
+          "docs/superpowers/peer-reviews/verified/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-05b472f0d8ed4866d16288adb821eaf2/review-05b472f0d8ed4866d16288adb821eaf2-author-response-2.md",
+          "docs/superpowers/peer-reviews/verified/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-05b472f0d8ed4866d16288adb821eaf2/review-05b472f0d8ed4866d16288adb821eaf2-author-startup.md",
+          "docs/superpowers/peer-reviews/verified/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-05b472f0d8ed4866d16288adb821eaf2/review-05b472f0d8ed4866d16288adb821eaf2-review-manifest.md",
+          "docs/superpowers/peer-reviews/verified/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-05b472f0d8ed4866d16288adb821eaf2/review-05b472f0d8ed4866d16288adb821eaf2-reviewer-invitation.md",
+          "docs/superpowers/peer-reviews/verified/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-05b472f0d8ed4866d16288adb821eaf2/review-05b472f0d8ed4866d16288adb821eaf2-reviewer-response-1.md",
+          "docs/superpowers/peer-reviews/verified/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-05b472f0d8ed4866d16288adb821eaf2/review-05b472f0d8ed4866d16288adb821eaf2-reviewer-response-2.md",
+          "docs/superpowers/peer-reviews/verified/spec/2026-09-29-2026-09-29-117-broker-recovery-design-review-05b472f0d8ed4866d16288adb821eaf2/review-05b472f0d8ed4866d16288adb821eaf2-reviewer-response-3.md",
+          "docs/superpowers/plans/2026-09-13-10-phased-multi-artifact-review-sessions.md",
+          "docs/superpowers/plans/2026-09-13-17-node24-npm-pack.md",
+          "docs/superpowers/plans/2026-09-13-18-claude-identity-fallback.md",
+          "docs/superpowers/plans/2026-09-13-21-review-record-recovery.md",
+          "docs/superpowers/plans/2026-09-13-9-durable-co-review-wakeups.md",
+          "docs/superpowers/plans/2026-09-14-37-claude-launch-permissions.md",
+          "docs/superpowers/plans/2026-09-14-56-macos-broker-endpoint.md",
+          "docs/superpowers/plans/2026-09-14-project-local-spr-xpr-broker.md",
+          "docs/superpowers/plans/2026-09-17-57-61-peer-review-recovery-architecture.md",
+          "docs/superpowers/plans/2026-09-19-76-change-npm-package-scope.md",
+          "docs/superpowers/plans/2026-09-21-88-delivery-recovery-plan.md",
+          "docs/superpowers/plans/2026-09-21-88-provider-authority-broker-reconciliation.md",
+          "docs/superpowers/plans/2026-09-22-88-delivery-handoff.md",
+          "docs/superpowers/plans/2026-09-24-90-claude-launch-identity.md",
+          "docs/superpowers/plans/2026-09-25-91-claude-reviewer-resume.md",
+          "docs/superpowers/plans/2026-09-29-117-broker-recovery.md",
+          "docs/superpowers/plans/2026-09-29-120-setup-output.md",
+          "docs/superpowers/plans/2026-09-29-122-doctor-operation-readiness.md",
+          "docs/superpowers/plans/2026-09-29-124-codex-hook-identity.md",
+          "docs/superpowers/plans/2026-09-29-124-session-handshake.md",
+          "docs/superpowers/reviews/2026-09-26-102-aipr-install-policy-sar.md",
+          "docs/superpowers/specs/2026-08-22-1377-phased-co-review-orchestration-design.md",
+          "docs/superpowers/specs/2026-09-07-ai-peer-review-extraction-design.md",
+          "docs/superpowers/specs/2026-09-11-provider-neutral-runtime-orchestration-design.md",
+          "docs/superpowers/specs/2026-09-12-project-local-review-lifecycle-and-learning-design.md",
+          "docs/superpowers/specs/2026-09-12-whitepaper-ownership-and-cross-reference-design.md",
+          "docs/superpowers/specs/2026-09-13-10-phased-multi-artifact-review-sessions-design.md",
+          "docs/superpowers/specs/2026-09-13-21-review-record-recovery-design.md",
+          "docs/superpowers/specs/2026-09-13-30-artifact-lifecycle-review-evidence-design.md",
+          "docs/superpowers/specs/2026-09-13-31-clone-shared-sqlite-authority-projection-design.md",
+          "docs/superpowers/specs/2026-09-13-32-project-local-knowledge-retrieval-design.md",
+          "docs/superpowers/specs/2026-09-13-33-defect-feedback-governed-learning-design.md",
+          "docs/superpowers/specs/2026-09-13-34-provider-comparison-experiments-design.md",
+          "docs/superpowers/specs/2026-09-13-9-durable-co-review-wakeups-design.md",
+          "docs/superpowers/specs/2026-09-14-37-claude-launch-permissions-design.md",
+          "docs/superpowers/specs/2026-09-14-56-macos-broker-endpoint-design.md",
+          "docs/superpowers/specs/2026-09-14-project-local-spr-xpr-broker-design.md",
+          "docs/superpowers/specs/2026-09-17-57-61-peer-review-recovery-architecture-design.md",
+          "docs/superpowers/specs/2026-09-21-88-provider-authority-broker-reconciliation-design.md",
+          "docs/superpowers/specs/2026-09-24-90-claude-launch-identity-design.md",
+          "docs/superpowers/specs/2026-09-25-worktree-local-review-git-boundary-design.md",
+          "docs/superpowers/specs/2026-09-26-102-aipr-install-policy-design.md",
+          "docs/superpowers/specs/2026-09-26-106-manual-xpr-startup-design.md",
+          "docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+          "docs/superpowers/specs/2026-09-29-117-broker-recovery-design.md",
+          "docs/superpowers/specs/20260927-111-spec.md",
+          "docs/whitepapers/2026-09-11-provider-neutral-runtime-orchestration-white-paper.md",
+          "native/broker-security/addon.cc",
+          "native/broker-security/binding.gyp",
+          "native/broker-security/build/Makefile",
+          "native/broker-security/build/Release/.deps/Release/broker_security.node.d",
+          "native/broker-security/build/Release/.deps/Release/obj.target/broker_security/addon.o.d",
+          "native/broker-security/build/Release/.deps/Release/obj.target/broker_security/posix.o.d",
+          "native/broker-security/build/Release/broker_security.node",
+          "native/broker-security/build/Release/build-identity.json",
+          "native/broker-security/build/Release/obj.target/broker_security/addon.o",
+          "native/broker-security/build/Release/obj.target/broker_security/posix.o",
+          "native/broker-security/build/binding.Makefile",
+          "native/broker-security/build/broker_security.target.mk",
+          "native/broker-security/build/config.gypi",
+          "native/broker-security/build/gyp-mac-tool",
+          "native/broker-security/posix.cc",
+          "native/broker-security/windows.cc",
+          "package.json",
+          "provenance/allowed-signers",
+          "provenance/extraction-manifest.json",
+          "provenance/release-manifest.json",
+          "provenance/relicensing-declaration.json",
+          "schemas/broker-v1.json",
+          "schemas/claude-launch-result-v1.json",
+          "schemas/cli-result-v1.json",
+          "schemas/config-v1.json",
+          "schemas/event-v1.json",
+          "schemas/event-v2.json",
+          "schemas/grant-challenge-v1.json",
+          "schemas/human-decision-v1.json",
+          "schemas/manifest-v1.json",
+          "schemas/participants-v1.json",
+          "schemas/participants-v2.json",
+          "schemas/phase-manifest-v1.json",
+          "schemas/protocol-v1.json",
+          "schemas/protocol-v2.json",
+          "schemas/provider-resource-v1.json",
+          "schemas/response-v1.json",
+          "schemas/runtime-v1.json",
+          "scripts/build-broker-security.mjs",
+          "scripts/verify-extraction.mjs",
+          "scripts/verify-release.mjs",
+          "skills/peer-review/SKILL.md",
+          "src/authority/canonicalize.mjs",
+          "src/authority/challenge.mjs",
+          "src/authority/verify.mjs",
+          "src/broker/client.mjs",
+          "src/broker/identity.mjs",
+          "src/broker/ipc.mjs",
+          "src/broker/launch.mjs",
+          "src/broker/ownership.mjs",
+          "src/broker/participant-binding.mjs",
+          "src/broker/paths.mjs",
+          "src/broker/platform.mjs",
+          "src/broker/provider-bridge.mjs",
+          "src/broker/provider-resources.mjs",
+          "src/broker/registry.mjs",
+          "src/broker/runtime-image.mjs",
+          "src/broker/service.mjs",
+          "src/broker/worker-factory.mjs",
+          "src/broker/worker.mjs",
+          "src/cli/help-data.mjs",
+          "src/cli/help-topics.mjs",
+          "src/cli/parse.mjs",
+          "src/cli/run.mjs",
+          "src/collateral/paths.mjs",
+          "src/collateral/responses.mjs",
+          "src/collateral/review-record.mjs",
+          "src/config/guards.mjs",
+          "src/config/installation-identity.mjs",
+          "src/config/load.mjs",
+          "src/config/setup.mjs",
+          "src/coordinator/decision.mjs",
+          "src/coordinator/lease.mjs",
+          "src/coordinator/ledger.mjs",
+          "src/coordinator/service.mjs",
+          "src/doctor.mjs",
+          "src/errors.mjs",
+          "src/git/repository.mjs",
+          "src/git/transaction.mjs",
+          "src/identity/claude.mjs",
+          "src/identity/codex.mjs",
+          "src/identity/evidence.mjs",
+          "src/identity/generic.mjs",
+          "src/identity/grok.mjs",
+          "src/identity/registry.mjs",
+          "src/manifest/render.mjs",
+          "src/mcp/server.mjs",
+          "src/mcp/wait.mjs",
+          "src/protocol/compatibility.mjs",
+          "src/protocol/events.mjs",
+          "src/protocol/phases.mjs",
+          "src/protocol/process-identity.mjs",
+          "src/protocol/record-lineage.mjs",
+          "src/protocol/reducer.mjs",
+          "src/protocol/service.mjs",
+          "src/protocol/store.mjs",
+          "src/provider/claude-launch-diagnostics.mjs",
+          "src/provider/claude-launch.mjs",
+          "src/provider/execution-contract.mjs",
+          "src/provider/manual-launch-ledger.mjs",
+          "src/provider/preflight.mjs",
+          "src/providers/claude-hook.mjs",
+          "src/providers/claude-stream.mjs",
+          "src/providers/claude.mjs",
+          "src/providers/codex-hook.mjs",
+          "src/providers/codex-session.mjs",
+          "src/providers/codex.mjs",
+          "src/providers/conformance.mjs",
+          "src/providers/evidence.mjs",
+          "src/providers/grok.mjs",
+          "src/providers/process-lifetime.mjs",
+          "src/providers/registry.mjs",
+          "src/public-api.mjs",
+          "src/startup/runtime.mjs",
+          "src/startup/selection.mjs",
+          "src/templates/index.mjs",
+          "src/transport/live-wait.mjs",
+          "src/transport/manual.mjs",
+          "src/transport/native-push.mjs",
+          "src/transport/registry.mjs",
+          "src/transport/resident.mjs",
+          "src/transport/resume.mjs",
+          "templates/author-response.md",
+          "templates/author-startup.md",
+          "templates/human-decision.md",
+          "templates/review-manifest.md",
+          "templates/reviewer-invitation.md",
+          "templates/reviewer-response.md"
+        ]
+      },
+      "public_api_sha256": "a03d31d9a6945bd74ae2718014a45581aa341cf7460b3a952a4afe75471d6171",
+      "public_exports": [
+        {
+          "export": "explainError",
+          "from": "./cli/help-data.mjs"
+        },
+        {
+          "export": "applyReviewRecord",
+          "from": "./collateral/review-record.mjs"
+        },
+        {
+          "export": "planReviewRecord",
+          "from": "./collateral/review-record.mjs"
+        },
+        {
+          "export": "renderReviewHistory",
+          "from": "./collateral/review-record.mjs"
+        },
+        {
+          "export": "statusReview",
+          "from": "./protocol/service.mjs"
+        },
+        {
+          "export": "inspectRecordLineage",
+          "from": "./protocol/record-lineage.mjs"
+        },
+        {
+          "export": "validateSuccessor",
+          "from": "./protocol/record-lineage.mjs"
+        },
+        {
+          "export": "currentPhase",
+          "from": "./protocol/phases.mjs"
+        },
+        {
+          "export": "isFinalPhase",
+          "from": "./protocol/phases.mjs"
+        },
+        {
+          "export": "isPhased",
+          "from": "./protocol/phases.mjs"
+        },
+        {
+          "export": "parsePhaseKinds",
+          "from": "./protocol/phases.mjs"
+        },
+        {
+          "export": "buildPhaseManifest",
+          "from": "./manifest/render.mjs"
+        },
+        {
+          "export": "sealPhaseManifest",
+          "from": "./manifest/render.mjs"
+        },
+        {
+          "export": "refreshResidentLease",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "residentHealth",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "residentLivenessEvent",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "validateResidentLease",
+          "from": "./transport/resident.mjs"
+        },
+        {
+          "export": "createNativePushTransport",
+          "from": "./transport/native-push.mjs"
+        },
+        {
+          "export": "negotiateAutomaticRequired",
+          "from": "./transport/registry.mjs"
+        },
+        {
+          "export": "validateAutomaticParticipant",
+          "from": "./transport/registry.mjs"
+        },
+        {
+          "export": "buildClaudeReviewerLaunch",
+          "from": "./provider/claude-launch.mjs"
+        },
+        {
+          "export": "buildClaudeReviewerResume",
+          "from": "./provider/claude-launch.mjs"
+        },
+        {
+          "export": "classifyClaudeReviewerOutcome",
+          "from": "./provider/claude-launch.mjs"
+        },
+        {
+          "export": "encodeClaudeEditRule",
+          "from": "./provider/claude-launch.mjs"
+        },
+        {
+          "export": "matchesClaudeEditRule",
+          "from": "./provider/claude-launch.mjs"
+        },
+        {
+          "export": "runClaudeReviewerLaunch",
+          "from": "./provider/claude-launch.mjs"
+        },
+        {
+          "export": "buildClaudeProviderCapability",
+          "from": "./config/load.mjs"
+        },
+        {
+          "export": "buildReviewerExecutionContract",
+          "from": "./provider/execution-contract.mjs"
+        },
+        {
+          "export": "preflightReviewerExecution",
+          "from": "./provider/preflight.mjs"
+        }
+      ],
+      "selected_files": {
+        "scripts/lib/runtime-review-lineage-proof.mjs": {
+          "present": false
+        },
+        "schemas/runtime-review-lineage-proof-v1.json": {
+          "present": false
+        },
+        "scripts/lib/runtime-review-grammar-v0.4.1.mjs": {
+          "present": false
+        },
+        "scripts/lib/review-grammar-v0.4.1/": {
+          "present": false
+        },
+        "scripts/check-runtime-contract-adoption.mjs": {
+          "present": false
+        },
+        "scripts/lib/runtime-contract-evidence.mjs": {
+          "present": false
+        },
+        "scripts/ci/prepare-contract-adoption.mjs": {
+          "present": false
+        },
+        "schemas/runtime-contract-adoption-v1.json": {
+          "present": false
+        },
+        "schemas/runtime-contract-evidence-approval-v1.json": {
+          "present": false
+        },
+        "src/protocol/process-source-assurance.mjs": {
+          "present": false
+        },
+        "src/protocol/process-identity.mjs": {
+          "present": true,
+          "sha256": "04a9c3e9a110f2e57013ef71f92560d836d7b2c1826780aa95d8eb934a685555"
+        },
+        "src/protocol/process-source-contract-files.json": {
+          "present": false
+        },
+        "src/protocol/process-source-contracts.json": {
+          "present": false
+        },
+        "schemas/process-source-class-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-conformance-v1.json": {
+          "present": false
+        },
+        "schemas/process-source-registration-v1.json": {
+          "present": false
+        },
+        "src/manifest/render.mjs": {
+          "present": true,
+          "sha256": "88e0eac256021aa03baffa4392a069ef4ca1d7f4abf273ed7c312224acaef728"
+        },
+        "src/protocol/events.mjs": {
+          "present": true,
+          "sha256": "52659c85759d1b31e666f761800c9c4120d2b4178cf4bc96ef5c8cdf20c2cda1"
+        },
+        "src/protocol/compatibility-read.mjs": {
+          "present": false
+        },
+        "src/protocol/format-authority.mjs": {
+          "present": false
+        },
+        "src/protocol/record-lineage.mjs": {
+          "present": true,
+          "sha256": "9dc3e0be355b48aecb5414a3959b5f42c2869a7889335ed76f97c60a96cb2776"
+        },
+        "src/api/validate.mjs": {
+          "present": false
+        },
+        "runtime-inventory.json": {
+          "present": false
+        }
+      },
+      "provenance_claim": {
+        "version": "0.2.0",
+        "source_commit": "4b3bcd43cba141a611da4a2b861433b915462806",
+        "release_commit": "7921042427a0be6b53d9c3e41fd75d7099e86a78",
+        "tag": "v0.2.0"
+      },
+      "provenance_discrepancy": true,
+      "provenance_policy": "Embedded claims are retained as claims; actual package version and inspected bytes determine this row. No provenance correction performed."
+    }
+  ],
+  "consumers": [
+    {
+      "id": "source-adoption-callers",
+      "repository": "kburson/ai-peer-review",
+      "ref": "095599d8471830dc4ed38859957fc6168a04c106",
+      "status": "current-development-callers",
+      "inspected_files": [
+        "scripts/check-runtime-contract-adoption.mjs",
+        "scripts/lib/runtime-contract-evidence.mjs",
+        "scripts/ci/prepare-contract-adoption.mjs",
+        "test/live/process-source/authority.mjs"
+      ],
+      "file_sha256": {
+        "scripts/check-runtime-contract-adoption.mjs": "2a48568f220c6fd27efeeb7398a01121e94f182f9bd1f4a7e92f4ccbb4f1194b",
+        "scripts/lib/runtime-contract-evidence.mjs": "905e0c0cdd34d59cdd1a2f9aa4e14d951ea3c3f9349c81ad621d9192e257147b",
+        "scripts/ci/prepare-contract-adoption.mjs": "363f6f82d7ada523b23282a867aac083998ac860e63d6824c65bb95154731fe7",
+        "test/live/process-source/authority.mjs": "a1c9161d6312d5250a266e5f486cce433599de2b75e65a11c087a02ede654ba2"
+      },
+      "caller": "Development/runtime-contract adoption and process-source qualification, not public package exports",
+      "disposition": "Coordinate exact caller removal through Task01 adoption and Task06A/06B; preserve historical evidence and legitimate package integrity. This census changes no caller."
+    },
+    {
+      "id": "installed-journal-readers",
+      "repository": "kburson/ai-peer-review",
+      "ref": "installed-node26-global@0.4.1",
+      "status": "installed-readable-interface",
+      "inspected_files": [
+        "src/public-api.mjs",
+        "src/protocol/record-lineage.mjs",
+        "src/manifest/render.mjs"
+      ],
+      "caller": "Installed public journal/phase API and CLI entry point; live sessions deliberately not inspected",
+      "disposition": "Retain journal readers and historical schemas. Installed payload cannot be relabelled as current-source delivery."
+    },
+    {
+      "id": "aitm-main-independence",
+      "repository": "kburson/ai-task-manager",
+      "ref": "a32e08245d2ae243e7922c4bfb287695edd0c251",
+      "status": "current-source-contract",
+      "inspected_files": [
+        "package.json",
+        "package-lock.json",
+        "scripts/tests/integration/review/peer-review-decommission.test.mjs"
+      ],
+      "file_sha256": {
+        "package.json": "c9ef4764441db3272c63ae3e61eb59d468b328090b39d44d72b2381056873ccc",
+        "package-lock.json": "b3c084e680661c3f583427186ccb0c498c6ed661d48423d4255ce708b57ccd03",
+        "scripts/tests/integration/review/peer-review-decommission.test.mjs": "6d618dba5ee3e4c7a1d0bf2f488a4e1555a053ccf591760698a355ff91e8cd80"
+      },
+      "caller": "Current AITM package/decommission contract; no direct AIPR package dependency in inspected manifest, no publication adapter implementation found in selected production search",
+      "disposition": "Preserve #1592 independence; external wire-data/CLI interoperability requires its owning workflow, not a revived package import. Search result is bounded, not proof of every deployment."
+    },
+    {
+      "id": "aitm-runtime-selection",
+      "repository": "kburson/ai-task-manager",
+      "ref": "71c4fc17e1259973b66eebaf09742638cb8d11d4",
+      "status": "current-source-reader",
+      "inspected_files": ["scripts/task-tracker/bash-guard.mjs"],
+      "file_sha256": {
+        "scripts/task-tracker/bash-guard.mjs": "68de23473d44fc1456999ef8e20ec322bc06b8ef4a1faef80b2846846d8e94f0"
+      },
+      "caller": "Registered-runtime shell guard reads ai-peer-review.runtime-selection/v1 and package.json; exact @kburson/ai-peer-review name and peer-review bin path are consumed without importing the package",
+      "disposition": "Preserve runtime-selection metadata and package/bin identity; a source-level consumer is observed, configuration/deployment activation is not asserted. No selected proof export is permission to change this safeguard."
+    },
+    {
+      "id": "aitm-publication-contract",
+      "repository": "kburson/ai-task-manager",
+      "ref": "a32e08245d2ae243e7922c4bfb287695edd0c251",
+      "status": "planned-not-delivered",
+      "inspected_files": [
+        "docs/superpowers/plans/2026-10-09-1939-artifact-references-review-records.md"
+      ],
+      "file_sha256": {
+        "docs/superpowers/plans/2026-10-09-1939-artifact-references-review-records.md": "6f48a829a2d8ecf657585416def0f972215ffa1915410021c65d187b6340e5a0"
+      },
+      "issue_snapshots": [
+        "https://github.com/kburson/ai-task-manager/issues/1939",
+        "https://github.com/kburson/ai-task-manager/issues/1944"
+      ],
+      "caller": "#1939/#1944 proposed neutral peer-review-publication-adapter and standalone buildReviewPublication/verifyReviewPublication/verify-publication contract; no delivered current importer claimed",
+      "disposition": "Task22C and AIPR#197 must coordinate exact producer/consumer decision through both owning workflows before retirement/replacement. Preserve the proposal and absence of delivered compatibility evidence distinctly."
+    },
+    {
+      "id": "unavailable-installations",
+      "repository": "kburson/ai-peer-review",
+      "ref": "known released versions0.1.0,0.2.0,0.2.1,0.2.2 and observed scoped0.4.1",
+      "status": "unavailable-consumer-census",
+      "inspected_files": [],
+      "caller": "Other installations and GitHub/npm download recipients cannot be enumerated from accessible metadata",
+      "disposition": "Blocked removal for unknown external use; release/consumer maintainers and Task01/19C/22C own any separately forecasted follow-up. No new investigation, dependency or hold created."
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "lineage-proof",
+      "files": [
+        "scripts/lib/runtime-review-lineage-proof.mjs",
+        "schemas/runtime-review-lineage-proof-v1.json"
+      ],
+      "exports": ["verifyRuntimeReviewLineage", "validateRuntimeLineageProof"],
+      "introducing_owner": "#144",
+      "introducing_commit": "db90eb68b7f1c0a65ea7e6dd67e7ac6a9d2fe333",
+      "cleanup_task": "06A",
+      "consumer_ids": ["source-adoption-callers", "unavailable-installations"],
+      "disposition": "blocked-removal",
+      "reason": "Proof-only source production is a retirement candidate. Inspected releases/installation do not carry these files; unknown distributions and source callers still prevent unconditional removal.",
+      "follow_up_owner": "Task06A maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption.",
+      "introducing_commit_scope": "Anchor introduction for the leading production file; related files retain their named owner and source-census follow-up, not an assertion of a single shared introduction."
+    },
+    {
+      "id": "contract-evidence",
+      "files": [
+        "scripts/lib/runtime-contract-evidence.mjs",
+        "schemas/runtime-contract-evidence-approval-v1.json"
+      ],
+      "exports": ["checkRetainedLineageProof", "verifyGovernedRuntimeContractEvidence"],
+      "introducing_owner": "#144",
+      "introducing_commit": "2bdcddb1b98973ae62e554f42fecd5cb10ac15c4",
+      "cleanup_task": "06B",
+      "consumer_ids": ["source-adoption-callers", "unavailable-installations"],
+      "disposition": "blocked-removal",
+      "reason": "Retire review-proof prerequisite only after concrete caller adoption; historical source approval/evidence remains interpretable.",
+      "follow_up_owner": "Task06B maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption.",
+      "introducing_commit_scope": "Anchor introduction for the leading production file; related files retain their named owner and source-census follow-up, not an assertion of a single shared introduction."
+    },
+    {
+      "id": "review-grammar",
+      "files": [
+        "scripts/lib/runtime-review-grammar-v0.4.1.mjs",
+        "scripts/lib/review-grammar-v0.4.1/"
+      ],
+      "exports": [
+        "reduceRuntimeReviewEvents",
+        "inspectRuntimeReviewLineage",
+        "assertRuntimeReviewStartupBinding"
+      ],
+      "introducing_owner": "#144",
+      "introducing_commit": null,
+      "cleanup_task": "06A",
+      "consumer_ids": [
+        "source-adoption-callers",
+        "installed-journal-readers",
+        "unavailable-installations"
+      ],
+      "disposition": "blocked-removal",
+      "reason": "Pinned proof grammar is not authority for retiring historical journal readers or any live independent export; missing introducing detail remains source-census follow-up.",
+      "follow_up_owner": "Task06A maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption."
+    },
+    {
+      "id": "adoption-check",
+      "files": [
+        "scripts/check-runtime-contract-adoption.mjs",
+        "schemas/runtime-contract-adoption-v1.json"
+      ],
+      "exports": [],
+      "introducing_owner": "#144",
+      "introducing_commit": null,
+      "cleanup_task": "06B",
+      "consumer_ids": ["source-adoption-callers", "unavailable-installations"],
+      "disposition": "blocked-removal",
+      "reason": "Development adoption consumer is not the same as installed integrity. Replace only the proof prerequisite under scoped adoption; introducing-commit detail belongs to source census.",
+      "follow_up_owner": "Task06B maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption."
+    },
+    {
+      "id": "adoption-preparation",
+      "files": ["scripts/ci/prepare-contract-adoption.mjs"],
+      "exports": [],
+      "introducing_owner": "#144",
+      "introducing_commit": null,
+      "cleanup_task": "06B",
+      "consumer_ids": ["source-adoption-callers", "unavailable-installations"],
+      "disposition": "blocked-removal",
+      "reason": "Current CI/Test environment consumer must be coordinated before removing its proof inputs. No CI policy changed by inventory.",
+      "follow_up_owner": "Task06B maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption."
+    },
+    {
+      "id": "process-approval-ledger",
+      "files": [
+        "src/protocol/process-source-assurance.mjs",
+        "src/protocol/process-source-contracts.json",
+        "schemas/process-source-class-v1.json",
+        "schemas/process-source-conformance-v1.json",
+        "schemas/process-source-registration-v1.json"
+      ],
+      "exports": [
+        "processSourceContractDigest",
+        "verifyProcessSourceClass",
+        "loadProcessSourceAssurance"
+      ],
+      "introducing_owner": "#167/#187",
+      "introducing_commit": "5825a7b4583afd3dd23b1a78f12957a8147d88ff",
+      "cleanup_task": "05C3",
+      "consumer_ids": ["source-adoption-callers", "unavailable-installations"],
+      "disposition": "blocked-removal",
+      "reason": "Retire only review-approval admission after adopted finite observations/legacy-owner compatibility; preserve original ledger/seals and Unknown. No historical ownership or protected session read.",
+      "follow_up_owner": "Task05C3 maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption.",
+      "introducing_commit_scope": "Anchor introduction for the leading production file; related files retain their named owner and source-census follow-up, not an assertion of a single shared introduction."
+    },
+    {
+      "id": "journal-lineage",
+      "files": [
+        "src/public-api.mjs",
+        "src/protocol/record-lineage.mjs",
+        "src/manifest/render.mjs",
+        "src/protocol/events.mjs",
+        "src/protocol/compatibility-read.mjs",
+        "src/protocol/format-authority.mjs"
+      ],
+      "exports": [
+        "inspectRecordLineage",
+        "validateSuccessor",
+        "buildPhaseManifest",
+        "sealPhaseManifest"
+      ],
+      "introducing_owner": "Existing journal compatibility",
+      "introducing_commit": null,
+      "cleanup_task": "06A",
+      "consumer_ids": ["installed-journal-readers", "aitm-publication-contract"],
+      "disposition": "preserve",
+      "reason": "Useful journal/phase/history interfaces are public in the observed scoped installation and source; preserve their existing contract until separately adopted evolution. Do not conflate them with scripts-only execution proof.",
+      "follow_up_owner": "Task06A maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption."
+    },
+    {
+      "id": "runtime-integrity",
+      "files": [
+        "runtime-inventory.json",
+        "src/startup/runtime-inventory.mjs",
+        "src/protocol/process-source-contract-files.json",
+        "src/config/runtime-selection.mjs",
+        "package.json",
+        "bin/peer-review.mjs"
+      ],
+      "exports": ["verifyRuntimeInventory", "readRuntimeSelection", "registerRuntimeSelection"],
+      "introducing_owner": "#137/#167/#2020 (AITM consumer)",
+      "introducing_commit": null,
+      "cleanup_task": "19C",
+      "consumer_ids": ["aitm-runtime-selection", "unavailable-installations"],
+      "disposition": "preserve",
+      "reason": "Runtime/file integrity and exact package/bin identity remain useful. Source package files/pack script are policy, not proof of a newly built artifact; current source was not packed or installed.",
+      "follow_up_owner": "Task19C maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption."
+    },
+    {
+      "id": "historical-schemas",
+      "files": [
+        "schemas/runtime-review-lineage-proof-v1.json",
+        "schemas/runtime-contract-adoption-v1.json",
+        "schemas/runtime-contract-evidence-approval-v1.json",
+        "schemas/process-source-class-v1.json",
+        "schemas/process-source-conformance-v1.json",
+        "schemas/process-source-registration-v1.json"
+      ],
+      "exports": [],
+      "introducing_owner": "#144/#167",
+      "introducing_commit": null,
+      "cleanup_task": "01",
+      "consumer_ids": [
+        "source-adoption-callers",
+        "installed-journal-readers",
+        "unavailable-installations"
+      ],
+      "disposition": "preserve",
+      "reason": "Keep historical interpretation records; absence from inspected old payloads does not authorize deleting source history, releases or archives.",
+      "follow_up_owner": "Task01 maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption."
+    },
+    {
+      "id": "publication-envelope",
+      "files": ["src/publication/envelope.mjs", "src/publication/verify.mjs"],
+      "exports": ["buildReviewPublication", "verifyReviewPublication"],
+      "introducing_owner": "AIPR#197 / AITM#1939/#1944 planned contract",
+      "introducing_commit": null,
+      "cleanup_task": "22C",
+      "consumer_ids": ["aitm-publication-contract"],
+      "disposition": "coordinate-before-replacement",
+      "reason": "Proposed interfaces are not present in inspected public export lists; no downstream behavior can be claimed delivered. Require explicit producer/consumer disposition before relying on replacement.",
+      "follow_up_owner": "Task22C maintainer with Task01 inventory/adoption join (#228)",
+      "verification": "Selected file-presence matrix and public export lists above; exact source caller file hashes; focused census tests. Removal remains gated on scoped adoption."
+    }
+  ],
+  "limitations": [
+    {
+      "id": "scoped-registry",
+      "identity": "https://registry.npmjs.org/@kburson%2fai-peer-review",
+      "status": "lookup-failed-E404",
+      "reason": "npm view scoped package returned E404; unscoped released package exists and installed scoped0.4.1 exists. This proves only the lookup failure.",
+      "follow_up_owner": "Package/release maintainer, Task19C",
+      "implies_absence": false,
+      "removal_allowed": false
+    },
+    {
+      "id": "other-installations",
+      "identity": "GitHub/npm recipients of exact released package digests and other scoped installations",
+      "status": "unavailable",
+      "reason": "Release metadata and this accessible global installation do not enumerate every downstream installation/importer. No global or private account archaeology.",
+      "follow_up_owner": "Release and downstream consumer maintainers, Task01/19C/22C",
+      "implies_absence": false,
+      "removal_allowed": false
+    },
+    {
+      "id": "installed-source",
+      "identity": "Observed global @kburson/ai-peer-review@0.4.1",
+      "status": "source-commit-unavailable",
+      "reason": "Embedded provenance claims0.2.0 while actual manifest is0.4.1; no source commit inferred or repaired.",
+      "follow_up_owner": "Installation operator and Task19C",
+      "implies_absence": false,
+      "removal_allowed": false
+    },
+    {
+      "id": "historical-archives",
+      "identity": "Embedded provenance references Zenodo22682163/22705903 and Software Heritage revisions1c86f21a8aacca77dc7ebdc8299606fabfaa7e50/7921042427a0be6b53d9c3e41fd75d7099e86a78",
+      "status": "not-inspected-history-mirrors",
+      "reason": "References were read from exact retained package metadata; archive contents were not fetched. Broad archive archaeology is outside this bounded census and cannot grant removal.",
+      "follow_up_owner": "Release-history maintainer, separately forecasted Task01/19C follow-up if required",
+      "implies_absence": false,
+      "removal_allowed": false
+    },
+    {
+      "id": "source-introduction-detail",
+      "identity": "Selected source candidates with introducing_commit:null above",
+      "status": "not-established-by-distribution-census",
+      "reason": "Known introducing issues are retained; exact source history for every file belongs to Task01A, not invented from package metadata. Joined removals stay blocked until that census/adoption covers them.",
+      "follow_up_owner": "Task01A source census and Task01 join (#228)",
+      "implies_absence": false,
+      "removal_allowed": false
+    }
+  ],
+  "verification": {
+    "payloads": "Each GitHub tarball read with tarfile; exact equality to independently downloaded unscoped npm tarball; all own file paths listed; selected file bytes and public API inspected without executing payloads.",
+    "focused_command": "node --test test/unit/distribution-inventory-226.test.mjs",
+    "read_back": "Independent local source/archive/member/hash comparisons retained in issue226 evidence; focused data checks do not claim external deployment or consumer adoption.",
+    "retirement_policy": "All selected proof retirements are blocked-removal pending scoped caller and unavailable-consumer disposition. Historical schemas/current integrity/journal exports remain preserved.",
+    "unavailable_followup": "Task01 join (#228) and named owning tasks must retain unavailable rows as blockers for dependent removal, not silently drop them."
+  }
+}
