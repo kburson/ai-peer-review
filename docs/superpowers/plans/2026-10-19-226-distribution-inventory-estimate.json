@@ -1,0 +1,28 @@
+{
+  "schema": "aitm.plan-estimation-input/v1",
+  "wbs": [
+    {
+      "id": "task-1",
+      "description": "Inspect exact released and installed package contents and AITM consumers, produce and verify bounded distribution census, independently review and deliver",
+      "baseHumanHours": 3,
+      "signals": {
+        "modules": ["distribution-census"],
+        "dependencies": []
+      },
+      "independentlyReviewable": true
+    }
+  ],
+  "testImpact": {
+    "lanes": ["documentation"],
+    "isolation": "Read-only installed/runtime and downloaded tarball inspection without executing package hooks; local focused census validation and exact-head hosted Linux/macOS native Test receipts",
+    "expectedMinutes": 30
+  },
+  "risks": [
+    "Human WBS3.0hours retains engineering/docs1.5h, human verification/read-back0.5h, independent review0.5h and delivery0.5h. Additional30minutes is a conservative unavoidable machine-execution planning assumption for focused checks and exact-head hosted Linux/macOS tests, not a benchmark or replacement for human verification. Complete proposal3.5hours before native calibration.",
+    "Unavailable distributions or caller evidence get explicit identity and follow-up owner; no absence inferred from failed lookup.",
+    "Embedded release manifests may lag actual package versions; record exact bytes and claims separately.",
+    "Native calibrated human forecast must remain within4hours; a larger result requires replanning rather than forcing the inspected3hour proposal.",
+    "Owner established14400second cumulative allowance at continuation; charge all subsequent attributable workers/retries, preserve prior Unknown values."
+  ],
+  "comparableIssueIds": []
+}
