@@ -130,3 +130,13 @@ After API recovery, the [fresh verification receipt](focus-hold-verification.jso
 The sanctioned project setting `gatePlanRefineWip=false` is saved, but [the installed guard ignores it](focus-wip-refusal.json): a fresh native `plan 222` attempt still refused for sibling #214. #222 is still Ready for Planning, not Done. Native #157 pause succeeded after API reset, retaining Unknown accounting; successful recovery administration sessions were paused. No guard bypass, fabricated approval, direct state jump or installed-source patch was used.
 
 The canonical #222 owned focus-hold comment and commit trace provide publication and commit provenance. The receipt also preserves the initial partial pass and API-quota interruption.
+
+## Current documentation closeout
+
+The owner withdrew `222-hydration-hold` labels; **never restore them**. Historical hold and WIP-refusal receipts above are preserved, not active label instructions. [Current policy](focus-hold-policy.md#owner-withdrawal-of-hold-labels-and-current-closeout-policy) records the withdrawal, separate AITM publication/WIP fix and successful native #222 Plan entry. Existing dependencies remain authoritative and unchanged by label withdrawal.
+
+The [fresh cohort observation](closeout-cohort-readback.json) confirms all 51 stories still OPEN in Backlog with issue-body hashes unchanged from hydration. `222-hydration` remains their identifying label. The accepted spec r13 and plan r6 hashes were rechecked unchanged. No cohort implementation, native forecast, approval or advancement occurred. Subsequent lifecycle results for documentation-only #222 belong in the issue's native state-machine evidence; this pre-close receipt does not claim Done or delivery before they occur.
+
+[Closeout preparation](closeout-preparation.json) records delivered AITM #2031, native recovery of the interrupted publication, and a read-only ready-with-capacity-warning observation. Later API exhaustion interrupted Plan re-entry; readiness must be revalidated through AITM. This is a preparation checkpoint, not a claim of #222 Plan approval, Test, delivery or Done.
+
+The accepted r13 specification has a known table-format warning retained in its technical-review receipt. Its exact bytes now have one exact-path entry in `.prettierignore` and `.markdownlint-cli2.jsonc`, following the repository's existing immutable-document convention. This changes formatting-preservation metadata only; it does not reformat or retroactively change the accepted artifact, its review outcome, or its original formatting observation. Product source and accepted plan bytes are unchanged.

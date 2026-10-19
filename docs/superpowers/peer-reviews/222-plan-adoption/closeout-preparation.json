@@ -1,0 +1,64 @@
+{
+  "record_kind": "Documentation closeout preparation; native issue lifecycle remains authoritative",
+  "preparation_issue": 222,
+  "implementation_authorized": false,
+  "aitm_fix": {
+    "issue": "kburson/ai-task-manager#2031",
+    "pull_request": "https://github.com/kburson/ai-task-manager/pull/2032",
+    "source_head": "71c4fc17e1259973b66eebaf09742638cb8d11d4",
+    "integration_head": "5a4d02fc0c1125be72bcdaad5cc62d5eddba7bf8",
+    "ci_run": 39177375876,
+    "native_test": "passed exact-head isolated worktree verification",
+    "native_review": "passed; Full-Auto approval, not a human PR review",
+    "native_delivery_receipt": "verified equivalent-delta squash delivery",
+    "native_state": "Done; closed 2026-10-19T02:40:25Z"
+  },
+  "consumer_publication_recovery": {
+    "cancel_operation": "5720b9d5-5e5a-4e14-ab08-accf692d4583",
+    "publication_status": "complete",
+    "native_edge": "Plan -> Ready for Planning",
+    "transition_steps_verified": 8,
+    "interruption": "GitHub GraphQL quota interrupted adaptive publication; original pending effects retained and reconciled by registered readers",
+    "protected_records_hand_edited": false
+  },
+  "readiness_after_recovery": {
+    "issue": 222,
+    "actionId": "promote",
+    "status": "ready",
+    "blockers": [],
+    "normalizations": [],
+    "warnings": [
+      {
+        "code": "epic-wip-capacity-exceeded",
+        "args": {
+          "activeIssues": "#214",
+          "budget": 1
+        }
+      }
+    ],
+    "humanDecision": null
+  },
+  "accepted_spec_sha256": "f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+  "accepted_plan_sha256": "40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+  "orphan_plan": "retired; not used",
+  "label_policy": "Retain 222-hydration identification. Owner withdrew 222-hydration-hold; never reapply. Existing native dependency edges remain separate authority.",
+  "timing": "Preserve all original Unknown values and prior attributable work; no backfill, inferred zero or allowance reset.",
+  "closeout_scope": "Documentation and explicit immutable-document formatting metadata only; no product implementation, generated contracts, accepted FUR edits or cohort advancement.",
+  "checkpoint_state": "Ready for Planning; no claim of later lifecycle completion",
+  "subsequent_reentry": {
+    "native_result": "rank-wave-blocked; state unchanged",
+    "same_window": "GitHub GraphQL rateLimit.remaining observed zero",
+    "direct_blockers_readback": [],
+    "interpretation": "Authority must be read again after the reset; no dependency or ownership gate bypass is authorized."
+  },
+  "format_preservation": {
+    "accepted_spec_bytes_changed": false,
+    "scope": "one exact immutable accepted specification path",
+    "historical_format_warning_preserved": true,
+    "metadata_paths": [
+      ".prettierignore",
+      ".markdownlint-cli2.jsonc"
+    ]
+  },
+  "mutable_collateral_hygiene": "Added H1 headings to focus-hold-policy.md and owner-acceptance.md, preserving their original prose."
+}

@@ -1,3 +1,5 @@
+# Owner acceptance of plan revision 6
+
 Owner accepted **issue-222-plan-r6** and authorized creation of its 51 Backlog tasks with dependencies, parallel waves and the four-human-hour complete-task ceiling. No implementation is authorized.
 
 Accepted plan: `docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md` at `da4148744a3f009163bcfb7f5ef1f2bbc8daba99`, SHA-256 `40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7`. Accepted specification remains `issue-222-r13`, unchanged. Technical XPR acceptance is distinct from this owner acceptance. The orphan plan remains retired.
