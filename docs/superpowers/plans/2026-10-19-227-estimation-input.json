@@ -1,0 +1,26 @@
+{
+  "schema": "aitm.plan-estimation-input/v1",
+  "wbs": [
+    {
+      "id": "containment-partition",
+      "description": "Produce and independently review the historical containment and exact issue ownership partition, including source and native read-back evidence plus routine delivery coordination",
+      "baseHumanHours": 2.5,
+      "signals": {
+        "modules": ["adoption-documentation"],
+        "dependencies": ["github-issue-authority"]
+      },
+      "independentlyReviewable": true
+    }
+  ],
+  "testImpact": {
+    "lanes": ["documentation-validation"],
+    "isolation": "native-exact-head-test-and-hosted-posix",
+    "expectedMinutes": 30
+  },
+  "risks": [
+    "GitHub authority reads or native publication may be unavailable; stop rather than bypass gates",
+    "Historical forecasts and Unknown timing require preservation; partition is not requirement adoption",
+    "New candidates require explicit bounded ownership before registration"
+  ],
+  "comparableIssueIds": []
+}

@@ -1,0 +1,73 @@
+{
+  "schema": "aipr.issue-227-planning-evidence/v1",
+  "issue": 227,
+  "scope": "Read existing historical containment and partition native issue disposition ownership; no new holds or foreign mutations",
+  "acceptedSource": {
+    "specRevision": "issue-222-r13",
+    "specSha256": "f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+    "planRevision": "issue-222-plan-r6",
+    "planCommit": "da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+    "planSha256": "40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+    "task": "01C"
+  },
+  "ownerDirection": {
+    "keepLabel": "222-hydration",
+    "neverCreateLabel": "222-hydration-hold",
+    "newHoldEdges": false,
+    "preserveIssues": [214, 215, 216, 217, 218, 219, 220, 221],
+    "source": "Direct owner continuation through orchestrator; supersedes original hold-creation instruction"
+  },
+  "humanForecastInspection": {
+    "inspector": "Independent parent orchestrator",
+    "acceptedHours": 3,
+    "maximumHours": 4,
+    "components": {
+      "documentationAndCensus": 1.5,
+      "verification": 0.5,
+      "independentReview": 0.5,
+      "delivery": 0.5
+    },
+    "nativeForecastStatus": "Not yet registered; inspect full actual native forecast before Plan approval"
+  },
+  "allowance": {
+    "ownerBaselineSeconds": 14400,
+    "source": "Direct owner full-allotment determination at prior continuation; not a reset at later resume",
+    "rootConservativeBoundThroughUtc": "2026-10-19T15:10:00Z",
+    "rootSeconds": 4142,
+    "rootComponentsSeconds": [2700, 242, 750, 330, 120],
+    "workerCompletedPostBaselineTurnSeconds": [399.343, 26.407],
+    "workerCurrentTurnStartUtc": "2026-10-19T15:06:39.829Z",
+    "calculation": "Add entire current turn wall and all later attributable root/worker/review/delivery work; idle intervals between turns excluded. Historical Unknown telemetry unchanged. Bounds are not measured engagement.",
+    "priorWorkerTurnBeforeOwnerBaselineSeconds": 204.181,
+    "futureProjectionSeconds": {
+      "workerImplementationAndVerification": 2700,
+      "independentReview": 900,
+      "rootIntegrationAndDelivery": 1200,
+      "recoveryContingency": 900
+    },
+    "projectionStatus": "Proposed complete remaining-work reservation, requires independent root inspection alongside full actual native forecast; future attribution is not limited to these estimates"
+  },
+  "nativeIntake": {
+    "pendingOperation": "d9204e7f-6b80-4ffd-a950-531936549cc3",
+    "exactReplayResult": "terminal success Backlog to Refine; 8/8 tail steps verified",
+    "observedUtc": "2026-10-19T15:10:45Z",
+    "furtherEstimateRule": "Commit stable scoped source and packet, trace and pin before further estimate; no pin changes during publication"
+  },
+  "observation": {
+    "initialOpenCount": 90,
+    "initialDispositionIdentities": 36,
+    "initialHydrationCohort": 51,
+    "remainingExplicitClassifications": [70, 111, 223],
+    "countIsAuthority": false,
+    "containment": {
+      "214": [275],
+      "217": [275, 216],
+      "218": [275, 217],
+      "219": [275, 218],
+      "220": [275, 219],
+      "221": [275, 220, 215]
+    },
+    "connectionPaginationComplete": true
+  },
+  "completionBoundary": "Native complete human forecast <=4h, independently inspected full agent projection, native Plan approval before Develop; final Review/Close/delivery are orchestrator owned"
+}
