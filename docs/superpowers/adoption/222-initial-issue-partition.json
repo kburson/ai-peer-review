@@ -1,0 +1,863 @@
+{
+  "schema": "aipr.initial-issue-partition/v1",
+  "owningIssue": 227,
+  "scope": "Initial nonoverlapping disposition ownership observation; not adoption, implementation or release authority.",
+  "asOf": "2026-10-19T20:38:17.880236+00:00",
+  "completeOpenIssueCount": 91,
+  "countIsAuthority": false,
+  "evidenceFile": "227-native-issue-evidence.json",
+  "evidenceSha256": "d4b2f2f00856073de6608a986ab0003623f2012b985361c79c3a6e57993e3d34",
+  "acceptedPlan": {
+    "revision": "issue-222-plan-r6",
+    "commit": "da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+    "sha256": "40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+    "task": "01C",
+    "dispositionSections": ["21", "22A1", "22A2", "22B1", "22B2", "22C", "23A", "23B1", "23B2"]
+  },
+  "constraints": {
+    "windows213": "keep-deferred-unscheduled-nonblocking",
+    "newHoldEdges": 0,
+    "newHoldLabels": 0,
+    "proofIssueMutations": 0,
+    "nativeUnknownRewritten": false
+  },
+  "entries": [
+    {
+      "number": 29,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Deliver project-local review lifecycle and learning architecture",
+      "url": "https://github.com/kburson/ai-peer-review/issues/29",
+      "classification": "disposition",
+      "ownerTask": "23B1",
+      "ownerIssue": 270,
+      "reason": "Pinned Task 23B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 30,
+      "title": "Phase 1: Artifact lifecycle and review-evidence layout",
+      "url": "https://github.com/kburson/ai-peer-review/issues/30",
+      "classification": "disposition",
+      "ownerTask": "22B1",
+      "ownerIssue": 266,
+      "reason": "Pinned Task 22B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 31,
+      "title": "Phase 2: Clone-shared SQLite authority projection",
+      "url": "https://github.com/kburson/ai-peer-review/issues/31",
+      "classification": "disposition",
+      "ownerTask": "23B1",
+      "ownerIssue": 270,
+      "reason": "Pinned Task 23B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 32,
+      "title": "Phase 3: Project-local knowledge retrieval",
+      "url": "https://github.com/kburson/ai-peer-review/issues/32",
+      "classification": "disposition",
+      "ownerTask": "23B1",
+      "ownerIssue": 270,
+      "reason": "Pinned Task 23B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 33,
+      "title": "Phase 4: Defect feedback and governed learning",
+      "url": "https://github.com/kburson/ai-peer-review/issues/33",
+      "classification": "disposition",
+      "ownerTask": "23B1",
+      "ownerIssue": 270,
+      "reason": "Pinned Task 23B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 34,
+      "title": "Phase 5: Provider-comparison experiments",
+      "url": "https://github.com/kburson/ai-peer-review/issues/34",
+      "classification": "disposition",
+      "ownerTask": "23B1",
+      "ownerIssue": 270,
+      "reason": "Pinned Task 23B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 70,
+      "title": "\ud83d\udc1e [BUG] Configure adaptive estimation rubric authority",
+      "url": "https://github.com/kburson/ai-peer-review/issues/70",
+      "classification": "retained-independent",
+      "ownerTask": null,
+      "ownerIssue": 70,
+      "reason": "Retain dedicated adaptive-estimation rubric authority; no journal requirement adoption or workflow configuration change."
+    },
+    {
+      "number": 107,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Ship install-ready JavaScript review workflow and MCP",
+      "url": "https://github.com/kburson/ai-peer-review/issues/107",
+      "classification": "disposition",
+      "ownerTask": "23A",
+      "ownerIssue": 269,
+      "reason": "Pinned Task 23A has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 109,
+      "title": "\ud83d\udc1e [BUG] Codex headless author sessions omit attributable usage telemetry",
+      "url": "https://github.com/kburson/ai-peer-review/issues/109",
+      "classification": "disposition",
+      "ownerTask": "22A2",
+      "ownerIssue": 265,
+      "reason": "Pinned Task 22A2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 111,
+      "title": "Refactor peer-review collateral linting and formatting coverage",
+      "url": "https://github.com/kburson/ai-peer-review/issues/111",
+      "classification": "retained-independent",
+      "ownerTask": null,
+      "ownerIssue": 111,
+      "reason": "Retain independent collateral lint/format stub. Its live Scope/AC remain unspecified; no affected requirement is invented or adopted. Final census owner23A must reconsider any later substantive scope."
+    },
+    {
+      "number": 118,
+      "title": "[Task]  Add support for an SAR",
+      "url": "https://github.com/kburson/ai-peer-review/issues/118",
+      "classification": "disposition",
+      "ownerTask": "22A1",
+      "ownerIssue": 264,
+      "reason": "Pinned Task 22A1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 124,
+      "title": "\ud83d\udc1e [BUG] Codex linked-worktree hook discovery blocks peer-review identity",
+      "url": "https://github.com/kburson/ai-peer-review/issues/124",
+      "classification": "disposition",
+      "ownerTask": "22B2",
+      "ownerIssue": 267,
+      "reason": "Pinned Task 22B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 130,
+      "title": "Design shared peer-review policy and primary-workspace configuration inheritance",
+      "url": "https://github.com/kburson/ai-peer-review/issues/130",
+      "classification": "disposition",
+      "ownerTask": "23B1",
+      "ownerIssue": 270,
+      "reason": "Pinned Task 23B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 141,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Protected Storage and Exclusive Ownership",
+      "url": "https://github.com/kburson/ai-peer-review/issues/141",
+      "classification": "disposition",
+      "ownerTask": "23A",
+      "ownerIssue": 269,
+      "reason": "Pinned Task 23A has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 142,
+      "title": "Genuine Host Epoch and Descendant Termination",
+      "url": "https://github.com/kburson/ai-peer-review/issues/142",
+      "classification": "disposition",
+      "ownerTask": "22B2",
+      "ownerIssue": 267,
+      "reason": "Pinned Task 22B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 143,
+      "title": "Binary-Free Package Closure and CI",
+      "url": "https://github.com/kburson/ai-peer-review/issues/143",
+      "classification": "disposition",
+      "ownerTask": "23B1",
+      "ownerIssue": 270,
+      "reason": "Pinned Task 23B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 146,
+      "title": "Config v2 and Finite Roster Resolution",
+      "url": "https://github.com/kburson/ai-peer-review/issues/146",
+      "classification": "disposition",
+      "ownerTask": "23B2",
+      "ownerIssue": 271,
+      "reason": "Pinned Task 23B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 147,
+      "title": "Read-Only Preview and Atomic Reservation",
+      "url": "https://github.com/kburson/ai-peer-review/issues/147",
+      "classification": "disposition",
+      "ownerTask": "23B2",
+      "ownerIssue": 271,
+      "reason": "Pinned Task 23B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 148,
+      "title": "Headless Identity and Private Role Tools",
+      "url": "https://github.com/kburson/ai-peer-review/issues/148",
+      "classification": "disposition",
+      "ownerTask": "22A1",
+      "ownerIssue": 264,
+      "reason": "Pinned Task 22A1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 149,
+      "title": "Role Scopes, Context, and Submission Seals",
+      "url": "https://github.com/kburson/ai-peer-review/issues/149",
+      "classification": "disposition",
+      "ownerTask": "22A1",
+      "ownerIssue": 264,
+      "reason": "Pinned Task 22A1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 150,
+      "title": "Stages, Rounds, Findings and Finite Fallback",
+      "url": "https://github.com/kburson/ai-peer-review/issues/150",
+      "classification": "disposition",
+      "ownerTask": "22A1",
+      "ownerIssue": 264,
+      "reason": "Pinned Task 22A1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 151,
+      "title": "#30 Shared Evidence and Portable Lineage",
+      "url": "https://github.com/kburson/ai-peer-review/issues/151",
+      "classification": "disposition",
+      "ownerTask": "22B1",
+      "ownerIssue": 266,
+      "reason": "Pinned Task 22B1 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 152,
+      "title": "Existing #109 Attempt and Controller Metrics",
+      "url": "https://github.com/kburson/ai-peer-review/issues/152",
+      "classification": "disposition",
+      "ownerTask": "22A2",
+      "ownerIssue": 265,
+      "reason": "Pinned Task 22A2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 153,
+      "title": "Existing #109 Aggregates, Chains and Amendments",
+      "url": "https://github.com/kburson/ai-peer-review/issues/153",
+      "classification": "disposition",
+      "ownerTask": "22A2",
+      "ownerIssue": 265,
+      "reason": "Pinned Task 22A2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 154,
+      "title": "Out-of-Band Monitoring and Observer Admission",
+      "url": "https://github.com/kburson/ai-peer-review/issues/154",
+      "classification": "disposition",
+      "ownerTask": "23B2",
+      "ownerIssue": 271,
+      "reason": "Pinned Task 23B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 155,
+      "title": "Identical CLI/MCP and Small Installed Skill",
+      "url": "https://github.com/kburson/ai-peer-review/issues/155",
+      "classification": "disposition",
+      "ownerTask": "23B2",
+      "ownerIssue": 271,
+      "reason": "Pinned Task 23B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 156,
+      "title": "Replay-Safe Recovery and Project Cleanup",
+      "url": "https://github.com/kburson/ai-peer-review/issues/156",
+      "classification": "disposition",
+      "ownerTask": "22B2",
+      "ownerIssue": 267,
+      "reason": "Pinned Task 22B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 157,
+      "title": "Installed Release Conformance and Migration",
+      "url": "https://github.com/kburson/ai-peer-review/issues/157",
+      "classification": "disposition",
+      "ownerTask": "22B2",
+      "ownerIssue": 267,
+      "reason": "Pinned Task 22B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 197,
+      "title": "Export exact-subject review publication envelope and read-only verifier for AITM integration",
+      "url": "https://github.com/kburson/ai-peer-review/issues/197",
+      "classification": "disposition",
+      "ownerTask": "22C",
+      "ownerIssue": 268,
+      "reason": "Pinned Task 22C has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 210,
+      "title": "\ud83d\udc1e [BUG] Explicit recovery is unavailable for orphaned portable provider resource generations",
+      "url": "https://github.com/kburson/ai-peer-review/issues/210",
+      "classification": "disposition",
+      "ownerTask": "23B2",
+      "ownerIssue": 271,
+      "reason": "Pinned Task 23B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 212,
+      "title": "Explicit Linux/macOS CI and receipt prerequisite for #190",
+      "url": "https://github.com/kburson/ai-peer-review/issues/212",
+      "classification": "disposition",
+      "ownerTask": "23B2",
+      "ownerIssue": 271,
+      "reason": "Pinned Task 23B2 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 213,
+      "title": "Windows support for trusted local review handoffs \u2014 deferred",
+      "url": "https://github.com/kburson/ai-peer-review/issues/213",
+      "classification": "disposition",
+      "ownerTask": "23B2",
+      "ownerIssue": 271,
+      "reason": "Task23B2/#271 retains Windows213 indefinitely deferred, unscheduled and nonblocking under global223 policy; no implementation or activation."
+    },
+    {
+      "number": 214,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Admit journal review proofs for POSIX source-class approval",
+      "url": "https://github.com/kburson/ai-peer-review/issues/214",
+      "classification": "disposition",
+      "ownerTask": "21",
+      "ownerIssue": 263,
+      "reason": "Pinned Task 21 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 217,
+      "title": "[B] Verify completed private journals read-only",
+      "url": "https://github.com/kburson/ai-peer-review/issues/217",
+      "classification": "disposition",
+      "ownerTask": "21",
+      "ownerIssue": 263,
+      "reason": "Pinned Task 21 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 218,
+      "title": "[C] Publish immutable portable approval evidence",
+      "url": "https://github.com/kburson/ai-peer-review/issues/218",
+      "classification": "disposition",
+      "ownerTask": "21",
+      "ownerIssue": 263,
+      "reason": "Pinned Task 21 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 219,
+      "title": "[D] Accept versioned registration approval proofs",
+      "url": "https://github.com/kburson/ai-peer-review/issues/219",
+      "classification": "disposition",
+      "ownerTask": "21",
+      "ownerIssue": 263,
+      "reason": "Pinned Task 21 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 220,
+      "title": "[E] Accept versioned finite-class approval proofs",
+      "url": "https://github.com/kburson/ai-peer-review/issues/220",
+      "classification": "disposition",
+      "ownerTask": "21",
+      "ownerIssue": 263,
+      "reason": "Pinned Task 21 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 221,
+      "title": "[G] Prove one genuine current Linux approval end-to-end",
+      "url": "https://github.com/kburson/ai-peer-review/issues/221",
+      "classification": "disposition",
+      "ownerTask": "21",
+      "ownerIssue": 263,
+      "reason": "Pinned Task 21 has exclusive scoped disposition responsibility; this initial assignment neither adopts replacement ACs nor claims implementation."
+    },
+    {
+      "number": 223,
+      "title": "Defer all Windows CI allocations across branches and diagnostics",
+      "url": "https://github.com/kburson/ai-peer-review/issues/223",
+      "classification": "retained-independent",
+      "ownerTask": null,
+      "ownerIssue": 223,
+      "reason": "Retain the separate global Windows CI deferral policy and its owning workflow; no claim that this issue is closed or delivered, and no Windows support inference."
+    },
+    {
+      "number": 225,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] [Journal 01A] Inventory source and development proof consumers",
+      "url": "https://github.com/kburson/ai-peer-review/issues/225",
+      "classification": "hydrated-implementation",
+      "ownerTask": "01A",
+      "ownerIssue": 225,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 227,
+      "title": "[Journal 01C] Record the interim hold and partition native issue ownership",
+      "url": "https://github.com/kburson/ai-peer-review/issues/227",
+      "classification": "hydrated-implementation",
+      "ownerTask": "01C",
+      "ownerIssue": 227,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 228,
+      "title": "[Journal 01] Integrate the inventory and scoped-adoption gate",
+      "url": "https://github.com/kburson/ai-peer-review/issues/228",
+      "classification": "hydrated-implementation",
+      "ownerTask": "01",
+      "ownerIssue": 228,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 229,
+      "title": "[Journal 02] Verify the global POSIX CI bootstrap and future receipt bindings",
+      "url": "https://github.com/kburson/ai-peer-review/issues/229",
+      "classification": "hydrated-implementation",
+      "ownerTask": "02",
+      "ownerIssue": 229,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 230,
+      "title": "[Journal 03] Adopt finite process semantics and persisted-seal compatibility",
+      "url": "https://github.com/kburson/ai-peer-review/issues/230",
+      "classification": "hydrated-implementation",
+      "ownerTask": "03",
+      "ownerIssue": 230,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 231,
+      "title": "[Journal 04] Build isolated finite process qualification and compatibility readers",
+      "url": "https://github.com/kburson/ai-peer-review/issues/231",
+      "classification": "hydrated-implementation",
+      "ownerTask": "04",
+      "ownerIssue": 231,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 232,
+      "title": "[Journal 05A] Implement isolated Linux probe observations",
+      "url": "https://github.com/kburson/ai-peer-review/issues/232",
+      "classification": "hydrated-implementation",
+      "ownerTask": "05A",
+      "ownerIssue": 232,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 233,
+      "title": "[Journal 05B] Implement Darwin observations and preserve old ownership seals",
+      "url": "https://github.com/kburson/ai-peer-review/issues/233",
+      "classification": "hydrated-implementation",
+      "ownerTask": "05B",
+      "ownerIssue": 233,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 234,
+      "title": "[Journal 05C1] Build the inactive installed observation capability",
+      "url": "https://github.com/kburson/ai-peer-review/issues/234",
+      "classification": "hydrated-implementation",
+      "ownerTask": "05C1",
+      "ownerIssue": 234,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 235,
+      "title": "[Journal 05C2] Define versioned portable owner records and compatibility",
+      "url": "https://github.com/kburson/ai-peer-review/issues/235",
+      "classification": "hydrated-implementation",
+      "ownerTask": "05C2",
+      "ownerIssue": 235,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 236,
+      "title": "[Journal 05C3] Activate usable process observations and inventory atomically",
+      "url": "https://github.com/kburson/ai-peer-review/issues/236",
+      "classification": "hydrated-implementation",
+      "ownerTask": "05C3",
+      "ownerIssue": 236,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 237,
+      "title": "[Journal 06A] Retire local review-proof production and consumers",
+      "url": "https://github.com/kburson/ai-peer-review/issues/237",
+      "classification": "hydrated-implementation",
+      "ownerTask": "06A",
+      "ownerIssue": 237,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 238,
+      "title": "[Journal 06B] Remove adopted review-proof admission from CI and process conformance",
+      "url": "https://github.com/kburson/ai-peer-review/issues/238",
+      "classification": "hydrated-implementation",
+      "ownerTask": "06B",
+      "ownerIssue": 238,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 239,
+      "title": "[Journal 06C] Integrate proof-consumer retirement with extraction and ordinary review",
+      "url": "https://github.com/kburson/ai-peer-review/issues/239",
+      "classification": "hydrated-implementation",
+      "ownerTask": "06C",
+      "ownerIssue": 239,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 240,
+      "title": "[Journal 07A] Define response and manifest v2 validators",
+      "url": "https://github.com/kburson/ai-peer-review/issues/240",
+      "classification": "hydrated-implementation",
+      "ownerTask": "07A",
+      "ownerIssue": 240,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 241,
+      "title": "[Journal 07B] Define event, protocol and explicit handoff contracts",
+      "url": "https://github.com/kburson/ai-peer-review/issues/241",
+      "classification": "hydrated-implementation",
+      "ownerTask": "07B",
+      "ownerIssue": 241,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 242,
+      "title": "[Journal 07C] Integrate fixed contextual journal dispatch",
+      "url": "https://github.com/kburson/ai-peer-review/issues/242",
+      "classification": "hydrated-implementation",
+      "ownerTask": "07C",
+      "ownerIssue": 242,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 243,
+      "title": "[Journal 07D] Prepare version-aware API registry integration without changing v1",
+      "url": "https://github.com/kburson/ai-peer-review/issues/243",
+      "classification": "hydrated-implementation",
+      "ownerTask": "07D",
+      "ownerIssue": 243,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 244,
+      "title": "[Journal 08] Capture bounded root and reviewer working contexts",
+      "url": "https://github.com/kburson/ai-peer-review/issues/244",
+      "classification": "hydrated-implementation",
+      "ownerTask": "08",
+      "ownerIssue": 244,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 245,
+      "title": "[Journal 09] Compare effective contexts with exact collateral exclusions",
+      "url": "https://github.com/kburson/ai-peer-review/issues/245",
+      "classification": "hydrated-implementation",
+      "ownerTask": "09",
+      "ownerIssue": 245,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 246,
+      "title": "[Journal 10] Validate FUR revision identity and protected reviewer provenance",
+      "url": "https://github.com/kburson/ai-peer-review/issues/246",
+      "classification": "hydrated-implementation",
+      "ownerTask": "10",
+      "ownerIssue": 246,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 247,
+      "title": "[Journal 11] Add new-format event projection with honest intermediate states",
+      "url": "https://github.com/kburson/ai-peer-review/issues/247",
+      "classification": "hydrated-implementation",
+      "ownerTask": "11",
+      "ownerIssue": 247,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 248,
+      "title": "[Journal 12] Seal initial and layered acceptance manifests",
+      "url": "https://github.com/kburson/ai-peer-review/issues/248",
+      "classification": "hydrated-implementation",
+      "ownerTask": "12",
+      "ownerIssue": 248,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 249,
+      "title": "[Journal 13] Generate exact reversible diffs and cross-review links",
+      "url": "https://github.com/kburson/ai-peer-review/issues/249",
+      "classification": "hydrated-implementation",
+      "ownerTask": "13",
+      "ownerIssue": 249,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 250,
+      "title": "[Journal 14] Coordinate publication windows and pending external outcomes",
+      "url": "https://github.com/kburson/ai-peer-review/issues/250",
+      "classification": "hydrated-implementation",
+      "ownerTask": "14",
+      "ownerIssue": 250,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 251,
+      "title": "[Journal 15A] Prepare versioned review-only prompts and provider constraints",
+      "url": "https://github.com/kburson/ai-peer-review/issues/251",
+      "classification": "hydrated-implementation",
+      "ownerTask": "15A",
+      "ownerIssue": 251,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 252,
+      "title": "[Journal 15B1] Build inactive new-format review startup orchestration",
+      "url": "https://github.com/kburson/ai-peer-review/issues/252",
+      "classification": "hydrated-implementation",
+      "ownerTask": "15B1",
+      "ownerIssue": 252,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 253,
+      "title": "[Journal 15B2] Build inactive external revision submission orchestration",
+      "url": "https://github.com/kburson/ai-peer-review/issues/253",
+      "classification": "hydrated-implementation",
+      "ownerTask": "15B2",
+      "ownerIssue": 253,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 254,
+      "title": "[Journal 15B3] Activate the external revision handoff and reviewer boundary",
+      "url": "https://github.com/kburson/ai-peer-review/issues/254",
+      "classification": "hydrated-implementation",
+      "ownerTask": "15B3",
+      "ownerIssue": 254,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 255,
+      "title": "[Journal 16] Complete both response sides and acceptance acknowledgements",
+      "url": "https://github.com/kburson/ai-peer-review/issues/255",
+      "classification": "hydrated-implementation",
+      "ownerTask": "16",
+      "ownerIssue": 255,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 256,
+      "title": "[Journal 17] Reconstruct FUR history from final bytes after squash",
+      "url": "https://github.com/kburson/ai-peer-review/issues/256",
+      "classification": "hydrated-implementation",
+      "ownerTask": "17",
+      "ownerIssue": 256,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 257,
+      "title": "[Journal 18] Document and verify scoped external turn publication",
+      "url": "https://github.com/kburson/ai-peer-review/issues/257",
+      "classification": "hydrated-implementation",
+      "ownerTask": "18",
+      "ownerIssue": 257,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 258,
+      "title": "[Journal 19A] Expose the read-only public journal and API contracts",
+      "url": "https://github.com/kburson/ai-peer-review/issues/258",
+      "classification": "hydrated-implementation",
+      "ownerTask": "19A",
+      "ownerIssue": 258,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 259,
+      "title": "[Journal 19D] Expose the bounded external publication coordination API",
+      "url": "https://github.com/kburson/ai-peer-review/issues/259",
+      "classification": "hydrated-implementation",
+      "ownerTask": "19D",
+      "ownerIssue": 259,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 260,
+      "title": "[Journal 19B] Wire CLI and MCP parity for journal inspection",
+      "url": "https://github.com/kburson/ai-peer-review/issues/260",
+      "classification": "hydrated-implementation",
+      "ownerTask": "19B",
+      "ownerIssue": 260,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 261,
+      "title": "[Journal 19C] Verify portable package closure and immutable format exceptions",
+      "url": "https://github.com/kburson/ai-peer-review/issues/261",
+      "classification": "hydrated-implementation",
+      "ownerTask": "19C",
+      "ownerIssue": 261,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 262,
+      "title": "[Journal 20] Deliver the pre-planning suitability decision procedure",
+      "url": "https://github.com/kburson/ai-peer-review/issues/262",
+      "classification": "hydrated-implementation",
+      "ownerTask": "20",
+      "ownerIssue": 262,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 263,
+      "title": "[Journal 21] Disposition the obsolete proof program without false completion",
+      "url": "https://github.com/kburson/ai-peer-review/issues/263",
+      "classification": "hydrated-implementation",
+      "ownerTask": "21",
+      "ownerIssue": 263,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 264,
+      "title": "[Journal 22A1] Reconcile review role and artifact-write requirements",
+      "url": "https://github.com/kburson/ai-peer-review/issues/264",
+      "classification": "hydrated-implementation",
+      "ownerTask": "22A1",
+      "ownerIssue": 264,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 265,
+      "title": "[Journal 22A2] Reconcile participant identity and measured telemetry",
+      "url": "https://github.com/kburson/ai-peer-review/issues/265",
+      "classification": "hydrated-implementation",
+      "ownerTask": "22A2",
+      "ownerIssue": 265,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 266,
+      "title": "[Journal 22B1] Reconcile retained journal requirements",
+      "url": "https://github.com/kburson/ai-peer-review/issues/266",
+      "classification": "hydrated-implementation",
+      "ownerTask": "22B1",
+      "ownerIssue": 266,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 267,
+      "title": "[Journal 22B2] Reconcile recovery and installed-release requirements",
+      "url": "https://github.com/kburson/ai-peer-review/issues/267",
+      "classification": "hydrated-implementation",
+      "ownerTask": "22B2",
+      "ownerIssue": 267,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 268,
+      "title": "[Journal 22C] Coordinate the external publication consumer obligations",
+      "url": "https://github.com/kburson/ai-peer-review/issues/268",
+      "classification": "hydrated-implementation",
+      "ownerTask": "22C",
+      "ownerIssue": 268,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 269,
+      "title": "[Journal 23A] Consolidate parent obligations and the final candidate census",
+      "url": "https://github.com/kburson/ai-peer-review/issues/269",
+      "classification": "hydrated-implementation",
+      "ownerTask": "23A",
+      "ownerIssue": 269,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 270,
+      "title": "[Journal 23B1] Disposition the first remaining candidate partition",
+      "url": "https://github.com/kburson/ai-peer-review/issues/270",
+      "classification": "hydrated-implementation",
+      "ownerTask": "23B1",
+      "ownerIssue": 270,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 271,
+      "title": "[Journal 23B2] Disposition the second remaining candidate partition",
+      "url": "https://github.com/kburson/ai-peer-review/issues/271",
+      "classification": "hydrated-implementation",
+      "ownerTask": "23B2",
+      "ownerIssue": 271,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 272,
+      "title": "[Journal 24] Register the downstream AITM ownership and exact-context handoff",
+      "url": "https://github.com/kburson/ai-peer-review/issues/272",
+      "classification": "hydrated-implementation",
+      "ownerTask": "24",
+      "ownerIssue": 272,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 273,
+      "title": "[Journal 25A] Verify local aggregate behavior and specification coverage",
+      "url": "https://github.com/kburson/ai-peer-review/issues/273",
+      "classification": "hydrated-implementation",
+      "ownerTask": "25A",
+      "ownerIssue": 273,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 274,
+      "title": "[Journal 25B] Collect exact-head Linux/macOS installed and ownership evidence",
+      "url": "https://github.com/kburson/ai-peer-review/issues/274",
+      "classification": "hydrated-implementation",
+      "ownerTask": "25B",
+      "ownerIssue": 274,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 275,
+      "title": "[Journal 25C] Reconcile final evidence and prepare governed delivery",
+      "url": "https://github.com/kburson/ai-peer-review/issues/275",
+      "classification": "hydrated-implementation",
+      "ownerTask": "25C",
+      "ownerIssue": 275,
+      "reason": "Existing hydrated implementation issue retains its own scoped task, prerequisites and native gates; not an old-issue disposition or completion claim."
+    },
+    {
+      "number": 276,
+      "title": "Census source exports and development proof consumers",
+      "url": "https://github.com/kburson/ai-peer-review/issues/276",
+      "classification": "replacement-implementation",
+      "ownerTask": "01A",
+      "ownerIssue": 225,
+      "executionIssue": 276,
+      "nativeParentIssue": 225,
+      "reason": "Fresh native parent read-back identifies a genuine225 replacement leaf in original Task01A. Program ownership remains225; executable leaf retains its own native ownership/gates."
+    },
+    {
+      "number": 277,
+      "title": "Census durable document readers and join the complete inventory",
+      "url": "https://github.com/kburson/ai-peer-review/issues/277",
+      "classification": "replacement-implementation",
+      "ownerTask": "01A",
+      "ownerIssue": 225,
+      "executionIssue": 277,
+      "nativeParentIssue": 225,
+      "reason": "Fresh native parent read-back identifies a genuine225 replacement leaf in original Task01A. Program ownership remains225; executable leaf retains its own native ownership/gates."
+    }
+  ],
+  "crossRepositoryOwners": [
+    {
+      "repository": "kburson/ai-task-manager",
+      "issues": [1939, 1944],
+      "ownerTask": "22C",
+      "aiprOwnerIssue": 268,
+      "scope": "Consumer coordination only through actual owning workflow; no downstream implementation or issue mutation."
+    }
+  ],
+  "refreshOwner": {
+    "task": "23A",
+    "issue": 269,
+    "reason": "Refresh the complete census after later issue creation/state changes. Newly observed candidates require explicit bounded ownership before registration."
+  }
+}

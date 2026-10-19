@@ -1,0 +1,2069 @@
+{
+  "schema": "aipr.issue-partition-evidence/v1",
+  "repository": "kburson/ai-peer-review",
+  "observationWindow": {
+    "openListing": "2026-10-19T20:38:17.880236+00:00",
+    "proofInitial": "2026-10-19T20:33:54.533526+00:00",
+    "proofReadback": "2026-10-19T20:34:02.437637+00:00",
+    "atomicSnapshot": false
+  },
+  "openIssues": [
+    {
+      "number": 29,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Deliver project-local review lifecycle and learning architecture",
+      "url": "https://github.com/kburson/ai-peer-review/issues/29",
+      "bodySha256": "0c50b5b5e16bc1dba40588ab8609e7cd3b95ecef52a71c6655b7f02ff4471312",
+      "labels": ["epic"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **Governing-spec**: docs/design/2026-09-12-project-local-review-lifecycle-and-learning-design.md"
+      ]
+    },
+    {
+      "number": 30,
+      "title": "Phase 1: Artifact lifecycle and review-evidence layout",
+      "url": "https://github.com/kburson/ai-peer-review/issues/30",
+      "bodySha256": "760b0215847f31d038db0de4eb234c73ba562e2af8d95455f8fce4f0e10cae32",
+      "labels": ["epic"],
+      "parentIssue": 29,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **Source-plan**: docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md",
+        "- **Source-plan-commit**: 1860a95c4ab6ebf859a2fe57146c720220c62480",
+        "- **Source-plan-section**: ### Task 1: Phase 1: Artifact lifecycle and review-evidence layout",
+        "- **Governing-spec**: docs/design/2026-09-13-30-artifact-lifecycle-review-evidence-design.md"
+      ]
+    },
+    {
+      "number": 31,
+      "title": "Phase 2: Clone-shared SQLite authority projection",
+      "url": "https://github.com/kburson/ai-peer-review/issues/31",
+      "bodySha256": "108bcca3c842a46a14b009ee4110ae7a014859e0df198f4f5c95aceb48591277",
+      "labels": ["epic"],
+      "parentIssue": 29,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **Source-plan**: docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md",
+        "- **Source-plan-commit**: 1860a95c4ab6ebf859a2fe57146c720220c62480",
+        "- **Source-plan-section**: ### Task 2: Phase 2: Clone-shared SQLite authority projection",
+        "- **Governing-spec**: docs/design/2026-09-13-31-clone-shared-sqlite-authority-projection-design.md"
+      ]
+    },
+    {
+      "number": 32,
+      "title": "Phase 3: Project-local knowledge retrieval",
+      "url": "https://github.com/kburson/ai-peer-review/issues/32",
+      "bodySha256": "e599f4ff289d2082a40a9705f1b0bd275ba6c15dd65823bbabe6ba5eb69ef431",
+      "labels": ["epic"],
+      "parentIssue": 29,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **Source-plan**: docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md",
+        "- **Source-plan-commit**: 1860a95c4ab6ebf859a2fe57146c720220c62480",
+        "- **Source-plan-section**: ### Task 3: Phase 3: Project-local knowledge retrieval",
+        "- **Governing-spec**: docs/design/2026-09-13-32-project-local-knowledge-retrieval-design.md"
+      ]
+    },
+    {
+      "number": 33,
+      "title": "Phase 4: Defect feedback and governed learning",
+      "url": "https://github.com/kburson/ai-peer-review/issues/33",
+      "bodySha256": "b01c0fdf4ca941d4b619f92cbc29cae751a4fb38979aedc4b0fac1ef05225f43",
+      "labels": ["epic"],
+      "parentIssue": 29,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **Source-plan**: docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md",
+        "- **Source-plan-commit**: 1860a95c4ab6ebf859a2fe57146c720220c62480",
+        "- **Source-plan-section**: ### Task 4: Phase 4: Defect feedback and governed learning",
+        "- **Governing-spec**: docs/design/2026-09-13-33-defect-feedback-governed-learning-design.md"
+      ]
+    },
+    {
+      "number": 34,
+      "title": "Phase 5: Provider-comparison experiments",
+      "url": "https://github.com/kburson/ai-peer-review/issues/34",
+      "bodySha256": "344820842052f05f027e7bab72388f77089c91296add6afc963d1c6923a10cd0",
+      "labels": ["epic"],
+      "parentIssue": 29,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **Source-plan**: docs/plans/2026-09-13-29-project-local-review-lifecycle-and-learning.md",
+        "- **Source-plan-commit**: 1860a95c4ab6ebf859a2fe57146c720220c62480",
+        "- **Source-plan-section**: ### Task 5: Phase 5: Provider-comparison experiments",
+        "- **Governing-spec**: docs/design/2026-09-13-34-provider-comparison-experiments-design.md"
+      ]
+    },
+    {
+      "number": 70,
+      "title": "\ud83d\udc1e [BUG] Configure adaptive estimation rubric authority",
+      "url": "https://github.com/kburson/ai-peer-review/issues/70",
+      "bodySha256": "8b139b921cb317b823da67a841429475c6fc1efe4beae7aebe3f0b719c0bc40b",
+      "labels": ["bug"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 107,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Ship install-ready JavaScript review workflow and MCP",
+      "url": "https://github.com/kburson/ai-peer-review/issues/107",
+      "bodySha256": "5b5ebac91848aac10615eed67778917a903543f599f3ed7653e94b2b5ef04a71",
+      "labels": ["enhancement", "epic"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-sha256**: c4e8564396d86e5f9413393e30975fc7c2639135dfbdff5d8ddcca769862d016",
+        "- **Source-plan-location**: Bound worktree /Users/kpburson/.codex/worktrees/59f1/ai-peer-review, branch codex/107-draft. Accepted source-plan commit 60efdbbeb60c83c1c56884491ae018eaea70d282 and decomposition/rank evidence commit d99b742772aabfe5553462044404978e6ad6336b are published on origin/codex/107-draft.",
+        "- **Source-plan-amendment**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md; bounded reconciliation/activation amendment, original source Plan authority retained.",
+        "- **Source-plan-amendment-commit**: 92041e75fb333365cc3f73b9c480cb7bc5a50eb1",
+        "- **Source-plan-amendment-sha256**: e11cddc84f08b357c7cdf950b6c9ba1d1c92c7c1b6b3604fc468b8280733919a",
+        "- **Source-plan-amendment-review**: review-6522bc912d65661298c2b1a072c32f0b; docs/superpowers/peer-reviews/plan/2026-10-05-2026-10-03-107-agent-first-portable-runtime-review-6522bc912d65661298c2b1a072c32f0b/review-6522bc912d65661298c2b1a072c32f0b-review-manifest.md at d855f5ee8be8faf93d1f5be3d332b5fee0d890ec, SHA-256 84c1f2657824b8b7953f76b12e77df5659803cc3feb225f0d432148c697fb026; normal machine reviewer consensus, manual transport, authority assurance unavailable.",
+        "- **Source-plan-amendment-continuing-gates**: Immutable contract-record/proof acceptance, actual contract-only verification and all production registration/schema/activation/conformance gates remain pending; no AC/DoD tick or release authority from Plan acceptance.",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Governing-spec-commit**: c75dacc7753f2e9f235e1b7ad00ae0696faaaa48",
+        "- **Governing-spec-sha256**: 395bf5ce47617f827f362552d1839333a4e3964072cb4e6362e8bba3703a4c2e",
+        "- **XPR**: Same gpt-6.1-sol high author; claude-opus-5-5 high reviewer, accepted fresh round 6/12 on the final Source-plan-sha256, zero open actionable findings."
+      ]
+    },
+    {
+      "number": 109,
+      "title": "\ud83d\udc1e [BUG] Codex headless author sessions omit attributable usage telemetry",
+      "url": "https://github.com/kburson/ai-peer-review/issues/109",
+      "bodySha256": "718e6f3d5d971d42918d0937112fc9c14693061bbdbf3f4b98e0e41c24478cc2",
+      "labels": ["bug"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 111,
+      "title": "Refactor peer-review collateral linting and formatting coverage",
+      "url": "https://github.com/kburson/ai-peer-review/issues/111",
+      "bodySha256": "8ff2c17ddfbc07f7ff014abb35bbcbfdf31154331098303fa9b3041f7ab5b6fc",
+      "labels": [],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 118,
+      "title": "[Task]  Add support for an SAR",
+      "url": "https://github.com/kburson/ai-peer-review/issues/118",
+      "bodySha256": "dcae7f2cf6f54b76b6d67823b40de06c71c06e79260e8adff229bc95d537d75f",
+      "labels": ["enhancement"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 124,
+      "title": "\ud83d\udc1e [BUG] Codex linked-worktree hook discovery blocks peer-review identity",
+      "url": "https://github.com/kburson/ai-peer-review/issues/124",
+      "bodySha256": "2aa40155b9ce516649be4b766a55c208316260737631797d4cb6d352cda61ace",
+      "labels": ["bug"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 130,
+      "title": "Design shared peer-review policy and primary-workspace configuration inheritance",
+      "url": "https://github.com/kburson/ai-peer-review/issues/130",
+      "bodySha256": "dc23080f0f3fa6e894eb615e51d6e0f0ab4998ec68b5c869701d7dc0375a4eb2",
+      "labels": [],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 141,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Protected Storage and Exclusive Ownership",
+      "url": "https://github.com/kburson/ai-peer-review/issues/141",
+      "bodySha256": "96def576a807b237f703cb110c72923fbfa0cb9bd2f3e30c1921366da8a57695",
+      "labels": ["enhancement", "epic"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 2: Protected Storage and Exclusive Ownership",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 2: Protected Storage and Exclusive Ownership"
+      ]
+    },
+    {
+      "number": 142,
+      "title": "Genuine Host Epoch and Descendant Termination",
+      "url": "https://github.com/kburson/ai-peer-review/issues/142",
+      "bodySha256": "7148d25c87ea47914311dc2e927062871ae77c092124d98826b5f469ca90c5ad",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 3: Genuine Host Epoch and Descendant Termination",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 3: Genuine Host Epoch and Descendant Termination"
+      ]
+    },
+    {
+      "number": 143,
+      "title": "Binary-Free Package Closure and CI",
+      "url": "https://github.com/kburson/ai-peer-review/issues/143",
+      "bodySha256": "c120ec6d6159d999763f82e8cec3985b646579e10ebca7e581beda8e5091db2e",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 4: Binary-Free Package Closure and CI",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 4: Binary-Free Package Closure and CI"
+      ]
+    },
+    {
+      "number": 146,
+      "title": "Config v2 and Finite Roster Resolution",
+      "url": "https://github.com/kburson/ai-peer-review/issues/146",
+      "bodySha256": "b0bddcd1f4bbeb1112cc97c6029d7044ec20582579fc83d493376752027930b4",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 7: Config v2 and Finite Roster Resolution",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 7: Config v2 and Finite Roster Resolution"
+      ]
+    },
+    {
+      "number": 147,
+      "title": "Read-Only Preview and Atomic Reservation",
+      "url": "https://github.com/kburson/ai-peer-review/issues/147",
+      "bodySha256": "88b8ddb7734f1ec9abf71d25eea789add018ccf9a56cfafc92971fc835946fd9",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 8: Read-Only Preview and Atomic Reservation",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 8: Read-Only Preview and Atomic Reservation"
+      ]
+    },
+    {
+      "number": 148,
+      "title": "Headless Identity and Private Role Tools",
+      "url": "https://github.com/kburson/ai-peer-review/issues/148",
+      "bodySha256": "e12efb3ec2692ef1c4163addaf0e3fef489bb64ec6772d3b6fcb867f735f8864",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 9: Headless Identity and Private Role Tools",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 9: Headless Identity and Private Role Tools"
+      ]
+    },
+    {
+      "number": 149,
+      "title": "Role Scopes, Context, and Submission Seals",
+      "url": "https://github.com/kburson/ai-peer-review/issues/149",
+      "bodySha256": "cca58b770ade0bf6e8f7bca7eb8411319820b7da0310b2f5a541f708e478bf27",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 10: Role Scopes, Context, and Submission Seals",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 10: Role Scopes, Context, and Submission Seals"
+      ]
+    },
+    {
+      "number": 150,
+      "title": "Stages, Rounds, Findings and Finite Fallback",
+      "url": "https://github.com/kburson/ai-peer-review/issues/150",
+      "bodySha256": "6b0581fadf330aa6956cb2ca66d73a47343ee33f7fed532ff479c82e074901fc",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 11: Stages, Rounds, Findings and Finite Fallback",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 11: Stages, Rounds, Findings and Finite Fallback"
+      ]
+    },
+    {
+      "number": 151,
+      "title": "#30 Shared Evidence and Portable Lineage",
+      "url": "https://github.com/kburson/ai-peer-review/issues/151",
+      "bodySha256": "4ccab12638ffd7f23739a4466bb27a8b989f982e1296b685598dee8f7583c0b1",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 12: #30 Shared Evidence and Portable Lineage",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 12: #30 Shared Evidence and Portable Lineage"
+      ]
+    },
+    {
+      "number": 152,
+      "title": "Existing #109 Attempt and Controller Metrics",
+      "url": "https://github.com/kburson/ai-peer-review/issues/152",
+      "bodySha256": "30347ff0ac2cb43fa8c59c9a7eb2bb350f310ff57a1f25665b4f7d6f7424b441",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 13: Existing #109 Attempt and Controller Metrics",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 13: Existing #109 Attempt and Controller Metrics"
+      ]
+    },
+    {
+      "number": 153,
+      "title": "Existing #109 Aggregates, Chains and Amendments",
+      "url": "https://github.com/kburson/ai-peer-review/issues/153",
+      "bodySha256": "79049356ff4cca3a4898cd08a1ac935c349d1ded64c903dc7670a73dc80b99d1",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 14: Existing #109 Aggregates, Chains and Amendments",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 14: Existing #109 Aggregates, Chains and Amendments"
+      ]
+    },
+    {
+      "number": 154,
+      "title": "Out-of-Band Monitoring and Observer Admission",
+      "url": "https://github.com/kburson/ai-peer-review/issues/154",
+      "bodySha256": "21297eea3f80749e39fbc7ea77c3fbd9571835f66dff0873b2c2e7155c39cd3a",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 15: Out-of-Band Monitoring and Observer Admission",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 15: Out-of-Band Monitoring and Observer Admission"
+      ]
+    },
+    {
+      "number": 155,
+      "title": "Identical CLI/MCP and Small Installed Skill",
+      "url": "https://github.com/kburson/ai-peer-review/issues/155",
+      "bodySha256": "8b1541e7398fe2f47eb6a6b13e64657960f7413b1efc1188074b829f8805d3a5",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 16: Identical CLI/MCP and Small Installed Skill",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 16: Identical CLI/MCP and Small Installed Skill"
+      ]
+    },
+    {
+      "number": 156,
+      "title": "Replay-Safe Recovery and Project Cleanup",
+      "url": "https://github.com/kburson/ai-peer-review/issues/156",
+      "bodySha256": "f59cb5f94ff9957ebd0ca9f730bc229082a17f90c6e3e508811525b46101ab5a",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 17: Replay-Safe Recovery and Project Cleanup",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 17: Replay-Safe Recovery and Project Cleanup"
+      ]
+    },
+    {
+      "number": 157,
+      "title": "Installed Release Conformance and Migration",
+      "url": "https://github.com/kburson/ai-peer-review/issues/157",
+      "bodySha256": "951d2644e583f8176ebb3939321e3af8793f328aca496aa1c689e862528a8367",
+      "labels": ["enhancement"],
+      "parentIssue": 107,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 18: Installed Release Conformance and Migration",
+        "- **Governing-spec**: docs/superpowers/specs/2026-09-27-107-agent-first-review-runtime-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-03-107-agent-first-portable-runtime.md",
+        "- **Source-plan-commit**: 60efdbbeb60c83c1c56884491ae018eaea70d282",
+        "- **Source-plan-section**: ### Task 18: Installed Release Conformance and Migration"
+      ]
+    },
+    {
+      "number": 197,
+      "title": "Export exact-subject review publication envelope and read-only verifier for AITM integration",
+      "url": "https://github.com/kburson/ai-peer-review/issues/197",
+      "bodySha256": "d570397b254f6eacedd1945e8db8476d11a9073b2af93b88d786b68ee94756f1",
+      "labels": ["enhancement"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 210,
+      "title": "\ud83d\udc1e [BUG] Explicit recovery is unavailable for orphaned portable provider resource generations",
+      "url": "https://github.com/kburson/ai-peer-review/issues/210",
+      "bodySha256": "b079d3e7d7be62757f64b7815357e257f01b1fed069bd60f5f483b9265bf48d4",
+      "labels": ["bug"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 212,
+      "title": "Explicit Linux/macOS CI and receipt prerequisite for #190",
+      "url": "https://github.com/kburson/ai-peer-review/issues/212",
+      "bodySha256": "a0f6d6283033c46510e3fad337f7bbd3115c332366ebacadae00cfc232de69ed",
+      "labels": ["infrastructure", "test"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: Explicit POSIX CI and receipt prerequisite",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-17-212-posix-verification-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-17-212-posix-verification.md"
+      ]
+    },
+    {
+      "number": 213,
+      "title": "Windows support for trusted local review handoffs \u2014 deferred",
+      "url": "https://github.com/kburson/ai-peer-review/issues/213",
+      "bodySha256": "68d4fcdf1e9427d74232dd562aa086b01356562760de107bfefb07648685403b",
+      "labels": ["enhancement"],
+      "parentIssue": null,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 214,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Admit journal review proofs for POSIX source-class approval",
+      "url": "https://github.com/kburson/ai-peer-review/issues/214",
+      "bodySha256": "daa9b3897189a585834b694e0f327e0dcec7b060200d9cfff22535069fc509f6",
+      "labels": ["epic"],
+      "parentIssue": 141,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ]
+    },
+    {
+      "number": 217,
+      "title": "[B] Verify completed private journals read-only",
+      "url": "https://github.com/kburson/ai-peer-review/issues/217",
+      "bodySha256": "421848ad1098cc338336144b41f322882bc22e4939269326ad29a47870e3f7df",
+      "labels": ["security"],
+      "parentIssue": 214,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ]
+    },
+    {
+      "number": 218,
+      "title": "[C] Publish immutable portable approval evidence",
+      "url": "https://github.com/kburson/ai-peer-review/issues/218",
+      "bodySha256": "62e2396ddfc349ba63341d89a660d4913f98aef10576f587b3fd1926b58fca5d",
+      "labels": ["security"],
+      "parentIssue": 214,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ]
+    },
+    {
+      "number": 219,
+      "title": "[D] Accept versioned registration approval proofs",
+      "url": "https://github.com/kburson/ai-peer-review/issues/219",
+      "bodySha256": "83f0291c7f170a35c69a15cae12022c0621b0401e31a5cf02ec3deb58b5578d5",
+      "labels": ["security"],
+      "parentIssue": 214,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ]
+    },
+    {
+      "number": 220,
+      "title": "[E] Accept versioned finite-class approval proofs",
+      "url": "https://github.com/kburson/ai-peer-review/issues/220",
+      "bodySha256": "2532f07956a5de121a15782b100e7bb9e6c3c1b05eea9931ad7c6dc54cb71d10",
+      "labels": ["security"],
+      "parentIssue": 214,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ]
+    },
+    {
+      "number": 221,
+      "title": "[G] Prove one genuine current Linux approval end-to-end",
+      "url": "https://github.com/kburson/ai-peer-review/issues/221",
+      "bodySha256": "6726cf911f382b3e2b2f41ea8617351520445a676a95360f29ded9eb98f3e8c6",
+      "labels": ["test"],
+      "parentIssue": 214,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ]
+    },
+    {
+      "number": 223,
+      "title": "Defer all Windows CI allocations across branches and diagnostics",
+      "url": "https://github.com/kburson/ai-peer-review/issues/223",
+      "bodySha256": "3c51774376ccd7525d4c78e3607e8e3dec4f30c14d34fdad32e58fa86cdf1bca",
+      "labels": [],
+      "parentIssue": 141,
+      "sourceTaskId": null,
+      "sourcePointers": []
+    },
+    {
+      "number": 225,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] [Journal 01A] Inventory source and development proof consumers",
+      "url": "https://github.com/kburson/ai-peer-review/issues/225",
+      "bodySha256": "fa974b45d5e8ee428df7f9f72e6895a2611c2ddb5dec3f8642c6e4aad0e1eb24",
+      "labels": ["epic", "222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "01A",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 01A: Inventory source and development proof consumers",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Accepted-source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Previous-executable-source-plan**: docs/superpowers/plans/2026-10-19-225-source-census.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-19-225-source-census-decomposition.md",
+        "- **Accepted-source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Previous-executable-source-plan-commit**: edf6523062d448c9905dac55023d5d6c561e559f",
+        "- **Source-plan-commit**: e14dd8a6c3d01d3dcb29e268ad4ecc4fe314fed9",
+        "- **Previous-executable-source-plan-section**: ### Task 1: Inventory source and development proof consumers",
+        "- **Source-plan-revision**: issue-225-decomposition-v1",
+        "- **Accepted-source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-sha256**: e7786d8686ba9e50f1875eaf7ebd24081d2a6e118b01fee01c25fcbe8d590327",
+        "- **Accepted-source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 227,
+      "title": "[Journal 01C] Record the interim hold and partition native issue ownership",
+      "url": "https://github.com/kburson/ai-peer-review/issues/227",
+      "bodySha256": "936137316718b7f22034b49dbf83a8fac60a4bee04eb9f2750567fef0c9daf85",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "01C",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 01C: Record the interim hold and partition native issue ownership",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-19-227-existing-containment-partition-supplement.md",
+        "- **Source-plan-section**: ### Task 1: Record existing containment and partition issue disposition ownership",
+        "- **Source-plan-revision**: issue-227-supplement-v1",
+        "- **Source-plan-commit**: d86352fde2977bdc81d9b805014ef8cdf4c37829",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/d86352fde2977bdc81d9b805014ef8cdf4c37829/docs/superpowers/plans/2026-10-19-227-existing-containment-partition-supplement.md",
+        "- **Source-plan-sha256**: 15c1a2af6b973eed4350bb05493b7c824df08ff761b5c41e859ff7f333c66110",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Accepted-source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Accepted-source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Accepted-source-plan-section**: Task 01C: Record the interim hold and partition native issue ownership",
+        "- **Accepted-source-plan-revision**: issue-222-plan-r6",
+        "- **Accepted-source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Accepted-source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 228,
+      "title": "[Journal 01] Integrate the inventory and scoped-adoption gate",
+      "url": "https://github.com/kburson/ai-peer-review/issues/228",
+      "bodySha256": "27827fe1279a920209acda3b849f9ccbd88ad05b858714f25bdf7fcbee51e2e3",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "01",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 01: Integrate the inventory and scoped-adoption gate",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 01: Integrate the inventory and scoped-adoption gate",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 229,
+      "title": "[Journal 02] Verify the global POSIX CI bootstrap and future receipt bindings",
+      "url": "https://github.com/kburson/ai-peer-review/issues/229",
+      "bodySha256": "2dea7dc5b31d9d22c681b26fcc2d955b87ed89106b84fc5c266b0e78f6682dba",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "02",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 02: Verify the global POSIX CI bootstrap and future receipt bindings",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 02: Verify the global POSIX CI bootstrap and future receipt bindings",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 230,
+      "title": "[Journal 03] Adopt finite process semantics and persisted-seal compatibility",
+      "url": "https://github.com/kburson/ai-peer-review/issues/230",
+      "bodySha256": "d2bf317807c9729fc50accddd652f05c5e82d439cc20f790f046605aea08ca66",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "03",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 03: Adopt finite process semantics and persisted-seal compatibility",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 03: Adopt finite process semantics and persisted-seal compatibility",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 231,
+      "title": "[Journal 04] Build isolated finite process qualification and compatibility readers",
+      "url": "https://github.com/kburson/ai-peer-review/issues/231",
+      "bodySha256": "5bc6319da85cf32a9c495e641c38a75f8d5331a333c572aab4455fd4a8ea1358",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "04",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 04: Build isolated finite process qualification and compatibility readers",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 04: Build isolated finite process qualification and compatibility readers",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 232,
+      "title": "[Journal 05A] Implement isolated Linux probe observations",
+      "url": "https://github.com/kburson/ai-peer-review/issues/232",
+      "bodySha256": "eeac2bfe1eb17d48e18e5476675065c24d6f170495940b860225b657ff1ae30f",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "05A",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 05A: Implement isolated Linux probe observations",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 05A: Implement isolated Linux probe observations",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 233,
+      "title": "[Journal 05B] Implement Darwin observations and preserve old ownership seals",
+      "url": "https://github.com/kburson/ai-peer-review/issues/233",
+      "bodySha256": "d918e8187b77ce26099e3d49fdf1e3a3978b124a92ef4f3d6e218998de509cf1",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "05B",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 05B: Implement Darwin observations and preserve old ownership seals",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 05B: Implement Darwin observations and preserve old ownership seals",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 234,
+      "title": "[Journal 05C1] Build the inactive installed observation capability",
+      "url": "https://github.com/kburson/ai-peer-review/issues/234",
+      "bodySha256": "035ec3bc2dede9788efeba1c55350c5b16ab76fbd6a0293c306bbbdbbd810edb",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "05C1",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 05C1: Build the inactive installed observation capability",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 05C1: Build the inactive installed observation capability",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 235,
+      "title": "[Journal 05C2] Define versioned portable owner records and compatibility",
+      "url": "https://github.com/kburson/ai-peer-review/issues/235",
+      "bodySha256": "b5d533ce86d97c294d13234d667ee6a9809193183f9600a0d1c0046624cf764e",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "05C2",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 05C2: Define versioned portable owner records and compatibility",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 05C2: Define versioned portable owner records and compatibility",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 236,
+      "title": "[Journal 05C3] Activate usable process observations and inventory atomically",
+      "url": "https://github.com/kburson/ai-peer-review/issues/236",
+      "bodySha256": "908f56cc725d4b39cb3eb296dbfe4547079cdd2e60e2d8b211f0bc755bc02130",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "05C3",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 05C3: Activate usable process observations and inventory atomically",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 05C3: Activate usable process observations and inventory atomically",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 237,
+      "title": "[Journal 06A] Retire local review-proof production and consumers",
+      "url": "https://github.com/kburson/ai-peer-review/issues/237",
+      "bodySha256": "17bd3c2db901e9a8ab58ff98bfe99518f50761a3d9b9ee6598a77bf303b1983f",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "06A",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 06A: Retire local review-proof production and consumers",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 06A: Retire local review-proof production and consumers",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 238,
+      "title": "[Journal 06B] Remove adopted review-proof admission from CI and process conformance",
+      "url": "https://github.com/kburson/ai-peer-review/issues/238",
+      "bodySha256": "be6c1bc6e52d4fe12359bb3fcf62e6f8b54ebe8a45dae59c8de6c646170f6b6b",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "06B",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 06B: Remove adopted review-proof admission from CI and process conformance",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 06B: Remove adopted review-proof admission from CI and process conformance",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 239,
+      "title": "[Journal 06C] Integrate proof-consumer retirement with extraction and ordinary review",
+      "url": "https://github.com/kburson/ai-peer-review/issues/239",
+      "bodySha256": "d9c43e0b924db9b386be9481d629e1eb9db5c9fa2b736dc6fd258898811a2dd4",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "06C",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 06C: Integrate proof-consumer retirement with extraction and ordinary review",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 06C: Integrate proof-consumer retirement with extraction and ordinary review",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 240,
+      "title": "[Journal 07A] Define response and manifest v2 validators",
+      "url": "https://github.com/kburson/ai-peer-review/issues/240",
+      "bodySha256": "b396e7e764d3dd0c464adcde09c71918786e351cbfe1f214b66f187ab8433d9d",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "07A",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 07A: Define response and manifest v2 validators",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 07A: Define response and manifest v2 validators",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 241,
+      "title": "[Journal 07B] Define event, protocol and explicit handoff contracts",
+      "url": "https://github.com/kburson/ai-peer-review/issues/241",
+      "bodySha256": "56020c8213cf72b1b2ff617a5f84bafaa6af20af4615cf8e1080298885f5d779",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "07B",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 07B: Define event, protocol and explicit handoff contracts",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 07B: Define event, protocol and explicit handoff contracts",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 242,
+      "title": "[Journal 07C] Integrate fixed contextual journal dispatch",
+      "url": "https://github.com/kburson/ai-peer-review/issues/242",
+      "bodySha256": "c23f2e373ab0b1757306ce2dbf9d2aaf2e725149427c25fafda26f4da4e64707",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "07C",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 07C: Integrate fixed contextual journal dispatch",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 07C: Integrate fixed contextual journal dispatch",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 243,
+      "title": "[Journal 07D] Prepare version-aware API registry integration without changing v1",
+      "url": "https://github.com/kburson/ai-peer-review/issues/243",
+      "bodySha256": "79bbee9b1d893d46e14d4bf8a7fd461ef265b78eff69d604f725884dd4f9b61a",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "07D",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 07D: Prepare version-aware API registry integration without changing v1",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 07D: Prepare version-aware API registry integration without changing v1",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 244,
+      "title": "[Journal 08] Capture bounded root and reviewer working contexts",
+      "url": "https://github.com/kburson/ai-peer-review/issues/244",
+      "bodySha256": "f33ad35092d082d51d597d0c43c0eee50350f1092ceaadc338f21c2585416c37",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "08",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 08: Capture bounded root and reviewer working contexts",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 08: Capture bounded root and reviewer working contexts",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 245,
+      "title": "[Journal 09] Compare effective contexts with exact collateral exclusions",
+      "url": "https://github.com/kburson/ai-peer-review/issues/245",
+      "bodySha256": "942d8dc04ff7129ed98868e5f67774442250ea22d909e2e022c7ef82a6006cf5",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "09",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 09: Compare effective contexts with exact collateral exclusions",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 09: Compare effective contexts with exact collateral exclusions",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 246,
+      "title": "[Journal 10] Validate FUR revision identity and protected reviewer provenance",
+      "url": "https://github.com/kburson/ai-peer-review/issues/246",
+      "bodySha256": "0f3354e2b545633c55d6d7590ff8389c51e8d2e321366f98423262ae3acf0871",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "10",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 10: Validate FUR revision identity and protected reviewer provenance",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 10: Validate FUR revision identity and protected reviewer provenance",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 247,
+      "title": "[Journal 11] Add new-format event projection with honest intermediate states",
+      "url": "https://github.com/kburson/ai-peer-review/issues/247",
+      "bodySha256": "c9bda9c4b730ad9961e117ef56faafb2619f7ab613c38f23292f19df8b22bfef",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "11",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 11: Add new-format event projection with honest intermediate states",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 11: Add new-format event projection with honest intermediate states",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 248,
+      "title": "[Journal 12] Seal initial and layered acceptance manifests",
+      "url": "https://github.com/kburson/ai-peer-review/issues/248",
+      "bodySha256": "50c82a5cc1425067443e74b5bb3d6953f2f53075a8f7b3cc64e7dac43a5b9c75",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "12",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 12: Seal initial and layered acceptance manifests",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 12: Seal initial and layered acceptance manifests",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 249,
+      "title": "[Journal 13] Generate exact reversible diffs and cross-review links",
+      "url": "https://github.com/kburson/ai-peer-review/issues/249",
+      "bodySha256": "b0e76949cc8dc02eba634f2ddaccde4990ae44a8d250c18d6c3c15dca0d23020",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "13",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 13: Generate exact reversible diffs and cross-review links",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 13: Generate exact reversible diffs and cross-review links",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 250,
+      "title": "[Journal 14] Coordinate publication windows and pending external outcomes",
+      "url": "https://github.com/kburson/ai-peer-review/issues/250",
+      "bodySha256": "a5df84ed93028f941ac7df47efc4cb6e469eb1f806c71095caee524ff1148de3",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "14",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 14: Coordinate publication windows and pending external outcomes",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 14: Coordinate publication windows and pending external outcomes",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 251,
+      "title": "[Journal 15A] Prepare versioned review-only prompts and provider constraints",
+      "url": "https://github.com/kburson/ai-peer-review/issues/251",
+      "bodySha256": "e0e1dfe818264848044cd854fc39a415db456c5fafb3243143292a841afd5000",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "15A",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 15A: Prepare versioned review-only prompts and provider constraints",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 15A: Prepare versioned review-only prompts and provider constraints",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 252,
+      "title": "[Journal 15B1] Build inactive new-format review startup orchestration",
+      "url": "https://github.com/kburson/ai-peer-review/issues/252",
+      "bodySha256": "7be70d5183a5a800adb4baf527ac60c3b858af30a87ada3b36b10c04bb4f0049",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "15B1",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 15B1: Build inactive new-format review startup orchestration",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 15B1: Build inactive new-format review startup orchestration",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 253,
+      "title": "[Journal 15B2] Build inactive external revision submission orchestration",
+      "url": "https://github.com/kburson/ai-peer-review/issues/253",
+      "bodySha256": "9233dd4997dbd6130ca16eab1b21c90f4c8d3b250d75fddf855db6ced9e8d70a",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "15B2",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 15B2: Build inactive external revision submission orchestration",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 15B2: Build inactive external revision submission orchestration",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 254,
+      "title": "[Journal 15B3] Activate the external revision handoff and reviewer boundary",
+      "url": "https://github.com/kburson/ai-peer-review/issues/254",
+      "bodySha256": "2699ee1b29409120b63fbf5fe39457d6cff5b44714a3fb7b2f2341f468b91289",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "15B3",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 15B3: Activate the external revision handoff and reviewer boundary",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 15B3: Activate the external revision handoff and reviewer boundary",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 255,
+      "title": "[Journal 16] Complete both response sides and acceptance acknowledgements",
+      "url": "https://github.com/kburson/ai-peer-review/issues/255",
+      "bodySha256": "03f3426094b553a747fdb3d2f7f9939706eaf4a3e4fa148d9ae038d2dea31e65",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "16",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 16: Complete both response sides and acceptance acknowledgements",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 16: Complete both response sides and acceptance acknowledgements",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 256,
+      "title": "[Journal 17] Reconstruct FUR history from final bytes after squash",
+      "url": "https://github.com/kburson/ai-peer-review/issues/256",
+      "bodySha256": "249fa8717ef8935b74b74d4f218ac899cbb73835fe30414586765df1cd4a2f1a",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "17",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 17: Reconstruct FUR history from final bytes after squash",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 17: Reconstruct FUR history from final bytes after squash",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 257,
+      "title": "[Journal 18] Document and verify scoped external turn publication",
+      "url": "https://github.com/kburson/ai-peer-review/issues/257",
+      "bodySha256": "4702cb66249d99ad030d816b5adb11faff0daf7df3ef5ddf918ed597e2de367b",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "18",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 18: Document and verify scoped external turn publication",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 18: Document and verify scoped external turn publication",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 258,
+      "title": "[Journal 19A] Expose the read-only public journal and API contracts",
+      "url": "https://github.com/kburson/ai-peer-review/issues/258",
+      "bodySha256": "8b5cc8cbf9b2458ab32890127742535677e2fddb0529b787e0305fa10e4b510f",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "19A",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 19A: Expose the read-only public journal and API contracts",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 19A: Expose the read-only public journal and API contracts",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 259,
+      "title": "[Journal 19D] Expose the bounded external publication coordination API",
+      "url": "https://github.com/kburson/ai-peer-review/issues/259",
+      "bodySha256": "86ac967bb52de405b198c43548f9f2b719e81dec5fbb1fc014048beb0393d361",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "19D",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 19D: Expose the bounded external publication coordination API",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 19D: Expose the bounded external publication coordination API",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 260,
+      "title": "[Journal 19B] Wire CLI and MCP parity for journal inspection",
+      "url": "https://github.com/kburson/ai-peer-review/issues/260",
+      "bodySha256": "f48b1f53aa37c71d335c5b2ff1a6981360a353d6825e785387acd09ec19b1b4c",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "19B",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 19B: Wire CLI and MCP parity for journal inspection",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 19B: Wire CLI and MCP parity for journal inspection",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 261,
+      "title": "[Journal 19C] Verify portable package closure and immutable format exceptions",
+      "url": "https://github.com/kburson/ai-peer-review/issues/261",
+      "bodySha256": "0c74f9220216a4207c7986c136c0d435deb66ffca64f622aeb498a12b1756d08",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "19C",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 19C: Verify portable package closure and immutable format exceptions",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 19C: Verify portable package closure and immutable format exceptions",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 262,
+      "title": "[Journal 20] Deliver the pre-planning suitability decision procedure",
+      "url": "https://github.com/kburson/ai-peer-review/issues/262",
+      "bodySha256": "cc577e04bc448b5d190ecd7faf987e78fccf8fe914021bb8a759ba3779e04158",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "20",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 20: Deliver the pre-planning suitability decision procedure",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 20: Deliver the pre-planning suitability decision procedure",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 263,
+      "title": "[Journal 21] Disposition the obsolete proof program without false completion",
+      "url": "https://github.com/kburson/ai-peer-review/issues/263",
+      "bodySha256": "e5ed9b89bb506c976cb5f9f498e0e912c5991ae3196f8f7003de375f8b23f57c",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "21",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 21: Disposition the obsolete proof program without false completion",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 21: Disposition the obsolete proof program without false completion",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 264,
+      "title": "[Journal 22A1] Reconcile review role and artifact-write requirements",
+      "url": "https://github.com/kburson/ai-peer-review/issues/264",
+      "bodySha256": "ec040d8f70c10e9b55d7114f0475e975d331cdb07dee887e5ad7e52c25e542c5",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "22A1",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 22A1: Reconcile review role and artifact-write requirements",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 22A1: Reconcile review role and artifact-write requirements",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 265,
+      "title": "[Journal 22A2] Reconcile participant identity and measured telemetry",
+      "url": "https://github.com/kburson/ai-peer-review/issues/265",
+      "bodySha256": "5bfe57cbdce2a93622f5093644c2340afb26d7aeae699f917bacf935e7f50a90",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "22A2",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 22A2: Reconcile participant identity and measured telemetry",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 22A2: Reconcile participant identity and measured telemetry",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 266,
+      "title": "[Journal 22B1] Reconcile retained journal requirements",
+      "url": "https://github.com/kburson/ai-peer-review/issues/266",
+      "bodySha256": "3843f33f44102dd575d01edbd8690f97a26d1e418faa7a937fb495c3242482f9",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "22B1",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 22B1: Reconcile retained journal requirements",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 22B1: Reconcile retained journal requirements",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 267,
+      "title": "[Journal 22B2] Reconcile recovery and installed-release requirements",
+      "url": "https://github.com/kburson/ai-peer-review/issues/267",
+      "bodySha256": "02943b2193b1174357f3856b246d7302bd84f89fa7422a063b2b758006b422ed",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "22B2",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 22B2: Reconcile recovery and installed-release requirements",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 22B2: Reconcile recovery and installed-release requirements",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 268,
+      "title": "[Journal 22C] Coordinate the external publication consumer obligations",
+      "url": "https://github.com/kburson/ai-peer-review/issues/268",
+      "bodySha256": "a893951781c2d603556932a47d123268a591f2c18f95fd74de97ea7ebb119399",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "22C",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 22C: Coordinate the external publication consumer obligations",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 22C: Coordinate the external publication consumer obligations",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 269,
+      "title": "[Journal 23A] Consolidate parent obligations and the final candidate census",
+      "url": "https://github.com/kburson/ai-peer-review/issues/269",
+      "bodySha256": "2ffce22b2a55c377c9fe86bd7be250e73272ec72e3191e55d5497d5c79fec2c3",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "23A",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 23A: Consolidate parent obligations and the final candidate census",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 23A: Consolidate parent obligations and the final candidate census",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 270,
+      "title": "[Journal 23B1] Disposition the first remaining candidate partition",
+      "url": "https://github.com/kburson/ai-peer-review/issues/270",
+      "bodySha256": "75c8b3a9160067001869e57c4594b6741c15ba9d63c6060ee43d56f0b6648d8b",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "23B1",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 23B1: Disposition the first remaining candidate partition",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 23B1: Disposition the first remaining candidate partition",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 271,
+      "title": "[Journal 23B2] Disposition the second remaining candidate partition",
+      "url": "https://github.com/kburson/ai-peer-review/issues/271",
+      "bodySha256": "75eeb757d68b895bce2ec507b2b59c423c6d537bb9c83f326fb4f44725594d11",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "23B2",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 23B2: Disposition the second remaining candidate partition",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 23B2: Disposition the second remaining candidate partition",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 272,
+      "title": "[Journal 24] Register the downstream AITM ownership and exact-context handoff",
+      "url": "https://github.com/kburson/ai-peer-review/issues/272",
+      "bodySha256": "eb04184f4a7ead62a689d8d1b7388f0690447de9e628defbdbf6b2abe6514791",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "24",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 24: Register the downstream AITM ownership and exact-context handoff",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 24: Register the downstream AITM ownership and exact-context handoff",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 273,
+      "title": "[Journal 25A] Verify local aggregate behavior and specification coverage",
+      "url": "https://github.com/kburson/ai-peer-review/issues/273",
+      "bodySha256": "d9f878175add63fa442c8fd08f973e6edca93c3beada8208a4f35f28a9851fa5",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "25A",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 25A: Verify local aggregate behavior and specification coverage",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 25A: Verify local aggregate behavior and specification coverage",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 274,
+      "title": "[Journal 25B] Collect exact-head Linux/macOS installed and ownership evidence",
+      "url": "https://github.com/kburson/ai-peer-review/issues/274",
+      "bodySha256": "41e43d3e4a5d252250447cd8080ea809bf1ad83414352d53c214fc1624358252",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "25B",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 25B: Collect exact-head Linux/macOS installed and ownership evidence",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 25B: Collect exact-head Linux/macOS installed and ownership evidence",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 275,
+      "title": "[Journal 25C] Reconcile final evidence and prepare governed delivery",
+      "url": "https://github.com/kburson/ai-peer-review/issues/275",
+      "bodySha256": "f9eb3b8b41c1f089ed8fb23ce684f5c1be704b2e13dccf9a2b4d0b16d00cb67c",
+      "labels": ["222-hydration"],
+      "parentIssue": 141,
+      "sourceTaskId": "25C",
+      "sourcePointers": [
+        "- **source-plan-section**: Task 25C: Reconcile final evidence and prepare governed delivery",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Governing-spec-revision**: issue-222-r13",
+        "- **Governing-spec-sha256**: f67d8a5c22b8a36537876aee529fe9dbc0530b7137650c28f144d7b9960ad5be",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md",
+        "- **Source-plan-commit**: da4148744a3f009163bcfb7f5ef1f2bbc8daba99",
+        "- **Source-plan-section**: Task 25C: Reconcile final evidence and prepare governed delivery",
+        "- **Source-plan-revision**: issue-222-plan-r6",
+        "- **Source-plan-sha256**: 40f42a01820509ed7d24afe13291fdceabe0f1bd565da0548191da065951afb7",
+        "- **Source-plan-url**: https://github.com/kburson/ai-peer-review/blob/da4148744a3f009163bcfb7f5ef1f2bbc8daba99/docs/superpowers/plans/2026-10-18-222-review-journal-refactoring.md"
+      ]
+    },
+    {
+      "number": 276,
+      "title": "Census source exports and development proof consumers",
+      "url": "https://github.com/kburson/ai-peer-review/issues/276",
+      "bodySha256": "004412ffbc454fab7fe094d9a669561d1fb0130fe8f0aab7c0e113ccfd5a4e62",
+      "labels": ["222-hydration"],
+      "parentIssue": 225,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 1: Census source exports and development proof consumers",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-19-225-source-census-decomposition.md",
+        "- **Source-plan-commit**: e14dd8a6c3d01d3dcb29e268ad4ecc4fe314fed9",
+        "- **Source-plan-section**: ### Task 1: Census source exports and development proof consumers"
+      ]
+    },
+    {
+      "number": 277,
+      "title": "Census durable document readers and join the complete inventory",
+      "url": "https://github.com/kburson/ai-peer-review/issues/277",
+      "bodySha256": "2a57795020bd19ebbd08e9dd00329025efccc4757890306726f278468612f6d3",
+      "labels": ["222-hydration"],
+      "parentIssue": 225,
+      "sourceTaskId": null,
+      "sourcePointers": [
+        "- **source-plan-section**: ### Task 2: Census durable document readers and join the complete inventory",
+        "- **Governing-spec**: docs/superpowers/specs/2026-10-18-222-review-journal-refactoring-design.md",
+        "- **Source-plan**: docs/superpowers/plans/2026-10-19-225-source-census-decomposition.md",
+        "- **Source-plan-commit**: e14dd8a6c3d01d3dcb29e268ad4ecc4fe314fed9",
+        "- **Source-plan-section**: ### Task 2: Census durable document readers and join the complete inventory"
+      ]
+    }
+  ],
+  "proofIssues": [
+    {
+      "number": 214,
+      "title": "\ud83e\uddd1\u200d\ud83e\uddd2\u200d\ud83e\uddd2 [Epic] Admit journal review proofs for POSIX source-class approval",
+      "url": "https://github.com/kburson/ai-peer-review/issues/214",
+      "state": "OPEN",
+      "parentIssue": 141,
+      "labels": ["epic"],
+      "bodySha256": "daa9b3897189a585834b694e0f327e0dcec7b060200d9cfff22535069fc509f6",
+      "commentsSha256": "7cbd9dd59f9090575edfeed48efe551644dc84a01301bbc72d0a324ee01b25a8",
+      "blockedBy": [275],
+      "blocking": [],
+      "paginationComplete": true,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ],
+      "originalScope": "Create the bounded compatibility repair within #141 under program #107. The journal-only producer and normal-only source approval reader mismatch is proven at source commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9. An absent primary admission root in a dry run is intentional first-use refusal, not proof of damaged authority. Do not reopen or repair closed #102 by assumption.\n\nThis epic owns coordination and acceptance of exactly seven bounded children:\n\n- A: Adopt the bounded journal approval contract \u2014 1 human hour(s).\n- B: Verify completed private journals read-only \u2014 3 human hour(s).\n- C: Publish immutable portable approval evidence \u2014 2 human hour(s).\n- D: Accept versioned registration approval proofs \u2014 2 human hour(s).\n- E: Accept versioned finite-class approval proofs \u2014 2 human hour(s).\n- F: Make the capture workflow POSIX-only and exact-ref bound \u2014 2 human hour(s).\n- G: Prove one genuine current Linux approval end-to-end \u2014 3 human hour(s).\n\nThe seven child estimates total 15 HUMAN hours. This epic's original Refine estimate was 1 HUMAN hour for coordination only. Its current governed Plan estimate is 2.5 HUMAN hours for coordination and acceptance only (forecast 01M56P51VTVJTHWV90KRBQCSV3); it is not the implementation estimate for all seven children. All eight individual estimates are at most four human hours. A+B form the first four-human-hour decision checkpoint; lack of reproducible valid/negative proof there returns the approach to planning rather than silently expanding it. No implementation is authorized by this issue creation.\n\nThe actual finite-class guarantee and remaining installed Linux/macOS recovery remain #141-owned. This epic ends with one genuine current Linux absence-class approval; broader class matrix/installed recovery and #107 activation/release remain outside its completion claim. Preserve the legacy normal checker, every capture signature/pre-registration/producer-freeze/current-scope check, and historical proof compatibility. New approved-ref formats must be explicit/versioned, never a mode/status relabel.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nExecution-order correction discovered during governed intake: F -> A -> B -> C -> D -> E -> G. The newly created branches otherwise inherit all-platform CI defaults. F must first deliver the exact-ref Linux/macOS routing, including its own branch before its first push. This is the same bounded F story and estimate, not an extra story. A+B remain the first proof-design/verifier decision checkpoint after the platform bootstrap. G depends on both E and F. All executable producer changes must finish before real capture.",
+      "originalAcceptanceCriteria": "- [ ] The seven bounded child deliverables A-G are delivered and their required commits are reachable; current proof behavior passes its focused Linux/macOS checks without weakening legacy normal consumers. <!-- aitm-verified vc-list=\"vc:1 vc:2 vc:3\" -->\n- [ ] At least one genuine independently reviewed finite Linux absence class is consumed from immutable public evidence and matches the current source contract; no claim is made for remaining targets or whole #141 completion. <!-- aitm-verified vc-list=\"vc:4\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
+      "originalPlanMetadata": "- **Execution-strategy**: strict sequential #215, #216, #217, #218, #219, #220, #221; #221 also directly depends on #215.\n- **Delivery-target**: existing admitted integration branch feature/child/141; cut each canonical child from its live epic head through the governed child-worktree command and renew the exact binding.\n- **Estimate-scope**: this epic estimates coordination and acceptance only; implementation is separately estimated on the seven children at fifteen total human hours.\n- **Engagement-policy**: hard four-hour cumulative agent limit per child, across agents and sessions; preserve Unknown timing, stop at the boundary and replan after failure or unestablished allowance.\n- **Acceptance-boundary**: seven bounded child deliverables plus one genuine finite current Linux absence-class proof; broader POSIX matrix and installed recovery remain #141-owned.\n- **Platform-policy**: Linux/macOS only; #213 indefinitely deferred, unscheduled and nonblocking; safe exact-ref CI routing must precede the first new branch push.",
+      "nativeFieldValues": {
+        "priority": "P0",
+        "size": "S",
+        "disposition": null,
+        "estimate": 2.5,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 4,
+        "startTime": null
+      },
+      "readback": {
+        "bodySha256": "daa9b3897189a585834b694e0f327e0dcec7b060200d9cfff22535069fc509f6",
+        "commentsSha256": "7cbd9dd59f9090575edfeed48efe551644dc84a01301bbc72d0a324ee01b25a8",
+        "blockedBy": [275],
+        "blocking": [],
+        "paginationComplete": true
+      },
+      "recordedStage": "develop",
+      "forecastRecords": [
+        {
+          "recordId": "01M56NQKNJWXK8KKS1J4W5KXRV",
+          "url": "https://github.com/kburson/ai-peer-review/issues/214#issuecomment-6245841176",
+          "payloadHash": "sha256:6127033fef88642b2676442777416fdb4429b7b5e37fe722868a5afc95ae7074",
+          "human": {
+            "deltaHours": 3.5,
+            "humanHours": 4.5,
+            "rationale": "Detailed WBS plus unavoidable repository execution cost.",
+            "size": "M"
+          },
+          "ai": {
+            "p50EngagedHours": 3,
+            "p80EngagedHours": 3,
+            "stages": {
+              "develop": 1.5,
+              "plan": 0.5,
+              "review": 0.5,
+              "test": 0.5
+            }
+          },
+          "refine": {
+            "humanHours": 1,
+            "size": "XS"
+          },
+          "supersedes": null
+        },
+        {
+          "recordId": "01M56P51VTVJTHWV90KRBQCSV3",
+          "url": "https://github.com/kburson/ai-peer-review/issues/214#issuecomment-6245895910",
+          "payloadHash": "sha256:0f2b53f090ca4b13d567e79301d2ad2487fce93bda505b4a8a6bf255b187f1e7",
+          "human": {
+            "deltaHours": 1.5,
+            "humanHours": 2.5,
+            "rationale": "Detailed WBS plus unavoidable repository execution cost.",
+            "size": "S"
+          },
+          "ai": {
+            "p50EngagedHours": 2.5,
+            "p80EngagedHours": 2.5,
+            "stages": {
+              "develop": 1,
+              "plan": 0.5,
+              "review": 0.5,
+              "test": 0.5
+            }
+          },
+          "refine": {
+            "humanHours": 1,
+            "size": "XS"
+          },
+          "supersedes": "01M56NQKNJWXK8KKS1J4W5KXRV"
+        }
+      ],
+      "timingReferences": [
+        {
+          "url": "https://github.com/kburson/ai-peer-review/issues/214#issuecomment-6245629905",
+          "bodySha256": "7adc4c941946f31b66e203a2054b568d28adad93f8b3082c2c3d80429ad7779c",
+          "literalUnknownTokens": 22,
+          "historicalHoldRows": [
+            "| 2026-10-18 13:56:56 -05:00 | pause:other | Unknown | Unknown | 0 | 11,871 | Owner-directed scheduling hold; no implementation | 294,281 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349793350 end=1792349816044 active=unknown wstart=11871 wend=11871 fstart=294281 fend=294281 -->"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 217,
+      "title": "[B] Verify completed private journals read-only",
+      "url": "https://github.com/kburson/ai-peer-review/issues/217",
+      "state": "OPEN",
+      "parentIssue": 214,
+      "labels": ["security"],
+      "bodySha256": "421848ad1098cc338336144b41f322882bc22e4939269326ad29a47870e3f7df",
+      "commentsSha256": "a45b19163f1ba7367cabaf337df4cafa8937697e95bbfe2f01848bf23e0b585a",
+      "blockedBy": [275, 216],
+      "blocking": [218],
+      "paginationComplete": true,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ],
+      "originalScope": "Proposal slice B: One fixed installed producer profile, fresh single-attempt ordinary reviewer-consensus journals only.\n\nCompletion boundary: Terminal author event, distinct participant identities, exact subject/snapshot/response/lineage and producer bytes checked; test-only, pending, unknown, tampered, unsupported or unsettled input refuses without mutation.\n\nHuman effort estimate: 3 hour(s). Dependencies: #216. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\nInitially support one fixed installed producer profile and fresh single-attempt ordinary reviewer-consensus journals. Reject test-only authority, unsupported/recovered/phased profiles and unsettled operations without mutating or reconciling them. A package version string alone is not a producer profile.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
+      "originalAcceptanceCriteria": "- [ ] Terminal author event, distinct participant identities, exact subject/snapshot/response/lineage and producer bytes checked; test-only, pending, unknown, tampered, unsupported or unsettled input refuses without mutation. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] The unchanged legacy normal-review checker and required refusal controls still reject unsupported or altered approval evidence. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
+      "originalPlanMetadata": "",
+      "nativeFieldValues": {
+        "priority": "P0",
+        "size": "L",
+        "disposition": null,
+        "estimate": 9.5,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 7,
+        "startTime": null
+      },
+      "readback": {
+        "bodySha256": "421848ad1098cc338336144b41f322882bc22e4939269326ad29a47870e3f7df",
+        "commentsSha256": "a45b19163f1ba7367cabaf337df4cafa8937697e95bbfe2f01848bf23e0b585a",
+        "blockedBy": [275, 216],
+        "blocking": [218],
+        "paginationComplete": true
+      },
+      "recordedStage": "plan",
+      "forecastRecords": [
+        {
+          "recordId": "01M57E7H31T2C31ZHQ1C6JWV87",
+          "url": "https://github.com/kburson/ai-peer-review/issues/217#issuecomment-6249671947",
+          "payloadHash": "sha256:06b1888ec28cbf6ffa31a2e33de720b9de2524e3172b69f52ba771df1ca282f6",
+          "human": {
+            "deltaHours": 6.5,
+            "humanHours": 9.5,
+            "rationale": "Detailed WBS plus unavoidable repository execution cost.",
+            "size": "L"
+          },
+          "ai": {
+            "p50EngagedHours": 4.5,
+            "p80EngagedHours": 4.5,
+            "stages": {
+              "develop": 3,
+              "plan": 0.5,
+              "review": 0.5,
+              "test": 0.5
+            }
+          },
+          "refine": {
+            "humanHours": 3,
+            "size": "S"
+          },
+          "supersedes": null
+        }
+      ],
+      "timingReferences": [
+        {
+          "url": "https://github.com/kburson/ai-peer-review/issues/217#issuecomment-6244861046",
+          "bodySha256": "62b6ee3508547fd0bd55108e6bb509c66e1b6ff979eb380a087046dbaef785ab",
+          "literalUnknownTokens": 13,
+          "historicalHoldRows": []
+        }
+      ]
+    },
+    {
+      "number": 218,
+      "title": "[C] Publish immutable portable approval evidence",
+      "url": "https://github.com/kburson/ai-peer-review/issues/218",
+      "state": "OPEN",
+      "parentIssue": 214,
+      "labels": ["security"],
+      "bodySha256": "62e2396ddfc349ba63341d89a660d4913f98aef10576f587b3fd1926b58fca5d",
+      "commentsSha256": "9967c2650b49763dc638a60b598a6cba6978b47e550f401ea180c4831d7d2a0c",
+      "blockedBy": [275, 217],
+      "blocking": [219],
+      "paginationComplete": true,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ],
+      "originalScope": "Proposal slice C: Explicit post-review exporter; sealed public bundle and externally pinned Git publication refs.\n\nCompletion boundary: No raw private journals, credentials or provider handles exported; original journal status/mode and Git state unchanged by review; private proof and publication provenance remain distinct; fresh checkout verifies exact published bytes.\n\nHuman effort estimate: 2 hour(s). Dependencies: #217. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\nPublication is an explicit post-review operation, separate from the journal handoff. Preserve accepted-uncommitted/no-commit and original bytes. Publication references are pinned outside the receipt to avoid self-referential commit digests. Never execute selector-chosen Git source.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
+      "originalAcceptanceCriteria": "- [ ] No raw private journals, credentials or provider handles exported; original journal status/mode and Git state unchanged by review; private proof and publication provenance remain distinct; fresh checkout verifies exact published bytes. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] The unchanged legacy normal-review checker and required refusal controls still reject unsupported or altered approval evidence. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
+      "originalPlanMetadata": "",
+      "nativeFieldValues": {
+        "priority": "P0",
+        "size": "XS",
+        "disposition": null,
+        "estimate": 2,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 8,
+        "startTime": null
+      },
+      "readback": {
+        "bodySha256": "62e2396ddfc349ba63341d89a660d4913f98aef10576f587b3fd1926b58fca5d",
+        "commentsSha256": "9967c2650b49763dc638a60b598a6cba6978b47e550f401ea180c4831d7d2a0c",
+        "blockedBy": [275, 217],
+        "blocking": [219],
+        "paginationComplete": true
+      },
+      "recordedStage": "ready-for-plan",
+      "forecastRecords": [],
+      "timingReferences": [
+        {
+          "url": "https://github.com/kburson/ai-peer-review/issues/218#issuecomment-6244864530",
+          "bodySha256": "b04a336bf3b0deed49c70f9d46befd4bec0649ca000980d1aae3aeeaf20d7ab4",
+          "literalUnknownTokens": 11,
+          "historicalHoldRows": [
+            "| 2026-10-18 13:57:36 -05:00 | pause:other | Unknown | Unknown | 1 | 11,873 | Owner-directed scheduling hold; no implementation | 294,390 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349823339 end=1792349856026 active=unknown wstart=11872 wend=11873 fstart=294299 fend=294390 -->"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 219,
+      "title": "[D] Accept versioned registration approval proofs",
+      "url": "https://github.com/kburson/ai-peer-review/issues/219",
+      "state": "OPEN",
+      "parentIssue": 214,
+      "labels": ["security"],
+      "bodySha256": "83f0291c7f170a35c69a15cae12022c0621b0401e31a5cf02ec3deb58b5578d5",
+      "commentsSha256": "c74cd34d569b7649850c92aa7213e3aa82d5fefa190c3c036c0f211f39b07afb",
+      "blockedBy": [275, 218],
+      "blocking": [220],
+      "paginationComplete": true,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ],
+      "originalScope": "Proposal slice D: Explicit new approved-ref reader branch in source-conformance tooling; v1 parser/normal consumer unchanged.\n\nCompletion boundary: Genuine candidate registration may be approved through new public proof; wrong index/key/package/scope/subject or missing publication refuses; legacy controls stay green.\n\nHuman effort estimate: 2 hour(s). Dependencies: #218. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
+      "originalAcceptanceCriteria": "- [ ] Genuine candidate registration may be approved through new public proof; wrong index/key/package/scope/subject or missing publication refuses; legacy controls stay green. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] The unchanged legacy normal-review checker and required refusal controls still reject unsupported or altered approval evidence. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
+      "originalPlanMetadata": "",
+      "nativeFieldValues": {
+        "priority": "P0",
+        "size": "XS",
+        "disposition": null,
+        "estimate": 2,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 9,
+        "startTime": null
+      },
+      "readback": {
+        "bodySha256": "83f0291c7f170a35c69a15cae12022c0621b0401e31a5cf02ec3deb58b5578d5",
+        "commentsSha256": "c74cd34d569b7649850c92aa7213e3aa82d5fefa190c3c036c0f211f39b07afb",
+        "blockedBy": [275, 218],
+        "blocking": [220],
+        "paginationComplete": true
+      },
+      "recordedStage": "ready-for-plan",
+      "forecastRecords": [],
+      "timingReferences": [
+        {
+          "url": "https://github.com/kburson/ai-peer-review/issues/219#issuecomment-6244868349",
+          "bodySha256": "ec1ed75224173da992d5602abea35c176a08cbf46a744fd7f3385424903eb5ea",
+          "literalUnknownTokens": 11,
+          "historicalHoldRows": [
+            "| 2026-10-18 13:58:08 -05:00 | pause:other | Unknown | Unknown | 42 | 11,915 | Owner-directed scheduling hold; no implementation | 294,432 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349860363 end=1792349888726 active=unknown wstart=11873 wend=11915 fstart=294390 fend=294432 -->"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 220,
+      "title": "[E] Accept versioned finite-class approval proofs",
+      "url": "https://github.com/kburson/ai-peer-review/issues/220",
+      "state": "OPEN",
+      "parentIssue": 214,
+      "labels": ["security"],
+      "bodySha256": "2532f07956a5de121a15782b100e7bb9e6c3c1b05eea9931ad7c6dc54cb71d10",
+      "commentsSha256": "4818f1ddecd4536ecd129de763530fa409a2fcc7541e8d395239c69bb02d14df",
+      "blockedBy": [275, 219],
+      "blocking": [221],
+      "paginationComplete": true,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ],
+      "originalScope": "Proposal slice E: New class approval and class-review-index dispatch with no weakened capture validation.\n\nCompletion boundary: All actual receipt signatures, pre-registration, host controls, producer freeze, proposal recomputation, finite scope and current digest checks retained; public historical16proofs remain valid; mixed versions/overlaps handled explicitly.\n\nHuman effort estimate: 2 hour(s). Dependencies: #219. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
+      "originalAcceptanceCriteria": "- [ ] All actual receipt signatures, pre-registration, host controls, producer freeze, proposal recomputation, finite scope and current digest checks retained; public historical16proofs remain valid; mixed versions/overlaps handled explicitly. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] The unchanged legacy normal-review checker and required refusal controls still reject unsupported or altered approval evidence. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
+      "originalPlanMetadata": "",
+      "nativeFieldValues": {
+        "priority": "P0",
+        "size": "XS",
+        "disposition": null,
+        "estimate": 2,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 10,
+        "startTime": null
+      },
+      "readback": {
+        "bodySha256": "2532f07956a5de121a15782b100e7bb9e6c3c1b05eea9931ad7c6dc54cb71d10",
+        "commentsSha256": "4818f1ddecd4536ecd129de763530fa409a2fcc7541e8d395239c69bb02d14df",
+        "blockedBy": [275, 219],
+        "blocking": [221],
+        "paginationComplete": true
+      },
+      "recordedStage": "ready-for-plan",
+      "forecastRecords": [],
+      "timingReferences": [
+        {
+          "url": "https://github.com/kburson/ai-peer-review/issues/220#issuecomment-6244872508",
+          "bodySha256": "7aa5672220fa7f93f56cd0b774c629df32983b6307e3ea69054510b3703bbedc",
+          "literalUnknownTokens": 13,
+          "historicalHoldRows": [
+            "| 2026-10-18 13:58:43 -05:00 | pause:other | Unknown | Unknown | 2 | 11,917 | Owner-directed scheduling hold; no implementation | 294,504 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349893582 end=1792349923099 active=unknown wstart=11915 wend=11917 fstart=294432 fend=294504 -->"
+          ]
+        }
+      ]
+    },
+    {
+      "number": 221,
+      "title": "[G] Prove one genuine current Linux approval end-to-end",
+      "url": "https://github.com/kburson/ai-peer-review/issues/221",
+      "state": "OPEN",
+      "parentIssue": 214,
+      "labels": ["test"],
+      "bodySha256": "6726cf911f382b3e2b2f41ea8617351520445a676a95360f29ded9eb98f3e8c6",
+      "commentsSha256": "b3755cc931c02bb25553bc9b49eeca4cb83a475456684a049361d8d775a0f209",
+      "blockedBy": [275, 220, 215],
+      "blocking": [],
+      "paginationComplete": true,
+      "sourcePointers": [
+        "- **evidence-reference**: repository commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9; journal-only producer src/cli/run.mjs, normal-only consumer test/live/process-source/authority.mjs and scripts/check-runtime-contract-adoption.mjs; private-lineage profile scripts/lib/runtime-review-lineage-proof.mjs.",
+        "- **investigation**: .scratch/141-approval-investigation/findings.json (retained local investigation, not an accepted implementation plan)."
+      ],
+      "originalScope": "Proposal slice G: Fresh registration, signed Linux absence capture, independent journal class review, published proof and fresh-checkout validation for one explicit finite scope.\n\nCompletion boundary: Actual class approval consumed from Git without private journal or provider launch; real class/capture provenance distinct from fixtures; no claim for other OS/Node/builds or whole #141 completion.\n\nHuman effort estimate: 3 hour(s). Dependencies: #220, #215. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\nUse a new independently authorized review and capture only after prior slices are delivered. Existing fixtures and historical classes are not current admission. Publish the actual approved selector at evidence/portable-runtime/process-source/classes/journal-linux-approved-ref.json; verify the retained proof from a fresh checkout. This is one explicitly finite Linux absence scope, not other builds/Node versions, macOS or whole #141 acceptance. Any different path/verifier chosen at Plan must be reconciled through the governed issue-body workflow before evidence is stamped.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nThe prospective strict read-only verifier scripts/verify-journal-source-approval.mjs must exit nonzero unless the immutable approval reader returns a genuinely reviewed Linux absence class matching the current source-contract digest. It must not interpret a generic driver exit-zero or verified:false report as acceptance. Its focused fresh-checkout tests must cover missing, stale, altered and fixture evidence. This verifier is a future deliverable, not an existing or executed command at intake.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
+      "originalAcceptanceCriteria": "- [ ] Actual class approval consumed from Git without private journal or provider launch; real class/capture provenance distinct from fixtures; no claim for other OS/Node/builds or whole #141 completion. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] A genuine independently reviewed current Linux absence class is read from immutable public evidence and matches the actual current source-contract digest; no fixture or historical total supplies this proof. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
+      "originalPlanMetadata": "",
+      "nativeFieldValues": {
+        "priority": "P0",
+        "size": "S",
+        "disposition": null,
+        "estimate": 3,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 11,
+        "startTime": null
+      },
+      "readback": {
+        "bodySha256": "6726cf911f382b3e2b2f41ea8617351520445a676a95360f29ded9eb98f3e8c6",
+        "commentsSha256": "b3755cc931c02bb25553bc9b49eeca4cb83a475456684a049361d8d775a0f209",
+        "blockedBy": [275, 220, 215],
+        "blocking": [],
+        "paginationComplete": true
+      },
+      "recordedStage": "ready-for-plan",
+      "forecastRecords": [],
+      "timingReferences": [
+        {
+          "url": "https://github.com/kburson/ai-peer-review/issues/221#issuecomment-6244876311",
+          "bodySha256": "fad2757f4cfbd620ca5230f0dfd9b814279c7781c95503053703ada9cd4303f6",
+          "literalUnknownTokens": 11,
+          "historicalHoldRows": [
+            "| 2026-10-18 13:59:19 -05:00 | pause:other | Unknown | Unknown | 27 | 11,944 | Owner-directed scheduling hold; no implementation | 294,545 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349928132 end=1792349959669 active=unknown wstart=11917 wend=11944 fstart=294512 fend=294545 -->"
+          ]
+        }
+      ]
+    }
+  ],
+  "accounting": "Literal Unknown counts are text observations only. No elapsed or engaged time is inferred; native historical rows remain unchanged.",
+  "rawResponseReferences": [
+    {
+      "localPath": ".scratch/gh/227-open-final-fresh.json",
+      "sha256": "b6e7474d8c9adcaacfd157bfeec3406bd9674646f489a50eb365474b5b53c056",
+      "returnedRateLimit": {
+        "cost": 1,
+        "remaining": 3629,
+        "resetAt": "2026-10-19T21:26:20Z"
+      },
+      "coverage": "One explicit GraphQL operation and final response per saved file; transport retries/hidden HTTP requests are not counted."
+    },
+    {
+      "localPath": ".scratch/gh/227-proof-fresh.json",
+      "sha256": "1650da13e12c6f11c340fdf78c303807caf637ae107c5f067c7007e9a20206af",
+      "returnedRateLimit": {
+        "cost": 1,
+        "remaining": 3980,
+        "resetAt": "2026-10-19T21:26:20Z"
+      },
+      "coverage": "One explicit GraphQL operation and final response per saved file; transport retries/hidden HTTP requests are not counted."
+    },
+    {
+      "localPath": ".scratch/gh/227-proof-readback.json",
+      "sha256": "49aea5b8391d3af40eb4ba971aa836bea3d392258ba3145e4f04874b3a8a12ee",
+      "returnedRateLimit": {
+        "cost": 1,
+        "remaining": 4988,
+        "resetAt": "2026-10-19T21:30:36Z"
+      },
+      "coverage": "One explicit GraphQL operation and final response per saved file; transport retries/hidden HTTP requests are not counted."
+    }
+  ],
+  "rawArchiveFile": "227-native-raw-snapshots.json",
+  "rawArchiveSha256": "e4bdeaebbd7045f65c8555f7fd15056e67d6c281075fe425ad7cb573cbac450c"
+}
