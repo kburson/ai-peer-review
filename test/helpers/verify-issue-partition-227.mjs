@@ -26,6 +26,7 @@ const ORIGINAL_DEPENDENCIES = {
   220: [219],
   221: [220, 215],
 };
+const HISTORICAL_BLOCKING = { 214: [], 217: [218], 218: [219], 219: [220], 220: [221], 221: [] };
 const sorted = (values) => [...values].sort((left, right) => left - right);
 const sameSet = (left, right) => JSON.stringify(sorted(left)) === JSON.stringify(sorted(right));
 const fail = (code) => {
@@ -49,6 +50,71 @@ function nativeSection(body, heading) {
   return remainder.slice(0, nextHeading?.index ?? remainder.length).replace(/^\n+|\n+$/g, '');
 }
 
+function historicalProjection(source) {
+  const sha = (value) => createHash('sha256').update(value).digest('hex');
+  const sourcePointers = source.body
+    .split('\n')
+    .filter(
+      (line) =>
+        /^[-*] \*\*/.test(line) &&
+        /source-plan|evidence-reference|investigation|governing-spec|source-contract|contract-reference/i.test(
+          line
+        )
+    );
+  const fields = /<!-- aitm-fields: ([\s\S]*?) -->/.exec(source.body);
+  const stages = [...source.body.matchAll(/aitm-move-complete state=(?:"([^"]+)"|([^\s>]+))/g)];
+  const forecastRecords = [];
+  const timingReferences = [];
+  for (const comment of source.comments.nodes) {
+    if (comment.body.includes('Timing Log'))
+      timingReferences.push({
+        url: comment.url,
+        bodySha256: sha(comment.body),
+        literalUnknownTokens: comment.body.split('Unknown').length - 1,
+        historicalHoldRows: comment.body
+          .split('\n')
+          .filter((line) => /scheduling hold/i.test(line)),
+      });
+    for (const match of comment.body.matchAll(/<!-- aitm-record\s*\n([\s\S]*?)\n-->/g)) {
+      let record;
+      try {
+        record = JSON.parse(match[1]);
+      } catch {
+        continue;
+      }
+      if (record.recordType === 'estimation-forecast')
+        forecastRecords.push({
+          recordId: record.recordId,
+          url: comment.url,
+          payloadHash: record.payloadHash,
+          human: record.payload.plan,
+          ai: record.payload.ai,
+          refine: record.payload.refine,
+          supersedes: record.supersedes ?? null,
+        });
+    }
+  }
+  return {
+    sourcePointers,
+    bodyFieldValues: fields ? JSON.parse(fields[1]).values : null,
+    recordedStage: stages.length ? stages.at(-1)[1] || stages.at(-1)[2] : null,
+    bodyPlanApprovalPresent: /<!-- aitm-plan-approved\b/.test(source.body),
+    forecastRecords,
+    timingReferences,
+  };
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonical(value[key])])
+    );
+  return value;
+}
+
 export function verifyRawSources(evidence, archive) {
   const snapshots = new Map();
   for (const item of archive.snapshots) {
@@ -64,7 +130,7 @@ export function verifyRawSources(evidence, archive) {
   }
   const listingName = archive.finalOpenListing;
   const listing = snapshots.get(listingName).data.repository.issues;
-  if (listing.pageInfo.hasNextPage) fail('partial-native-read');
+  if (listing.pageInfo?.hasNextPage !== false) fail('partial-native-read');
   if (
     !sameSet(
       listing.nodes.map((issue) => issue.number),
@@ -74,6 +140,7 @@ export function verifyRawSources(evidence, archive) {
     fail('raw-source-readback-mismatch');
   for (const issue of evidence.openIssues) {
     const raw = listing.nodes.find((row) => row.number === issue.number);
+    if (raw.labels.pageInfo?.hasNextPage !== false) fail('partial-native-read');
     const labels = raw.labels.nodes.map((label) => label.name).sort();
     const task = /^- \*\*Task-id\*\*: (.*)$/m.exec(raw.body)?.[1] ?? null;
     if (
@@ -95,6 +162,21 @@ export function verifyRawSources(evidence, archive) {
     for (const issue of evidence.proofIssues) {
       const source = raw['i' + issue.number];
       const expected = readback ? issue.readback : issue;
+      // Complete topology is pinned to the pre-execution paired native observation.
+      if (
+        !sameSet(
+          source.blockedBy.nodes.map((row) => row.number),
+          [275, ...ORIGINAL_DEPENDENCIES[issue.number]]
+        ) ||
+        !sameSet(
+          source.blocking.nodes.map((row) => row.number),
+          HISTORICAL_BLOCKING[issue.number]
+        )
+      )
+        fail('historical-topology');
+      for (const connection of ['labels', 'comments', 'blockedBy', 'blocking']) {
+        if (source[connection].pageInfo?.hasNextPage !== false) fail('partial-native-read');
+      }
       if (
         !readback &&
         (nativeSection(source.body, 'Scope') !== issue.originalScope ||
@@ -102,6 +184,26 @@ export function verifyRawSources(evidence, archive) {
           nativeSection(source.body, 'Plan Metadata') !== issue.originalPlanMetadata)
       )
         fail('raw-source-readback-mismatch');
+      const projection = historicalProjection(source);
+      if (
+        Object.entries(projection).some(
+          ([key, value]) =>
+            JSON.stringify(canonical(issue[key])) !== JSON.stringify(canonical(value))
+        )
+      )
+        fail('historical-projection');
+      if (
+        issue.number === 217 &&
+        (projection.bodyPlanApprovalPresent ||
+          !projection.forecastRecords.some(
+            (record) =>
+              record.human.humanHours === 9.5 &&
+              record.ai.p50EngagedHours === 4.5 &&
+              record.ai.p80EngagedHours === 4.5
+          ) ||
+          !projection.timingReferences.some((record) => record.literalUnknownTokens > 0))
+      )
+        fail('historical-projection');
       const comments = [...source.comments.nodes].sort((left, right) =>
         left.id < right.id ? -1 : left.id > right.id ? 1 : 0
       );
@@ -175,11 +277,17 @@ export function validatePartition(partition, evidence) {
         entry.classification !== 'replacement-implementation' ||
         entry.ownerTask !== '01A' ||
         entry.ownerIssue !== 225 ||
-        entry.executionIssue !== entry.number
+        entry.executionIssue !== entry.number ||
+        entry.nativeParentIssue !== open.get(entry.number).parentIssue
       )
         fail('wrong-replacement-owner');
     } else if (open.get(entry.number).labels.includes('222-hydration')) {
-      if (entry.classification !== 'hydrated-implementation' || entry.ownerIssue !== entry.number)
+      if (
+        entry.classification !== 'hydrated-implementation' ||
+        entry.ownerIssue !== entry.number ||
+        !substantive(open.get(entry.number).sourceTaskId) ||
+        entry.ownerTask !== open.get(entry.number).sourceTaskId
+      )
         fail('wrong-hydrated-owner');
     } else if ([70, 111, 223].includes(entry.number)) {
       if (

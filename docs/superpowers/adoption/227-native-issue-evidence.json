@@ -1665,18 +1665,6 @@
       "originalScope": "Create the bounded compatibility repair within #141 under program #107. The journal-only producer and normal-only source approval reader mismatch is proven at source commit 81e1d58264485883d6bdda4d77a6906b9a4b84d9. An absent primary admission root in a dry run is intentional first-use refusal, not proof of damaged authority. Do not reopen or repair closed #102 by assumption.\n\nThis epic owns coordination and acceptance of exactly seven bounded children:\n\n- A: Adopt the bounded journal approval contract \u2014 1 human hour(s).\n- B: Verify completed private journals read-only \u2014 3 human hour(s).\n- C: Publish immutable portable approval evidence \u2014 2 human hour(s).\n- D: Accept versioned registration approval proofs \u2014 2 human hour(s).\n- E: Accept versioned finite-class approval proofs \u2014 2 human hour(s).\n- F: Make the capture workflow POSIX-only and exact-ref bound \u2014 2 human hour(s).\n- G: Prove one genuine current Linux approval end-to-end \u2014 3 human hour(s).\n\nThe seven child estimates total 15 HUMAN hours. This epic's original Refine estimate was 1 HUMAN hour for coordination only. Its current governed Plan estimate is 2.5 HUMAN hours for coordination and acceptance only (forecast 01M56P51VTVJTHWV90KRBQCSV3); it is not the implementation estimate for all seven children. All eight individual estimates are at most four human hours. A+B form the first four-human-hour decision checkpoint; lack of reproducible valid/negative proof there returns the approach to planning rather than silently expanding it. No implementation is authorized by this issue creation.\n\nThe actual finite-class guarantee and remaining installed Linux/macOS recovery remain #141-owned. This epic ends with one genuine current Linux absence-class approval; broader class matrix/installed recovery and #107 activation/release remain outside its completion claim. Preserve the legacy normal checker, every capture signature/pre-registration/producer-freeze/current-scope check, and historical proof compatibility. New approved-ref formats must be explicit/versioned, never a mode/status relabel.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nExecution-order correction discovered during governed intake: F -> A -> B -> C -> D -> E -> G. The newly created branches otherwise inherit all-platform CI defaults. F must first deliver the exact-ref Linux/macOS routing, including its own branch before its first push. This is the same bounded F story and estimate, not an extra story. A+B remain the first proof-design/verifier decision checkpoint after the platform bootstrap. G depends on both E and F. All executable producer changes must finish before real capture.",
       "originalAcceptanceCriteria": "- [ ] The seven bounded child deliverables A-G are delivered and their required commits are reachable; current proof behavior passes its focused Linux/macOS checks without weakening legacy normal consumers. <!-- aitm-verified vc-list=\"vc:1 vc:2 vc:3\" -->\n- [ ] At least one genuine independently reviewed finite Linux absence class is consumed from immutable public evidence and matches the current source contract; no claim is made for remaining targets or whole #141 completion. <!-- aitm-verified vc-list=\"vc:4\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
       "originalPlanMetadata": "- **Execution-strategy**: strict sequential #215, #216, #217, #218, #219, #220, #221; #221 also directly depends on #215.\n- **Delivery-target**: existing admitted integration branch feature/child/141; cut each canonical child from its live epic head through the governed child-worktree command and renew the exact binding.\n- **Estimate-scope**: this epic estimates coordination and acceptance only; implementation is separately estimated on the seven children at fifteen total human hours.\n- **Engagement-policy**: hard four-hour cumulative agent limit per child, across agents and sessions; preserve Unknown timing, stop at the boundary and replan after failure or unestablished allowance.\n- **Acceptance-boundary**: seven bounded child deliverables plus one genuine finite current Linux absence-class proof; broader POSIX matrix and installed recovery remain #141-owned.\n- **Platform-policy**: Linux/macOS only; #213 indefinitely deferred, unscheduled and nonblocking; safe exact-ref CI routing must precede the first new branch push.",
-      "nativeFieldValues": {
-        "priority": "P0",
-        "size": "S",
-        "disposition": null,
-        "estimate": 2.5,
-        "engagedTime": null,
-        "sessionTime": null,
-        "reviewTime": null,
-        "planTime": null,
-        "rank": 4,
-        "startTime": null
-      },
       "readback": {
         "bodySha256": "daa9b3897189a585834b694e0f327e0dcec7b060200d9cfff22535069fc509f6",
         "commentsSha256": "7cbd9dd59f9090575edfeed48efe551644dc84a01301bbc72d0a324ee01b25a8",
@@ -1748,7 +1736,20 @@
             "| 2026-10-18 13:56:56 -05:00 | pause:other | Unknown | Unknown | 0 | 11,871 | Owner-directed scheduling hold; no implementation | 294,281 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349793350 end=1792349816044 active=unknown wstart=11871 wend=11871 fstart=294281 fend=294281 -->"
           ]
         }
-      ]
+      ],
+      "bodyFieldValues": {
+        "priority": "P0",
+        "size": "S",
+        "disposition": null,
+        "estimate": 2.5,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 4,
+        "startTime": null
+      },
+      "bodyPlanApprovalPresent": true
     },
     {
       "number": 217,
@@ -1769,18 +1770,6 @@
       "originalScope": "Proposal slice B: One fixed installed producer profile, fresh single-attempt ordinary reviewer-consensus journals only.\n\nCompletion boundary: Terminal author event, distinct participant identities, exact subject/snapshot/response/lineage and producer bytes checked; test-only, pending, unknown, tampered, unsupported or unsettled input refuses without mutation.\n\nHuman effort estimate: 3 hour(s). Dependencies: #216. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\nInitially support one fixed installed producer profile and fresh single-attempt ordinary reviewer-consensus journals. Reject test-only authority, unsupported/recovered/phased profiles and unsettled operations without mutating or reconciling them. A package version string alone is not a producer profile.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
       "originalAcceptanceCriteria": "- [ ] Terminal author event, distinct participant identities, exact subject/snapshot/response/lineage and producer bytes checked; test-only, pending, unknown, tampered, unsupported or unsettled input refuses without mutation. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] The unchanged legacy normal-review checker and required refusal controls still reject unsupported or altered approval evidence. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
       "originalPlanMetadata": "",
-      "nativeFieldValues": {
-        "priority": "P0",
-        "size": "L",
-        "disposition": null,
-        "estimate": 9.5,
-        "engagedTime": null,
-        "sessionTime": null,
-        "reviewTime": null,
-        "planTime": null,
-        "rank": 7,
-        "startTime": null
-      },
       "readback": {
         "bodySha256": "421848ad1098cc338336144b41f322882bc22e4939269326ad29a47870e3f7df",
         "commentsSha256": "a45b19163f1ba7367cabaf337df4cafa8937697e95bbfe2f01848bf23e0b585a",
@@ -1824,7 +1813,20 @@
           "literalUnknownTokens": 13,
           "historicalHoldRows": []
         }
-      ]
+      ],
+      "bodyFieldValues": {
+        "priority": "P0",
+        "size": "L",
+        "disposition": null,
+        "estimate": 9.5,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 7,
+        "startTime": null
+      },
+      "bodyPlanApprovalPresent": false
     },
     {
       "number": 218,
@@ -1845,18 +1847,6 @@
       "originalScope": "Proposal slice C: Explicit post-review exporter; sealed public bundle and externally pinned Git publication refs.\n\nCompletion boundary: No raw private journals, credentials or provider handles exported; original journal status/mode and Git state unchanged by review; private proof and publication provenance remain distinct; fresh checkout verifies exact published bytes.\n\nHuman effort estimate: 2 hour(s). Dependencies: #217. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\nPublication is an explicit post-review operation, separate from the journal handoff. Preserve accepted-uncommitted/no-commit and original bytes. Publication references are pinned outside the receipt to avoid self-referential commit digests. Never execute selector-chosen Git source.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
       "originalAcceptanceCriteria": "- [ ] No raw private journals, credentials or provider handles exported; original journal status/mode and Git state unchanged by review; private proof and publication provenance remain distinct; fresh checkout verifies exact published bytes. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] The unchanged legacy normal-review checker and required refusal controls still reject unsupported or altered approval evidence. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
       "originalPlanMetadata": "",
-      "nativeFieldValues": {
-        "priority": "P0",
-        "size": "XS",
-        "disposition": null,
-        "estimate": 2,
-        "engagedTime": null,
-        "sessionTime": null,
-        "reviewTime": null,
-        "planTime": null,
-        "rank": 8,
-        "startTime": null
-      },
       "readback": {
         "bodySha256": "62e2396ddfc349ba63341d89a660d4913f98aef10576f587b3fd1926b58fca5d",
         "commentsSha256": "9967c2650b49763dc638a60b598a6cba6978b47e550f401ea180c4831d7d2a0c",
@@ -1875,7 +1865,20 @@
             "| 2026-10-18 13:57:36 -05:00 | pause:other | Unknown | Unknown | 1 | 11,873 | Owner-directed scheduling hold; no implementation | 294,390 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349823339 end=1792349856026 active=unknown wstart=11872 wend=11873 fstart=294299 fend=294390 -->"
           ]
         }
-      ]
+      ],
+      "bodyFieldValues": {
+        "priority": "P0",
+        "size": "XS",
+        "disposition": null,
+        "estimate": 2,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 8,
+        "startTime": null
+      },
+      "bodyPlanApprovalPresent": false
     },
     {
       "number": 219,
@@ -1896,18 +1899,6 @@
       "originalScope": "Proposal slice D: Explicit new approved-ref reader branch in source-conformance tooling; v1 parser/normal consumer unchanged.\n\nCompletion boundary: Genuine candidate registration may be approved through new public proof; wrong index/key/package/scope/subject or missing publication refuses; legacy controls stay green.\n\nHuman effort estimate: 2 hour(s). Dependencies: #218. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
       "originalAcceptanceCriteria": "- [ ] Genuine candidate registration may be approved through new public proof; wrong index/key/package/scope/subject or missing publication refuses; legacy controls stay green. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] The unchanged legacy normal-review checker and required refusal controls still reject unsupported or altered approval evidence. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
       "originalPlanMetadata": "",
-      "nativeFieldValues": {
-        "priority": "P0",
-        "size": "XS",
-        "disposition": null,
-        "estimate": 2,
-        "engagedTime": null,
-        "sessionTime": null,
-        "reviewTime": null,
-        "planTime": null,
-        "rank": 9,
-        "startTime": null
-      },
       "readback": {
         "bodySha256": "83f0291c7f170a35c69a15cae12022c0621b0401e31a5cf02ec3deb58b5578d5",
         "commentsSha256": "c74cd34d569b7649850c92aa7213e3aa82d5fefa190c3c036c0f211f39b07afb",
@@ -1926,7 +1917,20 @@
             "| 2026-10-18 13:58:08 -05:00 | pause:other | Unknown | Unknown | 42 | 11,915 | Owner-directed scheduling hold; no implementation | 294,432 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349860363 end=1792349888726 active=unknown wstart=11873 wend=11915 fstart=294390 fend=294432 -->"
           ]
         }
-      ]
+      ],
+      "bodyFieldValues": {
+        "priority": "P0",
+        "size": "XS",
+        "disposition": null,
+        "estimate": 2,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 9,
+        "startTime": null
+      },
+      "bodyPlanApprovalPresent": false
     },
     {
       "number": 220,
@@ -1947,18 +1951,6 @@
       "originalScope": "Proposal slice E: New class approval and class-review-index dispatch with no weakened capture validation.\n\nCompletion boundary: All actual receipt signatures, pre-registration, host controls, producer freeze, proposal recomputation, finite scope and current digest checks retained; public historical16proofs remain valid; mixed versions/overlaps handled explicitly.\n\nHuman effort estimate: 2 hour(s). Dependencies: #219. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
       "originalAcceptanceCriteria": "- [ ] All actual receipt signatures, pre-registration, host controls, producer freeze, proposal recomputation, finite scope and current digest checks retained; public historical16proofs remain valid; mixed versions/overlaps handled explicitly. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] The unchanged legacy normal-review checker and required refusal controls still reject unsupported or altered approval evidence. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
       "originalPlanMetadata": "",
-      "nativeFieldValues": {
-        "priority": "P0",
-        "size": "XS",
-        "disposition": null,
-        "estimate": 2,
-        "engagedTime": null,
-        "sessionTime": null,
-        "reviewTime": null,
-        "planTime": null,
-        "rank": 10,
-        "startTime": null
-      },
       "readback": {
         "bodySha256": "2532f07956a5de121a15782b100e7bb9e6c3c1b05eea9931ad7c6dc54cb71d10",
         "commentsSha256": "4818f1ddecd4536ecd129de763530fa409a2fcc7541e8d395239c69bb02d14df",
@@ -1977,7 +1969,20 @@
             "| 2026-10-18 13:58:43 -05:00 | pause:other | Unknown | Unknown | 2 | 11,917 | Owner-directed scheduling hold; no implementation | 294,504 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349893582 end=1792349923099 active=unknown wstart=11915 wend=11917 fstart=294432 fend=294504 -->"
           ]
         }
-      ]
+      ],
+      "bodyFieldValues": {
+        "priority": "P0",
+        "size": "XS",
+        "disposition": null,
+        "estimate": 2,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 10,
+        "startTime": null
+      },
+      "bodyPlanApprovalPresent": false
     },
     {
       "number": 221,
@@ -1998,18 +2003,6 @@
       "originalScope": "Proposal slice G: Fresh registration, signed Linux absence capture, independent journal class review, published proof and fresh-checkout validation for one explicit finite scope.\n\nCompletion boundary: Actual class approval consumed from Git without private journal or provider launch; real class/capture provenance distinct from fixtures; no claim for other OS/Node/builds or whole #141 completion.\n\nHuman effort estimate: 3 hour(s). Dependencies: #220, #215. #141 retains the broader current POSIX source-class guarantee; this slice does not close #141 or authorize #107 activation. #30/#151 provide only the bounded shared-proof contract decision; do not wait for or rebuild their whole feature sets. Closed #102 remains unchanged unless a separately approved change actually alters its contract.\n\nUse a new independently authorized review and capture only after prior slices are delivered. Existing fixtures and historical classes are not current admission. Publish the actual approved selector at evidence/portable-runtime/process-source/classes/journal-linux-approved-ref.json; verify the retained proof from a fresh checkout. This is one explicitly finite Linux absence scope, not other builds/Node versions, macOS or whole #141 acceptance. Any different path/verifier chosen at Plan must be reconciled through the governed issue-body workflow before evidence is stamped.\n\n### Owner limits and preservation\n\nThe owner subsequently authorized driving all seven children of #214 to Done through the governed workflow. Implementation, required independent reviews, verification and applicable child delivery/approval/Close gates are authorized within the existing bounded scopes. The four-hour cumulative agent-engagement limit per child remains mandatory. This does not authorize #107 public activation or any operation on the protected unsettled review/session. Preserve every platform, assurance and historical timing constraint below.\n\nEstimates are HUMAN effort hours, including routine review/verification; they are not agent-time estimates. Agent engagement has a separate hard failure rule: if this story engages agents cumulatively for MORE THAN FOUR HOURS, its current plan is FAILED and SCRAPPED. Stop implementation, preserve all work and evidence, and return to planning to determine a better course. Do not continue because the work is nearly finished or extend the limit. Stop at the four-hour boundary before knowingly exceeding it. Count all engaged investigation, implementation, debugging, review and verification for this story across agents, sessions and restarts; reassignment, timer switching or a new session must not reset or evade the limit. Correctly attributed child work is counted against that child; epic coordination has its own limit. Pause passive external waits honestly. Preserve Unknown timing values as Unknown; never assume unknown history is zero, invent accounting, or claim unused engagement allowance without evidence. If remaining allowance cannot be established, stop for a planning decision. Scrapping a plan never authorizes deletion of code, Git history, reviews, worktrees or evidence.\n\nLinux and macOS are the only supported runtime targets. Windows #213 remains indefinitely deferred, unscheduled and nonblocking; no Windows worker or native build is authorized. Preserve historical Windows evidence. Future Windows activation requires fresh then-current requirements and analysis.\n\nPreserve review-2bdf5dd8ee56accc6e494643054a3cf1 and Claude session 1c82a9bc-d4dd-4d10-92b5-022615f0abcd unchanged and unsettled. Do not replay, terminate, reconcile, convert or infer acceptance from either. Preserve every historical timing row and all Unknown values; no accounting repair.\n\nRetain budgets 30000/15000/5000/800000 ms and portable cap four. Keep ordinary local handoffs free of primary enrollment/source-class prerequisites. No old runtime fallback, mode/status relabeling, blanket scanner rewrite, weaker capture validation or public activation follows from this work.\n\nThe prospective strict read-only verifier scripts/verify-journal-source-approval.mjs must exit nonzero unless the immutable approval reader returns a genuinely reviewed Linux absence class matching the current source-contract digest. It must not interpret a generic driver exit-zero or verified:false report as acceptance. Its focused fresh-checkout tests must cover missing, stale, altered and fixture evidence. This verifier is a future deliverable, not an existing or executed command at intake.\n\nBefore any implementation push or hosted verification, the exact source branch must select Linux/macOS only. No Windows allocation is allowed to bootstrap these stories; stop if safe CI selection is not yet delivered by #215.",
       "originalAcceptanceCriteria": "- [ ] Actual class approval consumed from Git without private journal or provider launch; real class/capture provenance distinct from fixtures; no claim for other OS/Node/builds or whole #141 completion. <!-- aitm-verified vc-list=\"vc:1\" -->\n- [ ] A genuine independently reviewed current Linux absence class is read from immutable public evidence and matches the actual current source-contract digest; no fixture or historical total supplies this proof. <!-- aitm-verified vc-list=\"vc:2\" -->\n- [ ] The reviewer confirms the separate human estimate and four-hour cumulative agent-engagement failure/scrap rule were honored; any overrun invalidates this plan and requires replanning, with work/evidence and all Unknown timing preserved. <!-- aitm-non-demonstrable -->",
       "originalPlanMetadata": "",
-      "nativeFieldValues": {
-        "priority": "P0",
-        "size": "S",
-        "disposition": null,
-        "estimate": 3,
-        "engagedTime": null,
-        "sessionTime": null,
-        "reviewTime": null,
-        "planTime": null,
-        "rank": 11,
-        "startTime": null
-      },
       "readback": {
         "bodySha256": "6726cf911f382b3e2b2f41ea8617351520445a676a95360f29ded9eb98f3e8c6",
         "commentsSha256": "b3755cc931c02bb25553bc9b49eeca4cb83a475456684a049361d8d775a0f209",
@@ -2028,7 +2021,20 @@
             "| 2026-10-18 13:59:19 -05:00 | pause:other | Unknown | Unknown | 27 | 11,944 | Owner-directed scheduling hold; no implementation | 294,545 | <!-- aitm-actor:v1 key=75be13132b3bede0b9c393a6f0e94b228074ffa91eac2d806081307062d3d91a --> <!-- aitm-engagement:v1 start=1792349928132 end=1792349959669 active=unknown wstart=11917 wend=11944 fstart=294512 fend=294545 -->"
           ]
         }
-      ]
+      ],
+      "bodyFieldValues": {
+        "priority": "P0",
+        "size": "S",
+        "disposition": null,
+        "estimate": 3,
+        "engagedTime": null,
+        "sessionTime": null,
+        "reviewTime": null,
+        "planTime": null,
+        "rank": 11,
+        "startTime": null
+      },
+      "bodyPlanApprovalPresent": false
     }
   ],
   "accounting": "Literal Unknown counts are text observations only. No elapsed or engaged time is inferred; native historical rows remain unchanged.",
@@ -2065,5 +2071,6 @@
     }
   ],
   "rawArchiveFile": "227-native-raw-snapshots.json",
-  "rawArchiveSha256": "e4bdeaebbd7045f65c8555f7fd15056e67d6c281075fe425ad7cb573cbac450c"
+  "rawArchiveSha256": "e4bdeaebbd7045f65c8555f7fd15056e67d6c281075fe425ad7cb573cbac450c",
+  "bodyMarkerCoverage": "Field values and recorded lifecycle stage are literal issue-body marker observations, not independent live project-board reads. Plan approval presence is a literal body-marker observation."
 }

@@ -12,6 +12,7 @@ function fixture() {
     openIssues: [29, 70, 213, 214, 217, 218, 219, 220, 221, 225].map((number) => ({
       number,
       labels: number === 225 ? ['222-hydration'] : [],
+      sourceTaskId: number === 225 ? '01A' : null,
     })),
     proofIssues: proof.map((number, index) => ({
       number,
@@ -156,6 +157,7 @@ test('genuine native children retain the original Task 01A program owner', () =>
     ownerTask: '01A',
     ownerIssue: 225,
     executionIssue: 276,
+    nativeParentIssue: 225,
     reason: 'Native child continues the original source inventory scope',
   });
   const result = validatePartition(partition, evidence);
@@ -263,4 +265,124 @@ test('retained original scope cannot be rewritten while retaining the old body h
   );
   evidence.proofIssues[0].originalScope = 'Replacement text without the historical scope';
   assert.throws(() => verifyRawSources(evidence, archive), /raw-source-readback-mismatch/);
+});
+
+async function retainedFixture() {
+  const { readFileSync } = await import('node:fs');
+  const read = (name) =>
+    JSON.parse(readFileSync(new URL('../../docs/superpowers/adoption/' + name, import.meta.url)));
+  return {
+    evidence: read('227-native-issue-evidence.json'),
+    archive: read('227-native-raw-snapshots.json'),
+    partition: read('222-initial-issue-partition.json'),
+  };
+}
+
+async function changeRaw(archive, name, change) {
+  const { gzipSync } = await import('node:zlib');
+  const { createHash } = await import('node:crypto');
+  const { decodeRawSnapshot } = await import('../helpers/verify-issue-partition-227.mjs');
+  const item = archive.snapshots.find((row) => row.name === name);
+  const raw = JSON.parse(decodeRawSnapshot(item));
+  change(raw);
+  const bytes = Buffer.from(JSON.stringify(raw));
+  item.bytesBase64 = gzipSync(bytes).toString('base64');
+  item.sha256 = createHash('sha256').update(bytes).digest('hex');
+}
+
+test('raw nested pagination is required even with valid recomputed response hashes', async () => {
+  const { verifyRawSources } = await import('../helpers/verify-issue-partition-227.mjs');
+  for (const connection of ['labels', 'comments', 'blockedBy', 'blocking']) {
+    for (const name of ['227-proof-fresh.json', '227-proof-readback.json']) {
+      const { evidence, archive } = await retainedFixture();
+      await changeRaw(archive, name, (raw) => {
+        raw.data.repository.i217[connection].pageInfo.hasNextPage = true;
+      });
+      assert.throws(
+        () => verifyRawSources(evidence, archive),
+        /partial-native-read/,
+        `${name}/${connection}`
+      );
+    }
+  }
+  const { evidence, archive } = await retainedFixture();
+  await changeRaw(archive, archive.finalOpenListing, (raw) => {
+    raw.data.repository.issues.nodes[0].labels.pageInfo.hasNextPage = true;
+  });
+  assert.throws(() => verifyRawSources(evidence, archive), /partial-native-read/);
+});
+
+test('matching raw reads cannot bless extra or duplicate historical edges', async () => {
+  const { verifyRawSources } = await import('../helpers/verify-issue-partition-227.mjs');
+  for (const connection of ['blockedBy', 'blocking']) {
+    for (const number of [999, connection === 'blockedBy' ? 275 : 218]) {
+      const { evidence, archive } = await retainedFixture();
+      for (const name of ['227-proof-fresh.json', '227-proof-readback.json']) {
+        await changeRaw(archive, name, (raw) => {
+          raw.data.repository.i217[connection].nodes.push({ number });
+        });
+      }
+      const issue = evidence.proofIssues.find((row) => row.number === 217);
+      issue[connection].push(number);
+      issue.readback[connection].push(number);
+      assert.throws(
+        () => verifyRawSources(evidence, archive),
+        /historical-topology/,
+        `${connection}/${number}`
+      );
+    }
+  }
+});
+
+test('historical projections must be derived from retained comments and body markers', async () => {
+  const { verifyRawSources } = await import('../helpers/verify-issue-partition-227.mjs');
+  const changes = [
+    (row) => {
+      row.forecastRecords = [];
+    },
+    (row) => {
+      row.forecastRecords[0].human.humanHours = 3;
+    },
+    (row) => {
+      row.forecastRecords[0].ai.p50EngagedHours = 0;
+    },
+    (row) => {
+      row.timingReferences[0].literalUnknownTokens = 0;
+    },
+    (row) => {
+      row.timingReferences[0].historicalHoldRows = ['invented'];
+    },
+    (row) => {
+      row.sourcePointers = ['invented'];
+    },
+    (row) => {
+      row.recordedStage = 'develop';
+    },
+    (row) => {
+      (row.bodyFieldValues ?? row.nativeFieldValues).estimate = 3;
+    },
+    (row) => {
+      row.bodyPlanApprovalPresent = true;
+    },
+  ];
+  for (const change of changes) {
+    const { evidence, archive, partition } = await retainedFixture();
+    change(evidence.proofIssues.find((row) => row.number === 217));
+    // Replacing the outer digest must not make a false projection authoritative.
+    const { createHash } = await import('node:crypto');
+    partition.evidenceSha256 = createHash('sha256').update(JSON.stringify(evidence)).digest('hex');
+    assert.throws(() => verifyRawSources(evidence, archive), /historical-projection/);
+  }
+});
+
+test('hydrated task and replacement native parent must match raw-backed owner chain', async () => {
+  const { partition, evidence } = await retainedFixture();
+  partition.entries.find((row) => row.number === 225).ownerTask = '23A';
+  assert.throws(() => validatePartition(partition, evidence), /wrong-hydrated-owner/);
+  const replacement = await retainedFixture();
+  replacement.partition.entries.find((row) => row.number === 276).nativeParentIssue = 269;
+  assert.throws(
+    () => validatePartition(replacement.partition, replacement.evidence),
+    /wrong-replacement-owner/
+  );
 });
