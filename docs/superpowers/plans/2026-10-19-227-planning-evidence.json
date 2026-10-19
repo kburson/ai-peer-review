@@ -27,7 +27,11 @@
       "independentReview": 0.5,
       "delivery": 0.5
     },
-    "nativeForecastStatus": "Not yet registered; inspect full actual native forecast before Plan approval"
+    "nativeForecastStatus": "Not yet registered; inspect full actual native forecast before Plan approval",
+    "humanWbsHours": 3,
+    "separateUnavoidableMachineMinutes": 30,
+    "provisionalCompleteHoursBeforeNativeCalibration": 3.5,
+    "correction": "Independent parent inspection required retaining all four human components in baseHumanHours=3; machine execution is additional and cannot substitute for human verification. Actual native calibration remains authoritative and must fit four hours."
   },
   "allowance": {
     "ownerBaselineSeconds": 14400,

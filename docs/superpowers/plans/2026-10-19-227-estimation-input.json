@@ -3,8 +3,8 @@
   "wbs": [
     {
       "id": "containment-partition",
-      "description": "Produce and independently review the historical containment and exact issue ownership partition, including source and native read-back evidence plus routine delivery coordination",
-      "baseHumanHours": 2.5,
+      "description": "Produce the historical containment and issue ownership partition, including documentation and census 1.5 human hours, human verification 0.5 hours, independent review 0.5 hours and delivery coordination 0.5 hours",
+      "baseHumanHours": 3,
       "signals": {
         "modules": ["adoption-documentation"],
         "dependencies": ["github-issue-authority"]
