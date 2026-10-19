@@ -1673,11 +1673,7 @@
       "introducing_owner": "#144",
       "introducing_commit": null,
       "cleanup_task": "06A",
-      "consumer_ids": [
-        "source-adoption-callers",
-        "installed-journal-readers",
-        "unavailable-installations"
-      ],
+      "consumer_ids": ["source-adoption-callers", "unavailable-installations"],
       "disposition": "blocked-removal",
       "reason": "Pinned proof grammar is not authority for retiring historical journal readers or any live independent export; missing introducing detail remains source-census follow-up.",
       "follow_up_owner": "Task06A maintainer with Task01 inventory/adoption join (#228)",
@@ -1795,11 +1791,7 @@
       "introducing_owner": "#144/#167",
       "introducing_commit": null,
       "cleanup_task": "01",
-      "consumer_ids": [
-        "source-adoption-callers",
-        "installed-journal-readers",
-        "unavailable-installations"
-      ],
+      "consumer_ids": ["source-adoption-callers", "unavailable-installations"],
       "disposition": "preserve",
       "reason": "Keep historical interpretation records; absence from inspected old payloads does not authorize deleting source history, releases or archives.",
       "follow_up_owner": "Task01 maintainer with Task01 inventory/adoption join (#228)",
@@ -1862,6 +1854,24 @@
       "status": "not-established-by-distribution-census",
       "reason": "Known introducing issues are retained; exact source history for every file belongs to Task01A, not invented from package metadata. Joined removals stay blocked until that census/adoption covers them.",
       "follow_up_owner": "Task01A source census and Task01 join (#228)",
+      "implies_absence": false,
+      "removal_allowed": false
+    },
+    {
+      "id": "release-asset-list-completeness",
+      "identity": "GitHub releases v0.1.0/v0.2.0/v0.2.1/v0.2.2 in kburson/ai-peer-review",
+      "status": "raw-complete-release-list-not-retained",
+      "reason": "The four named tarballs were downloaded and inspected byte-for-byte; a complete raw release asset-list response is not retained. Rows identify inspected archives only, not an exhaustive release asset inventory. Other assets remain unverified.",
+      "follow_up_owner": "Release-history maintainer and Task01 join (#228), Task19C",
+      "implies_absence": false,
+      "removal_allowed": false
+    },
+    {
+      "id": "older-tag-targets",
+      "identity": "refs/tags/v0.1.0, refs/tags/v0.2.0, refs/tags/v0.2.1 in kburson/ai-peer-review",
+      "status": "resolved-tag-targets-not-retained",
+      "reason": "Archive bytes and embedded provenance are retained, but authoritative resolved tag objects/commit targets for these three refs are not. Embedded claims are not promoted into resolved targets. Only v0.2.2 has an independently recorded resolved target above.",
+      "follow_up_owner": "Release-history maintainer and Task01 join (#228), Task19C",
       "implies_absence": false,
       "removal_allowed": false
     }

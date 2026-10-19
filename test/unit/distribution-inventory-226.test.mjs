@@ -43,6 +43,22 @@ function checkRemovalHandoff(value) {
       `${id}: missing accountable handoff`
     );
   }
+  const installed = value.distributions.find((row) => row.kind === 'installed');
+  for (const row of value.interfaces) {
+    if (!row.consumer_ids.includes('installed-journal-readers')) continue;
+    const hasFile = row.files.some((file) =>
+      installed.inventory.paths.some((path) =>
+        file.endsWith('/') ? path.startsWith(file) : path === file
+      )
+    );
+    const hasExport = row.exports.some((name) =>
+      installed.public_exports.some((entry) => entry.export === name)
+    );
+    assert.ok(
+      hasFile || hasExport,
+      `${row.id}: installed consumer has no inspected file or export`
+    );
+  }
   for (const row of value.limitations) {
     assert.ok(
       row.identity && row.reason && row.follow_up_owner,
@@ -109,4 +125,16 @@ test('historical readers and current integrity interfaces are retained separatel
   const runtime = value.consumers.find((row) => row.id === 'aitm-runtime-selection');
   assert.equal(runtime.ref, '71c4fc17e1259973b66eebaf09742638cb8d11d4');
   assert.ok(runtime.inspected_files.includes('scripts/task-tracker/bash-guard.mjs'));
+});
+
+test('negative control rejects installed consumer edges to known absent artifacts', () => {
+  for (const id of ['review-grammar', 'historical-schemas']) {
+    const value = census();
+    const row = value.interfaces.find((item) => item.id === id);
+    row.consumer_ids.push('installed-journal-readers');
+    assert.throws(
+      () => checkRemovalHandoff(value),
+      /installed consumer has no inspected file or export/
+    );
+  }
 });
